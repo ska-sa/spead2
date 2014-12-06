@@ -17,8 +17,8 @@ namespace in
 
 struct packet_header
 {
-    std::uint16_t heap_address_bits;
-    std::uint16_t n_items;
+    int heap_address_bits;
+    int n_items;
     // Real values for the below are non-negative, but -1 indicates missing
     std::int64_t heap_cnt;
     std::int64_t heap_length;
@@ -43,6 +43,8 @@ std::size_t decode_packet(packet_header &out, const uint8_t *raw, std::size_t ma
 class heap
 {
 private:
+    friend class frozen_heap;
+
     std::int64_t heap_cnt;
     std::int64_t heap_length = -1;
     std::int64_t received_length = 0;
@@ -71,8 +73,45 @@ private:
 public:
     explicit heap(std::int64_t heap_cnt);
     bool add_packet(const packet_header &packet);
+    // True if we have received a heap size header and all of it has been received
     bool is_complete() const;
+    // True if all the payload we have received all data up to min_length
+    bool is_contiguous() const;
     std::int64_t cnt() const { return heap_cnt; }
+};
+
+class frozen_heap
+{
+public:
+    struct item
+    {
+        std::int64_t id;
+        bool is_immediate;
+        union
+        {
+            std::int64_t immediate; // unused if data != NULL
+            struct
+            {
+                const std::uint8_t *ptr;
+                std::size_t length;
+            } address;
+        } value;
+    };
+
+private:
+    std::int64_t heap_cnt;
+    int heap_address_bits;
+    std::vector<item> items;
+    std::unique_ptr<std::uint8_t[]> payload;
+
+public:
+    /**
+     * Freeze a heap, which must satisfy heap::is_contiguous. The original
+     * heap is destroyed.
+     */
+    frozen_heap(heap &&h);
+    std::int64_t cnt() const { return heap_cnt; }
+    const std::vector<item> &get_items() const { return items; }
 };
 
 class stream

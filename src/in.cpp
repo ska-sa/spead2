@@ -28,24 +28,24 @@ public:
         this->value_mask = (std::uint64_t(1) << (63 - heap_address_bits)) - 1;
     }
 
-    inline std::uint64_t get_id(std::uint64_t descr) const
+    inline std::int64_t get_id(std::uint64_t pointer) const
     {
-        return (descr >> heap_address_bits) & value_mask;
+        return (pointer >> heap_address_bits) & value_mask;
     }
 
-    inline std::uint64_t get_address(std::uint64_t descr) const
+    inline std::int64_t get_address(std::uint64_t pointer) const
     {
-        return descr & address_mask;
+        return pointer & address_mask;
     }
 
-    inline std::uint64_t get_value(std::uint64_t descr) const
+    inline std::int64_t get_value(std::uint64_t pointer) const
     {
-        return get_address(descr);
+        return get_address(pointer);
     }
 
-    inline bool is_immediate(std::uint64_t descr) const
+    inline bool is_immediate(std::uint64_t pointer) const
     {
-        return descr >> 63;
+        return pointer >> 63;
     }
 
     inline int address_bits() const
@@ -89,22 +89,22 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
     out.payload_offset = -1;
     out.payload_length = -1;
     pointer_decoder decoder(heap_address_bits);
-    for (unsigned int i = 1; i <= out.n_items; i++)
+    for (int i = 1; i <= out.n_items; i++)
     {
-        uint64_t descr = be64toh(data64[i]);
-        switch (decoder.get_id(descr))
+        uint64_t pointer = be64toh(data64[i]);
+        switch (decoder.get_id(pointer))
         {
         case HEAP_CNT_ID:
-            out.heap_cnt = decoder.get_value(descr);
+            out.heap_cnt = decoder.get_value(pointer);
             break;
         case HEAP_LENGTH_ID:
-            out.heap_length = decoder.get_value(descr);
+            out.heap_length = decoder.get_value(pointer);
             break;
         case PAYLOAD_OFFSET_ID:
-            out.payload_offset = decoder.get_value(descr);
+            out.payload_offset = decoder.get_value(pointer);
             break;
         case PAYLOAD_LENGTH_ID:
-            out.payload_length = decoder.get_value(descr);
+            out.payload_length = decoder.get_value(pointer);
             break;
         default:
             break;
@@ -180,7 +180,7 @@ bool heap::add_packet(const packet_header &packet)
     }
     min_length = std::max(min_length, packet.payload_offset + packet.payload_length);
     pointer_decoder decoder(heap_address_bits);
-    for (unsigned int i = 0; i < packet.n_items; i++)
+    for (int i = 0; i < packet.n_items; i++)
     {
         // TODO: should descriptors be put somewhere special to be handled first?
         // TODO: should stream control be handled here?
@@ -211,6 +211,56 @@ bool heap::is_complete() const
 bool heap::is_contiguous() const
 {
     return received_length == min_length;
+}
+
+///////////////////////////////////////////////////////////////////////
+
+frozen_heap::frozen_heap(heap &&h)
+{
+    assert(h.is_contiguous());
+    // The length of addressed items is measured from the item to the
+    // address of the next item, or the end of the heap. We may receive
+    // packets (and hence pointers) out-of-order, so we have to sort.
+    // The mask preserves both the address and the immediate-mode flag,
+    // so that all addressed items sort together.
+    std::uint64_t sort_mask =
+        (std::uint64_t(1) << 63)
+        | ((std::uint64_t(1) << h.heap_address_bits) - 1);
+    auto compare = [sort_mask](std::uint64_t a, std::uint64_t b) {
+        return (a & sort_mask) < (b & sort_mask);
+    };
+    std::sort(h.pointers.begin(), h.pointers.end(), compare);
+
+    pointer_decoder decoder(h.heap_address_bits);
+    items.reserve(h.pointers.size());
+    for (std::size_t i = 0; i < h.pointers.size(); i++)
+    {
+        item new_item;
+        std::uint64_t pointer = h.pointers[i];
+        new_item.id = decoder.get_id(pointer);
+        new_item.is_immediate = decoder.is_immediate(pointer);
+        if (new_item.is_immediate)
+        {
+            new_item.value.immediate = decoder.get_value(pointer);
+        }
+        else
+        {
+            std::int64_t start = decoder.get_address(pointer);
+            std::int64_t end;
+            if (i + 1 < h.pointers.size()
+                && !decoder.is_immediate(h.pointers[i + 1]))
+                end = decoder.get_address(h.pointers[i + 1]);
+            else
+                end = h.min_length;
+            new_item.value.address.ptr = h.payload.get() + start;
+            new_item.value.address.length = end - start;
+        }
+        items.push_back(new_item);
+    }
+    heap_cnt = h.heap_cnt;
+    heap_address_bits = h.heap_address_bits;
+    payload = std::move(h.payload);
+    h = heap(0);
 }
 
 ///////////////////////////////////////////////////////////////////////
