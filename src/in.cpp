@@ -157,7 +157,7 @@ bool heap::add_packet(const packet_header &packet)
         return false; // inconsistent heap lengths - could cause trouble later
     if (packet.heap_length >= 0 && std::size_t(packet.heap_length) < payload_reserved)
         return false;     // inconsistent with already-seen payloads
-    if (heap_address_bits != 0 && packet.heap_address_bits != heap_address_bits)
+    if (heap_address_bits != -1 && packet.heap_address_bits != heap_address_bits)
         return false;     // number of heap address bits has changed
 
     // Packet seems sane, check if we've already seen it, and if not, insert it

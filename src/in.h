@@ -46,7 +46,7 @@ private:
     std::int64_t heap_cnt;
     std::int64_t heap_length = -1;
     std::int64_t received_length = 0;
-    int heap_address_bits = 0;
+    int heap_address_bits = -1;
     // We don't use std::vector because it zero-fills
     std::unique_ptr<uint8_t[]> payload;
     std::size_t payload_reserved = 0;
