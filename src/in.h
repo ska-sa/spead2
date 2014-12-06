@@ -46,11 +46,12 @@ private:
     std::int64_t heap_cnt;
     std::int64_t heap_length = -1;
     std::int64_t received_length = 0;
+    std::int64_t min_length = 0;      // length implied by packet payloads
     int heap_address_bits = -1;
     // We don't use std::vector because it zero-fills
     std::unique_ptr<uint8_t[]> payload;
     std::size_t payload_reserved = 0;
-    std::vector<uint64_t> pointers;
+    std::vector<std::uint64_t> pointers;
     /* TODO: investigate more efficient structures here, e.g.
      * - a bitfield (one bit per payload byte)
      * - using a Bloom filter first

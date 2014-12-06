@@ -1,6 +1,7 @@
 #include <cstring>
 #include <utility>
 #include <cassert>
+#include <algorithm>
 #include <endian.h>
 #include "in.h"
 
@@ -133,7 +134,7 @@ heap::heap(std::int64_t heap_cnt) : heap_cnt(heap_cnt)
 
 void heap::payload_reserve(std::size_t size, bool exact)
 {
-    if (size >= payload_reserved)
+    if (size > payload_reserved)
     {
         if (!exact && size < payload_reserved * 2)
         {
@@ -155,7 +156,7 @@ bool heap::add_packet(const packet_header &packet)
         && packet.heap_length >= 0
         && packet.heap_length != heap_length)
         return false; // inconsistent heap lengths - could cause trouble later
-    if (packet.heap_length >= 0 && std::size_t(packet.heap_length) < payload_reserved)
+    if (packet.heap_length >= 0 && packet.heap_length < min_length)
         return false;     // inconsistent with already-seen payloads
     if (heap_address_bits != -1 && packet.heap_address_bits != heap_address_bits)
         return false;     // number of heap address bits has changed
@@ -165,20 +166,31 @@ bool heap::add_packet(const packet_header &packet)
     if (!new_offset)
         return false;
 
+    ///////////////////////////////////////////////
+    // Packet is now accepted, and we modify state
+    ///////////////////////////////////////////////
+
     heap_address_bits = packet.heap_address_bits;
     // If this is the first time we know the length, record it
     if (heap_length < 0 && packet.heap_length >= 0)
     {
         heap_length = packet.heap_length;
+        min_length = heap_length;
         payload_reserve(heap_length, true);
     }
+    min_length = std::max(min_length, packet.payload_offset + packet.payload_length);
     pointer_decoder decoder(heap_address_bits);
     for (unsigned int i = 0; i < packet.n_items; i++)
     {
         // TODO: should descriptors be put somewhere special to be handled first?
         // TODO: should stream control be handled here?
-        if (decoder.get_id(packet.pointers[i]) > PAYLOAD_LENGTH_ID)
-            pointers.push_back(be64toh(packet.pointers[i]));
+        std::uint64_t pointer = be64toh(packet.pointers[i]);
+        if (decoder.get_id(pointer) > PAYLOAD_LENGTH_ID)
+        {
+            if (!decoder.is_immediate(pointer))
+                min_length = std::max(min_length, std::int64_t(decoder.get_address(pointer)));
+            pointers.push_back(pointer);
+        }
     }
 
     if (packet.payload_length > 0)
@@ -194,6 +206,11 @@ bool heap::add_packet(const packet_header &packet)
 bool heap::is_complete() const
 {
     return received_length == heap_length;
+}
+
+bool heap::is_contiguous() const
+{
+    return received_length == min_length;
 }
 
 ///////////////////////////////////////////////////////////////////////
