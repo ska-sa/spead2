@@ -20,6 +20,9 @@ private:
     boost::asio::ip::udp::socket socket;
     // Not used, but need memory available for asio to write to
     boost::asio::ip::udp::endpoint endpoint;
+    // Buffer for reading a packet.
+    std::unique_ptr<uint8_t[]> buffer;
+    std::size_t max_size;
 
 protected:
     void ready_handler(
@@ -33,9 +36,12 @@ protected:
     void start();
 
 public:
+    static constexpr std::size_t default_max_size = 9200;
+
     udp_stream(
         receiver<udp_stream> &rec,
-        const boost::asio::ip::udp::endpoint &endpoint);
+        const boost::asio::ip::udp::endpoint &endpoint,
+        std::size_t max_size = default_max_size);
 };
 
 } // namespace in

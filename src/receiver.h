@@ -29,9 +29,6 @@ public:
 private:
     boost::asio::io_service io_service;
     std::vector<Stream> streams;
-    // This is provided for the stream class to use. It has one extra byte so
-    // that truncation can be detected.
-    alignas(std::uint64_t) std::array<uint8_t, max_packet_length + 1> buffer;
 
 public:
     void add_stream(Stream &&stream);

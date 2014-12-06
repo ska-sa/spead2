@@ -10,11 +10,16 @@ namespace spead
 namespace in
 {
 
+constexpr std::size_t udp_stream::default_max_size;
+
 udp_stream::udp_stream(
     receiver<udp_stream> &rec,
-    const boost::asio::ip::udp::endpoint &endpoint)
-    : rec(rec), socket(rec.io_service)
+    const boost::asio::ip::udp::endpoint &endpoint,
+    std::size_t max_size)
+    : rec(rec), socket(rec.io_service), max_size(max_size)
 {
+    // Allocate one extra byte so that overflow can be detected
+    buffer.reset(new std::uint8_t[max_size + 1]);
     socket.open(endpoint.protocol());
     socket.bind(endpoint);
 }
@@ -26,7 +31,7 @@ void udp_stream::ready_handler(
     using namespace std::placeholders;
     // TODO: check error
     socket.async_receive_from(
-        boost::asio::buffer(rec.buffer),
+        boost::asio::buffer(buffer.get(), max_size + 1),
         endpoint,
         std::bind(&udp_stream::packet_handler, this, _1, _2));
 }
@@ -36,10 +41,10 @@ void udp_stream::packet_handler(
     std::size_t bytes_transferred)
 {
     // TODO check error
-    if (bytes_transferred <= max_packet_length && bytes_transferred > 0)
+    if (bytes_transferred <= max_size && bytes_transferred > 0)
     {
         // If it's bigger, the packet might have been truncated
-        add_packet(rec.buffer.data(), bytes_transferred);
+        add_packet(buffer.get(), bytes_transferred);
     }
     start();
 }

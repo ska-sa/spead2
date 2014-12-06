@@ -6,7 +6,6 @@
 namespace spead
 {
 
-static constexpr int max_packet_length = 9200;
 static constexpr std::uint64_t immediate_mask = (std::uint64_t(1) << 63);
 static constexpr std::uint16_t magic_version = 0x5304;  // 0x53 is the magic, 4 is the version
 
