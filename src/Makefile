@@ -1,6 +1,11 @@
 CXX = g++
-CXXFLAGS = -Wall -g -std=c++11 -D_GLIBCXX_DEBUG -fsanitize=address
-LDFLAGS = -fsanitize=address -lboost_system
+CXXFLAGS = -Wall -std=c++11
+LDFLAGS = -lboost_system
+# CXXFLAGS += -g -D_GLIBCXX_DEBUG -fsanitize=address
+# LDFLAGS = -fsanitize=address
+CXXFLAGS += -O3 -flto
+LDFLAGS += -flto
+
 SOURCES = $(wildcard *.cpp)
 OBJECTS = $(patsubst %.cpp, %.o, $(SOURCES))
 TARGETS = test_in
