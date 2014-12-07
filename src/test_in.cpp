@@ -29,7 +29,8 @@ int main()
 {
     spead::in::receiver<spead::in::udp_stream> receiver;
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::loopback(), 8888);
-    spead::in::udp_stream stream(receiver, endpoint);
+    spead::in::udp_stream stream(receiver, endpoint, spead::in::udp_stream::default_max_size,
+                                 8192 * 1024);
     stream.set_callback(heap_callback);
     receiver.add_stream(std::move(stream));
     receiver();

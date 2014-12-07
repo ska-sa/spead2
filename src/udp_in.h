@@ -41,7 +41,8 @@ public:
     udp_stream(
         receiver<udp_stream> &rec,
         const boost::asio::ip::udp::endpoint &endpoint,
-        std::size_t max_size = default_max_size);
+        std::size_t max_size = default_max_size,
+        std::size_t buffer_size = 0);
 };
 
 } // namespace in

@@ -15,12 +15,18 @@ constexpr std::size_t udp_stream::default_max_size;
 udp_stream::udp_stream(
     receiver<udp_stream> &rec,
     const boost::asio::ip::udp::endpoint &endpoint,
-    std::size_t max_size)
+    std::size_t max_size,
+    std::size_t buffer_size)
     : rec(rec), socket(rec.io_service), max_size(max_size)
 {
     // Allocate one extra byte so that overflow can be detected
     buffer.reset(new std::uint8_t[max_size + 1]);
     socket.open(endpoint.protocol());
+    if (buffer_size != 0)
+    {
+        boost::asio::socket_base::receive_buffer_size option(buffer_size);
+        socket.set_option(option);
+    }
     socket.bind(endpoint);
 }
 
