@@ -1,8 +1,13 @@
 #include <iostream>
 #include <utility>
 #include <boost/asio.hpp>
+#include <chrono>
 #include "udp_in.h"
 #include "receiver.h"
+
+typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
+
+static time_point start = std::chrono::high_resolution_clock::now();
 
 static void heap_callback(spead::in::heap &&heap)
 {
@@ -21,6 +26,9 @@ static void heap_callback(spead::in::heap &&heap)
                 std::cout << "[" << item.value.address.length << " bytes]";
             std::cout << '\n';
         }
+        time_point now = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = now - start;
+        std::cout << elapsed.count() << "\n";
         std::cout << std::flush;
     }
 }
