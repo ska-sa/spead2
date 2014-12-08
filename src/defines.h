@@ -7,6 +7,9 @@
 #include <string>
 #include <unordered_map>
 
+// Descriptors encoded as 64-40 in all flavours
+#define WORKAROUND_SR_96 1
+
 namespace spead
 {
 

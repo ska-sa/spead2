@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <endian.h>
 #include "in.h"
+#include "defines.h"
 
 namespace spead
 {
@@ -307,7 +308,11 @@ descriptor frozen_heap::to_descriptor() const
                 break;
             case DESCRIPTOR_FORMAT_ID:
                 {
+#if WORKAROUND_SR_96
+                    int field_size = 4;
+#else
                     int field_size = 9 - heap_address_bits / 8;
+#endif
                     for (std::size_t i = 0; i + field_size <= length; i++)
                     {
                         char type = ptr[i];
@@ -318,7 +323,11 @@ descriptor frozen_heap::to_descriptor() const
                 }
             case DESCRIPTOR_SHAPE_ID:
                 {
+#if WORKAROUND_SR_96
+                    int field_size = 8;
+#else
                     int field_size = 1 + heap_address_bits / 8;
+#endif
                     for (std::size_t i = 0; i + field_size <= length; i += field_size)
                     {
                         // TODO: the spec and PySPEAD don't agree on how this works
