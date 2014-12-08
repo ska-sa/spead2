@@ -37,6 +37,23 @@ struct packet_header
  */
 std::size_t decode_packet(packet_header &out, const uint8_t *raw, std::size_t max_size);
 
+class frozen_heap;
+
+struct item
+{
+    std::int64_t id;
+    bool is_immediate;
+    union
+    {
+        std::int64_t immediate; // unused if data != NULL
+        struct
+        {
+            const std::uint8_t *ptr;
+            std::size_t length;
+        } address;
+    } value;
+};
+
 class heap
 {
 private:
@@ -79,22 +96,6 @@ public:
 
 class frozen_heap
 {
-public:
-    struct item
-    {
-        std::int64_t id;
-        bool is_immediate;
-        union
-        {
-            std::int64_t immediate; // unused if data != NULL
-            struct
-            {
-                const std::uint8_t *ptr;
-                std::size_t length;
-            } address;
-        } value;
-    };
-
 private:
     std::int64_t heap_cnt;
     int heap_address_bits;
