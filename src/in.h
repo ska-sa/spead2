@@ -33,9 +33,6 @@ struct packet_header
  * length of the packet. On failure, returns 0, and @a out is undefined.
  * TODO: use system error code mechanisms to report failures?
  *
- * Currently, @a size must match the packet contents to be considered value.
- * TODO: come up with a mechanism to let the size be detected?
- *
  * @pre @a raw is 8-byte aligned
  */
 std::size_t decode_packet(packet_header &out, const uint8_t *raw, std::size_t max_size);
@@ -112,6 +109,17 @@ public:
     frozen_heap(heap &&h);
     std::int64_t cnt() const { return heap_cnt; }
     const std::vector<item> &get_items() const { return items; }
+
+    // Extract descriptor fields from the heap. Any missing fields are
+    // default-initialized. This should be used on a heap constructed from
+    // the content of a descriptor item.
+    descriptor to_descriptor() const;
+
+    // Extract and decode descriptors from this heap
+    std::vector<descriptor> get_descriptors() const;
+
+    // Extract descriptors from this heap and update metadata
+    void update_descriptors(descriptor_map &descriptors) const;
 };
 
 class stream
@@ -127,6 +135,9 @@ public:
     void set_callback(std::function<void(heap &&)> callback);
     void set_max_heaps(std::size_t max_heaps);
     bool add_packet(const uint8_t *data, std::size_t size);
+
+    // Clear out all heaps from the deque, even if not complete
+    void flush();
 };
 
 } // namespace in

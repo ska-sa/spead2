@@ -1,10 +1,20 @@
+VARIANT = debug
+
 CXX = g++
 CXXFLAGS = -Wall -std=c++11
 LDFLAGS = -lboost_system
-# CXXFLAGS += -g -D_GLIBCXX_DEBUG -fsanitize=address
-# LDFLAGS = -fsanitize=address
-CXXFLAGS += -O3 -flto
-LDFLAGS += -flto
+ifeq ($(VARIANT), fulldebug)
+    CXXFLAGS += -g -D_GLIBCXX_DEBUG -fsanitize=address
+    LDFLAGS += -fsanitize=address
+endif
+ifeq ($(VARIANT), debug)
+    CXXFLAGS += -g -ggdb
+    LDFLAGS += -g
+endif
+ifeq ($(VARIANT), release)
+    CXXFLAGS += -O3 -flto -D_NDEBUG
+    LDFLAGS += -flto
+endif
 
 SOURCES = $(wildcard *.cpp)
 OBJECTS = $(patsubst %.cpp, %.o, $(SOURCES))

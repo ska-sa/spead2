@@ -26,6 +26,30 @@ static void heap_callback(spead::in::heap &&heap)
                 std::cout << "[" << item.value.address.length << " bytes]";
             std::cout << '\n';
         }
+        std::vector<spead::descriptor> descriptors = fheap.get_descriptors();
+        for (const auto &descriptor : descriptors)
+        {
+            std::cout
+                << "    0x" << std::hex << descriptor.id << std::dec << ":\n"
+                << "        NAME:  " << descriptor.name << "\n"
+                << "        DESC:  " << descriptor.description << "\n";
+            if (descriptor.dtype.empty())
+            {
+                std::cout << "        TYPE:  ";
+                for (const auto &field : descriptor.format)
+                    std::cout << field.first << field.second << ",";
+                std::cout << "\n";
+                std::cout << "        SHAPE: ";
+                for (const auto &field : descriptor.shape)
+                    if (field.first)
+                        std::cout << "?,";
+                    else
+                        std::cout << field.second << ",";
+                std::cout << "\n";
+            }
+            else
+                std::cout << "        DTYPE: " << descriptor.dtype << "\n";
+        }
         time_point now = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = now - start;
         std::cout << elapsed.count() << "\n";
