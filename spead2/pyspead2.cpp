@@ -1,5 +1,7 @@
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <boost/python.hpp>
 #include <boost/make_shared.hpp>
+#include <numpy/arrayobject.h>
 #include <stdexcept>
 #include "in.h"
 #include "udp_in.h"
@@ -25,7 +27,27 @@ public:
 
     py::object get_value() const
     {
-        return owning_heap;
+        if (is_immediate)
+        {
+            return py::long_(value.immediate);
+        }
+        else
+        {
+            npy_intp dims[1];
+            dims[0] = value.address.length;
+            PyObject *obj_ptr = PyArray_SimpleNewFromData(1, dims, NPY_UINT8, (void *) value.address.ptr);
+            if (obj_ptr == NULL)
+                py::throw_error_already_set();
+            if (PyArray_SetBaseObject(
+                    (PyArrayObject *) obj_ptr,
+                    py::incref(owning_heap.ptr())) == -1)
+            {
+                py::decref(owning_heap.ptr());
+                py::throw_error_already_set();
+            }
+            py::object obj{py::handle<>(obj_ptr)};
+            return obj;
+        }
     }
 };
 
@@ -148,12 +170,14 @@ BOOST_PYTHON_MODULE(_spead2)
     using namespace boost::python;
     using namespace spead::in;
 
+    import_array();
     heap_callback_from_callable();
 
     class_<heap, boost::noncopyable>("Heap", init<std::int64_t>());
     class_<frozen_heap, frozen_heap_wrapper, boost::noncopyable>("FrozenHeap", init<heap &>())
         .def("get_items", &frozen_heap_wrapper::get_items);
     class_<item_wrapper>("Item", no_init)
+        .def_readwrite("id", &item_wrapper::id)
         .add_property("value", &item_wrapper::get_value);
     class_<buffer_stream, boost::noncopyable>("BufferStream", init<object>())
         .def("run", &buffer_stream::run)

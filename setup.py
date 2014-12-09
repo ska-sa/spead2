@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 from distutils.core import setup, Extension
+import numpy
 
 extensions = [
     Extension('_spead2',
         sources=['spead2/pyspead2.cpp', 'src/in.cpp', 'src/udp_in.cpp', 'src/receiver.cpp', 'src/mem_in.cpp'],
         language='c++',
-        include_dirs=['src'],
+        include_dirs=['src', numpy.get_include()],
         extra_compile_args=['-std=c++11'],
         libraries=['boost_python-py27', 'boost_system'])
 ]

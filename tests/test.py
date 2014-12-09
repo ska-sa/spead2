@@ -2,15 +2,16 @@
 import spead2
 import sys
 
+items = []
+
 def callback(heap):
-    print heap
-    #print heap.get_items()
-    item = heap.get_items()[0]
-    del heap
-    print item.value
+    items.extend(heap.get_items())
 
 with open('junkspeadfile', 'rb') as f:
     text = f.read()
 stream = spead2.BufferStream(text)
 stream.set_callback(callback)
 stream.run()
+
+for item in items:
+    print item.id, item.value
