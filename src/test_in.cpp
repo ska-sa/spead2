@@ -59,11 +59,13 @@ static void heap_callback(spead::in::heap &&heap)
 
 int main()
 {
-    spead::in::receiver<spead::in::udp_stream> receiver;
+    spead::in::receiver receiver;
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::loopback(), 8888);
-    spead::in::udp_stream stream(receiver, endpoint, spead::in::udp_stream::default_max_size,
-                                 8192 * 1024);
-    stream.set_callback(heap_callback);
+    std::unique_ptr<spead::in::udp_stream> stream(
+        new spead::in::udp_stream(
+            receiver.get_io_service(),
+            endpoint, spead::in::udp_stream::default_max_size, 8192 * 1024));
+    stream->set_callback(heap_callback);
     receiver.add_stream(std::move(stream));
     receiver();
     return 0;

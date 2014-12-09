@@ -5,6 +5,7 @@
 #include <endian.h>
 #include "in.h"
 #include "defines.h"
+#include "mem_in.h"
 
 namespace spead
 {
@@ -367,14 +368,13 @@ std::vector<descriptor> frozen_heap::get_descriptors() const
                 descriptors.push_back(std::move(d));
         }
     };
-    stream descriptor_stream(1);
-    descriptor_stream.set_callback(callback);
     for (const item &item : items)
     {
         if (item.id == DESCRIPTOR_ID && !item.is_immediate)
         {
-            descriptor_stream.add_packet(item.value.address.ptr, item.value.address.length);
-            descriptor_stream.flush();
+            mem_stream descriptor_stream(item.value.address.ptr, item.value.address.length);
+            descriptor_stream.set_callback(callback);
+            descriptor_stream.run();
         }
     }
     return descriptors;
@@ -405,13 +405,8 @@ void stream::set_callback(std::function<void(heap &&)> callback)
     this->callback = std::move(callback);
 }
 
-bool stream::add_packet(const uint8_t *data, std::size_t size)
+bool stream::add_packet(const packet_header &packet)
 {
-    packet_header packet;
-    std::size_t real_size = decode_packet(packet, data, size);
-    if (real_size == 0 || real_size != size)
-        return false; // corrupt packet
-
     // Look for matching heap
     auto insert_before = heaps.begin();
     for (auto it = heaps.begin(); it != heaps.end(); ++it)

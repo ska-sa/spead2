@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <boost/asio.hpp>
 #include "in.h"
-#include "receiver.h"
 
 namespace spead
 {
@@ -14,9 +13,6 @@ namespace in
 class udp_stream : public stream
 {
 private:
-    friend class receiver<udp_stream>;
-
-    receiver<udp_stream> &rec;
     boost::asio::ip::udp::socket socket;
     // Not used, but need memory available for asio to write to
     boost::asio::ip::udp::endpoint endpoint;
@@ -25,24 +21,20 @@ private:
     std::size_t max_size;
 
 protected:
-    void ready_handler(
-        const boost::system::error_code &error,
-        std::size_t bytes_transferred);
-
     void packet_handler(
         const boost::system::error_code &error,
         std::size_t bytes_transferred);
 
-    void start();
-
 public:
     static constexpr std::size_t default_max_size = 9200;
 
-    udp_stream(
-        receiver<udp_stream> &rec,
+    explicit udp_stream(
+        boost::asio::io_service &io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
         std::size_t max_size = default_max_size,
         std::size_t buffer_size = 0);
+
+    virtual void start() override;
 };
 
 } // namespace in

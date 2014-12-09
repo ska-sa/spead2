@@ -20,7 +20,7 @@ SOURCES = $(wildcard *.cpp)
 OBJECTS = $(patsubst %.cpp, %.o, $(SOURCES))
 TARGETS = test_in
 
-test_in_OBJECTS = in.o udp_in.o test_in.o
+test_in_OBJECTS = in.o udp_in.o mem_in.o receiver.o test_in.o
 
 all: $(TARGETS)
 
