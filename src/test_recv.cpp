@@ -62,11 +62,10 @@ int main()
 
     spead::recv::receiver receiver;
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::loopback(), 8888);
-    std::unique_ptr<spead::recv::udp_reader> reader(
-        new spead::recv::udp_reader(
-            &stream,
-            receiver.get_io_service(),
-            endpoint, spead::recv::udp_reader::default_max_size, 8192 * 1024));
+    receiver.emplace_reader<spead::recv::udp_reader>(
+        &stream,
+        receiver.get_io_service(),
+        endpoint, spead::recv::udp_reader::default_max_size, 8192 * 1024);
     receiver.add_reader(std::move(reader));
     receiver.start();
     while (true)

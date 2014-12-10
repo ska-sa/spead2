@@ -190,6 +190,15 @@ public:
     {
         emplace_reader<buffer_reader>(s, obj);
     }
+
+    // TODO: add option for hostname to bind to, and sizes
+    void add_udp_reader(ring_stream_wrapper *s, int port)
+    {
+        boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::loopback(), port);
+        emplace_reader<udp_reader>(
+            s, get_io_service(), endpoint,
+            spead::recv::udp_reader::default_max_size, 8192 * 1024);
+    }
 };
 
 } // namespace recv
@@ -208,11 +217,13 @@ BOOST_PYTHON_MODULE(_recv)
     class_<item_wrapper>("Item", no_init)
         .def_readwrite("id", &item_wrapper::id)
         .add_property("value", &item_wrapper::get_value);
+    // TODO: use defaults magic instead of two constructors
     class_<ring_stream_wrapper, boost::noncopyable>("Stream")
         .def(init<std::size_t>())
         .def("pop", &ring_stream_wrapper::pop);
     class_<receiver_wrapper, boost::noncopyable>("Receiver")
         .def("add_buffer_reader", &receiver_wrapper::add_buffer_reader, with_custodian_and_ward<1, 2>())
+        .def("add_udp_reader", &receiver_wrapper::add_udp_reader, with_custodian_and_ward<1, 2>())
         .def("start", &receiver_wrapper::start)
         .def("stop", &receiver_wrapper::stop)
         .def("join", &receiver_wrapper::join);

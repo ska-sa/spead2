@@ -71,7 +71,7 @@ void stream::flush()
 void stream::end_of_stream()
 {
     flush();
-    heap_ready(heap(0)); // mark end of stream
+    heap_ready(heap()); // mark end of stream
 }
 
 const void *mem_to_stream(stream &s, const void *ptr, std::size_t length)
