@@ -476,36 +476,5 @@ void stream::end_of_stream()
     heap_ready(heap(0)); // mark end of stream
 }
 
-///////////////////////////////////////////////////////////////////////
-
-ring_stream::ring_stream(std::size_t max_heaps)
-    : stream(max_heaps), ready_heaps(max_heaps)
-{
-}
-
-void ring_stream::heap_ready(heap &&h)
-{
-    try
-    {
-        ready_heaps.try_push(std::move(h));
-    }
-    catch (ringbuffer_full &e)
-    {
-        // Suppress the error, drop the heap
-        // TODO: log it?
-        // TODO: record end-of-stream marker separately?
-    }
-}
-
-frozen_heap ring_stream::pop()
-{
-    while (true)
-    {
-        heap h = ready_heaps.pop();
-        if (h.is_contiguous())
-            return frozen_heap(std::move(h));
-    }
-}
-
 } // namespace recv
 } // namespace spead

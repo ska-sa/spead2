@@ -12,6 +12,38 @@ namespace py = boost::python;
 
 namespace spead
 {
+
+class release_gil
+{
+private:
+    PyThreadState *save = nullptr;
+
+public:
+    release_gil()
+    {
+        release();
+    }
+
+    ~release_gil()
+    {
+        if (save != nullptr)
+            PyEval_RestoreThread(save);
+    }
+
+    void release()
+    {
+        assert(save == nullptr);
+        save = PyEval_SaveThread();
+    }
+
+    void acquire()
+    {
+        assert(save != nullptr);
+        PyEval_RestoreThread(save);
+        save = nullptr;
+    }
+};
+
 namespace recv
 {
 
@@ -92,7 +124,34 @@ public:
     }
 };
 
-class ring_stream_wrapper : public ring_stream
+// Ringbuffer that releases the GIL while popping, and checks
+// for KeyboardInterrupt
+template<typename T>
+class ringbuffer_wrapper : public ringbuffer<T>
+{
+public:
+    using ringbuffer<T>::ringbuffer;
+
+    T pop()
+    {
+        release_gil gil;
+        std::unique_lock<std::mutex> lock(this->mutex);
+        while (this->empty_unlocked())
+        {
+            this->data_cond.wait_for(lock, std::chrono::seconds(1));
+            // Allow interpreter to catch KeyboardInterrupt. The timeout
+            // ensures that we wake up periodically to check for this,
+            // even if the signal doesn't cause spurious wakeup.
+            gil.acquire();
+            if (PyErr_CheckSignals() == -1)
+                py::throw_error_already_set();
+            gil.release();
+        }
+        return this->pop_unlocked();
+    }
+};
+
+class ring_stream_wrapper : public ring_stream<ringbuffer_wrapper<heap> >
 {
 public:
     using ring_stream::ring_stream;

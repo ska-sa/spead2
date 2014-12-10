@@ -39,8 +39,6 @@ private:
     std::size_t head = 0;
     std::size_t tail = 0;
     std::size_t len = 0;
-    std::mutex mutex;
-    std::condition_variable data_cond; // signalled when data is added
 
     T *get(std::size_t idx);
 
@@ -51,6 +49,16 @@ private:
             idx = 0;
         return idx;
     }
+
+protected:
+    // This is all protected rather than private to allow alternative
+    // blocking strategies
+    std::mutex mutex;
+    std::condition_variable data_cond; // signalled when data is added
+
+    bool empty_unlocked() const { return len == 0; }
+    // Assumes there is data (caller must check)
+    T pop_unlocked();
 
 public:
     explicit ringbuffer(std::size_t cap);
@@ -122,15 +130,21 @@ void ringbuffer<T>::try_emplace(Args&&... args)
 }
 
 template<typename T>
+T ringbuffer<T>::pop_unlocked()
+{
+    T result = std::move(*get(head));
+    head = next(head);
+    len--;
+    return result;
+}
+
+template<typename T>
 T ringbuffer<T>::try_pop()
 {
     std::unique_lock<std::mutex> lock(mutex);
     if (len == 0)
         throw ringbuffer_empty();
-    T result = std::move(*get(head));
-    head = next(head);
-    len--;
-    return result;
+    return pop_unlocked();
 }
 
 template<typename T>
@@ -139,10 +153,7 @@ T ringbuffer<T>::pop()
     std::unique_lock<std::mutex> lock(mutex);
     while (len == 0)
         data_cond.wait(lock);
-    T result = std::move(*get(head));
-    head = next(head);
-    len--;
-    return result;
+    return pop_unlocked();
 }
 
 } // namespace spead
