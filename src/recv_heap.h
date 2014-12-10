@@ -20,7 +20,7 @@ class heap
 private:
     friend class frozen_heap;
 
-    std::int64_t heap_cnt = -1;
+    std::int64_t heap_cnt;
     std::int64_t heap_length = -1;
     std::int64_t received_length = 0;
     std::int64_t min_length = 0;      // length implied by packet payloads
@@ -46,7 +46,6 @@ private:
     void payload_reserve(std::size_t size, bool exact);
 
 public:
-    heap() = default;
     explicit heap(std::int64_t heap_cnt);
     bool add_packet(const packet_header &packet);
     // True if we have received a heap size header and all of it has been received

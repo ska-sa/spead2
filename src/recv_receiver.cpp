@@ -16,17 +16,23 @@ void receiver::add_reader(std::unique_ptr<reader> &&r)
 
 void receiver::start()
 {
+    if (worker.valid())
+        throw std::invalid_argument("Receiver is already running");
     worker = std::async(std::launch::async, [this] {io_service.run();});
 }
 
 void receiver::stop()
 {
-    io_service.stop();
-}
-
-void receiver::join()
-{
+    if (!worker.valid())
+        throw std::invalid_argument("Receiver is not running");
+    io_service.post([this] {
+        for (const auto &reader : readers)
+        {
+            reader->stop();
+        }
+    });
     worker.get();
+    readers.clear();
 }
 
 } // namespace recv

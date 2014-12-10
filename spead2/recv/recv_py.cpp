@@ -47,6 +47,11 @@ public:
     }
 };
 
+static void translate_ringbuffer_stopped(const ringbuffer_stopped &e)
+{
+    PyErr_SetString(PyExc_StopIteration, e.what());
+}
+
 namespace recv
 {
 
@@ -210,6 +215,7 @@ BOOST_PYTHON_MODULE(_recv)
     using namespace spead::recv;
 
     import_array();
+    register_exception_translator<spead::ringbuffer_stopped>(&spead::translate_ringbuffer_stopped);
 
     class_<frozen_heap, frozen_heap_wrapper, boost::noncopyable>("Heap", no_init)
         .add_property("cnt", &frozen_heap_wrapper::cnt)
@@ -220,11 +226,17 @@ BOOST_PYTHON_MODULE(_recv)
     // TODO: use defaults magic instead of two constructors
     class_<ring_stream_wrapper, boost::noncopyable>("Stream")
         .def(init<std::size_t>())
-        .def("pop", &ring_stream_wrapper::pop);
+        .def("__iter__", objects::identity_function())
+        .def(
+#if PY_VERSION_HEX >= 0x03000000
+              "__next__"
+#else
+              "next"
+#endif
+        , &ring_stream_wrapper::pop);
     class_<receiver_wrapper, boost::noncopyable>("Receiver")
         .def("add_buffer_reader", &receiver_wrapper::add_buffer_reader, with_custodian_and_ward<1, 2>())
         .def("add_udp_reader", &receiver_wrapper::add_udp_reader, with_custodian_and_ward<1, 2>())
         .def("start", &receiver_wrapper::start)
-        .def("stop", &receiver_wrapper::stop)
-        .def("join", &receiver_wrapper::join);
+        .def("stop", &receiver_wrapper::stop);
 }

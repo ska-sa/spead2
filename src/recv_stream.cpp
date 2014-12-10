@@ -68,10 +68,9 @@ void stream::flush()
     heaps.clear();
 }
 
-void stream::end_of_stream()
+void stream::stop()
 {
     flush();
-    heap_ready(heap()); // mark end of stream
 }
 
 const void *mem_to_stream(stream &s, const void *ptr, std::size_t length)

@@ -44,12 +44,15 @@ void udp_reader::packet_handler(
             get_stream()->add_packet(packet);
     }
 
-    using namespace std::placeholders;
-    // TODO: check error
-    socket.async_receive_from(
-        boost::asio::buffer(buffer.get(), max_size + 1),
-        endpoint,
-        std::bind(&udp_reader::packet_handler, this, _1, _2));
+    if (socket.is_open())
+    {
+        using namespace std::placeholders;
+        // TODO: check error
+        socket.async_receive_from(
+            boost::asio::buffer(buffer.get(), max_size + 1),
+            endpoint,
+            std::bind(&udp_reader::packet_handler, this, _1, _2));
+    }
 }
 
 void udp_reader::start(boost::asio::io_service &)
@@ -60,6 +63,12 @@ void udp_reader::start(boost::asio::io_service &)
         boost::asio::buffer(buffer.get(), max_size + 1),
         endpoint,
         std::bind(&udp_reader::packet_handler, this, _1, _2));
+}
+
+void udp_reader::stop()
+{
+    reader::stop();
+    socket.close();
 }
 
 } // namespace recv

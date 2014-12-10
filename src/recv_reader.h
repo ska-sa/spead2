@@ -22,6 +22,7 @@ public:
     stream *get_stream() const { return s; }
 
     virtual void start(boost::asio::io_service &io_service) = 0;
+    virtual void stop();
 };
 
 } // namespace recv

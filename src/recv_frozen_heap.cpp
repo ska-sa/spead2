@@ -186,7 +186,7 @@ std::vector<descriptor> frozen_heap::get_descriptors() const
         if (item.id == DESCRIPTOR_ID && !item.is_immediate)
         {
             mem_to_stream(s, item.value.address.ptr, item.value.address.length);
-            s.end_of_stream();
+            s.stop();
         }
     }
     return s.descriptors;

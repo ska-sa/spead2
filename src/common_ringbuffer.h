@@ -24,6 +24,12 @@ public:
     ringbuffer_empty() : std::runtime_error("ring buffer is empty") {}
 };
 
+class ringbuffer_stopped : public std::runtime_error
+{
+public:
+    ringbuffer_stopped() : std::runtime_error("ring buffer has been shut down") {}
+};
+
 /**
  * Thread-safe ring buffer with blocking and non-blocking pop, but only
  * non-blocking push. It supports non-copyable objects using move semantics.
@@ -39,6 +45,7 @@ private:
     std::size_t head = 0;
     std::size_t tail = 0;
     std::size_t len = 0;
+    bool stopped = false;
 
     T *get(std::size_t idx);
 
@@ -56,7 +63,13 @@ protected:
     std::mutex mutex;
     std::condition_variable data_cond; // signalled when data is added
 
-    bool empty_unlocked() const { return len == 0; }
+    bool empty_unlocked() const
+    {
+        if (len == 0 && stopped)
+            throw ringbuffer_stopped();
+        return len == 0;
+    }
+
     // Assumes there is data (caller must check)
     T pop_unlocked();
 
@@ -76,6 +89,9 @@ public:
 
     // Blocks if necessary
     T pop();
+
+    // Causes try_pop and pop to raise ringbuffer_stopped once data has drained
+    void stop();
 };
 
 template<typename T>
@@ -142,8 +158,10 @@ template<typename T>
 T ringbuffer<T>::try_pop()
 {
     std::unique_lock<std::mutex> lock(mutex);
-    if (len == 0)
+    if (empty_unlocked())
+    {
         throw ringbuffer_empty();
+    }
     return pop_unlocked();
 }
 
@@ -151,9 +169,19 @@ template<typename T>
 T ringbuffer<T>::pop()
 {
     std::unique_lock<std::mutex> lock(mutex);
-    while (len == 0)
+    while (empty_unlocked())
+    {
         data_cond.wait(lock);
+    }
     return pop_unlocked();
+}
+
+template<typename T>
+void ringbuffer<T>::stop()
+{
+    std::unique_lock<std::mutex> lock(mutex);
+    stopped = true;
+    data_cond.notify_all();
 }
 
 } // namespace spead

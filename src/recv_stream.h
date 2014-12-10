@@ -32,7 +32,7 @@ public:
 
     bool add_packet(const packet_header &packet);
     // Mark end-of-stream (implicitly does a flush)
-    void end_of_stream();
+    virtual void stop();
     // Clear out all heaps from the deque, even if not complete
     void flush();
 };

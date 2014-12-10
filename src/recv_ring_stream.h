@@ -21,6 +21,7 @@ private:
 public:
     explicit ring_stream(std::size_t max_heaps = 16);
     frozen_heap pop();
+    virtual void stop() override;
 };
 
 template<typename Ringbuffer>
@@ -40,7 +41,6 @@ void ring_stream<Ringbuffer>::heap_ready(heap &&h)
     {
         // Suppress the error, drop the heap
         // TODO: log it?
-        // TODO: record end-of-stream marker separately?
     }
 }
 
@@ -53,6 +53,13 @@ frozen_heap ring_stream<Ringbuffer>::pop()
         if (h.is_contiguous())
             return frozen_heap(std::move(h));
     }
+}
+
+template<typename Ringbuffer>
+void ring_stream<Ringbuffer>::stop()
+{
+    stream::stop();
+    ready_heaps.stop();
 }
 
 } // namespace recv

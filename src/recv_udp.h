@@ -37,6 +37,7 @@ public:
         std::size_t buffer_size = 0);
 
     virtual void start(boost::asio::io_service &io_service) override;
+    virtual void stop() override;
 };
 
 } // namespace recv

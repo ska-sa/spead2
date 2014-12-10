@@ -40,10 +40,10 @@ public:
     boost::asio::io_service &get_io_service() { return io_service; }
 
     void start();  // start running in a separate thread (or threads)
-    void stop();   // request event loop to stop, even if streams are still active
-    // Blocks until all threads have terminated (either due to stop or running
-    // out of work). Also re-raises any exceptions raised in the thread.
-    void join();
+    /* Terminates all streams, blocks until worker threads terminated.
+     * Also re-raises any exceptions raised by the thread.
+     */
+    void stop();
 };
 
 } // namespace recv
