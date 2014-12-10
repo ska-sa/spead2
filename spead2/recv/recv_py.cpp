@@ -165,7 +165,7 @@ struct heap_callback_from_callable
 } // namespace recv
 } // namespace spead
 
-BOOST_PYTHON_MODULE(_spead2)
+BOOST_PYTHON_MODULE(_recv)
 {
     using namespace boost::python;
     using namespace spead::recv;

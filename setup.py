@@ -4,8 +4,8 @@ import glob
 import numpy
 
 extensions = [
-    Extension('_spead2',
-        sources=['spead2/pyspead2.cpp'] + glob.glob('src/recv*.cpp') + glob.glob('src/common*.cpp'),
+    Extension('recv._recv',
+        sources=['spead2/recv/recv_py.cpp'] + glob.glob('src/recv*.cpp') + glob.glob('src/common*.cpp'),
         language='c++',
         include_dirs=['src', numpy.get_include()],
         extra_compile_args=['-std=c++11'],
