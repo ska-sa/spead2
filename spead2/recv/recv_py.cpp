@@ -75,17 +75,24 @@ public:
         {
             npy_intp dims[1];
             dims[0] = value.address.length;
-            PyObject *obj_ptr = PyArray_SimpleNewFromData(1, dims, NPY_UINT8, (void *) value.address.ptr);
-            if (obj_ptr == NULL)
+            PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_UINT8, (void *) value.address.ptr);
+            if (array == NULL)
                 py::throw_error_already_set();
             if (PyArray_SetBaseObject(
-                    (PyArrayObject *) obj_ptr,
+                    (PyArrayObject *) array,
                     py::incref(owning_heap.ptr())) == -1)
             {
                 py::decref(owning_heap.ptr());
                 py::throw_error_already_set();
             }
-            py::object obj{py::handle<>(obj_ptr)};
+
+            PyObject *view = PyMemoryView_FromObject(array);
+            if (view == NULL)
+            {
+                py::decref(array);
+                py::throw_error_already_set();
+            }
+            py::object obj{py::handle<>(view)};
             return obj;
         }
     }

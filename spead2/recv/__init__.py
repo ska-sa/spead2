@@ -45,7 +45,7 @@ class Descriptor(object):
             msg = "Descriptor does not contain the correct keys: %r"
             raise ValueError(msg % (keys,))
         # Sanity-check the values.
-        if not isinstance(d['shape'], tuple) or not numpy.all([isinstance(x, (int, long)) for x in d['shape']]):
+        if not isinstance(d['shape'], tuple) or not all([isinstance(x, (int, long)) for x in d['shape']]):
             msg = "shape is not valid: %r"
             raise ValueError(msg % (d['shape'],))
         if not isinstance(d['fortran_order'], bool):
@@ -78,12 +78,20 @@ class Item(Descriptor):
         self.value = None
 
     def set_from_raw(self, raw_item):
-        elements = np.product(self.shape)
+        elements = int(np.product(self.shape))
         raw_value = raw_item.value
-        if self.dtype is None or isinstance(raw_value, long):
+        if self.dtype is None or not isinstance(raw_value, memoryview):
             self.value = raw_value
         else:
-            array1d = np.frombuffer(raw_item.value, dtype=self.dtype, count=elements)
+            if raw_value.shape[0] < elements * self.dtype.itemsize:
+                raise TypeError('Item has too few elements (%d < %d)' % (raw_value.shape[0], elements))
+            # For some reason, np.frombuffer doesn't work on memoryview, but np.array does
+            array1d = np.array(raw_item.value, copy=False).view(dtype=self.dtype)[:elements]
+            if self.dtype.byteorder in ('<', '>'):
+                # Either < or > indicates non-native endianness. Swap it now
+                # so that calculations later will be efficient
+                dtype = self.dtype.newbyteorder()
+                array1d = array1d.byteswap(True).view(dtype=dtype)
             order = 'F' if self.fortran_order else 'C'
             self.value = np.reshape(array1d, self.shape, order)
 
