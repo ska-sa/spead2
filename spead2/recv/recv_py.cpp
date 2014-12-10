@@ -3,10 +3,13 @@
 #include <boost/make_shared.hpp>
 #include <numpy/arrayobject.h>
 #include <stdexcept>
-#include "recv.h"
 #include "recv_udp.h"
 #include "recv_mem.h"
 #include "recv_receiver.h"
+#include "recv_stream.h"
+#include "recv_ring_stream.h"
+#include "recv_heap.h"
+#include "recv_frozen_heap.h"
 
 namespace py = boost::python;
 
@@ -199,16 +202,12 @@ BOOST_PYTHON_MODULE(_recv)
 
     import_array();
 
-    class_<frozen_heap, frozen_heap_wrapper, boost::noncopyable>("Heap", init<heap &>())
+    class_<frozen_heap, frozen_heap_wrapper, boost::noncopyable>("Heap", no_init)
         .add_property("cnt", &frozen_heap_wrapper::cnt)
         .def("get_items", &frozen_heap_wrapper::get_items);
     class_<item_wrapper>("Item", no_init)
         .def_readwrite("id", &item_wrapper::id)
         .add_property("value", &item_wrapper::get_value);
-    class_<buffer_reader, boost::noncopyable>(
-            "BufferReader",
-            init<ring_stream_wrapper *, object>()[with_custodian_and_ward<1, 2>()])
-        .def("run", &buffer_reader::run);
     class_<ring_stream_wrapper, boost::noncopyable>("Stream")
         .def(init<std::size_t>())
         .def("pop", &ring_stream_wrapper::pop);

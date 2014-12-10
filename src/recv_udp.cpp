@@ -1,6 +1,6 @@
 #include <cstdint>
+#include <functional>
 #include <boost/asio.hpp>
-#include "recv.h"
 #include "recv_reader.h"
 #include "recv_udp.h"
 

@@ -2,9 +2,11 @@
 #include <utility>
 #include <chrono>
 #include <boost/asio.hpp>
-#include "recv.h"
 #include "recv_receiver.h"
 #include "recv_udp.h"
+#include "recv_frozen_heap.h"
+#include "recv_heap.h"
+#include "recv_ring_stream.h"
 
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
 
@@ -56,7 +58,7 @@ void show_heap(const spead::recv::frozen_heap &fheap)
 
 int main()
 {
-    spead::recv::ring_stream stream;
+    spead::recv::ring_stream<> stream;
 
     spead::recv::receiver receiver;
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::loopback(), 8888);

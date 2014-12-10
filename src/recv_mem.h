@@ -2,7 +2,6 @@
 #define SPEAD_RECV_MEM_H
 
 #include <cstdint>
-#include "recv.h"
 #include "recv_reader.h"
 
 namespace spead
@@ -21,7 +20,6 @@ private:
 
 public:
     mem_reader(stream *s, const std::uint8_t *ptr, std::size_t length);
-    void run();
     virtual void start(boost::asio::io_service &io_service) override;
 };
 
