@@ -136,6 +136,8 @@ protected:
 
 public:
     explicit stream(std::size_t max_heaps = 16);
+    virtual ~stream() = default;
+
     void set_callback(std::function<void(heap &&)> callback);
     void set_max_heaps(std::size_t max_heaps);
 
