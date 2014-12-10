@@ -196,8 +196,12 @@ bool heap::add_packet(const packet_header &packet)
         // TODO: should descriptors be put somewhere special to be handled first?
         // TODO: should stream control be handled here?
         std::uint64_t pointer = be64toh(packet.pointers[i]);
-        if (decoder.get_id(pointer) > PAYLOAD_LENGTH_ID)
+        std::int64_t item_id = decoder.get_id(pointer);
+        if (item_id == 0 || decoder.get_id(pointer) > PAYLOAD_LENGTH_ID)
         {
+            /* NULL items are included because they can be direct-addressed, and this
+             * pointer may determine the length of the previous direct-addressed item.
+             */
             if (!decoder.is_immediate(pointer))
                 min_length = std::max(min_length, std::int64_t(decoder.get_address(pointer)));
             pointers.push_back(pointer);
@@ -253,6 +257,8 @@ frozen_heap::frozen_heap(heap &&h)
         item new_item;
         std::uint64_t pointer = h.pointers[i];
         new_item.id = decoder.get_id(pointer);
+        if (new_item.id == 0)
+            continue; // just padding
         new_item.is_immediate = decoder.is_immediate(pointer);
         if (new_item.is_immediate)
         {
