@@ -1,13 +1,13 @@
-#ifndef SPEAD_UDP_IN_H
-#define SPEAD_UDP_IN_H
+#ifndef SPEAD_RECV_UDP_H
+#define SPEAD_RECV_UDP_H
 
 #include <cstdint>
 #include <boost/asio.hpp>
-#include "in.h"
+#include "recv.h"
 
 namespace spead
 {
-namespace in
+namespace recv
 {
 
 class udp_stream : public stream
@@ -37,7 +37,7 @@ public:
     virtual void start() override;
 };
 
-} // namespace in
+} // namespace recv
 } // namespace spead
 
-#endif // SPEAD_UDP_IN_H
+#endif // SPEAD_RECV_UDP_H

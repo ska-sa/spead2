@@ -1,5 +1,5 @@
-#ifndef SPEAD_DEFINES_H
-#define SPEAD_DEFINES_H
+#ifndef SPEAD_COMMON_DEFINES_H
+#define SPEAD_COMMON_DEFINES_H
 
 #include <cstdint>
 #include <vector>
@@ -48,4 +48,4 @@ typedef std::unordered_map<std::int64_t, descriptor> descriptor_map;
 
 } // namespace spead
 
-#endif // SPEAD_DEFINES_H
+#endif // SPEAD_COMMON_DEFINES_H

@@ -2,19 +2,19 @@
 #include <utility>
 #include <boost/asio.hpp>
 #include <chrono>
-#include "udp_in.h"
-#include "receiver.h"
+#include "recv_udp.h"
+#include "recv_receiver.h"
 
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
 
 static time_point start = std::chrono::high_resolution_clock::now();
 
-static void heap_callback(spead::in::heap &&heap)
+static void heap_callback(spead::recv::heap &&heap)
 {
     std::cout << "Received heap with CNT " << heap.cnt() << "; complete: " << heap.is_complete() << '\n';
     if (heap.is_contiguous())
     {
-        spead::in::frozen_heap fheap(std::move(heap));
+        spead::recv::frozen_heap fheap(std::move(heap));
         const auto &items = fheap.get_items();
         std::cout << items.size() << " item(s)\n";
         for (const auto &item : items)
@@ -59,12 +59,12 @@ static void heap_callback(spead::in::heap &&heap)
 
 int main()
 {
-    spead::in::receiver receiver;
+    spead::recv::receiver receiver;
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::loopback(), 8888);
-    std::unique_ptr<spead::in::udp_stream> stream(
-        new spead::in::udp_stream(
+    std::unique_ptr<spead::recv::udp_stream> stream(
+        new spead::recv::udp_stream(
             receiver.get_io_service(),
-            endpoint, spead::in::udp_stream::default_max_size, 8192 * 1024));
+            endpoint, spead::recv::udp_stream::default_max_size, 8192 * 1024));
     stream->set_callback(heap_callback);
     receiver.add_stream(std::move(stream));
     receiver();

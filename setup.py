@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 from distutils.core import setup, Extension
+import glob
 import numpy
 
 extensions = [
     Extension('_spead2',
-        sources=['spead2/pyspead2.cpp', 'src/in.cpp', 'src/udp_in.cpp', 'src/receiver.cpp', 'src/mem_in.cpp'],
+        sources=['spead2/pyspead2.cpp'] + glob.glob('src/recv*.cpp') + glob.glob('src/common*.cpp'),
         language='c++',
         include_dirs=['src', numpy.get_include()],
         extra_compile_args=['-std=c++11'],

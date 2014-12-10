@@ -1,13 +1,11 @@
 #include <cstdint>
 #include <boost/asio.hpp>
-#include "defines.h"
-#include "in.h"
-#include "receiver.h"
-#include "udp_in.h"
+#include "recv.h"
+#include "recv_udp.h"
 
 namespace spead
 {
-namespace in
+namespace recv
 {
 
 constexpr std::size_t udp_stream::default_max_size;
@@ -62,5 +60,5 @@ void udp_stream::start()
         std::bind(&udp_stream::packet_handler, this, _1, _2));
 }
 
-} // namespace in
+} // namespace recv
 } // namespace spead

@@ -1,13 +1,11 @@
 #include <cstdint>
 #include <boost/asio.hpp>
-#include "defines.h"
-#include "in.h"
-#include "receiver.h"
-#include "mem_in.h"
+#include "recv.h"
+#include "recv_mem.h"
 
 namespace spead
 {
-namespace in
+namespace recv
 {
 
 mem_stream::mem_stream(const std::uint8_t *ptr, std::size_t length)
@@ -34,5 +32,5 @@ void mem_stream::run()
     flush();
 }
 
-} // namespace in
+} // namespace recv
 } // namespace spead

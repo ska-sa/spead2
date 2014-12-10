@@ -1,5 +1,5 @@
-#ifndef SPEAD_IN_H
-#define SPEAD_IN_H
+#ifndef SPEAD_RECV_H
+#define SPEAD_RECV_H
 
 #include <cstdint>
 #include <vector>
@@ -7,12 +7,12 @@
 #include <unordered_set>
 #include <memory>
 #include <functional>
-#include "defines.h"
+#include "common_defines.h"
 
 namespace spead
 {
 
-namespace in
+namespace recv
 {
 
 struct packet_header
@@ -148,7 +148,7 @@ public:
     virtual void start() = 0;
 };
 
-} // namespace in
+} // namespace recv
 } // namespace spead
 
-#endif // SPEAD_IN_H
+#endif // SPEAD_RECV_H

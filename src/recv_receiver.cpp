@@ -1,10 +1,10 @@
 #include <memory>
-#include "in.h"
-#include "receiver.h"
+#include "recv.h"
+#include "recv_receiver.h"
 
 namespace spead
 {
-namespace in
+namespace recv
 {
 
 void receiver::add_stream(std::unique_ptr<stream> &&s)
@@ -14,5 +14,5 @@ void receiver::add_stream(std::unique_ptr<stream> &&s)
     ptr->start();
 }
 
-} // namespace in
+} // namespace recv
 } // namespace spead

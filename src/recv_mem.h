@@ -1,13 +1,13 @@
-#ifndef SPEAD_MEM_IN_H
-#define SPEAD_MEM_IN_H
+#ifndef SPEAD_RECV_MEM_H
+#define SPEAD_RECV_MEM_H
 
 #include <cstdint>
 #include <boost/asio.hpp>
-#include "in.h"
+#include "recv.h"
 
 namespace spead
 {
-namespace in
+namespace recv
 {
 
 class mem_stream : public stream
@@ -23,7 +23,7 @@ public:
     virtual void start() override { run(); }
 };
 
-} // namespace in
+} // namespace recv
 } // namespace spead
 
-#endif // SPEAD_MEM_IN_H
+#endif // SPEAD_RECV_MEM_H

@@ -3,16 +3,16 @@
 #include <boost/make_shared.hpp>
 #include <numpy/arrayobject.h>
 #include <stdexcept>
-#include "in.h"
-#include "udp_in.h"
-#include "mem_in.h"
-#include "receiver.h"
+#include "recv.h"
+#include "recv_udp.h"
+#include "recv_mem.h"
+#include "recv_receiver.h"
 
 namespace py = boost::python;
 
 namespace spead
 {
-namespace in
+namespace recv
 {
 
 class item_wrapper : public item
@@ -162,13 +162,13 @@ struct heap_callback_from_callable
     }
 };
 
-} // namespace in
+} // namespace recv
 } // namespace spead
 
 BOOST_PYTHON_MODULE(_spead2)
 {
     using namespace boost::python;
-    using namespace spead::in;
+    using namespace spead::recv;
 
     import_array();
     heap_callback_from_callable();

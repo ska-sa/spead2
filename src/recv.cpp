@@ -3,13 +3,13 @@
 #include <cassert>
 #include <algorithm>
 #include <endian.h>
-#include "in.h"
-#include "defines.h"
-#include "mem_in.h"
+#include "common_defines.h"
+#include "recv.h"
+#include "recv_mem.h"
 
 namespace spead
 {
-namespace in
+namespace recv
 {
 
 namespace
@@ -457,5 +457,5 @@ void stream::flush()
     heaps.clear();
 }
 
-} // namespace in
+} // namespace recv
 } // namespace spead

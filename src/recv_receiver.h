@@ -1,5 +1,5 @@
-#ifndef SPEAD_RECEIVER_H
-#define SPEAD_RECEIVER_H
+#ifndef SPEAD_RECV_RECEIVER_H
+#define SPEAD_RECV_RECEIVER_H
 
 #include <vector>
 #include <array>
@@ -7,12 +7,11 @@
 #include <memory>
 #include <type_traits>
 #include <boost/asio.hpp>
-#include "defines.h"
-#include "in.h"
+#include "recv.h"
 
 namespace spead
 {
-namespace in
+namespace recv
 {
 
 /**
@@ -30,7 +29,7 @@ public:
     boost::asio::io_service &get_io_service() { return io_service; }
 };
 
-} // namespace in
+} // namespace recv
 } // namespace spead
 
-#endif // SPEAD_RECEIVER_H
+#endif // SPEAD_RECV_RECEIVER_H
