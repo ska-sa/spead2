@@ -192,14 +192,5 @@ std::vector<descriptor> frozen_heap::get_descriptors() const
     return s.descriptors;
 }
 
-void frozen_heap::update_descriptors(descriptor_map &descriptors) const
-{
-    auto my_descriptors = get_descriptors();
-    for (descriptor &d : my_descriptors)
-    {
-        descriptors[d.id] = std::move(d);
-    }
-}
-
 } // namespace recv
 } // namespace spead

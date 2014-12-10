@@ -53,9 +53,6 @@ public:
 
     // Extract and decode descriptors from this heap
     std::vector<descriptor> get_descriptors() const;
-
-    // Extract descriptors from this heap and update metadata
-    void update_descriptors(descriptor_map &descriptors) const;
 };
 
 } // namespace recv

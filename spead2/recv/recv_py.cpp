@@ -108,8 +108,20 @@ public:
         py::list out;
         for (const item &it : base)
         {
-            out.append(item_wrapper(it, me));
+            // Filter out descriptors here. The base class can't do so, because
+            // the descriptors are retrieved from the items.
+            if (it.id != DESCRIPTOR_ID)
+                out.append(item_wrapper(it, me));
         }
+        return out;
+    }
+
+    py::list get_descriptors() const
+    {
+        std::vector<descriptor> descriptors = frozen_heap::get_descriptors();
+        py::list out;
+        for (const descriptor& d : descriptors)
+            out.append(d);
         return out;
     }
 };
@@ -217,10 +229,18 @@ BOOST_PYTHON_MODULE(_recv)
     import_array();
     register_exception_translator<spead::ringbuffer_stopped>(&spead::translate_ringbuffer_stopped);
 
+    // TODO: missing shape and format
+    // TODO: wrong namespace!
+    class_<spead::descriptor>("RawDescriptor")
+        .def_readwrite("id", &spead::descriptor::id)
+        .def_readwrite("name", &spead::descriptor::name)
+        .def_readwrite("description", &spead::descriptor::description)
+        .def_readwrite("dtype", &spead::descriptor::dtype);
     class_<frozen_heap, frozen_heap_wrapper, boost::noncopyable>("Heap", no_init)
         .add_property("cnt", &frozen_heap_wrapper::cnt)
-        .def("get_items", &frozen_heap_wrapper::get_items);
-    class_<item_wrapper>("Item", no_init)
+        .def("get_items", &frozen_heap_wrapper::get_items)
+        .def("get_descriptors", &frozen_heap_wrapper::get_descriptors);
+    class_<item_wrapper>("RawItem", no_init)
         .def_readwrite("id", &item_wrapper::id)
         .add_property("value", &item_wrapper::get_value);
     // TODO: use defaults magic instead of two constructors

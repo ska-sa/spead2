@@ -5,7 +5,6 @@
 #include <vector>
 #include <utility>
 #include <string>
-#include <unordered_map>
 
 // Descriptors encoded as 64-40 in all flavours
 #define WORKAROUND_SR_96 1
@@ -42,9 +41,6 @@ struct descriptor
     std::vector<std::pair<bool, std::int64_t> > shape;
     std::string dtype;
 };
-
-// Maps IDs to descriptor information
-typedef std::unordered_map<std::int64_t, descriptor> descriptor_map;
 
 } // namespace spead
 
