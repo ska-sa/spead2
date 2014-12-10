@@ -7,11 +7,26 @@ namespace spead
 namespace recv
 {
 
-void receiver::add_stream(std::unique_ptr<stream> &&s)
+void receiver::add_reader(std::unique_ptr<reader> &&r)
 {
-    stream *ptr = s.get();
-    streams.push_back(std::move(s));
-    ptr->start();
+    reader *ptr = r.get();
+    readers.push_back(std::move(r));
+    ptr->start(io_service);
+}
+
+void receiver::start()
+{
+    worker = std::async(std::launch::async, [this] {io_service.run();});
+}
+
+void receiver::stop()
+{
+    io_service.stop();
+}
+
+void receiver::join()
+{
+    worker.get();
 }
 
 } // namespace recv

@@ -9,9 +9,18 @@ def callback(heap):
 
 with open('junkspeadfile', 'rb') as f:
     text = f.read()
-stream = spead2.recv.BufferStream(text)
-stream.set_callback(callback)
-stream.run()
+stream = spead2.recv.Stream(2)
+receiver = spead2.recv.Receiver()
+receiver.add_buffer_reader(stream, text)
+receiver.start()
+while True:
+    heap = stream.pop()
+    if heap.cnt == 0:
+        break
+    items.extend(heap.get_items())
+receiver.join()
 
+del receiver
+del stream
 for item in items:
     print item.id, item.value

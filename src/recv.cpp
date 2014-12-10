@@ -361,29 +361,42 @@ descriptor frozen_heap::to_descriptor() const
     return out;
 }
 
+namespace
+{
+
+class descriptor_stream : public stream
+{
+private:
+    virtual void heap_ready(heap &&h) override;
+public:
+    std::vector<descriptor> descriptors;
+};
+
+void descriptor_stream::heap_ready(heap &&h)
+{
+    if (h.is_contiguous())
+    {
+        frozen_heap frozen(std::move(h));
+        descriptor d = frozen.to_descriptor();
+        if (d.id != 0) // check that we got an ID field
+            descriptors.push_back(std::move(d));
+    }
+}
+
+} // anonymous namespace
+
 std::vector<descriptor> frozen_heap::get_descriptors() const
 {
-    std::vector<descriptor> descriptors;
-    auto callback = [&](heap &&h)
-    {
-        if (h.is_contiguous())
-        {
-            frozen_heap frozen(std::move(h));
-            descriptor d = frozen.to_descriptor();
-            if (d.id != 0) // check that we got an ID field
-                descriptors.push_back(std::move(d));
-        }
-    };
+    descriptor_stream s;
     for (const item &item : items)
     {
         if (item.id == DESCRIPTOR_ID && !item.is_immediate)
         {
-            mem_stream descriptor_stream(item.value.address.ptr, item.value.address.length);
-            descriptor_stream.set_callback(callback);
-            descriptor_stream.run();
+            mem_reader r(&s, item.value.address.ptr, item.value.address.length);
+            r.run();
         }
     }
-    return descriptors;
+    return s.descriptors;
 }
 
 void frozen_heap::update_descriptors(descriptor_map &descriptors) const
@@ -406,11 +419,6 @@ void stream::set_max_heaps(std::size_t max_heaps)
     this->max_heaps = max_heaps;
 }
 
-void stream::set_callback(std::function<void(heap &&)> callback)
-{
-    this->callback = std::move(callback);
-}
-
 bool stream::add_packet(const packet_header &packet)
 {
     // Look for matching heap
@@ -423,8 +431,7 @@ bool stream::add_packet(const packet_header &packet)
             bool result = h.add_packet(packet);
             if (result && h.is_complete())
             {
-                if (callback)
-                    callback(std::move(h));
+                heap_ready(std::move(h));
                 heaps.erase(it);
             }
             return result;
@@ -439,7 +446,7 @@ bool stream::add_packet(const packet_header &packet)
         return false; // probably unreachable, since decode_packet already validates
     if (h.is_complete())
     {
-        callback(std::move(h));
+        heap_ready(std::move(h));
     }
     else
     {
@@ -447,7 +454,7 @@ bool stream::add_packet(const packet_header &packet)
         if (heaps.size() > max_heaps)
         {
             // Too many active heaps: pop the lowest ID, even if incomplete
-            callback(std::move(heaps[0]));
+            heap_ready(std::move(heaps[0]));
             heaps.pop_front();
         }
     }
@@ -458,9 +465,46 @@ void stream::flush()
 {
     for (heap &h : heaps)
     {
-        callback(std::move(h));
+        heap_ready(std::move(h));
     }
     heaps.clear();
+}
+
+void stream::end_of_stream()
+{
+    flush();
+    heap_ready(heap(0)); // mark end of stream
+}
+
+///////////////////////////////////////////////////////////////////////
+
+ring_stream::ring_stream(std::size_t max_heaps)
+    : stream(max_heaps), ready_heaps(max_heaps)
+{
+}
+
+void ring_stream::heap_ready(heap &&h)
+{
+    try
+    {
+        ready_heaps.try_push(std::move(h));
+    }
+    catch (ringbuffer_full &e)
+    {
+        // Suppress the error, drop the heap
+        // TODO: log it?
+        // TODO: record end-of-stream marker separately?
+    }
+}
+
+frozen_heap ring_stream::pop()
+{
+    while (true)
+    {
+        heap h = ready_heaps.pop();
+        if (h.is_contiguous())
+            return frozen_heap(std::move(h));
+    }
 }
 
 } // namespace recv

@@ -74,6 +74,7 @@ public:
     }
 };
 
+// Wraps access to a Python buffer-protocol object
 class buffer_view : public boost::noncopyable
 {
 public:
@@ -91,74 +92,41 @@ public:
     }
 };
 
-class heap_callback_wrapper
+class ring_stream_wrapper : public ring_stream
 {
-private:
-    py::object obj;
-
 public:
-    typedef void result_type;
+    using ring_stream::ring_stream;
 
-    heap_callback_wrapper(const py::object &obj) : obj(obj) {}
-
-    void operator()(frozen_heap &&h)
+    py::object pop()
     {
-        frozen_heap_wrapper *wrapper = new frozen_heap_wrapper(std::move(h));
+        frozen_heap fh = ring_stream::pop();
+        frozen_heap_wrapper *wrapper = new frozen_heap_wrapper(std::move(fh));
         std::unique_ptr<frozen_heap_wrapper> wrapper_ptr(wrapper);
         py::manage_new_object::apply<frozen_heap_wrapper *>::type converter;
-        PyObject *arg_ptr = converter(wrapper);
+        PyObject *obj_ptr = converter(wrapper);
         wrapper_ptr.release();
-        py::object arg{py::handle<>(arg_ptr)};
-        wrapper->set_self(arg_ptr);
-        obj(arg);
+        py::object obj{py::handle<>(obj_ptr)};
+        wrapper->set_self(obj_ptr);
+        return obj;
     }
 };
 
-class buffer_stream : private buffer_view, public mem_stream
+class buffer_reader : private buffer_view, public mem_reader
 {
 public:
-    explicit buffer_stream(py::object obj)
+    buffer_reader(stream *s, py::object obj)
         : buffer_view(obj),
-        mem_stream(reinterpret_cast<const std::uint8_t *>(view.buf), view.len)
+        mem_reader(s, reinterpret_cast<const std::uint8_t *>(view.buf), view.len)
     {
-    }
-
-    void set_callback(const heap_callback_wrapper &callback)
-    {
-        stream::set_callback(callback);
     }
 };
 
-// Converter from Python object to std::function
-struct heap_callback_from_callable
+class receiver_wrapper : public receiver
 {
-    static void *convertible(PyObject *obj)
+public:
+    void add_buffer_reader(ring_stream_wrapper *s, py::object obj)
     {
-        if (PyCallable_Check(obj))
-            return obj;
-        else
-            return NULL;
-    }
-
-    static void construct(
-        PyObject *obj,
-        py::converter::rvalue_from_python_stage1_data *data)
-    {
-        void *storage = (
-            (py::converter::rvalue_from_python_storage<heap_callback_wrapper> *)
-            data)->storage.bytes;
-
-        py::object callback(py::handle<>(py::borrowed(obj)));
-        new (storage) heap_callback_wrapper(callback);
-        data->convertible = storage;
-    }
-
-    heap_callback_from_callable()
-    {
-        py::converter::registry::push_back(
-            &convertible,
-            &construct,
-            py::type_id<heap_callback_wrapper>());
+        emplace_reader<buffer_reader>(s, obj);
     }
 };
 
@@ -171,15 +139,23 @@ BOOST_PYTHON_MODULE(_recv)
     using namespace spead::recv;
 
     import_array();
-    heap_callback_from_callable();
 
-    class_<heap, boost::noncopyable>("Heap", init<std::int64_t>());
-    class_<frozen_heap, frozen_heap_wrapper, boost::noncopyable>("FrozenHeap", init<heap &>())
+    class_<frozen_heap, frozen_heap_wrapper, boost::noncopyable>("Heap", init<heap &>())
+        .add_property("cnt", &frozen_heap_wrapper::cnt)
         .def("get_items", &frozen_heap_wrapper::get_items);
     class_<item_wrapper>("Item", no_init)
         .def_readwrite("id", &item_wrapper::id)
         .add_property("value", &item_wrapper::get_value);
-    class_<buffer_stream, boost::noncopyable>("BufferStream", init<object>())
-        .def("run", &buffer_stream::run)
-        .def("set_callback", &buffer_stream::set_callback);
+    class_<buffer_reader, boost::noncopyable>(
+            "BufferReader",
+            init<ring_stream_wrapper *, object>()[with_custodian_and_ward<1, 2>()])
+        .def("run", &buffer_reader::run);
+    class_<ring_stream_wrapper, boost::noncopyable>("Stream")
+        .def(init<std::size_t>())
+        .def("pop", &ring_stream_wrapper::pop);
+    class_<receiver_wrapper, boost::noncopyable>("Receiver")
+        .def("add_buffer_reader", &receiver_wrapper::add_buffer_reader, with_custodian_and_ward<1, 2>())
+        .def("start", &receiver_wrapper::start)
+        .def("stop", &receiver_wrapper::stop)
+        .def("join", &receiver_wrapper::join);
 }

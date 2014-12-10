@@ -2,15 +2,17 @@
 #define SPEAD_RECV_MEM_H
 
 #include <cstdint>
-#include <boost/asio.hpp>
 #include "recv.h"
+#include "recv_reader.h"
 
 namespace spead
 {
 namespace recv
 {
 
-class mem_stream : public stream
+class reader;
+
+class mem_reader : public reader
 {
 private:
     // Buffer for reading a packet.
@@ -18,9 +20,9 @@ private:
     std::size_t length;
 
 public:
-    mem_stream(const std::uint8_t *ptr, std::size_t length);
+    mem_reader(stream *s, const std::uint8_t *ptr, std::size_t length);
     void run();
-    virtual void start() override { run(); }
+    virtual void start(boost::asio::io_service &io_service) override;
 };
 
 } // namespace recv

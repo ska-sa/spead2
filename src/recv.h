@@ -8,6 +8,7 @@
 #include <memory>
 #include <functional>
 #include "common_defines.h"
+#include "common_ringbuffer.h"
 
 namespace spead
 {
@@ -129,23 +130,34 @@ private:
     // TODO: replace with a fixed-size ring buffer
     std::size_t max_heaps;
     std::deque<heap> heaps;
-    std::function<void(heap &&)> callback;
 
-protected:
-    bool add_packet(const packet_header &packet);
+private:
+    // Called when a heap is ready for further processing
+    // End-of-stream is indicated by an empty heap
+    virtual void heap_ready(heap &&) {}
 
 public:
     explicit stream(std::size_t max_heaps = 16);
     virtual ~stream() = default;
 
-    void set_callback(std::function<void(heap &&)> callback);
     void set_max_heaps(std::size_t max_heaps);
 
+    bool add_packet(const packet_header &packet);
+    // Mark end-of-stream (implicitly does a flush)
+    void end_of_stream();
     // Clear out all heaps from the deque, even if not complete
     void flush();
+};
 
-    // Called by the receiver to set things running
-    virtual void start() = 0;
+class ring_stream : public stream
+{
+private:
+    ringbuffer<heap> ready_heaps;
+
+    virtual void heap_ready(heap &&) override;
+public:
+    explicit ring_stream(std::size_t max_heaps = 16);
+    frozen_heap pop();
 };
 
 } // namespace recv

@@ -1,8 +1,8 @@
 VARIANT = debug
 
 CXX = g++
-CXXFLAGS = -Wall -std=c++11
-LDFLAGS = -lboost_system
+CXXFLAGS = -Wall -std=c++11 -pthread
+LDFLAGS = -lboost_system -pthread
 ifeq ($(VARIANT), fulldebug)
     CXXFLAGS += -g -D_GLIBCXX_DEBUG -fsanitize=address
     LDFLAGS += -fsanitize=address

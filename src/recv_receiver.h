@@ -1,13 +1,15 @@
 #ifndef SPEAD_RECV_RECEIVER_H
 #define SPEAD_RECV_RECEIVER_H
 
+#include <type_traits>
+#include <future>
 #include <vector>
 #include <array>
 #include <cstdint>
 #include <memory>
-#include <type_traits>
 #include <boost/asio.hpp>
 #include "recv.h"
+#include "recv_reader.h"
 
 namespace spead
 {
@@ -21,12 +23,28 @@ class receiver
 {
 private:
     boost::asio::io_service io_service;
-    std::vector<std::unique_ptr<stream> > streams;
+    std::vector<std::unique_ptr<reader> > readers;
+    std::future<void> worker;
 
 public:
-    void add_stream(std::unique_ptr<stream> &&stream);
+    void add_reader(std::unique_ptr<reader> &&r);
+
+    template<typename T, typename... Args>
+    void emplace_reader(Args&&... args)
+    {
+        std::unique_ptr<reader> ptr(new T(std::forward<Args>(args)...));
+        add_reader(std::move(ptr));
+    }
+
+    // Run synchronously in the current thread (do not combine with run/stop/join)
     void operator()() { io_service.run(); }
     boost::asio::io_service &get_io_service() { return io_service; }
+
+    void start();  // start running in a separate thread (or threads)
+    void stop();   // request event loop to stop, even if streams are still active
+    // Blocks until all threads have terminated (either due to stop or running
+    // out of work). Also re-raises any exceptions raised in the thread.
+    void join();
 };
 
 } // namespace recv

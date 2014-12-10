@@ -4,13 +4,14 @@
 #include <cstdint>
 #include <boost/asio.hpp>
 #include "recv.h"
+#include "recv_reader.h"
 
 namespace spead
 {
 namespace recv
 {
 
-class udp_stream : public stream
+class udp_reader : public reader
 {
 private:
     boost::asio::ip::udp::socket socket;
@@ -28,13 +29,14 @@ protected:
 public:
     static constexpr std::size_t default_max_size = 9200;
 
-    explicit udp_stream(
+    explicit udp_reader(
+        stream *s,
         boost::asio::io_service &io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
         std::size_t max_size = default_max_size,
         std::size_t buffer_size = 0);
 
-    virtual void start() override;
+    virtual void start(boost::asio::io_service &io_service) override;
 };
 
 } // namespace recv
