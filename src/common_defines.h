@@ -14,6 +14,8 @@
 
 /// If true, descriptors are encoded as 64-40 regardless of actual flavour
 #define BUG_COMPAT_DESCRIPTOR_WIDTHS 1
+/// If true, bit 1 (value 2) of the first byte in a shape element indicates variable-size
+#define BUG_COMPAT_SHAPE_BIT_1 1
 
 /**
  * SPEAD protocol sending and receiving. All SPEAD-64-* flavours are

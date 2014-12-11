@@ -1,3 +1,7 @@
+/**
+ * @file
+ */
+
 #include <cstdint>
 #include <functional>
 #include <boost/asio.hpp>
@@ -10,6 +14,7 @@ namespace recv
 {
 
 constexpr std::size_t udp_reader::default_max_size;
+constexpr std::size_t udp_reader::default_buffer_size;
 
 udp_reader::udp_reader(
     boost::asio::io_service &io_service,

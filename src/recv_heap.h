@@ -1,3 +1,7 @@
+/**
+ * @file
+ */
+
 #ifndef SPEAD_RECV_HEAP
 #define SPEAD_RECV_HEAP
 
@@ -15,27 +19,64 @@ namespace recv
 
 class frozen_heap;
 
+/**
+ * A SPEAD heap that is in the process of being received. Once it is fully
+ * received, it is converted to a @ref frozen_heap for further processing.
+ *
+ * Any SPEAD-64-* flavour can be used, but all packets in the heap must use
+ * the same flavour. It may be possible to relax this, but it hasn't been
+ * examined, and may cause issues for decoding descriptors (whose format
+ * depends on the flavour).
+ *
+ * A heap can be:
+ * - complete: a heap length item was found in a packet, and we have received
+ *   all the payload corresponding to it. No more packets are expected.
+ * - contiguous: the payload we have received is a contiguous range from 0 up
+ *   to some amount, and cover all items described in the item pointers.
+ * A complete heap is also contiguous, but not necessarily the other way
+ * around. Only contiguous heaps can be frozen.
+ */
 class heap
 {
 private:
     friend class frozen_heap;
 
+    /// Heap ID encoded in packets
     std::int64_t heap_cnt;
+    /// Heap payload length encoded in packets (-1 for unknown)
     std::int64_t heap_length = -1;
+    /// Number of bytes of payload received
     std::int64_t received_length = 0;
+    /**
+     * Minimum possible payload size, determined from the payload range in
+     * packets and item pointers, or equal to @ref heap_length if that is
+     * known.
+     */
     std::int64_t min_length = 0;      // length implied by packet payloads
+    /// Heap address bits (from the SPEAD flavour)
     int heap_address_bits = -1;
-    // We don't use std::vector because it zero-fills
+    /**
+     * Heap payload. When the length is unknown, this is grown by successive
+     * doubling. While @c std::vector would take care of that for us, it also
+     * zero-fills the memory, which would be inefficient.
+     */
     std::unique_ptr<uint8_t[]> payload;
+    /// Size of the memory in @ref payload
     std::size_t payload_reserved = 0;
+    /**
+     * Item pointers extracted from the packets, excluding those that
+     * are extracted in @ref packet_header. They are in native endian.
+     */
     std::vector<std::uint64_t> pointers;
-    /* TODO: investigate more efficient structures here, e.g.
+    /**
+     * Set of payload offsets found in packets. This is used only to
+     * detect duplicate packets.
+     *
+     * @todo investigate more efficient structures here, e.g.
      * - a bitfield (one bit per payload byte)
-     * - using a Bloom filter first
+     * - using a Bloom filter first (almost all queries should miss)
      * - using a linked list per offset>>13 (which is maybe equivalent to
      *   just changing the hash function)
-     * This is used only to detect duplicate packets, so fits the use case
-     * for a Bloom filter nicely.
      */
     std::unordered_set<std::int64_t> packet_offsets;
 
@@ -46,12 +87,30 @@ private:
     void payload_reserve(std::size_t size, bool exact);
 
 public:
+    /**
+     * Constructor.
+     *
+     * @param heap_cnt     Heap ID
+     */
     explicit heap(std::int64_t heap_cnt);
+
+    /**
+     * Attempt to add a packet to the heap. The packet must have been
+     * successfully prepared by @ref decode_packet. It returns @c true if
+     * the packet was added to the heap. There are a number of reasons it
+     * could be rejected, even though @ref decode_packet accepted it:
+     * - wrong @c heap_cnt
+     * - wrong flavour
+     * - duplicate packet
+     * - inconsistent heap length
+     * - payload range is beyond the heap length
+     */
     bool add_packet(const packet_header &packet);
-    // True if we have received a heap size header and all of it has been received
+    /// True if the heap is complete
     bool is_complete() const;
-    // True if all the payload we have received all data up to min_length
+    /// True if the heap is contiguous
     bool is_contiguous() const;
+    /// Retrieve the heap ID
     std::int64_t cnt() const { return heap_cnt; }
 };
 

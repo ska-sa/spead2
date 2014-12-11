@@ -1,3 +1,7 @@
+/**
+ * @file
+ */
+
 #ifndef SPEAD_RECV_STREAM
 #define SPEAD_RECV_STREAM
 

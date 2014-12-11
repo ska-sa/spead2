@@ -1,3 +1,7 @@
+/**
+ * @file
+ */
+
 #include <endian.h>
 #include <algorithm>
 #include <cassert>
@@ -14,10 +18,16 @@ namespace spead
 namespace recv
 {
 
+/**
+ * Read @a len bytes from @a ptr, and interpret them as a big-endian number.
+ * It is not necessary for @a ptr to be aligned.
+ *
+ * @pre @a 0 &lt;= len &lt;= 8
+ */
 // Loads up to 8 bytes as a big-endian number, converts to host endian
 static inline std::uint64_t load_bytes_be(const std::uint8_t *ptr, int len)
 {
-    assert(len <= 8);
+    assert(0 <= len && len <= 8);
     std::uint64_t out = 0;
     std::memcpy(reinterpret_cast<char *>(&out) + 8 - len, ptr, len);
     return be64toh(out);
@@ -74,12 +84,12 @@ frozen_heap::frozen_heap(heap &&h)
     heap_cnt = h.heap_cnt;
     heap_address_bits = h.heap_address_bits;
     payload = std::move(h.payload);
+    // Reset h so that it still satisfies its invariants
     h = heap(0);
 }
 
 descriptor frozen_heap::to_descriptor() const
 {
-    // TODO: unspecified how immediate values are used to encode variable-length fields
     descriptor out;
     for (const item &item : items)
     {
@@ -130,8 +140,11 @@ descriptor frozen_heap::to_descriptor() const
 #endif
                     for (std::size_t i = 0; i + field_size <= length; i += field_size)
                     {
-                        // TODO: the spec and PySPEAD don't agree on how this works
+#if BUG_COMPAT_SHAPE_BIT_1
+                        bool variable = (ptr[i] & 2);
+#else
                         bool variable = (ptr[i] & 1);
+#endif
                         std::int64_t size = load_bytes_be(ptr + i + 1, field_size - 1);
                         out.shape.emplace_back(variable, size);
                     }
