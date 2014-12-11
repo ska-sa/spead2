@@ -10,61 +10,40 @@
 #include "recv_ring_stream.h"
 #include "recv_heap.h"
 #include "recv_frozen_heap.h"
+#include "py_common.h"
 
 namespace py = boost::python;
 
 namespace spead
 {
-
-class release_gil
-{
-private:
-    PyThreadState *save = nullptr;
-
-public:
-    release_gil()
-    {
-        release();
-    }
-
-    ~release_gil()
-    {
-        if (save != nullptr)
-            PyEval_RestoreThread(save);
-    }
-
-    void release()
-    {
-        assert(save == nullptr);
-        save = PyEval_SaveThread();
-    }
-
-    void acquire()
-    {
-        assert(save != nullptr);
-        PyEval_RestoreThread(save);
-        save = nullptr;
-    }
-};
-
-static void translate_ringbuffer_stopped(const ringbuffer_stopped &e)
-{
-    PyErr_SetString(PyExc_StopIteration, e.what());
-}
-
 namespace recv
 {
 
+/**
+ * Wraps @ref item to provide safe memory management. The item references
+ * memory inside the frozen heap, so it needs to hold a reference to that
+ * heap, as do any memoryviews created on the value.
+ */
 class item_wrapper : public item
 {
 private:
-    py::object owning_heap; // a wrapped frozen_heap
+    /// Python object containing a @ref frozen_heap
+    py::object owning_heap;
 
 public:
     item_wrapper() = default;
-    item_wrapper(const item &it, py::object owning_heap)
-        : item(it), owning_heap(owning_heap) {}
+    item_wrapper(const item &it, PyObject *owning_heap)
+        : item(it), owning_heap(py::handle<>(py::borrowed(owning_heap))) {}
 
+    /**
+     * Obtain the value, as a Python object. If this is an addressed item,
+     * it returns a memoryview that references the memory in the owning heap.
+     * Since boost::python doesn't support creating classes with the buffer
+     * protocol, we need a proxy object to wrap in the memoryview, and it
+     * needs a way to hold a reference on the owning heap. PyBuffer_* doesn't
+     * satisfy the second requirement, but numpy arrays do. It's rather
+     * overkill, but the package uses numpy anyway.
+     */
     py::object get_value() const
     {
         if (is_immediate)
@@ -74,12 +53,14 @@ public:
         else
         {
             npy_intp dims[1];
+            // Construct the numpy array to wrap our data
             dims[0] = value.address.length;
             PyObject *array = PyArray_SimpleNewFromData(
                 1, dims, NPY_UINT8,
                 reinterpret_cast<void *>(value.address.ptr));
             if (array == NULL)
                 py::throw_error_already_set();
+            // Make the numpy array hold a ref to the owning heap
             if (PyArray_SetBaseObject(
                     (PyArrayObject *) array,
                     py::incref(owning_heap.ptr())) == -1)
@@ -88,10 +69,11 @@ public:
                 py::throw_error_already_set();
             }
 
+            // Create a memoryview wrapper around the numpy array
             PyObject *view = PyMemoryView_FromObject(array);
             if (view == NULL)
             {
-                py::decref(array);
+                py::decref(array); // discard the array
                 py::throw_error_already_set();
             }
             py::object obj{py::handle<>(view)};
@@ -100,19 +82,25 @@ public:
     }
 };
 
+/**
+ * Wrapper for frozen heaps. For some reason boost::python doesn't provide
+ * a way for object methods to retrieve their self object, so we have to store
+ * a copy of it here, and set it whenever we build one of these objects. We
+ * need this for @ref item_wrapper.
+ */
 class frozen_heap_wrapper : public frozen_heap
 {
 private:
     PyObject *self;
 
 public:
-    frozen_heap_wrapper(PyObject *self, heap &h) : frozen_heap(std::move(h)), self(self) {}
+    /// Constructor when built from Python
     frozen_heap_wrapper(frozen_heap &&h) : frozen_heap(std::move(h)), self(nullptr) {}
     void set_self(PyObject *self) { this->self = self; }
 
+    /// Wrap @ref frozen_heap::get_items, and convert vector to a Python list
     py::list get_items() const
     {
-        py::object me(py::handle<>(py::borrowed(self)));
         std::vector<item> base = frozen_heap::get_items();
         py::list out;
         for (const item &it : base)
@@ -120,11 +108,12 @@ public:
             // Filter out descriptors here. The base class can't do so, because
             // the descriptors are retrieved from the items.
             if (it.id != DESCRIPTOR_ID)
-                out.append(item_wrapper(it, me));
+                out.append(item_wrapper(it, self));
         }
         return out;
     }
 
+    /// Wrap @ref frozen_heap::get_descriptors, and convert vector to a Python list
     py::list get_descriptors() const
     {
         std::vector<descriptor> descriptors = frozen_heap::get_descriptors();
@@ -135,51 +124,10 @@ public:
     }
 };
 
-// Wraps access to a Python buffer-protocol object
-class buffer_view : public boost::noncopyable
-{
-public:
-    Py_buffer view;
-
-    explicit buffer_view(py::object obj)
-    {
-        if (PyObject_GetBuffer(obj.ptr(), &view, PyBUF_SIMPLE) != 0)
-            py::throw_error_already_set();
-    }
-
-    ~buffer_view()
-    {
-        PyBuffer_Release(&view);
-    }
-};
-
-// Ringbuffer that releases the GIL while popping, and checks
-// for KeyboardInterrupt
-template<typename T>
-class ringbuffer_wrapper : public ringbuffer<T>
-{
-public:
-    using ringbuffer<T>::ringbuffer;
-
-    T pop()
-    {
-        release_gil gil;
-        std::unique_lock<std::mutex> lock(this->mutex);
-        while (this->empty_unlocked())
-        {
-            this->data_cond.wait_for(lock, std::chrono::seconds(1));
-            // Allow interpreter to catch KeyboardInterrupt. The timeout
-            // ensures that we wake up periodically to check for this,
-            // even if the signal doesn't cause spurious wakeup.
-            gil.acquire();
-            if (PyErr_CheckSignals() == -1)
-                py::throw_error_already_set();
-            gil.release();
-        }
-        return this->pop_unlocked();
-    }
-};
-
+/**
+ * Stream that handles the magic necessary to reflect frozen heaps into
+ * Python space and capture the reference to it.
+ */
 class ring_stream_wrapper : public ring_stream<ringbuffer_wrapper<heap> >
 {
 public:
@@ -188,12 +136,16 @@ public:
     py::object pop()
     {
         frozen_heap fh = ring_stream::pop();
+        // We need to allocate a new object to have type frozen_heap_wrapper,
+        // but it can move all the resources out of fh.
         frozen_heap_wrapper *wrapper = new frozen_heap_wrapper(std::move(fh));
         std::unique_ptr<frozen_heap_wrapper> wrapper_ptr(wrapper);
+        // Wrap the pointer up into a Python object
         py::manage_new_object::apply<frozen_heap_wrapper *>::type converter;
         PyObject *obj_ptr = converter(wrapper);
         wrapper_ptr.release();
         py::object obj{py::handle<>(obj_ptr)};
+        // Tell the wrapper what its Python handle is
         wrapper->set_self(obj_ptr);
         return obj;
     }
@@ -216,6 +168,9 @@ public:
     }
 };
 
+/**
+ * Wraps @ref receiver to have add functions for each type of reader.
+ */
 class receiver_wrapper : public receiver
 {
 public:
@@ -224,7 +179,9 @@ public:
         emplace_reader<buffer_reader>(s, obj);
     }
 
-    // TODO: add option for hostname to bind to, and sizes
+    /**
+     * @todo add option for hostname to bind to, IPv4/v6, and sizes
+     */
     void add_udp_reader(ring_stream_wrapper &s, int port)
     {
         boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::loopback(), port);
@@ -232,25 +189,21 @@ public:
     }
 };
 
-} // namespace recv
-} // namespace spead
-
-BOOST_PYTHON_MODULE(_recv)
+/// Register the receiver module with Boost.Python
+void register_module()
 {
     using namespace boost::python;
     using namespace spead::recv;
 
+    // Needed to make NumPy functions work
     import_array();
-    register_exception_translator<spead::ringbuffer_stopped>(&spead::translate_ringbuffer_stopped);
 
-    // TODO: missing shape and format
-    // TODO: wrong namespace!
-    class_<spead::descriptor>("RawDescriptor")
-        .def_readwrite("id", &spead::descriptor::id)
-        .def_readwrite("name", &spead::descriptor::name)
-        .def_readwrite("description", &spead::descriptor::description)
-        .def_readwrite("numpy_header", &spead::descriptor::numpy_header);
-    class_<frozen_heap, frozen_heap_wrapper, boost::noncopyable>("Heap", no_init)
+    // Create the module, and set it as the current boost::python scope so that
+    // classes we define are added to this module rather than the root.
+    py::object module(py::handle<>(py::borrowed(PyImport_AddModule("spead2._recv"))));
+    py::scope scope = module;
+
+    class_<frozen_heap_wrapper, boost::noncopyable>("Heap", no_init)
         .add_property("cnt", &frozen_heap_wrapper::cnt)
         .def("get_items", &frozen_heap_wrapper::get_items)
         .def("get_descriptors", &frozen_heap_wrapper::get_descriptors);
@@ -263,6 +216,7 @@ BOOST_PYTHON_MODULE(_recv)
         .def("__iter__", objects::identity_function())
         .def(
 #if PY_VERSION_HEX >= 0x03000000
+              // Python 3 uses __next__ for the iterator protocol
               "__next__"
 #else
               "next"
@@ -274,3 +228,6 @@ BOOST_PYTHON_MODULE(_recv)
         .def("start", &receiver_wrapper::start)
         .def("stop", &receiver_wrapper::stop);
 }
+
+} // namespace recv
+} // namespace spead

@@ -3,7 +3,7 @@ import weakref
 import numpy.lib.utils
 import numpy as np
 import spead2
-from _recv import *
+from spead2._recv import *
 
 # Set of weak references to receivers
 _receiver_cleanups = set()
