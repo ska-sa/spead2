@@ -7,7 +7,7 @@
 #include <string>
 
 // Descriptors encoded as 64-40 in all flavours
-#define WORKAROUND_SR_96 1
+#define BUG_COMPAT_DESCRIPTOR_WIDTHS 1
 
 namespace spead
 {

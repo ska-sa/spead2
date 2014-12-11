@@ -108,7 +108,7 @@ descriptor frozen_heap::to_descriptor() const
                 break;
             case DESCRIPTOR_FORMAT_ID:
                 {
-#if WORKAROUND_SR_96
+#if BUG_COMPAT_DESCRIPTOR_WIDTHS
                     int field_size = 4;
 #else
                     int field_size = 9 - heap_address_bits / 8;
@@ -123,7 +123,7 @@ descriptor frozen_heap::to_descriptor() const
                 }
             case DESCRIPTOR_SHAPE_ID:
                 {
-#if WORKAROUND_SR_96
+#if BUG_COMPAT_DESCRIPTOR_WIDTHS
                     int field_size = 8;
 #else
                     int field_size = 1 + heap_address_bits / 8;
