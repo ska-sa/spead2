@@ -23,7 +23,7 @@ struct item
         std::int64_t immediate; // unused if data != NULL
         struct
         {
-            const std::uint8_t *ptr;
+            std::uint8_t *ptr;
             std::size_t length;
         } address;
     } value;

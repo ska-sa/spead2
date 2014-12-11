@@ -75,7 +75,9 @@ public:
         {
             npy_intp dims[1];
             dims[0] = value.address.length;
-            PyObject *array = PyArray_SimpleNewFromData(1, dims, NPY_UINT8, (void *) value.address.ptr);
+            PyObject *array = PyArray_SimpleNewFromData(
+                1, dims, NPY_UINT8,
+                reinterpret_cast<void *>(value.address.ptr));
             if (array == NULL)
                 py::throw_error_already_set();
             if (PyArray_SetBaseObject(
