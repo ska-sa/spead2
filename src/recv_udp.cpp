@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <boost/asio.hpp>
+#include <iostream>
 #include "recv_reader.h"
 #include "recv_udp.h"
 
@@ -47,7 +48,11 @@ void udp_reader::packet_handler(
             packet_header packet;
             std::size_t size = decode_packet(packet, buffer.get(), bytes_transferred);
             if (size == bytes_transferred)
+            {
                 get_stream().add_packet(packet);
+                if (get_stream().is_stopped())
+                    socket.close();
+            }
         }
     }
 
@@ -64,10 +69,13 @@ void udp_reader::packet_handler(
 void udp_reader::start()
 {
     using namespace std::placeholders;
-    socket.async_receive_from(
-        boost::asio::buffer(buffer.get(), max_size + 1),
-        endpoint,
-        std::bind(&udp_reader::packet_handler, this, _1, _2));
+    if (!get_stream().is_stopped())
+    {
+        socket.async_receive_from(
+            boost::asio::buffer(buffer.get(), max_size + 1),
+            endpoint,
+            std::bind(&udp_reader::packet_handler, this, _1, _2));
+    }
 }
 
 void udp_reader::stop()

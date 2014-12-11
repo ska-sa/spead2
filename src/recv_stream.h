@@ -41,6 +41,8 @@ private:
     std::size_t max_heaps;
     /// Live heaps, ordered by heap ID
     std::deque<heap> heaps;
+    /// @ref stop has been called, either externally or by stream control
+    bool stopped = false;
 
 private:
     /**
@@ -70,6 +72,8 @@ public:
      * decode_packet, and returns @c true if it is consumed. Even though @a
      * decode_packet does some basic sanity-checking, it may still be rejected
      * by @ref heap::add_packet e.g., because it is a duplicate.
+     *
+     * It is an error to call this after the stream has been stopped.
      */
     bool add_packet(const packet_header &packet);
     /**
@@ -84,6 +88,8 @@ public:
      * error; also detect packets that request stop.
      */
     virtual void stop();
+
+    bool is_stopped() const { return stopped; }
 
     /// Flush the collection of live heaps, passing them to @ref heap_ready.
     void flush();

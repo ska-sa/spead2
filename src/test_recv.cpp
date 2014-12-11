@@ -68,8 +68,15 @@ int main()
     receiver.start();
     while (true)
     {
-        spead::recv::frozen_heap fh = stream.pop();
-        show_heap(fh);
+        try
+        {
+            spead::recv::frozen_heap fh = stream.pop();
+            show_heap(fh);
+        }
+        catch (spead::ringbuffer_stopped &e)
+        {
+            break;
+        }
     }
     receiver.stop();
     return 0;

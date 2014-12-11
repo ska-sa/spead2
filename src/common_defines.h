@@ -44,6 +44,14 @@ enum item_id : unsigned int
     DESCRIPTOR_DTYPE_ID =  0x15
 };
 
+enum ctrl_mode : unsigned int
+{
+    CTRL_STREAM_START = 0,
+    CTRL_DESCRIPTOR_REISSUE = 1,
+    CTRL_STREAM_STOP = 2,
+    CTRL_DESCRIPTOR_UPDATE = 3
+};
+
 /**
  * An unpacked descriptor.
  *

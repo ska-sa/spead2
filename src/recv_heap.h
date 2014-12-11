@@ -47,6 +47,8 @@ private:
     std::int64_t heap_length = -1;
     /// Number of bytes of payload received
     std::int64_t received_length = 0;
+    /// True if a stream control packeting indicating end-of-heap was found
+    bool end_of_stream = false;
     /**
      * Minimum possible payload size, determined from the payload range in
      * packets and item pointers, or equal to @ref heap_length if that is
@@ -110,6 +112,8 @@ public:
     bool is_complete() const;
     /// True if the heap is contiguous
     bool is_contiguous() const;
+    /// True if an end-of-stream heap control item was found
+    bool is_end_of_stream() const;
     /// Retrieve the heap ID
     std::int64_t cnt() const { return heap_cnt; }
 };

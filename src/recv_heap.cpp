@@ -80,6 +80,9 @@ bool heap::add_packet(const packet_header &packet)
              * pointer may determine the length of the previous direct-addressed item.
              */
             pointers.push_back(pointer);
+            if (item_id == STREAM_CTRL_ID && decoder.is_immediate(pointer)
+                && decoder.get_immediate(pointer) == CTRL_STREAM_STOP)
+                end_of_stream = true;
         }
     }
 
@@ -101,6 +104,11 @@ bool heap::is_complete() const
 bool heap::is_contiguous() const
 {
     return received_length == min_length;
+}
+
+bool heap::is_end_of_stream() const
+{
+    return end_of_stream;
 }
 
 } // namespace recv

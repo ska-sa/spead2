@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <utility>
+#include <cassert>
 #include "recv_stream.h"
 #include "recv_heap.h"
 
@@ -23,44 +24,61 @@ void stream::set_max_heaps(std::size_t max_heaps)
 
 bool stream::add_packet(const packet_header &packet)
 {
+    assert(!stopped);
     // Look for matching heap
     auto insert_before = heaps.begin();
+    bool result = false;
+    bool end_of_stream = false;
+    bool found = false;
     for (auto it = heaps.begin(); it != heaps.end(); ++it)
     {
         heap &h = *it;
         if (h.cnt() == packet.heap_cnt)
         {
-            bool result = h.add_packet(packet);
-            if (result && h.is_complete())
+            found = true;
+            if (h.add_packet(packet))
             {
-                heap_ready(std::move(h));
-                heaps.erase(it);
+                result = true;
+                end_of_stream = h.is_end_of_stream();
+                if (h.is_complete())
+                {
+                    heap_ready(std::move(h));
+                    heaps.erase(it);
+                }
             }
-            return result;
+            break;
         }
         else if (h.cnt() < packet.heap_cnt)
             insert_before = next(it);
     }
 
-    // Doesn't match any previously seen heap, so create a new one
-    heap h(packet.heap_cnt);
-    if (!h.add_packet(packet))
-        return false; // probably unreachable, since decode_packet already validates
-    if (h.is_complete())
+    if (!found)
     {
-        heap_ready(std::move(h));
-    }
-    else
-    {
-        heaps.insert(insert_before, std::move(h));
-        if (heaps.size() > max_heaps)
+        // Doesn't match any previously seen heap, so create a new one
+        heap h(packet.heap_cnt);
+        if (h.add_packet(packet))
         {
-            // Too many active heaps: pop the lowest ID, even if incomplete
-            heap_ready(std::move(heaps[0]));
-            heaps.pop_front();
+            result = true;
+            end_of_stream = h.is_end_of_stream();
+            if (h.is_complete())
+            {
+                heap_ready(std::move(h));
+            }
+            else
+            {
+                heaps.insert(insert_before, std::move(h));
+                if (heaps.size() > max_heaps)
+                {
+                    // Too many active heaps: pop the lowest ID, even if incomplete
+                    heap_ready(std::move(heaps[0]));
+                    heaps.pop_front();
+                }
+            }
         }
     }
-    return true;
+    if (end_of_stream)
+        stop();
+    return result;
 }
 
 void stream::flush()
@@ -74,12 +92,13 @@ void stream::flush()
 
 void stream::stop()
 {
+    stopped = true;
     flush();
 }
 
 const void *mem_to_stream(stream &s, const std::uint8_t *ptr, std::size_t length)
 {
-    while (length > 0)
+    while (length > 0 && !s.is_stopped())
     {
         packet_header packet;
         std::size_t size = decode_packet(packet, ptr, length);
