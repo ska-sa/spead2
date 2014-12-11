@@ -1,3 +1,9 @@
+/**
+ * @file
+ *
+ * Magic numbers and data structures for SPEAD.
+ */
+
 #ifndef SPEAD_COMMON_DEFINES_H
 #define SPEAD_COMMON_DEFINES_H
 
@@ -6,9 +12,13 @@
 #include <utility>
 #include <string>
 
-// Descriptors encoded as 64-40 in all flavours
+/// If true, descriptors are encoded as 64-40 regardless of actual flavour
 #define BUG_COMPAT_DESCRIPTOR_WIDTHS 1
 
+/**
+ * SPEAD protocol sending and receiving. All SPEAD-64-* flavours are
+ * supported.
+ */
 namespace spead
 {
 
@@ -32,14 +42,22 @@ enum item_id : unsigned int
     DESCRIPTOR_DTYPE_ID =  0x15
 };
 
+/**
+ * An unpacked descriptor.
+ *
+ * If @ref numpy_header is non-empty, it overrides @ref format and @ref shape.
+ */
 struct descriptor
 {
     std::int64_t id = 0;
     std::string name;
     std::string description;
+    /// Each element is a specifier character (e.g. 'u' for unsigned) and a bit width
     std::vector<std::pair<char, std::int64_t> > format;
+    /// First element is true if the first is variable-length, otherwise false
     std::vector<std::pair<bool, std::int64_t> > shape;
-    std::string dtype;
+    /// Description in the format used in .npy files.
+    std::string numpy_header;
 };
 
 } // namespace spead

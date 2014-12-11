@@ -7,11 +7,14 @@ namespace spead
 namespace recv
 {
 
-void receiver::add_reader(std::unique_ptr<reader> &&r)
+void receiver::operator()()
 {
-    reader *ptr = r.get();
-    readers.push_back(std::move(r));
-    ptr->start(io_service);
+    if (worker.valid())
+        throw std::invalid_argument("Receiver is already running");
+    std::promise<void> promise;
+    worker = promise.get_future();
+    io_service.run();
+    promise.set_value(); // tells stop() that we have terminated
 }
 
 void receiver::start()

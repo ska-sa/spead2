@@ -1,3 +1,7 @@
+/**
+ * @file
+ */
+
 #ifndef SPEAD_RECV_READER_H
 #define SPEAD_RECV_READER_H
 
@@ -10,18 +14,39 @@ namespace recv
 
 class stream;
 
+/**
+ * Abstract base class for asynchronously reading data and passing it into
+ * a stream. Subclasses will implement @ref start, and usually @ref stop.
+ */
 class reader
 {
 private:
-    stream *s;
+    boost::asio::io_service &io_service;
+    stream &s;  ///< Wrapped stream
 
 public:
-    explicit reader(stream *s) : s(s) {}
+    reader(boost::asio::io_service &io_service, stream &s) : io_service(io_service), s(s) {}
     virtual ~reader() = default;
 
-    stream *get_stream() const { return s; }
+    /// Retrieve the wrapped stream
+    stream &get_stream() const { return s; }
 
-    virtual void start(boost::asio::io_service &io_service) = 0;
+    /// Retrieve the referenced io_service
+    boost::asio::io_service &get_io_service() const { return io_service; }
+
+    /**
+     * Enqueue asynchronous operations to the io_service.
+     * This function must not send anything to the underlying stream directly;
+     * rather, it must arrange for this to happen through the io_service
+     * (see @ref get_io_service).
+     */
+    virtual void start() = 0;
+
+    /**
+     * Cancel any pending asynchronous operations. Overrides must chain
+     * back to the base class, which takes care of stopping the wrapped
+     * stream.
+     */
     virtual void stop();
 };
 

@@ -1,3 +1,8 @@
+/**
+ * @file
+ */
+
+#include <cassert>
 #include <endian.h>
 #include "recv_packet.h"
 #include "recv_utils.h"
@@ -8,9 +13,14 @@ namespace spead
 namespace recv
 {
 
-// cnt must be strictly less than 64
+/**
+ * Retrieve bits [first, first+cnt) from a 64-bit field.
+ *
+ * @pre 0 &lt;= @a first &lt; @a first + @a cnt &lt;= 64 and @a cnt &lt; 64.
+ */
 static inline std::uint64_t extract_bits(std::uint64_t value, int first, int cnt)
 {
+    assert(0 <= first && first + cnt <= 64 && cnt > 0 && cnt < 64);
     return (value >> first) & ((std::uint64_t(1) << cnt) - 1);
 }
 
@@ -38,26 +48,30 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
     out.heap_length = -1;
     out.payload_offset = -1;
     out.payload_length = -1;
+    // Load for special items
     pointer_decoder decoder(heap_address_bits);
     for (int i = 1; i <= out.n_items; i++)
     {
         uint64_t pointer = be64toh(data64[i]);
-        switch (decoder.get_id(pointer))
+        if (decoder.is_immediate(pointer))
         {
-        case HEAP_CNT_ID:
-            out.heap_cnt = decoder.get_value(pointer);
-            break;
-        case HEAP_LENGTH_ID:
-            out.heap_length = decoder.get_value(pointer);
-            break;
-        case PAYLOAD_OFFSET_ID:
-            out.payload_offset = decoder.get_value(pointer);
-            break;
-        case PAYLOAD_LENGTH_ID:
-            out.payload_length = decoder.get_value(pointer);
-            break;
-        default:
-            break;
+            switch (decoder.get_id(pointer))
+            {
+            case HEAP_CNT_ID:
+                out.heap_cnt = decoder.get_immediate(pointer);
+                break;
+            case HEAP_LENGTH_ID:
+                out.heap_length = decoder.get_immediate(pointer);
+                break;
+            case PAYLOAD_OFFSET_ID:
+                out.payload_offset = decoder.get_immediate(pointer);
+                break;
+            case PAYLOAD_LENGTH_ID:
+                out.payload_length = decoder.get_immediate(pointer);
+                break;
+            default:
+                break;
+            }
         }
     }
     // Certain specials are required

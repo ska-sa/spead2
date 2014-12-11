@@ -1,3 +1,7 @@
+/**
+ * @file
+ */
+
 #include <cstdint>
 #include <cassert>
 #include "recv_reader.h"
@@ -10,18 +14,19 @@ namespace recv
 {
 
 mem_reader::mem_reader(
-    stream *s,
+    boost::asio::io_service &io_service, stream &s,
     const std::uint8_t *ptr, std::size_t length)
-    : reader(s), ptr(ptr), length(length)
+    : reader(io_service, s), ptr(ptr), length(length)
 {
     assert(ptr != nullptr);
 }
 
-void mem_reader::start(boost::asio::io_service &io_service)
+void mem_reader::start()
 {
-    io_service.post([this] {
-        mem_to_stream(*get_stream(), ptr, length);
-        get_stream()->stop();
+    get_io_service().post([this] {
+        mem_to_stream(get_stream(), ptr, length);
+        // There will be no more data, so we can stop the stream immediately.
+        get_stream().stop();
     });
 }
 

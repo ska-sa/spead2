@@ -33,7 +33,7 @@ void show_heap(const spead::recv::frozen_heap &fheap)
             << "    0x" << std::hex << descriptor.id << std::dec << ":\n"
             << "        NAME:  " << descriptor.name << "\n"
             << "        DESC:  " << descriptor.description << "\n";
-        if (descriptor.dtype.empty())
+        if (descriptor.numpy_header.empty())
         {
             std::cout << "        TYPE:  ";
             for (const auto &field : descriptor.format)
@@ -48,7 +48,7 @@ void show_heap(const spead::recv::frozen_heap &fheap)
             std::cout << "\n";
         }
         else
-            std::cout << "        DTYPE: " << descriptor.dtype << "\n";
+            std::cout << "        DTYPE: " << descriptor.numpy_header << "\n";
     }
     time_point now = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = now - start;
@@ -63,16 +63,14 @@ int main()
     spead::recv::receiver receiver;
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::loopback(), 8888);
     receiver.emplace_reader<spead::recv::udp_reader>(
-        &stream,
-        receiver.get_io_service(),
+        stream,
         endpoint, spead::recv::udp_reader::default_max_size, 8192 * 1024);
-    receiver.add_reader(std::move(reader));
     receiver.start();
     while (true)
     {
         spead::recv::frozen_heap fh = stream.pop();
         show_heap(fh);
     }
-    receiver.join();
+    receiver.stop();
     return 0;
 }

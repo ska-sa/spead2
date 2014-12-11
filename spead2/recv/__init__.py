@@ -30,12 +30,12 @@ class Receiver(_Receiver):
 
 class Descriptor(object):
     @classmethod
-    def _parse_numpy_descriptor(cls, descriptor_string):
+    def _parse_numpy_header(cls, header):
         try:
-            d = numpy.lib.utils.safe_eval(descriptor_string)
+            d = np.lib.utils.safe_eval(header)
         except SyntaxError, e:
             msg = "Cannot parse descriptor: %r\nException: %r"
-            raise ValueError(msg % (descriptor_string, e))
+            raise ValueError(msg % (header, e))
         if not isinstance(d, dict):
             msg = "Descriptor is not a dictionary: %r"
             raise ValueError(msg % d)
@@ -52,7 +52,7 @@ class Descriptor(object):
             msg = "fortran_order is not a valid bool: %r"
             raise ValueError(msg % (d['fortran_order'],))
         try:
-            dtype = numpy.dtype(d['descr'])
+            dtype = np.dtype(d['descr'])
         except TypeError, e:
             msg = "descr is not a valid dtype descriptor: %r"
             raise ValueError(msg % (d['descr'],))
@@ -62,9 +62,9 @@ class Descriptor(object):
         self.id = raw_descriptor.id
         self.name = raw_descriptor.name
         self.description = raw_descriptor.description
-        if raw_descriptor.dtype:
+        if raw_descriptor.numpy_header:
             self.shape, self.fortran_order, self.dtype = \
-                    self._parse_numpy_descriptor(raw_descriptor.dtype)
+                    self._parse_numpy_header(raw_descriptor.numpy_header)
             if spead2.BUG_COMPAT_SWAP_ENDIAN:
                 self.dtype = self.dtype.newbyteorder()
         else:

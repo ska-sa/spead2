@@ -199,12 +199,19 @@ public:
     }
 };
 
+/**
+ * Extends mem_reader to obtain data using the Python buffer protocol.
+ *
+ * The @ref buffer_view must be the first base class (rather than a member), so
+ * that it is initialised before the arguments are passed to the @ref
+ * mem_reader constructor.
+ */
 class buffer_reader : private buffer_view, public mem_reader
 {
 public:
-    buffer_reader(stream *s, py::object obj)
+    buffer_reader(boost::asio::io_service &io_service, stream &s, py::object obj)
         : buffer_view(obj),
-        mem_reader(s, reinterpret_cast<const std::uint8_t *>(view.buf), view.len)
+        mem_reader(io_service, s, reinterpret_cast<const std::uint8_t *>(view.buf), view.len)
     {
     }
 };
@@ -212,18 +219,16 @@ public:
 class receiver_wrapper : public receiver
 {
 public:
-    void add_buffer_reader(ring_stream_wrapper *s, py::object obj)
+    void add_buffer_reader(ring_stream_wrapper &s, py::object obj)
     {
         emplace_reader<buffer_reader>(s, obj);
     }
 
     // TODO: add option for hostname to bind to, and sizes
-    void add_udp_reader(ring_stream_wrapper *s, int port)
+    void add_udp_reader(ring_stream_wrapper &s, int port)
     {
         boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::loopback(), port);
-        emplace_reader<udp_reader>(
-            s, get_io_service(), endpoint,
-            spead::recv::udp_reader::default_max_size, 8192 * 1024);
+        emplace_reader<udp_reader>(s, endpoint);
     }
 };
 
@@ -244,7 +249,7 @@ BOOST_PYTHON_MODULE(_recv)
         .def_readwrite("id", &spead::descriptor::id)
         .def_readwrite("name", &spead::descriptor::name)
         .def_readwrite("description", &spead::descriptor::description)
-        .def_readwrite("dtype", &spead::descriptor::dtype);
+        .def_readwrite("numpy_header", &spead::descriptor::numpy_header);
     class_<frozen_heap, frozen_heap_wrapper, boost::noncopyable>("Heap", no_init)
         .add_property("cnt", &frozen_heap_wrapper::cnt)
         .def("get_items", &frozen_heap_wrapper::get_items)

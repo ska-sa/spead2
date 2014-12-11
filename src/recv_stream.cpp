@@ -73,23 +73,22 @@ void stream::stop()
     flush();
 }
 
-const void *mem_to_stream(stream &s, const void *ptr, std::size_t length)
+const void *mem_to_stream(stream &s, const std::uint8_t *ptr, std::size_t length)
 {
-    const std::uint8_t *p = reinterpret_cast<const std::uint8_t *>(ptr);
     while (length > 0)
     {
         packet_header packet;
-        std::size_t size = decode_packet(packet, p, length);
+        std::size_t size = decode_packet(packet, ptr, length);
         if (size > 0)
         {
             s.add_packet(packet);
-            p += size;
+            ptr += size;
             length -= size;
         }
         else
             length = 0; // causes loop to exit
     }
-    return p;
+    return ptr;
 }
 
 } // namespace recv

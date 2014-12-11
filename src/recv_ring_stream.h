@@ -1,3 +1,7 @@
+/**
+ * @file
+ */
+
 #ifndef SPEAD_RECV_RING_STREAM
 #define SPEAD_RECV_RING_STREAM
 
@@ -11,6 +15,19 @@ namespace spead
 namespace recv
 {
 
+/**
+ * Specialisation of @ref stream that pushes its results into a ringbuffer.
+ * The ringbuffer class may be replaced, but must provide the same interface
+ * as @ref ringbuffer. If the ring buffer fills up, new heaps are discarded,
+ * rather than blocking the receiver.
+ *
+ * On the consumer side, heaps are automatically frozen as they are
+ * extracted.
+ *
+ * This class is thread-safe.
+ *
+ * @todo Log dropped heaps?
+ */
 template<typename Ringbuffer = ringbuffer<heap> >
 class ring_stream : public stream
 {
@@ -19,8 +36,27 @@ private:
 
     virtual void heap_ready(heap &&) override;
 public:
+    /**
+     * Constructor. Note that there are two buffers, both of whose size is
+     * controlled by @a max_heaps:
+     * - the buffer for partial heaps which may still have incoming packets
+     * - the buffer for frozen heaps that the consumer has not get dequeued
+     * The latter needs to be at least as large as the former to prevent
+     * heaps being dropped when the stream is shut down.
+     *
+     * @param max_heaps The capacity of the ring buffer, and of the stream buffer
+     */
     explicit ring_stream(std::size_t max_heaps = 16);
+
+    /**
+     * Wait until a contiguous heap is available, freeze it, and
+     * return it; or until the stream is stopped.
+     *
+     * @throw ringbuffer_stopped if @ref stop has been called and
+     * there are no more contiguous heaps.
+     */
     frozen_heap pop();
+
     virtual void stop() override;
 };
 
@@ -40,7 +76,6 @@ void ring_stream<Ringbuffer>::heap_ready(heap &&h)
     catch (ringbuffer_full &e)
     {
         // Suppress the error, drop the heap
-        // TODO: log it?
     }
 }
 
@@ -58,6 +93,10 @@ frozen_heap ring_stream<Ringbuffer>::pop()
 template<typename Ringbuffer>
 void ring_stream<Ringbuffer>::stop()
 {
+    /* Note: the order here is important: stream::stop flushes the stream's
+     * internal buffer to the ringbuffer, and this needs to happen before
+     * the ringbuffer is stopped.
+     */
     stream::stop();
     ready_heaps.stop();
 }

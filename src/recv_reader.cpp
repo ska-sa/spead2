@@ -1,3 +1,7 @@
+/**
+ * @file
+ */
+
 #include "recv_reader.h"
 #include "recv_stream.h"
 
@@ -8,7 +12,7 @@ namespace recv
 
 void reader::stop()
 {
-    s->stop();
+    s.stop();
 }
 
 } // namespace recv

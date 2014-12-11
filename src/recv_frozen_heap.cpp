@@ -55,7 +55,7 @@ frozen_heap::frozen_heap(heap &&h)
         new_item.is_immediate = decoder.is_immediate(pointer);
         if (new_item.is_immediate)
         {
-            new_item.value.immediate = decoder.get_value(pointer);
+            new_item.value.immediate = decoder.get_immediate(pointer);
         }
         else
         {
@@ -138,7 +138,7 @@ descriptor frozen_heap::to_descriptor() const
                     break;
                 }
             case DESCRIPTOR_DTYPE_ID:
-                out.dtype = std::string(reinterpret_cast<const char *>(ptr), length);
+                out.numpy_header = std::string(reinterpret_cast<const char *>(ptr), length);
                 break;
             default:
                 break;
@@ -146,7 +146,7 @@ descriptor frozen_heap::to_descriptor() const
         }
     }
     // DTYPE overrides format and type
-    if (!out.dtype.empty())
+    if (!out.numpy_header.empty())
     {
         out.shape.clear();
         out.format.clear();
