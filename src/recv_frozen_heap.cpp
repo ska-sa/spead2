@@ -123,7 +123,7 @@ descriptor frozen_heap::to_descriptor() const
 #else
                     int field_size = 9 - heap_address_bits / 8;
 #endif
-                    for (std::size_t i = 0; i + field_size <= length; i++)
+                    for (std::size_t i = 0; i + field_size <= length; i += field_size)
                     {
                         char type = ptr[i];
                         std::int64_t bits = load_bytes_be(ptr + i + 1, field_size - 1);
