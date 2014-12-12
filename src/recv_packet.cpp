@@ -7,6 +7,7 @@
 #include "recv_packet.h"
 #include "recv_utils.h"
 #include "common_defines.h"
+#include "common_logging.h"
 
 namespace spead
 {
@@ -27,21 +28,36 @@ static inline std::uint64_t extract_bits(std::uint64_t value, int first, int cnt
 std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t max_size)
 {
     if (max_size < 8)
-        return 0; // too small
+    {
+        log_debug("packet rejected because too small (%d bytes)", max_size);
+        return 0;
+    }
     const uint64_t *data64 = reinterpret_cast<const uint64_t *>(data);
     uint64_t header = be64toh(data64[0]);
     if (extract_bits(header, 48, 16) != magic_version)
+    {
+        log_debug("packet rejected because magic or version did not match");
         return 0;
+    }
     int item_id_bits = extract_bits(header, 40, 8) * 8;
     int heap_address_bits = extract_bits(header, 32, 8) * 8;
     if (item_id_bits == 0 || heap_address_bits == 0)
-        return 0;             // not really legal
+    {
+        log_debug("packet rejected because flavour is invalid");
+        return 0;
+    }
     if (item_id_bits + heap_address_bits != 64)
-        return 0;             // not SPEAD-64-*, which is what we support
+    {
+        log_debug("packet rejected because flavour is not SPEAD-64-*");
+        return 0;
+    }
 
     out.n_items = extract_bits(header, 0, 16);
     if (std::size_t(out.n_items) * 8 + 8 > max_size)
-        return 0;             // not enough space for all the item pointers
+    {
+        log_debug("packet rejected because the items overflow the packet");
+        return 0;
+    }
 
     // Mark specials as not found
     out.heap_cnt = -1;
@@ -74,16 +90,23 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
             }
         }
     }
-    // Certain specials are required
     if (out.heap_cnt == -1 || out.payload_offset == -1 || out.payload_length == -1)
+    {
+        log_debug("packet rejected because it does not have required items");
         return 0;
-    // Packet length must fit
+    }
     std::size_t size = out.payload_length + out.n_items * 8 + 8;
     if (size > max_size)
+    {
+        log_debug("packet rejected because payload length overflows packet size (%d > %d)",
+                  size, max_size);
         return 0;
-    // If a heap length is given, the payload must fit
+    }
     if (out.heap_length >= 0 && out.payload_offset + out.payload_length > out.heap_length)
+    {
+        log_debug("packet rejected because payload would overflow given heap length");
         return 0;
+    }
 
     out.pointers = data64 + 1;
     out.payload = data + (out.n_items * 8 + 8);

@@ -8,6 +8,7 @@
 #include "recv_heap.h"
 #include "recv_utils.h"
 #include "common_defines.h"
+#include "common_logging.h"
 
 namespace spead
 {
@@ -38,20 +39,36 @@ void heap::payload_reserve(std::size_t size, bool exact)
 bool heap::add_packet(const packet_header &packet)
 {
     if (heap_cnt != packet.heap_cnt)
-        return false;     // wrong heap ID
+    {
+        log_debug("packet rejected because HEAP_CNT does not match");
+        return false;
+    }
     if (heap_length >= 0
         && packet.heap_length >= 0
         && packet.heap_length != heap_length)
-        return false;     // inconsistent heap lengths - could cause trouble later
+    {
+        // this could cause overflows later if not caught
+        log_debug("packet rejected because its HEAP_LEN is inconsistent with the heap");
+        return false;
+    }
     if (packet.heap_length >= 0 && packet.heap_length < min_length)
-        return false;     // inconsistent with already-seen payloads
+    {
+        log_debug("packet rejected because its HEAP_LEN is too small for the heap");
+        return false;
+    }
     if (heap_address_bits != -1 && packet.heap_address_bits != heap_address_bits)
-        return false;     // flavour mismatch
+    {
+        log_debug("packet rejected because its flavour is inconsistent with the heap");
+        return false;
+    }
 
     // Packet seems sane, check if we've already seen it, and if not, insert it
     bool new_offset = packet_offsets.insert(packet.payload_offset).second;
     if (!new_offset)
+    {
+        log_debug("packet rejected because it is a duplicate");
         return false;
+    }
 
     ///////////////////////////////////////////////
     // Packet is now accepted, and we modify state
@@ -69,7 +86,6 @@ bool heap::add_packet(const packet_header &packet)
     pointer_decoder decoder(heap_address_bits);
     for (int i = 0; i < packet.n_items; i++)
     {
-        // TODO: handle stream control here
         std::uint64_t pointer = be64toh(packet.pointers[i]);
         std::int64_t item_id = decoder.get_id(pointer);
         if (!decoder.is_immediate(pointer))
@@ -93,6 +109,8 @@ bool heap::add_packet(const packet_header &packet)
                     packet.payload_length);
         received_length += packet.payload_length;
     }
+    log_debug("packet with %d bytes of payload at offset %d added to heap %d",
+              packet.payload_length, packet.payload_offset, heap_cnt);
     return true;
 }
 
