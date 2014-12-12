@@ -40,11 +40,11 @@ void show_heap(const spead::recv::frozen_heap &fheap)
                 std::cout << field.first << field.second << ",";
             std::cout << "\n";
             std::cout << "        SHAPE: ";
-            for (const auto &field : descriptor.shape)
-                if (field.first)
+            for (const auto &size : descriptor.shape)
+                if (size == -1)
                     std::cout << "?,";
                 else
-                    std::cout << field.second << ",";
+                    std::cout << size << ",";
             std::cout << "\n";
         }
         else

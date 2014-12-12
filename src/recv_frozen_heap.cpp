@@ -145,8 +145,8 @@ descriptor frozen_heap::to_descriptor() const
 #else
                         bool variable = (ptr[i] & 1);
 #endif
-                        std::int64_t size = load_bytes_be(ptr + i + 1, field_size - 1);
-                        out.shape.emplace_back(variable, size);
+                        std::int64_t size = variable ? -1 : load_bytes_be(ptr + i + 1, field_size - 1);
+                        out.shape.push_back(size);
                     }
                     break;
                 }

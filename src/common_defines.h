@@ -68,8 +68,8 @@ struct descriptor
     std::string description;
     /// Each element is a specifier character (e.g. 'u' for unsigned) and a bit width
     std::vector<std::pair<char, std::int64_t> > format;
-    /// First element is true if the first is variable-length, otherwise false
-    std::vector<std::pair<bool, std::int64_t> > shape;
+    /// -1 is used to indicate a variable-length size
+    std::vector<std::int64_t> shape;
     /// Description in the format used in .npy files.
     std::string numpy_header;
 };

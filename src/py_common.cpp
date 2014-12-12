@@ -40,6 +40,26 @@ static void translate_ringbuffer_stopped(const ringbuffer_stopped &e)
     PyErr_SetString(PyExc_StopIteration, e.what());
 }
 
+static py::object descriptor_get_shape(const descriptor &d)
+{
+    py::list out;
+    for (const auto &size : d.shape)
+    {
+        out.append(size);
+    }
+    return out;
+}
+
+static py::object descriptor_get_format(const descriptor &d)
+{
+    py::list out;
+    for (const auto &item : d.format)
+    {
+        out.append(py::make_tuple(item.first, item.second));
+    }
+    return out;
+}
+
 static void register_module()
 {
     using namespace boost::python;
@@ -47,11 +67,13 @@ static void register_module()
 
     register_exception_translator<ringbuffer_stopped>(&translate_ringbuffer_stopped);
 
-    // TODO: missing shape and format
+    // TODO: make shape and format read-write
     class_<descriptor>("RawDescriptor")
         .def_readwrite("id", &descriptor::id)
         .def_readwrite("name", &descriptor::name)
         .def_readwrite("description", &descriptor::description)
+        .add_property("shape", &descriptor_get_shape)
+        .add_property("format", &descriptor_get_format)
         .def_readwrite("numpy_header", &descriptor::numpy_header);
 
     object logging_module = import("logging");

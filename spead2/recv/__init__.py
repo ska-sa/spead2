@@ -58,6 +58,20 @@ class Descriptor(object):
             raise ValueError(msg % (d['descr'],))
         return d['shape'], d['fortran_order'], dtype
 
+    @classmethod
+    def _parse_format(cls, fmt):
+        """Attempt to convert a SPEAD format specification to a numpy dtype.
+        If there is an unsupported fields, returns None.
+        """
+        fields = []
+        for code, length in fmt:
+            if ( (code in ('u', 'i') and length in (8, 16, 32, 64)) or
+                (code == 'f' and length in (32, 64)) ):
+                fields.append('>' + code + str(length // 8))
+            else:
+                return None
+        return np.dtype(','.join(fields))
+
     def __init__(self, raw_descriptor):
         self.id = raw_descriptor.id
         self.name = raw_descriptor.name
@@ -68,23 +82,45 @@ class Descriptor(object):
             if spead2.BUG_COMPAT_SWAP_ENDIAN:
                 self.dtype = self.dtype.newbyteorder()
         else:
-            self.shape = []
+            self.shape = raw_descriptor.shape
             self.fortran_order = False
-            self.dtype = None
+            self.dtype = self._parse_format(raw_descriptor.format)
 
 class Item(Descriptor):
     def __init__(self, *args, **kw):
         super(Item, self).__init__(*args, **kw)
         self.value = None
 
+    def dynamic_shape(self, max_elements):
+        known = 1
+        unknown_pos = -1
+        for i, x in enumerate(self.shape):
+            if x >= 0:
+                known *= x
+            elif unknown_pos >= 0:
+                raise TypeError('Shape has multiple unknown dimensions')
+            else:
+                unknown_pos = i
+        if unknown_pos == -1:
+            return self.shape
+        else:
+            shape = list(self.shape)
+            if known == 0:
+                shape[unknown_pos] = 0
+            else:
+                shape[unknown_pos] = max_elements // known
+            return shape
+
     def set_from_raw(self, raw_item):
-        elements = int(np.product(self.shape))
         raw_value = raw_item.value
         if self.dtype is None or not isinstance(raw_value, memoryview):
             self.value = raw_value
         else:
-            if raw_value.shape[0] < elements * self.dtype.itemsize:
-                raise TypeError('Item has too few elements (%d < %d)' % (raw_value.shape[0], elements))
+            max_elements = raw_value.shape[0] // self.dtype.itemsize
+            shape = self.dynamic_shape(max_elements)
+            elements = int(np.product(shape))
+            if elements > max_elements:
+                raise TypeError('Item has too few elements for shape (%d < %d)' % (max_elements, elements))
             # For some reason, np.frombuffer doesn't work on memoryview, but np.array does
             array1d = np.array(raw_item.value, copy=False).view(dtype=self.dtype)[:elements]
             if self.dtype.byteorder in ('<', '>'):
