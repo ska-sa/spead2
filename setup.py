@@ -5,7 +5,7 @@ import numpy
 
 extensions = [
     Extension('_spead2',
-        sources=glob.glob('src/*.cpp'),
+        sources=glob.glob('src/common_*.cpp') + glob.glob('src/recv_*.cpp') + glob.glob('src/py_*.cpp'),
         language='c++',
         include_dirs=['src', numpy.get_include()],
         extra_compile_args=['-std=c++11'],
