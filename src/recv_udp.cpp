@@ -8,6 +8,7 @@
 #include <iostream>
 #include "recv_reader.h"
 #include "recv_udp.h"
+#include "common_logging.h"
 
 namespace spead
 {
@@ -32,6 +33,13 @@ udp_reader::udp_reader(
     {
         boost::asio::socket_base::receive_buffer_size option(buffer_size);
         socket.set_option(option);
+        boost::asio::socket_base::receive_buffer_size actual;
+        socket.get_option(actual);
+        if (std::size_t(actual.value()) < buffer_size)
+        {
+            log_warning("requested buffer size %d but only received %d: refer to documentation for details on increasing buffer size",
+                        buffer_size, actual.value());
+        }
     }
     socket.bind(endpoint);
 }
