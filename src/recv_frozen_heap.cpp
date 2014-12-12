@@ -12,6 +12,7 @@
 #include "recv_frozen_heap.h"
 #include "recv_stream.h"
 #include "recv_utils.h"
+#include "common_logging.h"
 
 namespace spead
 {
@@ -24,7 +25,6 @@ namespace recv
  *
  * @pre @a 0 &lt;= len &lt;= 8
  */
-// Loads up to 8 bytes as a big-endian number, converts to host endian
 static inline std::uint64_t load_bytes_be(const std::uint8_t *ptr, int len)
 {
     assert(0 <= len && len <= 8);
@@ -36,6 +36,8 @@ static inline std::uint64_t load_bytes_be(const std::uint8_t *ptr, int len)
 frozen_heap::frozen_heap(heap &&h)
 {
     assert(h.is_contiguous());
+    log_debug("freezing heap with ID %d, %d item pointers, %d bytes payload",
+              h.cnt(), h.pointers.size(), h.min_length);
     /* The length of addressed items is measured from the item to the
      * address of the next item, or the end of the heap. We may receive
      * packets (and hence pointers) out-of-order, so we have to sort.
@@ -66,6 +68,7 @@ frozen_heap::frozen_heap(heap &&h)
         if (new_item.is_immediate)
         {
             new_item.value.immediate = decoder.get_immediate(pointer);
+            log_debug("Found new immediate item ID %d, value %d", new_item.id, new_item.value.immediate);
         }
         else
         {
@@ -78,6 +81,8 @@ frozen_heap::frozen_heap(heap &&h)
                 end = h.min_length;
             new_item.value.address.ptr = h.payload.get() + start;
             new_item.value.address.length = end - start;
+            log_debug("Found new addressed item ID %d, offset %d, length %d",
+                    start, end - start);
         }
         items.push_back(new_item);
     }
@@ -101,6 +106,7 @@ descriptor frozen_heap::to_descriptor() const
                 out.id = item.value.immediate;
                 break;
             default:
+                log_info("Unrecognised descriptor item ID %x", item.id);
                 break;
             }
         }
@@ -154,9 +160,11 @@ descriptor frozen_heap::to_descriptor() const
                 out.numpy_header = std::string(reinterpret_cast<const char *>(ptr), length);
                 break;
             default:
+                log_info("Unrecognised descriptor item ID %x", item.id);
                 break;
             }
         }
+
     }
     // DTYPE overrides format and type
     if (!out.numpy_header.empty())
@@ -186,6 +194,8 @@ void descriptor_stream::heap_ready(heap &&h)
         descriptor d = frozen.to_descriptor();
         if (d.id != 0) // check that we got an ID field
             descriptors.push_back(std::move(d));
+        else
+            log_info("incomplete descriptor (no ID)");
     }
 }
 

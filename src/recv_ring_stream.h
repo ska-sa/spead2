@@ -6,6 +6,7 @@
 #define SPEAD_RECV_RING_STREAM
 
 #include "common_ringbuffer.h"
+#include "common_logging.h"
 #include "recv_heap.h"
 #include "recv_frozen_heap.h"
 #include "recv_stream.h"
@@ -25,8 +26,6 @@ namespace recv
  * extracted.
  *
  * This class is thread-safe.
- *
- * @todo Log dropped heaps?
  */
 template<typename Ringbuffer = ringbuffer<heap> >
 class ring_stream : public stream
@@ -76,6 +75,8 @@ void ring_stream<Ringbuffer>::heap_ready(heap &&h)
     catch (ringbuffer_full &e)
     {
         // Suppress the error, drop the heap
+        log_info("dropped heap %d due to insufficient ringbuffer space",
+                 h.cnt());
     }
 }
 
@@ -87,6 +88,8 @@ frozen_heap ring_stream<Ringbuffer>::pop()
         heap h = ready_heaps.pop();
         if (h.is_contiguous())
             return frozen_heap(std::move(h));
+        else
+            log_info("received incomplete heap %d", h.cnt());
     }
 }
 

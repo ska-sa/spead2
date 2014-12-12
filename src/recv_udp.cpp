@@ -59,9 +59,14 @@ void udp_reader::packet_handler(
             {
                 get_stream().add_packet(packet);
                 if (get_stream().is_stopped())
+                {
+                    log_debug("UDP reader: end of stream detected");
                     socket.close();
+                }
             }
         }
+        else if (bytes_transferred > max_size)
+            log_debug("dropped packet due to truncation");
     }
 
     if (socket.is_open())
@@ -88,6 +93,8 @@ void udp_reader::start()
 
 void udp_reader::stop()
 {
+    // Don't put any logging here: it could be running in a shutdown
+    // path where it is no longer safe to do so
     reader::stop();
     // asio guarantees that closing a socket will cancel any pending
     // operations on it
