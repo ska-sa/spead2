@@ -205,14 +205,14 @@ void register_module()
 
     class_<frozen_heap_wrapper, boost::noncopyable>("Heap", no_init)
         .add_property("cnt", &frozen_heap_wrapper::cnt)
+        .add_property("bug_compat", &frozen_heap_wrapper::get_bug_compat)
         .def("get_items", &frozen_heap_wrapper::get_items)
         .def("get_descriptors", &frozen_heap_wrapper::get_descriptors);
     class_<item_wrapper>("RawItem", no_init)
         .def_readwrite("id", &item_wrapper::id)
         .add_property("value", &item_wrapper::get_value);
-    // TODO: use defaults magic instead of two constructors
     class_<ring_stream_wrapper, boost::noncopyable>("Stream")
-        .def(init<std::size_t>())
+        .def(init<optional<bug_compat_mask, std::size_t> >())
         .def("__iter__", objects::identity_function())
         .def(
 #if PY_VERSION_HEX >= 0x03000000

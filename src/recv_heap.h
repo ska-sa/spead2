@@ -10,6 +10,7 @@
 #include <vector>
 #include <memory>
 #include <unordered_set>
+#include "common_defines.h"
 #include "recv_packet.h"
 
 namespace spead
@@ -57,6 +58,8 @@ private:
     std::int64_t min_length = 0;      // length implied by packet payloads
     /// Heap address bits (from the SPEAD flavour)
     int heap_address_bits = -1;
+    /// Protocol bugs to accept
+    bug_compat_mask bug_compat;
     /**
      * Heap payload. When the length is unknown, this is grown by successive
      * doubling. While @c std::vector would take care of that for us, it also
@@ -93,8 +96,9 @@ public:
      * Constructor.
      *
      * @param heap_cnt     Heap ID
+     * @param bug_compat   Bugs to expect in the protocol
      */
-    explicit heap(std::int64_t heap_cnt);
+    explicit heap(std::int64_t heap_cnt, bug_compat_mask bug_compat);
 
     /**
      * Attempt to add a packet to the heap. The packet must have been
@@ -116,6 +120,8 @@ public:
     bool is_end_of_stream() const;
     /// Retrieve the heap ID
     std::int64_t cnt() const { return heap_cnt; }
+    /// Get protocol bug compatibility flags
+    bug_compat_mask get_bug_compat() const { return bug_compat; }
 };
 
 } // namespace recv

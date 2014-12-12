@@ -49,6 +49,7 @@ class frozen_heap
 private:
     std::int64_t heap_cnt;    ///< Heap ID
     int heap_address_bits;    ///< Flavour
+    bug_compat_mask bug_compat; ///< Protocol bugs to accept
     /**
      * Extracted items. The pointers in the items point to @ref payload.
      */
@@ -61,9 +62,11 @@ public:
      * Freeze a heap, which must satisfy heap::is_contiguous. The original
      * heap is destroyed.
      */
-    frozen_heap(heap &&h);
+    explicit frozen_heap(heap &&h);
     /// Get heap ID
     std::int64_t cnt() const { return heap_cnt; }
+    /// Get protocol bug compatibility flags
+    bug_compat_mask get_bug_compat() const { return bug_compat; }
     /**
      * Get the items from the heap. This includes descriptors, but
      * excludes any items with ID <= 4.

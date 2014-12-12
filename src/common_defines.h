@@ -16,11 +16,6 @@
 #define SPEAD_MAX_LOG_LEVEL (spead::log_level::debug)
 #endif
 
-/// If true, descriptors are encoded as 64-40 regardless of actual flavour
-#define BUG_COMPAT_DESCRIPTOR_WIDTHS 1
-/// If true, bit 1 (value 2) of the first byte in a shape element indicates variable-size
-#define BUG_COMPAT_SHAPE_BIT_1 1
-
 /**
  * SPEAD protocol sending and receiving. All SPEAD-64-* flavours are
  * supported.
@@ -30,6 +25,15 @@ namespace spead
 
 static constexpr std::uint64_t immediate_mask = (std::uint64_t(1) << 63);
 static constexpr std::uint16_t magic_version = 0x5304;  // 0x53 is the magic, 4 is the version
+
+typedef std::uint32_t bug_compat_mask;
+
+/// Descriptors are encoded as 64-40 regardless of actual flavour
+static constexpr bug_compat_mask BUG_COMPAT_DESCRIPTOR_WIDTHS = (1 << 0);
+/// bit 1 (value 2) of the first byte in a shape element indicates variable-size, instead of bit 0
+static constexpr bug_compat_mask BUG_COMPAT_SHAPE_BIT_1       = (1 << 1);
+/// numpy arrays are encoded in the opposite endian to that indicated by the header
+static constexpr bug_compat_mask BUG_COMPAT_SWAP_ENDIAN       = (1 << 2);
 
 enum item_id : unsigned int
 {

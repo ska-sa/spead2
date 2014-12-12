@@ -43,8 +43,9 @@ private:
     std::deque<heap> heaps;
     /// @ref stop has been called, either externally or by stream control
     bool stopped = false;
+    /// Protocol bugs to be compatible with
+    bug_compat_mask bug_compat;
 
-private:
     /**
      * Callback called when a heap is being ejected from the live list.
      * The heap might or might not be complete.
@@ -55,9 +56,10 @@ public:
     /**
      * Constructor.
      *
+     * @param bug_compat   Protocol bugs to have compatibility with
      * @param max_heaps    Maximum number of live (in-flight) heaps held in the stream
      */
-    explicit stream(std::size_t max_heaps = 16);
+    explicit stream(bug_compat_mask bug_compat = 0, std::size_t max_heaps = 16);
     virtual ~stream() = default;
 
     /**
@@ -90,6 +92,8 @@ public:
     virtual void stop();
 
     bool is_stopped() const { return stopped; }
+
+    bug_compat_mask get_bug_compat() const { return bug_compat; }
 
     /// Flush the collection of live heaps, passing them to @ref heap_ready.
     void flush();

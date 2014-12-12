@@ -15,7 +15,8 @@ namespace spead
 namespace recv
 {
 
-heap::heap(std::int64_t heap_cnt) : heap_cnt(heap_cnt)
+heap::heap(std::int64_t heap_cnt, bug_compat_mask bug_compat)
+    : heap_cnt(heap_cnt), bug_compat(bug_compat)
 {
     assert(heap_cnt >= 0);
 }

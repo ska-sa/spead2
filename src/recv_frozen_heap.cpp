@@ -81,16 +81,17 @@ frozen_heap::frozen_heap(heap &&h)
                 end = h.min_length;
             new_item.value.address.ptr = h.payload.get() + start;
             new_item.value.address.length = end - start;
-            log_debug("Found new addressed item ID %d, offset %d, length %d",
-                    start, end - start);
+            log_debug("found new addressed item ID %d, offset %d, length %d",
+                    new_item.id, start, end - start);
         }
         items.push_back(new_item);
     }
     heap_cnt = h.heap_cnt;
     heap_address_bits = h.heap_address_bits;
+    bug_compat = h.bug_compat;
     payload = std::move(h.payload);
     // Reset h so that it still satisfies its invariants
-    h = heap(0);
+    h = heap(0, h.bug_compat);
 }
 
 descriptor frozen_heap::to_descriptor() const
@@ -124,11 +125,7 @@ descriptor frozen_heap::to_descriptor() const
                 break;
             case DESCRIPTOR_FORMAT_ID:
                 {
-#if BUG_COMPAT_DESCRIPTOR_WIDTHS
-                    int field_size = 4;
-#else
-                    int field_size = 9 - heap_address_bits / 8;
-#endif
+                    int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 4 : 9 - heap_address_bits / 8;
                     for (std::size_t i = 0; i + field_size <= length; i += field_size)
                     {
                         char type = ptr[i];
@@ -139,18 +136,11 @@ descriptor frozen_heap::to_descriptor() const
                 }
             case DESCRIPTOR_SHAPE_ID:
                 {
-#if BUG_COMPAT_DESCRIPTOR_WIDTHS
-                    int field_size = 8;
-#else
-                    int field_size = 1 + heap_address_bits / 8;
-#endif
+                    int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 8 : 1 + heap_address_bits / 8;
                     for (std::size_t i = 0; i + field_size <= length; i += field_size)
                     {
-#if BUG_COMPAT_SHAPE_BIT_1
-                        bool variable = (ptr[i] & 2);
-#else
-                        bool variable = (ptr[i] & 1);
-#endif
+                        int mask = (bug_compat & BUG_COMPAT_SHAPE_BIT_1) ? 2 : 1;
+                        bool variable = (ptr[i] & mask);
                         std::int64_t size = variable ? -1 : load_bytes_be(ptr + i + 1, field_size - 1);
                         out.shape.push_back(size);
                     }
@@ -183,6 +173,7 @@ class descriptor_stream : public stream
 private:
     virtual void heap_ready(heap &&h) override;
 public:
+    using stream::stream;
     std::vector<descriptor> descriptors;
 };
 
@@ -203,7 +194,7 @@ void descriptor_stream::heap_ready(heap &&h)
 
 std::vector<descriptor> frozen_heap::get_descriptors() const
 {
-    descriptor_stream s;
+    descriptor_stream s(bug_compat, 1);
     for (const item &item : items)
     {
         if (item.id == DESCRIPTOR_ID && !item.is_immediate)

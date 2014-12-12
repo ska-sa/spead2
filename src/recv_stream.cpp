@@ -13,7 +13,8 @@ namespace spead
 namespace recv
 {
 
-stream::stream(std::size_t max_heaps) : max_heaps(max_heaps)
+stream::stream(bug_compat_mask bug_compat, std::size_t max_heaps)
+    : max_heaps(max_heaps), bug_compat(bug_compat)
 {
 }
 
@@ -55,7 +56,7 @@ bool stream::add_packet(const packet_header &packet)
     if (!found)
     {
         // Doesn't match any previously seen heap, so create a new one
-        heap h(packet.heap_cnt);
+        heap h(packet.heap_cnt, bug_compat);
         if (h.add_packet(packet))
         {
             result = true;

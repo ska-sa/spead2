@@ -72,14 +72,14 @@ class Descriptor(object):
                 return None
         return np.dtype(','.join(fields))
 
-    def __init__(self, raw_descriptor):
+    def __init__(self, raw_descriptor, bug_compat=0):
         self.id = raw_descriptor.id
         self.name = raw_descriptor.name
         self.description = raw_descriptor.description
         if raw_descriptor.numpy_header:
             self.shape, self.fortran_order, self.dtype = \
                     self._parse_numpy_header(raw_descriptor.numpy_header)
-            if spead2.BUG_COMPAT_SWAP_ENDIAN:
+            if bug_compat & spead2.BUG_COMPAT_SWAP_ENDIAN:
                 self.dtype = self.dtype.newbyteorder()
         else:
             self.shape = raw_descriptor.shape
@@ -137,7 +137,7 @@ class ItemGroup(object):
 
     def update(self, heap):
         for descriptor in heap.get_descriptors():
-            self.items[descriptor.id] = Item(descriptor)
+            self.items[descriptor.id] = Item(descriptor, bug_compat=heap.bug_compat)
         for raw_item in heap.get_items():
             try:
                 item = self.items[raw_item.id]

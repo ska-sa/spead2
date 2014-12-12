@@ -60,12 +60,24 @@ static py::object descriptor_get_format(const descriptor &d)
     return out;
 }
 
+static py::object int_to_object(long ival)
+{
+    PyObject *obj = PyInt_FromLong(ival);
+    if (!obj)
+        py::throw_error_already_set();
+    return py::object(py::handle<>(obj));
+}
+
 static void register_module()
 {
     using namespace boost::python;
     using namespace spead;
 
     register_exception_translator<ringbuffer_stopped>(&translate_ringbuffer_stopped);
+
+    py::setattr(scope(), "BUG_COMPAT_DESCRIPTOR_WIDTHS", int_to_object(BUG_COMPAT_DESCRIPTOR_WIDTHS));
+    py::setattr(scope(), "BUG_COMPAT_SHAPE_BIT_1", int_to_object(BUG_COMPAT_SHAPE_BIT_1));
+    py::setattr(scope(), "BUG_COMPAT_SWAP_ENDIAN", int_to_object(BUG_COMPAT_SWAP_ENDIAN));
 
     // TODO: make shape and format read-write
     class_<descriptor>("RawDescriptor")
