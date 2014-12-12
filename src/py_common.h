@@ -54,6 +54,25 @@ public:
 };
 
 /**
+ * RAII class to acquire the GIL in a non-Python thread.
+ */
+class acquire_gil
+{
+private:
+    PyGILState_STATE gstate;
+public:
+    acquire_gil()
+    {
+        gstate = PyGILState_Ensure();
+    }
+
+    ~acquire_gil()
+    {
+        PyGILState_Release(gstate);
+    }
+};
+
+/**
  * Wraps access to a Python buffer-protocol object. On construction, it
  * fetches the buffer, and on destruction it releases it. At present, only
  * @c PyBUF_SIMPLE is supported, but it could easily be extended.

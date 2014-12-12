@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 import spead2.recv
 import sys
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 items = []
 

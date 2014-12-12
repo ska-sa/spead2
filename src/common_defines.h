@@ -12,6 +12,10 @@
 #include <utility>
 #include <string>
 
+#ifndef SPEAD_MAX_LOG_LEVEL
+#define SPEAD_MAX_LOG_LEVEL (spead::log_level::debug)
+#endif
+
 /// If true, descriptors are encoded as 64-40 regardless of actual flavour
 #define BUG_COMPAT_DESCRIPTOR_WIDTHS 1
 /// If true, bit 1 (value 2) of the first byte in a shape element indicates variable-size
