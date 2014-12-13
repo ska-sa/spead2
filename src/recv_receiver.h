@@ -54,6 +54,8 @@ private:
     std::future<void> worker;
 
 public:
+    ~receiver();
+
     /// Retrieve the embedded io_service
     boost::asio::io_service &get_io_service() { return io_service; }
 

@@ -11,6 +11,12 @@ namespace spead
 namespace recv
 {
 
+receiver::~receiver()
+{
+    if (worker.valid())
+        stop();
+}
+
 void receiver::operator()()
 {
     if (worker.valid())
