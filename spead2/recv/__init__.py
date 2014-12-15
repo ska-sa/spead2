@@ -24,23 +24,20 @@ Python. The following are accepted.
    will be computed from the size of the item, or 0 if any other element of
    the shape is zero.
 
+Two cases are treated specially:
+
+ - A zero-dimensional array is returned as a scalar, rather than a
+   zero-dimensional array object
+ - A one-dimensional array of characters (numpy dtype 'S1') is converted to a
+   Python string, using ASCII encoding
+
 Planned changes
 ^^^^^^^^^^^^^^^
 
-The following will be implemented, but have not yet been (TODO):
+`u` and `i` formats with up to 64 bits and a bit-width a multiple of 8 will be
+implemented. This will allow storage in immediate values.
 
-Two cases will be treated specially:
-
- - A zero-dimensional array is returned as a scalar, rather than a
-   zero-dimensional array object (TODO: implement this)
- - A one-dimensional array of characters (numpy dtype 'S1') is converted to a
-   Python string
-
-Additionally, `u` and `i` formats with up to 64 bits and a bit-width a
-multiple of 8 will be implemented. This will allow storage of immediate
-values.
-
-TODO: immediate values will be supported, as fixed-sizes fields with
+Immediate values will be supported, as fixed-sizes fields with
 heap_address_bits/8 bytes, in the order they appeared in the original packet.
 """
 
@@ -154,7 +151,14 @@ class Item(Descriptor):
                 dtype = self.dtype.newbyteorder()
                 array1d = array1d.byteswap(True).view(dtype=dtype)
             order = 'F' if self.fortran_order else 'C'
-            self.value = np.reshape(array1d, self.shape, order)
+            value = np.reshape(array1d, self.shape, order)
+            if len(self.shape) == 0:
+                # Convert zero-dimensional array to scalar
+                value = value[()]
+            elif len(self.shape) == 1 and self.dtype == np.dtype('S1'):
+                # Convert array of characters to a string
+                value = b''.join(value).decode('ascii')
+            self.value = value
 
 class ItemGroup(object):
     def __init__(self):
