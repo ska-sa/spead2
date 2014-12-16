@@ -107,7 +107,7 @@ public:
  *
  * The stream is @em not stopped.
  */
-const void *mem_to_stream(stream &s, const std::uint8_t *ptr, std::size_t length);
+const std::uint8_t *mem_to_stream(stream &s, const std::uint8_t *ptr, std::size_t length);
 
 } // namespace recv
 } // namespace spead

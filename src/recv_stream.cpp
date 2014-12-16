@@ -97,7 +97,7 @@ void stream::stop()
     flush();
 }
 
-const void *mem_to_stream(stream &s, const std::uint8_t *ptr, std::size_t length)
+const std::uint8_t *mem_to_stream(stream &s, const std::uint8_t *ptr, std::size_t length)
 {
     while (length > 0 && !s.is_stopped())
     {
