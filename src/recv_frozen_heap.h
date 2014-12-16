@@ -27,18 +27,12 @@ struct item
 {
     /// Item ID
     std::int64_t id;
-    /// Item mode (immediate or addressed)
+    /// Start of memory containing value
+    std::uint8_t *ptr;
+    /// Start of memory containing length
+    std::size_t length;
+    /// Whether the item is immediate (needed to validate certain special IDs)
     bool is_immediate;
-    union
-    {
-        std::int64_t immediate; ///< Immediate value (if @ref is_immediate)
-        /// Pointer and length (if @ref is_immediate is false)
-        struct
-        {
-            std::uint8_t *ptr;
-            std::size_t length;
-        } address;
-    } value;
 };
 
 /**
@@ -47,15 +41,18 @@ struct item
 class frozen_heap
 {
 private:
-    std::int64_t heap_cnt;    ///< Heap ID
-    int heap_address_bits;    ///< Flavour
+    std::int64_t heap_cnt;      ///< Heap ID
+    int heap_address_bits;      ///< Flavour
     bug_compat_mask bug_compat; ///< Protocol bugs to accept
     /**
-     * Extracted items. The pointers in the items point to @ref payload.
+     * Extracted items. The pointers in the items point into either @ref
+     * payload or @ref immediate_payload.
      */
     std::vector<item> items;
     /// Heap payload
     std::unique_ptr<std::uint8_t[]> payload;
+    /// Storage for immediate values
+    std::unique_ptr<std::uint8_t[]> immediate_payload;
 
 public:
     /**

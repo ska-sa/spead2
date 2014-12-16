@@ -36,49 +36,41 @@ public:
         : item(it), owning_heap(py::handle<>(py::borrowed(owning_heap))) {}
 
     /**
-     * Obtain the value, as a Python object. If this is an addressed item,
-     * it returns a memoryview that references the memory in the owning heap.
-     * Since boost::python doesn't support creating classes with the buffer
-     * protocol, we need a proxy object to wrap in the memoryview, and it
-     * needs a way to hold a reference on the owning heap. PyBuffer_* doesn't
-     * satisfy the second requirement, but numpy arrays do. It's rather
-     * overkill, but the package uses numpy anyway.
+     * Obtain the raw value, as a Python object memoryview.  Since
+     * boost::python doesn't support creating classes with the buffer protocol,
+     * we need a proxy object to wrap in the memoryview, and it needs a way to
+     * hold a reference on the owning heap. PyBuffer_* doesn't satisfy the
+     * second requirement, but numpy arrays do. It's rather overkill, but the
+     * package uses numpy anyway.
      */
     py::object get_value() const
     {
-        if (is_immediate)
+        npy_intp dims[1];
+        // Construct the numpy array to wrap our data
+        dims[0] = length;
+        PyObject *array = PyArray_SimpleNewFromData(
+            1, dims, NPY_UINT8,
+            reinterpret_cast<void *>(ptr));
+        if (array == NULL)
+            py::throw_error_already_set();
+        // Make the numpy array hold a ref to the owning heap
+        if (PyArray_SetBaseObject(
+                (PyArrayObject *) array,
+                py::incref(owning_heap.ptr())) == -1)
         {
-            return py::long_(value.immediate);
+            py::decref(owning_heap.ptr());
+            py::throw_error_already_set();
         }
-        else
-        {
-            npy_intp dims[1];
-            // Construct the numpy array to wrap our data
-            dims[0] = value.address.length;
-            PyObject *array = PyArray_SimpleNewFromData(
-                1, dims, NPY_UINT8,
-                reinterpret_cast<void *>(value.address.ptr));
-            if (array == NULL)
-                py::throw_error_already_set();
-            // Make the numpy array hold a ref to the owning heap
-            if (PyArray_SetBaseObject(
-                    (PyArrayObject *) array,
-                    py::incref(owning_heap.ptr())) == -1)
-            {
-                py::decref(owning_heap.ptr());
-                py::throw_error_already_set();
-            }
 
-            // Create a memoryview wrapper around the numpy array
-            PyObject *view = PyMemoryView_FromObject(array);
-            if (view == NULL)
-            {
-                py::decref(array); // discard the array
-                py::throw_error_already_set();
-            }
-            py::object obj{py::handle<>(view)};
-            return obj;
+        // Create a memoryview wrapper around the numpy array
+        PyObject *view = PyMemoryView_FromObject(array);
+        if (view == NULL)
+        {
+            py::decref(array); // discard the array
+            py::throw_error_already_set();
         }
+        py::object obj{py::handle<>(view)};
+        return obj;
     }
 };
 

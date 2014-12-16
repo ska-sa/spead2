@@ -20,10 +20,7 @@ void show_heap(const spead::recv::frozen_heap &fheap)
     for (const auto &item : items)
     {
         std::cout << "    ID: 0x" << std::hex << item.id << std::dec << ' ';
-        if (item.is_immediate)
-            std::cout << item.value.immediate;
-        else
-            std::cout << "[" << item.value.address.length << " bytes]";
+        std::cout << "[" << item.length << " bytes]";
         std::cout << '\n';
     }
     std::vector<spead::descriptor> descriptors = fheap.get_descriptors();

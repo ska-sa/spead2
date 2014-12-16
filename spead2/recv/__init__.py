@@ -27,18 +27,20 @@ Python. The following are accepted.
 Two cases are treated specially:
 
  - A zero-dimensional array is returned as a scalar, rather than a
-   zero-dimensional array object
+   zero-dimensional array object.
  - A one-dimensional array of characters (numpy dtype 'S1') is converted to a
-   Python string, using ASCII encoding
+   Python string, using ASCII encoding.
+
+Immediate values are treated as items with heap_address_bits/8
+bytes, in the order they appeared in the original packet.
 
 Planned changes
 ^^^^^^^^^^^^^^^
 
-`u` and `i` formats with up to 64 bits and a bit-width a multiple of 8 will be
-implemented. This will allow storage in immediate values.
+The following will be implemented, but have not yet been (TODO):
 
-Immediate values will be supported, as fixed-sizes fields with
-heap_address_bits/8 bytes, in the order they appeared in the original packet.
+The `u` and `i` formats with up to 64 bits and a bit-width a multiple of 8 will
+be implemented. This will allow storage of immediate values.
 """
 
 import numpy.lib.utils

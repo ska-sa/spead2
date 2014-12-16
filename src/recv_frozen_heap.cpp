@@ -56,7 +56,21 @@ frozen_heap::frozen_heap(heap &&h)
     std::stable_sort(h.pointers.begin(), h.pointers.end(), compare);
 
     pointer_decoder decoder(h.heap_address_bits);
+    // Determine how much memory is needed to store immediates
+    std::size_t n_immediates = 0;
+    for (std::size_t i = 0; i < h.pointers.size(); i++)
+    {
+        std::uint64_t pointer = h.pointers[i];
+        if (decoder.is_immediate(pointer))
+            n_immediates++;
+    }
+    // Allocate memory
+    const std::size_t immediate_size = h.heap_address_bits / 8;
+    if (n_immediates > 0)
+        immediate_payload.reset(new uint8_t[immediate_size * n_immediates]);
+    uint8_t *next_immediate = immediate_payload.get();
     items.reserve(h.pointers.size());
+
     for (std::size_t i = 0; i < h.pointers.size(); i++)
     {
         item new_item;
@@ -67,8 +81,16 @@ frozen_heap::frozen_heap(heap &&h)
         new_item.is_immediate = decoder.is_immediate(pointer);
         if (new_item.is_immediate)
         {
-            new_item.value.immediate = decoder.get_immediate(pointer);
-            log_debug("Found new immediate item ID %d, value %d", new_item.id, new_item.value.immediate);
+            new_item.ptr = next_immediate;
+            new_item.length = immediate_size;
+            std::uint64_t pointer_be = htobe64(pointer);
+            std::memcpy(
+                next_immediate,
+                reinterpret_cast<const std::uint8_t *>(&pointer_be) + 8 - immediate_size,
+                immediate_size);
+            log_debug("Found new immediate item ID %d, value %d",
+                      new_item.id, decoder.get_immediate(pointer));
+            next_immediate += immediate_size;
         }
         else
         {
@@ -79,10 +101,10 @@ frozen_heap::frozen_heap(heap &&h)
                 end = decoder.get_address(h.pointers[i + 1]);
             else
                 end = h.min_length;
-            new_item.value.address.ptr = h.payload.get() + start;
-            new_item.value.address.length = end - start;
+            new_item.ptr = h.payload.get() + start;
+            new_item.length = end - start;
             log_debug("found new addressed item ID %d, offset %d, length %d",
-                    new_item.id, start, end - start);
+                      new_item.id, start, end - start);
         }
         items.push_back(new_item);
     }
@@ -99,37 +121,27 @@ descriptor frozen_heap::to_descriptor() const
     descriptor out;
     for (const item &item : items)
     {
-        if (item.is_immediate)
+        switch (item.id)
         {
-            switch (item.id)
-            {
             case DESCRIPTOR_ID_ID:
-                out.id = item.value.immediate;
+                if (item.is_immediate)
+                    out.id = load_bytes_be(item.ptr, item.length);
+                else
+                    log_info("Ignoring descriptor ID that is not an immediate");
                 break;
-            default:
-                log_info("Unrecognised descriptor item ID %x", item.id);
-                break;
-            }
-        }
-        else
-        {
-            const std::uint8_t *ptr = item.value.address.ptr;
-            std::size_t length = item.value.address.length;
-            switch (item.id)
-            {
             case DESCRIPTOR_NAME_ID:
-                out.name = std::string(reinterpret_cast<const char *>(ptr), length);
+                out.name = std::string(reinterpret_cast<const char *>(item.ptr), item.length);
                 break;
             case DESCRIPTOR_DESCRIPTION_ID:
-                out.description = std::string(reinterpret_cast<const char *>(ptr), length);
+                out.description = std::string(reinterpret_cast<const char *>(item.ptr), item.length);
                 break;
             case DESCRIPTOR_FORMAT_ID:
                 {
                     int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 4 : 9 - heap_address_bits / 8;
-                    for (std::size_t i = 0; i + field_size <= length; i += field_size)
+                    for (std::size_t i = 0; i + field_size <= item.length; i += field_size)
                     {
-                        char type = ptr[i];
-                        std::int64_t bits = load_bytes_be(ptr + i + 1, field_size - 1);
+                        char type = item.ptr[i];
+                        std::int64_t bits = load_bytes_be(item.ptr + i + 1, field_size - 1);
                         out.format.emplace_back(type, bits);
                     }
                     break;
@@ -137,24 +149,22 @@ descriptor frozen_heap::to_descriptor() const
             case DESCRIPTOR_SHAPE_ID:
                 {
                     int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 8 : 1 + heap_address_bits / 8;
-                    for (std::size_t i = 0; i + field_size <= length; i += field_size)
+                    for (std::size_t i = 0; i + field_size <= item.length; i += field_size)
                     {
                         int mask = (bug_compat & BUG_COMPAT_SHAPE_BIT_1) ? 2 : 1;
-                        bool variable = (ptr[i] & mask);
-                        std::int64_t size = variable ? -1 : load_bytes_be(ptr + i + 1, field_size - 1);
+                        bool variable = (item.ptr[i] & mask);
+                        std::int64_t size = variable ? -1 : load_bytes_be(item.ptr + i + 1, field_size - 1);
                         out.shape.push_back(size);
                     }
                     break;
                 }
             case DESCRIPTOR_DTYPE_ID:
-                out.numpy_header = std::string(reinterpret_cast<const char *>(ptr), length);
+                out.numpy_header = std::string(reinterpret_cast<const char *>(item.ptr), item.length);
                 break;
             default:
                 log_info("Unrecognised descriptor item ID %x", item.id);
                 break;
-            }
         }
-
     }
     // DTYPE overrides format and type
     if (!out.numpy_header.empty())
@@ -197,9 +207,9 @@ std::vector<descriptor> frozen_heap::get_descriptors() const
     descriptor_stream s(bug_compat, 1);
     for (const item &item : items)
     {
-        if (item.id == DESCRIPTOR_ID && !item.is_immediate)
+        if (item.id == DESCRIPTOR_ID)
         {
-            mem_to_stream(s, item.value.address.ptr, item.value.address.length);
+            mem_to_stream(s, item.ptr, item.length);
             s.stop();
         }
     }
