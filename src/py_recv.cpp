@@ -187,6 +187,12 @@ public:
         boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::loopback(), port);
         emplace_reader<udp_reader>(s, endpoint);
     }
+
+    void stop()
+    {
+        release_gil gil;
+        receiver::stop();
+    }
 };
 
 /// Register the receiver module with Boost.Python
