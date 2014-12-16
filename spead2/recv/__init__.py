@@ -144,7 +144,8 @@ class Item(Descriptor):
             if elements > max_elements:
                 raise TypeError('Item has too few elements for shape (%d < %d)' % (max_elements, elements))
             # For some reason, np.frombuffer doesn't work on memoryview, but np.array does
-            array1d = np.array(raw_item.value, copy=False).view(dtype=self.dtype)[:elements]
+            array1d = np.array(raw_item.value, copy=False)[: (elements * self.dtype.itemsize)]
+            array1d = array1d.view(dtype=self.dtype)
             if self.dtype.byteorder in ('<', '>'):
                 # Either < or > indicates non-native endianness. Swap it now
                 # so that calculations later will be efficient
