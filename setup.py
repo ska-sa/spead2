@@ -11,7 +11,7 @@ extensions = [
         sources=glob.glob('src/common_*.cpp') + glob.glob('src/recv_*.cpp') + glob.glob('src/py_*.cpp'),
         language='c++',
         include_dirs=['src', numpy.get_include()],
-        extra_compile_args=['-std=c++11'],
+        extra_compile_args=['-std=c++0x'],
         libraries=[bp_library, 'boost_system'])
 ]
 
