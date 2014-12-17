@@ -187,6 +187,23 @@ public:
     }
 };
 
+/* Wrapper to deal with import_array returning nothing in Python 2, NULL in
+ * Python 3.
+ */
+#if PY_MAJOR_VERSION >= 3
+static void *call_import_array(bool &success)
+#else
+static void call_import_array(bool &success)
+#endif
+{
+    success = false;
+    import_array(); // This is a macro that might return
+    success = true;
+#if PY_MAJOR_VERSION >= 3
+    return NULL;
+#endif
+}
+
 /// Register the receiver module with Boost.Python
 void register_module()
 {
@@ -194,7 +211,10 @@ void register_module()
     using namespace spead::recv;
 
     // Needed to make NumPy functions work
-    import_array();
+    bool numpy_imported = false;
+    call_import_array(numpy_imported);
+    if (!numpy_imported)
+        throw_error_already_set();
 
     // Create the module, and set it as the current boost::python scope so that
     // classes we define are added to this module rather than the root.
@@ -213,7 +233,7 @@ void register_module()
         .def(init<optional<bug_compat_mask, std::size_t> >())
         .def("__iter__", objects::identity_function())
         .def(
-#if PY_VERSION_HEX >= 0x03000000
+#if PY_MAJOR_VERSION >= 3
               // Python 3 uses __next__ for the iterator protocol
               "__next__"
 #else

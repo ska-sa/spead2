@@ -152,7 +152,7 @@ class TestDecode(object):
         packet = self.flavour.make_packet_heap(1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, "test_scalar_int", "a scalar integer", [(b'i', 32)], []),
+                    0x1234, b"test_scalar_int", b"a scalar integer", [(b'i', 32)], []),
                 Item(0x1234, struct.pack('>i', -123456789))
             ])
 
@@ -167,7 +167,7 @@ class TestDecode(object):
         packet = self.flavour.make_packet_heap(1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, "test_scalar_int", "a scalar integer", [(b'u', 32)], []),
+                    0x1234, b"test_scalar_int", b"a scalar integer", [(b'u', 32)], []),
                 Item(0x1234, 0x12345678 << (self.flavour.heap_address_bits - 32), True)
             ])
         items = self.data_to_items(packet)

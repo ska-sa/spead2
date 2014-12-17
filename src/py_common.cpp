@@ -62,7 +62,11 @@ static py::object descriptor_get_format(const descriptor &d)
 
 static py::object int_to_object(long ival)
 {
+#if PY_MAJOR_VERSION >= 3
+    PyObject *obj = PyLong_FromLong(ival);
+#else
     PyObject *obj = PyInt_FromLong(ival);
+#endif
     if (!obj)
         py::throw_error_already_set();
     return py::object(py::handle<>(obj));

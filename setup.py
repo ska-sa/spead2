@@ -2,6 +2,9 @@
 from distutils.core import setup, Extension
 import glob
 import numpy
+import sys
+
+bp_library = 'boost_python-py{0}{1}'.format(sys.version_info.major, sys.version_info.minor)
 
 extensions = [
     Extension('_spead2',
@@ -9,12 +12,12 @@ extensions = [
         language='c++',
         include_dirs=['src', numpy.get_include()],
         extra_compile_args=['-std=c++11'],
-        libraries=['boost_python-py27', 'boost_system'])
+        libraries=[bp_library, 'boost_system'])
 ]
 
 setup(
     name='spead2',
-    version='0.1dev',
+    version='0.1dev0',
     description='High-performance SPEAD decoder',
     ext_package='spead2',
     ext_modules=extensions)

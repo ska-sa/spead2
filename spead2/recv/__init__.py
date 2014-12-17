@@ -53,7 +53,7 @@ class Descriptor(object):
     def _parse_numpy_header(cls, header):
         try:
             d = np.lib.utils.safe_eval(header)
-        except SyntaxError, e:
+        except SyntaxError as e:
             msg = "Cannot parse descriptor: %r\nException: %r"
             raise ValueError(msg % (header, e))
         if not isinstance(d, dict):
@@ -73,7 +73,7 @@ class Descriptor(object):
             raise ValueError(msg % (d['fortran_order'],))
         try:
             dtype = np.dtype(d['descr'])
-        except TypeError, e:
+        except TypeError as e:
             msg = "descr is not a valid dtype descriptor: %r"
             raise ValueError(msg % (d['descr'],))
         return d['shape'], d['fortran_order'], dtype
