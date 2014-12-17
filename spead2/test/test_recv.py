@@ -117,8 +117,8 @@ class Flavour(object):
         return Item(DESCRIPTOR_ID, self.make_packet_heap(1,
             [
                 Item(DESCRIPTOR_ID_ID, id, True),
-                Item(DESCRIPTOR_NAME_ID, name),
-                Item(DESCRIPTOR_DESCRIPTION_ID, description),
+                Item(DESCRIPTOR_NAME_ID, name.encode('ascii')),
+                Item(DESCRIPTOR_DESCRIPTION_ID, description.encode('ascii')),
                 Item(DESCRIPTOR_FORMAT_ID, self.make_format(format)),
                 Item(DESCRIPTOR_SHAPE_ID, self.make_shape(shape))
             ]))
@@ -213,10 +213,10 @@ class TestDecode(object):
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_string', 'a byte string', [('c', 8)], [-1]),
-                Item(0x1234, 'Hello world')
+                Item(0x1234, 'Hello world'.encode('ascii'))
             ])
         item = self.data_to_item(packet, 0x1234)
-        assert_equal(u'Hello world', item.value)
+        assert_equal('Hello world', item.value)
 
     def test_array(self):
         packet = self.flavour.make_packet_heap(1,
