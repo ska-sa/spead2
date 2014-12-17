@@ -1,0 +1,2 @@
+recursive-include src *.h
+recursive-include src test_*.cpp
