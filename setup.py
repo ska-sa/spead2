@@ -25,4 +25,4 @@ setup(
     ext_package='spead2',
     ext_modules=extensions,
     install_requires=['numpy'],
-    packages=['spead2', 'spead2.recv', 'spead2.test'])
+    packages=['spead2', 'spead2.recv'])

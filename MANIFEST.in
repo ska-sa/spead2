@@ -1,2 +1,3 @@
 recursive-include src *.h
 recursive-include src test_*.cpp
+recursive-include spead2 *.py
