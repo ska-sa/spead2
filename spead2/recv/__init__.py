@@ -43,6 +43,7 @@ The `u` and `i` formats with up to 64 bits and a bit-width a multiple of 8 will
 be implemented. This will allow storage of immediate values.
 """
 
+from __future__ import print_function, division
 import numpy.lib.utils
 import numpy as np
 import spead2
@@ -144,7 +145,7 @@ class Item(Descriptor):
             shape = self.dynamic_shape(max_elements)
             elements = int(np.product(shape))
             if elements > max_elements:
-                raise TypeError('Item has too few elements for shape (%d < %d)' % (max_elements, elements))
+                raise ValueError('Item has too few elements for shape (%d < %d)' % (max_elements, elements))
             # For some reason, np.frombuffer doesn't work on memoryview, but np.array does
             array1d = np.array(raw_item.value, copy=False)[: (elements * self.dtype.itemsize)]
             array1d = array1d.view(dtype=self.dtype)
