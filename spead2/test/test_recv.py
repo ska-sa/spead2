@@ -271,7 +271,7 @@ class TestDecode(object):
             [
                 self.flavour.make_numpy_descriptor_from(
                     0x1234, 'test_array_numpy_fortran', 'an array of floats', expected),
-                Item(0x1234, send.data)
+                Item(0x1234, np.ravel(send, 'K').data)
             ])
         item = self.data_to_item(packet, 0x1234)
         assert_equal(expected.dtype, item.value.dtype)

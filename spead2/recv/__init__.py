@@ -46,6 +46,7 @@ be implemented. This will allow storage of immediate values.
 from __future__ import print_function, division
 import numpy.lib.utils
 import numpy as np
+import numbers
 import spead2
 from spead2._recv import *
 
@@ -60,13 +61,13 @@ class Descriptor(object):
         if not isinstance(d, dict):
             msg = "Descriptor is not a dictionary: %r"
             raise ValueError(msg % d)
-        keys = d.keys()
+        keys = list(d.keys())
         keys.sort()
         if keys != ['descr', 'fortran_order', 'shape']:
             msg = "Descriptor does not contain the correct keys: %r"
             raise ValueError(msg % (keys,))
         # Sanity-check the values.
-        if not isinstance(d['shape'], tuple) or not all([isinstance(x, (int, long)) for x in d['shape']]):
+        if not isinstance(d['shape'], tuple) or not all([isinstance(x, numbers.Integral) for x in d['shape']]):
             msg = "shape is not valid: %r"
             raise ValueError(msg % (d['shape'],))
         if not isinstance(d['fortran_order'], bool):
