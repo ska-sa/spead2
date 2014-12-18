@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <utility>
 #include <cassert>
+#include "common_logging.h"
 
 namespace spead
 {
@@ -290,6 +291,202 @@ void ringbuffer_cond<T>::stop()
     std::unique_lock<std::mutex> lock(mutex);
     this->stop_unlocked();
     data_cond.notify_all();
+}
+
+///////////////////////////////////////////////////////////////////////
+
+/**
+ * Implementation of @ref ringbuffer_base that uses a pipe for for inter-thread
+ * signalling. This is slower and can block the sender if the number of entries
+ * exceeds the capacity of a pipe, but can be used with poll()-style
+ * asynchronous operations.
+ */
+template<typename T>
+class ringbuffer_fd : public ringbuffer_base<T>
+{
+protected:
+    /// Protects access to the internal fields
+    std::mutex mutex;
+
+    /**
+     * A byte is written to the write end when data is added, and it is closed
+     * when data is stopped. Closed ends are set to -1 to prevent double-closing.
+     */
+    int pipe_fds[2];
+
+    void write_byte(); ///< Write a byte to the pipe
+    int read_byte();   ///< Tries to read a byte from the pipe, returns number of bytes read
+
+public:
+    /**
+     * Constructs an empty ringbuffer.
+     *
+     * @param cap      Maximum capacity, in items
+     */
+    explicit ringbuffer_fd(std::size_t cap);
+
+    ~ringbuffer_fd();
+
+    /**
+     * Append an item to the queue, if there is space. It uses move
+     * semantics, so on success, the original value is undefined.
+     *
+     * @param value    Value to move
+     * @throw ringbuffer_full if there is no space
+     * @throw ringbuffer_stopped if @ref stop has already been called
+     */
+    void try_push(T &&value);
+
+    /**
+     * Construct a new item in the queue, if there is space.
+     *
+     * @param args     Arguments to the constructor
+     * @throw ringbuffer_full if there is no space
+     * @throw ringbuffer_stopped if @ref stop has already been called
+     */
+    template<typename... Args>
+    void try_emplace(Args&&... args);
+
+    /**
+     * Retrieve an item from the queue, if there is one.
+     *
+     * @throw ringbuffer_stopped if the queue is empty and @ref stop was called
+     * @throw ringbuffer_empty if the queue is empty but still active
+     */
+    T try_pop();
+
+    /**
+     * Retrieve an item from the queue, blocking until there is one or until
+     * the queue is stopped.
+     *
+     * @throw ringbuffer_stopped if the queue is empty and @ref stop was called
+     */
+    T pop();
+
+    /**
+     * Indicate that no more items will be produced. This does not immediately
+     * stop consumers if there are still items in the queue; instead,
+     * consumers will continue to retrieve remaining items, and will only be
+     * signalled once the queue has drained.
+     *
+     * It is safe to call this function multiple times.
+     */
+    void stop();
+
+    /**
+     * Return a file descriptor to poll() on to get notification when pop()
+     * can proceed without blocking, or try_pop will succeed. Do not read
+     * or write anything from/to this descriptor.
+     */
+    int get_fd() const { return pipe_fds[0]; }
+};
+
+template<typename T>
+ringbuffer_fd<T>::ringbuffer_fd(std::size_t cap) : ringbuffer_base<T>(cap)
+{
+    if (pipe(pipe_fds) == -1)
+        throw std::system_error(errno, std::system_category());
+}
+
+template<typename T>
+ringbuffer_fd<T>::~ringbuffer_fd()
+{
+    for (int i = 0; i < 2; i++)
+        if (pipe_fds[i] != -1)
+        {
+            if (close(pipe_fds[i]) == -1)
+            {
+                // Can't throw, because this is a destructor
+                std::error_code code(errno, std::system_category());
+                log_warning("failed to close pipe: %1% (%2%)", code.value(), code.message());
+            }
+        }
+}
+
+template<typename T>
+void ringbuffer_fd<T>::write_byte()
+{
+    char byte = 0;
+    int status;
+    do
+    {
+        status = write(pipe_fds[1], &byte, 1);
+        if (status < 0 && errno != EINTR)
+        {
+            throw std::system_error(errno, std::system_category());
+        }
+    } while (status < 0);
+}
+
+template<typename T>
+int ringbuffer_fd<T>::read_byte()
+{
+    char byte = 0;
+    int status;
+    do
+    {
+        status = read(pipe_fds[0], &byte, 1);
+        if (status < 0 && errno != EINTR)
+        {
+            throw std::system_error(errno, std::system_category());
+        }
+    } while (status < 0);
+    return status;
+}
+
+template<typename T>
+void ringbuffer_fd<T>::try_push(T &&value)
+{
+    // Construct in-place with move constructor
+    try_emplace(std::move(value));
+}
+
+template<typename T>
+template<typename... Args>
+void ringbuffer_fd<T>::try_emplace(Args&&... args)
+{
+    std::unique_lock<std::mutex> lock(mutex);
+    this->try_emplace_unlocked(std::forward<Args>(args)...);
+    write_byte();
+}
+
+template<typename T>
+T ringbuffer_fd<T>::try_pop()
+{
+    std::unique_lock<std::mutex> lock(mutex);
+    if (this->empty_unlocked())
+    {
+        throw ringbuffer_empty();
+    }
+    // This should not block, because there is an entry to consume
+    read_byte();
+    return this->pop_unlocked();
+}
+
+template<typename T>
+T ringbuffer_fd<T>::pop()
+{
+    int bytes = read_byte();
+    if (bytes == 0)
+        throw ringbuffer_stopped();
+
+    std::unique_lock<std::mutex> lock(mutex);
+    assert(!this->empty_unlocked());
+    return this->pop_unlocked();
+}
+
+template<typename T>
+void ringbuffer_fd<T>::stop()
+{
+    std::unique_lock<std::mutex> lock(mutex);
+    this->stop_unlocked();
+    if (pipe_fds[1] != -1)
+    {
+        int status = close(pipe_fds[1]);
+        pipe_fds[1] = -1;
+        if (status == -1)
+            throw std::system_error(errno, std::system_category());
+    }
 }
 
 } // namespace spead
