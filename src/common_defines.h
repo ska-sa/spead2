@@ -13,7 +13,7 @@
 #include <string>
 
 #ifndef SPEAD_MAX_LOG_LEVEL
-#define SPEAD_MAX_LOG_LEVEL (spead::log_level::debug)
+#define SPEAD_MAX_LOG_LEVEL (spead::log_level::info)
 #endif
 
 /**
