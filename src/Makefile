@@ -12,8 +12,8 @@ ifeq ($(VARIANT), debug)
     LDFLAGS += -g
 endif
 ifeq ($(VARIANT), release)
-    CXXFLAGS += -O3 -flto -D_NDEBUG
-    LDFLAGS += -flto
+    CXXFLAGS += -O3 -DNDEBUG
+    LDFLAGS +=
 endif
 
 RECV_SOURCES = $(wildcard recv*.cpp)
