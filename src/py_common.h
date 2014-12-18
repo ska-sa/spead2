@@ -9,10 +9,17 @@
 #include <boost/noncopyable.hpp>
 #include <cassert>
 #include <mutex>
+#include <stdexcept>
 #include "common_ringbuffer.h"
 
 namespace spead
 {
+
+class stop_iteration : public std::exception
+{
+public:
+    using std::exception::exception;
+};
 
 /**
  * RAII wrapper that releases the Python Global Interpreter Lock on

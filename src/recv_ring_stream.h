@@ -56,7 +56,20 @@ public:
      */
     frozen_heap pop();
 
+    /**
+     * Like @ref pop, but if no contiguous heap is available,
+     * throws @ref ringbuffer_empty.
+     *
+     * @throw ringbuffer_empty if there is contiguous heap available, but the
+     * stream has not been stopped
+     * @throw ringbuffer_stopped if @ref stop has been called and
+     * there are no more contiguous heaps.
+     */
+    frozen_heap try_pop();
+
     virtual void stop() override;
+
+    const Ringbuffer &get_ringbuffer() const { return ready_heaps; }
 };
 
 template<typename Ringbuffer>
@@ -86,6 +99,19 @@ frozen_heap ring_stream<Ringbuffer>::pop()
     while (true)
     {
         heap h = ready_heaps.pop();
+        if (h.is_contiguous())
+            return frozen_heap(std::move(h));
+        else
+            log_info("received incomplete heap %d", h.cnt());
+    }
+}
+
+template<typename Ringbuffer>
+frozen_heap ring_stream<Ringbuffer>::try_pop()
+{
+    while (true)
+    {
+        heap h = ready_heaps.try_pop();
         if (h.is_contiguous())
             return frozen_heap(std::move(h));
         else

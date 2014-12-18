@@ -34,8 +34,20 @@ public:
     }
 };
 
-/// Converts the exception into a Python @c StopIteration
-static void translate_ringbuffer_stopped(const ringbuffer_stopped &e)
+static PyObject *ringbuffer_stopped_type;
+static PyObject *ringbuffer_empty_type;
+
+static void translate_exception(const ringbuffer_stopped &e)
+{
+    PyErr_SetString(ringbuffer_stopped_type, e.what());
+}
+
+static void translate_exception(const ringbuffer_empty &e)
+{
+    PyErr_SetString(ringbuffer_empty_type, e.what());
+}
+
+static void translate_exception_stop_iteration(const stop_iteration &e)
 {
     PyErr_SetString(PyExc_StopIteration, e.what());
 }
@@ -72,12 +84,24 @@ static py::object int_to_object(long ival)
     return py::object(py::handle<>(obj));
 }
 
+template<typename T>
+static void create_exception(PyObject *&type, const char *name, const char *basename)
+{
+    type = PyErr_NewException(const_cast<char *>(name), NULL, NULL);
+    if (type == NULL)
+        py::throw_error_already_set();
+    py::scope().attr(basename) = py::handle<>(py::borrowed(type));
+    py::register_exception_translator<T>((void (*)(const T &)) &translate_exception);
+}
+
 static void register_module()
 {
     using namespace boost::python;
     using namespace spead;
 
-    register_exception_translator<ringbuffer_stopped>(&translate_ringbuffer_stopped);
+    create_exception<ringbuffer_stopped>(ringbuffer_stopped_type, "spead2.Stopped", "Stopped");
+    create_exception<ringbuffer_empty>(ringbuffer_empty_type, "spead2.Empty", "Empty");
+    register_exception_translator<stop_iteration>(&translate_exception_stop_iteration);
 
     py::setattr(scope(), "BUG_COMPAT_DESCRIPTOR_WIDTHS", int_to_object(BUG_COMPAT_DESCRIPTOR_WIDTHS));
     py::setattr(scope(), "BUG_COMPAT_SHAPE_BIT_1", int_to_object(BUG_COMPAT_SHAPE_BIT_1));

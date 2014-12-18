@@ -122,12 +122,9 @@ public:
  */
 class ring_stream_wrapper : public ring_stream<ringbuffer_fd_gil<heap> >
 {
-public:
-    using ring_stream::ring_stream;
-
-    py::object pop()
+private:
+    py::object wrap_frozen_heap(frozen_heap &&fh)
     {
-        frozen_heap fh = ring_stream::pop();
         // We need to allocate a new object to have type frozen_heap_wrapper,
         // but it can move all the resources out of fh.
         frozen_heap_wrapper *wrapper = new frozen_heap_wrapper(std::move(fh));
@@ -140,6 +137,36 @@ public:
         // Tell the wrapper what its Python handle is
         wrapper->set_self(obj_ptr);
         return obj;
+    }
+
+public:
+    using ring_stream::ring_stream;
+
+    py::object next()
+    {
+        try
+        {
+            return get();
+        }
+        catch (ringbuffer_stopped &e)
+        {
+            throw stop_iteration();
+        }
+    }
+
+    py::object get()
+    {
+        return wrap_frozen_heap(ring_stream::pop());
+    }
+
+    py::object get_nowait()
+    {
+        return wrap_frozen_heap(ring_stream::try_pop());
+    }
+
+    int get_fd() const
+    {
+        return get_ringbuffer().get_fd();
     }
 };
 
@@ -239,7 +266,10 @@ void register_module()
 #else
               "next"
 #endif
-        , &ring_stream_wrapper::pop);
+        , &ring_stream_wrapper::next)
+        .def("get", &ring_stream_wrapper::get)
+        .def("get_nowait", &ring_stream_wrapper::get_nowait)
+        .add_property("fd", &ring_stream_wrapper::get_fd);
     class_<receiver_wrapper, boost::noncopyable>("Receiver")
         .def("add_buffer_reader", &receiver_wrapper::add_buffer_reader, with_custodian_and_ward<1, 2>())
         .def("add_udp_reader", &receiver_wrapper::add_udp_reader, with_custodian_and_ward<1, 2>())
