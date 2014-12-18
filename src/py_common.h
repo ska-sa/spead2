@@ -99,30 +99,26 @@ public:
  * if there was a @c KeyboardInterrupt.
  */
 template<typename T>
-class ringbuffer_cond_gil : public ringbuffer_cond<T>
+class ringbuffer_fd_gil : public ringbuffer_fd<T>
 {
 public:
-    using ringbuffer_cond<T>::ringbuffer_cond;
+    using ringbuffer_fd<T>::ringbuffer_fd;
 
     T pop();
 };
 
 template<typename T>
-T ringbuffer_cond_gil<T>::pop()
+T ringbuffer_fd_gil<T>::pop()
 {
-    release_gil gil;
-    std::unique_lock<std::mutex> lock(this->mutex);
-    while (this->empty_unlocked())
     {
-        this->data_cond.wait_for(lock, std::chrono::seconds(1));
-        // Allow interpreter to catch KeyboardInterrupt. The timeout
-        // ensures that we wake up periodically to check for this,
-        // even if the signal doesn't cause spurious wakeup.
-        gil.acquire();
-        if (PyErr_CheckSignals() == -1)
-            boost::python::throw_error_already_set();
-        gil.release();
+        release_gil gil;
+        int bytes = this->read_byte();
+        if (bytes == 0)
+            throw ringbuffer_stopped();
     }
+
+    std::unique_lock<std::mutex> lock(this->mutex);
+    assert(!this->empty_unlocked());
     return this->pop_unlocked();
 }
 
