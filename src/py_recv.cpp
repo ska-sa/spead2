@@ -120,7 +120,7 @@ public:
  * Stream that handles the magic necessary to reflect frozen heaps into
  * Python space and capture the reference to it.
  */
-class ring_stream_wrapper : public ring_stream<ringbuffer_wrapper<heap> >
+class ring_stream_wrapper : public ring_stream<ringbuffer_cond_gil<heap> >
 {
 public:
     using ring_stream::ring_stream;

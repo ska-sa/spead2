@@ -19,15 +19,15 @@ namespace recv
 /**
  * Specialisation of @ref stream that pushes its results into a ringbuffer.
  * The ringbuffer class may be replaced, but must provide the same interface
- * as @ref ringbuffer. If the ring buffer fills up, new heaps are discarded,
- * rather than blocking the receiver.
+ * as @ref ringbuffer_cond. If the ring buffer fills up, new heaps are
+ * discarded, rather than blocking the receiver.
  *
  * On the consumer side, heaps are automatically frozen as they are
  * extracted.
  *
  * This class is thread-safe.
  */
-template<typename Ringbuffer = ringbuffer<heap> >
+template<typename Ringbuffer = ringbuffer_cond<heap> >
 class ring_stream : public stream
 {
 private:

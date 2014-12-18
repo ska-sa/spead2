@@ -99,16 +99,16 @@ public:
  * if there was a @c KeyboardInterrupt.
  */
 template<typename T>
-class ringbuffer_wrapper : public ringbuffer<T>
+class ringbuffer_cond_gil : public ringbuffer_cond<T>
 {
 public:
-    using ringbuffer<T>::ringbuffer;
+    using ringbuffer_cond<T>::ringbuffer_cond;
 
     T pop();
 };
 
 template<typename T>
-T ringbuffer_wrapper<T>::pop()
+T ringbuffer_cond_gil<T>::pop()
 {
     release_gil gil;
     std::unique_lock<std::mutex> lock(this->mutex);
