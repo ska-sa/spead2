@@ -59,7 +59,7 @@ public:
      * @param bug_compat   Protocol bugs to have compatibility with
      * @param max_heaps    Maximum number of live (in-flight) heaps held in the stream
      */
-    explicit stream(bug_compat_mask bug_compat = 0, std::size_t max_heaps = 16);
+    explicit stream(bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
     virtual ~stream() = default;
 
     /**
