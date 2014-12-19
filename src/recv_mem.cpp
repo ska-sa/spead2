@@ -23,7 +23,7 @@ mem_reader::mem_reader(
 
 void mem_reader::start()
 {
-    get_io_service().post([this] {
+    get_strand().post([this] {
         mem_to_stream(get_stream(), ptr, length);
         // There will be no more data, so we can stop the stream immediately.
         get_stream().stop();

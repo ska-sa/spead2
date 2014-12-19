@@ -13,38 +13,44 @@ namespace recv
 
 receiver::~receiver()
 {
-    if (worker.valid())
+    if (!workers.empty())
         stop();
 }
 
 void receiver::operator()()
 {
-    if (worker.valid())
+    if (!workers.empty())
         throw std::invalid_argument("Receiver is already running");
     std::promise<void> promise;
-    worker = promise.get_future();
+    workers.push_back(promise.get_future());
     io_service.run();
     promise.set_value(); // tells stop() that we have terminated
 }
 
-void receiver::start()
+void receiver::start(int num_threads)
 {
-    if (worker.valid())
+    if (!workers.empty())
         throw std::invalid_argument("Receiver is already running");
-    worker = std::async(std::launch::async, [this] {io_service.run();});
+    workers.reserve(num_threads);
+    for (int i = 0; i < num_threads; i++)
+    {
+        workers.push_back(std::async(std::launch::async, [this] {io_service.run();}));
+    }
 }
 
 void receiver::stop()
 {
-    if (!worker.valid())
+    if (workers.empty())
         throw std::invalid_argument("Receiver is not running");
-    io_service.post([this] {
-        for (const auto &reader : readers)
-        {
-            reader->stop();
-        }
-    });
-    worker.get();
+    for (auto &reader : readers)
+    {
+        reader->get_strand().post([&reader] { reader->stop(); });
+    }
+    // TODO: if one of the workers threw an exception, we should still wait for
+    // all of them, then get the exception
+    for (auto &worker : workers)
+        worker.get();
+    workers.clear();
     readers.clear();
 }
 

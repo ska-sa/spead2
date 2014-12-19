@@ -47,11 +47,11 @@ private:
     /// List of readers managed by this class
     std::vector<std::unique_ptr<reader> > readers;
     /**
-     * Future that becomes ready when the worker (either operator()()
-     * or the thread) completes. In the former case it is connected to
+     * Futures that becomes ready when the worker (either operator()()
+     * or a thread) completes. In the former case it is connected to
      * a promise, in the latter case to an async task.
      */
-    std::future<void> worker;
+    std::vector<std::future<void> > workers;
 
 public:
     ~receiver();
@@ -88,7 +88,7 @@ public:
      *
      * @throw std::invalid_argument if the reactor is already running
      */
-    void start();
+    void start(int num_threads = 1);
 
     /**
      * Shuts down the receiver:

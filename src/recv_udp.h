@@ -16,34 +16,48 @@ namespace recv
 {
 
 /**
- * Asynchronous stream reader that receives packets over UDP.
+ * Asynchronous stream reader that receives packets over UDP. It uses
+ * double-buffering, so with two worker threads it can be receiving a packet
+ * from the kernel in one thread and processing the previous packet in
+ * a different thread.
  *
  * @todo Log errors somehow?
  */
 class udp_reader : public reader
 {
-private:
-    /// UDP socket we are listening on
-    boost::asio::ip::udp::socket socket;
-    /// Unused, but need to provide the memory for asio to write to
-    boost::asio::ip::udp::endpoint endpoint;
-    /// Buffer for asynchronous receive, of size @a max_size + 1.
-    std::unique_ptr<uint8_t[]> buffer;
-    /// Maximum packet size we will accept
-    std::size_t max_size;
-
-protected:
-    /// Callback on completion of asynchronous receive
-    void packet_handler(
-        const boost::system::error_code &error,
-        std::size_t bytes_transferred);
-
 public:
     /// Maximum packet size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_max_size = 9200;
     /// Socket receive buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 8 * 1024 * 1024;
+    /// Number of packets that can be processed at once
+    static constexpr int slots = 2;
 
+private:
+    /// UDP socket we are listening on
+    boost::asio::ip::udp::socket socket;
+    /// Maximum packet size we will accept
+    std::size_t max_size;
+
+    /**
+     * Storage for packets in flight.
+     * Each entry is a buffer for asynchronous receive, of size @a max_size +
+     * 1.
+     */
+    std::unique_ptr<std::uint8_t[]> buffers[slots];
+    /// Unused, but need to provide the memory for asio to write to
+    boost::asio::ip::udp::endpoint endpoints[slots];
+
+    /// Start an asynchronous receive
+    void enqueue_receive(int phase);
+
+    /// Callback on completion of asynchronous receive
+    void packet_handler(
+        int phase,
+        const boost::system::error_code &error,
+        std::size_t bytes_transferred);
+
+public:
     /**
      * Constructor.
      *

@@ -21,18 +21,19 @@ class stream;
 class reader
 {
 private:
-    boost::asio::io_service &io_service;
+    boost::asio::strand strand; ///< Serialises access to this structure
     stream &s;  ///< Wrapped stream
 
 public:
-    reader(boost::asio::io_service &io_service, stream &s) : io_service(io_service), s(s) {}
+    reader(boost::asio::io_service &io_service, stream &s)
+        : strand(io_service), s(s) {}
     virtual ~reader() = default;
 
     /// Retrieve the wrapped stream
     stream &get_stream() const { return s; }
 
-    /// Retrieve the referenced io_service
-    boost::asio::io_service &get_io_service() const { return io_service; }
+    /// Retrieve the internal strand
+    boost::asio::strand &get_strand() { return strand; }
 
     /**
      * Enqueue asynchronous operations to the io_service.

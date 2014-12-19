@@ -1,4 +1,4 @@
-VARIANT = debug
+VARIANT = release
 
 CXX = g++
 CXXFLAGS = -Wall -std=c++11 -pthread
