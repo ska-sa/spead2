@@ -193,18 +193,26 @@ public:
 class receiver_wrapper : public receiver
 {
 public:
-    void add_buffer_reader(ring_stream_wrapper &s, py::object obj)
+    void add_buffer_reader(ring_stream_wrapper &stream, py::object obj)
     {
-        emplace_reader<buffer_reader>(s, obj);
+        emplace_reader<buffer_reader>(stream, obj);
     }
 
-    /**
-     * @todo add option for hostname to bind to, IPv4/v6, and sizes
-     */
-    void add_udp_reader(ring_stream_wrapper &s, int port)
+    void add_udp_reader(
+        ring_stream_wrapper &stream, int port,
+        std::size_t max_size = udp_reader::default_max_size,
+        std::size_t default_buffer_size = udp_reader::default_buffer_size,
+        const std::string &bind_hostname = "")
     {
-        boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::loopback(), port);
-        emplace_reader<udp_reader>(s, endpoint);
+        using boost::asio::ip::udp;
+        udp::endpoint endpoint(boost::asio::ip::address_v4::any(), port);
+        if (!bind_hostname.empty())
+        {
+            udp::resolver resolver(get_io_service());
+            udp::resolver::query query(bind_hostname, "", udp::resolver::query::passive | udp::resolver::query::address_configured);
+            endpoint.address(resolver.resolve(query)->endpoint().address());
+        }
+        emplace_reader<udp_reader>(stream, endpoint, max_size, default_buffer_size);
     }
 
     void stop()
@@ -230,6 +238,9 @@ static void call_import_array(bool &success)
     return NULL;
 #endif
 }
+
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(receiver_wrapper_add_udp_reader_overloads, add_udp_reader, 2, 5)
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(receiver_wrapper_start_overloads, start, 0, 1)
 
 /// Register the receiver module with Boost.Python
 void register_module()
@@ -272,8 +283,13 @@ void register_module()
         .add_property("fd", &ring_stream_wrapper::get_fd);
     class_<receiver_wrapper, boost::noncopyable>("Receiver")
         .def("add_buffer_reader", &receiver_wrapper::add_buffer_reader, with_custodian_and_ward<1, 2>())
-        .def("add_udp_reader", &receiver_wrapper::add_udp_reader, with_custodian_and_ward<1, 2>())
-        .def("start", &receiver_wrapper::start)
+        .def("add_udp_reader", &receiver_wrapper::add_udp_reader,
+             receiver_wrapper_add_udp_reader_overloads()[with_custodian_and_ward<1, 2>()])
+        .def("start",
+             // This explicit typecast seems to be necessary to stop Boost expecting a reference
+             // to the base class, where start is actually defined
+             (void (receiver_wrapper::*)(int)) &receiver_wrapper::start,
+             receiver_wrapper_start_overloads())
         .def("stop", &receiver_wrapper::stop);
 }
 
