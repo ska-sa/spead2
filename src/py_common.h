@@ -117,12 +117,21 @@ public:
 template<typename T>
 T ringbuffer_fd_gil<T>::pop()
 {
+    int bytes;
+    do
     {
         release_gil gil;
-        int bytes = this->read_byte();
+        bytes = this->try_read_byte();
         if (bytes == 0)
             throw ringbuffer_stopped();
-    }
+        else if (bytes < 0)
+        {
+            // Allow SIGINT to abort the pop
+            gil.acquire();
+            if (PyErr_CheckSignals() == -1)
+                boost::python::throw_error_already_set();
+        }
+    } while (bytes < 0);
 
     std::unique_lock<std::mutex> lock(this->mutex);
     assert(!this->empty_unlocked());

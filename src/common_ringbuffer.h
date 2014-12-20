@@ -14,6 +14,7 @@
 #include <stdexcept>
 #include <utility>
 #include <cassert>
+#include <iostream>
 #include "common_logging.h"
 
 namespace spead
@@ -315,7 +316,16 @@ protected:
     int pipe_fds[2];
 
     void write_byte(); ///< Write a byte to the pipe
-    int read_byte();   ///< Tries to read a byte from the pipe, returns number of bytes read
+    /**
+     * Tries to read a byte from the pipe.
+     *
+     * @retval -1 if the read was interrupted
+     * @retval 0 if the read failed to due EOF
+     * @retval 1 if the read succeeded
+     */
+    int try_read_byte();
+    /// Like @ref try_read_byte, but restarts automatically after an interruption.
+    int read_byte();
 
 public:
     /**
@@ -419,17 +429,24 @@ void ringbuffer_fd<T>::write_byte()
 }
 
 template<typename T>
-int ringbuffer_fd<T>::read_byte()
+int ringbuffer_fd<T>::try_read_byte()
 {
     char byte = 0;
+    int status = read(pipe_fds[0], &byte, 1);
+    if (status < 0 && errno != EINTR)
+    {
+        throw std::system_error(errno, std::system_category());
+    }
+    return status;
+}
+
+template<typename T>
+int ringbuffer_fd<T>::read_byte()
+{
     int status;
     do
     {
-        status = read(pipe_fds[0], &byte, 1);
-        if (status < 0 && errno != EINTR)
-        {
-            throw std::system_error(errno, std::system_category());
-        }
+        status = try_read_byte();
     } while (status < 0);
     return status;
 }
