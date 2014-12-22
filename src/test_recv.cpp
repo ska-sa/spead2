@@ -58,7 +58,7 @@ int main()
     spead::recv::ring_stream<spead::ringbuffer_cond<spead::recv::heap> > stream;
 
     spead::recv::receiver receiver;
-    boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::loopback(), 8888);
+    boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
     receiver.emplace_reader<spead::recv::udp_reader>(
         stream,
         endpoint, spead::recv::udp_reader::default_max_size, 8192 * 1024);
