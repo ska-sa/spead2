@@ -55,7 +55,7 @@ void show_heap(const spead::recv::frozen_heap &fheap)
 
 int main()
 {
-    spead::recv::ring_stream<spead::ringbuffer_cond<spead::recv::heap> > stream;
+    spead::recv::ring_stream<spead::ringbuffer_fd<spead::recv::heap> > stream;
 
     spead::recv::receiver receiver;
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
