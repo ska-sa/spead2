@@ -23,9 +23,12 @@ logging.basicConfig(level=logging.DEBUG)
 
 items = []
 
-stream = spead2.recv.trollius.Stream(spead2.BUG_COMPAT_PYSPEAD_0_5_2, 8)
 receiver = spead2.recv.Receiver()
-receiver.add_udp_reader(stream, 8888)
-receiver.start()
+coros = []
+for i in range(4):
+    stream = spead2.recv.trollius.Stream(spead2.BUG_COMPAT_PYSPEAD_0_5_2)
+    receiver.add_udp_reader(stream, 8888 + i)
+    coros.append(run(stream))
+receiver.start(4)
 
-trollius.get_event_loop().run_until_complete(run(stream))
+trollius.get_event_loop().run_until_complete(trollius.wait(coros))
