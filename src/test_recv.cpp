@@ -12,6 +12,23 @@ typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
 
 static time_point start = std::chrono::high_resolution_clock::now();
 
+class trivial_stream : public spead::recv::stream
+{
+private:
+    virtual void heap_ready(spead::recv::heap &&heap) override
+    {
+        std::cout << "Got heap " << heap.cnt();
+        if (heap.is_complete())
+            std::cout << " [complete]\n";
+        else if (heap.is_contiguous())
+            std::cout << " [contiguous]\n";
+        else
+            std::cout << " [incomplete]\n";
+    }
+public:
+    using spead::recv::stream::stream;
+};
+
 void show_heap(const spead::recv::frozen_heap &fheap)
 {
     std::cout << "Received heap with CNT " << fheap.cnt() << '\n';
@@ -53,16 +70,28 @@ void show_heap(const spead::recv::frozen_heap &fheap)
     std::cout << std::flush;
 }
 
-int main()
+static void run_trivial()
 {
-    spead::recv::ring_stream<spead::ringbuffer_fd<spead::recv::heap> > stream;
+    trivial_stream stream;
 
     spead::recv::receiver receiver;
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
     receiver.emplace_reader<spead::recv::udp_reader>(
         stream,
-        endpoint, spead::recv::udp_reader::default_max_size, 8192 * 1024);
-    receiver.start(4);
+        endpoint, spead::recv::udp_reader::default_max_size, 1024 * 1024);
+    receiver();
+    receiver.stop();
+}
+
+static void run_ringbuffered()
+{
+    spead::recv::ring_stream<spead::ringbuffer_fd<spead::recv::heap> > stream;
+    spead::recv::receiver receiver;
+    boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
+    receiver.emplace_reader<spead::recv::udp_reader>(
+        stream,
+        endpoint, spead::recv::udp_reader::default_max_size, 8 * 1024 * 1024);
+    receiver.start(1);
     while (true)
     {
         try
@@ -75,6 +104,11 @@ int main()
             break;
         }
     }
-    receiver.stop();
+}
+
+int main()
+{
+    // run_trivial();
+    run_ringbuffered();
     return 0;
 }
