@@ -21,9 +21,12 @@ else:
 receiver.start()
 
 ig = spead2.recv.ItemGroup()
+num_heaps = 0
 for heap in stream:
     print "Got heap", heap.cnt
     ig.update(heap)
     for item in ig.items.itervalues():
         print heap.cnt, item.name, item.value.shape
+    num_heaps += 1
 receiver.stop()
+print "Received", num_heaps, "heaps"
