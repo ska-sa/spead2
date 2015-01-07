@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <deque>
 #include "recv_heap.h"
+#include "common_mempool.h"
 
 namespace spead
 {
@@ -45,6 +46,8 @@ private:
     bool stopped = false;
     /// Protocol bugs to be compatible with
     bug_compat_mask bug_compat;
+    /// Memory pool used by heaps
+    mempool *pool = nullptr;
 
     /**
      * Callback called when a heap is being ejected from the live list.
@@ -68,6 +71,11 @@ public:
      * number if back under the limit.
      */
     void set_max_heaps(std::size_t max_heaps);
+
+    /**
+     * Set a pool to use for allocating heap memory.
+     */
+    void set_mempool(mempool *pool);
 
     /**
      * Add a packet that was received, and which has been examined by @a

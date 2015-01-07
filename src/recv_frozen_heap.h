@@ -2,21 +2,22 @@
  * @file
  */
 
-#ifndef SPEAD_RECV_FROZEN_HEAP
-#define SPEAD_RECV_FROZEN_HEAP
+#ifndef SPEAD_RECV_FROZEN_HEAP_H
+#define SPEAD_RECV_FROZEN_HEAP_H
 
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <vector>
 #include "common_defines.h"
-
-class heap;
+#include "common_mempool.h"
 
 namespace spead
 {
 namespace recv
 {
+
+class heap;
 
 /**
  * An item extracted from a heap.
@@ -50,7 +51,7 @@ private:
      */
     std::vector<item> items;
     /// Heap payload
-    std::unique_ptr<std::uint8_t[]> payload;
+    mempool::pointer payload;
     /// Storage for immediate values
     std::unique_ptr<std::uint8_t[]> immediate_payload;
 
@@ -93,4 +94,4 @@ public:
 } // namespace recv
 } // namespace spead
 
-#endif // SPEAD_RECV_FROZEN_HEAP
+#endif // SPEAD_RECV_FROZEN_HEAP_H

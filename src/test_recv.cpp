@@ -85,7 +85,9 @@ static void run_trivial()
 
 static void run_ringbuffered()
 {
+    spead::mempool pool(16384, 26214400, 8, 4);
     spead::recv::ring_stream<spead::ringbuffer_fd<spead::recv::heap> > stream;
+    stream.set_mempool(&pool);
     spead::recv::receiver receiver;
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
     receiver.emplace_reader<spead::recv::udp_reader>(
