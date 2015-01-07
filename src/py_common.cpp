@@ -96,24 +96,6 @@ static void create_exception(PyObject *&type, const char *name, const char *base
     py::register_exception_translator<T>((void (*)(const T &)) &translate_exception);
 }
 
-class mempool_wrapper
-{
-private:
-    std::shared_ptr<mempool> pool;
-
-public:
-    template<typename... Args>
-    mempool_wrapper(Args&&... args)
-    : pool(std::make_shared<mempool>(args...))
-    {
-    }
-
-    operator std::shared_ptr<mempool>()
-    {
-        return pool;
-    }
-};
-
 static void register_module()
 {
     using namespace boost::python;
@@ -127,7 +109,7 @@ static void register_module()
     py::setattr(scope(), "BUG_COMPAT_SHAPE_BIT_1", int_to_object(BUG_COMPAT_SHAPE_BIT_1));
     py::setattr(scope(), "BUG_COMPAT_SWAP_ENDIAN", int_to_object(BUG_COMPAT_SWAP_ENDIAN));
 
-    class_<mempool_wrapper>("Mempool", init<std::size_t, std::size_t, std::size_t, std::size_t>());
+    class_<mempool, std::shared_ptr<mempool>, boost::noncopyable>("Mempool", init<std::size_t, std::size_t, std::size_t, std::size_t>());
 
     // TODO: make shape and format read-write
     class_<descriptor>("RawDescriptor")
