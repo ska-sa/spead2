@@ -2,15 +2,17 @@
  * @file
  */
 
-#ifndef SPEAD_RECV_HEAP
-#define SPEAD_RECV_HEAP
+#ifndef SPEAD_RECV_HEAP_H
+#define SPEAD_RECV_HEAP_H
 
 #include <cstddef>
 #include <cstdint>
 #include <vector>
 #include <memory>
 #include <unordered_set>
+#include <functional>
 #include "common_defines.h"
+#include "common_mempool.h"
 #include "recv_packet.h"
 
 namespace spead
@@ -65,7 +67,7 @@ private:
      * doubling. While @c std::vector would take care of that for us, it also
      * zero-fills the memory, which would be inefficient.
      */
-    std::unique_ptr<uint8_t[]> payload;
+    mempool::pointer payload;
     /// Size of the memory in @ref payload
     std::size_t payload_reserved = 0;
     /**
@@ -85,6 +87,9 @@ private:
      */
     std::unordered_set<std::int64_t> packet_offsets;
 
+    /// Backing memory pool
+    std::shared_ptr<mempool> pool;
+
     /**
      * Make sure at least @a size bytes are allocated for payload. If
      * @a exact is false, then a doubling heuristic will be used.
@@ -99,6 +104,12 @@ public:
      * @param bug_compat   Bugs to expect in the protocol
      */
     explicit heap(std::int64_t heap_cnt, bug_compat_mask bug_compat);
+
+    /**
+     * Set a memory pool to use for payload data, instead of allocating with
+     * @c new.
+     */
+    void set_mempool(std::shared_ptr<mempool> pool);
 
     /**
      * Attempt to add a packet to the heap. The packet must have been
@@ -127,4 +138,4 @@ public:
 } // namespace recv
 } // namespace spead
 
-#endif // SPEAD_RECV_HEAP
+#endif // SPEAD_RECV_HEAP_H

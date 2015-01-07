@@ -25,8 +25,10 @@ items = []
 
 receiver = spead2.recv.Receiver()
 coros = []
+pool = spead2.Mempool(16384, 26214400, 32, 16)
 for i in range(4):
     stream = spead2.recv.trollius.Stream(spead2.BUG_COMPAT_PYSPEAD_0_5_2)
+    stream.set_mempool(pool)
     receiver.add_udp_reader(stream, 8888 + i)
     coros.append(run(stream))
 receiver.start(4)

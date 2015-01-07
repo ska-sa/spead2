@@ -281,6 +281,7 @@ void register_module()
         , &ring_stream_wrapper::next)
         .def("get", &ring_stream_wrapper::get)
         .def("get_nowait", &ring_stream_wrapper::get_nowait)
+        .def("set_mempool", &ring_stream_wrapper::set_mempool)
         .add_property("fd", &ring_stream_wrapper::get_fd);
     class_<receiver_wrapper, boost::noncopyable>("Receiver")
         .def("add_buffer_reader", &receiver_wrapper::add_buffer_reader, with_custodian_and_ward<1, 2>())

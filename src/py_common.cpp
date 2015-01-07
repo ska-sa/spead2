@@ -1,8 +1,10 @@
 #include <boost/python.hpp>
+#include <memory>
 #include "py_common.h"
 #include "common_ringbuffer.h"
 #include "common_defines.h"
 #include "common_logging.h"
+#include "common_mempool.h"
 
 namespace py = boost::python;
 
@@ -106,6 +108,8 @@ static void register_module()
     py::setattr(scope(), "BUG_COMPAT_DESCRIPTOR_WIDTHS", int_to_object(BUG_COMPAT_DESCRIPTOR_WIDTHS));
     py::setattr(scope(), "BUG_COMPAT_SHAPE_BIT_1", int_to_object(BUG_COMPAT_SHAPE_BIT_1));
     py::setattr(scope(), "BUG_COMPAT_SWAP_ENDIAN", int_to_object(BUG_COMPAT_SWAP_ENDIAN));
+
+    class_<mempool, std::shared_ptr<mempool>, boost::noncopyable>("Mempool", init<std::size_t, std::size_t, std::size_t, std::size_t>());
 
     // TODO: make shape and format read-write
     class_<descriptor>("RawDescriptor")
