@@ -1,6 +1,7 @@
 #include <iostream>
 #include <utility>
 #include <chrono>
+#include <cstdint>
 #include <boost/asio.hpp>
 #include "recv_receiver.h"
 #include "recv_udp.h"
@@ -11,6 +12,7 @@
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
 
 static time_point start = std::chrono::high_resolution_clock::now();
+static std::uint64_t n_complete = 0;
 
 class trivial_stream : public spead::recv::stream
 {
@@ -19,7 +21,10 @@ private:
     {
         std::cout << "Got heap " << heap.cnt();
         if (heap.is_complete())
+        {
             std::cout << " [complete]\n";
+            n_complete++;
+        }
         else if (heap.is_contiguous())
             std::cout << " [contiguous]\n";
         else
@@ -99,6 +104,7 @@ static void run_ringbuffered()
         try
         {
             spead::recv::frozen_heap fh = stream.pop();
+            n_complete++;
             show_heap(fh);
         }
         catch (spead::ringbuffer_stopped &e)
@@ -112,5 +118,6 @@ int main()
 {
     // run_trivial();
     run_ringbuffered();
+    std::cout << "Received " << n_complete << " complete heaps\n";
     return 0;
 }
