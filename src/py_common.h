@@ -7,10 +7,25 @@
 
 #include <boost/python.hpp>
 #include <boost/noncopyable.hpp>
+#include <boost/version.hpp>
 #include <cassert>
 #include <mutex>
 #include <stdexcept>
 #include "common_ringbuffer.h"
+
+// Older versions of boost don't understand std::shared_ptr properly
+#if BOOST_VERSION < 105300
+namespace boost
+{
+
+template<typename T>
+T *get_pointer(const std::shared_ptr<T> &p)
+{
+    return p.get();
+}
+
+} // namespace boost
+#endif
 
 namespace spead
 {
