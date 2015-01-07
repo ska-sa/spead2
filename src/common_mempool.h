@@ -24,9 +24,13 @@ namespace spead
  * is increased. If the free pool grows beyond a given size, memory is returned
  * to the OS.
  *
+ * The memory pool must be managed by a std::shared_ptr. The caller may safely
+ * drop its references, even if there is still memory that has been allocated
+ * and not yet freed.
+ *
  * This class is thread-safe.
  */
-class mempool
+class mempool : public std::enable_shared_from_this<mempool>
 {
 public:
     typedef std::unique_ptr<std::uint8_t[], std::function<void(std::uint8_t *)> > pointer;
@@ -37,6 +41,7 @@ private:
     std::stack<std::unique_ptr<std::uint8_t[]> > pool;
 
     void return_to_pool(std::uint8_t *ptr);
+    static void return_to_pool(const std::weak_ptr<mempool> &self_weak, std::uint8_t *ptr);
     std::unique_ptr<std::uint8_t[]> allocate_for_pool();
 
 public:

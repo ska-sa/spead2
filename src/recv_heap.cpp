@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cstring>
 #include <algorithm>
+#include <utility>
 #include "recv_heap.h"
 #include "recv_utils.h"
 #include "common_defines.h"
@@ -21,9 +22,9 @@ heap::heap(std::int64_t heap_cnt, bug_compat_mask bug_compat)
     assert(heap_cnt >= 0);
 }
 
-void heap::set_mempool(mempool *pool)
+void heap::set_mempool(std::shared_ptr<mempool> pool)
 {
-    this->pool = pool;
+    this->pool = std::move(pool);
 }
 
 void heap::payload_reserve(std::size_t size, bool exact)

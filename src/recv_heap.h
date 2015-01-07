@@ -88,7 +88,7 @@ private:
     std::unordered_set<std::int64_t> packet_offsets;
 
     /// Backing memory pool
-    mempool *pool = nullptr;
+    std::shared_ptr<mempool> pool;
 
     /**
      * Make sure at least @a size bytes are allocated for payload. If
@@ -109,7 +109,7 @@ public:
      * Set a memory pool to use for payload data, instead of allocating with
      * @c new.
      */
-    void set_mempool(mempool *pool);
+    void set_mempool(std::shared_ptr<mempool> pool);
 
     /**
      * Attempt to add a packet to the heap. The packet must have been

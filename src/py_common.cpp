@@ -1,8 +1,10 @@
 #include <boost/python.hpp>
+#include <memory>
 #include "py_common.h"
 #include "common_ringbuffer.h"
 #include "common_defines.h"
 #include "common_logging.h"
+#include "common_mempool.h"
 
 namespace py = boost::python;
 
@@ -94,6 +96,13 @@ static void create_exception(PyObject *&type, const char *name, const char *base
     py::register_exception_translator<T>((void (*)(const T &)) &translate_exception);
 }
 
+static std::shared_ptr<mempool> init_mempool(
+    std::size_t lower, std::size_t upper,
+    std::size_t max_free, std::size_t initial)
+{
+    return std::make_shared<mempool>(lower, upper, max_free, initial);
+}
+
 static void register_module()
 {
     using namespace boost::python;
@@ -106,6 +115,9 @@ static void register_module()
     py::setattr(scope(), "BUG_COMPAT_DESCRIPTOR_WIDTHS", int_to_object(BUG_COMPAT_DESCRIPTOR_WIDTHS));
     py::setattr(scope(), "BUG_COMPAT_SHAPE_BIT_1", int_to_object(BUG_COMPAT_SHAPE_BIT_1));
     py::setattr(scope(), "BUG_COMPAT_SWAP_ENDIAN", int_to_object(BUG_COMPAT_SWAP_ENDIAN));
+
+    class_<std::shared_ptr<mempool> >("Mempool")
+        .def("__init__", make_constructor(init_mempool));
 
     // TODO: make shape and format read-write
     class_<descriptor>("RawDescriptor")

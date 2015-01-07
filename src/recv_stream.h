@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <deque>
+#include <memory>
 #include "recv_heap.h"
 #include "common_mempool.h"
 
@@ -47,7 +48,7 @@ private:
     /// Protocol bugs to be compatible with
     bug_compat_mask bug_compat;
     /// Memory pool used by heaps
-    mempool *pool = nullptr;
+    std::shared_ptr<mempool> pool;
 
     /**
      * Callback called when a heap is being ejected from the live list.
@@ -75,7 +76,7 @@ public:
     /**
      * Set a pool to use for allocating heap memory.
      */
-    void set_mempool(mempool *pool);
+    void set_mempool(std::shared_ptr<mempool> pool);
 
     /**
      * Add a packet that was received, and which has been examined by @a

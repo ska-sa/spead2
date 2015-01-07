@@ -22,6 +22,18 @@ mempool::mempool(std::size_t lower, std::size_t upper, std::size_t max_free, std
         pool.emplace(new std::uint8_t[upper]);
 }
 
+void mempool::return_to_pool(const std::weak_ptr<mempool> &self_weak, std::uint8_t *ptr)
+{
+    std::shared_ptr<mempool> self = self_weak.lock();
+    if (self)
+        self->return_to_pool(ptr);
+    else
+    {
+        log_debug("dropping memory because the pool has been freed");
+        delete[] ptr;
+    }
+}
+
 void mempool::return_to_pool(std::uint8_t *ptr)
 {
     std::unique_lock<std::mutex> lock(mutex);
@@ -67,7 +79,10 @@ mempool::pointer mempool::allocate(std::size_t size)
             ptr = allocate_for_pool();
             log_debug("allocating %d bytes which will be added to the pool", size);
         }
-        return pointer(ptr.release(), [this] (std::uint8_t *p) { return_to_pool(p); });
+        // Create a shared pointer referencing self, so that the pool cannot
+        // be freed while the memory is still 
+        std::weak_ptr<mempool> self(shared_from_this());
+        return pointer(ptr.release(), [self] (std::uint8_t *p) { return_to_pool(self, p); });
     }
     else
     {
