@@ -7,22 +7,6 @@
 
 #include <memory>
 
-/* Older versions of boost don't understand std::shared_ptr properly. This needs
- * to be defined before boost.python is included.
- */
-#if BOOST_VERSION < 105300
-namespace boost
-{
-
-template<typename T>
-T *get_pointer(const std::shared_ptr<T> &p)
-{
-    return p.get();
-}
-
-} // namespace boost
-#endif
-
 #include <boost/python.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/version.hpp>
@@ -156,6 +140,18 @@ T ringbuffer_fd_gil<T>::pop()
     assert(!this->empty_unlocked());
     return this->pop_unlocked();
 }
+
+/* Older versions of boost don't understand std::shared_ptr properly. This is
+ * in the spead namespace so that it will be found by ADL when considering
+ * std::shared_ptr<spead::mempool>.
+ */
+#if BOOST_VERSION < 105300
+template<typename T>
+T *get_pointer(const std::shared_ptr<T> &p)
+{
+    return p.get();
+}
+#endif
 
 } // namespace spead
 
