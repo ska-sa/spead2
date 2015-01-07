@@ -17,6 +17,8 @@
 #if BOOST_VERSION < 105300
 namespace boost
 {
+namespace python
+{
 
 template<typename T>
 T *get_pointer(const std::shared_ptr<T> &p)
@@ -24,6 +26,7 @@ T *get_pointer(const std::shared_ptr<T> &p)
     return p.get();
 }
 
+} // namespace python
 } // namespace boost
 #endif
 
