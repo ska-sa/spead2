@@ -70,6 +70,7 @@ public:
             py::throw_error_already_set();
         }
         py::object obj{py::handle<>(view)};
+        py::decref(array); // the view holds its own ref
         return obj;
     }
 };
