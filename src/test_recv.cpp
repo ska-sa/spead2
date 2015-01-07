@@ -90,7 +90,7 @@ static void run_trivial()
 
 static void run_ringbuffered()
 {
-    spead::mempool pool(16384, 26214400, 8, 4);
+    spead::mempool pool(16384, 26214400, 12, 8);
     spead::recv::ring_stream<spead::ringbuffer_fd<spead::recv::heap> > stream;
     stream.set_mempool(&pool);
     spead::recv::receiver receiver;
