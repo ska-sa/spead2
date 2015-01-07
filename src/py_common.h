@@ -5,19 +5,13 @@
 #ifndef SPEAD_PY_COMMON_H
 #define SPEAD_PY_COMMON_H
 
-#include <boost/python.hpp>
-#include <boost/noncopyable.hpp>
-#include <boost/version.hpp>
-#include <cassert>
-#include <mutex>
-#include <stdexcept>
-#include "common_ringbuffer.h"
+#include <memory>
 
-// Older versions of boost don't understand std::shared_ptr properly
+/* Older versions of boost don't understand std::shared_ptr properly. This needs
+ * to be defined before boost.python is included.
+ */
 #if BOOST_VERSION < 105300
 namespace boost
-{
-namespace python
 {
 
 template<typename T>
@@ -26,9 +20,16 @@ T *get_pointer(const std::shared_ptr<T> &p)
     return p.get();
 }
 
-} // namespace python
 } // namespace boost
 #endif
+
+#include <boost/python.hpp>
+#include <boost/noncopyable.hpp>
+#include <boost/version.hpp>
+#include <cassert>
+#include <mutex>
+#include <stdexcept>
+#include "common_ringbuffer.h"
 
 namespace spead
 {
