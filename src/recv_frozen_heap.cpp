@@ -101,6 +101,11 @@ frozen_heap::frozen_heap(heap &&h)
                 end = decoder.get_address(h.pointers[i + 1]);
             else
                 end = h.min_length;
+            if (start == end)
+            {
+                log_debug("skipping empty item %d", new_item.id);
+                continue;
+            }
             new_item.ptr = h.payload.get() + start;
             new_item.length = end - start;
             log_debug("found new addressed item ID %d, offset %d, length %d",
