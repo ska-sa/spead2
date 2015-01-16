@@ -210,9 +210,10 @@ std::vector<descriptor> frozen_heap::get_descriptors() const
         if (item.id == DESCRIPTOR_ID)
         {
             mem_to_stream(s, item.ptr, item.length);
-            s.stop();
+            s.flush();
         }
     }
+    s.stop();
     return s.descriptors;
 }
 
