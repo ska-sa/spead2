@@ -62,6 +62,10 @@ private:
      */
     virtual void heap_ready(heap &&) {}
 
+    // Prevent copying
+    stream_base(const stream_base &) = delete;
+    stream_base &operator=(const stream_base &) = delete;
+
 public:
     /**
      * Constructor.
