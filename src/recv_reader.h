@@ -21,19 +21,18 @@ class stream;
 class reader
 {
 private:
-    boost::asio::strand strand; ///< Serialises access to this structure
-    stream &s;  ///< Wrapped stream
+    stream &owner;  ///< Owning stream
 
 public:
-    reader(boost::asio::io_service &io_service, stream &s)
-        : strand(io_service), s(s) {}
+    reader(stream &owner)
+        : owner(owner) {}
     virtual ~reader() = default;
 
     /// Retrieve the wrapped stream
-    stream &get_stream() const { return s; }
+    stream &get_stream() const { return owner; }
 
-    /// Retrieve the internal strand
-    boost::asio::strand &get_strand() { return strand; }
+    /// Retrieve the io_service corresponding to the owner
+    boost::asio::io_service &get_io_service();
 
     /**
      * Enqueue asynchronous operations to the io_service.
@@ -44,11 +43,10 @@ public:
     virtual void start() = 0;
 
     /**
-     * Cancel any pending asynchronous operations. Overrides must chain
-     * back to the base class, which takes care of stopping the wrapped
-     * stream.
+     * Cancel any pending asynchronous operations. This is called with the
+     * owner's strand held.
      */
-    virtual void stop();
+    virtual void stop() = 0;
 };
 
 } // namespace recv

@@ -183,12 +183,12 @@ descriptor frozen_heap::to_descriptor() const
 namespace
 {
 
-class descriptor_stream : public stream
+class descriptor_stream : public stream_base
 {
 private:
     virtual void heap_ready(heap &&h) override;
 public:
-    using stream::stream;
+    using stream_base::stream_base;
     std::vector<descriptor> descriptors;
 };
 

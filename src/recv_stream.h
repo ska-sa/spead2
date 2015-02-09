@@ -8,11 +8,16 @@
 #include <cstddef>
 #include <deque>
 #include <memory>
+#include <boost/asio.hpp>
 #include "recv_heap.h"
+#include "recv_reader.h"
 #include "common_mempool.h"
 
 namespace spead
 {
+
+class thread_pool;
+
 namespace recv
 {
 
@@ -20,7 +25,7 @@ class packet_header;
 
 /**
  * Encapsulation of a SPEAD stream. Packets are fed in through @ref add_packet.
- * The base class does nothing with packets; subclasses will typically override
+ * The base class does nothing with heaps; subclasses will typically override
  * @ref heap_ready and @ref stop to do further processing.
  *
  * A collection of partial heaps is kept. Heaps are removed from this collection
@@ -31,9 +36,10 @@ class packet_header;
  *   incomplete
  * - The stream is stopped
  *
- * This class is @em not thread-safe.
+ * This class is @em not thread-safe. Almost all use cases (possibly excluding
+ * testing) will derive from @ref stream.
  */
-class stream
+class stream_base
 {
 private:
     /**
@@ -63,8 +69,8 @@ public:
      * @param bug_compat   Protocol bugs to have compatibility with
      * @param max_heaps    Maximum number of live (in-flight) heaps held in the stream
      */
-    explicit stream(bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
-    virtual ~stream() = default;
+    explicit stream_base(bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
+    virtual ~stream_base() = default;
 
     /**
      * Change the maximum heap count. This will not immediately cause heaps to
@@ -108,6 +114,42 @@ public:
     void flush();
 };
 
+class stream : public stream_base
+{
+private:
+    /**
+     * Serialization of access.
+     */
+    boost::asio::io_service::strand strand;
+    /**
+     * Readers providing the stream data.
+     */
+    std::vector<std::unique_ptr<reader> > readers;
+
+public:
+    boost::asio::io_service::strand &get_strand() { return strand; }
+
+    // TODO: introduce constant for default max_heaps
+    explicit stream(boost::asio::io_service &service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
+    explicit stream(thread_pool &pool, bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
+    ~stream() override;
+
+    /**
+     * Add a new reader by passing its constructor arguments, excluding
+     * the initial @a stream argument.
+     */
+    template<typename T, typename... Args>
+    void emplace_reader(Args&&... args)
+    {
+        reader *r = new T(*this, std::forward<Args>(args)...);
+        std::unique_ptr<reader> ptr(r);
+        readers.push_back(std::move(ptr));
+        r->start();
+    }
+
+    virtual void stop() override;
+};
+
 /**
  * Push packets found in a block of memory to a stream. Returns a pointer to
  * after the last packet found in the stream. Processing stops as soon as
@@ -116,7 +158,7 @@ public:
  *
  * The stream is @em not stopped.
  */
-const std::uint8_t *mem_to_stream(stream &s, const std::uint8_t *ptr, std::size_t length);
+const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::size_t length);
 
 } // namespace recv
 } // namespace spead

@@ -7,6 +7,7 @@
 
 #include "common_ringbuffer.h"
 #include "common_logging.h"
+#include "common_thread_pool.h"
 #include "recv_heap.h"
 #include "recv_frozen_heap.h"
 #include "recv_stream.h"
@@ -45,7 +46,9 @@ public:
      *
      * @param max_heaps The capacity of the ring buffer, and of the stream buffer
      */
-    explicit ring_stream(bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
+    explicit ring_stream(boost::asio::io_service &io_service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
+    explicit ring_stream(thread_pool &pool, bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4)
+        : ring_stream(pool.get_io_service(), bug_compat, max_heaps) {}
 
     /**
      * Wait until a contiguous heap is available, freeze it, and
@@ -73,8 +76,10 @@ public:
 };
 
 template<typename Ringbuffer>
-ring_stream<Ringbuffer>::ring_stream(bug_compat_mask bug_compat, std::size_t max_heaps)
-    : stream(bug_compat, max_heaps), ready_heaps(max_heaps)
+ring_stream<Ringbuffer>::ring_stream(
+    boost::asio::io_service &io_service,
+    bug_compat_mask bug_compat, std::size_t max_heaps)
+    : stream(io_service, bug_compat, max_heaps), ready_heaps(max_heaps)
 {
 }
 

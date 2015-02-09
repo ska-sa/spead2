@@ -3,7 +3,7 @@
 #include <chrono>
 #include <cstdint>
 #include <boost/asio.hpp>
-#include "recv_receiver.h"
+#include "common_thread_pool.h"
 #include "recv_udp.h"
 #include "recv_frozen_heap.h"
 #include "recv_heap.h"
@@ -30,8 +30,23 @@ private:
         else
             std::cout << " [incomplete]\n";
     }
+
+    std::promise<void> stop_promise;
+
 public:
     using spead::recv::stream::stream;
+
+    virtual void stop() override
+    {
+        spead::recv::stream::stop();
+        stop_promise.set_value();
+    }
+
+    void join()
+    {
+        std::future<void> future = stop_promise.get_future();
+        future.get();
+    }
 };
 
 void show_heap(const spead::recv::frozen_heap &fheap)
@@ -77,28 +92,23 @@ void show_heap(const spead::recv::frozen_heap &fheap)
 
 static void run_trivial()
 {
-    trivial_stream stream;
-
-    spead::recv::receiver receiver;
+    spead::thread_pool worker;
+    trivial_stream stream(worker);
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
-    receiver.emplace_reader<spead::recv::udp_reader>(
-        stream,
+    stream.emplace_reader<spead::recv::udp_reader>(
         endpoint, spead::recv::udp_reader::default_max_size, 1024 * 1024);
-    receiver();
-    receiver.stop();
+    stream.join();
 }
 
 static void run_ringbuffered()
 {
+    spead::thread_pool worker;
     std::shared_ptr<spead::mempool> pool = std::make_shared<spead::mempool>(16384, 26214400, 12, 8);
-    spead::recv::ring_stream<spead::ringbuffer_fd<spead::recv::heap> > stream;
+    spead::recv::ring_stream<spead::ringbuffer_fd<spead::recv::heap> > stream(worker);
     stream.set_mempool(pool);
-    spead::recv::receiver receiver;
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
-    receiver.emplace_reader<spead::recv::udp_reader>(
-        stream,
+    stream.emplace_reader<spead::recv::udp_reader>(
         endpoint, spead::recv::udp_reader::default_max_size, 8 * 1024 * 1024);
-    receiver.start(1);
     while (true)
     {
         try

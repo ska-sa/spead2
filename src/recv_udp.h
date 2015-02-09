@@ -49,8 +49,7 @@ public:
     /**
      * Constructor.
      *
-     * @param io_service   IO service for the owning @ref Receiver
-     * @param s            Wrapped stream
+     * @param owner        Owning stream
      * @param endpoint     Address on which to listen
      * @param max_size     Maximum packet size that will be accepted.
      * @param buffer_size  Requested socket buffer size. Note that the
@@ -60,8 +59,7 @@ public:
      * @todo Check that the io_service matches @ref start
      */
     explicit udp_reader(
-        boost::asio::io_service &io_service,
-        stream &s,
+        stream &owner,
         const boost::asio::ip::udp::endpoint &endpoint,
         std::size_t max_size = default_max_size,
         std::size_t buffer_size = default_buffer_size);

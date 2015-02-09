@@ -32,7 +32,7 @@ private:
     std::size_t length;
 
 public:
-    mem_reader(boost::asio::io_service &io_service, stream &s,
+    mem_reader(stream &owner,
                const std::uint8_t *ptr, std::size_t length);
     virtual void start() override;
 };

@@ -19,12 +19,11 @@ constexpr std::size_t udp_reader::default_max_size;
 constexpr std::size_t udp_reader::default_buffer_size;
 
 udp_reader::udp_reader(
-    boost::asio::io_service &io_service,
-    stream &s,
+    stream &owner,
     const boost::asio::ip::udp::endpoint &endpoint,
     std::size_t max_size,
     std::size_t buffer_size)
-    : reader(io_service, s), socket(io_service), max_size(max_size)
+    : reader(owner), socket(get_io_service()), max_size(max_size)
 {
     // Allocate one extra byte so that overflow can be detected
     buffer.reset(new std::uint8_t[max_size + 1]);
@@ -86,7 +85,7 @@ void udp_reader::enqueue_receive()
     socket.async_receive_from(
         boost::asio::buffer(buffer.get(), max_size + 1),
         endpoint,
-        get_strand().wrap(std::bind(&udp_reader::packet_handler, this, _1, _2)));
+        get_stream().get_strand().wrap(std::bind(&udp_reader::packet_handler, this, _1, _2)));
 }
 
 void udp_reader::start()
@@ -96,11 +95,11 @@ void udp_reader::start()
 
 void udp_reader::stop()
 {
-    // Don't put any logging here: it could be running in a shutdown
-    // path where it is no longer safe to do so
-    reader::stop();
-    // asio guarantees that closing a socket will cancel any pending
-    // operations on it
+    /* Don't put any logging here: it could be running in a shutdown
+     * path where it is no longer safe to do so.
+     * asio guarantees that closing a socket will cancel any pending
+     * operations on it.
+     */
     socket.close();
 }
 

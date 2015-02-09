@@ -10,9 +10,9 @@ namespace spead
 namespace recv
 {
 
-void reader::stop()
+boost::asio::io_service &reader::get_io_service()
 {
-    s.stop();
+    return owner.get_strand().get_io_service();
 }
 
 } // namespace recv

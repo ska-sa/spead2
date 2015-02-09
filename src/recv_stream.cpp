@@ -7,28 +7,29 @@
 #include <cassert>
 #include "recv_stream.h"
 #include "recv_heap.h"
+#include "common_thread_pool.h"
 
 namespace spead
 {
 namespace recv
 {
 
-stream::stream(bug_compat_mask bug_compat, std::size_t max_heaps)
+stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
     : max_heaps(max_heaps), bug_compat(bug_compat)
 {
 }
 
-void stream::set_max_heaps(std::size_t max_heaps)
+void stream_base::set_max_heaps(std::size_t max_heaps)
 {
     this->max_heaps = max_heaps;
 }
 
-void stream::set_mempool(std::shared_ptr<mempool> pool)
+void stream_base::set_mempool(std::shared_ptr<mempool> pool)
 {
     this->pool = std::move(pool);
 }
 
-bool stream::add_packet(const packet_header &packet)
+bool stream_base::add_packet(const packet_header &packet)
 {
     assert(!stopped);
     // Look for matching heap
@@ -88,7 +89,7 @@ bool stream::add_packet(const packet_header &packet)
     return result;
 }
 
-void stream::flush()
+void stream_base::flush()
 {
     for (heap &h : heaps)
     {
@@ -97,13 +98,56 @@ void stream::flush()
     heaps.clear();
 }
 
-void stream::stop()
+void stream_base::stop()
 {
     stopped = true;
     flush();
 }
 
-const std::uint8_t *mem_to_stream(stream &s, const std::uint8_t *ptr, std::size_t length)
+
+stream::stream(boost::asio::io_service &io_service, bug_compat_mask bug_compat, std::size_t max_heaps)
+    : stream_base(bug_compat, max_heaps), strand(io_service)
+{
+}
+
+stream::stream(thread_pool &thread_pool, bug_compat_mask bug_compat, std::size_t max_heaps)
+    : stream(thread_pool.get_io_service(), bug_compat, max_heaps)
+{
+}
+
+void stream::stop()
+{
+    /* This can be called either by the user or as a result of reader action,
+     * so it needs to be serialised. We also need to use @c post rather than
+     * @c dispatch, because we may be in the middle of executing code in one
+     * of the readers and we do not want to re-enter the reader in stopping
+     * it.
+     *
+     * The promise and future are used to block until the callback finishes.
+     */
+    std::promise<void> promise;
+    std::future<void> future = promise.get_future();
+    get_strand().post([this, &promise] ()
+    {
+        while (!readers.empty())
+        {
+            readers.back()->stop();
+            readers.pop_back();
+        }
+        stream_base::stop();
+        promise.set_value();
+    });
+    // Wait for the callback
+    future.get();
+}
+
+stream::~stream()
+{
+    stream::stop();
+}
+
+
+const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::size_t length)
 {
     while (length > 0 && !s.is_stopped())
     {
