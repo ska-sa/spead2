@@ -8,6 +8,8 @@
 #include <cstddef>
 #include <deque>
 #include <memory>
+#include <utility>
+#include <functional>
 #include <boost/asio.hpp>
 #include "recv_heap.h"
 #include "recv_reader.h"
@@ -110,6 +112,7 @@ public:
      */
     virtual void stop();
 
+    // TODO: not thread-safe: needs to query via the strand
     bool is_stopped() const { return stopped; }
 
     bug_compat_mask get_bug_compat() const { return bug_compat; }
@@ -130,6 +133,18 @@ private:
      */
     std::vector<std::unique_ptr<reader> > readers;
 
+    template<typename T, typename... Args>
+    void emplace_reader_callback(Args&&... args)
+    {
+        if (!is_stopped())
+        {
+            readers.reserve(readers.size() + 1);
+            reader *r = new T(*this, std::forward<Args>(args)...);
+            std::unique_ptr<reader> ptr(r);
+            readers.push_back(std::move(ptr));
+        }
+    }
+
 public:
     boost::asio::io_service::strand &get_strand() { return strand; }
 
@@ -145,10 +160,15 @@ public:
     template<typename T, typename... Args>
     void emplace_reader(Args&&... args)
     {
-        reader *r = new T(*this, std::forward<Args>(args)...);
-        std::unique_ptr<reader> ptr(r);
-        readers.push_back(std::move(ptr));
-        r->start();
+        // This would probably work better with a lambda (better forwarding),
+        // but GCC 4.8 has a bug with accessing parameter packs inside a
+        // lambda.
+        std::packaged_task<void()> task(std::bind(
+                &stream::emplace_reader_callback<T, const Args&...>,
+                this, std::forward<Args>(args)...));
+        get_strand().dispatch(std::ref(task));
+        // Block until it completes
+        task.get_future().get();
     }
 
     virtual void stop() override;

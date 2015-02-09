@@ -64,7 +64,6 @@ public:
         std::size_t max_size = default_max_size,
         std::size_t buffer_size = default_buffer_size);
 
-    virtual void start() override;
     virtual void stop() override;
 };
 

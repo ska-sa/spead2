@@ -41,6 +41,7 @@ udp_reader::udp_reader(
         }
     }
     socket.bind(endpoint);
+    enqueue_receive();
 }
 
 void udp_reader::packet_handler(
@@ -64,7 +65,6 @@ void udp_reader::packet_handler(
                 if (get_stream().is_stopped())
                 {
                     log_debug("UDP reader: end of stream detected");
-                    socket.close();
                 }
             }
         }
@@ -77,6 +77,8 @@ void udp_reader::packet_handler(
     {
         enqueue_receive();
     }
+    else
+        stopped();
 }
 
 void udp_reader::enqueue_receive()
@@ -88,17 +90,12 @@ void udp_reader::enqueue_receive()
         get_stream().get_strand().wrap(std::bind(&udp_reader::packet_handler, this, _1, _2)));
 }
 
-void udp_reader::start()
-{
-    enqueue_receive();
-}
-
 void udp_reader::stop()
 {
-    /* Don't put any logging here: it could be running in a shutdown
-     * path where it is no longer safe to do so.
-     * asio guarantees that closing a socket will cancel any pending
+    /* asio guarantees that closing a socket will cancel any pending
      * operations on it.
+     * Don't put any logging here: it could be running in a shutdown
+     * path where it is no longer safe to do so.
      */
     socket.close();
 }

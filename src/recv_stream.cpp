@@ -118,32 +118,39 @@ stream::stream(thread_pool &thread_pool, bug_compat_mask bug_compat, std::size_t
 void stream::stop()
 {
     /* This can be called either by the user or as a result of reader action,
-     * so it needs to be serialised. We also need to use @c post rather than
-     * @c dispatch, because we may be in the middle of executing code in one
-     * of the readers and we do not want to re-enter the reader in stopping
-     * it.
+     * so it needs to be serialised.
      *
      * The promise and future are used to block until the callback finishes.
      */
-    std::promise<void> promise;
-    std::future<void> future = promise.get_future();
-    get_strand().post([this, &promise] ()
+    std::packaged_task<void()> task([this]
     {
-        while (!readers.empty())
+        // Check for already stopped, so that readers are stopped exactly once
+        if (!is_stopped())
         {
-            readers.back()->stop();
-            readers.pop_back();
+            stream_base::stop();
+            for (const auto &reader : readers)
+                reader->stop();
         }
-        stream_base::stop();
-        promise.set_value();
     });
-    // Wait for the callback
-    future.get();
+    get_strand().dispatch(std::ref(task));
+    // Wait for the callback to finish
+    task.get_future().get();
 }
 
 stream::~stream()
 {
     stream::stop();
+
+    for (const auto &r : readers)
+        r->join();
+    // Destroy the readers with the strand held, to ensure that the
+    // completion handlers have actually returned.
+    std::packaged_task<void()> task([this]
+    {
+        readers.clear();
+    });
+    get_strand().dispatch(std::ref(task));
+    task.get_future().get(); // block on completion
 }
 
 

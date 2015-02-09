@@ -19,14 +19,11 @@ mem_reader::mem_reader(
     : reader(owner), ptr(ptr), length(length)
 {
     assert(ptr != nullptr);
-}
-
-void mem_reader::start()
-{
     get_stream().get_strand().post([this] {
-        mem_to_stream(get_stream(), ptr, length);
+        mem_to_stream(get_stream(), this->ptr, this->length);
         // There will be no more data, so we can stop the stream immediately.
         get_stream().stop();
+        stopped();
     });
 }
 
