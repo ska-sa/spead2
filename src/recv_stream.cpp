@@ -115,6 +115,16 @@ stream::stream(thread_pool &thread_pool, bug_compat_mask bug_compat, std::size_t
 {
 }
 
+void stream::set_max_heaps(std::size_t max_heaps)
+{
+    run_in_strand([this, max_heaps] { stream_base::set_max_heaps(max_heaps); });
+}
+
+void stream::set_mempool(std::shared_ptr<mempool> pool)
+{
+    run_in_strand([this, pool] { stream_base::set_mempool(std::move(pool)); });
+}
+
 void stream::stop_received()
 {
     // Check for already stopped, so that readers are stopped exactly once
@@ -133,9 +143,7 @@ void stream::stop()
      *
      * The promise and future are used to block until the callback finishes.
      */
-    std::packaged_task<void()> stop_task([this] { stop_received(); });
-    get_strand().dispatch(std::ref(stop_task));
-    stop_task.get_future().get(); // block on completion
+    run_in_strand([this] { stop_received(); });
 
     // Block until all readers have entered their final completion handler.
     // Note that this cannot conflict with a previously issued emplace_reader,
@@ -145,9 +153,7 @@ void stream::stop()
 
     // Destroy the readers with the strand held, to ensure that the
     // completion handlers have actually returned.
-    std::packaged_task<void()> clear_task([this] { readers.clear(); });
-    get_strand().dispatch(std::ref(clear_task));
-    clear_task.get_future().get(); // block on completion
+    run_in_strand([this] { readers.clear(); });
 }
 
 stream::~stream()

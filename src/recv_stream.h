@@ -10,6 +10,8 @@
 #include <memory>
 #include <utility>
 #include <functional>
+#include <future>
+#include <type_traits>
 #include <boost/asio.hpp>
 #include "recv_heap.h"
 #include "recv_reader.h"
@@ -154,11 +156,22 @@ private:
 protected:
     virtual void stop_received() override;
 
+    /**
+     * Schedule execution of the function object @a callback through the @c
+     * io_service using the strand, and block until it completes. If the
+     * function throws an exception, it is rethrown in this thread.
+     */
+    template<typename F>
+    typename std::result_of<F()>::type run_in_strand(F &&func)
+    {
+        typedef typename std::result_of<F()>::type return_type;
+        std::packaged_task<return_type()> task(std::forward<F>(func));
+        get_strand().dispatch(std::ref(task));
+        return task.get_future().get();
+    }
+
 public:
     using stream_base::get_bug_compat;
-    // TODO: these need to go via the strand
-    using stream_base::set_max_heaps;
-    using stream_base::set_mempool;
 
     boost::asio::io_service::strand &get_strand() { return strand; }
 
@@ -166,6 +179,9 @@ public:
     explicit stream(boost::asio::io_service &service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
     explicit stream(thread_pool &pool, bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
     virtual ~stream() override;
+
+    void set_max_heaps(std::size_t max_heaps);
+    void set_mempool(std::shared_ptr<mempool> pool);
 
     /**
      * Add a new reader by passing its constructor arguments, excluding
@@ -177,12 +193,9 @@ public:
         // This would probably work better with a lambda (better forwarding),
         // but GCC 4.8 has a bug with accessing parameter packs inside a
         // lambda.
-        std::packaged_task<void()> task(std::bind(
+        run_in_strand(std::bind(
                 &stream::emplace_reader_callback<T, const Args&...>,
                 this, std::forward<Args>(args)...));
-        get_strand().dispatch(std::ref(task));
-        // Block until it completes
-        task.get_future().get();
     }
 
     /**
