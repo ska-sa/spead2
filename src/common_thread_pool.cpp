@@ -23,7 +23,7 @@ thread_pool::thread_pool(int num_threads)
     }
 }
 
-thread_pool::~thread_pool()
+void thread_pool::stop()
 {
     io_service.stop();
     for (auto &worker : workers)
@@ -37,6 +37,12 @@ thread_pool::~thread_pool()
             log_warning("worker thread throw an exception: %s", e.what());
         }
     }
+    workers.clear();
+}
+
+thread_pool::~thread_pool()
+{
+    stop();
 }
 
 } // namespace spead

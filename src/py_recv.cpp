@@ -5,7 +5,6 @@
 #include <stdexcept>
 #include "recv_udp.h"
 #include "recv_mem.h"
-#include "recv_receiver.h"
 #include "recv_stream.h"
 #include "recv_ring_stream.h"
 #include "recv_heap.h"
@@ -118,6 +117,23 @@ public:
 };
 
 /**
+ * Extends mem_reader to obtain data using the Python buffer protocol.
+ *
+ * The @ref buffer_view must be the first base class (rather than a member), so
+ * that it is initialised before the arguments are passed to the @ref
+ * mem_reader constructor.
+ */
+class buffer_reader : private buffer_view, public mem_reader
+{
+public:
+    buffer_reader(stream &s, py::object obj)
+        : buffer_view(obj),
+        mem_reader(s, reinterpret_cast<const std::uint8_t *>(view.buf), view.len)
+    {
+    }
+};
+
+/**
  * Stream that handles the magic necessary to reflect frozen heaps into
  * Python space and capture the reference to it.
  */
@@ -169,57 +185,43 @@ public:
     {
         return get_ringbuffer().get_fd();
     }
-};
 
-/**
- * Extends mem_reader to obtain data using the Python buffer protocol.
- *
- * The @ref buffer_view must be the first base class (rather than a member), so
- * that it is initialised before the arguments are passed to the @ref
- * mem_reader constructor.
- */
-class buffer_reader : private buffer_view, public mem_reader
-{
-public:
-    buffer_reader(boost::asio::io_service &io_service, stream &s, py::object obj)
-        : buffer_view(obj),
-        mem_reader(io_service, s, reinterpret_cast<const std::uint8_t *>(view.buf), view.len)
+    void set_mempool(std::shared_ptr<mempool> pool)
     {
+        release_gil gil;
+        ring_stream::set_mempool(std::move(pool));
     }
-};
 
-/**
- * Wraps @ref receiver to have add functions for each type of reader.
- */
-class receiver_wrapper : public receiver
-{
-public:
-    void add_buffer_reader(ring_stream_wrapper &stream, py::object obj)
+    void add_buffer_reader(py::object obj)
     {
-        emplace_reader<buffer_reader>(stream, obj);
+        release_gil gil;
+        // TODO: the constructor needs to acquire the GIL, and just passing the
+        // object has issues
+        emplace_reader<buffer_reader>(obj);
     }
 
     void add_udp_reader(
-        ring_stream_wrapper &stream, int port,
+        int port,
         std::size_t max_size = udp_reader::default_max_size,
         std::size_t default_buffer_size = udp_reader::default_buffer_size,
         const std::string &bind_hostname = "")
     {
         using boost::asio::ip::udp;
+        release_gil gil;
         udp::endpoint endpoint(boost::asio::ip::address_v4::any(), port);
         if (!bind_hostname.empty())
         {
-            udp::resolver resolver(get_io_service());
+            udp::resolver resolver(get_strand().get_io_service());
             udp::resolver::query query(bind_hostname, "", udp::resolver::query::passive | udp::resolver::query::address_configured);
             endpoint.address(resolver.resolve(query)->endpoint().address());
         }
-        emplace_reader<udp_reader>(stream, endpoint, max_size, default_buffer_size);
+        emplace_reader<udp_reader>(endpoint, max_size, default_buffer_size);
     }
 
     void stop()
     {
         release_gil gil;
-        receiver::stop();
+        ring_stream::stop();
     }
 };
 
@@ -240,8 +242,7 @@ static void call_import_array(bool &success)
 #endif
 }
 
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(receiver_wrapper_add_udp_reader_overloads, add_udp_reader, 2, 5)
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(receiver_wrapper_start_overloads, start, 0, 1)
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(ring_stream_add_udp_reader_overloads, add_udp_reader, 1, 4)
 
 /// Register the receiver module with Boost.Python
 void register_module()
@@ -268,8 +269,9 @@ void register_module()
     class_<item_wrapper>("RawItem", no_init)
         .def_readwrite("id", &item_wrapper::id)
         .add_property("value", &item_wrapper::get_value);
-    class_<ring_stream_wrapper, boost::noncopyable>("Stream")
-        .def(init<optional<bug_compat_mask, std::size_t> >())
+    class_<ring_stream_wrapper, boost::noncopyable>("Stream",
+            init<thread_pool_wrapper &, optional<bug_compat_mask, std::size_t> >()[
+                with_custodian_and_ward<1, 2>()])
         .def("__iter__", objects::identity_function())
         .def(
 #if PY_MAJOR_VERSION >= 3
@@ -282,17 +284,11 @@ void register_module()
         .def("get", &ring_stream_wrapper::get)
         .def("get_nowait", &ring_stream_wrapper::get_nowait)
         .def("set_mempool", &ring_stream_wrapper::set_mempool)
+        .def("add_buffer_reader", &ring_stream_wrapper::add_buffer_reader)
+        .def("add_udp_reader", &ring_stream_wrapper::add_udp_reader,
+             ring_stream_add_udp_reader_overloads())
+        .def("stop", &ring_stream_wrapper::stop)
         .add_property("fd", &ring_stream_wrapper::get_fd);
-    class_<receiver_wrapper, boost::noncopyable>("Receiver")
-        .def("add_buffer_reader", &receiver_wrapper::add_buffer_reader, with_custodian_and_ward<1, 2>())
-        .def("add_udp_reader", &receiver_wrapper::add_udp_reader,
-             receiver_wrapper_add_udp_reader_overloads()[with_custodian_and_ward<1, 2>()])
-        .def("start",
-             // This explicit typecast seems to be necessary to stop Boost expecting a reference
-             // to the base class, where start is actually defined
-             (void (receiver_wrapper::*)(int)) &receiver_wrapper::start,
-             receiver_wrapper_start_overloads())
-        .def("stop", &receiver_wrapper::stop);
 }
 
 } // namespace recv

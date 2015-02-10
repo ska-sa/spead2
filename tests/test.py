@@ -8,17 +8,17 @@ logging.basicConfig(level=logging.INFO)
 
 items = []
 
-stream = spead2.recv.Stream(spead2.BUG_COMPAT_PYSPEAD_0_5_2, 8)
+thread_pool = spead2.ThreadPool()
+stream = spead2.recv.Stream(thread_pool, spead2.BUG_COMPAT_PYSPEAD_0_5_2, 8)
+del thread_pool
 pool = spead2.Mempool(16384, 26214400, 12, 8)
 stream.set_mempool(pool)
-receiver = spead2.recv.Receiver()
 if 0:
     with open('junkspeadfile', 'rb') as f:
         text = f.read()
-    receiver.add_buffer_reader(stream, text)
+    stream.add_buffer_reader(text)
 else:
-    receiver.add_udp_reader(stream, 8888)
-receiver.start()
+    stream.add_udp_reader(8888)
 
 ig = spead2.recv.ItemGroup()
 num_heaps = 0
@@ -28,5 +28,5 @@ for heap in stream:
     for item in ig.items.itervalues():
         print heap.cnt, item.name, item.value.shape
     num_heaps += 1
-receiver.stop()
+stream.stop()
 print "Received", num_heaps, "heaps"

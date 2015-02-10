@@ -40,6 +40,9 @@ public:
 
     /// Retrieve the embedded io_service
     boost::asio::io_service &get_io_service() { return io_service; }
+
+    /// Shut down the thread pool
+    void stop();
 };
 
 } // namespace spead

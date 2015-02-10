@@ -5,6 +5,7 @@
 #include "common_defines.h"
 #include "common_logging.h"
 #include "common_mempool.h"
+#include "common_thread_pool.h"
 
 namespace py = boost::python;
 
@@ -86,6 +87,17 @@ static py::object int_to_object(long ival)
     return py::object(py::handle<>(obj));
 }
 
+thread_pool_wrapper::~thread_pool_wrapper()
+{
+    stop();
+}
+
+void thread_pool_wrapper::stop()
+{
+    release_gil gil;
+    thread_pool::stop();
+}
+
 template<typename T>
 static void create_exception(PyObject *&type, const char *name, const char *basename)
 {
@@ -110,6 +122,9 @@ static void register_module()
     py::setattr(scope(), "BUG_COMPAT_SWAP_ENDIAN", int_to_object(BUG_COMPAT_SWAP_ENDIAN));
 
     class_<mempool, std::shared_ptr<mempool>, boost::noncopyable>("Mempool", init<std::size_t, std::size_t, std::size_t, std::size_t>());
+
+    class_<thread_pool_wrapper, boost::noncopyable>("ThreadPool", init<optional<int> >())
+        .def("stop", &thread_pool_wrapper::stop);
 
     // TODO: make shape and format read-write
     class_<descriptor>("RawDescriptor")

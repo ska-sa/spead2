@@ -14,6 +14,7 @@
 #include <mutex>
 #include <stdexcept>
 #include "common_ringbuffer.h"
+#include "common_thread_pool.h"
 
 namespace spead
 {
@@ -102,6 +103,18 @@ public:
     {
         PyBuffer_Release(&view);
     }
+};
+
+/**
+ * Wrapper around @ref thread_pool that drops the GIL during blocking operations.
+ */
+class thread_pool_wrapper : public thread_pool
+{
+public:
+    using thread_pool::thread_pool;
+
+    ~thread_pool_wrapper();
+    void stop();
 };
 
 /**
