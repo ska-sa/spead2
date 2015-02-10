@@ -85,7 +85,7 @@ bool stream_base::add_packet(const packet_header &packet)
         }
     }
     if (end_of_stream)
-        stop();
+        stop_received();
     return result;
 }
 
@@ -98,7 +98,7 @@ void stream_base::flush()
     heaps.clear();
 }
 
-void stream_base::stop()
+void stream_base::stop_received()
 {
     stopped = true;
     flush();
@@ -115,6 +115,17 @@ stream::stream(thread_pool &thread_pool, bug_compat_mask bug_compat, std::size_t
 {
 }
 
+void stream::stop_received()
+{
+    // Check for already stopped, so that readers are stopped exactly once
+    if (!is_stopped())
+    {
+        stream_base::stop_received();
+        for (const auto &reader : readers)
+            reader->stop();
+    }
+}
+
 void stream::stop()
 {
     /* This can be called either by the user or as a result of reader action,
@@ -122,35 +133,26 @@ void stream::stop()
      *
      * The promise and future are used to block until the callback finishes.
      */
-    std::packaged_task<void()> task([this]
-    {
-        // Check for already stopped, so that readers are stopped exactly once
-        if (!is_stopped())
-        {
-            stream_base::stop();
-            for (const auto &reader : readers)
-                reader->stop();
-        }
-    });
-    get_strand().dispatch(std::ref(task));
-    // Wait for the callback to finish
-    task.get_future().get();
+    std::packaged_task<void()> stop_task([this] { stop_received(); });
+    get_strand().dispatch(std::ref(stop_task));
+    stop_task.get_future().get(); // block on completion
+
+    // Block until all readers have entered their final completion handler.
+    // Note that this cannot conflict with a previously issued emplace_reader,
+    // because its emplace_reader_callback happens-before stop_task.
+    for (const auto &r : readers)
+        r->join();
+
+    // Destroy the readers with the strand held, to ensure that the
+    // completion handlers have actually returned.
+    std::packaged_task<void()> clear_task([this] { readers.clear(); });
+    get_strand().dispatch(std::ref(clear_task));
+    clear_task.get_future().get(); // block on completion
 }
 
 stream::~stream()
 {
-    stream::stop();
-
-    for (const auto &r : readers)
-        r->join();
-    // Destroy the readers with the strand held, to ensure that the
-    // completion handlers have actually returned.
-    std::packaged_task<void()> task([this]
-    {
-        readers.clear();
-    });
-    get_strand().dispatch(std::ref(task));
-    task.get_future().get(); // block on completion
+    stop();
 }
 
 

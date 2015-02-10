@@ -28,7 +28,7 @@ class packet_header;
 /**
  * Encapsulation of a SPEAD stream. Packets are fed in through @ref add_packet.
  * The base class does nothing with heaps; subclasses will typically override
- * @ref heap_ready and @ref stop to do further processing.
+ * @ref heap_ready and @ref stop_received to do further processing.
  *
  * A collection of partial heaps is kept. Heaps are removed from this collection
  * and passed to @ref heap_ready when
@@ -51,7 +51,7 @@ private:
     std::size_t max_heaps;
     /// Live heaps, ordered by heap ID
     std::deque<heap> heaps;
-    /// @ref stop has been called, either externally or by stream control
+    /// @ref stop_received has been called, either externally or by stream control
     bool stopped = false;
     /// Protocol bugs to be compatible with
     bug_compat_mask bug_compat;
@@ -106,11 +106,8 @@ public:
      *
      * It is undefined what happens if @ref add_packet is called after a stream
      * is stopped.
-     *
-     * @todo Record whether the stream has been stopped and give a well-defined
-     * error; also detect packets that request stop.
      */
-    virtual void stop();
+    virtual void stop_received();
 
     // TODO: not thread-safe: needs to query via the strand
     bool is_stopped() const { return stopped; }
@@ -121,9 +118,18 @@ public:
     void flush();
 };
 
-class stream : public stream_base
+/**
+ * Stream that is fed by subclasses of @ref reader. Unless otherwise specified,
+ * methods in @ref stream_base may only be called while holding the strand
+ * contained in this class. The public interface functions must be called
+ * from outside the strand (and outside the threads associated with the
+ * io_service), but are not thread-safe relative to each other.
+ */
+class stream : protected stream_base
 {
 private:
+    friend class reader;
+
     /**
      * Serialization of access.
      */
@@ -145,13 +151,21 @@ private:
         }
     }
 
+protected:
+    virtual void stop_received() override;
+
 public:
+    using stream_base::get_bug_compat;
+    // TODO: these need to go via the strand
+    using stream_base::set_max_heaps;
+    using stream_base::set_mempool;
+
     boost::asio::io_service::strand &get_strand() { return strand; }
 
     // TODO: introduce constant for default max_heaps
     explicit stream(boost::asio::io_service &service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
     explicit stream(thread_pool &pool, bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
-    ~stream() override;
+    virtual ~stream() override;
 
     /**
      * Add a new reader by passing its constructor arguments, excluding
@@ -171,7 +185,12 @@ public:
         task.get_future().get();
     }
 
-    virtual void stop() override;
+    /**
+     * Stop the stream and block until all the readers have wound up. After
+     * calling this there should be no more outstanding completion handlers
+     * in the thread pool.
+     */
+    void stop();
 };
 
 /**

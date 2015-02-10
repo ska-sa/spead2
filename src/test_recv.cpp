@@ -36,9 +36,9 @@ private:
 public:
     using spead::recv::stream::stream;
 
-    virtual void stop() override
+    virtual void stop_received() override
     {
-        spead::recv::stream::stop();
+        spead::recv::stream::stop_received();
         stop_promise.set_value();
     }
 

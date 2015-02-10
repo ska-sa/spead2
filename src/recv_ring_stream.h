@@ -70,7 +70,7 @@ public:
      */
     frozen_heap try_pop();
 
-    virtual void stop() override;
+    virtual void stop_received() override;
 
     const Ringbuffer &get_ringbuffer() const { return ready_heaps; }
 };
@@ -125,13 +125,13 @@ frozen_heap ring_stream<Ringbuffer>::try_pop()
 }
 
 template<typename Ringbuffer>
-void ring_stream<Ringbuffer>::stop()
+void ring_stream<Ringbuffer>::stop_received()
 {
     /* Note: the order here is important: stream::stop flushes the stream's
      * internal buffer to the ringbuffer, and this needs to happen before
      * the ringbuffer is stopped.
      */
-    stream::stop();
+    stream::stop_received();
     ready_heaps.stop();
 }
 

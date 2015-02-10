@@ -14,6 +14,7 @@ namespace recv
 {
 
 class stream;
+class stream_base;
 
 /**
  * Abstract base class for asynchronously reading data and passing it into
@@ -45,6 +46,12 @@ public:
 
     /// Retrieve the wrapped stream
     stream &get_stream() const { return owner; }
+
+    /**
+     * Retrieve the wrapped stream's base class. This must only be used when
+     * the stream's strand is held.
+     */
+    stream_base &get_stream_base() const;
 
     /// Retrieve the io_service corresponding to the owner
     boost::asio::io_service &get_io_service();

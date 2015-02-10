@@ -20,6 +20,11 @@ boost::asio::io_service &reader::get_io_service()
     return owner.get_strand().get_io_service();
 }
 
+stream_base &reader::get_stream_base() const
+{
+    return owner;
+}
+
 void reader::join()
 {
     stopped_promise.get_future().get();

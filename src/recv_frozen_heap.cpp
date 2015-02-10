@@ -218,7 +218,7 @@ std::vector<descriptor> frozen_heap::get_descriptors() const
             s.flush();
         }
     }
-    s.stop();
+    s.stop_received();
     return s.descriptors;
 }
 

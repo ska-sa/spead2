@@ -50,7 +50,7 @@ void udp_reader::packet_handler(
 {
     if (!error)
     {
-        if (get_stream().is_stopped())
+        if (get_stream_base().is_stopped())
         {
             log_debug("UDP reader: discarding packet received after stream stopped");
         }
@@ -61,8 +61,8 @@ void udp_reader::packet_handler(
             std::size_t size = decode_packet(packet, buffer.get(), bytes_transferred);
             if (size == bytes_transferred)
             {
-                get_stream().add_packet(packet);
-                if (get_stream().is_stopped())
+                get_stream_base().add_packet(packet);
+                if (get_stream_base().is_stopped())
                 {
                     log_debug("UDP reader: end of stream detected");
                 }
@@ -73,7 +73,7 @@ void udp_reader::packet_handler(
     }
     // TODO: log the error if there was one
 
-    if (!get_stream().is_stopped())
+    if (!get_stream_base().is_stopped())
     {
         enqueue_receive();
     }
