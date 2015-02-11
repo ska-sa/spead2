@@ -103,9 +103,9 @@ static void run_trivial()
 static void run_ringbuffered()
 {
     spead::thread_pool worker;
-    std::shared_ptr<spead::mempool> pool = std::make_shared<spead::mempool>(16384, 26214400, 12, 8);
+    std::shared_ptr<spead::mem_pool> pool = std::make_shared<spead::mem_pool>(16384, 26214400, 12, 8);
     spead::recv::ring_stream<spead::ringbuffer_fd<spead::recv::heap> > stream(worker);
-    stream.set_mempool(pool);
+    stream.set_mem_pool(pool);
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
     stream.emplace_reader<spead::recv::udp_reader>(
         endpoint, spead::recv::udp_reader::default_max_size, 8 * 1024 * 1024);

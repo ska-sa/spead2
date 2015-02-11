@@ -157,7 +157,7 @@ T ringbuffer_fd_gil<T>::pop()
 
 /* Older versions of boost don't understand std::shared_ptr properly. This is
  * in the spead namespace so that it will be found by ADL when considering
- * std::shared_ptr<spead::mempool>.
+ * std::shared_ptr<spead::mem_pool>.
  */
 #if BOOST_VERSION < 105300
 template<typename T>

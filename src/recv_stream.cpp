@@ -24,7 +24,7 @@ void stream_base::set_max_heaps(std::size_t max_heaps)
     this->max_heaps = max_heaps;
 }
 
-void stream_base::set_mempool(std::shared_ptr<mempool> pool)
+void stream_base::set_mem_pool(std::shared_ptr<mem_pool> pool)
 {
     this->pool = std::move(pool);
 }
@@ -63,7 +63,7 @@ bool stream_base::add_packet(const packet_header &packet)
     {
         // Doesn't match any previously seen heap, so create a new one
         heap h(packet.heap_cnt, bug_compat);
-        h.set_mempool(pool);
+        h.set_mem_pool(pool);
         if (h.add_packet(packet))
         {
             result = true;
@@ -120,9 +120,9 @@ void stream::set_max_heaps(std::size_t max_heaps)
     run_in_strand([this, max_heaps] { stream_base::set_max_heaps(max_heaps); });
 }
 
-void stream::set_mempool(std::shared_ptr<mempool> pool)
+void stream::set_mem_pool(std::shared_ptr<mem_pool> pool)
 {
-    run_in_strand([this, pool] { stream_base::set_mempool(std::move(pool)); });
+    run_in_strand([this, pool] { stream_base::set_mem_pool(std::move(pool)); });
 }
 
 void stream::stop_received()

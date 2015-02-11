@@ -4,7 +4,7 @@
 #include "common_ringbuffer.h"
 #include "common_defines.h"
 #include "common_logging.h"
-#include "common_mempool.h"
+#include "common_mem_pool.h"
 #include "common_thread_pool.h"
 
 namespace py = boost::python;
@@ -121,7 +121,7 @@ static void register_module()
     py::setattr(scope(), "BUG_COMPAT_SHAPE_BIT_1", int_to_object(BUG_COMPAT_SHAPE_BIT_1));
     py::setattr(scope(), "BUG_COMPAT_SWAP_ENDIAN", int_to_object(BUG_COMPAT_SWAP_ENDIAN));
 
-    class_<mempool, std::shared_ptr<mempool>, boost::noncopyable>("Mempool", init<std::size_t, std::size_t, std::size_t, std::size_t>());
+    class_<mem_pool, std::shared_ptr<mem_pool>, boost::noncopyable>("MemPool", init<std::size_t, std::size_t, std::size_t, std::size_t>());
 
     class_<thread_pool_wrapper, boost::noncopyable>("ThreadPool", init<optional<int> >())
         .def("stop", &thread_pool_wrapper::stop);
