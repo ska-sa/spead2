@@ -158,11 +158,9 @@ class TestDecode(object):
         """Take some data and pass it through the receiver to obtain a set of heaps.
         The heaps must all fit within the ring buffer, otherwise some will be dropped.
         """
-        stream = recv.Stream(self.flavour.bug_compat)
-        receiver = recv.Receiver()
-        receiver.add_buffer_reader(stream, data)
-        receiver.start()
-        receiver.stop()
+        thread_pool = spead2.ThreadPool()
+        stream = recv.Stream(thread_pool, self.flavour.bug_compat)
+        stream.add_buffer_reader(data)
         return list(stream)
 
     def data_to_items(self, data):
