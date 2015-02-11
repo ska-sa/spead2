@@ -11,6 +11,7 @@
 #include <utility>
 #include <functional>
 #include <future>
+#include <mutex>
 #include <type_traits>
 #include <boost/asio.hpp>
 #include "recv_heap.h"
@@ -126,6 +127,10 @@ public:
  * contained in this class. The public interface functions must be called
  * from outside the strand (and outside the threads associated with the
  * io_service), but are not thread-safe relative to each other.
+ *
+ * This class is thread-safe. This is achieved mostly by having operations run
+ * as completion handlers on a strand. The exception is @ref stop, which uses a
+ * once to ensure that only the first call actually runs.
  */
 class stream : protected stream_base
 {
@@ -140,6 +145,9 @@ private:
      * Readers providing the stream data.
      */
     std::vector<std::unique_ptr<reader> > readers;
+
+    /// Ensure that @ref stop is only run once
+    std::once_flag stop_once;
 
     template<typename T, typename... Args>
     void emplace_reader_callback(Args&&... args)
@@ -169,6 +177,9 @@ protected:
         get_strand().dispatch(std::ref(task));
         return task.get_future().get();
     }
+
+    /// Actual implementation of @ref stop
+    void stop_impl();
 
 public:
     using stream_base::get_bug_compat;

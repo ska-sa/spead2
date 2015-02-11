@@ -136,7 +136,7 @@ void stream::stop_received()
     }
 }
 
-void stream::stop()
+void stream::stop_impl()
 {
     /* This can be called either by the user or as a result of reader action,
      * so it needs to be serialised.
@@ -145,15 +145,23 @@ void stream::stop()
      */
     run_in_strand([this] { stop_received(); });
 
-    // Block until all readers have entered their final completion handler.
-    // Note that this cannot conflict with a previously issued emplace_reader,
-    // because its emplace_reader_callback happens-before stop_task.
+    /* Block until all readers have entered their final completion handler.
+     * Note that this cannot conflict with a previously issued emplace_reader,
+     * because its emplace_reader_callback either happens-before the
+     * stop_received call above or sees that the stream has been stopped and
+     * does not touch the readers list.
+     */
     for (const auto &r : readers)
         r->join();
 
     // Destroy the readers with the strand held, to ensure that the
     // completion handlers have actually returned.
     run_in_strand([this] { readers.clear(); });
+}
+
+void stream::stop()
+{
+    std::call_once(stop_once, [this] { stop_impl(); });
 }
 
 stream::~stream()

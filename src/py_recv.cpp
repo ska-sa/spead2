@@ -118,17 +118,15 @@ public:
 
 /**
  * Extends mem_reader to obtain data using the Python buffer protocol.
- *
- * The @ref buffer_view must be the first base class (rather than a member), so
- * that it is initialised before the arguments are passed to the @ref
- * mem_reader constructor.
  */
-class buffer_reader : private buffer_view, public mem_reader
+class buffer_reader : public mem_reader
 {
+private:
+    std::unique_ptr<buffer_view> view;
 public:
-    buffer_reader(stream &s, py::object obj)
-        : buffer_view(obj),
-        mem_reader(s, reinterpret_cast<const std::uint8_t *>(view.buf), view.len)
+    explicit buffer_reader(stream &s, std::unique_ptr<buffer_view> &view)
+        : mem_reader(s, reinterpret_cast<const std::uint8_t *>(view->view.buf), view->view.len),
+        view(std::move(view))
     {
     }
 };
@@ -136,6 +134,11 @@ public:
 /**
  * Stream that handles the magic necessary to reflect frozen heaps into
  * Python space and capture the reference to it.
+ *
+ * The GIL needs to be handled carefully. Any operation run by the thread pool
+ * might need to take the GIL to do logging. Thus, any operation that blocks
+ * on completion of code scheduled through the thread pool must drop the GIL
+ * first.
  */
 class ring_stream_wrapper : public ring_stream<ringbuffer_fd_gil<heap> >
 {
@@ -194,10 +197,9 @@ public:
 
     void add_buffer_reader(py::object obj)
     {
+        std::unique_ptr<buffer_view> view{new buffer_view(obj)};
         release_gil gil;
-        // TODO: the constructor needs to acquire the GIL, and just passing the
-        // object has issues
-        emplace_reader<buffer_reader>(obj);
+        emplace_reader<buffer_reader>(std::ref(view));
     }
 
     void add_udp_reader(

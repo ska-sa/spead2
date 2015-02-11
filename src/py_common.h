@@ -101,6 +101,7 @@ public:
 
     ~buffer_view()
     {
+        acquire_gil gil;
         PyBuffer_Release(&view);
     }
 };
