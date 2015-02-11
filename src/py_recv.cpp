@@ -225,6 +225,11 @@ public:
         release_gil gil;
         ring_stream::stop();
     }
+
+    ~ring_stream_wrapper()
+    {
+        stop();
+    }
 };
 
 /* Wrapper to deal with import_array returning nothing in Python 2, NULL in
