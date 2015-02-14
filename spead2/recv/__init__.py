@@ -160,7 +160,7 @@ class Item(Descriptor):
             need_bits = yield result
             while have_bits < need_bits:
                 try:
-                    bits = (bits << 8) | byte_source.next()
+                    bits = (bits << 8) | next(byte_source)
                     have_bits += 8
                 except StopIteration:
                     return
