@@ -275,6 +275,52 @@ class TestDecode(object):
         assert_equal(expected.dtype, item.value.dtype)
         np.testing.assert_equal(expected, item.value)
 
+    def test_fallback_uint(self):
+        expected = [0xABC, 0xDEF, 0x123]
+        packet = self.flavour.make_packet_heap(1,
+            [
+                self.flavour.make_plain_descriptor(
+                    0x1234, 'test_fallback_uint', 'an array of 12-bit uints', [('u', 12)], (3,)),
+                Item(0x1234, b'\xAB\xCD\xEF\x12\x30')
+            ])
+        item = self.data_to_item(packet, 0x1234)
+        assert_equal(expected, item.value)
+
+    def test_fallback_int(self):
+        expected = [-1348, -529, 291]
+        packet = self.flavour.make_packet_heap(1,
+            [
+                self.flavour.make_plain_descriptor(
+                    0x1234, 'test_fallback_uint', 'an array of 12-bit ints', [('i', 12)], (3,)),
+                Item(0x1234, b'\xAB\xCD\xEF\x12\x30')
+            ])
+        item = self.data_to_item(packet, 0x1234)
+        assert_equal(expected, item.value)
+
+    def test_fallback_types(self):
+        expected = [(True, 'y', 1.0), (False, 'n', -1.0)]
+        packet = self.flavour.make_packet_heap(1,
+            [
+                self.flavour.make_plain_descriptor(
+                    0x1234, 'test_fallback_uint', 'an array with bools, chars and floats',
+                    [('b', 1), ('c', 7), ('f', 32)], (2,)),
+                Item(0x1234, b'\xF9\x3F\x80\x00\x00' + b'n\xBF\x80\x00\x00')
+            ])
+        item = self.data_to_item(packet, 0x1234)
+        assert_equal(expected, item.value)
+
+    def test_fallback_scalar(self):
+        expected = 0x1234567890AB
+        packet = self.flavour.make_packet_heap(1,
+            [
+                self.flavour.make_plain_descriptor(
+                    0x1234, 'test_fallback_scalar', 'a scalar with unusual type',
+                    [('u', 48)], ()),
+                Item(0x1234, b'\x12\x34\x56\x78\x90\xAB')
+            ])
+        item = self.data_to_item(packet, 0x1234)
+        assert_equal(expected, item.value)
+
     def test_size_mismatch(self):
         packet = self.flavour.make_packet_heap(1,
             [

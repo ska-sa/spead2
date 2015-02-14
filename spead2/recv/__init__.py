@@ -10,7 +10,8 @@ Python. The following are accepted.
    contains only a single field which is non-native endian, it will be
    converted to native endian in-place. In other cases, the value retrieved
    from numpy will still be correct, but usage may be slow.
- - If no numpy header is present, the following may be used in the format:
+ - If no numpy header is present, the following may be used in the format
+   with zero copy and good efficiency:
 
    - u8, u16, u32, u64
    - i8, i16, i32, i64
@@ -23,6 +24,12 @@ Python. The following are accepted.
    element of the shape may indicate a variable-length field, whose length
    will be computed from the size of the item, or 0 if any other element of
    the shape is zero.
+ - The `u`, `i`, `c` and `b` types may also be used with other sizes, but it
+   will invoke a slow conversion process and is not recommended for large
+   arrays. The valid range of the `c` conversion depends on the Python
+   version: for Python 2 it must be 0 to 255, for Python 3 it is interpreted
+   as a Unicode code point. Using any of these will also cause the return
+   value to be composed from ordinary Python lists rather than using numpy.
 
 Two cases are treated specially:
 
@@ -137,10 +144,80 @@ class Item(Descriptor):
                 shape[unknown_pos] = max_elements // known
             return shape
 
+    @classmethod
+    def _bit_generator(cls, raw_value):
+        """Generator that takes a memory view and provides bitfields from it.
+        After creating the generator, call `send(None)` to initialise it, and
+        thereafter call `send(need_bits)` to obtain that many bits.
+        over the bits in raw_value (which must implement the buffer protocol),
+        with the bits in each byte enumerated high-to-low.
+        """
+        have_bits = 0
+        bits = 0
+        byte_source = iter(bytearray(raw_value))
+        result = 0
+        while True:
+            need_bits = yield result
+            while have_bits < need_bits:
+                try:
+                    bits = (bits << 8) | byte_source.next()
+                    have_bits += 8
+                except StopIteration:
+                    return
+            result = bits >> (have_bits - need_bits)
+            bits &= (1 << (have_bits - need_bits)) - 1
+            have_bits -= need_bits
+
+    def _load_recursive(self, shape, gen):
+        if len(shape) > 0:
+            ans = []
+            for i in range(shape[0]):
+                ans.append(self._load_recursive(shape[1:], gen))
+        else:
+            fields = []
+            for code, length in self.format:
+                field = None
+                raw = gen.send(length)
+                if code == 'u':
+                    field = raw
+                elif code == 'i':
+                    field = raw
+                    # Interpret as 2's complement
+                    if field >= 1 << (length - 1):
+                        field -= 1 << length
+                elif code == 'b':
+                    field = bool(raw)
+                elif code == 'c':
+                    field = chr(raw)
+                elif code == 'f':
+                    if length == 32:
+                        field = np.uint32(raw).view(np.float32)
+                    elif length == 64:
+                        field = np.uint64(raw).view(np.float64)
+                else:
+                    raise ValueError('unhandled format {0}'.format((code, length)))
+                fields.append(field)
+            if len(fields) == 1:
+                ans = fields[0]
+            else:
+                ans = tuple(fields)
+        return ans
+
     def set_from_raw(self, raw_item):
         raw_value = raw_item.value
-        if self.dtype is None or not isinstance(raw_value, memoryview):
-            self.value = raw_value
+        if self.dtype is None:
+            bit_length = 0
+            for code, length in self.format:
+                bit_length += length
+            max_elements = raw_value.shape[0] * 8 // bit_length
+            shape = self.dynamic_shape(max_elements)
+            elements = int(np.product(shape))
+            if elements > max_elements:
+                raise ValueError('Item has too few elements for shape (%d < %d)' % (max_elements, elements))
+
+            gen = self._bit_generator(raw_value)
+            gen.send(None) # Initialisation of the generator
+            self.value = self._load_recursive(shape, gen)
         else:
             max_elements = raw_value.shape[0] // self.dtype.itemsize
             shape = self.dynamic_shape(max_elements)
@@ -148,7 +225,7 @@ class Item(Descriptor):
             if elements > max_elements:
                 raise ValueError('Item has too few elements for shape (%d < %d)' % (max_elements, elements))
             # For some reason, np.frombuffer doesn't work on memoryview, but np.array does
-            array1d = np.array(raw_item.value, copy=False)[: (elements * self.dtype.itemsize)]
+            array1d = np.array(raw_value, copy=False)[: (elements * self.dtype.itemsize)]
             array1d = array1d.view(dtype=self.dtype)
             if self.dtype.byteorder in ('<', '>'):
                 # Either < or > indicates non-native endianness. Swap it now
