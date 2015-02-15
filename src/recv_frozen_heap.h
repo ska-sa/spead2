@@ -21,8 +21,6 @@ class heap;
 
 /**
  * An item extracted from a heap.
- *
- * @todo Move this up to the spead namespace?
  */
 struct item
 {

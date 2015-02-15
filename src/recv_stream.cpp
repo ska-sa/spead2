@@ -138,11 +138,6 @@ void stream::stop_received()
 
 void stream::stop_impl()
 {
-    /* This can be called either by the user or as a result of reader action,
-     * so it needs to be serialised.
-     *
-     * The promise and future are used to block until the callback finishes.
-     */
     run_in_strand([this] { stop_received(); });
 
     /* Block until all readers have entered their final completion handler.

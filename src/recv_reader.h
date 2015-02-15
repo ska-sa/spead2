@@ -40,8 +40,7 @@ protected:
     void stopped();
 
 public:
-    reader(stream &owner)
-        : owner(owner) {}
+    explicit reader(stream &owner) : owner(owner) {}
     virtual ~reader() = default;
 
     /// Retrieve the wrapped stream
