@@ -2,8 +2,8 @@
  * @file
  */
 
-#ifndef SPEAD_SEND_STREAM_H
-#define SPEAD_SEND_STREAM_H
+#ifndef SPEAD_SEND_HEAP_H
+#define SPEAD_SEND_HEAP_H
 
 #include <vector>
 #include <utility>
@@ -28,6 +28,12 @@ struct item
     const std::uint8_t *ptr;
     /// Start of memory containing length
     std::size_t length;
+
+    item() = default;
+    item(std::int64_t id, const void *ptr, std::size_t length)
+        : id(id), ptr(reinterpret_cast<const std::uint8_t *>(ptr)), length(length)
+    {
+    }
 };
 
 class heap
@@ -48,4 +54,4 @@ public:
 } // namespace send
 } // namespace spead
 
-#endif // SPEAD_SEND_STREAM_H
+#endif // SPEAD_SEND_HEAP_H

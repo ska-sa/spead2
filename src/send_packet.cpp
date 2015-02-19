@@ -10,6 +10,7 @@
 #include <endian.h>
 #include "send_heap.h"
 #include "send_utils.h"
+#include "send_packet.h"
 #include "common_defines.h"
 
 namespace spead
@@ -58,21 +59,21 @@ packet packet_generator::next_packet()
         pointer_encoder encoder(heap_address_bits);
         std::size_t max_immediate_size = heap_address_bits / 8;
         std::size_t immediate_offset = 8 - max_immediate_size;
-        std::size_t n_item_pointers = std::min(max_item_pointers_per_packet, next_item_pointer - h.items.size());
+        std::size_t n_item_pointers = std::min(max_item_pointers_per_packet, h.items.size() - next_item_pointer);
         std::size_t packet_payload_length = std::min(
             payload_size - payload_offset,
             std::int64_t(max_packet_size - n_item_pointers * 8 - prefix_size));
 
         // Determine how much internal data is needed.
         // Always add enough to allow for padding the payload
-        std::size_t alloc_bytes = prefix_size + n_item_pointers + 8;
+        std::size_t alloc_bytes = prefix_size + n_item_pointers * 8 + 8;
         out.data.reset(new std::uint8_t[alloc_bytes]);
         std::uint64_t *header = reinterpret_cast<std::uint64_t *>(out.data.get());
         *header++ = htobe64(
             (std::uint64_t(0x5304) << 48)
             | (std::uint64_t(8 - heap_address_bits / 8) << 40)
             | (std::uint64_t(heap_address_bits / 8) << 32)
-            | (h.items.size()));
+            | (h.items.size() + 4));
         *header++ = htobe64(encoder.encode_immediate(HEAP_CNT_ID, h.heap_cnt));
         *header++ = htobe64(encoder.encode_immediate(HEAP_LENGTH_ID, payload_size));
         *header++ = htobe64(encoder.encode_immediate(PAYLOAD_OFFSET_ID, payload_offset));
@@ -96,12 +97,15 @@ packet packet_generator::next_packet()
         out.buffers.emplace_back(out.data.get(), prefix_size + 8 * n_item_pointers);
 
         // Generate payload
+        payload_offset += packet_payload_length;
         while (packet_payload_length > 0)
         {
             if (next_item == h.items.size())
             {
                 // dummy padding payload
+                assert(packet_payload_length == 8);
                 out.buffers.emplace_back(header, packet_payload_length);
+                packet_payload_length = 0;
             }
             else if (h.items[next_item].length <= max_immediate_size)
             {
@@ -122,7 +126,6 @@ packet packet_generator::next_packet()
                 packet_payload_length -= send_bytes;
             }
         }
-        payload_offset += packet_payload_length;
     }
     return out;
 }
