@@ -11,11 +11,13 @@
 #include <memory>
 #include <queue>
 #include <chrono>
+#include <stdexcept>
 #include <boost/asio.hpp>
 #include <boost/asio/high_resolution_timer.hpp>
 #include "send_heap.h"
 #include "send_packet.h"
 #include "common_logging.h"
+#include "common_defines.h"
 
 namespace spead
 {
@@ -36,11 +38,11 @@ private:
 
     struct queue_item
     {
-        heap h;
+        basic_heap h;
         completion_handler handler;
 
         queue_item() = default;
-        queue_item(heap h, completion_handler handler)
+        queue_item(basic_heap &&h, completion_handler &&handler)
             : h(std::move(h)), handler(std::move(handler))
         {
         }
@@ -48,8 +50,9 @@ private:
 
     boost::asio::io_service &io_service;
     const int heap_address_bits;
+    const bug_compat_mask bug_compat;
     const std::size_t max_packet_size;
-    const double bytes_per_second;
+    const double seconds_per_byte;
     const std::size_t max_heaps;
 
     /**
@@ -61,7 +64,7 @@ private:
     std::queue<queue_item> queue;
     timer_type timer;
     timer_type::time_point send_time;
-    std::unique_ptr<packet_generator> gen;
+    std::unique_ptr<packet_generator> gen; // TODO: make this inlinable
     /// Signalled whenever a heap is popped from the queue
     std::condition_variable heap_popped;
 
@@ -104,7 +107,7 @@ private:
                 // TODO: compute this when the packet is created?
                 for (const auto &buffer : pkt.buffers)
                     bytes += buffer_size(buffer);
-                std::chrono::duration<double> wait(bytes * bytes_per_second);
+                std::chrono::duration<double> wait(bytes * seconds_per_byte);
                 send_time += std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
                 static_cast<Derived *>(this)->async_send_packet(
                     pkt,
@@ -137,21 +140,29 @@ public:
     stream(
         boost::asio::io_service &io_service,
         int heap_address_bits,
+        bug_compat_mask bug_compat,
         std::size_t max_packet_size,
         double rate,
         std::size_t max_heaps = DEFAULT_MAX_HEAPS) :
             io_service(io_service),
             heap_address_bits(heap_address_bits),
+            bug_compat(bug_compat),
             max_packet_size(max_packet_size),
-            bytes_per_second(1.0 / rate),
+            seconds_per_byte(rate > 0.0 ? 1.0 / rate : 0.0),
             max_heaps(max_heaps),
             timer(io_service)
     {
+        if (heap_address_bits <= 0
+            || heap_address_bits >= 64
+            || heap_address_bits % 8 != 0)
+        {
+            throw std::invalid_argument("heap_address_bits is invalid");
+        }
     }
 
     boost::asio::io_service &get_io_service() const { return io_service; }
 
-    void async_send_heap(heap h, completion_handler handler)
+    void async_send_heap(basic_heap &&h, completion_handler handler)
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
         if (queue.size() >= max_heaps)
@@ -177,6 +188,11 @@ public:
             send_time = timer_type::clock_type::now();
             io_service.dispatch([this] { send_next_packet(); });
         }
+    }
+
+    void async_send_heap(const heap &h, completion_handler handler)
+    {
+        async_send_heap(h.encode(heap_address_bits, bug_compat), std::move(handler));
     }
 
     /**

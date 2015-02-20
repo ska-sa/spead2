@@ -21,7 +21,7 @@ namespace send
 constexpr std::size_t packet_generator::prefix_size;
 
 packet_generator::packet_generator(
-    const heap &h, int heap_address_bits, std::size_t max_packet_size)
+    const basic_heap &h, int heap_address_bits, std::size_t max_packet_size)
     : h(h), heap_address_bits(heap_address_bits), max_packet_size(max_packet_size)
 {
     /* We need
@@ -37,8 +37,8 @@ packet_generator::packet_generator(
     const std::size_t max_immediate_size = heap_address_bits / 8;
     for (const item &it : h.items)
     {
-        if (it.length > max_immediate_size)
-            payload_size += it.length;
+        if (!it.is_inline && it.data.buffer.length != max_immediate_size)
+            payload_size += it.data.buffer.length;
     }
 
     /* Check if we need to add dummy payload to ensure that every packet
@@ -61,8 +61,8 @@ packet packet_generator::next_packet()
         std::size_t immediate_offset = 8 - max_immediate_size;
         std::size_t n_item_pointers = std::min(max_item_pointers_per_packet, h.items.size() - next_item_pointer);
         std::size_t packet_payload_length = std::min(
-            payload_size - payload_offset,
-            std::int64_t(max_packet_size - n_item_pointers * 8 - prefix_size));
+            std::size_t(payload_size - payload_offset),
+            max_packet_size - n_item_pointers * 8 - prefix_size);
 
         // Determine how much internal data is needed.
         // Always add enough to allow for padding the payload
@@ -82,15 +82,20 @@ packet packet_generator::next_packet()
         {
             const item &it = h.items[next_item_pointer++];
             std::uint64_t ip;
-            if (it.length <= max_immediate_size)
+            if (it.is_inline)
+            {
+                ip = htobe64(encoder.encode_immediate(it.id, it.data.immediate));
+            }
+            else if (it.data.buffer.length == max_immediate_size)
             {
                 ip = htobe64(encoder.encode_immediate(it.id, 0));
-                std::memcpy(reinterpret_cast<char *>(&ip) + immediate_offset, it.ptr, it.length);
+                std::memcpy(reinterpret_cast<char *>(&ip) + immediate_offset,
+                            it.data.buffer.ptr, it.data.buffer.length);
             }
             else
             {
                 ip = htobe64(encoder.encode_address(it.id, next_address));
-                next_address += it.length;
+                next_address += it.data.buffer.length;
             }
             *header++ = ip;
         }
@@ -107,7 +112,8 @@ packet packet_generator::next_packet()
                 out.buffers.emplace_back(header, packet_payload_length);
                 packet_payload_length = 0;
             }
-            else if (h.items[next_item].length <= max_immediate_size)
+            else if (h.items[next_item].is_inline
+                     || h.items[next_item].data.buffer.length == max_immediate_size)
             {
                 next_item++;
                 next_item_offset = 0;
@@ -115,10 +121,11 @@ packet packet_generator::next_packet()
             else
             {
                 const item &it = h.items[next_item];
-                std::size_t send_bytes = std::min(it.length - next_item_offset, packet_payload_length);
-                out.buffers.emplace_back(it.ptr + next_item_offset, send_bytes);
+                std::size_t send_bytes = std::min(
+                    it.data.buffer.length - next_item_offset, packet_payload_length);
+                out.buffers.emplace_back(it.data.buffer.ptr + next_item_offset, send_bytes);
                 next_item_offset += send_bytes;
-                if (next_item_offset == it.length)
+                if (next_item_offset == it.data.buffer.length)
                 {
                     next_item++;
                     next_item_offset = 0;

@@ -16,7 +16,7 @@ namespace spead
 namespace send
 {
 
-class heap;
+class basic_heap;
 
 /**
  * A packet ready for sending on the network. It contains some internally
@@ -41,7 +41,7 @@ private:
     // 8 bytes head, 8 bytes each for heap cnt, heap size, payload offset, payload size
     static constexpr std::size_t prefix_size = 40;
 
-    const heap &h;
+    const basic_heap &h;
     int heap_address_bits;
     std::size_t max_packet_size;
     std::size_t max_item_pointers_per_packet;
@@ -59,7 +59,7 @@ private:
     std::int64_t payload_size = 0;
 
 public:
-    packet_generator(const heap &h, int heap_address_bits, std::size_t max_packet_size);
+    packet_generator(const basic_heap &h, int heap_address_bits, std::size_t max_packet_size);
 
     packet next_packet();
 };
