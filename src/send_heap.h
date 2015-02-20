@@ -84,11 +84,12 @@ private:
      * Transient storage that should be freed when the heap is no longer
      * needed. Items may point to either this storage or external storage.
      */
-    std::unique_ptr<std::uint8_t[]> storage;
+    std::vector<std::unique_ptr<std::uint8_t[]> > storage;
 
 public:
     template<typename T>
-    basic_heap(std::int64_t heap_cnt, T &&items, std::unique_ptr<std::uint8_t[]> &&storage)
+    basic_heap(std::int64_t heap_cnt, T &&items,
+               std::vector<std::unique_ptr<std::uint8_t[]> > &&storage)
     : heap_cnt(heap_cnt), items(std::forward<T>(items)), storage(std::move(storage))
     {
     }

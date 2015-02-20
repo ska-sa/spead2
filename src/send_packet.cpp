@@ -37,7 +37,7 @@ packet_generator::packet_generator(
     const std::size_t max_immediate_size = heap_address_bits / 8;
     for (const item &it : h.items)
     {
-        if (!it.is_inline && it.data.buffer.length != max_immediate_size)
+        if (!(it.is_inline || it.data.buffer.length <= max_immediate_size))
             payload_size += it.data.buffer.length;
     }
 
@@ -86,7 +86,7 @@ packet packet_generator::next_packet()
             {
                 ip = htobe64(encoder.encode_immediate(it.id, it.data.immediate));
             }
-            else if (it.data.buffer.length == max_immediate_size)
+            else if (it.data.buffer.length <= max_immediate_size)
             {
                 ip = htobe64(encoder.encode_immediate(it.id, 0));
                 std::memcpy(reinterpret_cast<char *>(&ip) + immediate_offset,
@@ -113,7 +113,7 @@ packet packet_generator::next_packet()
                 packet_payload_length = 0;
             }
             else if (h.items[next_item].is_inline
-                     || h.items[next_item].data.buffer.length == max_immediate_size)
+                     || h.items[next_item].data.buffer.length <= max_immediate_size)
             {
                 next_item++;
                 next_item_offset = 0;
