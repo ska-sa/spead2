@@ -58,7 +58,6 @@ packet packet_generator::next_packet()
     {
         pointer_encoder encoder(heap_address_bits);
         std::size_t max_immediate_size = heap_address_bits / 8;
-        std::size_t immediate_offset = 8 - max_immediate_size;
         std::size_t n_item_pointers = std::min(max_item_pointers_per_packet, h.items.size() - next_item_pointer);
         std::size_t packet_payload_length = std::min(
             std::size_t(payload_size - payload_offset),
@@ -89,7 +88,7 @@ packet packet_generator::next_packet()
             else if (it.data.buffer.length <= max_immediate_size)
             {
                 ip = htobe64(encoder.encode_immediate(it.id, 0));
-                std::memcpy(reinterpret_cast<char *>(&ip) + immediate_offset,
+                std::memcpy(reinterpret_cast<char *>(&ip) + 8 - it.data.buffer.length,
                             it.data.buffer.ptr, it.data.buffer.length);
             }
             else

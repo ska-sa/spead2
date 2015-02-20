@@ -1,4 +1,5 @@
 #include <iostream>
+#include <endian.h>
 #include <boost/asio.hpp>
 #include "common_thread_pool.h"
 #include "common_defines.h"
@@ -19,7 +20,7 @@ int main()
     spead::send::udp_stream stream(std::move(socket), 48, 7, 9000, 1e9);
 
     spead::send::heap h(0x2);
-    std::int32_t value1 = 5;
+    std::int32_t value1 = htobe32(5);
     std::int32_t value2[64] = {};
     spead::descriptor desc1;
     desc1.id = 0x1000;
