@@ -1,0 +1,10 @@
+- Rename frozen_heap -> heap, heap -> live_heap
+- Move most of the classes to the detail namespace
+- Make receiver align items in immediates the same way as PySPEAD (sender already fixed)
+- Add lots of validation to sending (overflows etc)
+- Support cancellation of transmission
+- Call the send callback with an error if a heap is dropped or the stream is terminated
+- Fix PySPEAD's assumption that small items are always immediates
+- Investigate memory pools for sender
+- Implement more sender classes (particularly vector_stream)
+- Python interface to sender
