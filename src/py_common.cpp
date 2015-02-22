@@ -65,6 +65,18 @@ static py::object descriptor_get_shape(const descriptor &d)
     return out;
 }
 
+static void descriptor_set_shape(descriptor &d, py::object shape)
+{
+    std::vector<std::int64_t> out;
+    out.reserve(len(shape));
+    for (long i = 0; i < len(shape); i++)
+    {
+        std::int64_t v = py::extract<int64_t>(shape[i]);
+        out.push_back(v);
+    }
+    d.shape = std::move(out);
+}
+
 static py::object descriptor_get_format(const descriptor &d)
 {
     py::list out;
@@ -73,6 +85,22 @@ static py::object descriptor_get_format(const descriptor &d)
         out.append(py::make_tuple(item.first, item.second));
     }
     return out;
+}
+
+static void descriptor_set_format(descriptor &d, py::object format)
+{
+    std::vector<std::pair<char, std::int64_t> > out;
+    out.reserve(len(format));
+    for (long i = 0; i < len(format); i++)
+    {
+        py::object item = format[i];
+        if (len(item) != 2)
+            throw std::length_error("expected 2 arguments in format");
+        char code = py::extract<char>(item[0]);
+        std::int64_t type = py::extract<std::int64_t>(item[1]);
+        out.emplace_back(code, type);
+    }
+    d.format = std::move(out);
 }
 
 static py::object int_to_object(long ival)
@@ -126,13 +154,12 @@ static void register_module()
     class_<thread_pool_wrapper, boost::noncopyable>("ThreadPool", init<optional<int> >())
         .def("stop", &thread_pool_wrapper::stop);
 
-    // TODO: make shape and format read-write
     class_<descriptor>("RawDescriptor")
         .def_readwrite("id", &descriptor::id)
         .def_readwrite("name", &descriptor::name)
         .def_readwrite("description", &descriptor::description)
-        .add_property("shape", &descriptor_get_shape)
-        .add_property("format", &descriptor_get_format)
+        .add_property("shape", &descriptor_get_shape, &descriptor_set_shape)
+        .add_property("format", &descriptor_get_format, &descriptor_set_shape)
         .def_readwrite("numpy_header", &descriptor::numpy_header);
 
     object logging_module = import("logging");
