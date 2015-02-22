@@ -11,6 +11,8 @@
 #include <memory>
 #include <queue>
 #include <chrono>
+#include <mutex>
+#include <condition_variable>
 #include <stdexcept>
 #include <boost/asio.hpp>
 #include <boost/asio/high_resolution_timer.hpp>
