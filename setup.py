@@ -28,5 +28,6 @@ setup(
     ext_package='spead2',
     ext_modules=extensions,
     install_requires=['numpy'],
-    test_requires=['nose'],
+    tests_require=['nose'],
+    test_suite='nose.collector',
     packages=['spead2', 'spead2.recv'])
