@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include "send_heap.h"
 #include "send_stream.h"
+#include "py_common.h"
 
 namespace py = boost::python;
 
@@ -19,9 +20,20 @@ namespace send
 
 class heap_wrapper : public heap
 {
+private:
+    std::vector<buffer_view> item_buffers;
+
 public:
     using heap::heap;
+    void add_item(std::int64_t id, py::object object);
 };
+
+void heap_wrapper::add_item(std::int64_t id, py::object object)
+{
+    item_buffers.emplace_back(object);
+    const auto &view = item_buffers.back().view;
+    heap::add_item(id, view.buf, view.len);
+}
 
 /// Register the send module with Boost.Python
 void register_module()
@@ -35,6 +47,7 @@ void register_module()
     py::scope scope = module;
 
     class_<heap_wrapper, boost::noncopyable>("Heap", init<std::int64_t>())
+        .def("add_item", &heap_wrapper::add_item)
         .def("add_descriptor", &heap_wrapper::add_descriptor);
 }
 

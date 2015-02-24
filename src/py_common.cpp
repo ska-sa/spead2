@@ -162,7 +162,7 @@ static void register_module()
         .def_readwrite("name", &descriptor::name)
         .def_readwrite("description", &descriptor::description)
         .add_property("shape", &descriptor_get_shape, &descriptor_set_shape)
-        .add_property("format", &descriptor_get_format, &descriptor_set_shape)
+        .add_property("format", &descriptor_get_format, &descriptor_set_format)
         .def_readwrite("numpy_header", &descriptor::numpy_header);
 
     object logging_module = import("logging");

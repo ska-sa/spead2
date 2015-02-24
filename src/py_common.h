@@ -99,10 +99,36 @@ public:
             boost::python::throw_error_already_set();
     }
 
+    buffer_view()
+    {
+        view.ndim = -1;  // mark as invalid to prevent release
+    }
+
+    // Allow moving
+    buffer_view(buffer_view &&other) noexcept : view(other.view)
+    {
+        other.view.ndim = -1; // mark as invalid
+    }
+
+    buffer_view &operator=(buffer_view &&other)
+    {
+        if (view.ndim >= 0)
+        {
+            acquire_gil gil;
+            PyBuffer_Release(&view);
+        }
+        view = other.view;
+        other.view.ndim = -1;
+        return *this;
+    }
+
     ~buffer_view()
     {
-        acquire_gil gil;
-        PyBuffer_Release(&view);
+        if (view.ndim >= 0)
+        {
+            acquire_gil gil;
+            PyBuffer_Release(&view);
+        }
     }
 };
 
