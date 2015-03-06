@@ -235,7 +235,7 @@ class TestDecode(object):
                 Item(0x1234, struct.pack('>fbfbfb', 1.5, 1, 2.5, 2, 4.5, -4))
             ])
         item = self.data_to_item(packet, 0x1234)
-        dtype = np.dtype('f4,i1')
+        dtype = np.dtype('>f4,i1')
         assert_equal(dtype, item.value.dtype)
         expected = np.array([(1.5, 1), (2.5, 2), (4.5, -4)], dtype=dtype)
         np.testing.assert_equal(expected, item.value)
@@ -276,7 +276,7 @@ class TestDecode(object):
         np.testing.assert_equal(expected, item.value)
 
     def test_fallback_uint(self):
-        expected = [0xABC, 0xDEF, 0x123]
+        expected = np.array([0xABC, 0xDEF, 0x123])
         packet = self.flavour.make_packet_heap(1,
             [
                 self.flavour.make_plain_descriptor(
@@ -284,10 +284,10 @@ class TestDecode(object):
                 Item(0x1234, b'\xAB\xCD\xEF\x12\x30')
             ])
         item = self.data_to_item(packet, 0x1234)
-        assert_equal(expected, item.value)
+        np.testing.assert_equal(expected, item.value)
 
     def test_fallback_int(self):
-        expected = [-1348, -529, 291]
+        expected = np.array([-1348, -529, 291])
         packet = self.flavour.make_packet_heap(1,
             [
                 self.flavour.make_plain_descriptor(
@@ -295,7 +295,7 @@ class TestDecode(object):
                 Item(0x1234, b'\xAB\xCD\xEF\x12\x30')
             ])
         item = self.data_to_item(packet, 0x1234)
-        assert_equal(expected, item.value)
+        np.testing.assert_equal(expected, item.value)
 
     def test_fallback_types(self):
         expected = [(True, 'y', 1.0), (False, 'n', -1.0)]
@@ -307,7 +307,7 @@ class TestDecode(object):
                 Item(0x1234, b'\xF9\x3F\x80\x00\x00' + b'n\xBF\x80\x00\x00')
             ])
         item = self.data_to_item(packet, 0x1234)
-        assert_equal(expected, item.value)
+        np.testing.assert_equal(expected, item.value)
 
     def test_fallback_scalar(self):
         expected = 0x1234567890AB

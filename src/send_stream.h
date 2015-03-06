@@ -136,6 +136,12 @@ private:
         } while (again);
     }
 
+protected:
+    bug_compat_mask get_bug_compat() const
+    {
+        return bug_compat;
+    }
+
 public:
     static constexpr std::size_t DEFAULT_MAX_HEAPS = 4;
 
@@ -170,6 +176,8 @@ public:
         if (queue.size() >= max_heaps)
         {
             log_warning("async_send_heap: dropping heap because queue is full");
+            // TODO: send an error code to the handler
+            handler();
             return;
         }
         bool empty = queue.empty();

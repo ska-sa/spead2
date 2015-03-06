@@ -30,12 +30,29 @@ public:
     udp_stream(
         boost::asio::ip::udp::socket &&socket,
         int heap_address_bits,
+        bug_compat_mask bug_compat,
         std::size_t max_packet_size,
         double rate,
         std::size_t max_heaps = DEFAULT_MAX_HEAPS)
-        : stream<udp_stream>(socket.get_io_service(), heap_address_bits, max_packet_size, rate, max_heaps),
+        : stream<udp_stream>(socket.get_io_service(), heap_address_bits,
+                             bug_compat, max_packet_size, rate, max_heaps),
         socket(std::move(socket))
     {
+    }
+
+    udp_stream(
+        boost::asio::io_service &io_service,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        int heap_address_bits,
+        bug_compat_mask bug_compat,
+        std::size_t max_packet_size,
+        double rate,
+        std::size_t max_heaps = DEFAULT_MAX_HEAPS)
+        : udp_stream(
+            boost::asio::ip::udp::socket(io_service),
+            heap_address_bits, bug_compat, max_packet_size, rate, max_heaps)
+    {
+        socket.connect(endpoint);
     }
 };
 
