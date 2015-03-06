@@ -1,4 +1,4 @@
-- Rename frozen_heap -> heap, heap -> live_heap
+- Rename frozen_heap -> heap, heap -> partial_heap
 - Move most of the classes to the detail namespace
 - Make receiver align items in immediates the same way as PySPEAD (sender already fixed)
 - Add lots of validation to sending (overflows etc)
@@ -7,4 +7,9 @@
 - Fix PySPEAD's assumption that small items are always immediates
 - Investigate memory pools for sender
 - Implement more sender classes (particularly vector_stream)
-- Python interface to sender
+- Asynchronous sends
+- More send infrastructure (item group, heap numbering etc)
+- Change add_item wrapper to automatically extract item ID
+- More item validation: value should be a property
+- Query for last heap in which an item changed?
+- Use eventfd where available for waking up asyncio
