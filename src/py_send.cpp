@@ -7,6 +7,8 @@
 #define NO_IMPORT_ARRAY
 #include <boost/python.hpp>
 #include <stdexcept>
+#include <mutex>
+#include <utility>
 #include "send_heap.h"
 #include "send_stream.h"
 #include "send_udp.h"
@@ -53,10 +55,6 @@ void heap_wrapper::add_descriptor(py::object object)
 template<typename Base>
 class stream_wrapper : public Base
 {
-private:
-    static boost::asio::ip::udp::endpoint make_endpoint(
-        boost::asio::io_service &io_service, const std::string &hostname, int port);
-
 public:
     using Base::Base;
 
@@ -73,7 +71,50 @@ public:
     }
 };
 
-class udp_stream_wrapper : public stream_wrapper<udp_stream>
+template<typename Base>
+class asyncio_stream_wrapper : public Base
+{
+private:
+    semaphore_gil sem;
+    std::vector<py::object> callbacks;
+    std::mutex callbacks_mutex;
+public:
+    using Base::Base;
+
+    int get_fd() const { return sem.get_fd(); }
+
+    void async_send_heap(py::object h, py::object callback)
+    {
+        // Note that while h isn't used in the lambda, it is
+        // bound to it so that its lifetime persists.
+        py::extract<heap_wrapper &> h2(h);
+        Base::async_send_heap(h2(), [this, callback, h] () mutable
+        {
+            {
+                std::unique_lock<std::mutex> lock(callbacks_mutex);
+                callbacks.push_back(std::move(callback));
+            }
+            sem.put();
+        });
+    }
+
+    void process_callbacks()
+    {
+        sem.get();
+        std::vector<py::object> current_callbacks;
+        {
+            std::unique_lock<std::mutex> lock(callbacks_mutex);
+            current_callbacks.swap(callbacks);
+        }
+        for (const py::object &callback : current_callbacks)
+        {
+            callback();
+        }
+    }
+};
+
+template<typename Base>
+class udp_stream_wrapper : public Base
 {
 private:
     static boost::asio::ip::udp::endpoint make_endpoint(
@@ -88,8 +129,8 @@ public:
         bug_compat_mask bug_compat,
         std::size_t max_packet_size,
         double rate,
-        std::size_t max_heaps = DEFAULT_MAX_HEAPS)
-        : stream_wrapper<udp_stream>(
+        std::size_t max_heaps = Base::DEFAULT_MAX_HEAPS)
+        : Base(
             pool.get_io_service(),
             make_endpoint(pool.get_io_service(), hostname, port),
             heap_address_bits, bug_compat, max_packet_size, rate, max_heaps)
@@ -97,7 +138,8 @@ public:
     }
 };
 
-boost::asio::ip::udp::endpoint udp_stream_wrapper::make_endpoint(
+template<typename Base>
+boost::asio::ip::udp::endpoint udp_stream_wrapper<Base>::make_endpoint(
     boost::asio::io_service &io_service, const std::string &hostname, int port)
 {
     using boost::asio::ip::udp;
@@ -123,11 +165,26 @@ void register_module()
         .def("add_item", &heap_wrapper::add_item, with_custodian_and_ward<1, 3>())
         .def("add_descriptor", &heap_wrapper::add_descriptor);
 
-    class_<udp_stream_wrapper, boost::noncopyable>("UdpStream", init<
-            thread_pool_wrapper &, std::string, int, int, bug_compat_mask,
-            std::size_t, double, optional<std::size_t> >()[
-                with_custodian_and_ward<1, 2>()])
-        .def("send_heap", &udp_stream_wrapper::send_heap);
+    {
+        typedef udp_stream_wrapper<stream_wrapper<udp_stream> > T;
+        class_<T, boost::noncopyable>("UdpStream", init<
+                thread_pool_wrapper &, std::string, int, int, bug_compat_mask,
+                std::size_t, double, optional<std::size_t> >()[
+                    with_custodian_and_ward<1, 2>()])
+            .def("send_heap", &T::send_heap);
+    }
+
+    {
+        typedef udp_stream_wrapper<asyncio_stream_wrapper<udp_stream> > T;
+        class_<T, boost::noncopyable>("UdpStreamAsyncio", init<
+                thread_pool_wrapper &, std::string, int, int, bug_compat_mask,
+                std::size_t, double, optional<std::size_t> >()[
+                    with_custodian_and_ward<1, 2>()])
+            .add_property("fd", &T::get_fd)
+            .def("async_send_heap", &T::async_send_heap)
+            .def("flush", &T::flush)
+            .def("process_callbacks", &T::process_callbacks);
+    }
 }
 
 } // namespace send

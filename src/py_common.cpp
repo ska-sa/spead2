@@ -29,10 +29,6 @@ int semaphore_gil::get()
     return result;
 }
 
-int semaphore_gil::get_no_interrupt()
-{
-}
-
 class log_function_python
 {
 private:

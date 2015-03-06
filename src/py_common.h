@@ -152,7 +152,6 @@ class semaphore_gil : public semaphore
 {
 public:
     int get();
-    int get_no_interrupt();
 };
 
 /* Older versions of boost don't understand std::shared_ptr properly. This is

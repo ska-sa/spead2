@@ -67,6 +67,7 @@ class Stream(spead2.recv.Stream):
                 if not self._waiters:
                     self._stop_listening()
 
+    @trollius.coroutine
     def get(self, loop=None):
         """Coroutine that waits for a heap to become available and returns it."""
         self._clear_done_waiters()

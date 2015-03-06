@@ -50,9 +50,6 @@ The `u` and `i` formats with up to 64 bits and a bit-width a multiple of 8 will
 be implemented. This will allow storage of immediate values.
 """
 
-from __future__ import print_function, division
-import numpy.lib.utils as _utils
-import numpy as _np
 import spead2 as _spead2
 from spead2._recv import *
 

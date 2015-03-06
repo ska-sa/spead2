@@ -1,4 +1,6 @@
-from spead2._spead2 import *
+import spead2._spead2
+from spead2._spead2 import ThreadPool, MemPool
+from spead2._spead2 import BUG_COMPAT_DESCRIPTOR_WIDTHS, BUG_COMPAT_SHAPE_BIT_1, BUG_COMPAT_SWAP_ENDIAN
 import numbers as _numbers
 import numpy as _np
 
@@ -118,7 +120,7 @@ class Descriptor(object):
                 shape, dtype, 'F' if fortran_order else 'C', format)
 
     def to_raw(self, bug_compat):
-        raw = RawDescriptor()
+        raw = spead2._spead2.RawDescriptor()
         raw.id = self.id
         raw.name = self.name
         raw.description = self.description
