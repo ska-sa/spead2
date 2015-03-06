@@ -21,4 +21,7 @@ heap = spead2.send.Heap(1, spead2.BUG_COMPAT_PYSPEAD_0_5_2)
 heap.add_descriptor(item)
 heap.add_item(item.id, item)
 coro = stream.async_send_heap(heap)
+# Delete things to check that there are no refcounting bugs
+del heap
+del stream
 trollius.get_event_loop().run_until_complete(coro)
