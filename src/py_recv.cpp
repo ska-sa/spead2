@@ -144,7 +144,7 @@ public:
  * on completion of code scheduled through the thread pool must drop the GIL
  * first.
  */
-class ring_stream_wrapper : public ring_stream<ringbuffer_fd_gil<heap> >
+class ring_stream_wrapper : public ring_stream<ringbuffer_semaphore<heap, semaphore_gil> >
 {
 private:
     py::object wrap_frozen_heap(frozen_heap &&fh)

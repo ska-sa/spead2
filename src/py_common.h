@@ -145,41 +145,15 @@ public:
 };
 
 /**
- * Ringbuffer variant that releases the GIL while waiting for data, and aborts
- * if there was a @c KeyboardInterrupt.
+ * Semaphore variant that releases the GIL during waits, and throws an
+ * exception if interrupted by SIGINT in the Python process.
  */
-template<typename T>
-class ringbuffer_fd_gil : public ringbuffer_fd<T>
+class semaphore_gil : public semaphore
 {
 public:
-    using ringbuffer_fd<T>::ringbuffer_fd;
-
-    T pop();
+    int get();
+    int get_no_interrupt();
 };
-
-template<typename T>
-T ringbuffer_fd_gil<T>::pop()
-{
-    int bytes;
-    do
-    {
-        release_gil gil;
-        bytes = this->try_read_byte();
-        if (bytes == 0)
-            throw ringbuffer_stopped();
-        else if (bytes < 0)
-        {
-            // Allow SIGINT to abort the pop
-            gil.acquire();
-            if (PyErr_CheckSignals() == -1)
-                boost::python::throw_error_already_set();
-        }
-    } while (bytes < 0);
-
-    std::unique_lock<std::mutex> lock(this->mutex);
-    assert(!this->empty_unlocked());
-    return this->pop_unlocked();
-}
 
 /* Older versions of boost don't understand std::shared_ptr properly. This is
  * in the spead namespace so that it will be found by ADL when considering

@@ -15,6 +15,24 @@ namespace py = boost::python;
 namespace spead
 {
 
+int semaphore_gil::get()
+{
+    release_gil gil;
+    int result = semaphore::get();
+    if (result == -1)
+    {
+        // Allow SIGINT to abort the wait
+        gil.acquire();
+        if (PyErr_CheckSignals() == -1)
+            boost::python::throw_error_already_set();
+    }
+    return result;
+}
+
+int semaphore_gil::get_no_interrupt()
+{
+}
+
 class log_function_python
 {
 private:

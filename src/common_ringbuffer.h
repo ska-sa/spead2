@@ -16,6 +16,7 @@
 #include <cassert>
 #include <iostream>
 #include "common_logging.h"
+#include "common_semaphore.h"
 
 namespace spead
 {
@@ -297,45 +298,28 @@ void ringbuffer_cond<T>::stop()
 ///////////////////////////////////////////////////////////////////////
 
 /**
- * Implementation of @ref ringbuffer_base that uses a pipe for for inter-thread
- * signalling. This is slower and can block the sender if the number of entries
- * exceeds the capacity of a pipe, but can be used with poll()-style
- * asynchronous operations.
+ * Implementation of @ref ringbuffer_base that uses @ref semaphore or a
+ * related class for inter-thread signalling. This is slower and can block the
+ * sender if the number of entries exceeds the capacity of a pipe, but can be
+ * used with poll()-style asynchronous operations.
  */
-template<typename T>
-class ringbuffer_fd : public ringbuffer_base<T>
+template<typename T, typename Semaphore = semaphore>
+class ringbuffer_semaphore : public ringbuffer_base<T>
 {
 protected:
     /// Protects access to the internal fields
     std::mutex mutex;
 
-    /**
-     * A byte is written to the write end when data is added, and it is closed
-     * when data is stopped. Closed ends are set to -1 to prevent double-closing.
-     */
-    int pipe_fds[2];
-
-    void write_byte(); ///< Write a byte to the pipe
-    /**
-     * Tries to read a byte from the pipe.
-     *
-     * @retval -1 if the read was interrupted
-     * @retval 0 if the read failed to due EOF
-     * @retval 1 if the read succeeded
-     */
-    int try_read_byte();
-    /// Like @ref try_read_byte, but restarts automatically after an interruption.
-    int read_byte();
-
+    Semaphore sem;
 public:
     /**
      * Constructs an empty ringbuffer.
      *
      * @param cap      Maximum capacity, in items
      */
-    explicit ringbuffer_fd(std::size_t cap);
+    explicit ringbuffer_semaphore(std::size_t cap);
 
-    ~ringbuffer_fd();
+    ~ringbuffer_semaphore();
 
     /**
      * Append an item to the queue, if there is space. It uses move
@@ -388,87 +372,37 @@ public:
      * can proceed without blocking, or try_pop will succeed. Do not read
      * or write anything from/to this descriptor.
      */
-    int get_fd() const { return pipe_fds[0]; }
+    int get_fd() const { return sem.get_fd(); }
 };
 
-template<typename T>
-ringbuffer_fd<T>::ringbuffer_fd(std::size_t cap) : ringbuffer_base<T>(cap)
+template<typename T, typename Semaphore>
+ringbuffer_semaphore<T, Semaphore>::ringbuffer_semaphore(std::size_t cap) : ringbuffer_base<T>(cap)
 {
-    if (pipe(pipe_fds) == -1)
-        throw std::system_error(errno, std::system_category());
 }
 
-template<typename T>
-ringbuffer_fd<T>::~ringbuffer_fd()
+template<typename T, typename Semaphore>
+ringbuffer_semaphore<T, Semaphore>::~ringbuffer_semaphore()
 {
-    for (int i = 0; i < 2; i++)
-        if (pipe_fds[i] != -1)
-        {
-            if (close(pipe_fds[i]) == -1)
-            {
-                // Can't throw, because this is a destructor
-                std::error_code code(errno, std::system_category());
-                log_warning("failed to close pipe: %1% (%2%)", code.value(), code.message());
-            }
-        }
 }
 
-template<typename T>
-void ringbuffer_fd<T>::write_byte()
-{
-    char byte = 0;
-    int status;
-    do
-    {
-        status = write(pipe_fds[1], &byte, 1);
-        if (status < 0 && errno != EINTR)
-        {
-            throw std::system_error(errno, std::system_category());
-        }
-    } while (status < 0);
-}
-
-template<typename T>
-int ringbuffer_fd<T>::try_read_byte()
-{
-    char byte = 0;
-    int status = read(pipe_fds[0], &byte, 1);
-    if (status < 0 && errno != EINTR)
-    {
-        throw std::system_error(errno, std::system_category());
-    }
-    return status;
-}
-
-template<typename T>
-int ringbuffer_fd<T>::read_byte()
-{
-    int status;
-    do
-    {
-        status = try_read_byte();
-    } while (status < 0);
-    return status;
-}
-
-template<typename T>
-void ringbuffer_fd<T>::try_push(T &&value)
+template<typename T, typename Semaphore>
+void ringbuffer_semaphore<T, Semaphore>::try_push(T &&value)
 {
     // Construct in-place with move constructor
     try_emplace(std::move(value));
 }
 
-template<typename T>
+template<typename T, typename Semaphore>
 template<typename... Args>
-void ringbuffer_fd<T>::try_emplace(Args&&... args)
+void ringbuffer_semaphore<T, Semaphore>::try_emplace(Args&&... args)
 {
     std::unique_lock<std::mutex> lock(mutex);
     this->try_emplace_unlocked(std::forward<Args>(args)...);
-    write_byte();
+    sem.put();
 }
 
-template<typename T>
-T ringbuffer_fd<T>::try_pop()
+template<typename T, typename Semaphore>
+T ringbuffer_semaphore<T, Semaphore>::try_pop()
 {
     std::unique_lock<std::mutex> lock(mutex);
     if (this->empty_unlocked())
@@ -476,15 +410,16 @@ T ringbuffer_fd<T>::try_pop()
         throw ringbuffer_empty();
     }
     // This should not block, because there is an entry to consume
-    read_byte();
+    int status = semaphore_get(sem);
+    assert(status == 1); (void) status;
     return this->pop_unlocked();
 }
 
-template<typename T>
-T ringbuffer_fd<T>::pop()
+template<typename T, typename Semaphore>
+T ringbuffer_semaphore<T, Semaphore>::pop()
 {
-    int bytes = read_byte();
-    if (bytes == 0)
+    int status = semaphore_get(sem);
+    if (status == 0)
         throw ringbuffer_stopped();
 
     std::unique_lock<std::mutex> lock(mutex);
@@ -492,18 +427,12 @@ T ringbuffer_fd<T>::pop()
     return this->pop_unlocked();
 }
 
-template<typename T>
-void ringbuffer_fd<T>::stop()
+template<typename T, typename Semaphore>
+void ringbuffer_semaphore<T, Semaphore>::stop()
 {
     std::unique_lock<std::mutex> lock(mutex);
     this->stop_unlocked();
-    if (pipe_fds[1] != -1)
-    {
-        int status = close(pipe_fds[1]);
-        pipe_fds[1] = -1;
-        if (status == -1)
-            throw std::system_error(errno, std::system_category());
-    }
+    sem.stop();
 }
 
 } // namespace spead
