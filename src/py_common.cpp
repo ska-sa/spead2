@@ -166,9 +166,13 @@ static void register_module()
     py::setattr(scope(), "BUG_COMPAT_SHAPE_BIT_1", int_to_object(BUG_COMPAT_SHAPE_BIT_1));
     py::setattr(scope(), "BUG_COMPAT_SWAP_ENDIAN", int_to_object(BUG_COMPAT_SWAP_ENDIAN));
 
-    class_<mem_pool, std::shared_ptr<mem_pool>, boost::noncopyable>("MemPool", init<std::size_t, std::size_t, std::size_t, std::size_t>());
+    class_<mem_pool, std::shared_ptr<mem_pool>, boost::noncopyable>(
+        "MemPool",
+        init<std::size_t, std::size_t, std::size_t, std::size_t>(
+            (arg("lower"), arg("upper"), arg("max_free"), arg("initial"))));
 
-    class_<thread_pool_wrapper, boost::noncopyable>("ThreadPool", init<optional<int> >())
+    class_<thread_pool_wrapper, boost::noncopyable>("ThreadPool", init<int>(
+            (arg("threads") = 1)))
         .def("stop", &thread_pool_wrapper::stop);
 
     class_<descriptor>("RawDescriptor")

@@ -226,6 +226,9 @@ public:
     }
 };
 
+template<typename Derived>
+constexpr std::size_t stream<Derived>::default_max_heaps;
+
 } // namespace send
 } // namespace spead
 

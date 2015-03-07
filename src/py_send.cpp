@@ -29,19 +29,19 @@ private:
     std::vector<buffer_view> item_buffers;
 
 public:
-    explicit heap_wrapper(std::int64_t heap_cnt = 0, bug_compat_mask bug_compat = 0);
-    void add_item(std::int64_t id, py::object object);
+    explicit heap_wrapper(std::int64_t cnt = 0, bug_compat_mask bug_compat = 0);
+    void add_item(std::int64_t id, py::object item);
     void add_descriptor(py::object descriptor);
 };
 
-heap_wrapper::heap_wrapper(std::int64_t heap_cnt, bug_compat_mask bug_compat)
-    : heap(heap_cnt), bug_compat(bug_compat)
+heap_wrapper::heap_wrapper(std::int64_t cnt, bug_compat_mask bug_compat)
+    : heap(cnt), bug_compat(bug_compat)
 {
 }
 
-void heap_wrapper::add_item(std::int64_t id, py::object object)
+void heap_wrapper::add_item(std::int64_t id, py::object item)
 {
-    py::object buffer = object.attr("to_buffer")();
+    py::object buffer = item.attr("to_buffer")();
     item_buffers.emplace_back(buffer);
     const auto &view = item_buffers.back().view;
     heap::add_item(id, view.buf, view.len);
@@ -163,27 +163,45 @@ void register_module()
     py::object module(py::handle<>(py::borrowed(PyImport_AddModule("spead2._send"))));
     py::scope scope = module;
 
-    class_<heap_wrapper, boost::noncopyable>("Heap", init<std::int64_t, bug_compat_mask>())
-        .def("add_item", &heap_wrapper::add_item, with_custodian_and_ward<1, 3>())
-        .def("add_descriptor", &heap_wrapper::add_descriptor);
+    class_<heap_wrapper, boost::noncopyable>("Heap", init<std::int64_t, bug_compat_mask>(
+            (arg("cnt") = 0, arg("bug_compat") = 0)))
+        .def("add_item", &heap_wrapper::add_item,
+             (arg("id"), arg("item")),
+             with_custodian_and_ward<1, 3>())
+        .def("add_descriptor", &heap_wrapper::add_descriptor,
+             (arg("descriptor")));
 
     {
         typedef udp_stream_wrapper<stream_wrapper<udp_stream> > T;
         class_<T, boost::noncopyable>("UdpStream", init<
                 thread_pool_wrapper &, std::string, int, int, bug_compat_mask,
-                std::size_t, double, optional<std::size_t, std::size_t> >()[
+                std::size_t, double, std::size_t, std::size_t>(
+                    (arg("thread_pool"), arg("hostname"), arg("port"),
+                     arg("heap_address_bits"),
+                     arg("bug_compat"),
+                     arg("max_packet_size"),
+                     arg("rate"),
+                     arg("max_heaps") = T::default_max_heaps,
+                     arg("buffer_size") = T::default_buffer_size))[
                     with_custodian_and_ward<1, 2>()])
-            .def("send_heap", &T::send_heap);
+            .def("send_heap", &T::send_heap, arg("heap"));
     }
 
     {
         typedef udp_stream_wrapper<asyncio_stream_wrapper<udp_stream> > T;
         class_<T, boost::noncopyable>("UdpStreamAsyncio", init<
                 thread_pool_wrapper &, std::string, int, int, bug_compat_mask,
-                std::size_t, double, optional<std::size_t> >()[
+                std::size_t, double, std::size_t>(
+                    (arg("thread_pool"), arg("hostname"), arg("port"),
+                     arg("heap_address_bits"),
+                     arg("bug_compat"),
+                     arg("max_packet_size"),
+                     arg("rate"),
+                     arg("max_heaps") = T::default_max_heaps,
+                     arg("buffer_size") = T::default_buffer_size))[
                     with_custodian_and_ward<1, 2>()])
             .add_property("fd", &T::get_fd)
-            .def("async_send_heap", &T::async_send_heap)
+            .def("async_send_heap", &T::async_send_heap, arg("heap"))
             .def("flush", &T::flush)
             .def("process_callbacks", &T::process_callbacks);
     }

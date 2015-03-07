@@ -15,4 +15,4 @@
 - Use eventfd where available for waking up asyncio
 - Lots more tests!
 - Add udp_reader constructor that takes over a socket
-- Add docstrings and argument names
+- Add docstrings

@@ -199,9 +199,9 @@ public:
         ring_stream::set_mem_pool(std::move(pool));
     }
 
-    void add_buffer_reader(py::object obj)
+    void add_buffer_reader(py::object buffer)
     {
-        buffer_view view(obj);
+        buffer_view view(buffer);
         release_gil gil;
         emplace_reader<buffer_reader>(std::ref(view));
     }
@@ -209,7 +209,7 @@ public:
     void add_udp_reader(
         int port,
         std::size_t max_size = udp_reader::default_max_size,
-        std::size_t default_buffer_size = udp_reader::default_buffer_size,
+        std::size_t buffer_size = udp_reader::default_buffer_size,
         const std::string &bind_hostname = "")
     {
         using boost::asio::ip::udp;
@@ -221,7 +221,7 @@ public:
             udp::resolver::query query(bind_hostname, "", udp::resolver::query::passive | udp::resolver::query::address_configured);
             endpoint.address(resolver.resolve(query)->endpoint().address());
         }
-        emplace_reader<udp_reader>(endpoint, max_size, default_buffer_size);
+        emplace_reader<udp_reader>(endpoint, max_size, buffer_size);
     }
 
     void stop()
@@ -235,8 +235,6 @@ public:
         stop();
     }
 };
-
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(ring_stream_add_udp_reader_overloads, add_udp_reader, 1, 4)
 
 /// Register the receiver module with Boost.Python
 void register_module()
@@ -271,10 +269,15 @@ void register_module()
         , &ring_stream_wrapper::next)
         .def("get", &ring_stream_wrapper::get)
         .def("get_nowait", &ring_stream_wrapper::get_nowait)
-        .def("set_mem_pool", &ring_stream_wrapper::set_mem_pool)
-        .def("add_buffer_reader", &ring_stream_wrapper::add_buffer_reader)
+        .def("set_mem_pool", &ring_stream_wrapper::set_mem_pool,
+             arg("pool"))
+        .def("add_buffer_reader", &ring_stream_wrapper::add_buffer_reader,
+             arg("buffer"))
         .def("add_udp_reader", &ring_stream_wrapper::add_udp_reader,
-             ring_stream_add_udp_reader_overloads())
+             (arg("port"),
+              arg("max_size") = udp_reader::default_max_size,
+              arg("buffer_size") = udp_reader::default_buffer_size,
+              arg("bind_hostname") = std::string()))
         .def("stop", &ring_stream_wrapper::stop)
         .add_property("fd", &ring_stream_wrapper::get_fd);
 }
