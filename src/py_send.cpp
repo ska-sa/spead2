@@ -129,11 +129,13 @@ public:
         bug_compat_mask bug_compat,
         std::size_t max_packet_size,
         double rate,
-        std::size_t max_heaps = Base::DEFAULT_MAX_HEAPS)
+        std::size_t max_heaps = Base::default_max_heaps,
+        std::size_t buffer_size = Base::default_buffer_size)
         : Base(
             pool.get_io_service(),
             make_endpoint(pool.get_io_service(), hostname, port),
-            heap_address_bits, bug_compat, max_packet_size, rate, max_heaps)
+            heap_address_bits, bug_compat, max_packet_size, rate,
+            max_heaps, buffer_size)
     {
     }
 };
@@ -169,7 +171,7 @@ void register_module()
         typedef udp_stream_wrapper<stream_wrapper<udp_stream> > T;
         class_<T, boost::noncopyable>("UdpStream", init<
                 thread_pool_wrapper &, std::string, int, int, bug_compat_mask,
-                std::size_t, double, optional<std::size_t> >()[
+                std::size_t, double, optional<std::size_t, std::size_t> >()[
                     with_custodian_and_ward<1, 2>()])
             .def("send_heap", &T::send_heap);
     }

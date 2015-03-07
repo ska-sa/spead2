@@ -13,3 +13,6 @@
 - More item validation: value should be a property
 - Query for last heap in which an item changed?
 - Use eventfd where available for waking up asyncio
+- Lots more tests!
+- Add udp_reader constructor that takes over a socket
+- Add docstrings and argument names

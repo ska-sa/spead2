@@ -6,6 +6,7 @@
 #define SPEAD_SEND_UDP_H
 
 #include <boost/asio.hpp>
+#include <utility>
 #include "send_packet.h"
 #include "send_stream.h"
 
@@ -27,18 +28,16 @@ private:
     }
 
 public:
+    /// Socket receive buffer size, if none is explicitly passed to the constructor
+    static constexpr std::size_t default_buffer_size = 512 * 1024;
+
     udp_stream(
         boost::asio::ip::udp::socket &&socket,
         int heap_address_bits,
         bug_compat_mask bug_compat,
         std::size_t max_packet_size,
         double rate,
-        std::size_t max_heaps = DEFAULT_MAX_HEAPS)
-        : stream<udp_stream>(socket.get_io_service(), heap_address_bits,
-                             bug_compat, max_packet_size, rate, max_heaps),
-        socket(std::move(socket))
-    {
-    }
+        std::size_t max_heaps = default_max_heaps);
 
     udp_stream(
         boost::asio::io_service &io_service,
@@ -47,13 +46,8 @@ public:
         bug_compat_mask bug_compat,
         std::size_t max_packet_size,
         double rate,
-        std::size_t max_heaps = DEFAULT_MAX_HEAPS)
-        : udp_stream(
-            boost::asio::ip::udp::socket(io_service),
-            heap_address_bits, bug_compat, max_packet_size, rate, max_heaps)
-    {
-        socket.connect(endpoint);
-    }
+        std::size_t max_heaps = default_max_heaps,
+        std::size_t buffer_size = default_buffer_size);
 };
 
 } // namespace send

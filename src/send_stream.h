@@ -143,7 +143,7 @@ protected:
     }
 
 public:
-    static constexpr std::size_t DEFAULT_MAX_HEAPS = 4;
+    static constexpr std::size_t default_max_heaps = 4;
 
     stream(
         boost::asio::io_service &io_service,
@@ -151,7 +151,7 @@ public:
         bug_compat_mask bug_compat,
         std::size_t max_packet_size,
         double rate,
-        std::size_t max_heaps = DEFAULT_MAX_HEAPS) :
+        std::size_t max_heaps = default_max_heaps) :
             io_service(io_service),
             heap_address_bits(heap_address_bits),
             bug_compat(bug_compat),
