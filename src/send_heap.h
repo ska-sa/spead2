@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <memory>
+#include <string>
 #include <utility>
 #include <cstddef>
 #include <cstdint>
@@ -130,7 +131,6 @@ public:
 
     basic_heap encode(int heap_address_bits, bug_compat_mask bug_compat) const;
 };
-
 
 } // namespace send
 } // namespace spead

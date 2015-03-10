@@ -52,6 +52,40 @@ void heap_wrapper::add_descriptor(py::object object)
     heap::add_descriptor(py::extract<descriptor>(object.attr("to_raw")(bug_compat)));
 }
 
+/**
+ * packet_generator takes a reference to an existing basic_heap, but we don't
+ * have one. Thus, we need to store one internally.
+ */
+class packet_generator_wrapper
+{
+private:
+    basic_heap internal_heap;
+    packet_generator gen;
+public:
+    packet_generator_wrapper(const heap &h, int heap_address_bits, bug_compat_mask bug_compat,
+                             std::size_t max_packet_size);
+
+    std::string next();
+};
+
+packet_generator_wrapper::packet_generator_wrapper(
+    const heap &h, int heap_address_bits, bug_compat_mask bug_compat,
+    std::size_t max_packet_size)
+    : internal_heap(h.encode(heap_address_bits, bug_compat)),
+    gen(internal_heap, heap_address_bits, max_packet_size)
+{
+}
+
+std::string packet_generator_wrapper::next()
+{
+    packet pkt = gen.next_packet();
+    if (pkt.buffers.empty())
+        throw stop_iteration();
+    std::size_t size = boost::asio::buffer_size(pkt.buffers);
+    return std::string(boost::asio::buffers_begin(pkt.buffers),
+                       boost::asio::buffers_end(pkt.buffers));
+}
+
 template<typename Base>
 class stream_wrapper : public Base
 {
@@ -170,6 +204,19 @@ void register_module()
              with_custodian_and_ward<1, 3>())
         .def("add_descriptor", &heap_wrapper::add_descriptor,
              (arg("descriptor")));
+
+    class_<packet_generator_wrapper, boost::noncopyable>("PacketGenerator", init<heap_wrapper &, int, bug_compat_mask, std::size_t>(
+            (arg("heap"), arg("heap_address_bits"), arg("bug_compat"), arg("max_packet_size")))[
+            with_custodian_and_ward<1, 2>()])
+        .def("__iter__", objects::identity_function())
+        .def(
+#if PY_MAJOR_VERSION >= 3
+              // Python 3 uses __next__ for the iterator protocol
+              "__next__"
+#else
+              "next"
+#endif
+              , &packet_generator_wrapper::next);
 
     {
         typedef udp_stream_wrapper<stream_wrapper<udp_stream> > T;

@@ -13,6 +13,7 @@
 #include "send_packet.h"
 #include "send_utils.h"
 #include "common_defines.h"
+#include "common_logging.h"
 
 namespace spead
 {

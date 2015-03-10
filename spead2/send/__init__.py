@@ -3,4 +3,4 @@
 
 from __future__ import print_function, division
 import spead2
-from spead2._send import UdpStream, Heap
+from spead2._send import UdpStream, Heap, PacketGenerator
