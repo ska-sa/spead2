@@ -47,6 +47,8 @@ packet_generator::packet_generator(
     max_item_pointers_per_packet = (max_packet_size - (prefix_size + 8)) / 8;
     // Number of packets needed to send all the item pointers
     std::size_t item_packets = (h.items.size() + max_item_pointers_per_packet - 1) / max_item_pointers_per_packet;
+    // Always send at least one packet
+    item_packets = std::max(std::size_t(1), item_packets);
     payload_size = std::max(payload_size, std::int64_t(item_packets) * 8);
 }
 
@@ -106,8 +108,9 @@ packet packet_generator::next_packet()
         {
             if (next_item == h.items.size())
             {
-                // dummy padding payload
+                // Dummy padding payload. Fill with zeros to simplify testing
                 assert(packet_payload_length == 8);
+                *header = 0;
                 out.buffers.emplace_back(header, packet_payload_length);
                 packet_payload_length = 0;
             }

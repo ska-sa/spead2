@@ -4,20 +4,7 @@ import spead2.recv as recv
 import struct
 import numpy as np
 from nose.tools import *
-
-HEAP_CNT_ID =          0x01
-HEAP_LENGTH_ID =       0x02
-PAYLOAD_OFFSET_ID =    0x03
-PAYLOAD_LENGTH_ID =    0x04
-DESCRIPTOR_ID =        0x05
-STREAM_CTRL_ID =       0x06
-
-DESCRIPTOR_NAME_ID =   0x10
-DESCRIPTOR_DESCRIPTION_ID = 0x11
-DESCRIPTOR_SHAPE_ID =  0x12
-DESCRIPTOR_FORMAT_ID = 0x13
-DESCRIPTOR_ID_ID =     0x14
-DESCRIPTOR_DTYPE_ID =  0x15
+from .defines import *
 
 class Item(object):
     def __init__(self, id, value, immediate=False, offset=0):
