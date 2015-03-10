@@ -16,3 +16,4 @@
 - Lots more tests!
 - Add udp_reader constructor that takes over a socket
 - Add docstrings
+- Fix transmit pacing (amortise sleeps)
