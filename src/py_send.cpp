@@ -30,7 +30,7 @@ private:
 
 public:
     explicit heap_wrapper(std::int64_t cnt = 0, bug_compat_mask bug_compat = 0);
-    void add_item(std::int64_t id, py::object item);
+    void add_item(py::object item);
     void add_descriptor(py::object descriptor);
 };
 
@@ -39,8 +39,9 @@ heap_wrapper::heap_wrapper(std::int64_t cnt, bug_compat_mask bug_compat)
 {
 }
 
-void heap_wrapper::add_item(std::int64_t id, py::object item)
+void heap_wrapper::add_item(py::object item)
 {
+    std::int64_t id = py::extract<std::int64_t>(item.attr("id"));
     py::object buffer = item.attr("to_buffer")();
     item_buffers.emplace_back(buffer);
     const auto &view = item_buffers.back().view;
@@ -200,8 +201,8 @@ void register_module()
     class_<heap_wrapper, boost::noncopyable>("Heap", init<std::int64_t, bug_compat_mask>(
             (arg("cnt") = 0, arg("bug_compat") = 0)))
         .def("add_item", &heap_wrapper::add_item,
-             (arg("id"), arg("item")),
-             with_custodian_and_ward<1, 3>())
+             arg("item"),
+             with_custodian_and_ward<1, 2>())
         .def("add_descriptor", &heap_wrapper::add_descriptor,
              (arg("descriptor")));
 
