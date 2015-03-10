@@ -9,7 +9,6 @@
 - Investigate memory pools for sender
 - Implement more sender classes (particularly vector_stream)
 - More send infrastructure (item group, heap numbering etc)
-- Change add_item wrapper to automatically extract item ID
 - More item validation: value should be a property
 - Query for last heap in which an item changed?
 - Use eventfd where available for waking up asyncio
@@ -17,3 +16,4 @@
 - Add udp_reader constructor that takes over a socket
 - Add docstrings
 - Fix transmit pacing (amortise sleeps)
+- Mechanism to send end-of-stream
