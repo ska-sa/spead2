@@ -7,8 +7,15 @@ import numpy as np
 from nose.tools import *
 from .defines import *
 
-def hexlify(packets):
-    return [binascii.hexlify(x) for x in packets]
+def hexlify(data):
+    """Turns a byte string into human-readable hex dump"""
+    if isinstance(data, list):
+        return [hexlify(x) for x in data]
+    chunks = []
+    for i in range(0, len(data), 8):
+        part = data[i : min(i + 8, len(data))]
+        chunks.append(b':'.join([binascii.hexlify(part[i : i+1]) for i in range(len(part))]))
+    return b' '.join(chunks)
 
 
 class Flavour(object):
@@ -119,7 +126,7 @@ class TestEncode(object):
         data = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.uint16)
         payload_fields = [
             self.make_descriptor_numpy(id, 'name', 'description', shape, '<u2', False),
-            bytes(data.data)
+            struct.pack('<6H', 6, 7, 8, 10, 11, 12000)
         ]
         payload = b''.join(payload_fields)
         offsets = offset_generator(payload_fields)
@@ -162,4 +169,33 @@ class TestEncode(object):
         item = spead2.Item(id=id, name='name', description='description', shape=shape, dtype=np.uint16)
         item.value = data
         packet = self.flavour.items_to_bytes([item], [])
+        assert_equal(hexlify(expected), hexlify(packet))
+
+    def test_numpy_fortran_order(self):
+        """A numpy item with Fortran-order descriptor must be sent in Fortran order"""
+        id = 0x2345
+        shape = (2, 3)
+        data = np.array([[6, 7, 8], [10, 11, 12000]], order='F')
+        assert_false(data.flags.c_contiguous)
+        payload_fields = [
+            self.make_descriptor_numpy(id, 'name', 'description', shape, '<u2', True),
+            struct.pack('<6H', 6, 10, 7, 11, 8, 12000)
+        ]
+        payload = b''.join(payload_fields)
+        offsets = offset_generator(payload_fields)
+        expected = [
+            b''.join([
+                self.flavour.make_header(6),
+                self.flavour.make_immediate(HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(HEAP_LENGTH_ID, len(payload)),
+                self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, len(payload)),
+                self.flavour.make_address(DESCRIPTOR_ID, next(offsets)),
+                self.flavour.make_address(id, next(offsets)),
+                payload
+            ])
+        ]
+        item = spead2.Item(id=id, name='name', description='description', shape=shape, dtype=np.uint16, order='F')
+        item.value = data
+        packet = self.flavour.items_to_bytes([item])
         assert_equal(hexlify(expected), hexlify(packet))

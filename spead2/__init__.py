@@ -249,6 +249,12 @@ class Item(Descriptor):
         protocol), or a new temporary object.
         """
         if self.dtype is not None:
-            return _np.array(self.value, order=self.order, copy=False)
+            a = _np.array(self.value, dtype=self.dtype, order=self.order, copy=False)
+            if self.order == 'F':
+                # numpy doesn't allow buffer protocol to be used on arrays that
+                # aren't C-contiguous, but transposition just fiddles the
+                # strides without creating a new array
+                a = a.transpose()
+            return a
         else:
             raise NotImplementedError('Non-numpy items can not yet be sent')
