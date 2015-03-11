@@ -153,6 +153,19 @@ static void create_exception(PyObject *&type, const char *name, const char *base
     py::register_exception_translator<T>((void (*)(const T &)) &translate_exception);
 }
 
+class bytestring_to_python
+{
+public:
+    static PyObject *convert(const bytestring &s)
+    {
+#if PY_MAJOR_VERSION >= 3
+        return PyBytes_FromStringAndSize(s.data(), s.size());
+#else
+        return PyString_FromStringAndSize(s.data(), s.size());
+#endif
+    }
+};
+
 static void register_module()
 {
     using namespace boost::python;
@@ -161,6 +174,7 @@ static void register_module()
     create_exception<ringbuffer_stopped>(ringbuffer_stopped_type, "spead2.Stopped", "Stopped");
     create_exception<ringbuffer_empty>(ringbuffer_empty_type, "spead2.Empty", "Empty");
     register_exception_translator<stop_iteration>(&translate_exception_stop_iteration);
+    to_python_converter<bytestring, bytestring_to_python>();
 
     py::setattr(scope(), "BUG_COMPAT_DESCRIPTOR_WIDTHS", int_to_object(BUG_COMPAT_DESCRIPTOR_WIDTHS));
     py::setattr(scope(), "BUG_COMPAT_SHAPE_BIT_1", int_to_object(BUG_COMPAT_SHAPE_BIT_1));

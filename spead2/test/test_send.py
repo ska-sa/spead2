@@ -91,8 +91,8 @@ class TestEncode(object):
             b'description',
             b'',
             self.flavour.make_shape(shape),
-            b"{{'descr': {!r}, 'fortran_order': {!r}, 'shape': {!r}}}".format(
-                dtype_str, bool(fortran_order), tuple(shape))
+            "{{'descr': {!r}, 'fortran_order': {!r}, 'shape': {!r}}}".format(
+                str(dtype_str), bool(fortran_order), tuple(shape)).encode()
         ]
         payload = b''.join(payload_fields)
         offsets = offset_generator(payload_fields)
@@ -117,7 +117,7 @@ class TestEncode(object):
         shape = (2, 3)
         data = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.uint16)
         payload_fields = [
-            self.make_descriptor_numpy(id, b'name', b'description', shape, b'<u2', False),
+            self.make_descriptor_numpy(id, 'name', 'description', shape, '<u2', False),
             bytes(data.data)
         ]
         payload = b''.join(payload_fields)
@@ -135,7 +135,7 @@ class TestEncode(object):
             ])
         ]
 
-        item = spead2.Item(id=id, name=b'name', description=b'description', shape=shape, dtype=np.uint16)
+        item = spead2.Item(id=id, name='name', description='description', shape=shape, dtype=np.uint16)
         item.value = data
         packet = self.flavour.items_to_bytes([item])
         assert_equal(hexlify(expected), hexlify(packet))

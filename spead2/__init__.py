@@ -100,6 +100,11 @@ class Descriptor(object):
         self.format = format
 
     @classmethod
+    def _encode_string(cls, value):
+        if not isinstance(value, bytes):
+            return value.encode('utf-8')
+
+    @classmethod
     def from_raw(cls, raw_descriptor, bug_compat):
         format = None
         if raw_descriptor.numpy_header:
@@ -122,8 +127,8 @@ class Descriptor(object):
     def to_raw(self, bug_compat):
         raw = spead2._spead2.RawDescriptor()
         raw.id = self.id
-        raw.name = self.name
-        raw.description = self.description
+        raw.name = self._encode_string(self.name)
+        raw.description = self._encode_string(self.description)
         raw.shape = self.shape
         if self.dtype is not None:
             if bug_compat & BUG_COMPAT_SWAP_ENDIAN:

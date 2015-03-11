@@ -26,6 +26,16 @@ public:
 };
 
 /**
+ * Wrapper for std::string that converts to a Python bytes object instead
+ * of a str (Unicode) object.
+ */
+class bytestring : public std::string
+{
+public:
+    using std::string::string;
+};
+
+/**
  * RAII wrapper that releases the Python Global Interpreter Lock on
  * construction and reacquires it on destruction. It is also possible to
  * freely acquire and release it during the lifetime; if it is released on

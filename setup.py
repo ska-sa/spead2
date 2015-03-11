@@ -30,4 +30,4 @@ setup(
     install_requires=['numpy'],
     tests_require=['nose'],
     test_suite='nose.collector',
-    packages=['spead2', 'spead2.recv'])
+    packages=['spead2', 'spead2.recv', 'spead2.send'])

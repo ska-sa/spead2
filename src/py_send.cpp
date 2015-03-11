@@ -66,7 +66,7 @@ public:
     packet_generator_wrapper(const heap &h, int heap_address_bits, bug_compat_mask bug_compat,
                              std::size_t max_packet_size);
 
-    std::string next();
+    bytestring next();
 };
 
 packet_generator_wrapper::packet_generator_wrapper(
@@ -77,14 +77,13 @@ packet_generator_wrapper::packet_generator_wrapper(
 {
 }
 
-std::string packet_generator_wrapper::next()
+bytestring packet_generator_wrapper::next()
 {
     packet pkt = gen.next_packet();
     if (pkt.buffers.empty())
         throw stop_iteration();
-    std::size_t size = boost::asio::buffer_size(pkt.buffers);
-    return std::string(boost::asio::buffers_begin(pkt.buffers),
-                       boost::asio::buffers_end(pkt.buffers));
+    return bytestring(boost::asio::buffers_begin(pkt.buffers),
+                      boost::asio::buffers_end(pkt.buffers));
 }
 
 template<typename Base>
