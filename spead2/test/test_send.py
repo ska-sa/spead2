@@ -1,4 +1,4 @@
-from __future__ import division, print_function, unicode_literals
+from __future__ import division, print_function
 import spead2
 import spead2.send as send
 import struct
@@ -42,6 +42,7 @@ class Flavour(object):
 
     def make_shape(self, shape):
         # TODO: extend for bug_compat flavours
+        assert not (self.bug_compat & (spead2.BUG_COMPAT_DESCRIPTOR_WIDTHS | spead2.BUG_COMPAT_SHAPE_BIT_1))
         ans = []
         for size in shape:
             if size < 0:
@@ -50,6 +51,15 @@ class Flavour(object):
             else:
                 ans.append(struct.pack('B', 0))
                 ans.append(self._encode_be(self.heap_address_bits // 8, size))
+        return b''.join(ans)
+
+    def make_format(self, format):
+        # TODO: extend for bug_compat flavours
+        assert not (self.bug_compat & spead2.BUG_COMPAT_DESCRIPTOR_WIDTHS)
+        ans = []
+        for (code, length) in format:
+            ans.append(struct.pack('B', ord(code)))
+            ans.append(self._encode_be(8 - self.heap_address_bits // 8, length))
         return b''.join(ans)
 
     def items_to_bytes(self, items, descriptors=None, max_packet_size=1500):
@@ -115,6 +125,30 @@ class TestEncode(object):
             self.flavour.make_address(DESCRIPTOR_FORMAT_ID, next(offsets)),
             self.flavour.make_address(DESCRIPTOR_SHAPE_ID, next(offsets)),
             self.flavour.make_address(DESCRIPTOR_DTYPE_ID, next(offsets)),
+            payload
+        ])
+        return descriptor
+
+    def make_descriptor_fallback(self, id, name, description, shape, format):
+        payload_fields = [
+            b'name',
+            b'description',
+            self.flavour.make_format(format),
+            self.flavour.make_shape(shape),
+        ]
+        payload = b''.join(payload_fields)
+        offsets = offset_generator(payload_fields)
+        descriptor = b''.join([
+            self.flavour.make_header(9),
+            self.flavour.make_immediate(HEAP_CNT_ID, 1),
+            self.flavour.make_immediate(HEAP_LENGTH_ID, len(payload)),
+            self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
+            self.flavour.make_immediate(PAYLOAD_LENGTH_ID, len(payload)),
+            self.flavour.make_immediate(DESCRIPTOR_ID_ID, id),
+            self.flavour.make_address(DESCRIPTOR_NAME_ID, next(offsets)),
+            self.flavour.make_address(DESCRIPTOR_DESCRIPTION_ID, next(offsets)),
+            self.flavour.make_address(DESCRIPTOR_FORMAT_ID, next(offsets)),
+            self.flavour.make_address(DESCRIPTOR_SHAPE_ID, next(offsets)),
             payload
         ])
         return descriptor
@@ -196,6 +230,35 @@ class TestEncode(object):
             ])
         ]
         item = spead2.Item(id=id, name='name', description='description', shape=shape, dtype=np.uint16, order='F')
+        item.value = data
+        packet = self.flavour.items_to_bytes([item])
+        assert_equal(hexlify(expected), hexlify(packet))
+
+    def test_fallback_types(self):
+        """Send an array with mixed types and strange packing"""
+        id = 0x2345
+        format = [('b', 1), ('c', 7), ('f', 32)]
+        shape = (2,)
+        data = [(True, 'y', 1.0), (False, 'n', -1.0)]
+        payload_fields = [
+            self.make_descriptor_fallback(id, 'name', 'description', shape, format),
+            b'\xF9\x3F\x80\x00\x00' + b'n\xBF\x80\x00\x00'
+        ]
+        payload = b''.join(payload_fields)
+        offsets = offset_generator(payload_fields)
+        expected = [
+            b''.join([
+                self.flavour.make_header(6),
+                self.flavour.make_immediate(HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(HEAP_LENGTH_ID, len(payload)),
+                self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, len(payload)),
+                self.flavour.make_address(DESCRIPTOR_ID, next(offsets)),
+                self.flavour.make_address(id, next(offsets)),
+                payload
+            ])
+        ]
+        item = spead2.Item(id=id, name='name', description='description', dtype=None, shape=shape, format=format)
         item.value = data
         packet = self.flavour.items_to_bytes([item])
         assert_equal(hexlify(expected), hexlify(packet))

@@ -28,8 +28,7 @@ Python. The following are accepted.
    will invoke a slow conversion process and is not recommended for large
    arrays. The valid range of the `c` conversion depends on the Python
    version: for Python 2 it must be 0 to 255, for Python 3 it is interpreted
-   as a Unicode code point. Using any of these will also cause the return
-   value to be composed from ordinary Python lists rather than using numpy.
+   as a Unicode code point.
 
 Two cases are treated specially:
 
@@ -40,14 +39,6 @@ Two cases are treated specially:
 
 Immediate values are treated as items with heap_address_bits/8
 bytes, in the order they appeared in the original packet.
-
-Planned changes
-^^^^^^^^^^^^^^^
-
-The following will be implemented, but have not yet been (TODO):
-
-The `u` and `i` formats with up to 64 bits and a bit-width a multiple of 8 will
-be implemented. This will allow storage of immediate values.
 """
 
 import spead2 as _spead2

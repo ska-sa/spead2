@@ -80,6 +80,16 @@ class Descriptor(object):
                 shape[unknown_pos] = max_elements // known
             return shape
 
+    def compatible_shape(self, shape):
+        """Determine whether `shape` is compatible with the (possibly
+        variable-sized) shape for this descriptor"""
+        if len(shape) != len(self.shape):
+            return False
+        for x, y in zip(self.shape, shape):
+            if x >= 0 and x != y:
+                return False
+        return True
+
     def __init__(self, id, name, description, shape, dtype, order='C', format=None):
         if dtype is not None:
             dtype = _np.dtype(dtype)
@@ -90,23 +100,24 @@ class Descriptor(object):
                 raise ValueError('One of dtype and format must be specified')
             if order != 'C':
                 raise ValueError("When specifying format, order must be 'C'")
+            # Try to find a compatible numpy format
+            dtype = self._parse_format(format)
+            if dtype is not None:
+                format = None
+
         if order not in ['C', 'F']:
             raise ValueError("Order must be 'C' or 'F'")
         self.id = id
         self.name = name
         self.description = description
-        self.shape = shape
+        self.shape = tuple(shape)
         self.dtype = dtype
         self.order = order
         self.format = format
 
     @classmethod
-    def _encode_string(cls, value):
-        if not isinstance(value, bytes):
-            return value.encode('utf-8')
-
-    @classmethod
     def from_raw(cls, raw_descriptor, bug_compat):
+        dtype = None
         format = None
         if raw_descriptor.numpy_header:
             shape, order, dtype = \
@@ -116,9 +127,7 @@ class Descriptor(object):
         else:
             shape = raw_descriptor.shape
             order = 'C'
-            dtype = cls._parse_format(raw_descriptor.format)
-            if dtype is None:
-                format = raw_descriptor.format
+            format = raw_descriptor.format
         return cls(
                 raw_descriptor.id,
                 raw_descriptor.name,
@@ -128,8 +137,8 @@ class Descriptor(object):
     def to_raw(self, bug_compat):
         raw = spead2._spead2.RawDescriptor()
         raw.id = self.id
-        raw.name = self._encode_string(self.name)
-        raw.description = self._encode_string(self.description)
+        raw.name = self.name
+        raw.description = self.description
         raw.shape = self.shape
         if self.dtype is not None:
             if bug_compat & BUG_COMPAT_SWAP_ENDIAN:
@@ -147,12 +156,10 @@ class Item(Descriptor):
         self.value = None
 
     @classmethod
-    def _bit_generator(cls, raw_value):
+    def _read_bits(cls, raw_value):
         """Generator that takes a memory view and provides bitfields from it.
         After creating the generator, call `send(None)` to initialise it, and
         thereafter call `send(need_bits)` to obtain that many bits.
-        over the bits in raw_value (which must implement the buffer protocol),
-        with the bits in each byte enumerated high-to-low.
         """
         have_bits = 0
         bits = 0
@@ -169,6 +176,32 @@ class Item(Descriptor):
             result = bits >> (have_bits - need_bits)
             bits &= (1 << (have_bits - need_bits)) - 1
             have_bits -= need_bits
+
+    @classmethod
+    def _write_bits(cls, array):
+        """Generator that fills a `bytearray` with provided bits. After
+        creating the generator, call `send(None)` to initialise it, and
+        thereafter call `send((value, bits))` to add that many bits into
+        the array. You must call `close()` to flush any partial bytes."""
+        pos = 0
+        current = 0    # bits not yet written into array
+        current_bits = 0
+        try:
+            while True:
+                (value, bits) = yield
+                if value < 0 or value >= (1 << bits):
+                    raise ValueError('Value is out of range for number of bits')
+                current = (current << bits) | value
+                current_bits += bits
+                while current_bits >= 8:
+                    array[pos] = current >> (current_bits - 8)
+                    current &= (1 << (current_bits - 8)) - 1
+                    current_bits -= 8
+                    pos += 1
+        except GeneratorExit:
+            if current_bits > 0:
+                current <<= (8 - current_bits)
+                array[pos] = current
 
     def _load_recursive(self, shape, gen):
         if len(shape) > 0:
@@ -196,6 +229,8 @@ class Item(Descriptor):
                         field = _np.uint32(raw).view(_np.float32)
                     elif length == 64:
                         field = _np.uint64(raw).view(_np.float64)
+                    else:
+                        raise ValueError('unhandled float length {0}'.format((code, length)))
                 else:
                     raise ValueError('unhandled format {0}'.format((code, length)))
                 fields.append(field)
@@ -204,6 +239,46 @@ class Item(Descriptor):
             else:
                 ans = tuple(fields)
         return ans
+
+    def _store_recursive(self, expected_shape, value, gen):
+        if len(expected_shape) > 0:
+            if expected_shape[0] >= 0 and expected_shape[0] != len(value):
+                raise ValueError('Value does not conform to the expected shape')
+            for sub in value:
+                self._store_recursive(expected_shape[1:], sub, gen)
+        else:
+            if isinstance(value, list):
+                raise ValueError('Value has too many dimensions for shape')
+            if len(self.format) == 1:
+                value = (value,)
+            for (code, length), field in zip(self.format, value):
+                raw = None
+                if code == 'u':
+                    if field < 0 or field >= (1 << length):
+                        raise ValueError('{} is out of range for u{}'.format(field, length))
+                    raw = field
+                elif code == 'i':
+                    top_bit = 1 << (length - 1)
+                    if field < -top_bit or field >= top_bit:
+                        raise ValueError('{} is out of range for i{}'.format(field, length))
+                    # convert to 2's complement
+                    raw = field
+                    if raw < 0:
+                        raw += top_bit
+                elif code == 'b':
+                    raw = 1 if field else 0
+                elif code == 'c':
+                    raw = ord(field)
+                elif code == 'f':
+                    if length == 32:
+                        raw = _np.float32(field).view(_np.uint32)
+                    elif length == 64:
+                        raw = _np.float64(field).view(_np.uint64)
+                    else:
+                        raise ValueError('unhandled float length {0}'.format((code, length)))
+                else:
+                    raise ValueError('unhandled format {0}'.format((code, length)))
+                gen.send((raw, length))
 
     def set_from_raw(self, raw_item):
         raw_value = raw_item.value
@@ -217,7 +292,7 @@ class Item(Descriptor):
             if elements > max_elements:
                 raise ValueError('Item has too few elements for shape (%d < %d)' % (max_elements, elements))
 
-            gen = self._bit_generator(raw_value)
+            gen = self._read_bits(raw_value)
             gen.send(None) # Initialisation of the generator
             self.value = _np.array(self._load_recursive(shape, gen))
         else:
@@ -243,18 +318,43 @@ class Item(Descriptor):
                 value = b''.join(value).decode('ascii')
             self.value = value
 
+    def _num_elements(self):
+        if isinstance(self.value, _np.ndarray):
+            return self.value.shape
+        cur = self.value
+        ans = 1
+        for size in self.shape:
+            ans *= len(cur)
+            if ans == 0:
+                return ans    # Prevents IndexError below
+            cur = cur[0]
+        return ans
+
     def to_buffer(self):
         """Returns an object that implements the buffer protocol for the value.
         It can be either the original value (if the descriptor uses numpy
         protocol), or a new temporary object.
         """
-        if self.dtype is not None:
+        if self.value is None:
+            raise ValueError('Cannot send a value of None')
+        if self.dtype is None:
+            bit_length = 0
+            for code, length in self.format:
+                bit_length += length
+            bit_length *= self._num_elements()
+            out = bytearray((bit_length + 7) // 8)
+            gen = self._write_bits(out)
+            gen.send(None)  # Initialise the generator
+            self._store_recursive(self.shape, self.value, gen)
+            gen.close()
+            return out
+        else:
             a = _np.array(self.value, dtype=self.dtype, order=self.order, copy=False)
+            if not self.compatible_shape(a.shape):
+                raise ValueError('Value has shape {}, expected {}'.format(a.shape, self.shape))
             if self.order == 'F':
                 # numpy doesn't allow buffer protocol to be used on arrays that
                 # aren't C-contiguous, but transposition just fiddles the
                 # strides without creating a new array
                 a = a.transpose()
             return a
-        else:
-            raise NotImplementedError('Non-numpy items can not yet be sent')
