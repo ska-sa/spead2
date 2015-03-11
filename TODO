@@ -1,6 +1,5 @@
 - Rename frozen_heap -> heap, heap -> partial_heap
 - Move most of the classes to the detail namespace
-- Make receiver align items in immediates the same way as PySPEAD (sender already fixed)
 - Add lots of validation to sending (overflows etc)
 - Support cancellation of transmission
 - Call the send callback with an error if a heap is dropped or the stream is terminated

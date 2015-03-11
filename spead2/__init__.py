@@ -291,6 +291,10 @@ class Item(Descriptor):
             elements = int(_np.product(shape))
             if elements > max_elements:
                 raise ValueError('Item has too few elements for shape (%d < %d)' % (max_elements, elements))
+            if raw_item.is_immediate:
+                # Immediates get head padding instead of tail padding
+                size_bytes = (elements * bit_length + 7) // 8
+                raw_value = raw_value[-size_bytes : ]
 
             gen = self._read_bits(raw_value)
             gen.send(None) # Initialisation of the generator
@@ -301,8 +305,13 @@ class Item(Descriptor):
             elements = int(_np.product(shape))
             if elements > max_elements:
                 raise ValueError('Item has too few elements for shape (%d < %d)' % (max_elements, elements))
-            # For some reason, np.frombuffer doesn't work on memoryview, but np.array does
-            array1d = _np.array(raw_value, copy=False)[: (elements * self.dtype.itemsize)]
+            size_bytes = elements * self.dtype.itemsize
+            if raw_item.is_immediate:
+                # Immediates get head padding instead of tail padding
+                # For some reason, np.frombuffer doesn't work on memoryview, but np.array does
+                array1d = _np.array(raw_value, copy=False)[-size_bytes : ]
+            else:
+                array1d = _np.array(raw_value, copy=False)[ : size_bytes]
             array1d = array1d.view(dtype=self.dtype)
             if self.dtype.byteorder in ('<', '>'):
                 # Either < or > indicates non-native endianness. Swap it now

@@ -1,4 +1,5 @@
 #include <iostream>
+#include <utility>
 #include <endian.h>
 #include <boost/asio.hpp>
 #include "common_thread_pool.h"
@@ -15,13 +16,13 @@ int main()
     udp::resolver resolver(tp.get_io_service());
     udp::resolver::query query("localhost", "8888");
     auto it = resolver.resolve(query);
-    boost::asio::ip::udp::socket socket(tp.get_io_service());
-    socket.connect(*it);
-    spead::send::udp_stream stream(std::move(socket), 48, 7, 9000, 1e9);
+    spead::send::udp_stream stream(tp.get_io_service(), *it, 48, 7, 9000, 0);
 
     spead::send::heap h(0x2);
-    std::int32_t value1 = htobe32(5);
+    std::int32_t value1 = htobe32(0xEADBEEF);
     std::int32_t value2[64] = {};
+    for (int i = 0; i < 64; i++)
+        value2[i] = i;
     spead::descriptor desc1;
     desc1.id = 0x1000;
     desc1.name = "value1";
@@ -31,7 +32,7 @@ int main()
     desc2.id = 0x1001;
     desc2.name = "value2";
     desc2.description = "a 2D array";
-    desc2.numpy_header = "{'shape': (8, 8), 'fortran_order': False, 'descr': 'i4'}";
+    desc2.numpy_header = "{'shape': (8, 8), 'fortran_order': False, 'descr': '>i4'}";
 
     h.add_item(0x1000, &value1, sizeof(value1));
     h.add_item(0x1001, &value2, sizeof(value2));

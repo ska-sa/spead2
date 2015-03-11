@@ -187,7 +187,7 @@ class TestDecode(object):
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_scalar_int', 'a scalar integer', [('u', 32)], []),
-                Item(0x1234, 0x12345678 << (self.flavour.heap_address_bits - 32), True)
+                Item(0x1234, 0x12345678, True)
             ])
         item = self.data_to_item(packet, 0x1234)
         assert isinstance(item.value, np.uint32)

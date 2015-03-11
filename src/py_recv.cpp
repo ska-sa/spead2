@@ -253,7 +253,8 @@ void register_module()
         .def("get_items", &frozen_heap_wrapper::get_items)
         .def("get_descriptors", &frozen_heap_wrapper::get_descriptors);
     class_<item_wrapper>("RawItem", no_init)
-        .def_readwrite("id", &item_wrapper::id)
+        .def_readonly("id", &item_wrapper::id)
+        .def_readonly("is_immediate", &item_wrapper::is_immediate)
         .add_property("value", &item_wrapper::get_value);
     class_<ring_stream_wrapper, boost::noncopyable>("Stream",
             init<thread_pool_wrapper &, optional<bug_compat_mask, std::size_t> >()[
