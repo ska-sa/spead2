@@ -112,7 +112,8 @@ class TestEncode(object):
         ])
         return descriptor
 
-    def test_simple_numpy(self):
+    def test_numpy_simple(self):
+        """A single numpy-format item with descriptor"""
         id = 0x2345
         shape = (2, 3)
         data = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.uint16)
@@ -138,4 +139,27 @@ class TestEncode(object):
         item = spead2.Item(id=id, name='name', description='description', shape=shape, dtype=np.uint16)
         item.value = data
         packet = self.flavour.items_to_bytes([item])
+        assert_equal(hexlify(expected), hexlify(packet))
+
+    def test_numpy_noncontiguous(self):
+        """A numpy item with a discontiguous item value is sent correctly"""
+        id = 0x2345
+        shape = (2, 3)
+        store = np.array([[6, 7, 8, 0, 1], [10, 11, 12000, 2, 3], [9, 9, 9, 9, 9]], dtype=np.uint16)
+        data = store[:2, :3]
+        payload = struct.pack('<6H', 6, 7, 8, 10, 11, 12000)
+        expected = [
+            b''.join([
+                self.flavour.make_header(5),
+                self.flavour.make_immediate(HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(HEAP_LENGTH_ID, len(payload)),
+                self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, len(payload)),
+                self.flavour.make_address(id, 0),
+                payload
+            ])
+        ]
+        item = spead2.Item(id=id, name='name', description='description', shape=shape, dtype=np.uint16)
+        item.value = data
+        packet = self.flavour.items_to_bytes([item], [])
         assert_equal(hexlify(expected), hexlify(packet))

@@ -34,12 +34,13 @@ class Descriptor(object):
         except TypeError as e:
             msg = "descr is not a valid dtype descriptor: %r"
             raise ValueError(msg % (d['descr'],))
-        return d['shape'], d['fortran_order'], dtype
+        order = 'F' if d['fortran_order'] else 'C'
+        return d['shape'], order, dtype
 
     @classmethod
-    def _make_numpy_header(self, shape, dtype, fortran_order):
+    def _make_numpy_header(self, shape, dtype, order):
         return "{{'descr': {!r}, 'fortran_order': {!r}, 'shape': {!r}}}".format(
-                _np.lib.format.dtype_to_descr(dtype), fortran_order,
+                _np.lib.format.dtype_to_descr(dtype), order == 'F',
                 tuple(shape))
 
     @classmethod
@@ -96,7 +97,7 @@ class Descriptor(object):
         self.description = description
         self.shape = shape
         self.dtype = dtype
-        self.fortran_order = (order == 'F')
+        self.order = order
         self.format = format
 
     @classmethod
@@ -108,13 +109,13 @@ class Descriptor(object):
     def from_raw(cls, raw_descriptor, bug_compat):
         format = None
         if raw_descriptor.numpy_header:
-            shape, fortran_order, dtype = \
+            shape, order, dtype = \
                     cls._parse_numpy_header(raw_descriptor.numpy_header)
             if bug_compat & BUG_COMPAT_SWAP_ENDIAN:
                 dtype = dtype.newbyteorder()
         else:
             shape = raw_descriptor.shape
-            fortran_order = False
+            order = 'C'
             dtype = cls._parse_format(raw_descriptor.format)
             if dtype is None:
                 format = raw_descriptor.format
@@ -122,7 +123,7 @@ class Descriptor(object):
                 raw_descriptor.id,
                 raw_descriptor.name,
                 raw_descriptor.description,
-                shape, dtype, 'F' if fortran_order else 'C', format)
+                shape, dtype, order, format)
 
     def to_raw(self, bug_compat):
         raw = spead2._spead2.RawDescriptor()
@@ -135,7 +136,7 @@ class Descriptor(object):
                 dtype = self.dtype.newbyteorder()
             else:
                 dtype = self.dtype
-            raw.numpy_header = self._make_numpy_header(self.shape, dtype, self.fortran_order)
+            raw.numpy_header = self._make_numpy_header(self.shape, dtype, self.order)
         else:
             raw.format = self.format
         return raw
@@ -233,8 +234,7 @@ class Item(Descriptor):
                 # so that calculations later will be efficient
                 dtype = self.dtype.newbyteorder()
                 array1d = array1d.byteswap(True).view(dtype=dtype)
-            order = 'F' if self.fortran_order else 'C'
-            value = _np.reshape(array1d, self.shape, order)
+            value = _np.reshape(array1d, self.shape, self.order)
             if len(self.shape) == 0:
                 # Convert zero-dimensional array to scalar
                 value = value[()]
@@ -249,6 +249,6 @@ class Item(Descriptor):
         protocol), or a new temporary object.
         """
         if self.dtype is not None:
-            return self.value
+            return _np.array(self.value, order=self.order, copy=False)
         else:
             raise NotImplementedError('Non-numpy items can not yet be sent')
