@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import spead2
 import spead2.recv
 import spead2.recv.trollius
@@ -8,14 +9,14 @@ import trollius
 from trollius import From
 
 def run(stream):
-    ig = spead2.recv.ItemGroup()
+    ig = spead2.ItemGroup()
     try:
         while True:
             heap = yield From(stream.get())
-            print "Got heap", heap.cnt
-            ig.update(heap)
-            for item in ig.items.itervalues():
-                print heap.cnt, item.name, item.value.shape
+            print("Got heap", heap.cnt)
+            items = ig.update(heap)
+            for item in items.values():
+                print(heap.cnt, item.name, item.value)
     except spead2.Stopped:
         pass
 

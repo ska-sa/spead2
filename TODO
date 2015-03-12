@@ -1,4 +1,6 @@
-- Rename frozen_heap -> heap, heap -> partial_heap
+- send: Move bug_compat from heap_wrapper down to heap, remove from encode and from stream
+- recv: Rename frozen_heap -> heap, heap -> partial_heap
+- Distinguish descriptor re-issues from descriptor changes (don't warn on the former)
 - Move most of the classes to the detail namespace
 - Add lots of validation to sending (overflows etc)
 - Support cancellation of transmission

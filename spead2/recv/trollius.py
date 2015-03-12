@@ -12,7 +12,7 @@ class Stream(spead2.recv.Stream):
 
     Internally, it maintains a queue of waiters, each represented by a future.
     When a heap becomes available, it is passed to the first waiter. We use
-    a callback on a file description being readable, which happens when there
+    a callback on a file descriptor being readable, which happens when there
     might be data available. The callback is enabled when we have at least one
     waiter, otherwise disabled.
 

@@ -21,12 +21,12 @@ if 0:
 else:
     stream.add_udp_reader(8888)
 
-ig = spead2.recv.ItemGroup()
+ig = spead2.ItemGroup()
 num_heaps = 0
 for heap in stream:
     print("Got heap", heap.cnt)
     items = ig.update(heap)
-    for item in items:
+    for item in items.values():
         print(heap.cnt, item.name, item.value)
     num_heaps += 1
 stream.stop()

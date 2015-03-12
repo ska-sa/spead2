@@ -156,7 +156,7 @@ class TestDecode(object):
         """
         heaps = self.data_to_heaps(data)
         assert_equal(1, len(heaps))
-        ig = recv.ItemGroup()
+        ig = spead2.ItemGroup()
         ig.update(heaps[0])
         for name, item in ig.items():
             assert_equal(name, item.name)
@@ -317,7 +317,7 @@ class TestDecode(object):
             ])
         heaps = self.data_to_heaps(packet)
         assert_equal(1, len(heaps))
-        ig = recv.ItemGroup()
+        ig = spead2.ItemGroup()
         assert_raises(ValueError, ig.update, heaps[0])
 
     def test_numpy_object(self):
@@ -333,5 +333,5 @@ class TestDecode(object):
             ])
         heaps = self.data_to_heaps(packet)
         assert_equal(1, len(heaps))
-        ig = recv.ItemGroup()
+        ig = spead2.ItemGroup()
         assert_raises(TypeError, ig.update, heaps[0])

@@ -1,10 +1,14 @@
 import spead2._spead2
-from spead2._spead2 import ThreadPool, MemPool
+from spead2._spead2 import ThreadPool, MemPool, Stopped, Empty, Stopped
 from spead2._spead2 import BUG_COMPAT_DESCRIPTOR_WIDTHS, BUG_COMPAT_SHAPE_BIT_1, BUG_COMPAT_SWAP_ENDIAN
 import numbers as _numbers
 import numpy as _np
+import logging
 
+
+_logger = logging.getLogger(__name__)
 BUG_COMPAT_PYSPEAD_0_5_2 = BUG_COMPAT_DESCRIPTOR_WIDTHS | BUG_COMPAT_SHAPE_BIT_1 | BUG_COMPAT_SWAP_ENDIAN
+
 
 class Descriptor(object):
     @classmethod
@@ -150,10 +154,23 @@ class Descriptor(object):
             raw.format = self.format
         return raw
 
+
 class Item(Descriptor):
     def __init__(self, *args, **kw):
         super(Item, self).__init__(*args, **kw)
-        self.value = None
+        self._value = None
+        self.version = 1
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, new_value):
+        if new_value is None:
+            raise ValueError("Item value cannot be set to None")
+        self._value = new_value
+        self.version += 1
 
     @classmethod
     def _read_bits(cls, raw_value):
@@ -367,3 +384,75 @@ class Item(Descriptor):
                 # strides without creating a new array
                 a = a.transpose()
             return a
+
+
+class ItemGroup(object):
+    def __init__(self):
+        self._by_id = {}
+        self._by_name = {}
+
+    def _add_item(self, item):
+        if item.id in self._by_id or item.name in self._by_name:
+            _logger.info('Descriptor replacement for ID %d, name %s', item.id, item.name)
+        self._by_id[item.id] = item
+        self._by_name[item.name] = item
+
+    def add_item(self, *args, **kwargs):
+        item = Item(*args, **kwargs)
+        self._add_item(item)
+        return item
+
+    def __getitem__(self, key):
+        if isinstance(key, _numbers.Integral):
+            return self._by_id[key]
+        else:
+            return self._by_name[key]
+
+    def __contains__(self, key):
+        if isinstance(key, _numbers.Integral):
+            return key in self._by_id
+        else:
+            return key in self._by_name
+
+    def keys(self):
+        return self._by_name.keys()
+
+    def ids(self):
+        return self._by_id.keys()
+
+    def values(self):
+        return self._by_name.values()
+
+    def items(self):
+        return self._by_name.items()
+
+    def __len__(self):
+        return len(self._by_name)
+
+    def update(self, heap):
+        """Update the item descriptors and items from an incoming heap.
+
+        Parameters
+        ----------
+        heap : :class:`spead2.recv.Heap`
+            Incoming heap
+
+        Returns
+        -------
+        dict
+            Items that have been updated from this heap, indexed by name
+        """
+        for descriptor in heap.get_descriptors():
+            item = Item.from_raw(descriptor, bug_compat=heap.bug_compat)
+            self._add_item(item)
+        updated_items = {}
+        for raw_item in heap.get_items():
+            try:
+                item = self._by_id[raw_item.id]
+            except KeyError:
+                _logger.warning('Item with ID %d received but there is no descriptor', raw_item.id)
+            else:
+                item.set_from_raw(raw_item)
+                item.version = heap.cnt
+                updated_items[item.name] = item
+        return updated_items
