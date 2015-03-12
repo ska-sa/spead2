@@ -42,20 +42,65 @@ bytes, in the order they appeared in the original packet.
 """
 
 import spead2 as _spead2
+import numbers as _numbers
+import logging
 from spead2._recv import *
+
+_logger = logging.getLogger(__name__)
 
 class ItemGroup(object):
     def __init__(self):
-        self.items = {}
+        self._by_id = {}
+        self._by_name = {}
 
     def update(self, heap):
+        """Update the item descriptors and items from an incoming heap.
+
+        Parameters
+        ----------
+        heap : :class:`spead2.recv.Heap`
+            Incoming heap
+
+        Returns
+        -------
+        list
+            Items that have been updated from this heap
+        """
         for descriptor in heap.get_descriptors():
-            self.items[descriptor.id] = _spead2.Item.from_raw(descriptor, bug_compat=heap.bug_compat)
+            item = _spead2.Item.from_raw(descriptor, bug_compat=heap.bug_compat)
+            self._by_id[descriptor.id] = item
+            self._by_name[descriptor.name] = item
+        updated_items = []
         for raw_item in heap.get_items():
             try:
-                item = self.items[raw_item.id]
+                item = self._by_id[raw_item.id]
             except KeyError:
-                # TODO: log it
-                pass
+                _logger.warning('Item with ID %d received but there is no descriptor', raw_item.id)
             else:
                 item.set_from_raw(raw_item)
+                updated_items.append(item)
+        return updated_items
+
+    def __getitem__(self, key):
+        if isinstance(key, _numbers.Integral):
+            return self._by_id[key]
+        else:
+            return self._by_name[key]
+
+    def __contains__(self, key):
+        if isinstance(key, _numbers.Integral):
+            return key in self._by_id
+        else:
+            return key in self._by_name
+
+    def keys(self):
+        return self._by_name.keys()
+
+    def values(self):
+        return self._by_name.values()
+
+    def items(self):
+        return self._by_name.items()
+
+    def __len__(self):
+        return len(self._by_name)

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function, division
 import spead2
 import spead2.recv
 import sys
@@ -23,10 +24,10 @@ else:
 ig = spead2.recv.ItemGroup()
 num_heaps = 0
 for heap in stream:
-    print "Got heap", heap.cnt
-    ig.update(heap)
-    for item in ig.items.itervalues():
-        print heap.cnt, item.name, item.value
+    print("Got heap", heap.cnt)
+    items = ig.update(heap)
+    for item in items:
+        print(heap.cnt, item.name, item.value)
     num_heaps += 1
 stream.stop()
-print "Received", num_heaps, "heaps"
+print("Received", num_heaps, "heaps")

@@ -150,7 +150,7 @@ class TestDecode(object):
         stream.add_buffer_reader(data)
         return list(stream)
 
-    def data_to_items(self, data):
+    def data_to_ig(self, data):
         """Take some data and pass it through the receiver to obtain a single heap,
         from which the items are extracted.
         """
@@ -158,18 +158,18 @@ class TestDecode(object):
         assert_equal(1, len(heaps))
         ig = recv.ItemGroup()
         ig.update(heaps[0])
-        for id, item in ig.items.items():
-            assert_equal(id, item.id)
-        return ig.items
+        for name, item in ig.items():
+            assert_equal(name, item.name)
+        return ig
 
     def data_to_item(self, data, expected_id):
         """Take some data and pass it through the receiver to obtain a single heap,
         with a single item, which is returned.
         """
-        items = self.data_to_items(data)
-        assert_equal(1, len(items))
-        assert_in(expected_id, items)
-        return items[expected_id]
+        ig = self.data_to_ig(data)
+        assert_equal(1, len(ig))
+        assert_in(expected_id, ig)
+        return ig[expected_id]
 
     def test_scalar_int(self):
         packet = self.flavour.make_packet_heap(1,
