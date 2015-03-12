@@ -1,3 +1,4 @@
+NULL_ID =              0x00
 HEAP_CNT_ID =          0x01
 HEAP_LENGTH_ID =       0x02
 PAYLOAD_OFFSET_ID =    0x03

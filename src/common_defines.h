@@ -37,6 +37,7 @@ static constexpr bug_compat_mask BUG_COMPAT_SWAP_ENDIAN       = (1 << 2);
 
 enum item_id : unsigned int
 {
+    NULL_ID =              0x00,
     HEAP_CNT_ID =          0x01,
     HEAP_LENGTH_ID =       0x02,
     PAYLOAD_OFFSET_ID =    0x03,

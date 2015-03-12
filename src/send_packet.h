@@ -57,6 +57,8 @@ private:
     /// Payload offset for the next packet
     std::int64_t payload_offset = 0;
     std::int64_t payload_size = 0;
+    /// There is payload padding, so we need to add a NULL item pointer
+    bool need_null_item = false;
 
 public:
     packet_generator(const basic_heap &h, int heap_address_bits, std::size_t max_packet_size);
