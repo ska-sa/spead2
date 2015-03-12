@@ -37,9 +37,10 @@ void heap_wrapper::add_item(py::object item)
 {
     std::int64_t id = py::extract<std::int64_t>(item.attr("id"));
     py::object buffer = item.attr("to_buffer")();
+    bool is_variable_size = py::extract<bool>(item.attr("is_variable_size")());
     item_buffers.emplace_back(buffer);
     const auto &view = item_buffers.back().view;
-    heap::add_item(id, view.buf, view.len);
+    heap::add_item(id, view.buf, view.len, !is_variable_size);
 }
 
 void heap_wrapper::add_descriptor(py::object object)

@@ -5,7 +5,6 @@
 - Support cancellation of transmission
 - Call the send callback with an error if a heap is dropped or the stream is terminated
 - Fix PySPEAD's assumption that small items are always immediates
-- Ensure that variable-sized items are never sent by immediate
 - Investigate memory pools for sender
 - Implement more sender classes (particularly vector_stream)
 - More send infrastructure (item group, heap numbering etc)

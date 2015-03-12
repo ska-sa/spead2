@@ -20,6 +20,12 @@ namespace send
 
 constexpr std::size_t packet_generator::prefix_size;
 
+static bool use_immediate(const item &it, std::size_t max_immediate_size)
+{
+    return it.is_inline
+        || (it.allow_immediate && it.data.buffer.length <= max_immediate_size);
+}
+
 packet_generator::packet_generator(
     const basic_heap &h, int heap_address_bits, std::size_t max_packet_size)
     : h(h), heap_address_bits(heap_address_bits), max_packet_size(max_packet_size)
@@ -37,7 +43,7 @@ packet_generator::packet_generator(
     const std::size_t max_immediate_size = heap_address_bits / 8;
     for (const item &it : h.items)
     {
-        if (!(it.is_inline || it.data.buffer.length <= max_immediate_size))
+        if (!use_immediate(it, max_immediate_size))
             payload_size += it.data.buffer.length;
     }
 
@@ -114,8 +120,7 @@ packet packet_generator::next_packet()
                 out.buffers.emplace_back(header, packet_payload_length);
                 packet_payload_length = 0;
             }
-            else if (h.items[next_item].is_inline
-                     || h.items[next_item].data.buffer.length <= max_immediate_size)
+            else if (use_immediate(h.items[next_item], max_immediate_size))
             {
                 next_item++;
                 next_item_offset = 0;

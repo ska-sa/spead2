@@ -134,7 +134,7 @@ basic_heap heap::encode(int heap_address_bits) const
     for (const descriptor &d : descriptors)
     {
         auto blob = encode_descriptor(d, heap_address_bits, bug_compat);
-        items.emplace_back(DESCRIPTOR_ID, blob.first.get(), blob.second);
+        items.emplace_back(DESCRIPTOR_ID, blob.first.get(), blob.second, false);
         descriptor_pointers.push_back(std::move(blob.first));
     }
 

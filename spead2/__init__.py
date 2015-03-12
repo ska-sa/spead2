@@ -64,6 +64,9 @@ class Descriptor(object):
                 return None
         return _np.dtype(','.join(fields))
 
+    def is_variable_size(self):
+        return any([x < 0 for x in self.shape])
+
     def dynamic_shape(self, max_elements):
         known = 1
         unknown_pos = -1

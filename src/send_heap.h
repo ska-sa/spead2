@@ -34,6 +34,15 @@ struct item
      * as immediates if they have the right length.
      */
     bool is_inline;
+    /**
+     * If true, the item's value may be encoded as an immediate. This must
+     * be false if the item is variable-sized, because in that case the
+     * actual size can only be determined from address differences.
+     *
+     * If @ref is_inline is true, then this must be true as well.
+     */
+    bool allow_immediate;
+
     union
     {
         struct
@@ -44,30 +53,34 @@ struct item
             std::size_t length;
         } buffer;
 
-        std::uint64_t immediate; ///< Integer value to store (host endian)
+        /**
+         * Integer value to store (host endian). This is used if any only
+         * if @ref is_inline is true.
+         */
+        std::uint64_t immediate;
     } data;
 
     item() = default;
-    item(std::int64_t id, const void *ptr, std::size_t length)
-        : id(id), is_inline(false)
+    item(std::int64_t id, const void *ptr, std::size_t length, bool allow_immediate)
+        : id(id), is_inline(false), allow_immediate(allow_immediate)
     {
         data.buffer.ptr = reinterpret_cast<const std::uint8_t *>(ptr);
         data.buffer.length = length;
     }
 
     item(std::int64_t id, std::size_t immediate)
-        : id(id), is_inline(true)
+        : id(id), is_inline(true), allow_immediate(true)
     {
         data.immediate = immediate;
     }
 
-    item(std::int64_t id, const std::string &value)
-        : item(id, value.data(), value.size())
+    item(std::int64_t id, const std::string &value, bool allow_immediate)
+        : item(id, value.data(), value.size(), allow_immediate)
     {
     }
 
-    item(std::int64_t id, const std::vector<std::uint8_t> &value)
-        : item(id, value.data(), value.size())
+    item(std::int64_t id, const std::vector<std::uint8_t> &value, bool allow_immediate)
+        : item(id, value.data(), value.size(), allow_immediate)
     {
     }
 };

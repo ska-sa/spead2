@@ -34,8 +34,8 @@ int main()
     desc2.description = "a 2D array";
     desc2.numpy_header = "{'shape': (8, 8), 'fortran_order': False, 'descr': '>i4'}";
 
-    h.add_item(0x1000, &value1, sizeof(value1));
-    h.add_item(0x1001, &value2, sizeof(value2));
+    h.add_item(0x1000, &value1, sizeof(value1), true);
+    h.add_item(0x1001, &value2, sizeof(value2), true);
     h.add_descriptor(desc1);
     h.add_descriptor(desc2);
     stream.async_send_heap(std::move(h), [] { std::cout << "Callback fired\n"; });
