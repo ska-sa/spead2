@@ -16,10 +16,10 @@ namespace spead
 namespace recv
 {
 
-heap::heap(std::int64_t heap_cnt, bug_compat_mask bug_compat)
-    : heap_cnt(heap_cnt), bug_compat(bug_compat)
+heap::heap(std::int64_t cnt, bug_compat_mask bug_compat)
+    : cnt(cnt), bug_compat(bug_compat)
 {
-    assert(heap_cnt >= 0);
+    assert(cnt >= 0);
 }
 
 void heap::set_mem_pool(std::shared_ptr<mem_pool> pool)
@@ -52,7 +52,7 @@ void heap::payload_reserve(std::size_t size, bool exact)
 
 bool heap::add_packet(const packet_header &packet)
 {
-    if (heap_cnt != packet.heap_cnt)
+    if (cnt != packet.heap_cnt)
     {
         log_debug("packet rejected because HEAP_CNT does not match");
         return false;
@@ -124,7 +124,7 @@ bool heap::add_packet(const packet_header &packet)
         received_length += packet.payload_length;
     }
     log_debug("packet with %d bytes of payload at offset %d added to heap %d",
-              packet.payload_length, packet.payload_offset, heap_cnt);
+              packet.payload_length, packet.payload_offset, cnt);
     return true;
 }
 

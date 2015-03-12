@@ -34,7 +34,6 @@ public:
     udp_stream(
         boost::asio::ip::udp::socket &&socket,
         int heap_address_bits,
-        bug_compat_mask bug_compat,
         std::size_t max_packet_size,
         double rate,
         std::size_t max_heaps = default_max_heaps);
@@ -43,7 +42,6 @@ public:
         boost::asio::io_service &io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
         int heap_address_bits,
-        bug_compat_mask bug_compat,
         std::size_t max_packet_size,
         double rate,
         std::size_t max_heaps = default_max_heaps,

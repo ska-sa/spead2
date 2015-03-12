@@ -40,7 +40,7 @@ struct item
 class frozen_heap
 {
 private:
-    std::int64_t heap_cnt;      ///< Heap ID
+    std::int64_t cnt;           ///< Heap ID
     int heap_address_bits;      ///< Flavour
     bug_compat_mask bug_compat; ///< Protocol bugs to accept
     /**
@@ -60,7 +60,7 @@ public:
      */
     explicit frozen_heap(heap &&h);
     /// Get heap ID
-    std::int64_t cnt() const { return heap_cnt; }
+    std::int64_t get_cnt() const { return cnt; }
     /// Get protocol bug compatibility flags
     bug_compat_mask get_bug_compat() const { return bug_compat; }
     /**

@@ -40,7 +40,7 @@ bool stream_base::add_packet(const packet_header &packet)
     for (auto it = heaps.begin(); it != heaps.end(); ++it)
     {
         heap &h = *it;
-        if (h.cnt() == packet.heap_cnt)
+        if (h.get_cnt() == packet.heap_cnt)
         {
             found = true;
             if (h.add_packet(packet))
@@ -55,7 +55,7 @@ bool stream_base::add_packet(const packet_header &packet)
             }
             break;
         }
-        else if (h.cnt() < packet.heap_cnt)
+        else if (h.get_cnt() < packet.heap_cnt)
             insert_before = next(it);
     }
 

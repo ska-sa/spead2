@@ -75,7 +75,7 @@ packet packet_generator::next_packet()
             | (std::uint64_t(8 - heap_address_bits / 8) << 40)
             | (std::uint64_t(heap_address_bits / 8) << 32)
             | (n_item_pointers + 4));
-        *header++ = htobe64(encoder.encode_immediate(HEAP_CNT_ID, h.heap_cnt));
+        *header++ = htobe64(encoder.encode_immediate(HEAP_CNT_ID, h.cnt));
         *header++ = htobe64(encoder.encode_immediate(HEAP_LENGTH_ID, payload_size));
         *header++ = htobe64(encoder.encode_immediate(PAYLOAD_OFFSET_ID, payload_offset));
         *header++ = htobe64(encoder.encode_immediate(PAYLOAD_LENGTH_ID, packet_payload_length));

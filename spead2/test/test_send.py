@@ -70,7 +70,7 @@ class Flavour(object):
             heap.add_descriptor(descriptor)
         for item in items:
             heap.add_item(item)
-        gen = send.PacketGenerator(heap, self.heap_address_bits, self.bug_compat, max_packet_size)
+        gen = send.PacketGenerator(heap, self.heap_address_bits, max_packet_size)
         return list(gen)
 
 
@@ -92,12 +92,13 @@ class TestEncode(object):
         """An empty heap must still generate a packet"""
         expected = [
             b''.join([
-                self.flavour.make_header(4),
+                self.flavour.make_header(5),
                 self.flavour.make_immediate(HEAP_CNT_ID, 0x123456),
-                self.flavour.make_immediate(HEAP_LENGTH_ID, 8),
+                self.flavour.make_immediate(HEAP_LENGTH_ID, 1),
                 self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
-                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, 8),
-                struct.pack('>Q', 0)])
+                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, 1),
+                self.flavour.make_address(NULL_ID, 0),
+                struct.pack('B', 0)])
         ]
         packet = self.flavour.items_to_bytes([])
         assert_equal(hexlify(expected), hexlify(packet))
@@ -261,4 +262,48 @@ class TestEncode(object):
         item = spead2.Item(id=id, name='name', description='description', dtype=None, shape=shape, format=format)
         item.value = data
         packet = self.flavour.items_to_bytes([item])
+        assert_equal(hexlify(expected), hexlify(packet))
+
+    def test_small_fixed(self):
+        """Sending a small item with fixed shape must use an immediate."""
+        id = 0x2345
+        data = 0x7654
+        payload = struct.pack('>I', data)
+        expected = [
+            b''.join([
+                self.flavour.make_header(6),
+                self.flavour.make_immediate(HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(HEAP_LENGTH_ID, 1),
+                self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, 1),
+                self.flavour.make_immediate(id, data),
+                self.flavour.make_address(NULL_ID, 0),
+                struct.pack('B', 0)
+            ])
+        ]
+        item = spead2.Item(id=id, name='name', description='description', dtype=None, shape=(), format=[('u', 16)])
+        item.value = data
+        packet = self.flavour.items_to_bytes([item], [])
+        assert_equal(hexlify(expected), hexlify(packet))
+
+    def test_small_variable(self):
+        """Sending a small item with dynamic shape must not use an immediate."""
+        id = 0x2345
+        shape = (1, -1)
+        data = np.array([[4, 5]], dtype=np.uint8)
+        payload = struct.pack('<2B', 4, 5)
+        expected = [
+            b''.join([
+                self.flavour.make_header(5),
+                self.flavour.make_immediate(HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(HEAP_LENGTH_ID, len(payload)),
+                self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, len(payload)),
+                self.flavour.make_address(id, 0),
+                payload
+            ])
+        ]
+        item = spead2.Item(id=id, name='name', description='description', shape=shape, dtype=np.uint8)
+        item.value = data
+        packet = self.flavour.items_to_bytes([item], [])
         assert_equal(hexlify(expected), hexlify(packet))

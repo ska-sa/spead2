@@ -79,7 +79,7 @@ class basic_heap
 {
     friend class packet_generator;
 private:
-    std::int64_t heap_cnt;
+    std::int64_t cnt;
     std::vector<item> items; ///< Items to write (including descriptors)
     /**
      * Transient storage that should be freed when the heap is no longer
@@ -89,17 +89,29 @@ private:
 
 public:
     template<typename T>
-    basic_heap(std::int64_t heap_cnt, T &&items,
+    basic_heap(std::int64_t cnt, T &&items,
                std::vector<std::unique_ptr<std::uint8_t[]> > &&storage)
-    : heap_cnt(heap_cnt), items(std::forward<T>(items)), storage(std::move(storage))
+    : cnt(cnt), items(std::forward<T>(items)), storage(std::move(storage))
     {
+    }
+
+    std::int64_t get_cnt() const
+    {
+        return cnt;
+    }
+
+    void set_cnt(std::int64_t cnt)
+    {
+        this->cnt = cnt;
     }
 };
 
 class heap
 {
 private:
-    std::int64_t heap_cnt;
+    std::int64_t cnt;
+    bug_compat_mask bug_compat;
+
     std::vector<item> items;
     std::vector<descriptor> descriptors;
 
@@ -108,14 +120,29 @@ private:
     heap &operator=(const heap &) = delete;
 
 public:
-    explicit heap(std::int64_t heap_cnt = 0)
-    : heap_cnt(heap_cnt)
+    explicit heap(std::int64_t cnt = 0, bug_compat_mask bug_compat = 0)
+    : cnt(cnt), bug_compat(bug_compat)
     {
     }
 
-    void set_heap_cnt(std::int64_t heap_cnt)
+    std::int64_t get_cnt() const
     {
-        this->heap_cnt = heap_cnt;
+        return cnt;
+    }
+
+    void set_cnt(std::int64_t cnt)
+    {
+        this->cnt = cnt;
+    }
+
+    bug_compat_mask get_bug_compat() const
+    {
+        return bug_compat;
+    }
+
+    void set_bug_compat(bug_compat_mask bug_compat)
+    {
+        this->bug_compat = bug_compat;
     }
 
     template<typename... Args>
@@ -129,7 +156,7 @@ public:
         descriptors.push_back(descriptor);
     }
 
-    basic_heap encode(int heap_address_bits, bug_compat_mask bug_compat) const;
+    basic_heap encode(int heap_address_bits) const;
 };
 
 } // namespace send

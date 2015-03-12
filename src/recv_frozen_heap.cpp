@@ -37,7 +37,7 @@ frozen_heap::frozen_heap(heap &&h)
 {
     assert(h.is_contiguous());
     log_debug("freezing heap with ID %d, %d item pointers, %d bytes payload",
-              h.cnt(), h.pointers.size(), h.min_length);
+              h.get_cnt(), h.pointers.size(), h.min_length);
     /* The length of addressed items is measured from the item to the
      * address of the next item, or the end of the heap. We may receive
      * packets (and hence pointers) out-of-order, so we have to sort.
@@ -113,7 +113,7 @@ frozen_heap::frozen_heap(heap &&h)
         }
         items.push_back(new_item);
     }
-    heap_cnt = h.heap_cnt;
+    cnt = h.cnt;
     heap_address_bits = h.heap_address_bits;
     bug_compat = h.bug_compat;
     payload = std::move(h.payload);

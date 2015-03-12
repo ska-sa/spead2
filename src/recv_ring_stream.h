@@ -94,7 +94,7 @@ void ring_stream<Ringbuffer>::heap_ready(heap &&h)
     {
         // Suppress the error, drop the heap
         log_info("dropped heap %d due to insufficient ringbuffer space",
-                 h.cnt());
+                 h.get_cnt());
     }
 }
 
@@ -107,7 +107,7 @@ frozen_heap ring_stream<Ringbuffer>::pop()
         if (h.is_contiguous())
             return frozen_heap(std::move(h));
         else
-            log_info("received incomplete heap %d", h.cnt());
+            log_info("received incomplete heap %d", h.get_cnt());
     }
 }
 
@@ -120,7 +120,7 @@ frozen_heap ring_stream<Ringbuffer>::try_pop()
         if (h.is_contiguous())
             return frozen_heap(std::move(h));
         else
-            log_info("received incomplete heap %d", h.cnt());
+            log_info("received incomplete heap %d", h.get_cnt());
     }
 }
 

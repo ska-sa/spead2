@@ -34,7 +34,6 @@ public:
         boost::asio::io_service &io_service,
         std::streambuf &streambuf,
         int heap_address_bits,
-        bug_compat_mask bug_compat,
         std::size_t max_packet_size,
         double rate = 0.0,
         std::size_t max_heaps = default_max_heaps);

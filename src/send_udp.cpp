@@ -14,12 +14,11 @@ constexpr std::size_t udp_stream::default_buffer_size;
 udp_stream::udp_stream(
     boost::asio::ip::udp::socket &&socket,
     int heap_address_bits,
-    bug_compat_mask bug_compat,
     std::size_t max_packet_size,
     double rate,
     std::size_t max_heaps)
     : stream<udp_stream>(socket.get_io_service(), heap_address_bits,
-                         bug_compat, max_packet_size, rate, max_heaps),
+                         max_packet_size, rate, max_heaps),
     socket(std::move(socket))
 {
 }
@@ -28,13 +27,12 @@ udp_stream::udp_stream(
     boost::asio::io_service &io_service,
     const boost::asio::ip::udp::endpoint &endpoint,
     int heap_address_bits,
-    bug_compat_mask bug_compat,
     std::size_t max_packet_size,
     double rate,
     std::size_t max_heaps,
     std::size_t buffer_size)
     : stream<udp_stream>(io_service, heap_address_bits,
-                         bug_compat, max_packet_size, rate, max_heaps),
+                         max_packet_size, rate, max_heaps),
     socket(io_service)
 {
     boost::asio::ip::udp::socket socket(io_service);

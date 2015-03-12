@@ -125,7 +125,7 @@ encode_descriptor(const descriptor &d, int heap_address_bits, bug_compat_mask bu
     return {std::move(out), total_size};
 }
 
-basic_heap heap::encode(int heap_address_bits, bug_compat_mask bug_compat) const
+basic_heap heap::encode(int heap_address_bits) const
 {
     assert(heap_address_bits > 0 && heap_address_bits < 64 && heap_address_bits % 8 == 0);
     std::vector<item> items;
@@ -139,7 +139,7 @@ basic_heap heap::encode(int heap_address_bits, bug_compat_mask bug_compat) const
     }
 
     items.insert(items.end(), this->items.begin(), this->items.end());
-    return basic_heap(heap_cnt, std::move(items), std::move(descriptor_pointers));
+    return basic_heap(cnt, std::move(items), std::move(descriptor_pointers));
 }
 
 } // namespace send

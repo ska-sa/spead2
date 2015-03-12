@@ -52,7 +52,6 @@ private:
 
     boost::asio::io_service &io_service;
     const int heap_address_bits;
-    const bug_compat_mask bug_compat;
     const std::size_t max_packet_size;
     const double seconds_per_byte;
     const std::size_t max_heaps;
@@ -136,25 +135,17 @@ private:
         } while (again);
     }
 
-protected:
-    bug_compat_mask get_bug_compat() const
-    {
-        return bug_compat;
-    }
-
 public:
     static constexpr std::size_t default_max_heaps = 4;
 
     stream(
         boost::asio::io_service &io_service,
         int heap_address_bits,
-        bug_compat_mask bug_compat,
         std::size_t max_packet_size,
         double rate,
         std::size_t max_heaps = default_max_heaps) :
             io_service(io_service),
             heap_address_bits(heap_address_bits),
-            bug_compat(bug_compat),
             max_packet_size(max_packet_size),
             seconds_per_byte(rate > 0.0 ? 1.0 / rate : 0.0),
             max_heaps(max_heaps),
@@ -202,7 +193,7 @@ public:
 
     void async_send_heap(const heap &h, completion_handler handler)
     {
-        async_send_heap(h.encode(heap_address_bits, bug_compat), std::move(handler));
+        async_send_heap(h.encode(heap_address_bits), std::move(handler));
     }
 
     /**

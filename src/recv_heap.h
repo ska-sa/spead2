@@ -45,7 +45,7 @@ private:
     friend class frozen_heap;
 
     /// Heap ID encoded in packets
-    std::int64_t heap_cnt;
+    std::int64_t cnt;
     /// Heap payload length encoded in packets (-1 for unknown)
     std::int64_t heap_length = -1;
     /// Number of bytes of payload received
@@ -100,10 +100,10 @@ public:
     /**
      * Constructor.
      *
-     * @param heap_cnt     Heap ID
+     * @param cnt          Heap ID
      * @param bug_compat   Bugs to expect in the protocol
      */
-    explicit heap(std::int64_t heap_cnt, bug_compat_mask bug_compat);
+    explicit heap(std::int64_t cnt, bug_compat_mask bug_compat);
 
     /**
      * Set a memory pool to use for payload data, instead of allocating with
@@ -116,7 +116,7 @@ public:
      * successfully prepared by @ref decode_packet. It returns @c true if
      * the packet was added to the heap. There are a number of reasons it
      * could be rejected, even though @ref decode_packet accepted it:
-     * - wrong @c heap_cnt
+     * - wrong @c cnt
      * - wrong flavour
      * - duplicate packet
      * - inconsistent heap length
@@ -130,7 +130,7 @@ public:
     /// True if an end-of-stream heap control item was found
     bool is_end_of_stream() const;
     /// Retrieve the heap ID
-    std::int64_t cnt() const { return heap_cnt; }
+    std::int64_t get_cnt() const { return cnt; }
     /// Get protocol bug compatibility flags
     bug_compat_mask get_bug_compat() const { return bug_compat; }
 };

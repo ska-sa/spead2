@@ -25,19 +25,13 @@ namespace send
 class heap_wrapper : public heap
 {
 private:
-    bug_compat_mask bug_compat;
     std::vector<buffer_view> item_buffers;
 
 public:
-    explicit heap_wrapper(std::int64_t cnt = 0, bug_compat_mask bug_compat = 0);
+    using heap::heap;
     void add_item(py::object item);
     void add_descriptor(py::object descriptor);
 };
-
-heap_wrapper::heap_wrapper(std::int64_t cnt, bug_compat_mask bug_compat)
-    : heap(cnt), bug_compat(bug_compat)
-{
-}
 
 void heap_wrapper::add_item(py::object item)
 {
@@ -50,7 +44,7 @@ void heap_wrapper::add_item(py::object item)
 
 void heap_wrapper::add_descriptor(py::object object)
 {
-    heap::add_descriptor(py::extract<descriptor>(object.attr("to_raw")(bug_compat)));
+    heap::add_descriptor(py::extract<descriptor>(object.attr("to_raw")(get_bug_compat())));
 }
 
 /**
@@ -63,16 +57,15 @@ private:
     basic_heap internal_heap;
     packet_generator gen;
 public:
-    packet_generator_wrapper(const heap &h, int heap_address_bits, bug_compat_mask bug_compat,
-                             std::size_t max_packet_size);
+    packet_generator_wrapper(const heap &h, int heap_address_bits, std::size_t max_packet_size);
 
     bytestring next();
 };
 
 packet_generator_wrapper::packet_generator_wrapper(
-    const heap &h, int heap_address_bits, bug_compat_mask bug_compat,
+    const heap &h, int heap_address_bits,
     std::size_t max_packet_size)
-    : internal_heap(h.encode(heap_address_bits, bug_compat)),
+    : internal_heap(h.encode(heap_address_bits)),
     gen(internal_heap, heap_address_bits, max_packet_size)
 {
 }
@@ -160,7 +153,6 @@ public:
         const std::string &hostname,
         int port,
         int heap_address_bits,
-        bug_compat_mask bug_compat,
         std::size_t max_packet_size,
         double rate,
         std::size_t max_heaps = Base::default_max_heaps,
@@ -168,7 +160,7 @@ public:
         : Base(
             pool.get_io_service(),
             make_endpoint(pool.get_io_service(), hostname, port),
-            heap_address_bits, bug_compat, max_packet_size, rate,
+            heap_address_bits, max_packet_size, rate,
             max_heaps, buffer_size)
     {
     }
@@ -199,14 +191,16 @@ void register_module()
 
     class_<heap_wrapper, boost::noncopyable>("Heap", init<std::int64_t, bug_compat_mask>(
             (arg("cnt") = 0, arg("bug_compat") = 0)))
+        .add_property("cnt", &heap_wrapper::get_cnt, &heap_wrapper::set_cnt)
+        .add_property("bug_compat", &heap_wrapper::get_bug_compat, &heap_wrapper::set_bug_compat)
         .def("add_item", &heap_wrapper::add_item,
              arg("item"),
              with_custodian_and_ward<1, 2>())
         .def("add_descriptor", &heap_wrapper::add_descriptor,
              (arg("descriptor")));
 
-    class_<packet_generator_wrapper, boost::noncopyable>("PacketGenerator", init<heap_wrapper &, int, bug_compat_mask, std::size_t>(
-            (arg("heap"), arg("heap_address_bits"), arg("bug_compat"), arg("max_packet_size")))[
+    class_<packet_generator_wrapper, boost::noncopyable>("PacketGenerator", init<heap_wrapper &, int, std::size_t>(
+            (arg("heap"), arg("heap_address_bits"), arg("max_packet_size")))[
             with_custodian_and_ward<1, 2>()])
         .def("__iter__", objects::identity_function())
         .def(
@@ -221,11 +215,10 @@ void register_module()
     {
         typedef udp_stream_wrapper<stream_wrapper<udp_stream> > T;
         class_<T, boost::noncopyable>("UdpStream", init<
-                thread_pool_wrapper &, std::string, int, int, bug_compat_mask,
+                thread_pool_wrapper &, std::string, int, int,
                 std::size_t, double, std::size_t, std::size_t>(
                     (arg("thread_pool"), arg("hostname"), arg("port"),
                      arg("heap_address_bits"),
-                     arg("bug_compat"),
                      arg("max_packet_size"),
                      arg("rate"),
                      arg("max_heaps") = T::default_max_heaps,
@@ -237,11 +230,10 @@ void register_module()
     {
         typedef udp_stream_wrapper<asyncio_stream_wrapper<udp_stream> > T;
         class_<T, boost::noncopyable>("UdpStreamAsyncio", init<
-                thread_pool_wrapper &, std::string, int, int, bug_compat_mask,
+                thread_pool_wrapper &, std::string, int, int,
                 std::size_t, double, std::size_t>(
                     (arg("thread_pool"), arg("hostname"), arg("port"),
                      arg("heap_address_bits"),
-                     arg("bug_compat"),
                      arg("max_packet_size"),
                      arg("rate"),
                      arg("max_heaps") = T::default_max_heaps,

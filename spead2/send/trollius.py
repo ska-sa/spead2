@@ -7,6 +7,7 @@ from trollius import From, Return
 import spead2.send
 from spead2._send import UdpStreamAsyncio as _UdpStreamAsyncio
 
+
 class UdpStream(_UdpStreamAsyncio):
     def __init__(self, *args, **kwargs):
         if 'loop' in kwargs:

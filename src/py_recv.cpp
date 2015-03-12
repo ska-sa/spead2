@@ -248,7 +248,7 @@ void register_module()
     py::scope scope = module;
 
     class_<frozen_heap_wrapper, boost::noncopyable>("Heap", no_init)
-        .add_property("cnt", &frozen_heap_wrapper::cnt)
+        .add_property("cnt", &frozen_heap_wrapper::get_cnt)
         .add_property("bug_compat", &frozen_heap_wrapper::get_bug_compat)
         .def("get_items", &frozen_heap_wrapper::get_items)
         .def("get_descriptors", &frozen_heap_wrapper::get_descriptors);

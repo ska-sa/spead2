@@ -19,7 +19,7 @@ class trivial_stream : public spead::recv::stream
 private:
     virtual void heap_ready(spead::recv::heap &&heap) override
     {
-        std::cout << "Got heap " << heap.cnt();
+        std::cout << "Got heap " << heap.get_cnt();
         if (heap.is_complete())
         {
             std::cout << " [complete]\n";
@@ -51,7 +51,7 @@ public:
 
 void show_heap(const spead::recv::frozen_heap &fheap)
 {
-    std::cout << "Received heap with CNT " << fheap.cnt() << '\n';
+    std::cout << "Received heap with CNT " << fheap.get_cnt() << '\n';
     const auto &items = fheap.get_items();
     std::cout << items.size() << " item(s)\n";
     for (const auto &item : items)
