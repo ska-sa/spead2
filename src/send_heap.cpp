@@ -14,6 +14,7 @@
 #include "send_utils.h"
 #include "common_defines.h"
 #include "common_logging.h"
+#include "common_endian.h"
 
 namespace spead
 {
@@ -24,15 +25,15 @@ namespace send
  * Encode @a value as an unsigned big-endian number in @a len bytes.
  *
  * @pre
- * - @a 0 &lt;= len &lt;= 8
+ * - @a 0 &lt;= len &lt;= sizeof(item_pointer_t)
  * - @a value &lt; 2<sup>len * 8</sup>
  */
-static inline void store_bytes_be(std::uint8_t *ptr, int len, std::uint64_t value)
+static inline void store_bytes_be(std::uint8_t *ptr, int len, item_pointer_t value)
 {
-    assert(0 <= len && len <= 8);
-    assert(len == 8 || value < (std::uint64_t(1) << (8 * len)));
-    value = htobe64(value);
-    std::memcpy(ptr, reinterpret_cast<const char *>(&value) + 8 - len, len);
+    assert(0 <= len && len <= sizeof(item_pointer_t));
+    assert(len == sizeof(item_pointer_t) || value < (std::uint64_t(1) << (8 * len)));
+    value = htobe<item_pointer_t>(value);
+    std::memcpy(ptr, reinterpret_cast<const char *>(&value) + sizeof(item_pointer_t) - len, len);
 }
 
 /* Copies, then increments dest
@@ -46,10 +47,10 @@ static inline void memcpy_adjust(std::uint8_t *&dest, const void *src, std::size
 static std::pair<std::unique_ptr<std::uint8_t[]>, std::size_t>
 encode_descriptor(const descriptor &d, int heap_address_bits, bug_compat_mask bug_compat)
 {
-    const int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 4 : 9 - heap_address_bits / 8;
+    const int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 4 : sizeof(item_pointer_t) + 1 - heap_address_bits / 8;
     const int shape_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 8 : 1 + heap_address_bits / 8;
 
-    if (d.id <= 0 || d.id >= (std::int64_t(1) << (63 - heap_address_bits)))
+    if (d.id <= 0 || d.id >= (s_item_pointer_t(1) << (sizeof(item_pointer_t) - 1 - heap_address_bits)))
         throw std::invalid_argument("Item ID out of range");
 
     /* The descriptor is a complete SPEAD packet, containing:
@@ -66,38 +67,40 @@ encode_descriptor(const descriptor &d, int heap_address_bits, bug_compat_mask bu
         + d.format.size() * field_size
         + d.shape.size() * shape_size
         + d.numpy_header.size();
-    std::size_t total_size = payload_size + 8 * (n_items + 1);
+    std::size_t total_size = payload_size + n_items * sizeof(item_pointer_t) + 8;
     std::unique_ptr<std::uint8_t[]> out(new std::uint8_t[total_size]);
     std::uint64_t *header = reinterpret_cast<std::uint64_t *>(out.get());
+    item_pointer_t *pointer = reinterpret_cast<item_pointer_t *>(out.get() + 8);
     std::size_t offset = 0;
+    // TODO: for >64-bit item pointers, this will have alignment issues
 
     pointer_encoder encoder(heap_address_bits);
-    *header++ = htobe64(
+    *header = htobe<std::uint64_t>(
             (std::uint64_t(0x5304) << 48)
             | (std::uint64_t(8 - heap_address_bits / 8) << 40)
             | (std::uint64_t(heap_address_bits / 8) << 32)
             | n_items);
-    *header++ = htobe64(encoder.encode_immediate(HEAP_CNT_ID, 1));
-    *header++ = htobe64(encoder.encode_immediate(HEAP_LENGTH_ID, payload_size));
-    *header++ = htobe64(encoder.encode_immediate(PAYLOAD_OFFSET_ID, 0));
-    *header++ = htobe64(encoder.encode_immediate(PAYLOAD_LENGTH_ID, payload_size));
-    *header++ = htobe64(encoder.encode_immediate(DESCRIPTOR_ID_ID, d.id));
-    *header++ = htobe64(encoder.encode_address(DESCRIPTOR_NAME_ID, offset));
+    *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(HEAP_CNT_ID, 1));
+    *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(HEAP_LENGTH_ID, payload_size));
+    *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(PAYLOAD_OFFSET_ID, 0));
+    *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(PAYLOAD_LENGTH_ID, payload_size));
+    *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(DESCRIPTOR_ID_ID, d.id));
+    *pointer++ = htobe<item_pointer_t>(encoder.encode_address(DESCRIPTOR_NAME_ID, offset));
     offset += d.name.size();
-    *header++ = htobe64(encoder.encode_address(DESCRIPTOR_DESCRIPTION_ID, offset));
+    *pointer++ = htobe<item_pointer_t>(encoder.encode_address(DESCRIPTOR_DESCRIPTION_ID, offset));
     offset += d.description.size();
-    *header++ = htobe64(encoder.encode_address(DESCRIPTOR_FORMAT_ID, offset));
+    *pointer++ = htobe<item_pointer_t>(encoder.encode_address(DESCRIPTOR_FORMAT_ID, offset));
     offset += d.format.size() * field_size;
-    *header++ = htobe64(encoder.encode_address(DESCRIPTOR_SHAPE_ID, offset));
+    *pointer++ = htobe<item_pointer_t>(encoder.encode_address(DESCRIPTOR_SHAPE_ID, offset));
     offset += d.shape.size() * shape_size;
     if (have_numpy)
     {
-        *header++ = htobe64(encoder.encode_address(DESCRIPTOR_DTYPE_ID, offset));
+        *pointer++ = htobe<item_pointer_t>(encoder.encode_address(DESCRIPTOR_DTYPE_ID, offset));
         offset += d.numpy_header.size();
     }
     assert(offset == payload_size);
 
-    std::uint8_t *data = reinterpret_cast<std::uint8_t *>(header);
+    std::uint8_t *data = reinterpret_cast<std::uint8_t *>(pointer);
     memcpy_adjust(data, d.name.data(), d.name.size());
     memcpy_adjust(data, d.description.data(), d.description.size());
 
@@ -110,7 +113,7 @@ encode_descriptor(const descriptor &d, int heap_address_bits, bug_compat_mask bu
     }
 
     const std::uint8_t variable_tag = (bug_compat & BUG_COMPAT_SHAPE_BIT_1) ? 2 : 1;
-    for (const std::int64_t dim : d.shape)
+    for (const s_item_pointer_t dim : d.shape)
     {
         *data = (dim < 0) ? variable_tag : 0;
         // TODO: validate that it fits
@@ -127,7 +130,7 @@ encode_descriptor(const descriptor &d, int heap_address_bits, bug_compat_mask bu
 
 basic_heap heap::encode(int heap_address_bits) const
 {
-    assert(heap_address_bits > 0 && heap_address_bits < 64 && heap_address_bits % 8 == 0);
+    assert(heap_address_bits > 0 && heap_address_bits < 8 * sizeof(item_pointer_t) && heap_address_bits % 8 == 0);
     std::vector<item> items;
     std::vector<std::unique_ptr<std::uint8_t[]> > descriptor_pointers;
 

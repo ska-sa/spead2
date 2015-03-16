@@ -152,7 +152,7 @@ public:
             timer(io_service)
     {
         if (heap_address_bits <= 0
-            || heap_address_bits >= 64
+            || heap_address_bits >= 8 * sizeof(item_pointer_t)
             || heap_address_bits % 8 != 0)
         {
             throw std::invalid_argument("heap_address_bits is invalid");

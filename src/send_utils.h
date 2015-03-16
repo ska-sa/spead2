@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <cassert>
+#include "common_defines.h"
 
 namespace spead
 {
@@ -25,21 +26,21 @@ public:
         : heap_address_bits(heap_address_bits)
     {
         assert(heap_address_bits > 0);
-        assert(heap_address_bits < 64);
+        assert(heap_address_bits < 8 * sizeof(item_pointer_t));
         assert(heap_address_bits % 8 == 0);
     }
 
-    std::uint64_t encode_immediate(std::int64_t id, std::int64_t value) const
+    item_pointer_t encode_immediate(s_item_pointer_t id, s_item_pointer_t value) const
     {
-        assert(id >= 0 && id < (std::int64_t(1) << (63 - heap_address_bits)));
-        assert(value >= 0 && value < (std::int64_t(1) << heap_address_bits));
-        return (std::uint64_t(1) << 63) | (id << heap_address_bits) | value;
+        assert(id >= 0 && id < (s_item_pointer_t(1) << (8 * sizeof(item_pointer_t) - 1 - heap_address_bits)));
+        assert(value >= 0 && value < (s_item_pointer_t(1) << heap_address_bits));
+        return immediate_mask | (id << heap_address_bits) | value;
     }
 
-    std::uint64_t encode_address(std::int64_t id, std::int64_t address) const
+    item_pointer_t encode_address(s_item_pointer_t id, s_item_pointer_t address) const
     {
-        assert(id >= 0 && id < (std::int64_t(1) << (63 - heap_address_bits)));
-        assert(address >= 0 && address < (std::int64_t(1) << heap_address_bits));
+        assert(id >= 0 && id < (s_item_pointer_t(1) << (8 * sizeof(item_pointer_t) - 1 - heap_address_bits)));
+        assert(address >= 0 && address < (s_item_pointer_t(1) << heap_address_bits));
         return (id << heap_address_bits) | address;
     }
 };

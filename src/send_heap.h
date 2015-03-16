@@ -27,7 +27,7 @@ class packet_generator;
 struct item
 {
     /// Item ID
-    std::int64_t id;
+    s_item_pointer_t id;
     /**
      * If true, the item's value is stored in-place and @em must be
      * encoded as an immediate. Non-inline values can still be encoded
@@ -54,32 +54,32 @@ struct item
         } buffer;
 
         /**
-         * Integer value to store (host endian). This is used if any only
+         * Integer value to store (host endian). This is used if and only
          * if @ref is_inline is true.
          */
-        std::uint64_t immediate;
+        s_item_pointer_t immediate;
     } data;
 
     item() = default;
-    item(std::int64_t id, const void *ptr, std::size_t length, bool allow_immediate)
+    item(s_item_pointer_t id, const void *ptr, std::size_t length, bool allow_immediate)
         : id(id), is_inline(false), allow_immediate(allow_immediate)
     {
         data.buffer.ptr = reinterpret_cast<const std::uint8_t *>(ptr);
         data.buffer.length = length;
     }
 
-    item(std::int64_t id, std::size_t immediate)
+    item(s_item_pointer_t id, s_item_pointer_t immediate)
         : id(id), is_inline(true), allow_immediate(true)
     {
         data.immediate = immediate;
     }
 
-    item(std::int64_t id, const std::string &value, bool allow_immediate)
+    item(s_item_pointer_t id, const std::string &value, bool allow_immediate)
         : item(id, value.data(), value.size(), allow_immediate)
     {
     }
 
-    item(std::int64_t id, const std::vector<std::uint8_t> &value, bool allow_immediate)
+    item(s_item_pointer_t id, const std::vector<std::uint8_t> &value, bool allow_immediate)
         : item(id, value.data(), value.size(), allow_immediate)
     {
     }
@@ -92,7 +92,7 @@ class basic_heap
 {
     friend class packet_generator;
 private:
-    std::int64_t cnt;
+    s_item_pointer_t cnt;
     std::vector<item> items; ///< Items to write (including descriptors)
     /**
      * Transient storage that should be freed when the heap is no longer
@@ -102,18 +102,18 @@ private:
 
 public:
     template<typename T>
-    basic_heap(std::int64_t cnt, T &&items,
+    basic_heap(s_item_pointer_t cnt, T &&items,
                std::vector<std::unique_ptr<std::uint8_t[]> > &&storage)
     : cnt(cnt), items(std::forward<T>(items)), storage(std::move(storage))
     {
     }
 
-    std::int64_t get_cnt() const
+    s_item_pointer_t get_cnt() const
     {
         return cnt;
     }
 
-    void set_cnt(std::int64_t cnt)
+    void set_cnt(s_item_pointer_t cnt)
     {
         this->cnt = cnt;
     }
@@ -122,7 +122,7 @@ public:
 class heap
 {
 private:
-    std::int64_t cnt;
+    s_item_pointer_t cnt;
     bug_compat_mask bug_compat;
 
     std::vector<item> items;
@@ -133,17 +133,17 @@ private:
     heap &operator=(const heap &) = delete;
 
 public:
-    explicit heap(std::int64_t cnt = 0, bug_compat_mask bug_compat = 0)
+    explicit heap(s_item_pointer_t cnt = 0, bug_compat_mask bug_compat = 0)
     : cnt(cnt), bug_compat(bug_compat)
     {
     }
 
-    std::int64_t get_cnt() const
+    s_item_pointer_t get_cnt() const
     {
         return cnt;
     }
 
-    void set_cnt(std::int64_t cnt)
+    void set_cnt(s_item_pointer_t cnt)
     {
         this->cnt = cnt;
     }
@@ -159,7 +159,7 @@ public:
     }
 
     template<typename... Args>
-    void add_item(std::int64_t id, Args&&... args)
+    void add_item(s_item_pointer_t id, Args&&... args)
     {
         items.emplace_back(id, std::forward<Args>(args)...);
     }

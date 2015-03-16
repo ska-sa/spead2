@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <boost/asio/buffer.hpp>
+#include "common_defines.h"
 
 namespace spead
 {
@@ -38,8 +39,8 @@ struct packet
 class packet_generator
 {
 private:
-    // 8 bytes head, 8 bytes each for heap cnt, heap size, payload offset, payload size
-    static constexpr std::size_t prefix_size = 40;
+    // 8 bytes header, item pointerh for heap cnt, heap size, payload offset, payload size
+    static constexpr std::size_t prefix_size = 8 + 4 * sizeof(item_pointer_t);
 
     const basic_heap &h;
     int heap_address_bits;
@@ -55,8 +56,8 @@ private:
     /// Address at which payload for the next item will be found
     std::size_t next_address = 0;
     /// Payload offset for the next packet
-    std::int64_t payload_offset = 0;
-    std::int64_t payload_size = 0;
+    s_item_pointer_t payload_offset = 0;
+    s_item_pointer_t payload_size = 0;
     /// There is payload padding, so we need to add a NULL item pointer
     bool need_null_item = false;
 

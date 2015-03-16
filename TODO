@@ -17,4 +17,4 @@
 - Fix transmit pacing (amortise sleeps)
 - Mechanism to send end-of-stream
 - Insert padding into packets between items to keep item payloads naturally aligned?
-- Use a typedef and sizeof for the item pointer size, instead of hardcoding everywhere
+- Check that memory alignment requirements for decode_packet are actually respected, particularly in mem_stream

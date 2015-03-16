@@ -7,12 +7,12 @@
 #include <cstring>
 #include <stdexcept>
 #include <algorithm>
-#include <endian.h>
 #include "send_heap.h"
 #include "send_utils.h"
 #include "send_packet.h"
 #include "common_defines.h"
 #include "common_logging.h"
+#include "common_endian.h"
 
 namespace spead
 {
@@ -35,11 +35,11 @@ packet_generator::packet_generator(
     max_packet_size &= ~7;
     /* We need
      * - the prefix
-     * - 8 bytes to send an item pointer
-     * - 8 bytes of payload, to ensure unique payload offsets
+     * - an item pointer
+     * - sizeof(item_pointer) bytes of payload, to ensure unique payload offsets
      * (actually 1 byte is enough, but it is better to keep payload aligned)
      */
-    if (max_packet_size < prefix_size + 16)
+    if (max_packet_size < prefix_size + 2 * sizeof(item_pointer_t))
         throw std::invalid_argument("packet size is too small");
 
     payload_size = 0;
@@ -53,7 +53,8 @@ packet_generator::packet_generator(
     /* Check if we need to add dummy payload to ensure that every packet
      * contains some payload.
      */
-    max_item_pointers_per_packet = (max_packet_size - (prefix_size + 8)) / 8;
+    max_item_pointers_per_packet =
+        (max_packet_size - (prefix_size + sizeof(item_pointer_t))) / sizeof(item_pointer_t);
     /* Number of packets needed to send all the item pointers, plus
      * potentially one extra in case we need to inject a NULL item pointer
      * to mark the separation between the padding and the last item.
@@ -61,10 +62,10 @@ packet_generator::packet_generator(
     std::size_t item_packets = h.items.size() / max_item_pointers_per_packet + 1;
     /* We want every packet to have some payload, so that packets can be
      * unambiguously ordered and lost packets can be detected. For all
-     * packets except the last, we want a multiple of 8 bytes, so that
-     * copies are nicely aligned.
+     * packets except the last, we want a multiple of sizeof(item_pointer_t)
+     * bytes, so that copies are nicely aligned.
      */
-    std::int64_t min_payload_size = std::int64_t(item_packets - 1) * 8 + 1;
+    std::int64_t min_payload_size = s_item_pointer_t(item_packets - 1) * sizeof(item_pointer_t) + 1;
     if (payload_size < min_payload_size)
     {
         log_debug("Increase payload size from %d to %d", payload_size, min_payload_size);
@@ -80,56 +81,58 @@ packet packet_generator::next_packet()
     if (payload_offset < payload_size)
     {
         pointer_encoder encoder(heap_address_bits);
-        std::size_t max_immediate_size = heap_address_bits / 8;
-        std::size_t n_item_pointers = std::min(
+        const std::size_t max_immediate_size = heap_address_bits / 8;
+        const std::size_t n_item_pointers = std::min(
             max_item_pointers_per_packet,
             h.items.size() + need_null_item - next_item_pointer);
         std::size_t packet_payload_length = std::min(
             std::size_t(payload_size - payload_offset),
-            max_packet_size - n_item_pointers * 8 - prefix_size);
+            max_packet_size - n_item_pointers * sizeof(item_pointer_t) - prefix_size);
 
         // Determine how much internal data is needed.
         // Always add enough to allow for padding the payload
-        std::size_t alloc_bytes = prefix_size + n_item_pointers * 8 + 8;
+        std::size_t alloc_bytes = prefix_size + (n_item_pointers + 1) * sizeof(item_pointer_t);
         out.data.reset(new std::uint8_t[alloc_bytes]);
         std::uint64_t *header = reinterpret_cast<std::uint64_t *>(out.data.get());
-        *header++ = htobe64(
+        *header = htobe<std::uint64_t>(
             (std::uint64_t(0x5304) << 48)
             | (std::uint64_t(8 - heap_address_bits / 8) << 40)
             | (std::uint64_t(heap_address_bits / 8) << 32)
             | (n_item_pointers + 4));
-        *header++ = htobe64(encoder.encode_immediate(HEAP_CNT_ID, h.cnt));
-        *header++ = htobe64(encoder.encode_immediate(HEAP_LENGTH_ID, payload_size));
-        *header++ = htobe64(encoder.encode_immediate(PAYLOAD_OFFSET_ID, payload_offset));
-        *header++ = htobe64(encoder.encode_immediate(PAYLOAD_LENGTH_ID, packet_payload_length));
+        // TODO: if item_pointer_t is more than 64 bits, this will misalign
+        item_pointer_t *pointer = reinterpret_cast<item_pointer_t *>(out.data.get() + 8);
+        *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(HEAP_CNT_ID, h.cnt));
+        *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(HEAP_LENGTH_ID, payload_size));
+        *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(PAYLOAD_OFFSET_ID, payload_offset));
+        *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(PAYLOAD_LENGTH_ID, packet_payload_length));
         for (std::size_t i = 0; i < n_item_pointers; i++)
         {
-            std::uint64_t ip;
+            item_pointer_t ip;
             if (next_item_pointer == h.items.size())
             {
                 assert(need_null_item);
-                ip = htobe64(encoder.encode_address(NULL_ID, next_address));
+                ip = htobe<item_pointer_t>(encoder.encode_address(NULL_ID, next_address));
             }
             else
             {
                 const item &it = h.items[next_item_pointer];
                 if (it.is_inline)
                 {
-                    ip = htobe64(encoder.encode_immediate(it.id, it.data.immediate));
+                    ip = htobe<item_pointer_t>(encoder.encode_immediate(it.id, it.data.immediate));
                 }
                 else if (it.allow_immediate && it.data.buffer.length <= max_immediate_size)
                 {
-                    ip = htobe64(encoder.encode_immediate(it.id, 0));
-                    std::memcpy(reinterpret_cast<char *>(&ip) + 8 - it.data.buffer.length,
+                    ip = htobe<item_pointer_t>(encoder.encode_immediate(it.id, 0));
+                    std::memcpy(reinterpret_cast<char *>(&ip) + sizeof(item_pointer_t) - it.data.buffer.length,
                                 it.data.buffer.ptr, it.data.buffer.length);
                 }
                 else
                 {
-                    ip = htobe64(encoder.encode_address(it.id, next_address));
+                    ip = htobe<item_pointer_t>(encoder.encode_address(it.id, next_address));
                     next_address += it.data.buffer.length;
                 }
             }
-            *header++ = ip;
+            *pointer++ = ip;
             next_item_pointer++;
         }
         out.buffers.emplace_back(out.data.get(), prefix_size + 8 * n_item_pointers);
@@ -143,8 +146,8 @@ packet packet_generator::next_packet()
                 // Dummy padding payload. Fill with zeros to simplify testing
                 assert(need_null_item);
                 assert(packet_payload_length <= 8);
-                *header = 0;
-                out.buffers.emplace_back(header, packet_payload_length);
+                *pointer = 0;
+                out.buffers.emplace_back(pointer, packet_payload_length);
                 packet_payload_length = 0;
             }
             else if (use_immediate(h.items[next_item], max_immediate_size))
