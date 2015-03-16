@@ -2,7 +2,6 @@
  * @file
  */
 
-#include <endian.h>
 #include <algorithm>
 #include <cassert>
 #include <utility>
@@ -13,6 +12,7 @@
 #include "recv_stream.h"
 #include "recv_utils.h"
 #include "common_logging.h"
+#include "common_endian.h"
 
 namespace spead
 {
@@ -23,14 +23,14 @@ namespace recv
  * Read @a len bytes from @a ptr, and interpret them as a big-endian number.
  * It is not necessary for @a ptr to be aligned.
  *
- * @pre @a 0 &lt;= len &lt;= 8
+ * @pre @a 0 &lt;= len &lt;= sizeof(item_pointer_t)
  */
-static inline std::uint64_t load_bytes_be(const std::uint8_t *ptr, int len)
+static inline item_pointer_t load_bytes_be(const std::uint8_t *ptr, int len)
 {
-    assert(0 <= len && len <= 8);
-    std::uint64_t out = 0;
-    std::memcpy(reinterpret_cast<char *>(&out) + 8 - len, ptr, len);
-    return be64toh(out);
+    assert(0 <= len && len <= sizeof(item_pointer_t));
+    item_pointer_t out = 0;
+    std::memcpy(reinterpret_cast<char *>(&out) + sizeof(item_pointer_t) - len, ptr, len);
+    return betoh<item_pointer_t>(out);
 }
 
 frozen_heap::frozen_heap(heap &&h)
@@ -47,10 +47,9 @@ frozen_heap::frozen_heap(heap &&h)
      * The sort needs to be stable, because there can be zero-length fields.
      * TODO: these can still break if they cross packet boundaries.
      */
-    std::uint64_t sort_mask =
-        (std::uint64_t(1) << 63)
-        | ((std::uint64_t(1) << h.heap_address_bits) - 1);
-    auto compare = [sort_mask](std::uint64_t a, std::uint64_t b) {
+    item_pointer_t sort_mask =
+        immediate_mask | ((item_pointer_t(1) << h.heap_address_bits) - 1);
+    auto compare = [sort_mask](item_pointer_t a, item_pointer_t b) {
         return (a & sort_mask) < (b & sort_mask);
     };
     std::stable_sort(h.pointers.begin(), h.pointers.end(), compare);
@@ -60,12 +59,13 @@ frozen_heap::frozen_heap(heap &&h)
     std::size_t n_immediates = 0;
     for (std::size_t i = 0; i < h.pointers.size(); i++)
     {
-        std::uint64_t pointer = h.pointers[i];
+        item_pointer_t pointer = h.pointers[i];
         if (decoder.is_immediate(pointer))
             n_immediates++;
     }
     // Allocate memory
     const std::size_t immediate_size = h.heap_address_bits / 8;
+    const std::size_t id_size = sizeof(item_pointer_t) - immediate_size;
     if (n_immediates > 0)
         immediate_payload.reset(new uint8_t[immediate_size * n_immediates]);
     uint8_t *next_immediate = immediate_payload.get();
@@ -74,7 +74,7 @@ frozen_heap::frozen_heap(heap &&h)
     for (std::size_t i = 0; i < h.pointers.size(); i++)
     {
         item new_item;
-        std::uint64_t pointer = h.pointers[i];
+        item_pointer_t pointer = h.pointers[i];
         new_item.id = decoder.get_id(pointer);
         if (new_item.id == 0)
             continue; // just padding
@@ -83,10 +83,10 @@ frozen_heap::frozen_heap(heap &&h)
         {
             new_item.ptr = next_immediate;
             new_item.length = immediate_size;
-            std::uint64_t pointer_be = htobe64(pointer);
+            item_pointer_t pointer_be = htobe<item_pointer_t>(pointer);
             std::memcpy(
                 next_immediate,
-                reinterpret_cast<const std::uint8_t *>(&pointer_be) + 8 - immediate_size,
+                reinterpret_cast<const std::uint8_t *>(&pointer_be) + id_size,
                 immediate_size);
             log_debug("Found new immediate item ID %d, value %d",
                       new_item.id, decoder.get_immediate(pointer));
@@ -94,8 +94,8 @@ frozen_heap::frozen_heap(heap &&h)
         }
         else
         {
-            std::int64_t start = decoder.get_address(pointer);
-            std::int64_t end;
+            s_item_pointer_t start = decoder.get_address(pointer);
+            s_item_pointer_t end;
             if (i + 1 < h.pointers.size()
                 && !decoder.is_immediate(h.pointers[i + 1]))
                 end = decoder.get_address(h.pointers[i + 1]);
@@ -123,6 +123,8 @@ frozen_heap::frozen_heap(heap &&h)
 
 descriptor frozen_heap::to_descriptor() const
 {
+    const std::size_t immediate_size = heap_address_bits / 8;
+    const std::size_t id_size = sizeof(item_pointer_t) - immediate_size;
     descriptor out;
     for (const item &item : items)
     {
@@ -142,7 +144,7 @@ descriptor frozen_heap::to_descriptor() const
                 break;
             case DESCRIPTOR_FORMAT_ID:
                 {
-                    int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 4 : 9 - heap_address_bits / 8;
+                    int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 4 : 1 + id_size;
                     for (std::size_t i = 0; i + field_size <= item.length; i += field_size)
                     {
                         char type = item.ptr[i];
@@ -153,7 +155,7 @@ descriptor frozen_heap::to_descriptor() const
                 }
             case DESCRIPTOR_SHAPE_ID:
                 {
-                    int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 8 : 1 + heap_address_bits / 8;
+                    int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 8 : 1 + immediate_size;
                     for (std::size_t i = 0; i + field_size <= item.length; i += field_size)
                     {
                         int mask = (bug_compat & BUG_COMPAT_SHAPE_BIT_1) ? 2 : 1;

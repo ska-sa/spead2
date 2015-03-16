@@ -7,6 +7,8 @@
 #ifndef SPEAD_RECV_UTILS_H
 #define SPEAD_RECV_UTILS_H
 
+#include "common_defines.h"
+
 namespace spead
 {
 
@@ -33,19 +35,19 @@ class pointer_decoder
 {
 private:
     int heap_address_bits;        ///< Bits for immediate/address field
-    std::uint64_t address_mask;   ///< Mask selecting the immediate/address field
-    std::uint64_t id_mask;        ///< Mask with number of bits for the ID field, shifted down
+    item_pointer_t address_mask;  ///< Mask selecting the immediate/address field
+    item_pointer_t id_mask;       ///< Mask with number of bits for the ID field, shifted down
 
 public:
     explicit pointer_decoder(int heap_address_bits)
     {
         this->heap_address_bits = heap_address_bits;
-        this->address_mask = (std::uint64_t(1) << heap_address_bits) - 1;
-        this->id_mask = (std::uint64_t(1) << (63 - heap_address_bits)) - 1;
+        this->address_mask = (item_pointer_t(1) << heap_address_bits) - 1;
+        this->id_mask = (item_pointer_t(1) << (8 * sizeof(item_pointer_t) - 1 - heap_address_bits)) - 1;
     }
 
     /// Extract the ID from an item pointer
-    std::int64_t get_id(std::uint64_t pointer) const
+    s_item_pointer_t get_id(item_pointer_t pointer) const
     {
         return (pointer >> heap_address_bits) & id_mask;
     }
@@ -54,7 +56,7 @@ public:
      * Extract the address from an item pointer. At present, no check is
      * done to ensure that the mode is correct.
      */
-    std::int64_t get_address(std::uint64_t pointer) const
+    s_item_pointer_t get_address(item_pointer_t pointer) const
     {
         return pointer & address_mask;
     }
@@ -63,15 +65,15 @@ public:
      * Extract the immediate value from an item pointer. At present, no check
      * is done to ensure that the mode is correct.
      */
-    std::int64_t get_immediate(std::uint64_t pointer) const
+    s_item_pointer_t get_immediate(item_pointer_t pointer) const
     {
         return get_address(pointer);
     }
 
     /// Determine whether the item pointer uses immediate mode
-    bool is_immediate(std::uint64_t pointer) const
+    bool is_immediate(item_pointer_t pointer) const
     {
-        return pointer >> 63;
+        return pointer >> (8 * sizeof(item_pointer_t) - 1);
     }
 
     /// Return the number of bits for address/immediate given to the constructor

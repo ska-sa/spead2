@@ -9,6 +9,7 @@
 #include "recv_heap.h"
 #include "recv_utils.h"
 #include "common_defines.h"
+#include "common_endian.h"
 #include "common_logging.h"
 
 namespace spead
@@ -16,7 +17,7 @@ namespace spead
 namespace recv
 {
 
-heap::heap(std::int64_t cnt, bug_compat_mask bug_compat)
+heap::heap(s_item_pointer_t cnt, bug_compat_mask bug_compat)
     : cnt(cnt), bug_compat(bug_compat)
 {
     assert(cnt >= 0);
@@ -100,10 +101,10 @@ bool heap::add_packet(const packet_header &packet)
     pointer_decoder decoder(heap_address_bits);
     for (int i = 0; i < packet.n_items; i++)
     {
-        std::uint64_t pointer = be64toh(packet.pointers[i]);
-        std::int64_t item_id = decoder.get_id(pointer);
+        item_pointer_t pointer = betoh<item_pointer_t>(packet.pointers[i]);
+        s_item_pointer_t item_id = decoder.get_id(pointer);
         if (!decoder.is_immediate(pointer))
-            min_length = std::max(min_length, std::int64_t(decoder.get_address(pointer)));
+            min_length = std::max(min_length, s_item_pointer_t(decoder.get_address(pointer)));
         if (item_id == 0 || decoder.get_id(pointer) > PAYLOAD_LENGTH_ID)
         {
             /* NULL items are included because they can be direct-addressed, and this

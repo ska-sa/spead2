@@ -45,11 +45,11 @@ private:
     friend class frozen_heap;
 
     /// Heap ID encoded in packets
-    std::int64_t cnt;
+    s_item_pointer_t cnt;
     /// Heap payload length encoded in packets (-1 for unknown)
-    std::int64_t heap_length = -1;
+    s_item_pointer_t heap_length = -1;
     /// Number of bytes of payload received
-    std::int64_t received_length = 0;
+    s_item_pointer_t received_length = 0;
     /// True if a stream control packeting indicating end-of-heap was found
     bool end_of_stream = false;
     /**
@@ -57,7 +57,7 @@ private:
      * packets and item pointers, or equal to @ref heap_length if that is
      * known.
      */
-    std::int64_t min_length = 0;      // length implied by packet payloads
+    s_item_pointer_t min_length = 0;
     /// Heap address bits (from the SPEAD flavour)
     int heap_address_bits = -1;
     /// Protocol bugs to accept
@@ -74,7 +74,7 @@ private:
      * Item pointers extracted from the packets, excluding those that
      * are extracted in @ref packet_header. They are in native endian.
      */
-    std::vector<std::uint64_t> pointers;
+    std::vector<item_pointer_t> pointers;
     /**
      * Set of payload offsets found in packets. This is used only to
      * detect duplicate packets.
@@ -85,7 +85,7 @@ private:
      * - using a linked list per offset>>13 (which is maybe equivalent to
      *   just changing the hash function)
      */
-    std::unordered_set<std::int64_t> packet_offsets;
+    std::unordered_set<s_item_pointer_t> packet_offsets;
 
     /// Backing memory pool
     std::shared_ptr<mem_pool> pool;
@@ -103,7 +103,7 @@ public:
      * @param cnt          Heap ID
      * @param bug_compat   Bugs to expect in the protocol
      */
-    explicit heap(std::int64_t cnt, bug_compat_mask bug_compat);
+    explicit heap(s_item_pointer_t cnt, bug_compat_mask bug_compat);
 
     /**
      * Set a memory pool to use for payload data, instead of allocating with
@@ -130,7 +130,7 @@ public:
     /// True if an end-of-stream heap control item was found
     bool is_end_of_stream() const;
     /// Retrieve the heap ID
-    std::int64_t get_cnt() const { return cnt; }
+    s_item_pointer_t get_cnt() const { return cnt; }
     /// Get protocol bug compatibility flags
     bug_compat_mask get_bug_compat() const { return bug_compat; }
 };

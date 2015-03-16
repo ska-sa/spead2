@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include "common_defines.h"
 
 namespace spead
 {
@@ -28,13 +29,13 @@ struct packet_header
      * The true values are always non-negative, and -1 is used to indicate
      * that the packet did not contain the item.
      */
-    std::int64_t heap_cnt;
-    std::int64_t heap_length;
-    std::int64_t payload_offset;
-    std::int64_t payload_length;
+    s_item_pointer_t heap_cnt;
+    s_item_pointer_t heap_length;
+    s_item_pointer_t payload_offset;
+    s_item_pointer_t payload_length;
     /** @} */
     /// The item pointers in the packet, in big endian
-    const uint64_t *pointers;
+    const item_pointer_t *pointers;
     /// Start of the packet payload
     const uint8_t *payload;
 };
@@ -48,10 +49,7 @@ struct packet_header
  * @returns Actual packet size on success, or 0 on failure (due to malformed or
  * truncated packet).
  *
- * @pre @a raw is 8-byte aligned
- *
- * @todo Report more detailed reasons for validation failure
- * @todo Log failures
+ * @pre @a raw is 8-byte aligned and @a raw + 8 is aligned to @ref item_pointer_t
  */
 std::size_t decode_packet(packet_header &out, const uint8_t *raw, std::size_t max_size);
 

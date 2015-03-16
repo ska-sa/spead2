@@ -3,11 +3,12 @@
  */
 
 #include <cassert>
-#include <endian.h>
+#include <cstring>
 #include "recv_packet.h"
 #include "recv_utils.h"
 #include "common_defines.h"
 #include "common_logging.h"
+#include "common_endian.h"
 
 namespace spead
 {
@@ -15,14 +16,17 @@ namespace recv
 {
 
 /**
- * Retrieve bits [first, first+cnt) from a 64-bit field.
+ * Retrieve bits [first, first+cnt) from a field.
  *
- * @pre 0 &lt;= @a first &lt; @a first + @a cnt &lt;= 64 and @a cnt &lt; 64.
+ * @pre 0 &lt;= @a first &lt; @a first + @a cnt &lt;= @a n and @a cnt &lt; @a n,
+ * where @a n is the number of bits in T.
  */
-static inline std::uint64_t extract_bits(std::uint64_t value, int first, int cnt)
+template<typename T>
+static inline T extract_bits(T value, int first, int cnt)
 {
-    assert(0 <= first && first + cnt <= 64 && cnt > 0 && cnt < 64);
-    return (value >> first) & ((std::uint64_t(1) << cnt) - 1);
+    assert(0 <= first && first + cnt <= 8 * sizeof(T));
+    assert(cnt > 0 && cnt < 8 * sizeof(T));
+    return (value >> first) & ((T(1) << cnt) - 1);
 }
 
 std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t max_size)
@@ -32,8 +36,7 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
         log_debug("packet rejected because too small (%d bytes)", max_size);
         return 0;
     }
-    const uint64_t *data64 = reinterpret_cast<const uint64_t *>(data);
-    uint64_t header = be64toh(data64[0]);
+    std::uint64_t header = betoh(*reinterpret_cast<const std::uint64_t *>(data));
     if (extract_bits(header, 48, 16) != magic_version)
     {
         log_debug("packet rejected because magic or version did not match");
@@ -46,14 +49,14 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
         log_debug("packet rejected because flavour is invalid");
         return 0;
     }
-    if (item_id_bits + heap_address_bits != 64)
+    if (item_id_bits + heap_address_bits != 8 * sizeof(item_pointer_t))
     {
         log_debug("packet rejected because flavour is not SPEAD-64-*");
         return 0;
     }
 
     out.n_items = extract_bits(header, 0, 16);
-    if (std::size_t(out.n_items) * 8 + 8 > max_size)
+    if (std::size_t(out.n_items) * sizeof(item_pointer_t) + 8 > max_size)
     {
         log_debug("packet rejected because the items overflow the packet");
         return 0;
@@ -66,9 +69,10 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
     out.payload_length = -1;
     // Load for special items
     pointer_decoder decoder(heap_address_bits);
-    for (int i = 1; i <= out.n_items; i++)
+    const item_pointer_t *pointers = reinterpret_cast<const item_pointer_t *>(data + 8);
+    for (int i = 0; i < out.n_items; i++)
     {
-        uint64_t pointer = be64toh(data64[i]);
+        item_pointer_t pointer = betoh<item_pointer_t>(pointers[i]);
         if (decoder.is_immediate(pointer))
         {
             switch (decoder.get_id(pointer))
@@ -95,7 +99,7 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
         log_debug("packet rejected because it does not have required items");
         return 0;
     }
-    std::size_t size = out.payload_length + out.n_items * 8 + 8;
+    std::size_t size = out.payload_length + out.n_items * sizeof(item_pointer_t) + 8;
     if (size > max_size)
     {
         log_debug("packet rejected because payload length overflows packet size (%d > %d)",
@@ -108,12 +112,11 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
         return 0;
     }
 
-    out.pointers = data64 + 1;
-    out.payload = data + (out.n_items * 8 + 8);
+    out.pointers = pointers;
+    out.payload = reinterpret_cast<const std::uint8_t *>(pointers + out.n_items);
     out.heap_address_bits = heap_address_bits;
     return size;
 }
 
 } // namespace recv
 } // namespace spead
-
