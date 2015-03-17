@@ -20,13 +20,13 @@ static inline T betoh(T in) = delete;
 template<>
 inline std::uint64_t htobe<std::uint64_t>(std::uint64_t in)
 {
-    return ::htobe64(in);
+    return htobe64(in);
 }
 
 template<>
 inline std::uint64_t betoh<std::uint64_t>(std::uint64_t in)
 {
-    return ::be64toh(in);
+    return be64toh(in);
 }
 
 } // namespace spead
