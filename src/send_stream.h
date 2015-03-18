@@ -65,6 +65,8 @@ private:
     std::queue<queue_item> queue;
     timer_type timer;
     timer_type::time_point send_time;
+    std::uint64_t rate_bytes = 0;
+    std::uint64_t rate_bytes_threshold = 128 * 1024;
     std::unique_ptr<packet_generator> gen; // TODO: make this inlinable
     /// Signalled whenever a heap is popped from the queue
     std::condition_variable heap_popped;
@@ -104,32 +106,36 @@ private:
             }
             else
             {
-                std::size_t bytes = 0;
-                // TODO: compute this when the packet is created?
-                for (const auto &buffer : pkt.buffers)
-                    bytes += buffer_size(buffer);
-                std::chrono::duration<double> wait(bytes * seconds_per_byte);
-                send_time += std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
                 static_cast<Derived *>(this)->async_send_packet(
                     pkt,
                     [this] (const boost::system::error_code &ec, std::size_t bytes_transferred)
                     {
                         // TODO: log the error? Abort on error?
-                        auto now = timer_type::clock_type::now();
-                        if (now < send_time)
+                        bool sleeping = false;
+                        rate_bytes += bytes_transferred;
+                        if (rate_bytes >= rate_bytes_threshold)
                         {
-                            timer.expires_at(send_time);
-                            timer.async_wait([this] (const boost::system::error_code &error)
+                            std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
+                            send_time += std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
+                            rate_bytes = 0;
+                            auto now = timer_type::clock_type::now();
+                            if (now < send_time)
                             {
-                                send_next_packet();
-                            });
+                                sleeping = true;
+                                timer.expires_at(send_time);
+                                timer.async_wait([this] (const boost::system::error_code &error)
+                                {
+                                    send_next_packet();
+                                });
+                            }
+                            else
+                            {
+                                // If we fall behind, don't try to make it up
+                                send_time = now;
+                            }
                         }
-                        else
-                        {
-                            // If we fall a whole packet behind, don't try to make it up
-                            send_time = now;
+                        if (!sleeping)
                             send_next_packet();
-                        }
                     });
             }
         } while (again);

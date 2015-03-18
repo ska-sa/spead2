@@ -14,7 +14,9 @@
 - Lots more tests!
 - Add udp_reader constructor that takes over a socket
 - Add docstrings
-- Fix transmit pacing (amortise sleeps)
 - Mechanism to send end-of-stream
 - Insert padding into packets between items to keep item payloads naturally aligned?
 - Check that memory alignment requirements for decode_packet are actually respected, particularly in mem_stream
+- Specify full flavour instead of just heap_address_bits
+- Make sending (or at least flushing) interruptable
+- Make burst size in transmission configurable
