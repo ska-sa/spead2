@@ -12,18 +12,6 @@ namespace send
 constexpr std::size_t udp_stream::default_buffer_size;
 
 udp_stream::udp_stream(
-    boost::asio::ip::udp::socket &&socket,
-    int heap_address_bits,
-    std::size_t max_packet_size,
-    double rate,
-    std::size_t max_heaps)
-    : stream<udp_stream>(socket.get_io_service(), heap_address_bits,
-                         max_packet_size, rate, max_heaps),
-    socket(std::move(socket))
-{
-}
-
-udp_stream::udp_stream(
     boost::asio::io_service &io_service,
     const boost::asio::ip::udp::endpoint &endpoint,
     int heap_address_bits,
@@ -33,7 +21,7 @@ udp_stream::udp_stream(
     std::size_t buffer_size)
     : stream<udp_stream>(io_service, heap_address_bits,
                          max_packet_size, rate, max_heaps),
-    socket(io_service)
+    socket(io_service), endpoint(endpoint)
 {
     boost::asio::ip::udp::socket socket(io_service);
     socket.open(endpoint.protocol());
@@ -49,7 +37,6 @@ udp_stream::udp_stream(
                         buffer_size, actual.value());
         }
     }
-    socket.connect(endpoint);
     this->socket = std::move(socket);
 }
 
