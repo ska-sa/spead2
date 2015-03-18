@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 
 thread_pool = spead2.ThreadPool()
 stream = spead2.send.trollius.UdpStream(thread_pool,
-    "localhost", 8888, 48, spead2.BUG_COMPAT_PYSPEAD_0_5_2, 1500, 1e7)
+    "localhost", 8888, 48, 1500, 1e7)
 del thread_pool  # Make sure this doesn't crash anything
 
 shape = (40, 50)
