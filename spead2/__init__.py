@@ -160,8 +160,9 @@ class Descriptor(object):
 
 class Item(Descriptor):
     def __init__(self, *args, **kw):
+        value = kw.pop('value', None)
         super(Item, self).__init__(*args, **kw)
-        self._value = None
+        self._value = value
         self.version = 1
 
     @property
