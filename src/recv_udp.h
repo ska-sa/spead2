@@ -55,8 +55,6 @@ public:
      * @param buffer_size  Requested socket buffer size. Note that the
      *                     operating system might not allow a buffer size
      *                     as big as the default.
-     *
-     * @todo Check that the io_service matches @ref start
      */
     explicit udp_reader(
         stream &owner,
