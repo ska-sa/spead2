@@ -16,7 +16,7 @@ int main()
     udp::resolver resolver(tp.get_io_service());
     udp::resolver::query query("localhost", "8888");
     auto it = resolver.resolve(query);
-    spead::send::udp_stream stream(tp.get_io_service(), *it, 48, 9000, 0);
+    spead::send::udp_stream stream(tp.get_io_service(), *it, spead::send::stream_config(48, 9000, 0));
 
     spead::send::heap h(0x2, 7);
     std::int32_t value1 = htobe32(0xEADBEEF);
