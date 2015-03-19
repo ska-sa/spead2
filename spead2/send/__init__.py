@@ -4,7 +4,7 @@
 from __future__ import print_function, division
 import spead2 as _spead2
 import weakref
-from spead2._send import UdpStream, Heap, PacketGenerator
+from spead2._send import StreamConfig, BytesStream, UdpStream, Heap, PacketGenerator
 
 
 class _ItemInfo(object):

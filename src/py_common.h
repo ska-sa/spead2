@@ -6,7 +6,7 @@
 #define SPEAD_PY_COMMON_H
 
 #include <memory>
-
+#include <utility>
 #include <boost/python.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/version.hpp>
@@ -33,6 +33,16 @@ class bytestring : public std::string
 {
 public:
     using std::string::string;
+
+    bytestring(const std::string &s)
+        : std::string(s)
+    {
+    }
+
+    bytestring(std::string &&s)
+        : std::string(std::move(s))
+    {
+    }
 };
 
 /**

@@ -39,10 +39,7 @@ public:
     streambuf_stream(
         boost::asio::io_service &io_service,
         std::streambuf &streambuf,
-        int heap_address_bits,
-        std::size_t max_packet_size,
-        double rate = 0.0,
-        std::size_t max_heaps = default_max_heaps);
+        const stream_config &config = stream_config());
 };
 
 } // namespace send

@@ -26,6 +26,40 @@ namespace spead
 namespace send
 {
 
+class stream_config
+{
+public:
+    static constexpr int default_heap_address_bits = 40;
+    static constexpr std::size_t default_max_packet_size = 1472;
+    static constexpr std::size_t default_max_heaps = 4;
+    static constexpr std::size_t default_burst_size = 65536;
+
+    void set_heap_address_bits(int heap_address_bits);
+    int get_heap_address_bits() const;
+    void set_max_packet_size(std::size_t max_packet_size);
+    std::size_t get_max_packet_size() const;
+    void set_rate(double rate);
+    double get_rate() const;
+    void set_burst_size(std::size_t burst_size);
+    std::size_t get_burst_size() const;
+    void set_max_heaps(std::size_t max_heaps);
+    std::size_t get_max_heaps() const;
+
+    explicit stream_config(
+        int heap_address_bits = default_heap_address_bits,
+        std::size_t max_packet_size = default_max_packet_size,
+        double rate = 0.0,
+        std::size_t burst_size = default_burst_size,
+        std::size_t max_heaps = default_max_heaps);
+
+private:
+    int heap_address_bits = default_heap_address_bits;
+    std::size_t max_packet_size = default_max_packet_size;
+    double rate = 0.0;
+    std::size_t burst_size = default_burst_size;
+    std::size_t max_heaps = default_max_heaps;
+};
+
 /**
  * Stream that sends packets at a maximum rate. It also serialises heaps so
  * that only one heap is being sent at a time. Heaps are placed in a queue, and if
@@ -51,10 +85,8 @@ private:
     };
 
     boost::asio::io_service &io_service;
-    const int heap_address_bits;
-    const std::size_t max_packet_size;
+    const stream_config config;
     const double seconds_per_byte;
-    const std::size_t max_heaps;
 
     /**
      * Protects access to @a queue. All other members are either const or are
@@ -65,8 +97,8 @@ private:
     std::queue<queue_item> queue;
     timer_type timer;
     timer_type::time_point send_time;
-    std::uint64_t rate_bytes = 0;
-    std::uint64_t rate_bytes_threshold = 128 * 1024;
+    /// Number of bytes sent since last sleep
+    std::size_t rate_bytes = 0;
     std::unique_ptr<packet_generator> gen; // TODO: make this inlinable
     /// Signalled whenever a heap is popped from the queue
     std::condition_variable heap_popped;
@@ -93,8 +125,8 @@ private:
                 empty = queue.empty();
                 if (!empty)
                 {
-                    gen.reset(new packet_generator(queue.front().h, heap_address_bits,
-                                                   max_packet_size));
+                    gen.reset(new packet_generator(queue.front().h, config.get_heap_address_bits(),
+                                                   config.get_max_packet_size()));
                 }
                 else
                     gen.reset();
@@ -113,7 +145,7 @@ private:
                         // TODO: log the error? Abort on error?
                         bool sleeping = false;
                         rate_bytes += bytes_transferred;
-                        if (rate_bytes >= rate_bytes_threshold)
+                        if (rate_bytes >= config.get_burst_size())
                         {
                             std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
                             send_time += std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
@@ -142,27 +174,14 @@ private:
     }
 
 public:
-    static constexpr std::size_t default_max_heaps = 4;
-
     stream(
         boost::asio::io_service &io_service,
-        int heap_address_bits,
-        std::size_t max_packet_size,
-        double rate,
-        std::size_t max_heaps = default_max_heaps) :
+        const stream_config &config = stream_config()) :
             io_service(io_service),
-            heap_address_bits(heap_address_bits),
-            max_packet_size(max_packet_size),
-            seconds_per_byte(rate > 0.0 ? 1.0 / rate : 0.0),
-            max_heaps(max_heaps),
+            config(config),
+            seconds_per_byte(config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0),
             timer(io_service)
     {
-        if (heap_address_bits <= 0
-            || heap_address_bits >= 8 * sizeof(item_pointer_t)
-            || heap_address_bits % 8 != 0)
-        {
-            throw std::invalid_argument("heap_address_bits is invalid");
-        }
     }
 
     boost::asio::io_service &get_io_service() const { return io_service; }
@@ -170,7 +189,7 @@ public:
     void async_send_heap(basic_heap &&h, completion_handler handler)
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
-        if (queue.size() >= max_heaps)
+        if (queue.size() >= config.get_max_heaps())
         {
             log_warning("async_send_heap: dropping heap because queue is full");
             // TODO: send an error code to the handler
@@ -182,8 +201,8 @@ public:
         if (empty)
         {
             assert(!gen);
-            gen.reset(new packet_generator(queue.front().h, heap_address_bits,
-                                           max_packet_size));
+            gen.reset(new packet_generator(queue.front().h, config.get_heap_address_bits(),
+                                           config.get_max_packet_size()));
         }
         lock.unlock();
 
@@ -199,7 +218,7 @@ public:
 
     void async_send_heap(const heap &h, completion_handler handler)
     {
-        async_send_heap(h.encode(heap_address_bits), std::move(handler));
+        async_send_heap(h.encode(config.get_heap_address_bits()), std::move(handler));
     }
 
     /**
@@ -222,9 +241,6 @@ public:
         flush();
     }
 };
-
-template<typename Derived>
-constexpr std::size_t stream<Derived>::default_max_heaps;
 
 } // namespace send
 } // namespace spead

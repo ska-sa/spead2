@@ -20,3 +20,4 @@
 - Specify full flavour instead of just heap_address_bits
 - Make sending (or at least flushing) interruptable
 - Make burst size in transmission configurable
+- Multicast support (TTL for send, subscribe for receive)

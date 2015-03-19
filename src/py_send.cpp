@@ -12,6 +12,7 @@
 #include "send_heap.h"
 #include "send_stream.h"
 #include "send_udp.h"
+#include "send_streambuf.h"
 #include "common_thread_pool.h"
 #include "py_common.h"
 
@@ -153,16 +154,12 @@ public:
         thread_pool &pool,
         const std::string &hostname,
         int port,
-        int heap_address_bits,
-        std::size_t max_packet_size,
-        double rate,
-        std::size_t max_heaps = Base::default_max_heaps,
+        const stream_config &config = stream_config(),
         std::size_t buffer_size = Base::default_buffer_size)
         : Base(
             pool.get_io_service(),
             make_endpoint(pool.get_io_service(), hostname, port),
-            heap_address_bits, max_packet_size, rate,
-            max_heaps, buffer_size)
+            config, buffer_size)
     {
     }
 };
@@ -178,6 +175,20 @@ boost::asio::ip::udp::endpoint udp_stream_wrapper<Base>::make_endpoint(
     endpoint.address(resolver.resolve(query)->endpoint().address());
     return endpoint;
 }
+
+class bytes_stream : private std::stringbuf, public stream_wrapper<streambuf_stream>
+{
+public:
+    bytes_stream(thread_pool &pool, const stream_config &config = stream_config())
+        : stream_wrapper<streambuf_stream>(pool.get_io_service(), *this, config)
+    {
+    }
+
+    bytestring getvalue() const
+    {
+        return str();
+    }
+};
 
 /// Register the send module with Boost.Python
 void register_module()
@@ -213,38 +224,49 @@ void register_module()
 #endif
               , &packet_generator_wrapper::next);
 
+    class_<stream_config>("StreamConfig", init<
+            int, std::size_t, double, std::size_t, std::size_t>(
+                (arg("heap_address_bits") = stream_config::default_heap_address_bits,
+                 arg("max_packet_size") = stream_config::default_max_packet_size,
+                 arg("rate") = 0.0,
+                 arg("burst_size") = stream_config::default_burst_size,
+                 arg("max_heaps") = stream_config::default_max_heaps)))
+        .add_property("heap_address_bits", &stream_config::get_heap_address_bits, &stream_config::set_heap_address_bits)
+        .add_property("max_packet_size", &stream_config::get_max_packet_size, &stream_config::set_max_packet_size)
+        .add_property("rate", &stream_config::get_rate, &stream_config::set_rate)
+        .add_property("burst_size", &stream_config::get_burst_size, &stream_config::set_burst_size)
+        .add_property("max_heaps", &stream_config::get_max_heaps, &stream_config::set_max_heaps);
+
     {
         typedef udp_stream_wrapper<stream_wrapper<udp_stream> > T;
         class_<T, boost::noncopyable>("UdpStream", init<
-                thread_pool_wrapper &, std::string, int, int,
-                std::size_t, double, std::size_t, std::size_t>(
+                thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t>(
                     (arg("thread_pool"), arg("hostname"), arg("port"),
-                     arg("heap_address_bits"),
-                     arg("max_packet_size"),
-                     arg("rate"),
-                     arg("max_heaps") = T::default_max_heaps,
+                     arg("config") = stream_config(),
                      arg("buffer_size") = T::default_buffer_size))[
-                    with_custodian_and_ward<1, 2>()])
+                with_custodian_and_ward<1, 2>()])
             .def("send_heap", &T::send_heap, arg("heap"));
     }
 
     {
         typedef udp_stream_wrapper<asyncio_stream_wrapper<udp_stream> > T;
         class_<T, boost::noncopyable>("UdpStreamAsyncio", init<
-                thread_pool_wrapper &, std::string, int, int,
-                std::size_t, double, std::size_t>(
+                thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t>(
                     (arg("thread_pool"), arg("hostname"), arg("port"),
-                     arg("heap_address_bits"),
-                     arg("max_packet_size"),
-                     arg("rate"),
-                     arg("max_heaps") = T::default_max_heaps,
+                     arg("config") = stream_config(),
                      arg("buffer_size") = T::default_buffer_size))[
-                    with_custodian_and_ward<1, 2>()])
+                with_custodian_and_ward<1, 2>()])
             .add_property("fd", &T::get_fd)
             .def("async_send_heap", &T::async_send_heap, arg("heap"))
             .def("flush", &T::flush)
             .def("process_callbacks", &T::process_callbacks);
     }
+
+    class_<bytes_stream, boost::noncopyable>("BytesStream", init<
+                thread_pool_wrapper &, const stream_config &>(
+                    (arg("thread_pool"), arg("config") = stream_config()))[
+                with_custodian_and_ward<1, 2>()])
+        .def("getvalue", &bytes_stream::getvalue);
 }
 
 } // namespace send

@@ -35,10 +35,7 @@ public:
     udp_stream(
         boost::asio::io_service &io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
-        int heap_address_bits,
-        std::size_t max_packet_size,
-        double rate,
-        std::size_t max_heaps = default_max_heaps,
+        const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size);
 };
 

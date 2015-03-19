@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 
 thread_pool = spead2.ThreadPool()
 stream = spead2.send.UdpStream(thread_pool,
-    "localhost", 8888, 48, 1500, 1e7)
+    "localhost", 8888, spead2.send.StreamConfig(heap_address_bits=48, max_packet_size=1500, rate=1e7))
 del thread_pool
 
 shape = (40, 50)

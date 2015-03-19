@@ -14,13 +14,9 @@ constexpr std::size_t udp_stream::default_buffer_size;
 udp_stream::udp_stream(
     boost::asio::io_service &io_service,
     const boost::asio::ip::udp::endpoint &endpoint,
-    int heap_address_bits,
-    std::size_t max_packet_size,
-    double rate,
-    std::size_t max_heaps,
+    const stream_config &config,
     std::size_t buffer_size)
-    : stream<udp_stream>(io_service, heap_address_bits,
-                         max_packet_size, rate, max_heaps),
+    : stream<udp_stream>(io_service, config),
     socket(io_service), endpoint(endpoint)
 {
     boost::asio::ip::udp::socket socket(io_service);
