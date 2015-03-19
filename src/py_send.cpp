@@ -98,6 +98,18 @@ public:
         });
         sent_promise.get_future().get();
     }
+
+    /// Send end-of-stream heap synchronously
+    void send_end()
+    {
+        release_gil gil;
+        std::promise<void> sent_promise;
+        Base::async_send_end([&sent_promise]()
+        {
+            sent_promise.set_value();
+        });
+        sent_promise.get_future().get();
+    }
 };
 
 template<typename Base>
@@ -118,6 +130,18 @@ public:
         // bound to it so that its lifetime persists.
         py::extract<heap_wrapper &> h2(h);
         Base::async_send_heap(h2(), [this, callback, h] () mutable
+        {
+            {
+                std::unique_lock<std::mutex> lock(callbacks_mutex);
+                callbacks.push_back(std::move(callback));
+            }
+            sem.put();
+        });
+    }
+
+    void async_send_end(py::object callback)
+    {
+        Base::async_send_end([this, callback] () mutable
         {
             {
                 std::unique_lock<std::mutex> lock(callbacks_mutex);
@@ -209,7 +233,8 @@ void register_module()
              arg("item"),
              with_custodian_and_ward<1, 2>())
         .def("add_descriptor", &heap_wrapper::add_descriptor,
-             (arg("descriptor")));
+             (arg("descriptor")))
+        .def("add_end", &heap_wrapper::add_end);
 
     class_<packet_generator_wrapper, boost::noncopyable>("PacketGenerator", init<heap_wrapper &, int, std::size_t>(
             (arg("heap"), arg("heap_address_bits"), arg("max_packet_size")))[
@@ -245,7 +270,8 @@ void register_module()
                      arg("config") = stream_config(),
                      arg("buffer_size") = T::default_buffer_size))[
                 with_custodian_and_ward<1, 2>()])
-            .def("send_heap", &T::send_heap, arg("heap"));
+            .def("send_heap", &T::send_heap, arg("heap"))
+            .def("send_end", &T::send_end);
     }
 
     {
@@ -258,6 +284,7 @@ void register_module()
                 with_custodian_and_ward<1, 2>()])
             .add_property("fd", &T::get_fd)
             .def("async_send_heap", &T::async_send_heap, arg("heap"))
+            .def("async_send_end", &T::async_send_end)
             .def("flush", &T::flush)
             .def("process_callbacks", &T::process_callbacks);
     }
@@ -266,7 +293,9 @@ void register_module()
                 thread_pool_wrapper &, const stream_config &>(
                     (arg("thread_pool"), arg("config") = stream_config()))[
                 with_custodian_and_ward<1, 2>()])
-        .def("getvalue", &bytes_stream::getvalue);
+        .def("getvalue", &bytes_stream::getvalue)
+        .def("send_heap", &bytes_stream::send_heap, arg("heap"))
+        .def("send_end", &bytes_stream::send_end);
 }
 
 } // namespace send

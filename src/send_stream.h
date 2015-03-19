@@ -221,6 +221,14 @@ public:
         async_send_heap(h.encode(config.get_heap_address_bits()), std::move(handler));
     }
 
+    void async_send_end(completion_handler handler)
+    {
+        heap h;
+        h.add_end();
+        // This is safe even though h expires, because it contains no payload
+        async_send_heap(h, handler);
+    }
+
     /**
      * Block until all enqueued heaps have been sent. This function is
      * thread-safe, but can be live-locked if more heaps are added while it is

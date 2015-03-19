@@ -169,6 +169,11 @@ public:
         descriptors.push_back(descriptor);
     }
 
+    void add_end()
+    {
+        add_item(STREAM_CTRL_ID, CTRL_STREAM_STOP);
+    }
+
     basic_heap encode(int heap_address_bits) const;
 };
 
