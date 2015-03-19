@@ -39,6 +39,7 @@ int main()
     h.add_descriptor(desc1);
     h.add_descriptor(desc2);
     stream.async_send_heap(std::move(h), [] { std::cout << "Callback fired\n"; });
+    stream.async_send_end([] {});
     stream.flush();
 
     return 0;

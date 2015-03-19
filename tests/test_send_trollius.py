@@ -18,8 +18,11 @@ shape = (40, 50)
 ig = spead2.send.ItemGroup(bug_compat=spead2.BUG_COMPAT_PYSPEAD_0_5_2)
 item = ig.add_item(0x1234, 'foo', 'a foo item', shape=shape, dtype=np.int32)
 item.value = np.zeros(shape, np.int32)
-coro = stream.async_send_heap(ig.get_heap())
+coros = [
+    stream.async_send_heap(ig.get_heap()),
+    stream.async_send_end()
+]
 # Delete things to check that there are no refcounting bugs
 del ig
 del stream
-trollius.get_event_loop().run_until_complete(coro)
+trollius.get_event_loop().run_until_complete(trollius.wait(coros))
