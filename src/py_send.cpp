@@ -76,13 +76,19 @@ public:
     /// Sends heap synchronously
     void send_heap(const heap_wrapper &h)
     {
-        release_gil gil;
-        std::promise<void> sent_promise;
-        Base::async_send_heap(h, [&sent_promise]()
+        /* A simple future-promise sync here works, but prevents interruption
+         * via KeyboardInterrupt. The semaphore needs to be in shared_ptr because
+         * if we are interrupted it still needs to exist until the heap is sent.
+         */
+        auto sent_sem = std::make_shared<semaphore_gil>();
+        Base::async_send_heap(h, [sent_sem]()
         {
-            sent_promise.set_value();
+            sent_sem->put();
         });
-        sent_promise.get_future().get();
+        while (sent_sem->get() == -1)
+        {
+            // retry if interrupted for other reason
+        }
     }
 };
 
