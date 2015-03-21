@@ -2,8 +2,8 @@
  * @file
  */
 
-#ifndef SPEAD_RECV_HEAP_H
-#define SPEAD_RECV_HEAP_H
+#ifndef SPEAD_RECV_LIVE_HEAP_H
+#define SPEAD_RECV_LIVE_HEAP_H
 
 #include <cstddef>
 #include <cstdint>
@@ -39,7 +39,7 @@ class frozen_heap;
  * A complete heap is also contiguous, but not necessarily the other way
  * around. Only contiguous heaps can be frozen.
  */
-class heap
+class live_heap
 {
 private:
     friend class frozen_heap;
@@ -103,7 +103,7 @@ public:
      * @param cnt          Heap ID
      * @param bug_compat   Bugs to expect in the protocol
      */
-    explicit heap(s_item_pointer_t cnt, bug_compat_mask bug_compat);
+    explicit live_heap(s_item_pointer_t cnt, bug_compat_mask bug_compat);
 
     /**
      * Set a memory pool to use for payload data, instead of allocating with
@@ -138,4 +138,4 @@ public:
 } // namespace recv
 } // namespace spead
 
-#endif // SPEAD_RECV_HEAP_H
+#endif // SPEAD_RECV_LIVE_HEAP_H

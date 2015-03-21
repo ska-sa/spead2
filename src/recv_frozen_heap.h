@@ -17,7 +17,7 @@ namespace spead
 namespace recv
 {
 
-class heap;
+class live_heap;
 
 /**
  * An item extracted from a heap.
@@ -55,10 +55,10 @@ private:
 
 public:
     /**
-     * Freeze a heap, which must satisfy heap::is_contiguous. The original
+     * Freeze a heap, which must satisfy live_heap::is_contiguous. The original
      * heap is destroyed.
      */
-    explicit frozen_heap(heap &&h);
+    explicit frozen_heap(live_heap &&h);
     /// Get heap ID
     s_item_pointer_t get_cnt() const { return cnt; }
     /// Get protocol bug compatibility flags

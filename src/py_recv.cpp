@@ -9,7 +9,7 @@
 #include "recv_mem.h"
 #include "recv_stream.h"
 #include "recv_ring_stream.h"
-#include "recv_heap.h"
+#include "recv_live_heap.h"
 #include "recv_frozen_heap.h"
 #include "py_common.h"
 
@@ -144,7 +144,7 @@ public:
  * on completion of code scheduled through the thread pool must drop the GIL
  * first.
  */
-class ring_stream_wrapper : public ring_stream<ringbuffer_semaphore<heap, semaphore_gil> >
+class ring_stream_wrapper : public ring_stream<ringbuffer_semaphore<live_heap, semaphore_gil> >
 {
 private:
     py::object wrap_frozen_heap(frozen_heap &&fh)

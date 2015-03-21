@@ -8,7 +8,7 @@
 #include "common_ringbuffer.h"
 #include "common_logging.h"
 #include "common_thread_pool.h"
-#include "recv_heap.h"
+#include "recv_live_heap.h"
 #include "recv_frozen_heap.h"
 #include "recv_stream.h"
 
@@ -28,13 +28,13 @@ namespace recv
  *
  * This class is thread-safe.
  */
-template<typename Ringbuffer = ringbuffer_cond<heap> >
+template<typename Ringbuffer = ringbuffer_cond<live_heap> >
 class ring_stream : public stream
 {
 private:
     Ringbuffer ready_heaps;
 
-    virtual void heap_ready(heap &&) override;
+    virtual void heap_ready(live_heap &&) override;
 public:
     /**
      * Constructor. Note that there are two buffers, both of whose size is
@@ -84,7 +84,7 @@ ring_stream<Ringbuffer>::ring_stream(
 }
 
 template<typename Ringbuffer>
-void ring_stream<Ringbuffer>::heap_ready(heap &&h)
+void ring_stream<Ringbuffer>::heap_ready(live_heap &&h)
 {
     try
     {
@@ -103,7 +103,7 @@ frozen_heap ring_stream<Ringbuffer>::pop()
 {
     while (true)
     {
-        heap h = ready_heaps.pop();
+        live_heap h = ready_heaps.pop();
         if (h.is_contiguous())
             return frozen_heap(std::move(h));
         else
@@ -116,7 +116,7 @@ frozen_heap ring_stream<Ringbuffer>::try_pop()
 {
     while (true)
     {
-        heap h = ready_heaps.try_pop();
+        live_heap h = ready_heaps.try_pop();
         if (h.is_contiguous())
             return frozen_heap(std::move(h));
         else

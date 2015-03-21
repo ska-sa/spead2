@@ -14,7 +14,7 @@
 #include <mutex>
 #include <type_traits>
 #include <boost/asio.hpp>
-#include "recv_heap.h"
+#include "recv_live_heap.h"
 #include "recv_reader.h"
 #include "common_mem_pool.h"
 
@@ -53,7 +53,7 @@ private:
      */
     std::size_t max_heaps;
     /// Live heaps, ordered by heap ID
-    std::deque<heap> heaps;
+    std::deque<live_heap> heaps;
     /// @ref stop_received has been called, either externally or by stream control
     bool stopped = false;
     /// Protocol bugs to be compatible with
@@ -65,7 +65,7 @@ private:
      * Callback called when a heap is being ejected from the live list.
      * The heap might or might not be complete.
      */
-    virtual void heap_ready(heap &&) {}
+    virtual void heap_ready(live_heap &&) {}
 
     // Prevent copying
     stream_base(const stream_base &) = delete;
@@ -97,7 +97,7 @@ public:
      * Add a packet that was received, and which has been examined by @a
      * decode_packet, and returns @c true if it is consumed. Even though @a
      * decode_packet does some basic sanity-checking, it may still be rejected
-     * by @ref heap::add_packet e.g., because it is a duplicate.
+     * by @ref live_heap::add_packet e.g., because it is a duplicate.
      *
      * It is an error to call this after the stream has been stopped.
      */

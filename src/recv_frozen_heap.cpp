@@ -7,7 +7,7 @@
 #include <utility>
 #include <cstring>
 #include <string>
-#include "recv_heap.h"
+#include "recv_live_heap.h"
 #include "recv_frozen_heap.h"
 #include "recv_stream.h"
 #include "recv_utils.h"
@@ -33,7 +33,7 @@ static inline item_pointer_t load_bytes_be(const std::uint8_t *ptr, int len)
     return betoh<item_pointer_t>(out);
 }
 
-frozen_heap::frozen_heap(heap &&h)
+frozen_heap::frozen_heap(live_heap &&h)
 {
     assert(h.is_contiguous());
     log_debug("freezing heap with ID %d, %d item pointers, %d bytes payload",
@@ -118,7 +118,7 @@ frozen_heap::frozen_heap(heap &&h)
     bug_compat = h.bug_compat;
     payload = std::move(h.payload);
     // Reset h so that it still satisfies its invariants
-    h = heap(0, h.bug_compat);
+    h = live_heap(0, h.bug_compat);
 }
 
 descriptor frozen_heap::to_descriptor() const
@@ -188,13 +188,13 @@ namespace
 class descriptor_stream : public stream_base
 {
 private:
-    virtual void heap_ready(heap &&h) override;
+    virtual void heap_ready(live_heap &&h) override;
 public:
     using stream_base::stream_base;
     std::vector<descriptor> descriptors;
 };
 
-void descriptor_stream::heap_ready(heap &&h)
+void descriptor_stream::heap_ready(live_heap &&h)
 {
     if (h.is_contiguous())
     {

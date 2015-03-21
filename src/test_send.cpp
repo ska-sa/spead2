@@ -16,9 +16,9 @@ int main()
     udp::resolver resolver(tp.get_io_service());
     udp::resolver::query query("localhost", "8888");
     auto it = resolver.resolve(query);
-    spead::send::udp_stream stream(tp.get_io_service(), *it, spead::send::stream_config(48, 9000, 0));
+    spead::send::udp_stream stream(tp.get_io_service(), *it, spead::send::stream_config(9000, 0));
 
-    spead::send::heap h(0x2, 7);
+    spead::send::heap h(0x2, 48, 7);
     std::int32_t value1 = htobe32(0xEADBEEF);
     std::int32_t value2[64] = {};
     for (int i = 0; i < 64; i++)
@@ -40,7 +40,7 @@ int main()
     h.add_descriptor(desc2);
     stream.async_send_heap(h, [] { std::cout << "Callback fired\n"; });
 
-    spead::send::heap end(0x3, 7);
+    spead::send::heap end(0x3, 48, 7);
     end.add_end();
     stream.async_send_heap(end, [] {});
     stream.flush();

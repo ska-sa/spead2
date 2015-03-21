@@ -6,7 +6,7 @@
 #include "common_thread_pool.h"
 #include "recv_udp.h"
 #include "recv_frozen_heap.h"
-#include "recv_heap.h"
+#include "recv_live_heap.h"
 #include "recv_ring_stream.h"
 
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
@@ -17,7 +17,7 @@ static std::uint64_t n_complete = 0;
 class trivial_stream : public spead::recv::stream
 {
 private:
-    virtual void heap_ready(spead::recv::heap &&heap) override
+    virtual void heap_ready(spead::recv::live_heap &&heap) override
     {
         std::cout << "Got heap " << heap.get_cnt();
         if (heap.is_complete())
@@ -104,7 +104,7 @@ static void run_ringbuffered()
 {
     spead::thread_pool worker;
     std::shared_ptr<spead::mem_pool> pool = std::make_shared<spead::mem_pool>(16384, 26214400, 12, 8);
-    spead::recv::ring_stream<spead::ringbuffer_semaphore<spead::recv::heap> > stream(worker, 7);
+    spead::recv::ring_stream<spead::ringbuffer_semaphore<spead::recv::live_heap> > stream(worker, 7);
     stream.set_mem_pool(pool);
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
     stream.emplace_reader<spead::recv::udp_reader>(

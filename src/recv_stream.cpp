@@ -6,7 +6,7 @@
 #include <utility>
 #include <cassert>
 #include "recv_stream.h"
-#include "recv_heap.h"
+#include "recv_live_heap.h"
 #include "common_thread_pool.h"
 
 namespace spead
@@ -39,7 +39,7 @@ bool stream_base::add_packet(const packet_header &packet)
     bool found = false;
     for (auto it = heaps.begin(); it != heaps.end(); ++it)
     {
-        heap &h = *it;
+        live_heap &h = *it;
         if (h.get_cnt() == packet.heap_cnt)
         {
             found = true;
@@ -62,7 +62,7 @@ bool stream_base::add_packet(const packet_header &packet)
     if (!found)
     {
         // Doesn't match any previously seen heap, so create a new one
-        heap h(packet.heap_cnt, bug_compat);
+        live_heap h(packet.heap_cnt, bug_compat);
         h.set_mem_pool(pool);
         if (h.add_packet(packet))
         {
@@ -91,7 +91,7 @@ bool stream_base::add_packet(const packet_header &packet)
 
 void stream_base::flush()
 {
-    for (heap &h : heaps)
+    for (live_heap &h : heaps)
     {
         heap_ready(std::move(h));
     }

@@ -6,7 +6,7 @@
 #include <cstring>
 #include <algorithm>
 #include <utility>
-#include "recv_heap.h"
+#include "recv_live_heap.h"
 #include "recv_utils.h"
 #include "common_defines.h"
 #include "common_endian.h"
@@ -17,18 +17,18 @@ namespace spead
 namespace recv
 {
 
-heap::heap(s_item_pointer_t cnt, bug_compat_mask bug_compat)
+live_heap::live_heap(s_item_pointer_t cnt, bug_compat_mask bug_compat)
     : cnt(cnt), bug_compat(bug_compat)
 {
     assert(cnt >= 0);
 }
 
-void heap::set_mem_pool(std::shared_ptr<mem_pool> pool)
+void live_heap::set_mem_pool(std::shared_ptr<mem_pool> pool)
 {
     this->pool = std::move(pool);
 }
 
-void heap::payload_reserve(std::size_t size, bool exact)
+void live_heap::payload_reserve(std::size_t size, bool exact)
 {
     if (size > payload_reserved)
     {
@@ -51,7 +51,7 @@ void heap::payload_reserve(std::size_t size, bool exact)
     }
 }
 
-bool heap::add_packet(const packet_header &packet)
+bool live_heap::add_packet(const packet_header &packet)
 {
     if (cnt != packet.heap_cnt)
     {
@@ -129,17 +129,17 @@ bool heap::add_packet(const packet_header &packet)
     return true;
 }
 
-bool heap::is_complete() const
+bool live_heap::is_complete() const
 {
     return received_length == heap_length;
 }
 
-bool heap::is_contiguous() const
+bool live_heap::is_contiguous() const
 {
     return received_length == min_length;
 }
 
-bool heap::is_end_of_stream() const
+bool live_heap::is_end_of_stream() const
 {
     return end_of_stream;
 }
