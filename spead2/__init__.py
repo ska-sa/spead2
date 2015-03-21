@@ -451,6 +451,8 @@ class ItemGroup(object):
             self._add_item(item)
         updated_items = {}
         for raw_item in heap.get_items():
+            if raw_item.id <= 6:
+                continue     # Special fields, not real items
             try:
                 item = self._by_id[raw_item.id]
             except KeyError:
