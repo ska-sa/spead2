@@ -16,7 +16,6 @@
 - Check that memory alignment requirements for decode_packet are actually respected, particularly in mem_stream
 - Specify full flavour instead of just heap_address_bits
 - Multicast support (TTL for send, subscribe for receive)
-- Eliminate remaining usages of optional<> in Python wrapping
 - Error checking in streambuf sender
 - Add other default_* to Python interface
 - Auto-allocation of item IDs in an ItemGroup

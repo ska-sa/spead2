@@ -72,13 +72,15 @@ private:
     stream_base &operator=(const stream_base &) = delete;
 
 public:
+    static constexpr std::size_t default_max_heaps = 4;
+
     /**
      * Constructor.
      *
      * @param bug_compat   Protocol bugs to have compatibility with
      * @param max_heaps    Maximum number of live (in-flight) heaps held in the stream
      */
-    explicit stream_base(bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
+    explicit stream_base(bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
     virtual ~stream_base() = default;
 
     /**
@@ -183,12 +185,13 @@ protected:
 
 public:
     using stream_base::get_bug_compat;
+    using stream_base::default_max_heaps;
 
     boost::asio::io_service::strand &get_strand() { return strand; }
 
     // TODO: introduce constant for default max_heaps
-    explicit stream(boost::asio::io_service &service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
-    explicit stream(thread_pool &pool, bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
+    explicit stream(boost::asio::io_service &service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
+    explicit stream(thread_pool &pool, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
     virtual ~stream() override;
 
     void set_max_heaps(std::size_t max_heaps);

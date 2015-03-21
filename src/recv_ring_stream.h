@@ -46,8 +46,8 @@ public:
      *
      * @param max_heaps The capacity of the ring buffer, and of the stream buffer
      */
-    explicit ring_stream(boost::asio::io_service &io_service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4);
-    explicit ring_stream(thread_pool &pool, bug_compat_mask bug_compat = 0, std::size_t max_heaps = 4)
+    explicit ring_stream(boost::asio::io_service &io_service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
+    explicit ring_stream(thread_pool &pool, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps)
         : ring_stream(pool.get_io_service(), bug_compat, max_heaps) {}
 
     /**

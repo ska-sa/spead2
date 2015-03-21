@@ -14,6 +14,8 @@ namespace spead
 namespace recv
 {
 
+constexpr std::size_t stream_base::default_max_heaps;
+
 stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
     : max_heaps(max_heaps), bug_compat(bug_compat)
 {
