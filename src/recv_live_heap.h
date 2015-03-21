@@ -20,11 +20,11 @@ namespace spead
 namespace recv
 {
 
-class frozen_heap;
+class heap;
 
 /**
  * A SPEAD heap that is in the process of being received. Once it is fully
- * received, it is converted to a @ref frozen_heap for further processing.
+ * received, it is converted to a @ref heap for further processing.
  *
  * Any SPEAD-64-* flavour can be used, but all packets in the heap must use
  * the same flavour. It may be possible to relax this, but it hasn't been
@@ -42,7 +42,7 @@ class frozen_heap;
 class live_heap
 {
 private:
-    friend class frozen_heap;
+    friend class heap;
 
     /// Heap ID encoded in packets
     s_item_pointer_t cnt;

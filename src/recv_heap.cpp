@@ -8,7 +8,7 @@
 #include <cstring>
 #include <string>
 #include "recv_live_heap.h"
-#include "recv_frozen_heap.h"
+#include "recv_heap.h"
 #include "recv_stream.h"
 #include "recv_utils.h"
 #include "common_logging.h"
@@ -33,7 +33,7 @@ static inline item_pointer_t load_bytes_be(const std::uint8_t *ptr, int len)
     return betoh<item_pointer_t>(out);
 }
 
-frozen_heap::frozen_heap(live_heap &&h)
+heap::heap(live_heap &&h)
 {
     assert(h.is_contiguous());
     log_debug("freezing heap with ID %d, %d item pointers, %d bytes payload",
@@ -121,7 +121,7 @@ frozen_heap::frozen_heap(live_heap &&h)
     h = live_heap(0, h.bug_compat);
 }
 
-descriptor frozen_heap::to_descriptor() const
+descriptor heap::to_descriptor() const
 {
     const std::size_t immediate_size = heap_address_bits / 8;
     const std::size_t id_size = sizeof(item_pointer_t) - immediate_size;
@@ -198,7 +198,7 @@ void descriptor_stream::heap_ready(live_heap &&h)
 {
     if (h.is_contiguous())
     {
-        frozen_heap frozen(std::move(h));
+        heap frozen(std::move(h));
         descriptor d = frozen.to_descriptor();
         if (d.id != 0) // check that we got an ID field
             descriptors.push_back(std::move(d));
@@ -209,7 +209,7 @@ void descriptor_stream::heap_ready(live_heap &&h)
 
 } // anonymous namespace
 
-std::vector<descriptor> frozen_heap::get_descriptors() const
+std::vector<descriptor> heap::get_descriptors() const
 {
     descriptor_stream s(bug_compat, 1);
     for (const item &item : items)

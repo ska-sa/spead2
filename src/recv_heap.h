@@ -2,8 +2,8 @@
  * @file
  */
 
-#ifndef SPEAD_RECV_FROZEN_HEAP_H
-#define SPEAD_RECV_FROZEN_HEAP_H
+#ifndef SPEAD_RECV_HEAP_H
+#define SPEAD_RECV_HEAP_H
 
 #include <cstddef>
 #include <cstdint>
@@ -37,7 +37,7 @@ struct item
 /**
  * Received heap that has been finalised.
  */
-class frozen_heap
+class heap
 {
 private:
     s_item_pointer_t cnt;       ///< Heap ID
@@ -58,7 +58,7 @@ public:
      * Freeze a heap, which must satisfy live_heap::is_contiguous. The original
      * heap is destroyed.
      */
-    explicit frozen_heap(live_heap &&h);
+    explicit heap(live_heap &&h);
     /// Get heap ID
     s_item_pointer_t get_cnt() const { return cnt; }
     /// Get protocol bug compatibility flags
@@ -92,4 +92,4 @@ public:
 } // namespace recv
 } // namespace spead
 
-#endif // SPEAD_RECV_FROZEN_HEAP_H
+#endif // SPEAD_RECV_HEAP_H

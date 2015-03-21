@@ -1,4 +1,3 @@
-- recv: Rename frozen_heap -> heap, heap -> partial_heap
 - Distinguish descriptor re-issues from descriptor changes (don't warn on the former)
 - Move most of the classes to the detail namespace
 - Add lots of validation to sending (overflows etc)

@@ -9,7 +9,7 @@
 #include "common_logging.h"
 #include "common_thread_pool.h"
 #include "recv_live_heap.h"
-#include "recv_frozen_heap.h"
+#include "recv_heap.h"
 #include "recv_stream.h"
 
 namespace spead
@@ -57,7 +57,7 @@ public:
      * @throw ringbuffer_stopped if @ref stop has been called and
      * there are no more contiguous heaps.
      */
-    frozen_heap pop();
+    heap pop();
 
     /**
      * Like @ref pop, but if no contiguous heap is available,
@@ -68,7 +68,7 @@ public:
      * @throw ringbuffer_stopped if @ref stop has been called and
      * there are no more contiguous heaps.
      */
-    frozen_heap try_pop();
+    heap try_pop();
 
     virtual void stop_received() override;
 
@@ -99,26 +99,26 @@ void ring_stream<Ringbuffer>::heap_ready(live_heap &&h)
 }
 
 template<typename Ringbuffer>
-frozen_heap ring_stream<Ringbuffer>::pop()
+heap ring_stream<Ringbuffer>::pop()
 {
     while (true)
     {
         live_heap h = ready_heaps.pop();
         if (h.is_contiguous())
-            return frozen_heap(std::move(h));
+            return heap(std::move(h));
         else
             log_info("received incomplete heap %d", h.get_cnt());
     }
 }
 
 template<typename Ringbuffer>
-frozen_heap ring_stream<Ringbuffer>::try_pop()
+heap ring_stream<Ringbuffer>::try_pop()
 {
     while (true)
     {
         live_heap h = ready_heaps.try_pop();
         if (h.is_contiguous())
-            return frozen_heap(std::move(h));
+            return heap(std::move(h));
         else
             log_info("received incomplete heap %d", h.get_cnt());
     }

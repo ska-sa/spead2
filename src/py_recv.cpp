@@ -10,7 +10,7 @@
 #include "recv_stream.h"
 #include "recv_ring_stream.h"
 #include "recv_live_heap.h"
-#include "recv_frozen_heap.h"
+#include "recv_heap.h"
 #include "py_common.h"
 
 namespace py = boost::python;
@@ -22,13 +22,13 @@ namespace recv
 
 /**
  * Wraps @ref item to provide safe memory management. The item references
- * memory inside the frozen heap, so it needs to hold a reference to that
+ * memory inside the heap, so it needs to hold a reference to that
  * heap, as do any memoryviews created on the value.
  */
 class item_wrapper : public item
 {
 private:
-    /// Python object containing a @ref frozen_heap
+    /// Python object containing a @ref heap
     py::object owning_heap;
 
 public:
@@ -77,25 +77,25 @@ public:
 };
 
 /**
- * Wrapper for frozen heaps. For some reason boost::python doesn't provide
+ * Wrapper for heaps. For some reason boost::python doesn't provide
  * a way for object methods to retrieve their self object, so we have to store
  * a copy of it here, and set it whenever we build one of these objects. We
  * need this for @ref item_wrapper.
  */
-class frozen_heap_wrapper : public frozen_heap
+class heap_wrapper : public heap
 {
 private:
     PyObject *self;
 
 public:
     /// Constructor when built from Python
-    frozen_heap_wrapper(frozen_heap &&h) : frozen_heap(std::move(h)), self(nullptr) {}
+    heap_wrapper(heap &&h) : heap(std::move(h)), self(nullptr) {}
     void set_self(PyObject *self) { this->self = self; }
 
-    /// Wrap @ref frozen_heap::get_items, and convert vector to a Python list
+    /// Wrap @ref heap::get_items, and convert vector to a Python list
     py::list get_items() const
     {
-        std::vector<item> base = frozen_heap::get_items();
+        std::vector<item> base = heap::get_items();
         py::list out;
         for (const item &it : base)
         {
@@ -107,10 +107,10 @@ public:
         return out;
     }
 
-    /// Wrap @ref frozen_heap::get_descriptors, and convert vector to a Python list
+    /// Wrap @ref heap::get_descriptors, and convert vector to a Python list
     py::list get_descriptors() const
     {
-        std::vector<descriptor> descriptors = frozen_heap::get_descriptors();
+        std::vector<descriptor> descriptors = heap::get_descriptors();
         py::list out;
         for (const descriptor& d : descriptors)
             out.append(d);
@@ -136,7 +136,7 @@ public:
 };
 
 /**
- * Stream that handles the magic necessary to reflect frozen heaps into
+ * Stream that handles the magic necessary to reflect heaps into
  * Python space and capture the reference to it.
  *
  * The GIL needs to be handled carefully. Any operation run by the thread pool
@@ -147,14 +147,14 @@ public:
 class ring_stream_wrapper : public ring_stream<ringbuffer_semaphore<live_heap, semaphore_gil> >
 {
 private:
-    py::object wrap_frozen_heap(frozen_heap &&fh)
+    py::object wrap_heap(heap &&fh)
     {
-        // We need to allocate a new object to have type frozen_heap_wrapper,
+        // We need to allocate a new object to have type heap_wrapper,
         // but it can move all the resources out of fh.
-        frozen_heap_wrapper *wrapper = new frozen_heap_wrapper(std::move(fh));
-        std::unique_ptr<frozen_heap_wrapper> wrapper_ptr(wrapper);
+        heap_wrapper *wrapper = new heap_wrapper(std::move(fh));
+        std::unique_ptr<heap_wrapper> wrapper_ptr(wrapper);
         // Wrap the pointer up into a Python object
-        py::manage_new_object::apply<frozen_heap_wrapper *>::type converter;
+        py::manage_new_object::apply<heap_wrapper *>::type converter;
         PyObject *obj_ptr = converter(wrapper);
         wrapper_ptr.release();
         py::object obj{py::handle<>(obj_ptr)};
@@ -180,12 +180,12 @@ public:
 
     py::object get()
     {
-        return wrap_frozen_heap(ring_stream::pop());
+        return wrap_heap(ring_stream::pop());
     }
 
     py::object get_nowait()
     {
-        return wrap_frozen_heap(ring_stream::try_pop());
+        return wrap_heap(ring_stream::try_pop());
     }
 
     int get_fd() const
@@ -247,11 +247,11 @@ void register_module()
     py::object module(py::handle<>(py::borrowed(PyImport_AddModule("spead2._recv"))));
     py::scope scope = module;
 
-    class_<frozen_heap_wrapper, boost::noncopyable>("Heap", no_init)
-        .add_property("cnt", &frozen_heap_wrapper::get_cnt)
-        .add_property("bug_compat", &frozen_heap_wrapper::get_bug_compat)
-        .def("get_items", &frozen_heap_wrapper::get_items)
-        .def("get_descriptors", &frozen_heap_wrapper::get_descriptors);
+    class_<heap_wrapper, boost::noncopyable>("Heap", no_init)
+        .add_property("cnt", &heap_wrapper::get_cnt)
+        .add_property("bug_compat", &heap_wrapper::get_bug_compat)
+        .def("get_items", &heap_wrapper::get_items)
+        .def("get_descriptors", &heap_wrapper::get_descriptors);
     class_<item_wrapper>("RawItem", no_init)
         .def_readonly("id", &item_wrapper::id)
         .def_readonly("is_immediate", &item_wrapper::is_immediate)

@@ -5,7 +5,7 @@
 #include <boost/asio.hpp>
 #include "common_thread_pool.h"
 #include "recv_udp.h"
-#include "recv_frozen_heap.h"
+#include "recv_heap.h"
 #include "recv_live_heap.h"
 #include "recv_ring_stream.h"
 
@@ -49,7 +49,7 @@ public:
     }
 };
 
-void show_heap(const spead::recv::frozen_heap &fheap)
+void show_heap(const spead::recv::heap &fheap)
 {
     std::cout << "Received heap with CNT " << fheap.get_cnt() << '\n';
     const auto &items = fheap.get_items();
@@ -113,7 +113,7 @@ static void run_ringbuffered()
     {
         try
         {
-            spead::recv::frozen_heap fh = stream.pop();
+            spead::recv::heap fh = stream.pop();
             n_complete++;
             show_heap(fh);
         }
