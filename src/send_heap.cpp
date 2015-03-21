@@ -128,21 +128,22 @@ encode_descriptor(const descriptor &d, int heap_address_bits, bug_compat_mask bu
     return {std::move(out), total_size};
 }
 
-basic_heap heap::encode(int heap_address_bits) const
+
+constexpr int heap::default_heap_address_bits;
+
+heap::heap(s_item_pointer_t cnt, int heap_address_bits, bug_compat_mask bug_compat)
+    : cnt(cnt), heap_address_bits(heap_address_bits), bug_compat(bug_compat)
 {
-    assert(heap_address_bits > 0 && heap_address_bits < 8 * sizeof(item_pointer_t) && heap_address_bits % 8 == 0);
-    std::vector<item> items;
-    std::vector<std::unique_ptr<std::uint8_t[]> > descriptor_pointers;
+    if (heap_address_bits <= 0 || heap_address_bits >= 8 * int(sizeof(item_pointer_t))
+        || heap_address_bits % 8 != 0)
+        throw std::invalid_argument("heap_address_bits is invalid");
+}
 
-    for (const descriptor &d : descriptors)
-    {
-        auto blob = encode_descriptor(d, heap_address_bits, bug_compat);
-        items.emplace_back(DESCRIPTOR_ID, blob.first.get(), blob.second, false);
-        descriptor_pointers.push_back(std::move(blob.first));
-    }
-
-    items.insert(items.end(), this->items.begin(), this->items.end());
-    return basic_heap(cnt, std::move(items), std::move(descriptor_pointers));
+void heap::add_descriptor(const descriptor &descriptor)
+{
+    auto blob = encode_descriptor(descriptor, heap_address_bits, bug_compat);
+    items.emplace_back(DESCRIPTOR_ID, blob.first.get(), blob.second, false);
+    storage.emplace_back(std::move(blob.first));
 }
 
 } // namespace send

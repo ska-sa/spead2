@@ -65,12 +65,12 @@ class Flavour(object):
     def items_to_bytes(self, items, descriptors=None, max_packet_size=1500):
         if descriptors is None:
             descriptors = items
-        heap = send.Heap(0x123456, 0)
+        heap = send.Heap(0x123456, self.heap_address_bits, 0)
         for descriptor in descriptors:
             heap.add_descriptor(descriptor)
         for item in items:
             heap.add_item(item)
-        gen = send.PacketGenerator(heap, self.heap_address_bits, max_packet_size)
+        gen = send.PacketGenerator(heap, max_packet_size)
         return list(gen)
 
 

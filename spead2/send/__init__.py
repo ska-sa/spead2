@@ -18,11 +18,12 @@ class HeapGenerator(object):
     """Tracks which items and item values have previously been sent and
     generates delta heaps with sequential numbering.
     """
-    def __init__(self, ig, descriptor_frequency=None, bug_compat=0):
+    def __init__(self, ig, descriptor_frequency=None, heap_address_bits=Heap.DEFAULT_HEAP_ADDRESS_BITS, bug_compat=0):
         self._ig = ig
         self._info = {}              # Maps ID to _ItemInfo
         self._next_cnt = 1
         self._descriptor_frequency = descriptor_frequency
+        self._heap_address_bits = heap_address_bits
         self._bug_compat = bug_compat
 
     def _get_info(self, item):
@@ -47,7 +48,7 @@ class HeapGenerator(object):
         return False
 
     def get_heap(self):
-        heap = Heap(self._next_cnt, self._bug_compat)
+        heap = Heap(self._next_cnt, self._heap_address_bits, self._bug_compat)
         for item in self._ig.values():
             info = self._get_info(item)
             if self._descriptor_stale(item, info):
@@ -59,9 +60,15 @@ class HeapGenerator(object):
         self._next_cnt += 1
         return heap
 
+    def get_end(self):
+        heap = Heap(self._next_cnt, self._heap_address_bits, self._bug_compat)
+        heap.add_end()
+        self._next_cnt += 1
+        return heap
+
 
 class ItemGroup(_spead2.ItemGroup, HeapGenerator):
     """Bundles an ItemGroup and HeapGenerator into a single class"""
-    def __init__(self, descriptor_frequency=None, bug_compat=0):
+    def __init__(self, *args, **kwargs):
         _spead2.ItemGroup.__init__(self)
-        HeapGenerator.__init__(self, self, descriptor_frequency, bug_compat)
+        HeapGenerator.__init__(self, self, *args, **kwargs)

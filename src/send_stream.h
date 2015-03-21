@@ -29,13 +29,10 @@ namespace send
 class stream_config
 {
 public:
-    static constexpr int default_heap_address_bits = 40;
     static constexpr std::size_t default_max_packet_size = 1472;
     static constexpr std::size_t default_max_heaps = 4;
     static constexpr std::size_t default_burst_size = 65536;
 
-    void set_heap_address_bits(int heap_address_bits);
-    int get_heap_address_bits() const;
     void set_max_packet_size(std::size_t max_packet_size);
     std::size_t get_max_packet_size() const;
     void set_rate(double rate);
@@ -46,14 +43,12 @@ public:
     std::size_t get_max_heaps() const;
 
     explicit stream_config(
-        int heap_address_bits = default_heap_address_bits,
         std::size_t max_packet_size = default_max_packet_size,
         double rate = 0.0,
         std::size_t burst_size = default_burst_size,
         std::size_t max_heaps = default_max_heaps);
 
 private:
-    int heap_address_bits = default_heap_address_bits;
     std::size_t max_packet_size = default_max_packet_size;
     double rate = 0.0;
     std::size_t burst_size = default_burst_size;
@@ -74,11 +69,11 @@ private:
 
     struct queue_item
     {
-        basic_heap h;
+        const heap &h;
         completion_handler handler;
 
         queue_item() = default;
-        queue_item(basic_heap &&h, completion_handler &&handler)
+        queue_item(const heap &h, completion_handler &&handler)
             : h(std::move(h)), handler(std::move(handler))
         {
         }
@@ -125,8 +120,7 @@ private:
                 empty = queue.empty();
                 if (!empty)
                 {
-                    gen.reset(new packet_generator(queue.front().h, config.get_heap_address_bits(),
-                                                   config.get_max_packet_size()));
+                    gen.reset(new packet_generator(queue.front().h, config.get_max_packet_size()));
                 }
                 else
                     gen.reset();
@@ -186,7 +180,12 @@ public:
 
     boost::asio::io_service &get_io_service() const { return io_service; }
 
-    void async_send_heap(basic_heap &&h, completion_handler handler)
+    /**
+     * Send @a h asynchronously, with @a handler called on completion. The
+     * caller must ensure that @h remains valid (as well as any memory it
+     * points to) until @a handler is called.
+     */
+    void async_send_heap(const heap &h, completion_handler handler)
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
         if (queue.size() >= config.get_max_heaps())
@@ -197,12 +196,11 @@ public:
             return;
         }
         bool empty = queue.empty();
-        queue.emplace(std::move(h), std::move(handler));
+        queue.emplace(h, std::move(handler));
         if (empty)
         {
             assert(!gen);
-            gen.reset(new packet_generator(queue.front().h, config.get_heap_address_bits(),
-                                           config.get_max_packet_size()));
+            gen.reset(new packet_generator(queue.front().h, config.get_max_packet_size()));
         }
         lock.unlock();
 
@@ -214,19 +212,6 @@ public:
             send_time = timer_type::clock_type::now();
             io_service.dispatch([this] { send_next_packet(); });
         }
-    }
-
-    void async_send_heap(const heap &h, completion_handler handler)
-    {
-        async_send_heap(h.encode(config.get_heap_address_bits()), std::move(handler));
-    }
-
-    void async_send_end(completion_handler handler)
-    {
-        heap h;
-        h.add_end();
-        // This is safe even though h expires, because it contains no payload
-        async_send_heap(h, handler);
     }
 
     /**

@@ -46,7 +46,7 @@ class TestPassthroughUdp(BaseTestPassthrough):
         receiver.add_udp_reader(8888, bind_hostname="localhost")
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
-        sender.send_end()
+        sender.send_heap(gen.get_end())
         received_item_group = spead2.ItemGroup()
         for heap in receiver:
             received_item_group.update(heap)
@@ -58,7 +58,7 @@ class TestPassthroughMem(BaseTestPassthrough):
         sender = spead2.send.BytesStream(thread_pool)
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
-        sender.send_end()
+        sender.send_heap(gen.get_end())
         receiver = spead2.recv.Stream(thread_pool)
         receiver.add_buffer_reader(sender.getvalue())
         received_item_group = spead2.ItemGroup()

@@ -85,58 +85,33 @@ struct item
     }
 };
 
-/**
- * Heap with item descriptors pre-baked to items.
- */
-class basic_heap
+class heap
 {
     friend class packet_generator;
 private:
     s_item_pointer_t cnt;
-    std::vector<item> items; ///< Items to write (including descriptors)
+    int heap_address_bits;
+    bug_compat_mask bug_compat;
+
+    /// Items to write (including descriptors)
+    std::vector<item> items;
     /**
      * Transient storage that should be freed when the heap is no longer
      * needed. Items may point to either this storage or external storage.
      */
     std::vector<std::unique_ptr<std::uint8_t[]> > storage;
 
-public:
-    template<typename T>
-    basic_heap(s_item_pointer_t cnt, T &&items,
-               std::vector<std::unique_ptr<std::uint8_t[]> > &&storage)
-    : cnt(cnt), items(std::forward<T>(items)), storage(std::move(storage))
-    {
-    }
-
-    s_item_pointer_t get_cnt() const
-    {
-        return cnt;
-    }
-
-    void set_cnt(s_item_pointer_t cnt)
-    {
-        this->cnt = cnt;
-    }
-};
-
-class heap
-{
-private:
-    s_item_pointer_t cnt;
-    bug_compat_mask bug_compat;
-
-    std::vector<item> items;
-    std::vector<descriptor> descriptors;
-
     // Prevent copying
     heap(const heap &) = delete;
     heap &operator=(const heap &) = delete;
 
 public:
-    explicit heap(s_item_pointer_t cnt = 0, bug_compat_mask bug_compat = 0)
-    : cnt(cnt), bug_compat(bug_compat)
-    {
-    }
+    static constexpr int default_heap_address_bits = 40;
+
+    explicit heap(
+        s_item_pointer_t cnt = 0,
+        int heap_address_bits = default_heap_address_bits,
+        bug_compat_mask bug_compat = 0);
 
     s_item_pointer_t get_cnt() const
     {
@@ -148,14 +123,14 @@ public:
         this->cnt = cnt;
     }
 
+    int get_heap_address_bits() const
+    {
+        return heap_address_bits;
+    }
+
     bug_compat_mask get_bug_compat() const
     {
         return bug_compat;
-    }
-
-    void set_bug_compat(bug_compat_mask bug_compat)
-    {
-        this->bug_compat = bug_compat;
     }
 
     template<typename... Args>
@@ -164,17 +139,17 @@ public:
         items.emplace_back(id, std::forward<Args>(args)...);
     }
 
-    void add_descriptor(const descriptor &descriptor)
+    void add_pointer(std::unique_ptr<std::uint8_t[]> &&pointer)
     {
-        descriptors.push_back(descriptor);
+        storage.push_back(std::move(pointer));
     }
+
+    void add_descriptor(const descriptor &descriptor);
 
     void add_end()
     {
         add_item(STREAM_CTRL_ID, CTRL_STREAM_STOP);
     }
-
-    basic_heap encode(int heap_address_bits) const;
 };
 
 } // namespace send

@@ -38,8 +38,11 @@ int main()
     h.add_item(0x1001, &value2, sizeof(value2), true);
     h.add_descriptor(desc1);
     h.add_descriptor(desc2);
-    stream.async_send_heap(std::move(h), [] { std::cout << "Callback fired\n"; });
-    stream.async_send_end([] {});
+    stream.async_send_heap(h, [] { std::cout << "Callback fired\n"; });
+
+    spead::send::heap end(0x3, 7);
+    end.add_end();
+    stream.async_send_heap(end, [] {});
     stream.flush();
 
     return 0;

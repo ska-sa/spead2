@@ -21,7 +21,7 @@
 - Make sending (or at least flushing) interruptable
 - Make burst size in transmission configurable
 - Multicast support (TTL for send, subscribe for receive)
-- Eliminate basic_heap, and encode descriptors immediately rather than having separate encode function
 - Eliminate remaining usages of optional<> in Python wrapping
 - Error checking in streambuf sender
 - Fix warning about item with ID 6 and no descriptor
+- Add other default_* to Python interface

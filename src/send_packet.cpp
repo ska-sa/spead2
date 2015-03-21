@@ -28,8 +28,8 @@ static bool use_immediate(const item &it, std::size_t max_immediate_size)
 }
 
 packet_generator::packet_generator(
-    const basic_heap &h, int heap_address_bits, std::size_t max_packet_size)
-    : h(h), heap_address_bits(heap_address_bits), max_packet_size(max_packet_size)
+    const heap &h, std::size_t max_packet_size)
+    : h(h), max_packet_size(max_packet_size)
 {
     // Round down max packet size so that we can align payload
     max_packet_size &= ~7;
@@ -43,7 +43,7 @@ packet_generator::packet_generator(
         throw std::invalid_argument("packet size is too small");
 
     payload_size = 0;
-    const std::size_t max_immediate_size = heap_address_bits / 8;
+    const std::size_t max_immediate_size = h.get_heap_address_bits() / 8;
     for (const item &it : h.items)
     {
         if (!use_immediate(it, max_immediate_size))
@@ -80,8 +80,8 @@ packet packet_generator::next_packet()
 
     if (payload_offset < payload_size)
     {
-        pointer_encoder encoder(heap_address_bits);
-        const std::size_t max_immediate_size = heap_address_bits / 8;
+        pointer_encoder encoder(h.get_heap_address_bits());
+        const std::size_t max_immediate_size = h.get_heap_address_bits() / 8;
         const std::size_t n_item_pointers = std::min(
             max_item_pointers_per_packet,
             h.items.size() + need_null_item - next_item_pointer);
@@ -96,8 +96,8 @@ packet packet_generator::next_packet()
         std::uint64_t *header = reinterpret_cast<std::uint64_t *>(out.data.get());
         *header = htobe<std::uint64_t>(
             (std::uint64_t(0x5304) << 48)
-            | (std::uint64_t(8 - heap_address_bits / 8) << 40)
-            | (std::uint64_t(heap_address_bits / 8) << 32)
+            | (std::uint64_t(8 - max_immediate_size) << 40)
+            | (std::uint64_t(max_immediate_size) << 32)
             | (n_item_pointers + 4));
         // TODO: if item_pointer_t is more than 64 bits, this will misalign
         item_pointer_t *pointer = reinterpret_cast<item_pointer_t *>(out.data.get() + 8);

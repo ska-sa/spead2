@@ -49,32 +49,17 @@ void heap_wrapper::add_descriptor(py::object object)
     heap::add_descriptor(py::extract<descriptor>(object.attr("to_raw")(get_bug_compat())));
 }
 
-/**
- * packet_generator takes a reference to an existing basic_heap, but we don't
- * have one. Thus, we need to store one internally.
- */
-class packet_generator_wrapper
+class packet_generator_wrapper : public packet_generator
 {
-private:
-    basic_heap internal_heap;
-    packet_generator gen;
 public:
-    packet_generator_wrapper(const heap &h, int heap_address_bits, std::size_t max_packet_size);
+    using packet_generator::packet_generator;
 
     bytestring next();
 };
 
-packet_generator_wrapper::packet_generator_wrapper(
-    const heap &h, int heap_address_bits,
-    std::size_t max_packet_size)
-    : internal_heap(h.encode(heap_address_bits)),
-    gen(internal_heap, heap_address_bits, max_packet_size)
-{
-}
-
 bytestring packet_generator_wrapper::next()
 {
-    packet pkt = gen.next_packet();
+    packet pkt = next_packet();
     if (pkt.buffers.empty())
         throw stop_iteration();
     return bytestring(boost::asio::buffers_begin(pkt.buffers),
@@ -130,18 +115,6 @@ public:
         // bound to it so that its lifetime persists.
         py::extract<heap_wrapper &> h2(h);
         Base::async_send_heap(h2(), [this, callback, h] () mutable
-        {
-            {
-                std::unique_lock<std::mutex> lock(callbacks_mutex);
-                callbacks.push_back(std::move(callback));
-            }
-            sem.put();
-        });
-    }
-
-    void async_send_end(py::object callback)
-    {
-        Base::async_send_end([this, callback] () mutable
         {
             {
                 std::unique_lock<std::mutex> lock(callbacks_mutex);
@@ -225,10 +198,12 @@ void register_module()
     py::object module(py::handle<>(py::borrowed(PyImport_AddModule("spead2._send"))));
     py::scope scope = module;
 
-    class_<heap_wrapper, boost::noncopyable>("Heap", init<std::int64_t, bug_compat_mask>(
-            (arg("cnt") = 0, arg("bug_compat") = 0)))
+    class_<heap_wrapper, boost::noncopyable>("Heap", init<std::int64_t, int, bug_compat_mask>(
+            (arg("cnt") = 0, arg("heap_address_bits") = heap::default_heap_address_bits, arg("bug_compat") = 0)))
         .add_property("cnt", &heap_wrapper::get_cnt, &heap_wrapper::set_cnt)
-        .add_property("bug_compat", &heap_wrapper::get_bug_compat, &heap_wrapper::set_bug_compat)
+        .add_property("heap_address_bits", &heap_wrapper::get_heap_address_bits)
+        .add_property("bug_compat", &heap_wrapper::get_bug_compat)
+        .def_readonly("DEFAULT_HEAP_ADDRESS_BITS", &heap_wrapper::default_heap_address_bits)
         .def("add_item", &heap_wrapper::add_item,
              arg("item"),
              with_custodian_and_ward<1, 2>())
@@ -236,8 +211,8 @@ void register_module()
              (arg("descriptor")))
         .def("add_end", &heap_wrapper::add_end);
 
-    class_<packet_generator_wrapper, boost::noncopyable>("PacketGenerator", init<heap_wrapper &, int, std::size_t>(
-            (arg("heap"), arg("heap_address_bits"), arg("max_packet_size")))[
+    class_<packet_generator_wrapper, boost::noncopyable>("PacketGenerator", init<heap_wrapper &, std::size_t>(
+            (arg("heap"), arg("max_packet_size")))[
             with_custodian_and_ward<1, 2>()])
         .def("__iter__", objects::identity_function())
         .def(
@@ -250,13 +225,11 @@ void register_module()
               , &packet_generator_wrapper::next);
 
     class_<stream_config>("StreamConfig", init<
-            int, std::size_t, double, std::size_t, std::size_t>(
-                (arg("heap_address_bits") = stream_config::default_heap_address_bits,
-                 arg("max_packet_size") = stream_config::default_max_packet_size,
+            std::size_t, double, std::size_t, std::size_t>(
+                (arg("max_packet_size") = stream_config::default_max_packet_size,
                  arg("rate") = 0.0,
                  arg("burst_size") = stream_config::default_burst_size,
                  arg("max_heaps") = stream_config::default_max_heaps)))
-        .add_property("heap_address_bits", &stream_config::get_heap_address_bits, &stream_config::set_heap_address_bits)
         .add_property("max_packet_size", &stream_config::get_max_packet_size, &stream_config::set_max_packet_size)
         .add_property("rate", &stream_config::get_rate, &stream_config::set_rate)
         .add_property("burst_size", &stream_config::get_burst_size, &stream_config::set_burst_size)
@@ -270,8 +243,7 @@ void register_module()
                      arg("config") = stream_config(),
                      arg("buffer_size") = T::default_buffer_size))[
                 with_custodian_and_ward<1, 2>()])
-            .def("send_heap", &T::send_heap, arg("heap"))
-            .def("send_end", &T::send_end);
+            .def("send_heap", &T::send_heap, arg("heap"));
     }
 
     {
@@ -284,7 +256,6 @@ void register_module()
                 with_custodian_and_ward<1, 2>()])
             .add_property("fd", &T::get_fd)
             .def("async_send_heap", &T::async_send_heap, arg("heap"))
-            .def("async_send_end", &T::async_send_end)
             .def("flush", &T::flush)
             .def("process_callbacks", &T::process_callbacks);
     }
@@ -294,8 +265,7 @@ void register_module()
                     (arg("thread_pool"), arg("config") = stream_config()))[
                 with_custodian_and_ward<1, 2>()])
         .def("getvalue", &bytes_stream::getvalue)
-        .def("send_heap", &bytes_stream::send_heap, arg("heap"))
-        .def("send_end", &bytes_stream::send_end);
+        .def("send_heap", &bytes_stream::send_heap, arg("heap"));
 }
 
 } // namespace send
