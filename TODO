@@ -5,13 +5,11 @@
 - Call the send callback with an error if a heap is dropped or the stream is terminated
 - Fix PySPEAD's assumption that small items are always immediates
 - Investigate memory pools for sender
-- Implement more sender classes (particularly vector_stream)
-- More send infrastructure (item group, heap numbering etc)
 - More item validation: value should be a property
 - Query for last heap in which an item changed?
 - Use eventfd where available for waking up asyncio
 - Lots more tests!
-- Add udp_reader constructor that takes over a socket
+- Add udp_reader constructor that takes over a socket?
 - Add docstrings
 - Mechanism to send end-of-stream
 - Insert padding into packets between items to keep item payloads naturally aligned?
@@ -20,5 +18,6 @@
 - Multicast support (TTL for send, subscribe for receive)
 - Eliminate remaining usages of optional<> in Python wrapping
 - Error checking in streambuf sender
-- Fix warning about item with ID 6 and no descriptor
 - Add other default_* to Python interface
+- Auto-allocation of item IDs in an ItemGroup
+- Expose common_defines constants through Python
