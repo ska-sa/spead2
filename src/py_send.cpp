@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <mutex>
 #include <utility>
+#include <memory>
 #include "send_heap.h"
 #include "send_stream.h"
 #include "send_udp.h"
@@ -78,18 +79,6 @@ public:
         release_gil gil;
         std::promise<void> sent_promise;
         Base::async_send_heap(h, [&sent_promise]()
-        {
-            sent_promise.set_value();
-        });
-        sent_promise.get_future().get();
-    }
-
-    /// Send end-of-stream heap synchronously
-    void send_end()
-    {
-        release_gil gil;
-        std::promise<void> sent_promise;
-        Base::async_send_end([&sent_promise]()
         {
             sent_promise.set_value();
         });
