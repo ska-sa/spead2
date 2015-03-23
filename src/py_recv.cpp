@@ -258,7 +258,7 @@ void register_module()
         .add_property("value", &item_wrapper::get_value);
     class_<ring_stream_wrapper, boost::noncopyable>("Stream",
             init<thread_pool_wrapper &, bug_compat_mask, std::size_t>(
-                (arg("thread_pool"), arg("bug_compat_mask") = 0,
+                (arg("thread_pool"), arg("bug_compat") = 0,
                  arg("max_heaps") = ring_stream_wrapper::default_max_heaps))[
                 with_custodian_and_ward<1, 2>()])
         .def("__iter__", objects::identity_function())
