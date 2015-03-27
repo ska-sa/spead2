@@ -22,7 +22,7 @@ except ImportError:
     spead64_48 = None
 
 
-def assert_items_equal(item1, item2):
+def _assert_items_equal(item1, item2):
     assert_equal(item1.id, item2.id)
     assert_equal(item1.name, item2.name)
     assert_equal(item1.description, item2.description)
@@ -47,7 +47,7 @@ def assert_items_equal(item1, item2):
 def assert_item_groups_equal(item_group1, item_group2):
     assert_equal(sorted(item_group1.keys()), sorted(item_group2.keys()))
     for key in item_group1.keys():
-        assert_items_equal(item_group1[key], item_group2[key])
+        _assert_items_equal(item_group1[key], item_group2[key])
 
 
 @decorator

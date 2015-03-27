@@ -18,6 +18,12 @@ def hexlify(data):
         chunks.append(b':'.join([binascii.hexlify(part[i : i+1]) for i in range(len(part))]))
     return b' '.join(chunks)
 
+def encode_be(size, value):
+    """Encodes `value` as big-endian in `size` bytes"""
+    assert size <= 8
+    packed = struct.pack('>Q', value)
+    return packed[8 - size:]
+
 
 class Flavour(object):
     def __init__(self, heap_address_bits, bug_compat=0):
@@ -37,12 +43,6 @@ class Flavour(object):
     def make_address(self, item_id, address):
         return struct.pack('>Q', (item_id << self.heap_address_bits) | address)
 
-    def _encode_be(self, size, value):
-        """Encodes `value` as big-endian in `size` bytes"""
-        assert size <= 8
-        packed = struct.pack('>Q', value)
-        return packed[8 - size:]
-
     def make_shape(self, shape):
         # TODO: extend for bug_compat flavours
         assert not (self.bug_compat &
@@ -51,19 +51,19 @@ class Flavour(object):
         for size in shape:
             if size < 0:
                 ans.append(struct.pack('B', 1))
-                ans.append(self._encode_be(self.heap_address_bits // 8, 0))
+                ans.append(encode_be(self.heap_address_bits // 8, 0))
             else:
                 ans.append(struct.pack('B', 0))
-                ans.append(self._encode_be(self.heap_address_bits // 8, size))
+                ans.append(encode_be(self.heap_address_bits // 8, size))
         return b''.join(ans)
 
     def make_format(self, format):
         # TODO: extend for bug_compat flavours
-        assert not (self.bug_compat & spead2.BUG_COMPAT_DESCRIPTOR_WIDTHS)
+        assert not self.bug_compat & spead2.BUG_COMPAT_DESCRIPTOR_WIDTHS
         ans = []
         for (code, length) in format:
             ans.append(struct.pack('B', ord(code)))
-            ans.append(self._encode_be(8 - self.heap_address_bits // 8, length))
+            ans.append(encode_be(8 - self.heap_address_bits // 8, length))
         return b''.join(ans)
 
     def items_to_bytes(self, items, descriptors=None, max_packet_size=1500):
