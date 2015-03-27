@@ -67,8 +67,22 @@ class Descriptor(object):
                 return None
         return _np.dtype(','.join(fields))
 
+    @property
+    def itemsize_bits(self):
+        """Number of bits per element"""
+        if self.dtype is not None:
+            return self.dtype.itemsize * 8
+        else:
+            return sum(x[1] for x in self.format)
+
     def is_variable_size(self):
         return any([x < 0 for x in self.shape])
+
+    def allow_immediate(self):
+        """Called by the C++ interface to determine whether sufficiently small
+        items should be encoded as immediates.
+        """
+        return not self.is_variable_size()
 
     def dynamic_shape(self, max_elements):
         known = 1
@@ -307,17 +321,16 @@ class Item(Descriptor):
     def set_from_raw(self, raw_item):
         raw_value = raw_item.value
         if self.dtype is None:
-            bit_length = 0
-            for code, length in self.format:
-                bit_length += length
-            max_elements = raw_value.shape[0] * 8 // bit_length
+            itemsize_bits = self.itemsize_bits
+            max_elements = raw_value.shape[0] * 8 // itemsize_bits
             shape = self.dynamic_shape(max_elements)
             elements = int(_np.product(shape))
+            bits = elements * itemsize_bits
             if elements > max_elements:
                 raise ValueError('Item has too few elements for shape (%d < %d)' % (max_elements, elements))
             if raw_item.is_immediate:
                 # Immediates get head padding instead of tail padding
-                size_bytes = (elements * bit_length + 7) // 8
+                size_bytes = (bits + 7) // 8
                 raw_value = raw_value[-size_bytes : ]
 
             gen = self._read_bits(raw_value)
@@ -371,10 +384,7 @@ class Item(Descriptor):
         if self.value is None:
             raise ValueError('Cannot send a value of None')
         if self.dtype is None:
-            bit_length = 0
-            for code, length in self.format:
-                bit_length += length
-            bit_length *= self._num_elements()
+            bit_length = self.itemsize_bits * self._num_elements()
             out = bytearray((bit_length + 7) // 8)
             gen = self._write_bits(out)
             gen.send(None)  # Initialise the generator
