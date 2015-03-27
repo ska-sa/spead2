@@ -48,9 +48,10 @@ class Descriptor(object):
                 tuple(shape))
 
     @classmethod
-    def _parse_format(cls, fmt):
+    def _parse_format(cls, fmt, fallback=False):
         """Attempt to convert a SPEAD format specification to a numpy dtype.
-        If there is an unsupported field, returns None.
+        If there is an unsupported field, return `None` if `fallback` is
+        `False`, or use `O` if `fallback` is `True`.
         """
         fields = []
         for code, length in fmt:
@@ -60,6 +61,8 @@ class Descriptor(object):
                 fields.append('>' + code + str(length // 8))
             elif code == 'c' and length == 8:
                 fields.append('S1')
+            elif fallback:
+                fields.append('O')
             else:
                 return None
         return _np.dtype(','.join(fields))
@@ -319,7 +322,7 @@ class Item(Descriptor):
 
             gen = self._read_bits(raw_value)
             gen.send(None) # Initialisation of the generator
-            self.value = _np.array(self._load_recursive(shape, gen))
+            self.value = _np.array(self._load_recursive(shape, gen), dtype=self._parse_format(self.format, True))
         else:
             max_elements = raw_value.shape[0] // self.dtype.itemsize
             shape = self.dynamic_shape(max_elements)

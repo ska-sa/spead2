@@ -285,7 +285,7 @@ class TestDecode(object):
         np.testing.assert_equal(expected, item.value)
 
     def test_fallback_types(self):
-        expected = [(True, 'y', 1.0), (False, 'n', -1.0)]
+        expected = np.array([(True, 'y', 1.0), (False, 'n', -1.0)], dtype='O,O,f4')
         packet = self.flavour.make_packet_heap(1,
             [
                 self.flavour.make_plain_descriptor(
