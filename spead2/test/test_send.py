@@ -7,6 +7,7 @@ import numpy as np
 from nose.tools import *
 from .defines import *
 
+
 def hexlify(data):
     """Turns a byte string into human-readable hex dump"""
     if isinstance(data, list):
@@ -26,7 +27,9 @@ class Flavour(object):
     def make_header(self, num_items):
         address_size = self.heap_address_bits // 8
         item_size = 8 - address_size
-        return struct.pack('>Q', 0x5304000000000000 | (address_size << 32) | (item_size << 40) | num_items)
+        return struct.pack(
+            '>Q',
+            0x5304000000000000 | (address_size << 32) | (item_size << 40) | num_items)
 
     def make_immediate(self, item_id, value):
         return struct.pack('>Q', 2**63 | (item_id << self.heap_address_bits) | value)
@@ -42,7 +45,8 @@ class Flavour(object):
 
     def make_shape(self, shape):
         # TODO: extend for bug_compat flavours
-        assert not (self.bug_compat & (spead2.BUG_COMPAT_DESCRIPTOR_WIDTHS | spead2.BUG_COMPAT_SHAPE_BIT_1))
+        assert not (self.bug_compat &
+                    (spead2.BUG_COMPAT_DESCRIPTOR_WIDTHS | spead2.BUG_COMPAT_SHAPE_BIT_1))
         ans = []
         for size in shape:
             if size < 0:
@@ -178,7 +182,8 @@ class TestEncode(object):
             ])
         ]
 
-        item = spead2.Item(id=id, name='name', description='description', shape=shape, dtype=np.uint16)
+        item = spead2.Item(id=id, name='name', description='description',
+                           shape=shape, dtype=np.uint16)
         item.value = data
         packet = self.flavour.items_to_bytes([item])
         assert_equal(hexlify(expected), hexlify(packet))
@@ -201,7 +206,8 @@ class TestEncode(object):
                 payload
             ])
         ]
-        item = spead2.Item(id=id, name='name', description='description', shape=shape, dtype=np.uint16)
+        item = spead2.Item(id=id, name='name', description='description',
+                           shape=shape, dtype=np.uint16)
         item.value = data
         packet = self.flavour.items_to_bytes([item], [])
         assert_equal(hexlify(expected), hexlify(packet))
@@ -230,7 +236,8 @@ class TestEncode(object):
                 payload
             ])
         ]
-        item = spead2.Item(id=id, name='name', description='description', shape=shape, dtype=np.uint16, order='F')
+        item = spead2.Item(id=id, name='name', description='description',
+                           shape=shape, dtype=np.uint16, order='F')
         item.value = data
         packet = self.flavour.items_to_bytes([item])
         assert_equal(hexlify(expected), hexlify(packet))
@@ -259,7 +266,8 @@ class TestEncode(object):
                 payload
             ])
         ]
-        item = spead2.Item(id=id, name='name', description='description', dtype=None, shape=shape, format=format)
+        item = spead2.Item(id=id, name='name', description='description',
+                           dtype=None, shape=shape, format=format)
         item.value = data
         packet = self.flavour.items_to_bytes([item])
         assert_equal(hexlify(expected), hexlify(packet))
@@ -281,7 +289,8 @@ class TestEncode(object):
                 struct.pack('B', 0)
             ])
         ]
-        item = spead2.Item(id=id, name='name', description='description', dtype=None, shape=(), format=[('u', 16)])
+        item = spead2.Item(id=id, name='name', description='description',
+                           dtype=None, shape=(), format=[('u', 16)])
         item.value = data
         packet = self.flavour.items_to_bytes([item], [])
         assert_equal(hexlify(expected), hexlify(packet))
@@ -303,7 +312,8 @@ class TestEncode(object):
                 payload
             ])
         ]
-        item = spead2.Item(id=id, name='name', description='description', shape=shape, dtype=np.uint8)
+        item = spead2.Item(id=id, name='name', description='description',
+                           shape=shape, dtype=np.uint8)
         item.value = data
         packet = self.flavour.items_to_bytes([item], [])
         assert_equal(hexlify(expected), hexlify(packet))

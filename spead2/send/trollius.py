@@ -22,6 +22,7 @@ class UdpStream(_UdpStreamAsyncio):
         if loop is None:
             loop = self._loop
         future = trollius.Future(loop=self._loop)
+
         def callback():
             future.set_result(None)
         super(UdpStream, self).async_send_heap(heap, callback)

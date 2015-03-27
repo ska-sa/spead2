@@ -1,13 +1,16 @@
 import spead2._spead2
-from spead2._spead2 import ThreadPool, MemPool, Stopped, Empty, Stopped
-from spead2._spead2 import BUG_COMPAT_DESCRIPTOR_WIDTHS, BUG_COMPAT_SHAPE_BIT_1, BUG_COMPAT_SWAP_ENDIAN
+from spead2._spead2 import ThreadPool, MemPool, Stopped, Empty, Stopped, \
+    BUG_COMPAT_DESCRIPTOR_WIDTHS, \
+    BUG_COMPAT_SHAPE_BIT_1, \
+    BUG_COMPAT_SWAP_ENDIAN
 import numbers as _numbers
 import numpy as _np
 import logging
 
 
 _logger = logging.getLogger(__name__)
-BUG_COMPAT_PYSPEAD_0_5_2 = BUG_COMPAT_DESCRIPTOR_WIDTHS | BUG_COMPAT_SHAPE_BIT_1 | BUG_COMPAT_SWAP_ENDIAN
+BUG_COMPAT_PYSPEAD_0_5_2 = \
+    BUG_COMPAT_DESCRIPTOR_WIDTHS | BUG_COMPAT_SHAPE_BIT_1 | BUG_COMPAT_SWAP_ENDIAN
 
 
 class Descriptor(object):
@@ -27,7 +30,8 @@ class Descriptor(object):
             msg = "Descriptor does not contain the correct keys: %r"
             raise ValueError(msg % (keys,))
         # Sanity-check the values.
-        if not isinstance(d['shape'], tuple) or not all([isinstance(x, _numbers.Integral) for x in d['shape']]):
+        if (not isinstance(d['shape'], tuple) or
+                not all([isinstance(x, _numbers.Integral) for x in d['shape']])):
             msg = "shape is not valid: %r"
             raise ValueError(msg % (d['shape'],))
         if not isinstance(d['fortran_order'], bool):
@@ -55,9 +59,9 @@ class Descriptor(object):
         """
         fields = []
         for code, length in fmt:
-            if ( (code in ('u', 'i') and length in (8, 16, 32, 64)) or
-                (code == 'f' and length in (32, 64)) or
-                (code == 'b' and length == 8) ):
+            if ((code in ('u', 'i') and length in (8, 16, 32, 64)) or
+                    (code == 'f' and length in (32, 64)) or
+                    (code == 'b' and length == 8)):
                 fields.append('>' + code + str(length // 8))
             elif code == 'c' and length == 8:
                 fields.append('S1')
@@ -88,7 +92,8 @@ class Descriptor(object):
         padding should go, and PySPEAD's encoder and decoder disagree, so it
         is best not to send them at all.
         """
-        return not self.is_variable_size() and (self.dtype is not None or self.itemsize_bits % 8 == 0)
+        return not self.is_variable_size() and (
+                self.dtype is not None or self.itemsize_bits % 8 == 0)
 
     def dynamic_shape(self, max_elements):
         known = 1
@@ -333,28 +338,31 @@ class Item(Descriptor):
             elements = int(_np.product(shape))
             bits = elements * itemsize_bits
             if elements > max_elements:
-                raise ValueError('Item has too few elements for shape (%d < %d)' % (max_elements, elements))
+                raise ValueError('Item has too few elements for shape (%d < %d)' %
+                                 (max_elements, elements))
             if raw_item.is_immediate:
                 # Immediates get head padding instead of tail padding
                 size_bytes = (bits + 7) // 8
-                raw_value = raw_value[-size_bytes : ]
+                raw_value = raw_value[-size_bytes:]
 
             gen = self._read_bits(raw_value)
-            gen.send(None) # Initialisation of the generator
-            self.value = _np.array(self._load_recursive(shape, gen), dtype=self._parse_format(self.format, True))
+            gen.send(None)    # Initialisation of the generator
+            self.value = _np.array(self._load_recursive(shape, gen),
+                                   dtype=self._parse_format(self.format, True))
         else:
             max_elements = raw_value.shape[0] // self.dtype.itemsize
             shape = self.dynamic_shape(max_elements)
             elements = int(_np.product(shape))
             if elements > max_elements:
-                raise ValueError('Item has too few elements for shape (%d < %d)' % (max_elements, elements))
+                raise ValueError('Item has too few elements for shape (%d < %d)' %
+                                 (max_elements, elements))
             size_bytes = elements * self.dtype.itemsize
             if raw_item.is_immediate:
                 # Immediates get head padding instead of tail padding
                 # For some reason, np.frombuffer doesn't work on memoryview, but np.array does
-                array1d = _np.array(raw_value, copy=False)[-size_bytes : ]
+                array1d = _np.array(raw_value, copy=False)[-size_bytes:]
             else:
-                array1d = _np.array(raw_value, copy=False)[ : size_bytes]
+                array1d = _np.array(raw_value, copy=False)[:size_bytes]
             array1d = array1d.view(dtype=self.dtype)
             if self.dtype.byteorder in ('<', '>'):
                 # Either < or > indicates non-native endianness. Swap it now

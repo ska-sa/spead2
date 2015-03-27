@@ -7,11 +7,12 @@ import sys
 bp_library = 'boost_python-py{0}{1}'.format(sys.version_info.major, sys.version_info.minor)
 
 extensions = [
-    Extension('_spead2',
-        sources=glob.glob('src/common_*.cpp') + \
-                glob.glob('src/recv_*.cpp') + \
-                glob.glob('src/send_*.cpp') + \
-                glob.glob('src/py_*.cpp'),
+    Extension(
+        '_spead2',
+        sources=(glob.glob('src/common_*.cpp') +
+                 glob.glob('src/recv_*.cpp') +
+                 glob.glob('src/send_*.cpp') +
+                 glob.glob('src/py_*.cpp')),
         depends=glob.glob('src/*.h'),
         language='c++',
         include_dirs=['src', numpy.get_include()],

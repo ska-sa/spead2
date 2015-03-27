@@ -8,6 +8,7 @@ import logging
 import trollius
 from trollius import From
 
+
 def run(stream):
     ig = spead2.ItemGroup()
     try:

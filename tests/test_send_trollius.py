@@ -10,8 +10,8 @@ import trollius
 logging.basicConfig(level=logging.INFO)
 
 thread_pool = spead2.ThreadPool()
-stream = spead2.send.trollius.UdpStream(thread_pool,
-    "localhost", 8888, spead2.send.StreamConfig(max_packet_size=1500, rate=1e7))
+stream = spead2.send.trollius.UdpStream(
+    thread_pool, "localhost", 8888, spead2.send.StreamConfig(max_packet_size=1500, rate=1e7))
 del thread_pool  # Make sure this doesn't crash anything
 
 shape = (40, 50)

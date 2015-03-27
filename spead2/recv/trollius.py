@@ -7,6 +7,7 @@ from trollius import From, Return
 import collections
 import spead2.recv
 
+
 class Stream(spead2.recv.Stream):
     """Stream where `get` is a coroutine that yields the next heap.
 

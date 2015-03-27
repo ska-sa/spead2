@@ -18,7 +18,8 @@ class HeapGenerator(object):
     """Tracks which items and item values have previously been sent and
     generates delta heaps with sequential numbering.
     """
-    def __init__(self, ig, descriptor_frequency=None, heap_address_bits=Heap.DEFAULT_HEAP_ADDRESS_BITS, bug_compat=0):
+    def __init__(self, ig, descriptor_frequency=None,
+                 heap_address_bits=Heap.DEFAULT_HEAP_ADDRESS_BITS, bug_compat=0):
         self._ig = ig
         self._info = {}              # Maps ID to _ItemInfo
         self._next_cnt = 1

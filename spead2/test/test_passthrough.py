@@ -43,25 +43,30 @@ def assert_items_equal(item1, item2):
         value2 = value2.tolist()
     assert_equal(value1, value2)
 
+
 def assert_item_groups_equal(item_group1, item_group2):
     assert_equal(sorted(item_group1.keys()), sorted(item_group2.keys()))
     for key in item_group1.keys():
         assert_items_equal(item_group1[key], item_group2[key])
+
 
 @decorator
 def no_legacy_send(test, *args, **kwargs):
     if not args[0].is_legacy_send:
         test(*args, **kwargs)
 
+
 @decorator
 def no_legacy_receive(test, *args, **kwargs):
     if not args[0].is_legacy_receive:
         test(*args, **kwargs)
 
+
 @decorator
 def no_legacy(test, *args, **kwargs):
     if not (args[0].is_legacy_send or args[0].is_legacy_receive):
         test(*args, **kwargs)
+
 
 class BaseTestPassthrough(object):
     """Tests common to all transports and libraries"""

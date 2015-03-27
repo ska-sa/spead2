@@ -6,6 +6,7 @@ import numpy as np
 from nose.tools import *
 from .defines import *
 
+
 class Item(object):
     def __init__(self, id, value, immediate=False, offset=0):
         self.id = id
@@ -18,6 +19,7 @@ class Item(object):
             return struct.pack('>Q', (1 << 63) | (self.id << heap_address_bits) | self.value)
         else:
             return struct.pack('>Q', (self.id << heap_address_bits) | self.offset)
+
 
 class Flavour(object):
     def __init__(self, heap_address_bits, bug_compat=0):
@@ -36,8 +38,9 @@ class Flavour(object):
         """
         data = []
         data.append(struct.pack('>BBBBHH', 0x53, 0x4,
-            (64 - self.heap_address_bits) // 8, self.heap_address_bits // 8, 0,
-            len(items)))
+                                (64 - self.heap_address_bits) // 8,
+                                self.heap_address_bits // 8, 0,
+                                len(items)))
         for item in items:
             data.append(item.encode(self.heap_address_bits))
         data.append(bytes(payload))
@@ -94,14 +97,15 @@ class Flavour(object):
             if not item.immediate:
                 value = bytes(item.value)
                 all_items.append(Item(item.id, value, offset=offset))
-                payload[offset : offset + len(value)] = value
+                payload[offset : offset+len(value)] = value
                 offset += len(value)
             else:
                 all_items.append(item)
         return self.make_packet(all_items, payload)
 
     def make_plain_descriptor(self, id, name, description, format, shape):
-        return Item(DESCRIPTOR_ID, self.make_packet_heap(1,
+        return Item(DESCRIPTOR_ID, self.make_packet_heap(
+            1,
             [
                 Item(DESCRIPTOR_ID_ID, id, True),
                 Item(DESCRIPTOR_NAME_ID, name.encode('ascii')),
@@ -116,7 +120,8 @@ class Flavour(object):
             'fortran_order': bool(fortran_order),
             'shape': tuple(shape)
         })
-        return Item(DESCRIPTOR_ID, self.make_packet_heap(1,
+        return Item(DESCRIPTOR_ID, self.make_packet_heap(
+            1,
             [
                 Item(DESCRIPTOR_ID_ID, id, True),
                 Item(DESCRIPTOR_NAME_ID, name.encode('ascii')),
@@ -132,12 +137,16 @@ class Flavour(object):
             fortran_order = True
         else:
             raise ValueError('Array must be C or Fortran-order contiguous')
-        return self.make_numpy_descriptor(id, name, description, array.dtype, array.shape, fortran_order)
+        return self.make_numpy_descriptor(
+                id, name, description, array.dtype, array.shape, fortran_order)
+
 
 FLAVOUR = Flavour(48)
 
+
 class TestDecode(object):
     """Various types of descriptors must be correctly interpreted to decode data"""
+
     def __init__(self):
         self.flavour = FLAVOUR
 
@@ -172,7 +181,8 @@ class TestDecode(object):
         return ig[expected_id]
 
     def test_scalar_int(self):
-        packet = self.flavour.make_packet_heap(1,
+        packet = self.flavour.make_packet_heap(
+            1,
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_scalar_int', 'a scalar integer', [('i', 32)], []),
@@ -183,7 +193,8 @@ class TestDecode(object):
         assert_equal(-123456789, item.value)
 
     def test_scalar_int_immediate(self):
-        packet = self.flavour.make_packet_heap(1,
+        packet = self.flavour.make_packet_heap(
+            1,
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_scalar_int', 'a scalar integer', [('u', 32)], []),
@@ -194,7 +205,8 @@ class TestDecode(object):
         assert_equal(0x12345678, item.value)
 
     def test_string(self):
-        packet = self.flavour.make_packet_heap(1,
+        packet = self.flavour.make_packet_heap(
+            1,
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_string', 'a byte string', [('c', 8)], [-1]),
@@ -204,7 +216,8 @@ class TestDecode(object):
         assert_equal('Hello world', item.value)
 
     def test_array(self):
-        packet = self.flavour.make_packet_heap(1,
+        packet = self.flavour.make_packet_heap(
+            1,
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_array', 'an array of floats', [('f', 32)], (3, 2)),
@@ -215,7 +228,8 @@ class TestDecode(object):
         np.testing.assert_equal(expected, item.value)
 
     def test_array_fields(self):
-        packet = self.flavour.make_packet_heap(1,
+        packet = self.flavour.make_packet_heap(
+            1,
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_array', 'an array of floats', [('f', 32), ('i', 8)], (3,)),
@@ -234,7 +248,8 @@ class TestDecode(object):
             send = expected.byteswap()
         else:
             send = expected
-        packet = self.flavour.make_packet_heap(1,
+        packet = self.flavour.make_packet_heap(
+            1,
             [
                 self.flavour.make_numpy_descriptor_from(
                     0x1234, 'test_array_numpy', 'an array of floats', expected),
@@ -252,7 +267,8 @@ class TestDecode(object):
             send = expected.byteswap()
         else:
             send = expected
-        packet = self.flavour.make_packet_heap(1,
+        packet = self.flavour.make_packet_heap(
+            1,
             [
                 self.flavour.make_numpy_descriptor_from(
                     0x1234, 'test_array_numpy_fortran', 'an array of floats', expected),
@@ -264,7 +280,8 @@ class TestDecode(object):
 
     def test_fallback_uint(self):
         expected = np.array([0xABC, 0xDEF, 0x123])
-        packet = self.flavour.make_packet_heap(1,
+        packet = self.flavour.make_packet_heap(
+            1,
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_fallback_uint', 'an array of 12-bit uints', [('u', 12)], (3,)),
@@ -275,7 +292,8 @@ class TestDecode(object):
 
     def test_fallback_int(self):
         expected = np.array([-1348, -529, 291])
-        packet = self.flavour.make_packet_heap(1,
+        packet = self.flavour.make_packet_heap(
+            1,
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_fallback_uint', 'an array of 12-bit ints', [('i', 12)], (3,)),
@@ -286,7 +304,8 @@ class TestDecode(object):
 
     def test_fallback_types(self):
         expected = np.array([(True, 'y', 1.0), (False, 'n', -1.0)], dtype='O,O,f4')
-        packet = self.flavour.make_packet_heap(1,
+        packet = self.flavour.make_packet_heap(
+            1,
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_fallback_uint', 'an array with bools, chars and floats',
@@ -298,7 +317,8 @@ class TestDecode(object):
 
     def test_fallback_scalar(self):
         expected = 0x1234567890AB
-        packet = self.flavour.make_packet_heap(1,
+        packet = self.flavour.make_packet_heap(
+            1,
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_fallback_scalar', 'a scalar with unusual type',
@@ -309,7 +329,8 @@ class TestDecode(object):
         assert_equal(expected, item.value)
 
     def test_size_mismatch(self):
-        packet = self.flavour.make_packet_heap(1,
+        packet = self.flavour.make_packet_heap(
+            1,
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'bad', 'an item with insufficient data', [('u', 32)], (5, 5)),
@@ -325,7 +346,8 @@ class TestDecode(object):
         used for SPEAD.
         """
         dtype = np.dtype('f4,O')
-        packet = self.flavour.make_packet_heap(1,
+        packet = self.flavour.make_packet_heap(
+            1,
             [
                 self.flavour.make_numpy_descriptor(
                     0x1234, 'object', 'an item with object pointers', dtype, (5,)),
