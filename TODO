@@ -20,3 +20,4 @@
 - Auto-allocation of item IDs in an ItemGroup
 - Expose common_defines constants through Python
 - Add test and workaround for endian-swapping within structs (numpy bug https://github.com/numpy/numpy/issues/5356)
+- Investigate potential deadlock: https://magnum.travis-ci.com/ska-sa/katsdpresearch/jobs/15489403

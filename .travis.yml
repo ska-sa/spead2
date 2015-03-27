@@ -10,6 +10,8 @@ before_install:
     - sudo apt-get install -qq gcc-4.8 g++-4.8 libboost-system1.55-dev libboost-python1.55-dev python3-dev
 install:
     - pip install -r requirements.txt
+    # PySPEAD tests are optional, so not listed in requirements.txt
+    - pip install git+https://github.com/ska-sa/PySPEAD@testing-bugfixes#egg=spead
     # The -e is necessary to make nosetests work, because otherwise it tries to find the
     # .so in the current directory instead of the install directory.
     - CC=gcc-4.8 pip install -e .
