@@ -285,7 +285,7 @@ class Item(Descriptor):
                     # convert to 2's complement
                     raw = field
                     if raw < 0:
-                        raw += top_bit
+                        raw += 2 * top_bit
                 elif code == 'b':
                     raw = 1 if field else 0
                 elif code == 'c':
