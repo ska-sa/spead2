@@ -197,7 +197,7 @@ class Item(Descriptor):
                     have_bits += 8
                 except StopIteration:
                     return
-            result = bits >> (have_bits - need_bits)
+            result = int(bits >> (have_bits - need_bits))
             bits &= (1 << (have_bits - need_bits)) - 1
             have_bits -= need_bits
 
