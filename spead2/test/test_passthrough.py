@@ -1,3 +1,7 @@
+"""Test that data can be passed over the SPEAD protocol, using the various
+transports, and mixing with the old PySPEAD implementation.
+"""
+
 from __future__ import division, print_function
 import numpy as np
 from contextlib import contextmanager
@@ -5,6 +9,7 @@ import itertools
 import spead2
 import spead2.send
 import spead2.recv
+from decorator import decorator
 from nose.tools import *
 from nose.plugins.skip import SkipTest
 try:
@@ -43,19 +48,49 @@ def assert_item_groups_equal(item_group1, item_group2):
     for key in item_group1.keys():
         assert_items_equal(item_group1[key], item_group2[key])
 
+@decorator
+def no_legacy_send(test, *args, **kwargs):
+    if not args[0].is_legacy_send:
+        test(*args, **kwargs)
+
+@decorator
+def no_legacy_receive(test, *args, **kwargs):
+    if not args[0].is_legacy_receive:
+        test(*args, **kwargs)
+
+@decorator
+def no_legacy(test, *args, **kwargs):
+    if not (args[0].is_legacy_send or args[0].is_legacy_receive):
+        test(*args, **kwargs)
+
 class BaseTestPassthrough(object):
+    """Tests common to all transports and libraries"""
+
+    is_legacy_send = False
+    is_legacy_receive = False
+
     def _test_item_group(self, item_group):
         received_item_group = self.transmit_item_group(item_group)
         assert_item_groups_equal(item_group, received_item_group)
 
     def test_numpy_simple(self):
+        """A basic array with numpy encoding"""
         ig = spead2.send.ItemGroup()
         data = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.uint16)
         ig.add_item(id=0x2345, name='name', description='description',
-                    shape=data.shape, dtype=np.uint16, value=data)
+                    shape=data.shape, dtype=data.dtype, value=data)
         self._test_item_group(ig)
 
-    def test_fallback_struct_whole(self):
+    def test_numpy_large(self):
+        """A numpy style array split across several packets"""
+        ig = spead2.send.ItemGroup()
+        data = np.random.randn(100, 200)
+        ig.add_item(id=0x2345, name='name', description='description',
+                    shape=data.shape, dtype=data.dtype, value=data)
+
+    def test_fallback_struct_whole_bytes(self):
+        """A structure with non-byte-aligned elements, but which is
+        byte-aligned overall."""
         ig = spead2.send.ItemGroup()
         format = [('u', 4), ('f', 64), ('i', 4)]
         data = (12, 1.5, -3)
@@ -63,15 +98,24 @@ class BaseTestPassthrough(object):
                     shape=(), dtype=None, format=format, value=data)
         self._test_item_group(ig)
 
-    def transmit_item_group(self, item_group):
-        raise NotImplementedError()
+    @no_legacy_receive
+    def test_fallback_array_partial_bytes_small(self):
+        """An array which takes a fractional number of bytes per element
+        and is small enough to encode in an immediate.
 
+        It is disabled for PySPEAD receive because PySPEAD does not decode
+        such items in the same way as it encodes them.
+        """
+        ig = spead2.send.ItemGroup()
+        format = [('u', 7)]
+        data = [127, 12, 123]
+        ig.add_item(id=0x2345, name='name', description='description',
+                    shape=(len(data),), dtype=None, format=format, value=data)
+        self._test_item_group(ig)
 
-class BaseTestPassthroughSpead2(BaseTestPassthrough):
-    """Additional tests that cannot be used in interop tests with
-    PySPEAD due to bugs in PySPEAD.
-    """
+    @no_legacy
     def test_fallback_types(self):
+        """An array structure using a mix of types."""
         ig = spead2.send.ItemGroup()
         format = [('b', 1), ('c', 7), ('f', 32)]
         data = [(True, 'y', 1.0), (False, 'n', -1.0)]
@@ -79,7 +123,10 @@ class BaseTestPassthroughSpead2(BaseTestPassthrough):
                     shape=(2,), dtype=None, format=format, value=data)
         self._test_item_group(ig)
 
-    def test_numpy_struct(self):
+    @no_legacy
+    def test_numpy_fallback_struct(self):
+        """A structure specified using a format, but which is encodable using
+        numpy."""
         ig = spead2.send.ItemGroup()
         format = [('u', 8), ('f', 32)]
         data = (12, 1.5)
@@ -87,7 +134,10 @@ class BaseTestPassthroughSpead2(BaseTestPassthrough):
                     shape=(), dtype=None, format=format, value=data)
         self._test_item_group(ig)
 
-    def test_fallback_struct_partial(self):
+    @no_legacy
+    def test_fallback_struct_partial_bytes(self):
+        """A structure which takes a fractional number of bytes per element.
+        """
         ig = spead2.send.ItemGroup()
         format = [('u', 4), ('f', 64)]
         data = (12, 1.5)
@@ -95,8 +145,14 @@ class BaseTestPassthroughSpead2(BaseTestPassthrough):
                     shape=(), dtype=None, format=format, value=data)
         self._test_item_group(ig)
 
+    def transmit_item_group(self, item_group):
+        """Transmit `item_group` over the chosen transport, and return the
+        item group received at the other end.
+        """
+        raise NotImplementedError()
 
-class TestPassthroughUdp(BaseTestPassthroughSpead2):
+
+class TestPassthroughUdp(BaseTestPassthrough):
     def transmit_item_group(self, item_group):
         thread_pool = spead2.ThreadPool(2)
         sender = spead2.send.UdpStream(
@@ -114,7 +170,7 @@ class TestPassthroughUdp(BaseTestPassthroughSpead2):
         return received_item_group
 
 
-class TestPassthroughMem(BaseTestPassthroughSpead2):
+class TestPassthroughMem(BaseTestPassthrough):
     def transmit_item_group(self, item_group):
         thread_pool = spead2.ThreadPool(2)
         sender = spead2.send.BytesStream(thread_pool)
@@ -130,6 +186,8 @@ class TestPassthroughMem(BaseTestPassthroughSpead2):
 
 
 class BaseTestPassthroughLegacySend(BaseTestPassthrough):
+    is_legacy_send = True
+
     def transmit_item_group(self, item_group):
         if not self.spead:
             raise SkipTest('spead module not importable')
@@ -164,6 +222,8 @@ class TestPassthroughLegacySend64_48(BaseTestPassthroughLegacySend):
 
 
 class BaseTestPassthroughLegacyReceive(BaseTestPassthrough):
+    is_legacy_receive = True
+
     @contextmanager
     def get_receiver(self, *args, **kwargs):
         receiver = self.spead.TransportUDPrx(*args, **kwargs)
