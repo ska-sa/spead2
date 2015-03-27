@@ -81,8 +81,14 @@ class Descriptor(object):
     def allow_immediate(self):
         """Called by the C++ interface to determine whether sufficiently small
         items should be encoded as immediates.
+
+        Variable-size objects cannot be immediates because there is no way to
+        determine the true payload size. Types with a non-integral number of
+        bytes are banned because the protocol does not specify where the
+        padding should go, and PySPEAD's encoder and decoder disagree, so it
+        is best not to send them at all.
         """
-        return not self.is_variable_size()
+        return not self.is_variable_size() and (self.dtype is not None or self.itemsize_bits % 8 == 0)
 
     def dynamic_shape(self, max_elements):
         known = 1
