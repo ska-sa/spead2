@@ -20,3 +20,5 @@
 - Add other default_* to Python interface
 - Auto-allocation of item IDs in an ItemGroup
 - Expose common_defines constants through Python
+- Check on padding for immediates with fractional bytes
+- Add test and workaround for endian-swapping within structs (numpy bug https://github.com/numpy/numpy/issues/5356)
