@@ -15,4 +15,4 @@ install:
     # The -e is necessary to make nosetests work, because otherwise it tries to find the
     # .so in the current directory instead of the install directory.
     - CC=gcc-4.8 pip install -e .
-script: nosetests
+script: nosetests -v
