@@ -68,6 +68,15 @@ def no_legacy(test, *args, **kwargs):
         test(*args, **kwargs)
 
 
+def timed_class(cls):
+    """Class decorator version of `nose.tools.timed`"""
+    for key in cls.__dict__:
+        if key.startswith('test_'):
+            setattr(cls, key, timed(2)(getattr(cls, key)))
+    return cls
+
+
+@timed_class
 class BaseTestPassthrough(object):
     """Tests common to all transports and libraries"""
 
