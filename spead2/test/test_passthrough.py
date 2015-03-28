@@ -4,7 +4,6 @@ transports, and mixing with the old PySPEAD implementation.
 
 from __future__ import division, print_function
 import numpy as np
-from contextlib import contextmanager
 import itertools
 import spead2
 import spead2.send
@@ -238,54 +237,43 @@ class TestPassthroughLegacySend64_48(BaseTestPassthroughLegacySend):
 class BaseTestPassthroughLegacyReceive(BaseTestPassthrough):
     is_legacy_receive = True
 
-    @contextmanager
-    def get_receiver(self, *args, **kwargs):
-        receiver = self.spead.TransportUDPrx(*args, **kwargs)
-        yield receiver
-        receiver.stop()
-
     def transmit_item_group(self, item_group):
         if not self.spead:
             raise SkipTest('spead module not importable')
         thread_pool = spead2.ThreadPool(1)
-        with self.get_receiver(8888) as receiver:
-            sender = spead2.send.UdpStream(
-                    thread_pool, "localhost", 8888,
-                    spead2.send.StreamConfig(rate=1e7),
-                    buffer_size=0)
-            gen = spead2.send.HeapGenerator(
-                    item_group,
-                    heap_address_bits=self.heap_address_bits,
-                    bug_compat=spead2.BUG_COMPAT_PYSPEAD_0_5_2)
-            sender.send_heap(gen.get_heap())
-            # We can't send an end-of-stream, because PySPEAD stops
-            # processing packets as soon as an end-of-stream packet
-            # arrives, even if there are still queued packets.
-            legacy_item_group = self.spead.ItemGroup()
-            for heap in itertools.islice(self.spead.iterheaps(receiver), 1):
-                legacy_item_group.update(heap)
-            received_item_group = spead2.ItemGroup()
-            for key in legacy_item_group.keys():
-                item = legacy_item_group.get_item(key)
-                if item.dtype is None:
-                    received_item_group.add_item(
-                            id=item.id,
-                            name=item.name,
-                            description=item.description,
-                            shape=item.shape,
-                            dtype=None,
-                            format=list(self.spead.parsefmt(item.format)),
-                            value=item.get_value())
-                else:
-                    received_item_group.add_item(
-                            id=item.id,
-                            name=item.name,
-                            description=item.description,
-                            shape=item.shape,
-                            dtype=item.dtype,
-                            order='F' if item.fortran_order else 'C',
-                            value=item.get_value())
-            return received_item_group
+        sender = spead2.send.BytesStream(thread_pool)
+        gen = spead2.send.HeapGenerator(
+            item_group,
+            heap_address_bits=self.heap_address_bits,
+            bug_compat=spead2.BUG_COMPAT_PYSPEAD_0_5_2)
+        sender.send_heap(gen.get_heap())
+        sender.send_heap(gen.get_end())
+        receiver = self.spead.TransportString(sender.getvalue())
+        legacy_item_group = self.spead.ItemGroup()
+        for heap in itertools.islice(self.spead.iterheaps(receiver), 1):
+            legacy_item_group.update(heap)
+        received_item_group = spead2.ItemGroup()
+        for key in legacy_item_group.keys():
+            item = legacy_item_group.get_item(key)
+            if item.dtype is None:
+                received_item_group.add_item(
+                        id=item.id,
+                        name=item.name,
+                        description=item.description,
+                        shape=item.shape,
+                        dtype=None,
+                        format=list(self.spead.parsefmt(item.format)),
+                        value=item.get_value())
+            else:
+                received_item_group.add_item(
+                        id=item.id,
+                        name=item.name,
+                        description=item.description,
+                        shape=item.shape,
+                        dtype=item.dtype,
+                        order='F' if item.fortran_order else 'C',
+                        value=item.get_value())
+        return received_item_group
 
 
 class TestPassthroughLegacyReceive64_40(BaseTestPassthroughLegacyReceive):
