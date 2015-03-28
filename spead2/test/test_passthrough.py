@@ -4,7 +4,7 @@ transports, and mixing with the old PySPEAD implementation.
 
 from __future__ import division, print_function
 import numpy as np
-import itertools
+import io
 import spead2
 import spead2.send
 import spead2.recv
@@ -204,10 +204,8 @@ class BaseTestPassthroughLegacySend(BaseTestPassthrough):
     def transmit_item_group(self, item_group):
         if not self.spead:
             raise SkipTest('spead module not importable')
-        thread_pool = spead2.ThreadPool(1)
-        sender = self.spead.Transmitter(self.spead.TransportUDPtx('127.0.0.1', 8888, rate=1e9))
-        receiver = spead2.recv.Stream(thread_pool, bug_compat=spead2.BUG_COMPAT_PYSPEAD_0_5_2)
-        receiver.add_udp_reader(8888, bind_hostname='localhost')
+        transport = io.BytesIO()
+        sender = self.spead.Transmitter(transport)
         legacy_item_group = self.spead.ItemGroup()
         for item in item_group.values():
             legacy_item_group.add_item(
@@ -220,6 +218,9 @@ class BaseTestPassthroughLegacySend(BaseTestPassthrough):
             legacy_item_group[item.name] = item.value
         sender.send_heap(legacy_item_group.get_heap())
         sender.end()
+        thread_pool = spead2.ThreadPool(1)
+        receiver = spead2.recv.Stream(thread_pool, bug_compat=spead2.BUG_COMPAT_PYSPEAD_0_5_2)
+        receiver.add_buffer_reader(transport.getvalue())
         received_item_group = spead2.ItemGroup()
         for heap in receiver:
             received_item_group.update(heap)
@@ -250,7 +251,7 @@ class BaseTestPassthroughLegacyReceive(BaseTestPassthrough):
         sender.send_heap(gen.get_end())
         receiver = self.spead.TransportString(sender.getvalue())
         legacy_item_group = self.spead.ItemGroup()
-        for heap in itertools.islice(self.spead.iterheaps(receiver), 1):
+        for heap in self.spead.iterheaps(receiver):
             legacy_item_group.update(heap)
         received_item_group = spead2.ItemGroup()
         for key in legacy_item_group.keys():
