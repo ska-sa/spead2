@@ -65,7 +65,7 @@ class stream
 {
 private:
     typedef std::function<void()> completion_handler;
-    typedef boost::asio::high_resolution_timer timer_type;
+    typedef boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock> timer_type;
 
     struct queue_item
     {
