@@ -11,22 +11,40 @@
 namespace spead2
 {
 
-template<typename T>
-static inline T htobe(T in) = delete;
+namespace detail
+{
 
 template<typename T>
-static inline T betoh(T in) = delete;
+struct Endian
+{
+};
 
 template<>
-inline std::uint64_t htobe<std::uint64_t>(std::uint64_t in)
+struct Endian<std::uint64_t>
 {
-    return htobe64(in);
+    static std::uint64_t htobe(std::uint64_t in)
+    {
+        return htobe64(in);
+    }
+
+    static std::uint64_t betoh(std::uint64_t in)
+    {
+        return be64toh(in);
+    }
+};
+
+} // namespace detail
+
+template<typename T>
+static inline T htobe(T in)
+{
+    return detail::Endian<T>::htobe(in);
 }
 
-template<>
-inline std::uint64_t betoh<std::uint64_t>(std::uint64_t in)
+template<typename T>
+static inline T betoh(T in)
 {
-    return be64toh(in);
+    return detail::Endian<T>::betoh(in);
 }
 
 } // namespace spead2

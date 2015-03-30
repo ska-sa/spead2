@@ -26,7 +26,7 @@ class thread_pool;
 namespace recv
 {
 
-class packet_header;
+struct packet_header;
 
 /**
  * Encapsulation of a SPEAD stream. Packets are fed in through @ref add_packet.
