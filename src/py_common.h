@@ -176,7 +176,7 @@ public:
 
 /* Older versions of boost don't understand std::shared_ptr properly. This is
  * in the spead2 namespace so that it will be found by ADL when considering
- * std::shared_ptr<spead2::mem_pool>.
+ * std::shared_ptr<spead2::memory_pool>.
  *
  * Due to https://svn.boost.org/trac/boost/ticket/7473, Boost does not detect
  * standard library support in Clang 3.4.

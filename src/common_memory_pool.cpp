@@ -3,17 +3,17 @@
  */
 
 #include <cassert>
-#include "common_mem_pool.h"
+#include "common_memory_pool.h"
 #include "common_logging.h"
 
 namespace spead2
 {
 
-mem_pool::mem_pool() : lower(0), upper(0), max_free(0)
+memory_pool::memory_pool() : lower(0), upper(0), max_free(0)
 {
 }
 
-mem_pool::mem_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial)
+memory_pool::memory_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial)
     : lower(lower), upper(upper), max_free(max_free)
 {
     assert(lower <= upper);
@@ -22,9 +22,9 @@ mem_pool::mem_pool(std::size_t lower, std::size_t upper, std::size_t max_free, s
         pool.emplace(new std::uint8_t[upper]);
 }
 
-void mem_pool::return_to_pool(const std::weak_ptr<mem_pool> &self_weak, std::uint8_t *ptr)
+void memory_pool::return_to_pool(const std::weak_ptr<memory_pool> &self_weak, std::uint8_t *ptr)
 {
-    std::shared_ptr<mem_pool> self = self_weak.lock();
+    std::shared_ptr<memory_pool> self = self_weak.lock();
     if (self)
         self->return_to_pool(ptr);
     else
@@ -34,7 +34,7 @@ void mem_pool::return_to_pool(const std::weak_ptr<mem_pool> &self_weak, std::uin
     }
 }
 
-void mem_pool::return_to_pool(std::uint8_t *ptr)
+void memory_pool::return_to_pool(std::uint8_t *ptr)
 {
     std::unique_lock<std::mutex> lock(mutex);
     if (pool.size() < max_free)
@@ -50,7 +50,7 @@ void mem_pool::return_to_pool(std::uint8_t *ptr)
     }
 }
 
-std::unique_ptr<std::uint8_t[]> mem_pool::allocate_for_pool()
+std::unique_ptr<std::uint8_t[]> memory_pool::allocate_for_pool()
 {
     std::uint8_t *ptr = new std::uint8_t[upper];
     // Pre-fault the memory by touching every page
@@ -59,7 +59,7 @@ std::unique_ptr<std::uint8_t[]> mem_pool::allocate_for_pool()
     return std::unique_ptr<std::uint8_t[]>(ptr);
 }
 
-mem_pool::pointer mem_pool::allocate(std::size_t size)
+memory_pool::pointer memory_pool::allocate(std::size_t size)
 {
     if (size >= lower && size <= upper)
     {
@@ -80,7 +80,7 @@ mem_pool::pointer mem_pool::allocate(std::size_t size)
         }
         // The pool may be discarded while the memory is still allocated: in
         // this case, it is simply freed.
-        std::weak_ptr<mem_pool> self(shared_from_this());
+        std::weak_ptr<memory_pool> self(shared_from_this());
         return pointer(ptr.release(), [self] (std::uint8_t *p) { return_to_pool(self, p); });
     }
     else
@@ -92,4 +92,4 @@ mem_pool::pointer mem_pool::allocate(std::size_t size)
 
 } // namespace spead2
 
-#include "common_mem_pool.h"
+#include "common_memory_pool.h"

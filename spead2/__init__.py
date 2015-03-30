@@ -1,5 +1,5 @@
 import spead2._spead2
-from spead2._spead2 import ThreadPool, MemPool, Stopped, Empty, Stopped, \
+from spead2._spead2 import ThreadPool, MemoryPool, Stopped, Empty, Stopped, \
     BUG_COMPAT_DESCRIPTOR_WIDTHS, \
     BUG_COMPAT_SHAPE_BIT_1, \
     BUG_COMPAT_SWAP_ENDIAN

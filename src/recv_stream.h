@@ -16,7 +16,7 @@
 #include <boost/asio.hpp>
 #include "recv_live_heap.h"
 #include "recv_reader.h"
-#include "common_mem_pool.h"
+#include "common_memory_pool.h"
 
 namespace spead2
 {
@@ -59,7 +59,7 @@ private:
     /// Protocol bugs to be compatible with
     bug_compat_mask bug_compat;
     /// Memory pool used by heaps
-    std::shared_ptr<mem_pool> pool;
+    std::shared_ptr<memory_pool> pool;
 
     /**
      * Callback called when a heap is being ejected from the live list.
@@ -93,7 +93,7 @@ public:
     /**
      * Set a pool to use for allocating heap memory.
      */
-    void set_mem_pool(std::shared_ptr<mem_pool> pool);
+    void set_memory_pool(std::shared_ptr<memory_pool> pool);
 
     /**
      * Add a packet that was received, and which has been examined by @a
@@ -195,7 +195,7 @@ public:
     virtual ~stream() override;
 
     void set_max_heaps(std::size_t max_heaps);
-    void set_mem_pool(std::shared_ptr<mem_pool> pool);
+    void set_memory_pool(std::shared_ptr<memory_pool> pool);
 
     /**
      * Add a new reader by passing its constructor arguments, excluding

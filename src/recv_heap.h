@@ -10,7 +10,7 @@
 #include <memory>
 #include <vector>
 #include "common_defines.h"
-#include "common_mem_pool.h"
+#include "common_memory_pool.h"
 
 namespace spead2
 {
@@ -49,7 +49,7 @@ private:
      */
     std::vector<item> items;
     /// Heap payload
-    mem_pool::pointer payload;
+    memory_pool::pointer payload;
     /// Storage for immediate values
     std::unique_ptr<std::uint8_t[]> immediate_payload;
 

@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <functional>
 #include "common_defines.h"
-#include "common_mem_pool.h"
+#include "common_memory_pool.h"
 #include "recv_packet.h"
 
 namespace spead2
@@ -67,7 +67,7 @@ private:
      * doubling. While @c std::vector would take care of that for us, it also
      * zero-fills the memory, which would be inefficient.
      */
-    mem_pool::pointer payload;
+    memory_pool::pointer payload;
     /// Size of the memory in @ref payload
     std::size_t payload_reserved = 0;
     /**
@@ -88,7 +88,7 @@ private:
     std::unordered_set<s_item_pointer_t> packet_offsets;
 
     /// Backing memory pool
-    std::shared_ptr<mem_pool> pool;
+    std::shared_ptr<memory_pool> pool;
 
     /**
      * Make sure at least @a size bytes are allocated for payload. If
@@ -109,7 +109,7 @@ public:
      * Set a memory pool to use for payload data, instead of allocating with
      * @c new.
      */
-    void set_mem_pool(std::shared_ptr<mem_pool> pool);
+    void set_memory_pool(std::shared_ptr<memory_pool> pool);
 
     /**
      * Attempt to add a packet to the heap. The packet must have been

@@ -1,3 +1,4 @@
+- Construct flavour from (version, bits, heap address bits), not just heap address bits
 - Distinguish descriptor re-issues from descriptor changes (don't warn on the former)
 - Move most of the classes to the detail namespace
 - Add lots of validation to sending (overflows etc)

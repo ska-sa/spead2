@@ -2,8 +2,8 @@
  * @file
  */
 
-#ifndef SPEAD_COMMON_MEM_POOL_H
-#define SPEAD_COMMON_MEM_POOL_H
+#ifndef SPEAD2_COMMON_MEMORY_POOL_H
+#define SPEAD2_COMMON_MEMORY_POOL_H
 
 #include <cstddef>
 #include <cstdint>
@@ -30,7 +30,7 @@ namespace spead2
  *
  * This class is thread-safe.
  */
-class mem_pool : public std::enable_shared_from_this<mem_pool>
+class memory_pool : public std::enable_shared_from_this<memory_pool>
 {
 public:
     typedef std::unique_ptr<std::uint8_t[], std::function<void(std::uint8_t *)> > pointer;
@@ -41,15 +41,15 @@ private:
     std::stack<std::unique_ptr<std::uint8_t[]> > pool;
 
     void return_to_pool(std::uint8_t *ptr);
-    static void return_to_pool(const std::weak_ptr<mem_pool> &self_weak, std::uint8_t *ptr);
+    static void return_to_pool(const std::weak_ptr<memory_pool> &self_weak, std::uint8_t *ptr);
     std::unique_ptr<std::uint8_t[]> allocate_for_pool();
 
 public:
-    mem_pool();
-    mem_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial);
+    memory_pool();
+    memory_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial);
     pointer allocate(std::size_t size);
 };
 
 } // namespace spead2
 
-#endif // SPEAD_COMMON_MEM_POOL_H
+#endif // SPEAD2_COMMON_MEMORY_POOL_H

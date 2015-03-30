@@ -193,10 +193,10 @@ public:
         return get_ringbuffer().get_fd();
     }
 
-    void set_mem_pool(std::shared_ptr<mem_pool> pool)
+    void set_memory_pool(std::shared_ptr<memory_pool> pool)
     {
         release_gil gil;
-        ring_stream::set_mem_pool(std::move(pool));
+        ring_stream::set_memory_pool(std::move(pool));
     }
 
     void add_buffer_reader(py::object buffer)
@@ -272,7 +272,7 @@ void register_module()
         , &ring_stream_wrapper::next)
         .def("get", &ring_stream_wrapper::get)
         .def("get_nowait", &ring_stream_wrapper::get_nowait)
-        .def("set_mem_pool", &ring_stream_wrapper::set_mem_pool,
+        .def("set_memory_pool", &ring_stream_wrapper::set_memory_pool,
              arg("pool"))
         .def("add_buffer_reader", &ring_stream_wrapper::add_buffer_reader,
              arg("buffer"))

@@ -23,7 +23,7 @@ live_heap::live_heap(s_item_pointer_t cnt, bug_compat_mask bug_compat)
     assert(cnt >= 0);
 }
 
-void live_heap::set_mem_pool(std::shared_ptr<mem_pool> pool)
+void live_heap::set_memory_pool(std::shared_ptr<memory_pool> pool)
 {
     this->pool = std::move(pool);
 }
@@ -36,13 +36,13 @@ void live_heap::payload_reserve(std::size_t size, bool exact)
         {
             size = payload_reserved * 2;
         }
-        mem_pool::pointer new_payload;
+        memory_pool::pointer new_payload;
         if (pool != nullptr)
             new_payload = pool->allocate(size);
         else
         {
             std::uint8_t *ptr = new std::uint8_t[size];
-            new_payload = mem_pool::pointer(ptr, std::default_delete<std::uint8_t[]>());
+            new_payload = memory_pool::pointer(ptr, std::default_delete<std::uint8_t[]>());
         }
         if (payload)
             std::memcpy(new_payload.get(), payload.get(), payload_reserved);
