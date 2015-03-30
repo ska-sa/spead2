@@ -1,7 +1,7 @@
-#ifndef SPEAD_PY_RECV_H
-#define SPEAD_PY_RECV_H
+#ifndef SPEAD2_PY_RECV_H
+#define SPEAD2_PY_RECV_H
 
-namespace spead
+namespace spead2
 {
 namespace recv
 {
@@ -11,4 +11,4 @@ void register_module();
 }
 }
 
-#endif // SPEAD_PY_RECV_H
+#endif // SPEAD2_PY_RECV_H

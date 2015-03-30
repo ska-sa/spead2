@@ -2,8 +2,8 @@
  * @file
  */
 
-#ifndef SPEAD_SEND_HEAP_H
-#define SPEAD_SEND_HEAP_H
+#ifndef SPEAD2_SEND_HEAP_H
+#define SPEAD2_SEND_HEAP_H
 
 #include <vector>
 #include <memory>
@@ -14,7 +14,7 @@
 #include <cassert>
 #include "common_defines.h"
 
-namespace spead
+namespace spead2
 {
 namespace send
 {
@@ -153,6 +153,6 @@ public:
 };
 
 } // namespace send
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_SEND_HEAP_H
+#endif // SPEAD2_SEND_HEAP_H

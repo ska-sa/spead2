@@ -2,13 +2,13 @@
  * @file
  */
 
-#ifndef SPEAD_RECV_READER_H
-#define SPEAD_RECV_READER_H
+#ifndef SPEAD2_RECV_READER_H
+#define SPEAD2_RECV_READER_H
 
 #include <boost/asio.hpp>
 #include <future>
 
-namespace spead
+namespace spead2
 {
 namespace recv
 {
@@ -71,6 +71,6 @@ public:
 };
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_RECV_READER_H
+#endif // SPEAD2_RECV_READER_H

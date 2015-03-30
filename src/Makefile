@@ -4,7 +4,7 @@ CXX = g++
 CXXFLAGS = -Wall -std=c++11 -pthread
 LDFLAGS = -lboost_system -pthread
 ifeq ($(VARIANT), fulldebug)
-    CXXFLAGS += -g -fsanitize=address -D_GLIBCXX_DEBUG -DSPEAD_MAX_LOG_LEVEL=spead::log_level::debug
+    CXXFLAGS += -g -fsanitize=address -D_GLIBCXX_DEBUG -DSPEAD2_MAX_LOG_LEVEL=spead::log_level::debug
     LDFLAGS += -fsanitize=address
 endif
 ifeq ($(VARIANT), debug)

@@ -2,15 +2,15 @@
  * @file
  */
 
-#ifndef SPEAD_SEND_UDP_H
-#define SPEAD_SEND_UDP_H
+#ifndef SPEAD2_SEND_UDP_H
+#define SPEAD2_SEND_UDP_H
 
 #include <boost/asio.hpp>
 #include <utility>
 #include "send_packet.h"
 #include "send_stream.h"
 
-namespace spead
+namespace spead2
 {
 namespace send
 {
@@ -40,6 +40,6 @@ public:
 };
 
 } // namespace send
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_SEND_UDP_H
+#endif // SPEAD2_SEND_UDP_H

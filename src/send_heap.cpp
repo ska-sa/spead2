@@ -16,7 +16,7 @@
 #include "common_logging.h"
 #include "common_endian.h"
 
-namespace spead
+namespace spead2
 {
 namespace send
 {
@@ -147,4 +147,4 @@ void heap::add_descriptor(const descriptor &descriptor)
 }
 
 } // namespace send
-} // namespace spead
+} // namespace spead2

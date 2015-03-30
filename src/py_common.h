@@ -2,8 +2,8 @@
  * @file
  */
 
-#ifndef SPEAD_PY_COMMON_H
-#define SPEAD_PY_COMMON_H
+#ifndef SPEAD2_PY_COMMON_H
+#define SPEAD2_PY_COMMON_H
 
 #include <memory>
 #include <utility>
@@ -16,7 +16,7 @@
 #include "common_ringbuffer.h"
 #include "common_thread_pool.h"
 
-namespace spead
+namespace spead2
 {
 
 class stop_iteration : public std::exception
@@ -175,8 +175,8 @@ public:
 };
 
 /* Older versions of boost don't understand std::shared_ptr properly. This is
- * in the spead namespace so that it will be found by ADL when considering
- * std::shared_ptr<spead::mem_pool>.
+ * in the spead2 namespace so that it will be found by ADL when considering
+ * std::shared_ptr<spead2::mem_pool>.
  */
 #if BOOST_VERSION < 105300
 template<typename T>
@@ -186,6 +186,6 @@ T *get_pointer(const std::shared_ptr<T> &p)
 }
 #endif
 
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_PY_COMMON_H
+#endif // SPEAD2_PY_COMMON_H

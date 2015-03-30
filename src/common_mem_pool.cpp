@@ -6,7 +6,7 @@
 #include "common_mem_pool.h"
 #include "common_logging.h"
 
-namespace spead
+namespace spead2
 {
 
 mem_pool::mem_pool() : lower(0), upper(0), max_free(0)
@@ -90,6 +90,6 @@ mem_pool::pointer mem_pool::allocate(std::size_t size)
     }
 }
 
-} // namespace spead
+} // namespace spead2
 
 #include "common_mem_pool.h"

@@ -2,8 +2,8 @@
  * @file
  */
 
-#ifndef SPEAD_RECV_LIVE_HEAP_H
-#define SPEAD_RECV_LIVE_HEAP_H
+#ifndef SPEAD2_RECV_LIVE_HEAP_H
+#define SPEAD2_RECV_LIVE_HEAP_H
 
 #include <cstddef>
 #include <cstdint>
@@ -15,7 +15,7 @@
 #include "common_mem_pool.h"
 #include "recv_packet.h"
 
-namespace spead
+namespace spead2
 {
 namespace recv
 {
@@ -136,6 +136,6 @@ public:
 };
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_RECV_LIVE_HEAP_H
+#endif // SPEAD2_RECV_LIVE_HEAP_H

@@ -4,7 +4,7 @@
 #include "send_udp.h"
 #include "common_defines.h"
 
-namespace spead
+namespace spead2
 {
 namespace send
 {
@@ -37,4 +37,4 @@ udp_stream::udp_stream(
 }
 
 } // namespace send
-} // namespace spead
+} // namespace spead2

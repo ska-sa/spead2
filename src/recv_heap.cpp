@@ -14,7 +14,7 @@
 #include "common_logging.h"
 #include "common_endian.h"
 
-namespace spead
+namespace spead2
 {
 namespace recv
 {
@@ -225,4 +225,4 @@ std::vector<descriptor> heap::get_descriptors() const
 }
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2

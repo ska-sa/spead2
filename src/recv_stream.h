@@ -2,8 +2,8 @@
  * @file
  */
 
-#ifndef SPEAD_RECV_STREAM
-#define SPEAD_RECV_STREAM
+#ifndef SPEAD2_RECV_STREAM
+#define SPEAD2_RECV_STREAM
 
 #include <cstddef>
 #include <deque>
@@ -18,7 +18,7 @@
 #include "recv_reader.h"
 #include "common_mem_pool.h"
 
-namespace spead
+namespace spead2
 {
 
 class thread_pool;
@@ -231,6 +231,6 @@ public:
 const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::size_t length);
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_RECV_STREAM
+#endif // SPEAD2_RECV_STREAM

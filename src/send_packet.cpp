@@ -14,7 +14,7 @@
 #include "common_logging.h"
 #include "common_endian.h"
 
-namespace spead
+namespace spead2
 {
 namespace send
 {
@@ -175,4 +175,4 @@ packet packet_generator::next_packet()
 }
 
 } // namespace send
-} // namespace spead
+} // namespace spead2

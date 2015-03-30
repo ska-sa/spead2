@@ -19,7 +19,7 @@
 
 namespace py = boost::python;
 
-namespace spead
+namespace spead2
 {
 namespace send
 {
@@ -186,7 +186,7 @@ public:
 void register_module()
 {
     using namespace boost::python;
-    using namespace spead::send;
+    using namespace spead2::send;
 
     // Create the module, and set it as the current boost::python scope so that
     // classes we define are added to this module rather than the root.
@@ -264,4 +264,4 @@ void register_module()
 }
 
 } // namespace send
-} // namespace spead
+} // namespace spead2

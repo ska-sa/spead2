@@ -4,8 +4,8 @@
  * Various types of ring buffers.
  */
 
-#ifndef SPEAD_COMMON_RINGBUFFER_H
-#define SPEAD_COMMON_RINGBUFFER_H
+#ifndef SPEAD2_COMMON_RINGBUFFER_H
+#define SPEAD2_COMMON_RINGBUFFER_H
 
 #include <mutex>
 #include <condition_variable>
@@ -18,7 +18,7 @@
 #include "common_logging.h"
 #include "common_semaphore.h"
 
-namespace spead
+namespace spead2
 {
 
 /// Thrown when attempting to do a non-blocking push to a full ringbuffer
@@ -435,6 +435,6 @@ void ringbuffer_semaphore<T, Semaphore>::stop()
     sem.stop();
 }
 
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_COMMON_RINGBUFFER_H
+#endif // SPEAD2_COMMON_RINGBUFFER_H

@@ -5,7 +5,7 @@
 #include "recv_reader.h"
 #include "recv_stream.h"
 
-namespace spead
+namespace spead2
 {
 namespace recv
 {
@@ -31,4 +31,4 @@ void reader::join()
 }
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2

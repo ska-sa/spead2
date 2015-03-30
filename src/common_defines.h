@@ -4,23 +4,23 @@
  * Magic numbers and data structures for SPEAD.
  */
 
-#ifndef SPEAD_COMMON_DEFINES_H
-#define SPEAD_COMMON_DEFINES_H
+#ifndef SPEAD2_COMMON_DEFINES_H
+#define SPEAD2_COMMON_DEFINES_H
 
 #include <cstdint>
 #include <vector>
 #include <utility>
 #include <string>
 
-#ifndef SPEAD_MAX_LOG_LEVEL
-#define SPEAD_MAX_LOG_LEVEL (spead::log_level::info)
+#ifndef SPEAD2_MAX_LOG_LEVEL
+#define SPEAD2_MAX_LOG_LEVEL (spead2::log_level::info)
 #endif
 
 /**
  * SPEAD protocol sending and receiving. All SPEAD-64-* flavours are
  * supported.
  */
-namespace spead
+namespace spead2
 {
 
 typedef std::uint64_t item_pointer_t;
@@ -83,6 +83,6 @@ struct descriptor
     std::string numpy_header;
 };
 
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_COMMON_DEFINES_H
+#endif // SPEAD2_COMMON_DEFINES_H

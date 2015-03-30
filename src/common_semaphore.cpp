@@ -12,7 +12,7 @@
 #include "common_semaphore.h"
 #include "common_logging.h"
 
-namespace spead
+namespace spead2
 {
 
 semaphore::semaphore()
@@ -85,4 +85,4 @@ int semaphore::get_fd() const
     return pipe_fds[0];
 }
 
-} // namespace spead
+} // namespace spead2

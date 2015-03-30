@@ -5,7 +5,7 @@
 #include <streambuf>
 #include "send_streambuf.h"
 
-namespace spead
+namespace spead2
 {
 namespace send
 {
@@ -19,4 +19,4 @@ streambuf_stream::streambuf_stream(
 }
 
 } // namespace send
-} // namespace spead
+} // namespace spead2

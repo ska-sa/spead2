@@ -12,7 +12,7 @@
 #include <stack>
 #include <memory>
 
-namespace spead
+namespace spead2
 {
 
 /**
@@ -50,6 +50,6 @@ public:
     pointer allocate(std::size_t size);
 };
 
-} // namespace spead
+} // namespace spead2
 
 #endif // SPEAD_COMMON_MEM_POOL_H

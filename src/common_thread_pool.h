@@ -2,8 +2,8 @@
  * @file
  */
 
-#ifndef SPEAD_COMMON_THREAD_POOL_H
-#define SPEAD_COMMON_THREAD_POOL_H
+#ifndef SPEAD2_COMMON_THREAD_POOL_H
+#define SPEAD2_COMMON_THREAD_POOL_H
 
 #include <type_traits>
 #include <future>
@@ -14,7 +14,7 @@
 #include <boost/asio.hpp>
 #include "recv_reader.h"
 
-namespace spead
+namespace spead2
 {
 
 /**
@@ -45,6 +45,6 @@ public:
     void stop();
 };
 
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_COMMON_THREAD_POOL_H
+#endif // SPEAD2_COMMON_THREAD_POOL_H

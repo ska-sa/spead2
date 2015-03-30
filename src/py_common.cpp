@@ -12,7 +12,7 @@
 
 namespace py = boost::python;
 
-namespace spead
+namespace spead2
 {
 
 int semaphore_gil::get()
@@ -169,7 +169,7 @@ public:
 static void register_module()
 {
     using namespace boost::python;
-    using namespace spead;
+    using namespace spead2;
 
     create_exception<ringbuffer_stopped>(ringbuffer_stopped_type, "spead2.Stopped", "Stopped");
     create_exception<ringbuffer_empty>(ringbuffer_empty_type, "spead2.Empty", "Empty");
@@ -202,7 +202,7 @@ static void register_module()
     set_log_function(log_function_python(logger));
 }
 
-} // namespace spead
+} // namespace spead2
 
 #include "py_recv.h"
 #include "py_send.h"
@@ -232,7 +232,7 @@ BOOST_PYTHON_MODULE(_spead2)
     if (!numpy_imported)
         py::throw_error_already_set();
 
-    spead::register_module();
-    spead::recv::register_module();
-    spead::send::register_module();
+    spead2::register_module();
+    spead2::recv::register_module();
+    spead2::send::register_module();
 }

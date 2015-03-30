@@ -2,13 +2,13 @@
  * @file
  */
 
-#ifndef SPEAD_COMMON_ENDIAN_H
-#define SPEAD_COMMON_ENDIAN_H
+#ifndef SPEAD2_COMMON_ENDIAN_H
+#define SPEAD2_COMMON_ENDIAN_H
 
 #include <endian.h>
 #include <cstdint>
 
-namespace spead
+namespace spead2
 {
 
 template<typename T>
@@ -29,6 +29,6 @@ inline std::uint64_t betoh<std::uint64_t>(std::uint64_t in)
     return be64toh(in);
 }
 
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_COMMON_ENDIAN_H
+#endif // SPEAD2_COMMON_ENDIAN_H

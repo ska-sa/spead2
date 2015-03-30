@@ -5,10 +5,10 @@
  * into an event loop.
  */
 
-#ifndef SPEAD_COMMON_SEMAPHORE_H
-#define SPEAD_COMMON_SEMAPHORE_H
+#ifndef SPEAD2_COMMON_SEMAPHORE_H
+#define SPEAD2_COMMON_SEMAPHORE_H
 
-namespace spead
+namespace spead2
 {
 
 /**
@@ -55,6 +55,6 @@ static int semaphore_get(Semaphore &sem)
     }
 }
 
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_COMMON_SEMAPHORE_H
+#endif // SPEAD2_COMMON_SEMAPHORE_H

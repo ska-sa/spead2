@@ -10,7 +10,7 @@
 #include "common_logging.h"
 #include "common_endian.h"
 
-namespace spead
+namespace spead2
 {
 namespace recv
 {
@@ -119,4 +119,4 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
 }
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2

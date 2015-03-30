@@ -8,7 +8,7 @@
 #include "recv_mem.h"
 #include "recv_stream.h"
 
-namespace spead
+namespace spead2
 {
 namespace recv
 {
@@ -28,4 +28,4 @@ mem_reader::mem_reader(
 }
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2

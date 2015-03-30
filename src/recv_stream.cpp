@@ -9,7 +9,7 @@
 #include "recv_live_heap.h"
 #include "common_thread_pool.h"
 
-namespace spead
+namespace spead2
 {
 namespace recv
 {
@@ -186,4 +186,4 @@ const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::
 }
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2

@@ -12,7 +12,7 @@
 #include "common_endian.h"
 #include "common_logging.h"
 
-namespace spead
+namespace spead2
 {
 namespace recv
 {
@@ -145,4 +145,4 @@ bool live_heap::is_end_of_stream() const
 }
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2

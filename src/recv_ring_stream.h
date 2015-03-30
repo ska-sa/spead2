@@ -2,8 +2,8 @@
  * @file
  */
 
-#ifndef SPEAD_RECV_RING_STREAM
-#define SPEAD_RECV_RING_STREAM
+#ifndef SPEAD2_RECV_RING_STREAM
+#define SPEAD2_RECV_RING_STREAM
 
 #include "common_ringbuffer.h"
 #include "common_logging.h"
@@ -12,7 +12,7 @@
 #include "recv_heap.h"
 #include "recv_stream.h"
 
-namespace spead
+namespace spead2
 {
 namespace recv
 {
@@ -136,6 +136,6 @@ void ring_stream<Ringbuffer>::stop_received()
 }
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_RECV_RING_STREAM
+#endif // SPEAD2_RECV_RING_STREAM

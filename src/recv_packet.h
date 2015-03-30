@@ -2,14 +2,14 @@
  * @file
  */
 
-#ifndef SPEAD_RECV_PACKET
-#define SPEAD_RECV_PACKET
+#ifndef SPEAD2_RECV_PACKET
+#define SPEAD2_RECV_PACKET
 
 #include <cstddef>
 #include <cstdint>
 #include "common_defines.h"
 
-namespace spead
+namespace spead2
 {
 namespace recv
 {
@@ -54,6 +54,6 @@ struct packet_header
 std::size_t decode_packet(packet_header &out, const uint8_t *raw, std::size_t max_size);
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_RECV_PACKET
+#endif // SPEAD2_RECV_PACKET

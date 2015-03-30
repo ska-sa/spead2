@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include "send_stream.h"
 
-namespace spead
+namespace spead2
 {
 namespace send
 {
@@ -73,4 +73,4 @@ stream_config::stream_config(
 }
 
 } // namespace send
-} // namespace spead
+} // namespace spead2

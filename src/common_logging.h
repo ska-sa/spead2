@@ -4,14 +4,14 @@
  * Logging facilities
  */
 
-#ifndef SPEAD_COMMON_LOGGING_H
-#define SPEAD_COMMON_LOGGING_H
+#ifndef SPEAD2_COMMON_LOGGING_H
+#define SPEAD2_COMMON_LOGGING_H
 
 #include <functional>
 #include <boost/format.hpp>
 #include "common_defines.h"
 
-namespace spead
+namespace spead2
 {
 
 enum class log_level : unsigned int
@@ -46,7 +46,7 @@ void set_log_function(std::function<void(log_level, const std::string &)>);
  */
 static inline void log_msg(log_level level, const std::string &msg)
 {
-    if (level <= SPEAD_MAX_LOG_LEVEL)
+    if (level <= SPEAD2_MAX_LOG_LEVEL)
         detail::log_msg_impl(level, msg);
 }
 
@@ -56,7 +56,7 @@ static inline void log_msg(log_level level, const std::string &msg)
 template<typename T0, typename... Ts>
 static inline void log_msg(log_level level, const char *format, T0&& arg0, Ts&&... args)
 {
-    if (level <= SPEAD_MAX_LOG_LEVEL)
+    if (level <= SPEAD2_MAX_LOG_LEVEL)
     {
         boost::format formatter(format);
         detail::apply_format(formatter, std::forward<T0>(arg0), std::forward<Ts>(args)...);
@@ -97,6 +97,6 @@ static inline void log_warning(const char *format, T0 &&arg0, Ts&&... args)
     log_msg(log_level::warning, format, std::forward<T0>(arg0), std::forward<Ts>(args)...);
 }
 
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_COMMON_LOGGING_H
+#endif // SPEAD2_COMMON_LOGGING_H

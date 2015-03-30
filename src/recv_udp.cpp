@@ -10,7 +10,7 @@
 #include "recv_udp.h"
 #include "common_logging.h"
 
-namespace spead
+namespace spead2
 {
 namespace recv
 {
@@ -101,4 +101,4 @@ void udp_reader::stop()
 }
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2

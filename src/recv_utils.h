@@ -4,12 +4,12 @@
  * Miscellaneous utilities for receiving SPEAD data.
  */
 
-#ifndef SPEAD_RECV_UTILS_H
-#define SPEAD_RECV_UTILS_H
+#ifndef SPEAD2_RECV_UTILS_H
+#define SPEAD2_RECV_UTILS_H
 
 #include "common_defines.h"
 
-namespace spead
+namespace spead2
 {
 
 /**
@@ -84,6 +84,6 @@ public:
 };
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_RECV_UTILS_H
+#endif // SPEAD2_RECV_UTILS_H

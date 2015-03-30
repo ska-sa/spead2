@@ -4,14 +4,14 @@
  * Miscellaneous utilities for encoding SPEAD data.
  */
 
-#ifndef SPEAD_SEND_UTILS_H
-#define SPEAD_SEND_UTILS_H
+#ifndef SPEAD2_SEND_UTILS_H
+#define SPEAD2_SEND_UTILS_H
 
 #include <cstdint>
 #include <cassert>
 #include "common_defines.h"
 
-namespace spead
+namespace spead2
 {
 namespace send
 {
@@ -46,6 +46,6 @@ public:
 };
 
 } // namespace send
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_SEND_UTILS_H
+#endif // SPEAD2_SEND_UTILS_H

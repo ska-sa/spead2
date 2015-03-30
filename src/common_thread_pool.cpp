@@ -8,7 +8,7 @@
 #include "common_thread_pool.h"
 #include "common_logging.h"
 
-namespace spead
+namespace spead2
 {
 
 thread_pool::thread_pool(int num_threads)
@@ -45,4 +45,4 @@ thread_pool::~thread_pool()
     stop();
 }
 
-} // namespace spead
+} // namespace spead2

@@ -15,7 +15,7 @@
 
 namespace py = boost::python;
 
-namespace spead
+namespace spead2
 {
 namespace recv
 {
@@ -240,7 +240,7 @@ public:
 void register_module()
 {
     using namespace boost::python;
-    using namespace spead::recv;
+    using namespace spead2::recv;
 
     // Create the module, and set it as the current boost::python scope so that
     // classes we define are added to this module rather than the root.
@@ -286,4 +286,4 @@ void register_module()
 }
 
 } // namespace recv
-} // namespace spead
+} // namespace spead2

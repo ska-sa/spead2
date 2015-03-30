@@ -2,15 +2,15 @@
  * @file
  */
 
-#ifndef SPEAD_SEND_STREAMBUF_H
-#define SPEAD_SEND_STREAMBUF_H
+#ifndef SPEAD2_SEND_STREAMBUF_H
+#define SPEAD2_SEND_STREAMBUF_H
 
 #include <streambuf>
 #include <functional>
 #include <boost/asio.hpp>
 #include "send_stream.h"
 
-namespace spead
+namespace spead2
 {
 namespace send
 {
@@ -43,6 +43,6 @@ public:
 };
 
 } // namespace send
-} // namespace spead
+} // namespace spead2
 
-#endif // SPEAD_SEND_STREAMBUF_H
+#endif // SPEAD2_SEND_STREAMBUF_H
