@@ -86,7 +86,7 @@ public:
     /**
      * Change the maximum heap count. This will not immediately cause heaps to
      * be ejected if over the limit, but will prevent any increase until the
-     * number if back under the limit.
+     * number is back under the limit.
      */
     void set_max_heaps(std::size_t max_heaps);
 
