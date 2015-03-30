@@ -24,7 +24,7 @@ setup(
     author='Bruce Merry',
     author_email='bmerry@ska.ac.za',
     name='spead2',
-    version='0.1dev0',
+    version='0.1.dev0',
     description='High-performance SPEAD decoder',
     ext_package='spead2',
     ext_modules=extensions,
