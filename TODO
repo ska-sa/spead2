@@ -1,21 +1,28 @@
-- Distinguish descriptor re-issues from descriptor changes (don't warn on the former)
-- Move most of the classes to the detail namespace
-- Add lots of validation to sending (overflows etc)
-- Support cancellation of transmission
-- Call the send callback with an error if a heap is dropped or the stream is terminated
-- Fix PySPEAD's assumption that small items are always immediates
-- Investigate memory pools for sender
-- Use eventfd where available for waking up asyncio
-- Lots more tests!
-- Add udp_reader constructor that takes over a socket?
-- Add docstrings
-- Insert padding into packets between items to keep item payloads naturally aligned?
-- Check that memory alignment requirements for decode_packet are actually respected, particularly in mem_stream
-- Multicast support (TTL for send, subscribe for receive)
-- Error checking in streambuf sender
-- Add other default_* to Python interface
-- Expose common_defines constants through Python
-- Add test and workaround for endian-swapping within structs (numpy bug https://github.com/numpy/numpy/issues/5356)
-- Statistics for memory pool
-- Support (or at least documentation about, if it already works) IPv6
-- Test binding an illegal UDP port
+Incompatible interface changes:
+  - Call the send callback with an error if a heap is dropped or the stream is terminated
+  - Move most of the C++ code to the detail namespace
+
+Bug fixes:
+  - Distinguish descriptor re-issues from descriptor changes (don't warn on the former)
+  - Check that memory alignment requirements for decode_packet are actually respected, particularly in mem_stream
+  - Add lots of validation to sending (overflows etc)
+  - Error checking in streambuf sender
+  - Add test and workaround for endian-swapping within structs (numpy bug https://github.com/numpy/numpy/issues/5356)
+
+Tests:
+  - Test binding an illegal UDP port
+  - Check that IPv6 works
+
+New features/improvements:
+  - Better multicast support (TTL for send, subscribe for receive)
+  - Add udp_reader constructor that takes over a socket?
+  - Support cancellation of transmission
+  - Use eventfd where available for waking up asyncio
+  - Insert padding into packets between items to keep item payloads naturally aligned?
+  - Statistics for memory pool
+  - Add default_* and common_defines constants to Python interface
+  - Add docstrings to Python extension classes
+
+Other
+  - Fix PySPEAD's assumption that small items are always immediates
+  - Investigate memory pools for sender
