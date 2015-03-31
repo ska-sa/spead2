@@ -409,13 +409,14 @@ class Item(Descriptor):
                 dtype = self.dtype.newbyteorder()
                 array1d = array1d.byteswap(True).view(dtype=dtype)
             value = _np.reshape(array1d, self.shape, self.order)
-            if len(self.shape) == 0:
-                # Convert zero-dimensional array to scalar
-                value = value[()]
-            elif len(self.shape) == 1 and self.dtype == _np.dtype('S1'):
-                # Convert array of characters to a string
-                value = b''.join(value).decode('ascii')
-            self.value = value
+
+        if len(self.shape) == 0:
+            # Convert zero-dimensional array to scalar
+            value = value[()]
+        elif len(self.shape) == 1 and value.dtype == _np.dtype('S1'):
+            # Convert array of characters to a string
+            value = b''.join(value).decode('ascii')
+        self.value = value
 
     def _num_elements(self):
         if isinstance(self.value, _np.ndarray):
