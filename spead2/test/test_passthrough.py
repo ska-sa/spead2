@@ -112,6 +112,20 @@ class BaseTestPassthrough(object):
         self._test_item_group(ig)
 
     @no_legacy_receive
+    def test_string(self):
+        """Byte string is converted to array of characters and back.
+
+        It is disabled for PySPEAD receive because PySPEAD requires a
+        non-standard 's' conversion to do this correctly.
+        """
+        ig = spead2.send.ItemGroup()
+        format = [('c', 8)]
+        data = b'Hello world'
+        ig.add_item(id=0x2345, name='name', description='description',
+                    shape=(None,), dtype=None, format=format, value=data)
+        self._test_item_group(ig)
+
+    @no_legacy_receive
     def test_fallback_array_partial_bytes_small(self):
         """An array which takes a fractional number of bytes per element
         and is small enough to encode in an immediate.
