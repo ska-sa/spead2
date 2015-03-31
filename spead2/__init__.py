@@ -14,6 +14,25 @@ BUG_COMPAT_PYSPEAD_0_5_2 = \
 
 
 class Descriptor(object):
+    """Metadata for a SPEAD item.
+
+    Parameters
+    ----------
+    id : int
+        SPEAD item ID
+    name : str
+        Short item name, suitable for use as a key
+    description : str
+        Long item description
+    dtype : numpy data type
+        Data type, or `None` if `format` will be used instead
+    order : str
+        Either `C` or `F` for C-order or Fortran-order storage
+    format : list of pairs, optional
+        Structure fields for generic (non-numpy) type. Each element of the list
+        is a tuple of field code and bit length.
+    """
+
     @classmethod
     def _parse_numpy_header(cls, header):
         try:
@@ -80,6 +99,7 @@ class Descriptor(object):
             return sum(x[1] for x in self.format)
 
     def is_variable_size(self):
+        """Determine whether any element of the size is dynamic"""
         return any([x < 0 for x in self.shape])
 
     def allow_immediate(self):
@@ -96,6 +116,9 @@ class Descriptor(object):
                 self.dtype is not None or self.itemsize_bits % 8 == 0)
 
     def dynamic_shape(self, max_elements):
+        """Determine the dynamic shape, given incoming data that is big enough
+        to hold `max_elements` elements.
+        """
         known = 1
         unknown_pos = -1
         for i, x in enumerate(self.shape):
@@ -187,14 +210,31 @@ class Descriptor(object):
 
 
 class Item(Descriptor):
+    """A SPEAD item with a value and a version number.
+
+    Parameters
+    ----------
+    value : object, optional
+        Initial value
+    """
+
     def __init__(self, *args, **kw):
         value = kw.pop('value', None)
         super(Item, self).__init__(*args, **kw)
         self._value = value
-        self.version = 1
+        self.version = 1   #: Version number
 
     @property
     def value(self):
+        """Current value. Assigning to this will increment the version number.
+        Assigning `None` will raise `ValueError` because there is no way to
+        encode this using SPEAD.
+
+        .. warning:: If you modify a mutable value in-place, the change will
+          not be detected, and the new value will not be transmitted. In this
+          case, either manually increment the version number, or reassign the
+          value.
+        """
         return self._value
 
     @value.setter
@@ -429,35 +469,45 @@ class ItemGroup(object):
         self._by_name[item.name] = item
 
     def add_item(self, *args, **kwargs):
+        """Add a new item to the group. The parameters are used to construct an
+        :py:class:`Item`.
+        """
         item = Item(*args, **kwargs)
         self._add_item(item)
         return item
 
     def __getitem__(self, key):
+        """Dictionary-style lookup by either ID or name"""
         if isinstance(key, _numbers.Integral):
             return self._by_id[key]
         else:
             return self._by_name[key]
 
     def __contains__(self, key):
+        """Dictionary-style membership test by either ID or name"""
         if isinstance(key, _numbers.Integral):
             return key in self._by_id
         else:
             return key in self._by_name
 
     def keys(self):
+        """Item names"""
         return self._by_name.keys()
 
     def ids(self):
+        """Item IDs"""
         return self._by_id.keys()
 
     def values(self):
+        """Item values"""
         return self._by_name.values()
 
     def items(self):
+        """Dictionary style (name, value) pairs"""
         return self._by_name.items()
 
     def __len__(self):
+        """Number of items"""
         return len(self._by_name)
 
     def update(self, heap):

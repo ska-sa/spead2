@@ -22,3 +22,7 @@
 - Expose common_defines constants through Python
 - Add test and workaround for endian-swapping within structs (numpy bug https://github.com/numpy/numpy/issues/5356)
 - Investigate potential deadlock: https://magnum.travis-ci.com/ska-sa/katsdpresearch/jobs/15489403
+- Statistics for memory pool
+- Support (or at least documentation about, if it already works) IPv6
+- Test binding an illegal UDP port
+- Use None for unknown size elements, instead of negative numbers
