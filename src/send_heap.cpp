@@ -45,12 +45,12 @@ static inline void memcpy_adjust(std::uint8_t *&dest, const void *src, std::size
 }
 
 static std::pair<std::unique_ptr<std::uint8_t[]>, std::size_t>
-encode_descriptor(const descriptor &d, int heap_address_bits, bug_compat_mask bug_compat)
+encode_descriptor(const descriptor &d, const flavour &flavour_)
 {
-    const int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 4 : sizeof(item_pointer_t) + 1 - heap_address_bits / 8;
-    const int shape_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 8 : 1 + heap_address_bits / 8;
+    const int field_size = (flavour_.get_bug_compat() & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 4 : sizeof(item_pointer_t) + 1 - flavour_.get_heap_address_bits() / 8;
+    const int shape_size = (flavour_.get_bug_compat() & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 8 : 1 + flavour_.get_heap_address_bits() / 8;
 
-    if (d.id <= 0 || d.id >= (s_item_pointer_t(1) << (sizeof(item_pointer_t) - 1 - heap_address_bits)))
+    if (d.id <= 0 || d.id >= (s_item_pointer_t(1) << (sizeof(item_pointer_t) - 1 - flavour_.get_heap_address_bits())))
         throw std::invalid_argument("Item ID out of range");
 
     /* The descriptor is a complete SPEAD packet, containing:
@@ -74,11 +74,11 @@ encode_descriptor(const descriptor &d, int heap_address_bits, bug_compat_mask bu
     std::size_t offset = 0;
     // TODO: for >64-bit item pointers, this will have alignment issues
 
-    pointer_encoder encoder(heap_address_bits);
+    pointer_encoder encoder(flavour_.get_heap_address_bits());
     *header = htobe<std::uint64_t>(
             (std::uint64_t(0x5304) << 48)
-            | (std::uint64_t(8 - heap_address_bits / 8) << 40)
-            | (std::uint64_t(heap_address_bits / 8) << 32)
+            | (std::uint64_t(8 - flavour_.get_heap_address_bits() / 8) << 40)
+            | (std::uint64_t(flavour_.get_heap_address_bits() / 8) << 32)
             | n_items);
     *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(HEAP_CNT_ID, 1));
     *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(HEAP_LENGTH_ID, payload_size));
@@ -112,7 +112,7 @@ encode_descriptor(const descriptor &d, int heap_address_bits, bug_compat_mask bu
         data += field_size;
     }
 
-    const std::uint8_t variable_tag = (bug_compat & BUG_COMPAT_SHAPE_BIT_1) ? 2 : 1;
+    const std::uint8_t variable_tag = (flavour_.get_bug_compat() & BUG_COMPAT_SHAPE_BIT_1) ? 2 : 1;
     for (const s_item_pointer_t dim : d.shape)
     {
         *data = (dim < 0) ? variable_tag : 0;
@@ -129,19 +129,14 @@ encode_descriptor(const descriptor &d, int heap_address_bits, bug_compat_mask bu
 }
 
 
-constexpr int heap::default_heap_address_bits;
-
-heap::heap(s_item_pointer_t cnt, int heap_address_bits, bug_compat_mask bug_compat)
-    : cnt(cnt), heap_address_bits(heap_address_bits), bug_compat(bug_compat)
+heap::heap(s_item_pointer_t cnt, const flavour &flavour_)
+    : cnt(cnt), flavour_(flavour_)
 {
-    if (heap_address_bits <= 0 || heap_address_bits >= 8 * int(sizeof(item_pointer_t))
-        || heap_address_bits % 8 != 0)
-        throw std::invalid_argument("heap_address_bits is invalid");
 }
 
 void heap::add_descriptor(const descriptor &descriptor)
 {
-    auto blob = encode_descriptor(descriptor, heap_address_bits, bug_compat);
+    auto blob = encode_descriptor(descriptor, flavour_);
     items.emplace_back(DESCRIPTOR_ID, blob.first.get(), blob.second, false);
     storage.emplace_back(std::move(blob.first));
 }

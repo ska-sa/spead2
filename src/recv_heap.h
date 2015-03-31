@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 #include "common_defines.h"
+#include "common_flavour.h"
 #include "common_memory_pool.h"
 
 namespace spead2
@@ -41,8 +42,7 @@ class heap
 {
 private:
     s_item_pointer_t cnt;       ///< Heap ID
-    int heap_address_bits;      ///< Flavour
-    bug_compat_mask bug_compat; ///< Protocol bugs to accept
+    flavour flavour_;           ///< Flavour
     /**
      * Extracted items. The pointers in the items point into either @ref
      * payload or @ref immediate_payload.
@@ -61,8 +61,8 @@ public:
     explicit heap(live_heap &&h);
     /// Get heap ID
     s_item_pointer_t get_cnt() const { return cnt; }
-    /// Get protocol bug compatibility flags
-    bug_compat_mask get_bug_compat() const { return bug_compat; }
+    /// Get protocol flavour used
+    const flavour &get_flavour() const { return flavour_; }
     /**
      * Get the items from the heap. This includes descriptors, but
      * excludes any items with ID <= 4.

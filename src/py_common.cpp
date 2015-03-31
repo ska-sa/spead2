@@ -6,6 +6,7 @@
 #include "py_common.h"
 #include "common_ringbuffer.h"
 #include "common_defines.h"
+#include "common_flavour.h"
 #include "common_logging.h"
 #include "common_memory_pool.h"
 #include "common_thread_pool.h"
@@ -179,6 +180,17 @@ static void register_module()
     py::setattr(scope(), "BUG_COMPAT_DESCRIPTOR_WIDTHS", int_to_object(BUG_COMPAT_DESCRIPTOR_WIDTHS));
     py::setattr(scope(), "BUG_COMPAT_SHAPE_BIT_1", int_to_object(BUG_COMPAT_SHAPE_BIT_1));
     py::setattr(scope(), "BUG_COMPAT_SWAP_ENDIAN", int_to_object(BUG_COMPAT_SWAP_ENDIAN));
+    py::setattr(scope(), "BUG_COMPAT_PYSPEAD_0_5_2", int_to_object(BUG_COMPAT_PYSPEAD_0_5_2));
+
+    class_<flavour>("Flavour",
+        init<int, int, int, bug_compat_mask>(
+            (arg("version"), arg("item_pointer_bits"),
+             arg("heap_address_bits"), arg("bug_compat")=0)))
+        .def(init<>())
+        .add_property("version", &flavour::get_version)
+        .add_property("item_pointer_bits", &flavour::get_item_pointer_bits)
+        .add_property("heap_address_bits", &flavour::get_heap_address_bits)
+        .add_property("bug_compat", &flavour::get_bug_compat);
 
     class_<memory_pool, std::shared_ptr<memory_pool>, boost::noncopyable>(
         "MemoryPool",

@@ -1,16 +1,15 @@
 import spead2._spead2
-from spead2._spead2 import ThreadPool, MemoryPool, Stopped, Empty, Stopped, \
+from spead2._spead2 import Flavour, ThreadPool, MemoryPool, Stopped, Empty, Stopped, \
     BUG_COMPAT_DESCRIPTOR_WIDTHS, \
     BUG_COMPAT_SHAPE_BIT_1, \
-    BUG_COMPAT_SWAP_ENDIAN
+    BUG_COMPAT_SWAP_ENDIAN, \
+    BUG_COMPAT_PYSPEAD_0_5_2
 import numbers as _numbers
 import numpy as _np
 import logging
 
 
 _logger = logging.getLogger(__name__)
-BUG_COMPAT_PYSPEAD_0_5_2 = \
-    BUG_COMPAT_DESCRIPTOR_WIDTHS | BUG_COMPAT_SHAPE_BIT_1 | BUG_COMPAT_SWAP_ENDIAN
 
 
 class Descriptor(object):
@@ -174,13 +173,13 @@ class Descriptor(object):
         self.format = format
 
     @classmethod
-    def from_raw(cls, raw_descriptor, bug_compat):
+    def from_raw(cls, raw_descriptor, flavour):
         dtype = None
         format = None
         if raw_descriptor.numpy_header:
             shape, order, dtype = \
                     cls._parse_numpy_header(raw_descriptor.numpy_header)
-            if bug_compat & BUG_COMPAT_SWAP_ENDIAN:
+            if flavour.bug_compat & BUG_COMPAT_SWAP_ENDIAN:
                 dtype = dtype.newbyteorder()
         else:
             shape = raw_descriptor.shape
@@ -192,14 +191,14 @@ class Descriptor(object):
                 raw_descriptor.description,
                 shape, dtype, order, format)
 
-    def to_raw(self, bug_compat):
+    def to_raw(self, flavour):
         raw = spead2._spead2.RawDescriptor()
         raw.id = self.id
         raw.name = self.name
         raw.description = self.description
         raw.shape = self.shape
         if self.dtype is not None:
-            if bug_compat & BUG_COMPAT_SWAP_ENDIAN:
+            if flavour.bug_compat & BUG_COMPAT_SWAP_ENDIAN:
                 dtype = self.dtype.newbyteorder()
             else:
                 dtype = self.dtype
@@ -524,7 +523,7 @@ class ItemGroup(object):
             Items that have been updated from this heap, indexed by name
         """
         for descriptor in heap.get_descriptors():
-            item = Item.from_raw(descriptor, bug_compat=heap.bug_compat)
+            item = Item.from_raw(descriptor, flavour=heap.flavour)
             self._add_item(item)
         updated_items = {}
         for raw_item in heap.get_items():

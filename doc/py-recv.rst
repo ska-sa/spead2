@@ -16,9 +16,9 @@ normally passed to :py:meth:`spead2.ItemGroup.update`.
 
       Heap identifier (read-only)
 
-   .. py:attribute:: bug_compat
+   .. py:attribute:: flavour
 
-      Bug compatibility flags from the associated stream (see :ref:`py-bug-compat`)
+      SPEAD flavour used to encode the heap (see :ref:`py-flavour`)
 
 Blocking receive
 ^^^^^^^^^^^^^^^^
@@ -31,7 +31,7 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
-   :param int bug_compat: Bug compatibility flags (see :ref:`py-bug-compat`)
+   :param int bug_compat: Bug compatibility flags (see :ref:`py-flavour`)
    :param int max_heaps: Size of heap buffers. This determines the number
      of partial heaps that can be live at one time (when a packet from a
      new heap arrives, the old heap is discarded). It also determines the

@@ -33,6 +33,7 @@ public:
     using heap::heap;
     void add_item(py::object item);
     void add_descriptor(py::object descriptor);
+    flavour get_flavour() const;
 };
 
 void heap_wrapper::add_item(py::object item)
@@ -47,7 +48,12 @@ void heap_wrapper::add_item(py::object item)
 
 void heap_wrapper::add_descriptor(py::object object)
 {
-    heap::add_descriptor(py::extract<descriptor>(object.attr("to_raw")(get_bug_compat())));
+    heap::add_descriptor(py::extract<descriptor>(object.attr("to_raw")(heap::get_flavour())));
+}
+
+flavour heap_wrapper::get_flavour() const
+{
+    return heap::get_flavour();
 }
 
 class packet_generator_wrapper : public packet_generator
@@ -193,12 +199,10 @@ void register_module()
     py::object module(py::handle<>(py::borrowed(PyImport_AddModule("spead2._send"))));
     py::scope scope = module;
 
-    class_<heap_wrapper, boost::noncopyable>("Heap", init<std::int64_t, int, bug_compat_mask>(
-            (arg("cnt") = 0, arg("heap_address_bits") = heap::default_heap_address_bits, arg("bug_compat") = 0)))
+    class_<heap_wrapper, boost::noncopyable>("Heap", init<std::int64_t, flavour>(
+            (arg("cnt") = 0, arg("flavour") = flavour())))
         .add_property("cnt", &heap_wrapper::get_cnt, &heap_wrapper::set_cnt)
-        .add_property("heap_address_bits", &heap_wrapper::get_heap_address_bits)
-        .add_property("bug_compat", &heap_wrapper::get_bug_compat)
-        .def_readonly("DEFAULT_HEAP_ADDRESS_BITS", &heap_wrapper::default_heap_address_bits)
+        .add_property("flavour", &heap_wrapper::get_flavour)
         .def("add_item", &heap_wrapper::add_item,
              arg("item"),
              with_custodian_and_ward<1, 2>())

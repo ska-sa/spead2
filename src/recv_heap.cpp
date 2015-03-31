@@ -114,8 +114,8 @@ heap::heap(live_heap &&h)
         items.push_back(new_item);
     }
     cnt = h.cnt;
-    heap_address_bits = h.heap_address_bits;
-    bug_compat = h.bug_compat;
+    flavour_ = flavour(maximum_version, 8 * sizeof(item_pointer_t),
+                       h.heap_address_bits, h.bug_compat);
     payload = std::move(h.payload);
     // Reset h so that it still satisfies its invariants
     h = live_heap(0, h.bug_compat);
@@ -123,7 +123,7 @@ heap::heap(live_heap &&h)
 
 descriptor heap::to_descriptor() const
 {
-    const std::size_t immediate_size = heap_address_bits / 8;
+    const std::size_t immediate_size = flavour_.get_heap_address_bits() / 8;
     const std::size_t id_size = sizeof(item_pointer_t) - immediate_size;
     descriptor out;
     for (const item &item : items)
@@ -144,7 +144,7 @@ descriptor heap::to_descriptor() const
                 break;
             case DESCRIPTOR_FORMAT_ID:
                 {
-                    int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 4 : 1 + id_size;
+                    int field_size = (flavour_.get_bug_compat() & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 4 : 1 + id_size;
                     for (std::size_t i = 0; i + field_size <= item.length; i += field_size)
                     {
                         char type = item.ptr[i];
@@ -155,10 +155,10 @@ descriptor heap::to_descriptor() const
                 }
             case DESCRIPTOR_SHAPE_ID:
                 {
-                    int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 8 : 1 + immediate_size;
+                    int field_size = (flavour_.get_bug_compat() & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 8 : 1 + immediate_size;
                     for (std::size_t i = 0; i + field_size <= item.length; i += field_size)
                     {
-                        int mask = (bug_compat & BUG_COMPAT_SHAPE_BIT_1) ? 2 : 1;
+                        int mask = (flavour_.get_bug_compat() & BUG_COMPAT_SHAPE_BIT_1) ? 2 : 1;
                         bool variable = (item.ptr[i] & mask);
                         std::int64_t size = variable ? -1 : load_bytes_be(item.ptr + i + 1, field_size - 1);
                         out.shape.push_back(size);
@@ -211,7 +211,7 @@ void descriptor_stream::heap_ready(live_heap &&h)
 
 std::vector<descriptor> heap::get_descriptors() const
 {
-    descriptor_stream s(bug_compat, 1);
+    descriptor_stream s(flavour_.get_bug_compat(), 1);
     for (const item &item : items)
     {
         if (item.id == DESCRIPTOR_ID)

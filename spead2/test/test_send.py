@@ -25,10 +25,9 @@ def encode_be(size, value):
     return packed[8 - size:]
 
 
-class Flavour(object):
-    def __init__(self, heap_address_bits, bug_compat=0):
-        self.heap_address_bits = heap_address_bits
-        self.bug_compat = bug_compat
+class Flavour(spead2.Flavour):
+    def __init__(self, version, item_pointer_bits, heap_address_bits, bug_compat=0):
+        super(Flavour, self).__init__(version, item_pointer_bits, heap_address_bits, bug_compat)
 
     def make_header(self, num_items):
         address_size = self.heap_address_bits // 8
@@ -69,7 +68,7 @@ class Flavour(object):
     def items_to_bytes(self, items, descriptors=None, max_packet_size=1500):
         if descriptors is None:
             descriptors = items
-        heap = send.Heap(0x123456, self.heap_address_bits, 0)
+        heap = send.Heap(0x123456, self)
         for descriptor in descriptors:
             heap.add_descriptor(descriptor)
         for item in items:
@@ -90,7 +89,7 @@ class TestEncode(object):
     """Test heap encoding of various data"""
 
     def __init__(self):
-        self.flavour = Flavour(48, 0)
+        self.flavour = Flavour(4, 64, 48, 0)
 
     def test_empty(self):
         """An empty heap must still generate a packet"""

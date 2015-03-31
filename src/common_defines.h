@@ -34,10 +34,12 @@ typedef std::uint32_t bug_compat_mask;
 
 /// Descriptors are encoded as 64-40 regardless of actual flavour
 static constexpr bug_compat_mask BUG_COMPAT_DESCRIPTOR_WIDTHS = (1 << 0);
-/// bit 1 (value 2) of the first byte in a shape element indicates variable-size, instead of bit 0
+/// Bit 1 (value 2) of the first byte in a shape element indicates variable-size, instead of bit 0
 static constexpr bug_compat_mask BUG_COMPAT_SHAPE_BIT_1       = (1 << 1);
-/// numpy arrays are encoded in the opposite endian to that indicated by the header
+/// Numpy arrays are encoded in the opposite endian to that indicated by the header
 static constexpr bug_compat_mask BUG_COMPAT_SWAP_ENDIAN       = (1 << 2);
+/// Bugs in PySPEAD 0.5.2
+static constexpr bug_compat_mask BUG_COMPAT_PYSPEAD_0_5_2     = 0x7;
 
 enum item_id : unsigned int
 {
@@ -82,6 +84,9 @@ struct descriptor
     /// Description in the format used in .npy files.
     std::string numpy_header;
 };
+
+static constexpr int minimum_version = 4;
+static constexpr int maximum_version = 4;
 
 } // namespace spead2
 

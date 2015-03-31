@@ -24,19 +24,15 @@ class HeapGenerator(object):
         Item group to monitor.
     descriptor_frequency : int, optional
         If specified, descriptors will be re-sent once every `descriptor_frequency` heaps.
-    heap_address_bits : int
-        Determines the SPEAD flavour.
-    bug_compat : int
-        Bug compatibility (see :ref:`py-bug-compat`)
+    flavour : :py:class:`spead2.Flavour`
+        The SPEAD protocol flavour.
     """
-    def __init__(self, item_group, descriptor_frequency=None,
-                 heap_address_bits=Heap.DEFAULT_HEAP_ADDRESS_BITS, bug_compat=0):
+    def __init__(self, item_group, descriptor_frequency=None, flavour=_spead2.Flavour()):
         self._item_group = item_group
         self._info = {}              # Maps ID to _ItemInfo
         self._next_cnt = 1
         self._descriptor_frequency = descriptor_frequency
-        self._heap_address_bits = heap_address_bits
-        self._bug_compat = bug_compat
+        self._flavour = flavour
 
     def _get_info(self, item):
         if item.id not in self._info:
@@ -63,7 +59,7 @@ class HeapGenerator(object):
         """Return a new heap which contains all the new items and item
         descriptors since the last call.
         """
-        heap = Heap(self._next_cnt, self._heap_address_bits, self._bug_compat)
+        heap = Heap(self._next_cnt, self._flavour)
         for item in self._item_group.values():
             info = self._get_info(item)
             if self._descriptor_stale(item, info):
@@ -78,7 +74,7 @@ class HeapGenerator(object):
     def get_end(self):
         """Return a heap that contains only an end-of-stream marker.
         """
-        heap = Heap(self._next_cnt, self._heap_address_bits, self._bug_compat)
+        heap = Heap(self._next_cnt, self._flavour)
         heap.add_end()
         self._next_cnt += 1
         return heap

@@ -4,6 +4,7 @@
 #include <boost/asio.hpp>
 #include "common_thread_pool.h"
 #include "common_defines.h"
+#include "common_flavour.h"
 #include "send_heap.h"
 #include "send_udp.h"
 #include "send_stream.h"
@@ -17,8 +18,9 @@ int main()
     udp::resolver::query query("localhost", "8888");
     auto it = resolver.resolve(query);
     spead2::send::udp_stream stream(tp.get_io_service(), *it, spead2::send::stream_config(9000, 0));
+    spead2::flavour f(spead2::maximum_version, 64, 48, spead2::BUG_COMPAT_PYSPEAD_0_5_2);
 
-    spead2::send::heap h(0x2, 48, 7);
+    spead2::send::heap h(0x2, f);
     std::int32_t value1 = htobe32(0xEADBEEF);
     std::int32_t value2[64] = {};
     for (int i = 0; i < 64; i++)
@@ -40,7 +42,7 @@ int main()
     h.add_descriptor(desc2);
     stream.async_send_heap(h, [] { std::cout << "Callback fired\n"; });
 
-    spead2::send::heap end(0x3, 48, 7);
+    spead2::send::heap end(0x3, f);
     end.add_end();
     stream.async_send_heap(end, [] {});
     stream.flush();

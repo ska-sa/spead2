@@ -116,6 +116,13 @@ public:
             out.append(d);
         return out;
     }
+
+    /**
+     * Return the flavour by value instead of by const reference. In theory
+     * this should be achievable with a call policy, but it seems to lead to
+     * runtime errors in overload resolution.
+     */
+    flavour get_flavour() const { return heap::get_flavour(); }
 };
 
 /**
@@ -249,7 +256,7 @@ void register_module()
 
     class_<heap_wrapper, boost::noncopyable>("Heap", no_init)
         .add_property("cnt", &heap_wrapper::get_cnt)
-        .add_property("bug_compat", &heap_wrapper::get_bug_compat)
+        .add_property("flavour", &heap_wrapper::get_flavour)
         .def("get_items", &heap_wrapper::get_items)
         .def("get_descriptors", &heap_wrapper::get_descriptors);
     class_<item_wrapper>("RawItem", no_init)

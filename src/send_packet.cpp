@@ -43,7 +43,7 @@ packet_generator::packet_generator(
         throw std::invalid_argument("packet size is too small");
 
     payload_size = 0;
-    const std::size_t max_immediate_size = h.get_heap_address_bits() / 8;
+    const std::size_t max_immediate_size = h.get_flavour().get_heap_address_bits() / 8;
     for (const item &it : h.items)
     {
         if (!use_immediate(it, max_immediate_size))
@@ -80,8 +80,8 @@ packet packet_generator::next_packet()
 
     if (payload_offset < payload_size)
     {
-        pointer_encoder encoder(h.get_heap_address_bits());
-        const std::size_t max_immediate_size = h.get_heap_address_bits() / 8;
+        pointer_encoder encoder(h.get_flavour().get_heap_address_bits());
+        const std::size_t max_immediate_size = h.get_flavour().get_heap_address_bits() / 8;
         const std::size_t n_item_pointers = std::min(
             max_item_pointers_per_packet,
             h.items.size() + need_null_item - next_item_pointer);

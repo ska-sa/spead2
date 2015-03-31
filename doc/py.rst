@@ -1,5 +1,5 @@
 Python API for spead2
-==========================
+=====================
 
 .. py:module:: spead2
 
@@ -11,10 +11,10 @@ with the C++ backend.
 .. toctree::
    :maxdepth: 2
 
+   py-flavour
    py-protocol
    py-items
    py-thread-pools
    py-recv
    py-send
-   py-bug-compat
    py-logging

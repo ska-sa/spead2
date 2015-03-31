@@ -243,10 +243,7 @@ class BaseTestPassthroughLegacyReceive(BaseTestPassthrough):
             raise SkipTest('spead module not importable')
         thread_pool = spead2.ThreadPool(1)
         sender = spead2.send.BytesStream(thread_pool)
-        gen = spead2.send.HeapGenerator(
-            item_group,
-            heap_address_bits=self.heap_address_bits,
-            bug_compat=spead2.BUG_COMPAT_PYSPEAD_0_5_2)
+        gen = spead2.send.HeapGenerator(item_group, flavour=self.flavour)
         sender.send_heap(gen.get_heap())
         sender.send_heap(gen.get_end())
         receiver = self.spead.TransportString(sender.getvalue())
@@ -279,9 +276,9 @@ class BaseTestPassthroughLegacyReceive(BaseTestPassthrough):
 
 class TestPassthroughLegacyReceive64_40(BaseTestPassthroughLegacyReceive):
     spead = spead64_40
-    heap_address_bits = 40
+    flavour = spead2.Flavour(4, 64, 40, spead2.BUG_COMPAT_PYSPEAD_0_5_2)
 
 
 class TestPassthroughLegacyReceive64_48(BaseTestPassthroughLegacyReceive):
     spead = spead64_48
-    heap_address_bits = 48
+    flavour = spead2.Flavour(4, 64, 48, spead2.BUG_COMPAT_PYSPEAD_0_5_2)

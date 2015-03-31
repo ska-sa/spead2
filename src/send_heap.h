@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cassert>
 #include "common_defines.h"
+#include "common_flavour.h"
 
 namespace spead2
 {
@@ -90,8 +91,7 @@ class heap
     friend class packet_generator;
 private:
     s_item_pointer_t cnt;
-    int heap_address_bits;
-    bug_compat_mask bug_compat;
+    flavour flavour_;
 
     /// Items to write (including descriptors)
     std::vector<item> items;
@@ -106,12 +106,9 @@ private:
     heap &operator=(const heap &) = delete;
 
 public:
-    static constexpr int default_heap_address_bits = 40;
-
     explicit heap(
         s_item_pointer_t cnt = 0,
-        int heap_address_bits = default_heap_address_bits,
-        bug_compat_mask bug_compat = 0);
+        const flavour &flavour_ = flavour());
 
     s_item_pointer_t get_cnt() const
     {
@@ -123,14 +120,9 @@ public:
         this->cnt = cnt;
     }
 
-    int get_heap_address_bits() const
+    const flavour &get_flavour() const
     {
-        return heap_address_bits;
-    }
-
-    bug_compat_mask get_bug_compat() const
-    {
-        return bug_compat;
+        return flavour_;
     }
 
     template<typename... Args>
