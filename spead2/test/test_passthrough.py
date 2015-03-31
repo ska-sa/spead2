@@ -208,11 +208,17 @@ class BaseTestPassthroughLegacySend(BaseTestPassthrough):
         sender = self.spead.Transmitter(transport)
         legacy_item_group = self.spead.ItemGroup()
         for item in item_group.values():
+            # PySPEAD only supports either 1D variable or fixed-size
+            if item.is_variable_size():
+                assert len(item.shape) == 1
+                shape = -1
+            else:
+                shape = item.shape
             legacy_item_group.add_item(
                     id=item.id,
                     name=item.name,
                     description=item.description,
-                    shape=item.shape,
+                    shape=shape,
                     fmt=self.spead.mkfmt(*item.format) if item.format else self.spead.DEFAULT_FMT,
                     ndarray=item.value if isinstance(item.value, np.ndarray) else None)
             legacy_item_group[item.name] = item.value
@@ -253,12 +259,17 @@ class BaseTestPassthroughLegacyReceive(BaseTestPassthrough):
         received_item_group = spead2.ItemGroup()
         for key in legacy_item_group.keys():
             item = legacy_item_group.get_item(key)
+            # PySPEAD indicates 1D variable as -1 (scalar), everything else is fixed-sized
+            if item.shape == -1:
+                shape = (None,)
+            else:
+                shape = item.shape
             if item.dtype is None:
                 received_item_group.add_item(
                         id=item.id,
                         name=item.name,
                         description=item.description,
-                        shape=item.shape,
+                        shape=shape,
                         dtype=None,
                         format=list(self.spead.parsefmt(item.format)),
                         value=item.get_value())
@@ -267,7 +278,7 @@ class BaseTestPassthroughLegacyReceive(BaseTestPassthrough):
                         id=item.id,
                         name=item.name,
                         description=item.description,
-                        shape=item.shape,
+                        shape=shape,
                         dtype=item.dtype,
                         order='F' if item.fortran_order else 'C',
                         value=item.get_value())
