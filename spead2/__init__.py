@@ -420,7 +420,7 @@ class Item(Descriptor):
 
     def _num_elements(self):
         if isinstance(self.value, _np.ndarray):
-            return self.value.shape
+            return int(_np.product(self.value.shape))
         cur = self.value
         ans = 1
         for size in self.shape:
