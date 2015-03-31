@@ -10,9 +10,15 @@ both item descriptors and item values. While it is possible to directly
 inspect heaps, this is not recommended or supported. Instead, heaps are
 normally passed to :py:meth:`spead2.ItemGroup.update`.
 
-.. autoclass:: spead2.recv.Heap
+.. py:class:: spead2.recv.Heap
 
-   .. autoattribute: cnt
+   .. py:attribute:: cnt
+
+      Heap identifier (read-only)
+
+   .. py:attribute:: bug_compat
+
+      Bug compatibility flags from the associated stream (see :ref:`py-bug-compat`)
 
 Blocking receive
 ^^^^^^^^^^^^^^^^

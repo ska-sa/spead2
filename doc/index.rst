@@ -13,6 +13,7 @@ Contents:
 
    introduction
    py
+   cpp
 
 Indices and tables
 ==================

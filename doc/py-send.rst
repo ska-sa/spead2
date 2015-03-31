@@ -3,7 +3,8 @@ Sending
 Unlike for receiving, each stream object can only use a single transport.
 There is currently no support for collective operations where multiple
 producers cooperate to construct a heap between them. It is still possible to
-do multi-producer, single-consumer operation if the heap IDs are coordinated.
+do multi-producer, single-consumer operation if the heap IDs are kept separate.
+
 Because each stream has only one transport, there is a separate class for
 each, rather than a generic `Stream` class. Because there is common
 configuration between the stream classes, configuration is encapsulated in a
@@ -47,7 +48,7 @@ Blocking send
    :param str hostname: Peer hostname
    :param int port: Peer port
    :param config: Stream configuration
-   :type config: :py:class:spead2.send.StreamConfig`
+   :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
      size cannot be set due to OS limits.
 
@@ -65,7 +66,7 @@ Blocking send
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
    :param config: Stream configuration
-   :type config: :py:class:spead2.send.StreamConfig`
+   :type config: :py:class:`spead2.send.StreamConfig`
 
    .. py:method:: send_heap(heap)
 
@@ -81,4 +82,19 @@ Blocking send
 Asychronous send
 ^^^^^^^^^^^^^^^^
 
-TODO
+As for asychronous receives, asynchronous sends are managed by trollius_. A
+stream can buffer up multiple heaps for asynchronous send, up to the limit
+specified by `max_heaps` in the :py:class:`~spead2.send.StreamConfig`. If this
+limit is exceeded, heaps will be dropped. There is currently no mechanism to
+distinguish between heaps that were successfully sent and those that were
+dropped on the sending side due to buffer space or OS errors, but in future
+the futures returned by `async_send_heap` may raise errors.
+
+.. _trollius: http://trollius.readthedocs.org/
+
+.. autoclass:: spead2.send.trollius.UdpStream(thread_pool, hostname, port, config, buffer_size=524288, loop=None)
+
+   .. automethod:: spead2.send.trollius.UdpStream.async_send_heap
+   .. py:method:: flush
+
+      Block until all enqueued heaps have been sent (or dropped).
