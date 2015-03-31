@@ -78,7 +78,10 @@ static py::object descriptor_get_shape(const descriptor &d)
     py::list out;
     for (const auto &size : d.shape)
     {
-        out.append(size);
+        if (size >= 0)
+            out.append(size);
+        else
+            out.append(py::object());
     }
     return out;
 }
@@ -89,8 +92,15 @@ static void descriptor_set_shape(descriptor &d, py::object shape)
     out.reserve(len(shape));
     for (long i = 0; i < len(shape); i++)
     {
-        std::int64_t v = py::extract<int64_t>(shape[i]);
-        out.push_back(v);
+        py::object value = shape[i];
+        if (value.is_none())
+            out.push_back(-1);
+        else
+        {
+            std::int64_t v = py::extract<int64_t>(value);
+            // TODO: verify range (particularly, >= 0)
+            out.push_back(v);
+        }
     }
     d.shape = std::move(out);
 }

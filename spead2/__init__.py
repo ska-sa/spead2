@@ -15,6 +15,14 @@ _logger = logging.getLogger(__name__)
 class Descriptor(object):
     """Metadata for a SPEAD item.
 
+    There are a number of restrictions in the way the parameters combine,
+    which will cause `ValueError` to be raised if violated:
+
+    - At most one element of `shape` can be `None`.
+    - Exactly one of `dtype` and `format` must be non-`None`.
+    - If `dtype` is specified, `shape` cannot have any unknown dimensions.
+    - If `format` is specified, `order` must be 'C'
+
     Parameters
     ----------
     id : int
@@ -23,14 +31,50 @@ class Descriptor(object):
         Short item name, suitable for use as a key
     description : str
         Long item description
+    shape : sequence
+        Dimensions, with `None` indicating a variable-size dimension
     dtype : numpy data type
         Data type, or `None` if `format` will be used instead
-    order : str
-        Either `C` or `F` for C-order or Fortran-order storage
+    order : {'C', 'F'}
+        Indicates C-order or Fortran-order storage
     format : list of pairs, optional
         Structure fields for generic (non-numpy) type. Each element of the list
         is a tuple of field code and bit length.
     """
+
+    def __init__(self, id, name, description, shape, dtype, order='C', format=None):
+        shape = tuple(shape)
+        unknowns = sum([x is None for x in shape])
+        if unknowns > 1:
+            raise ValueError('Cannot have multiple unknown dimensions')
+        if dtype is not None:
+            dtype = _np.dtype(dtype)
+            if format is not None:
+                raise ValueError('Only one of dtype and format can be specified')
+            if unknowns > 0:
+                raise ValueError('Cannot have unknown dimensions when using numpy descriptor')
+        else:
+            if format is None:
+                raise ValueError('One of dtype and format must be specified')
+            if order != 'C':
+                raise ValueError("When specifying format, order must be 'C'")
+            # Try to find a compatible numpy format
+            if unknowns == 0:
+                dtype = self._parse_format(format)
+            else:
+                dtype = None
+            if dtype is not None:
+                format = None
+
+        if order not in ['C', 'F']:
+            raise ValueError("Order must be 'C' or 'F'")
+        self.id = id
+        self.name = name
+        self.description = description
+        self.shape = shape
+        self.dtype = dtype
+        self.order = order
+        self.format = format
 
     @classmethod
     def _parse_numpy_header(cls, header):
@@ -49,7 +93,7 @@ class Descriptor(object):
             raise ValueError(msg % (keys,))
         # Sanity-check the values.
         if (not isinstance(d['shape'], tuple) or
-                not all([isinstance(x, _numbers.Integral) for x in d['shape']])):
+                not all([isinstance(x, _numbers.Integral) and x >= 0 for x in d['shape']])):
             msg = "shape is not valid: %r"
             raise ValueError(msg % (d['shape'],))
         if not isinstance(d['fortran_order'], bool):
@@ -99,7 +143,7 @@ class Descriptor(object):
 
     def is_variable_size(self):
         """Determine whether any element of the size is dynamic"""
-        return any([x < 0 for x in self.shape])
+        return any([x is None for x in self.shape])
 
     def allow_immediate(self):
         """Called by the C++ interface to determine whether sufficiently small
@@ -121,11 +165,10 @@ class Descriptor(object):
         known = 1
         unknown_pos = -1
         for i, x in enumerate(self.shape):
-            if x >= 0:
+            if x is not None:
                 known *= x
-            elif unknown_pos >= 0:
-                raise TypeError('Shape has multiple unknown dimensions')
             else:
+                assert unknown_pos == -1, 'Shape has multiple unknown dimensions'
                 unknown_pos = i
         if unknown_pos == -1:
             return self.shape
@@ -143,34 +186,9 @@ class Descriptor(object):
         if len(shape) != len(self.shape):
             return False
         for x, y in zip(self.shape, shape):
-            if x >= 0 and x != y:
+            if x is not None and x != y:
                 return False
         return True
-
-    def __init__(self, id, name, description, shape, dtype, order='C', format=None):
-        if dtype is not None:
-            dtype = _np.dtype(dtype)
-            if format is not None:
-                raise ValueError('Only one of dtype and format can be specified')
-        else:
-            if format is None:
-                raise ValueError('One of dtype and format must be specified')
-            if order != 'C':
-                raise ValueError("When specifying format, order must be 'C'")
-            # Try to find a compatible numpy format
-            dtype = self._parse_format(format)
-            if dtype is not None:
-                format = None
-
-        if order not in ['C', 'F']:
-            raise ValueError("Order must be 'C' or 'F'")
-        self.id = id
-        self.name = name
-        self.description = description
-        self.shape = tuple(shape)
-        self.dtype = dtype
-        self.order = order
-        self.format = format
 
     @classmethod
     def from_raw(cls, raw_descriptor, flavour):
@@ -386,8 +404,8 @@ class Item(Descriptor):
 
             gen = self._read_bits(raw_value)
             gen.send(None)    # Initialisation of the generator
-            self.value = _np.array(self._load_recursive(shape, gen),
-                                   dtype=self._parse_format(self.format, True))
+            value = _np.array(self._load_recursive(shape, gen),
+                              dtype=self._parse_format(self.format, True))
         else:
             max_elements = raw_value.shape[0] // self.dtype.itemsize
             shape = self.dynamic_shape(max_elements)

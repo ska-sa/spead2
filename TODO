@@ -20,4 +20,3 @@
 - Statistics for memory pool
 - Support (or at least documentation about, if it already works) IPv6
 - Test binding an illegal UDP port
-- Use None for unknown size elements, instead of negative numbers

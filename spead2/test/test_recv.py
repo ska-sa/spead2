@@ -70,13 +70,13 @@ class Flavour(object):
 
         data = []
         for value in shape:
-            if value == -1:
+            if value is None:
                 data.append(struct.pack('>B', variable_marker))
                 data.append(self._encode_be(field_size - 1, 0))
             elif value >= 0:
                 data.append(self._encode_be(field_size, value))
             else:
-                raise ValueError('Shape must contain non-negative values and -1')
+                raise ValueError('Shape must contain non-negative values and None')
         return b''.join(data)
 
     def make_packet_heap(self, heap_cnt, items):
@@ -209,7 +209,7 @@ class TestDecode(object):
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_string', 'a byte string', [('c', 8)], [-1]),
+                    0x1234, 'test_string', 'a byte string', [('c', 8)], [None]),
                 Item(0x1234, 'Hello world'.encode('ascii'))
             ])
         item = self.data_to_item(packet, 0x1234)

@@ -297,9 +297,9 @@ class TestEncode(object):
     def test_small_variable(self):
         """Sending a small item with dynamic shape must not use an immediate."""
         id = 0x2345
-        shape = (1, -1)
+        shape = (1, None)
         data = np.array([[4, 5]], dtype=np.uint8)
-        payload = struct.pack('<2B', 4, 5)
+        payload = struct.pack('>2B', 4, 5)
         expected = [
             b''.join([
                 self.flavour.make_header(5),
@@ -312,7 +312,7 @@ class TestEncode(object):
             ])
         ]
         item = spead2.Item(id=id, name='name', description='description',
-                           shape=shape, dtype=np.uint8)
+                           shape=shape, dtype=None, format=[('u', 8)])
         item.value = data
         packet = self.flavour.items_to_bytes([item], [])
         assert_equal(hexlify(expected), hexlify(packet))
