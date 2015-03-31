@@ -10,6 +10,7 @@ import logging
 
 
 _logger = logging.getLogger(__name__)
+_UNRESERVED_ID = 0x1000      #: First ID that can be auto-allocated
 
 
 class Descriptor(object):
@@ -488,9 +489,14 @@ class ItemGroup(object):
 
     def add_item(self, *args, **kwargs):
         """Add a new item to the group. The parameters are used to construct an
-        :py:class:`Item`.
+        :py:class:`Item`. If `id` is `None`, it will be automatically populated
+        with an ID that is not already in use.
         """
         item = Item(*args, **kwargs)
+        if item.id is None:
+            item.id = _UNRESERVED_ID
+            while item.id in self._by_id:
+                item.id += 1
         self._add_item(item)
         return item
 

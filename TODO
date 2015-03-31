@@ -14,7 +14,6 @@
 - Multicast support (TTL for send, subscribe for receive)
 - Error checking in streambuf sender
 - Add other default_* to Python interface
-- Auto-allocation of item IDs in an ItemGroup
 - Expose common_defines constants through Python
 - Add test and workaround for endian-swapping within structs (numpy bug https://github.com/numpy/numpy/issues/5356)
 - Statistics for memory pool
