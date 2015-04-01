@@ -20,6 +20,13 @@ normally passed to :py:meth:`spead2.ItemGroup.update`.
 
       SPEAD flavour used to encode the heap (see :ref:`py-flavour`)
 
+.. note:: Malformed packets (such as an unsupported SPEAD version, or
+  inconsistent heap lengths) are dropped, with a log message. However,
+  errors in interpreting a fully assembled heap (such as invalid/unsupported
+  formats, data of the wrong size and so on) are reported as
+  :py:exc:`ValueError` exceptions. Robust code should thus be prepared to
+  catch exceptions from heap processing.
+
 Blocking receive
 ^^^^^^^^^^^^^^^^
 To do blocking receive, create a :py:class:`spead2.recv.Stream`, and add

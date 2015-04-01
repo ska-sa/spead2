@@ -119,9 +119,18 @@ class Descriptor(object):
         """Attempt to convert a SPEAD format specification to a numpy dtype.
         If there is an unsupported field, return `None` if `fallback` is
         `False`, or use `O` if `fallback` is `True`.
+
+        Raises
+        ------
+        ValueError
+            If the format is illegal
         """
         fields = []
+        if not fmt:
+            raise ValueError('empty format')
         for code, length in fmt:
+            if length == 0:
+                raise ValueError('zero-length field (bug_compat mismatch?)')
             if ((code in ('u', 'i') and length in (8, 16, 32, 64)) or
                     (code == 'f' and length in (32, 64)) or
                     (code == 'b' and length == 8)):
@@ -129,6 +138,8 @@ class Descriptor(object):
             elif code == 'c' and length == 8:
                 fields.append('S1')
             elif fallback:
+                if code not in ['u', 'i', 'c', 'b']:
+                    raise ValueError('illegal format ({}, {})'.format(code, length))
                 fields.append('O')
             else:
                 return None
