@@ -375,7 +375,12 @@ class Item(Descriptor):
                 elif code == 'b':
                     raw = 1 if field else 0
                 elif code == 'c':
-                    raw = ord(field)
+                    # In Python 3, indexing a bytes object gives numerical
+                    # values instead of a substring.
+                    if isinstance(field, int):
+                        raw = field
+                    else:
+                        raw = ord(field)
                 elif code == 'f':
                     if length == 32:
                         raw = _np.float32(field).view(_np.uint32)

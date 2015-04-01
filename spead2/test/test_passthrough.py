@@ -120,7 +120,7 @@ class BaseTestPassthrough(object):
         """
         ig = spead2.send.ItemGroup()
         format = [('c', 8)]
-        data = b'Hello world'
+        data = 'Hello world'
         ig.add_item(id=0x2345, name='name', description='description',
                     shape=(None,), dtype=None, format=format, value=data)
         self._test_item_group(ig)
