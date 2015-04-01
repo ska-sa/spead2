@@ -40,11 +40,17 @@ int main()
     h.add_item(0x1001, &value2, sizeof(value2), true);
     h.add_descriptor(desc1);
     h.add_descriptor(desc2);
-    stream.async_send_heap(h, [] { std::cout << "Callback fired\n"; });
+    stream.async_send_heap(h, [] (const boost::system::error_code &ec, spead2::item_pointer_t bytes_transferred)
+    {
+        if (ec)
+            std::cerr << ec.message() << '\n';
+        else
+            std::cout << "Sent " << bytes_transferred << " bytes in heap\n";
+    });
 
     spead2::send::heap end(0x3, f);
     end.add_end();
-    stream.async_send_heap(end, [] {});
+    stream.async_send_heap(end, [] (const boost::system::error_code &ec, spead2::item_pointer_t bytes_transferred) {});
     stream.flush();
 
     return 0;

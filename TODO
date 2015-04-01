@@ -1,5 +1,4 @@
 Incompatible interface changes:
-  - Call the send callback with an error if a heap is dropped or the stream is terminated
   - Move most of the C++ code to the detail namespace
 
 Bug fixes:
@@ -17,6 +16,7 @@ New features/improvements:
   - Better multicast support (TTL for send, subscribe for receive)
   - Add udp_reader constructor that takes over a socket?
   - Support cancellation of transmission
+  - Pass asio send errors into the C++ callback, and from there into Python exceptions
   - Use eventfd where available for waking up asyncio
   - Insert padding into packets between items to keep item payloads naturally aligned?
   - Statistics for memory pool

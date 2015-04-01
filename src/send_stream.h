@@ -16,6 +16,7 @@
 #include <stdexcept>
 #include <boost/asio.hpp>
 #include <boost/asio/high_resolution_timer.hpp>
+#include <boost/system/error_code.hpp>
 #include "send_heap.h"
 #include "send_packet.h"
 #include "common_logging.h"
@@ -64,7 +65,7 @@ template<typename Derived>
 class stream
 {
 private:
-    typedef std::function<void()> completion_handler;
+    typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
     typedef boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock> timer_type;
 
     struct queue_item
@@ -92,6 +93,8 @@ private:
     std::queue<queue_item> queue;
     timer_type timer;
     timer_type::time_point send_time;
+    /// Number of bytes sent in the current heap
+    item_pointer_t heap_bytes = 0;
     /// Number of bytes sent since last sleep
     std::size_t rate_bytes = 0;
     std::unique_ptr<packet_generator> gen; // TODO: make this inlinable
@@ -126,7 +129,8 @@ private:
                     gen.reset();
                 lock.unlock();
 
-                handler();
+                handler(boost::system::error_code(), heap_bytes);
+                heap_bytes = 0;
                 heap_popped.notify_all();
                 again = !empty;  // Start again on the next heap
             }
@@ -139,6 +143,7 @@ private:
                         // TODO: log the error? Abort on error?
                         bool sleeping = false;
                         rate_bytes += bytes_transferred;
+                        heap_bytes += bytes_transferred;
                         if (rate_bytes >= config.get_burst_size())
                         {
                             std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
@@ -192,7 +197,7 @@ public:
         {
             log_warning("async_send_heap: dropping heap because queue is full");
             // TODO: send an error code to the handler
-            handler();
+            handler(boost::asio::error::would_block, 0);
             return;
         }
         bool empty = queue.empty();

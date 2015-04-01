@@ -91,7 +91,7 @@ public:
          * if we are interrupted it still needs to exist until the heap is sent.
          */
         auto sent_sem = std::make_shared<semaphore_gil>();
-        Base::async_send_heap(h, [sent_sem]()
+        Base::async_send_heap(h, [sent_sem] (const boost::system::error_code &, item_pointer_t)
         {
             sent_sem->put();
         });
@@ -119,7 +119,7 @@ public:
         // Note that while h isn't used in the lambda, it is
         // bound to it so that its lifetime persists.
         py::extract<heap_wrapper &> h2(h);
-        Base::async_send_heap(h2(), [this, callback, h] () mutable
+        Base::async_send_heap(h2(), [this, callback, h] (const boost::system::error_code &, item_pointer_t) mutable
         {
             {
                 std::unique_lock<std::mutex> lock(callbacks_mutex);
