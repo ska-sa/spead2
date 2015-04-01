@@ -349,7 +349,7 @@ class Item(Descriptor):
 
     def _store_recursive(self, expected_shape, value, gen):
         if len(expected_shape) > 0:
-            if expected_shape[0] >= 0 and expected_shape[0] != len(value):
+            if expected_shape[0] is not None and expected_shape[0] != len(value):
                 raise ValueError('Value does not conform to the expected shape')
             for sub in value:
                 self._store_recursive(expected_shape[1:], sub, gen)
