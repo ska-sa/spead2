@@ -3,7 +3,6 @@ Incompatible interface changes:
   - Move most of the C++ code to the detail namespace
 
 Bug fixes:
-  - CRITICAL: segfault when an exception thrown
   - Distinguish descriptor re-issues from descriptor changes (don't warn on the former)
   - Check that memory alignment requirements for decode_packet are actually respected, particularly in mem_stream
   - Add lots of validation to sending (overflows etc)

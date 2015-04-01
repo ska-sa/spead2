@@ -154,6 +154,10 @@ public:
 class ring_stream_wrapper : public ring_stream<ringbuffer_semaphore<live_heap, semaphore_gil> >
 {
 private:
+    /// Holds a Python reference to the thread pool
+    py::handle<> thread_pool_handle;
+    friend void register_module();
+
     py::object wrap_heap(heap &&fh)
     {
         // We need to allocate a new object to have type heap_wrapper,
@@ -267,7 +271,7 @@ void register_module()
             init<thread_pool_wrapper &, bug_compat_mask, std::size_t>(
                 (arg("thread_pool"), arg("bug_compat") = 0,
                  arg("max_heaps") = ring_stream_wrapper::default_max_heaps))[
-                with_custodian_and_ward<1, 2>()])
+                store_handle_postcall<ring_stream_wrapper, &ring_stream_wrapper::thread_pool_handle, 1, 2>()])
         .def("__iter__", objects::identity_function())
         .def(
 #if PY_MAJOR_VERSION >= 3

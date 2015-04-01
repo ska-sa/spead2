@@ -58,6 +58,10 @@ flavour heap_wrapper::get_flavour() const
 
 class packet_generator_wrapper : public packet_generator
 {
+private:
+    boost::python::handle<> heap_handle;
+    friend void register_module();
+
 public:
     using packet_generator::packet_generator;
 
@@ -144,6 +148,9 @@ template<typename Base>
 class udp_stream_wrapper : public Base
 {
 private:
+    boost::python::handle<> thread_pool_handle;
+    friend void register_module();
+
     static boost::asio::ip::udp::endpoint make_endpoint(
         boost::asio::io_service &io_service, const std::string &hostname, int port);
 
@@ -176,6 +183,10 @@ boost::asio::ip::udp::endpoint udp_stream_wrapper<Base>::make_endpoint(
 
 class bytes_stream : private std::stringbuf, public stream_wrapper<streambuf_stream>
 {
+private:
+    boost::python::handle<> thread_pool_handle;
+    friend void register_module();
+
 public:
     bytes_stream(thread_pool &pool, const stream_config &config = stream_config())
         : stream_wrapper<streambuf_stream>(pool.get_io_service(), *this, config)
@@ -203,16 +214,14 @@ void register_module()
             (arg("cnt") = 0, arg("flavour") = flavour())))
         .add_property("cnt", &heap_wrapper::get_cnt, &heap_wrapper::set_cnt)
         .add_property("flavour", &heap_wrapper::get_flavour)
-        .def("add_item", &heap_wrapper::add_item,
-             arg("item"),
-             with_custodian_and_ward<1, 2>())
+        .def("add_item", &heap_wrapper::add_item, arg("item"))
         .def("add_descriptor", &heap_wrapper::add_descriptor,
              (arg("descriptor")))
         .def("add_end", &heap_wrapper::add_end);
 
     class_<packet_generator_wrapper, boost::noncopyable>("PacketGenerator", init<heap_wrapper &, std::size_t>(
             (arg("heap"), arg("max_packet_size")))[
-            with_custodian_and_ward<1, 2>()])
+            store_handle_postcall<packet_generator_wrapper, &packet_generator_wrapper::heap_handle, 1, 2>()])
         .def("__iter__", objects::identity_function())
         .def(
 #if PY_MAJOR_VERSION >= 3
@@ -241,7 +250,7 @@ void register_module()
                     (arg("thread_pool"), arg("hostname"), arg("port"),
                      arg("config") = stream_config(),
                      arg("buffer_size") = T::default_buffer_size))[
-                with_custodian_and_ward<1, 2>()])
+                store_handle_postcall<T, &T::thread_pool_handle, 1, 2>()])
             .def("send_heap", &T::send_heap, arg("heap"));
     }
 
@@ -252,7 +261,7 @@ void register_module()
                     (arg("thread_pool"), arg("hostname"), arg("port"),
                      arg("config") = stream_config(),
                      arg("buffer_size") = T::default_buffer_size))[
-                with_custodian_and_ward<1, 2>()])
+                store_handle_postcall<T, &T::thread_pool_handle, 1, 2>()])
             .add_property("fd", &T::get_fd)
             .def("async_send_heap", &T::async_send_heap, arg("heap"))
             .def("flush", &T::flush)
@@ -262,7 +271,7 @@ void register_module()
     class_<bytes_stream, boost::noncopyable>("BytesStream", init<
                 thread_pool_wrapper &, const stream_config &>(
                     (arg("thread_pool"), arg("config") = stream_config()))[
-                with_custodian_and_ward<1, 2>()])
+                store_handle_postcall<bytes_stream, &bytes_stream::thread_pool_handle, 1, 2>()])
         .def("getvalue", &bytes_stream::getvalue)
         .def("send_heap", &bytes_stream::send_heap, arg("heap"));
 }

@@ -4,6 +4,7 @@ import spead2.send as send
 import struct
 import binascii
 import numpy as np
+import weakref
 from nose.tools import *
 from .defines import *
 
@@ -105,6 +106,20 @@ class TestEncode(object):
         ]
         packet = self.flavour.items_to_bytes([])
         assert_equal(hexlify(expected), hexlify(packet))
+
+    def test_lifetime(self):
+        """Heap must hold references to item values"""
+        item = spead2.Item(id=0x2345, name='name', description='description',
+                           shape=(2, 3), dtype=np.uint16)
+        item.value = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.uint16)
+        weak = weakref.ref(item.value)
+        heap = send.Heap(0x123456, self.flavour)
+        heap.add_item(item)
+        del item
+        packets = list(send.PacketGenerator(heap, 1472))
+        assert_is_not_none(weak())
+        del heap
+        assert_is_none(weak())
 
     def make_descriptor_numpy(self, id, name, description, shape, dtype_str, fortran_order):
         payload_fields = [
