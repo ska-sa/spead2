@@ -69,7 +69,7 @@ def main():
         bug_compat = spead2.BUG_COMPAT_PYSPEAD_0_5_2 if args.pyspead else 0
         stream = spead2.recv.trollius.Stream(thread_pool, bug_compat, args.heaps)
         if memory_pool is not None:
-            stream.set_memory_pool(stream)
+            stream.set_memory_pool(memory_pool)
         for source in sources:
             try:
                 port = int(source)
