@@ -176,8 +176,19 @@ protected:
     {
         typedef typename std::result_of<F()>::type return_type;
         std::packaged_task<return_type()> task(std::forward<F>(func));
-        get_strand().dispatch(std::ref(task));
-        return task.get_future().get();
+        auto future = task.get_future();
+        get_strand().dispatch([&task]
+        {
+            /* This is subtle: task lives on the run_in_strand stack frame, so
+             * we have to be very careful not to touch it after that function
+             * exits. Calling task() directly can continue to touch task even
+             * after it has unblocked the future. But the move constructor for
+             * packaged_task will take over the shared state for the future.
+             */
+            std::packaged_task<return_type()> my_task(std::move(task));
+            my_task();
+        });
+        return future.get();
     }
 
     /// Actual implementation of @ref stop
