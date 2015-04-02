@@ -132,7 +132,7 @@ public:
  *
  * This class is thread-safe. This is achieved mostly by having operations run
  * as completion handlers on a strand. The exception is @ref stop, which uses a
- * once to ensure that only the first call actually runs.
+ * @c once to ensure that only the first call actually runs.
  */
 class stream : protected stream_base
 {

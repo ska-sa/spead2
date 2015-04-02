@@ -15,6 +15,11 @@ namespace spead2
 namespace send
 {
 
+/**
+ * Puts packets into a streambuf (which could come from an @c ostream). This
+ * should not be used for a blocking stream such as a wrapper around TCP,
+ * because doing so will block the asio handler thread.
+ */
 class streambuf_stream : public stream<streambuf_stream>
 {
 private:
@@ -36,6 +41,7 @@ private:
     }
 
 public:
+    /// Constructor
     streambuf_stream(
         boost::asio::io_service &io_service,
         std::streambuf &streambuf,

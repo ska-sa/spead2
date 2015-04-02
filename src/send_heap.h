@@ -23,7 +23,7 @@ namespace send
 class packet_generator;
 
 /**
- * An item to be inserted into a heap.
+ * An item to be inserted into a heap. An item does *not* own its memory.
  */
 struct item
 {
@@ -61,7 +61,14 @@ struct item
         s_item_pointer_t immediate;
     } data;
 
+    /**
+     * Default constructor. This item has undefined values and is not usable.
+     */
     item() = default;
+
+    /**
+     * Create an item referencing existing memory.
+     */
     item(s_item_pointer_t id, const void *ptr, std::size_t length, bool allow_immediate)
         : id(id), is_inline(false), allow_immediate(allow_immediate)
     {
@@ -69,23 +76,35 @@ struct item
         data.buffer.length = length;
     }
 
+    /**
+     * Create an item with a value to be encoded as an immediate.
+     */
     item(s_item_pointer_t id, s_item_pointer_t immediate)
         : id(id), is_inline(true), allow_immediate(true)
     {
         data.immediate = immediate;
     }
 
+    /**
+     * Construct an item referencing the data in a string.
+     */
     item(s_item_pointer_t id, const std::string &value, bool allow_immediate)
         : item(id, value.data(), value.size(), allow_immediate)
     {
     }
 
+    /**
+     * Construct an item referencing the data in a vector.
+     */
     item(s_item_pointer_t id, const std::vector<std::uint8_t> &value, bool allow_immediate)
         : item(id, value.data(), value.size(), allow_immediate)
     {
     }
 };
 
+/**
+ * Heap that is constructed for transmission.
+ */
 class heap
 {
     friend class packet_generator;
@@ -106,38 +125,60 @@ private:
     heap &operator=(const heap &) = delete;
 
 public:
+    /**
+     * Constructor.
+     *
+     * @param cnt         Heap ID
+     * @param flavour_    SPEAD flavour that will be used to encode the heap
+     */
     explicit heap(
         s_item_pointer_t cnt = 0,
         const flavour &flavour_ = flavour());
 
+    /// Return heap ID
     s_item_pointer_t get_cnt() const
     {
         return cnt;
     }
 
+    /// Set heap ID
     void set_cnt(s_item_pointer_t cnt)
     {
         this->cnt = cnt;
     }
 
+    /// Return flavour
     const flavour &get_flavour() const
     {
         return flavour_;
     }
 
+    /**
+     * Construct a new item.
+     */
     template<typename... Args>
     void add_item(s_item_pointer_t id, Args&&... args)
     {
         items.emplace_back(id, std::forward<Args>(args)...);
     }
 
+    /**
+     * Take over ownership of @a pointer and arrange for it to be freed when
+     * the heap is freed.
+     */
     void add_pointer(std::unique_ptr<std::uint8_t[]> &&pointer)
     {
         storage.push_back(std::move(pointer));
     }
 
+    /**
+     * Encode a descriptor to an item and add it to the heap.
+     */
     void add_descriptor(const descriptor &descriptor);
 
+    /**
+     * Add an end-of-stream control item.
+     */
     void add_end()
     {
         add_item(STREAM_CTRL_ID, CTRL_STREAM_STOP);

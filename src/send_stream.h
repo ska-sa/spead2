@@ -187,7 +187,7 @@ public:
 
     /**
      * Send @a h asynchronously, with @a handler called on completion. The
-     * caller must ensure that @h remains valid (as well as any memory it
+     * caller must ensure that @a h remains valid (as well as any memory it
      * points to) until @a handler is called.
      */
     void async_send_heap(const heap &h, completion_handler handler)

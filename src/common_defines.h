@@ -74,14 +74,23 @@ enum ctrl_mode : unsigned int
  */
 struct descriptor
 {
+    /// SPEAD ID
     s_item_pointer_t id = 0;
+    /// Short name
     std::string name;
+    /// Long description
     std::string description;
-    /// Each element is a specifier character (e.g. 'u' for unsigned) and a bit width
+    /**
+     * Legacy format. Each element is a specifier character (e.g. 'u' for
+     * unsigned) and a bit width.
+     */
     std::vector<std::pair<char, s_item_pointer_t> > format;
-    /// -1 is used to indicate a variable-length size
+    /**
+     * Shape. Elements are either non-negative, or -1 is used to indicate a
+     * variable-length size. At most one dimension may be variable-length.
+     */
     std::vector<s_item_pointer_t> shape;
-    /// Description in the format used in .npy files.
+    /// Description in the format used in .npy files
     std::string numpy_header;
 };
 

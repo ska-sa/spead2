@@ -21,7 +21,7 @@ class reader;
  * this class.
  *
  * @note For simple cases, use @ref mem_to_stream instead. This class is
- * only necessary if one wants to plug in to a @ref Receiver.
+ * only necessary if one wants to plug in to a @ref stream.
  */
 class mem_reader : public reader
 {

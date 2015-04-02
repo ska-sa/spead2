@@ -32,6 +32,7 @@ public:
     /// Socket receive buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 512 * 1024;
 
+    /// Constructor
     udp_stream(
         boost::asio::io_service &io_service,
         const boost::asio::ip::udp::endpoint &endpoint,

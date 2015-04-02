@@ -45,8 +45,8 @@ public:
 /**
  * Ring buffer with blocking and non-blocking pop, but only non-blocking push.
  * It supports non-copyable objects using move semantics. The producer may
- * signal that it has finished producing data by calling @ref stop, which will
- * gracefully shut down the consumer.
+ * signal that it has finished producing data by calling @ref stop_unlocked,
+ * which will gracefully shut down the consumer.
  *
  * This is a base class that cannot be used directly. Derived classes must
  * provide the synchronisation mechanisms.
@@ -105,7 +105,7 @@ protected:
      *
      * @param args     Arguments to the constructor
      * @throw ringbuffer_full if there is no space
-     * @throw ringbuffer_stopped if @ref stop has already been called
+     * @throw ringbuffer_stopped if @ref stop_unlocked has already been called
      *
      * @pre The caller holds a mutex
      */

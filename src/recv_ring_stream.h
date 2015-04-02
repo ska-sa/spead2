@@ -43,8 +43,6 @@ public:
      * - the buffer for frozen heaps that the consumer has not get dequeued
      * The latter needs to be at least as large as the former to prevent
      * heaps being dropped when the stream is shut down.
-     *
-     * @param max_heaps The capacity of the ring buffer, and of the stream buffer
      */
     explicit ring_stream(boost::asio::io_service &io_service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
     explicit ring_stream(thread_pool &pool, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps)
@@ -61,7 +59,7 @@ public:
 
     /**
      * Like @ref pop, but if no contiguous heap is available,
-     * throws @ref ringbuffer_empty.
+     * throws @ref spead2::ringbuffer_empty.
      *
      * @throw ringbuffer_empty if there is contiguous heap available, but the
      * stream has not been stopped
