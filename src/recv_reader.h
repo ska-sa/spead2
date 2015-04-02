@@ -21,13 +21,10 @@ class stream_base;
  * a stream. Subclasses will usually override @ref stop.
  *
  * The lifecycle of a reader is:
- * - construction
- * - stop
- * - join
- * - destruction
- *
- * A reader will always have @ref stop called once, then be destroyed. It
- * is always constructed with the owner's strand held.
+ * - construction (strand held)
+ * - stop (strand held)
+ * - join (strand not held)
+ * - destruction (strand held)
  */
 class reader
 {
