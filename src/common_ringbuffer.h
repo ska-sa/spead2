@@ -168,6 +168,7 @@ template<typename T>
 T ringbuffer_base<T>::pop_unlocked()
 {
     T result = std::move(*get(head));
+    get(head)->~T();
     head = next(head);
     len--;
     return result;
