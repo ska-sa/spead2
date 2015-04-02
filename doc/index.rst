@@ -14,6 +14,7 @@ Contents:
    introduction
    py
    cpp
+   perf
 
 Indices and tables
 ==================
