@@ -122,17 +122,21 @@ private:
                 queue.pop();
                 empty = queue.empty();
                 if (!empty)
-                {
                     gen.reset(new packet_generator(queue.front().h, config.get_max_packet_size()));
-                }
                 else
                     gen.reset();
-                lock.unlock();
 
-                handler(boost::system::error_code(), heap_bytes);
+                std::size_t old_heap_bytes = heap_bytes;
                 heap_bytes = 0;
                 heap_popped.notify_all();
                 again = !empty;  // Start again on the next heap
+                lock.unlock();
+
+                /* At this point it is not safe to touch *this at all, because
+                 * if the queue is empty, the destructor is free to complete
+                 * and take the memory out from under us.
+                 */
+                handler(boost::system::error_code(), old_heap_bytes);
             }
             else
             {
