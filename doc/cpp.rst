@@ -14,7 +14,7 @@ which descriptors and items need to be inserted into heaps.
 
 The C++ documentation is far from complete. As a first step, consult the Python
 documentation; in many cases it is just wrapping the C++ interface with Pythonic
-compliant names, whereas the C++ interface uses lowercase with underscores for
+names, whereas the C++ interface uses lowercase with underscores for
 all names. If that doesn't help, consult the Doxygen-style comments in the
 source code.
 
