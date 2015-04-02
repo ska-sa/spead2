@@ -357,3 +357,11 @@ class TestDecode(object):
         assert_equal(1, len(heaps))
         ig = spead2.ItemGroup()
         assert_raises(TypeError, ig.update, heaps[0])
+
+class TestUdpReader(object):
+    """Binding an illegal port should throw an exception"""
+    def test_bad_port(self):
+        tp = spead2.ThreadPool()
+        stream = spead2.recv.Stream(tp)
+        with assert_raises(RuntimeError):
+            stream.add_udp_reader(123)
