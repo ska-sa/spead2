@@ -11,7 +11,6 @@ from __future__ import print_function, division
 import spead2
 import spead2.recv
 import spead2.recv.trollius
-import sys
 import logging
 import argparse
 import trollius
@@ -22,24 +21,24 @@ def get_args():
     parser.add_argument('source', nargs='+', help='Sources (filenames and port numbers')
 
     group = parser.add_argument_group('Output options')
-    parser.add_argument('--log', help='Log configuration file')
-    parser.add_argument('--values', action='store_true', help='Show heap values')
+    group.add_argument('--log', help='Log configuration file')
+    group.add_argument('--values', action='store_true', help='Show heap values')
 
     group = parser.add_argument_group('Protocol options')
     group.add_argument('--pyspead', action='store_true', help='Be bug-compatible with PySPEAD')
     group.add_argument('--joint', action='store_true', help='Treat all sources as a single stream')
     group.add_argument('--packet', type=int, default=9200, help='Maximum packet size to accept for UDP')
-    group.add_argument('--buffer', type=int, default=8 * 1024**2, help='Socket buffer size')
     group.add_argument('--bind', default='', help='Bind socket to this hostname')
 
     group = parser.add_argument_group('Performance options')
-    parser.add_argument('--threads', type=int, default=1, help='Number of worker threads')
-    parser.add_argument('--heaps', type=int, default=4, help='Maximum number of in-flight heaps')
-    parser.add_argument('--mem-pool', action='store_true', help='Use a memory pool')
-    parser.add_argument('--mem-lower', type=int, default=16384, help='Minimum allocation which will use the memory pool')
-    parser.add_argument('--mem-upper', type=int, default=32 * 1024**2, help='Maximum allocation which will use the memory pool')
-    parser.add_argument('--mem-max-free', type=int, default=12, help='Maximum free memory buffers')
-    parser.add_argument('--mem-initial', type=int, default=8, help='Initial free memory buffers')
+    group.add_argument('--buffer', type=int, default=8 * 1024**2, help='Socket buffer size')
+    group.add_argument('--threads', type=int, default=1, help='Number of worker threads')
+    group.add_argument('--heaps', type=int, default=4, help='Maximum number of in-flight heaps')
+    group.add_argument('--mem-pool', action='store_true', help='Use a memory pool')
+    group.add_argument('--mem-lower', type=int, default=16384, help='Minimum allocation which will use the memory pool')
+    group.add_argument('--mem-upper', type=int, default=32 * 1024**2, help='Maximum allocation which will use the memory pool')
+    group.add_argument('--mem-max-free', type=int, default=12, help='Maximum free memory buffers')
+    group.add_argument('--mem-initial', type=int, default=8, help='Initial free memory buffers')
     return parser.parse_args()
 
 @trollius.coroutine
