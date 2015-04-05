@@ -40,7 +40,7 @@ def get_args():
     group.add_argument('--buffer', type=int, default=512 * 1024, help='Socket buffer size')
     group.add_argument('--threads', type=int, default=1, help='Number of worker threads')
     group.add_argument('--burst', type=int, default=65536, help='Burst size')
-    group.add_argument('--rate', metavar='GB/s', type=float, default=0, help='Transmission rate bound')
+    group.add_argument('--rate', metavar='Gb/s', type=float, default=0, help='Transmission rate bound')
 
     return parser.parse_args()
 
@@ -77,7 +77,10 @@ def main():
     if heap_size != args.heap_size:
         logging.warn('Heap size is not an exact multiple: using %d instead of %d',
                      heap_args, args.heap_size)
-    item_group = spead2.send.ItemGroup(descriptor_frequency=args.descriptors)
+    bug_compat = spead2.BUG_COMPAT_PYSPEAD_0_5_2 if args.pyspead else 0
+    item_group = spead2.send.ItemGroup(
+        descriptor_frequency=args.descriptors,
+        flavour=spead2.Flavour(4, 64, args.addr_bits, bug_compat))
     for i in range(args.items):
         item_group.add_item(id=None, name='Test item {}'.format(i),
                             description='A test item with arbitrary value',
@@ -87,7 +90,7 @@ def main():
     config = spead2.send.StreamConfig(
         max_packet_size=args.packet,
         burst_size=args.burst,
-        rate=args.rate * 1024**3)
+        rate=args.rate * 1024**3 / 8)
     stream = spead2.send.trollius.UdpStream(
         thread_pool, args.host, args.port, config, args.buffer)
 
