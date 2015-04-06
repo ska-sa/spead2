@@ -36,7 +36,7 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
         log_debug("packet rejected because too small (%d bytes)", max_size);
         return 0;
     }
-    std::uint64_t header = betoh(*reinterpret_cast<const std::uint64_t *>(data));
+    std::uint64_t header = load_be<std::uint64_t>(data);
     if (extract_bits(header, 48, 16) != magic_version)
     {
         log_debug("packet rejected because magic or version did not match");
@@ -69,10 +69,9 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
     out.payload_length = -1;
     // Load for special items
     pointer_decoder decoder(heap_address_bits);
-    const item_pointer_t *pointers = reinterpret_cast<const item_pointer_t *>(data + 8);
     for (int i = 0; i < out.n_items; i++)
     {
-        item_pointer_t pointer = betoh<item_pointer_t>(pointers[i]);
+        item_pointer_t pointer = load_be<item_pointer_t>(data + 8 + i * sizeof(item_pointer_t));
         if (decoder.is_immediate(pointer))
         {
             switch (decoder.get_id(pointer))
@@ -112,8 +111,8 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
         return 0;
     }
 
-    out.pointers = pointers;
-    out.payload = reinterpret_cast<const std::uint8_t *>(pointers + out.n_items);
+    out.pointers = data + 8;
+    out.payload = out.pointers + out.n_items * sizeof(item_pointer_t);
     out.heap_address_bits = heap_address_bits;
     return size;
 }

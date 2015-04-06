@@ -101,7 +101,7 @@ bool live_heap::add_packet(const packet_header &packet)
     pointer_decoder decoder(heap_address_bits);
     for (int i = 0; i < packet.n_items; i++)
     {
-        item_pointer_t pointer = betoh<item_pointer_t>(packet.pointers[i]);
+        item_pointer_t pointer = load_be<item_pointer_t>(packet.pointers + i * sizeof(item_pointer_t));
         s_item_pointer_t item_id = decoder.get_id(pointer);
         if (!decoder.is_immediate(pointer))
             min_length = std::max(min_length, s_item_pointer_t(decoder.get_address(pointer)));

@@ -7,6 +7,7 @@
 
 #include <endian.h>
 #include <cstdint>
+#include <cstring>
 
 namespace spead2
 {
@@ -45,6 +46,17 @@ template<typename T>
 static inline T betoh(T in)
 {
     return detail::Endian<T>::betoh(in);
+}
+
+/**
+ * Load a big-endian value stored at address @a ptr (not necessarily aligned).
+ */
+template<typename T>
+static inline T load_be(const uint8_t *ptr)
+{
+    T out;
+    std::memcpy(&out, ptr, sizeof(T));
+    return betoh(out);
 }
 
 } // namespace spead2
