@@ -33,6 +33,7 @@ class ring_stream : public stream
 {
 private:
     Ringbuffer ready_heaps;
+    bool contiguous_only;
 
     virtual void heap_ready(live_heap &&) override;
 public:
@@ -44,9 +45,17 @@ public:
      * The latter needs to be at least as large as the former to prevent
      * heaps being dropped when the stream is shut down.
      */
-    explicit ring_stream(boost::asio::io_service &io_service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
-    explicit ring_stream(thread_pool &pool, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps)
-        : ring_stream(pool.get_io_service(), bug_compat, max_heaps) {}
+    explicit ring_stream(
+        boost::asio::io_service &io_service,
+        bug_compat_mask bug_compat = 0,
+        std::size_t max_heaps = default_max_heaps,
+        bool contiguous_only = true);
+    explicit ring_stream(
+        thread_pool &pool,
+        bug_compat_mask bug_compat = 0,
+        std::size_t max_heaps = default_max_heaps,
+        bool contiguous_only = true)
+        : ring_stream(pool.get_io_service(), bug_compat, max_heaps, contiguous_only) {}
 
     /**
      * Wait until a contiguous heap is available, freeze it, and
@@ -76,23 +85,28 @@ public:
 template<typename Ringbuffer>
 ring_stream<Ringbuffer>::ring_stream(
     boost::asio::io_service &io_service,
-    bug_compat_mask bug_compat, std::size_t max_heaps)
-    : stream(io_service, bug_compat, max_heaps), ready_heaps(max_heaps)
+    bug_compat_mask bug_compat, std::size_t max_heaps,
+    bool contiguous_only)
+    : stream(io_service, bug_compat, max_heaps), ready_heaps(max_heaps),
+    contiguous_only(contiguous_only)
 {
 }
 
 template<typename Ringbuffer>
 void ring_stream<Ringbuffer>::heap_ready(live_heap &&h)
 {
-    try
+    if (!contiguous_only || h.is_contiguous())
     {
-        ready_heaps.try_push(std::move(h));
-    }
-    catch (ringbuffer_full &e)
-    {
-        // Suppress the error, drop the heap
-        log_info("dropped heap %d due to insufficient ringbuffer space",
-                 h.get_cnt());
+        try
+        {
+            ready_heaps.try_push(std::move(h));
+        }
+        catch (ringbuffer_full &e)
+        {
+            // Suppress the error, drop the heap
+            log_info("dropped heap %d due to insufficient ringbuffer space",
+                     h.get_cnt());
+        }
     }
 }
 
