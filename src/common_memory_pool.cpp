@@ -81,6 +81,9 @@ memory_pool::pointer memory_pool::allocate(std::size_t size)
         // The pool may be discarded while the memory is still allocated: in
         // this case, it is simply freed.
         std::weak_ptr<memory_pool> self(shared_from_this());
+        // this is not actually used (and shouldn't be, because this might have
+        // been freed), but a user has reported a compiler error if it is not
+        // captured.
         return pointer(ptr.release(), [this, self] (std::uint8_t *p) { return_to_pool(self, p); });
     }
     else
