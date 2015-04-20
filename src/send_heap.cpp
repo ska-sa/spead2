@@ -50,7 +50,7 @@ encode_descriptor(const descriptor &d, const flavour &flavour_)
     const int field_size = (flavour_.get_bug_compat() & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 4 : sizeof(item_pointer_t) + 1 - flavour_.get_heap_address_bits() / 8;
     const int shape_size = (flavour_.get_bug_compat() & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 8 : 1 + flavour_.get_heap_address_bits() / 8;
 
-    if (d.id <= 0 || d.id >= (s_item_pointer_t(1) << (sizeof(item_pointer_t) - 1 - flavour_.get_heap_address_bits())))
+    if (d.id <= 0 || d.id >= (s_item_pointer_t(1) << (8 * sizeof(item_pointer_t) - 1 - flavour_.get_heap_address_bits())))
         throw std::invalid_argument("Item ID out of range");
 
     /* The descriptor is a complete SPEAD packet, containing:
