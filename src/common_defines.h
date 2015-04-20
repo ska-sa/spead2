@@ -28,7 +28,6 @@ typedef std::int64_t s_item_pointer_t;
 static constexpr std::size_t item_pointer_size = sizeof(item_pointer_t);
 static constexpr item_pointer_t immediate_mask = item_pointer_t(1) << (8 * item_pointer_size - 1);
 static constexpr std::uint16_t magic_version = 0x5304;  // 0x53 is the magic, 4 is the version
-static_assert(sizeof(item_pointer_t) <= sizeof(std::size_t), "Item pointer size greater than size_t not supported");
 
 typedef std::uint32_t bug_compat_mask;
 
