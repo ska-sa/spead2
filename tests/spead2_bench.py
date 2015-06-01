@@ -151,19 +151,24 @@ def run_master(args):
     # These rates are in bytes
     low = 0.5e9
     high = 5e9
-    while high - low > 1e8:
-        # Need at least 1GB of data to overwhelm cache/buffer effects, and want
-        # at least 1 second for warmup effects.
+    while high - low > 1e8 / 8:
+        # Need at least 1GB of data to overwhelm cache effects, and want at least
+        # 1 second for warmup effects.
         rate = (low + high) * 0.5
         num_heaps = int(max(1024**3, rate) / args.heap_size) + 2
         good = yield From(measure_connection(args, rate, num_heaps, num_heaps - 1))
-        print("Rate: {:.3f} Gbps: {}".format(rate * 8 / 1024**3, "GOOD" if good else "BAD"))
+        if not args.quiet:
+            print("Rate: {:.3f} Gbps: {}".format(rate * 8 / 1024**3, "GOOD" if good else "BAD"))
         if good:
             low = rate
         else:
             high = rate
     rate = (low + high) * 0.5
-    print("Sustainable rate: {} Gbps".format(rate * 8 / 1024**3))
+    rate_gbps = rate * 8 / 1024**3
+    if args.quiet:
+        print(rate_gbps)
+    else:
+        print("Sustainable rate: {} Gbps".format(rate_gbps))
 
 
 def main():
@@ -171,6 +176,7 @@ def main():
     parser.add_argument('--log', help='Log configuration file')
     subparsers = parser.add_subparsers(title='subcommands')
     master = subparsers.add_parser('master')
+    master.add_argument('--quiet', action='store_true', default=False, help='Print only the final result')
     master.add_argument('--packet', type=int, default=9172, help='Maximum packet size to use for UDP')
     master.add_argument('--heap-size', metavar='BYTES', type=int, default=4194304, help='Payload size for heap')
     master.add_argument('--addr-bits', type=int, default=40, help='Heap address bits')
