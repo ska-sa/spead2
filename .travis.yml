@@ -11,7 +11,7 @@ before_install:
 install:
     - pip install -r requirements.txt
     # PySPEAD tests are optional, so not listed in requirements.txt
-    - if [[ "$TRAVIS_PYTHON_VERSION" == 2.* ]]; then pip install git+https://github.com/ska-sa/PySPEAD@testing-bugfixes#egg=spead; fi
+    - if [[ "$TRAVIS_PYTHON_VERSION" == 2.* ]]; then pip install git+https://github.com/ska-sa/PySPEAD#egg=spead; fi
     # The -e is necessary to make nosetests work, because otherwise it tries to find the
     # .so in the current directory instead of the install directory.
     - CC=gcc-4.8 pip install -e .
