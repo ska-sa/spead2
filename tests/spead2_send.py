@@ -85,7 +85,7 @@ def main():
         item_group.add_item(id=None, name='Test item {}'.format(i),
                             description='A test item with arbitrary value',
                             shape=(elements,), dtype=dtype,
-                            value=np.empty((elements,), dtype=dtype))
+                            value=np.zeros((elements,), dtype=dtype))
     thread_pool = spead2.ThreadPool(args.threads)
     config = spead2.send.StreamConfig(
         max_packet_size=args.packet,
