@@ -20,6 +20,10 @@ class semaphore
 private:
     int pipe_fds[2];
 
+    // Prevent copying: semaphores are not copyable resources
+    semaphore(const semaphore &) = delete;
+    semaphore &operator=(const semaphore &) = delete;
+
 public:
     /// Increment semaphore.
     void put();
