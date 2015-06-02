@@ -43,43 +43,49 @@ class SlaveConnection(object):
 
     @trollius.coroutine
     def run_control(self):
-     try:
-        stream_task = None
-        while True:
-            command = yield From(self.reader.readline())
-            if not command:
-                return
-            command = json.loads(command)
-            if command['cmd'] == 'start':
-                if stream_task is not None:
-                    print("Bad command", command)
+        try:
+            stream_task = None
+            while True:
+                command = yield From(self.reader.readline())
+                print("command = ", command)
+                if not command:
                     break
-                args = argparse.Namespace(**command['args'])
-                thread_pool = spead2.ThreadPool()
-                memory_pool = spead2.MemoryPool(
-                    args.heap_size, args.heap_size + 65536, args.mem_max_free, args.mem_initial)
-                stream = spead2.recv.trollius.Stream(thread_pool, 0, args.heaps)
-                stream.set_memory_pool(memory_pool)
-                stream.add_udp_reader(args.port, args.packet, args.recv_buffer)
-                thread_pool = None
-                memory_pool = None
-                stream_task = trollius.async(self.run_stream(stream))
-                self.writer.write('ready\n')
-            elif command['cmd'] == 'stop':
-                if stream_task is None:
+                command = json.loads(command)
+                if command['cmd'] == 'start':
+                    if stream_task is not None:
+                        print("Bad command", command)
+                        break
+                    args = argparse.Namespace(**command['args'])
+                    thread_pool = spead2.ThreadPool()
+                    memory_pool = spead2.MemoryPool(
+                        args.heap_size, args.heap_size + 65536, args.mem_max_free, args.mem_initial)
+                    stream = spead2.recv.trollius.Stream(thread_pool, 0, args.heaps)
+                    stream.set_memory_pool(memory_pool)
+                    stream.add_udp_reader(args.port, args.packet, args.recv_buffer)
+                    thread_pool = None
+                    memory_pool = None
+                    stream_task = trollius.async(self.run_stream(stream))
+                    self.writer.write('ready\n')
+                elif command['cmd'] == 'stop':
+                    if stream_task is None:
+                        print("Bad command", command)
+                        break
+                    stream.stop()
+                    received_heaps = yield From(stream_task)
+                    self.writer.write(json.dumps({'received_heaps': received_heaps}) + '\n')
+                    stream_task = None
+                    stream = None
+                elif command['cmd'] == 'exit':
+                    return
+                else:
                     print("Bad command", command)
-                    break
+                    pass   # Bad command
+            print("Connection closed")
+            if stream_task is not None:
                 stream.stop()
-                received_heaps = yield From(stream_task)
-                self.writer.write(json.dumps({'received_heaps': received_heaps}) + '\n')
-                stream_task = None
-                stream = None
-            elif command['cmd'] == 'exit':
-                return
-            else:
-                pass   # Bad command
-     except Exception:
-        traceback.print_exc()
+                yield From(stream_task)
+        except Exception:
+            traceback.print_exc()
 
 
 @trollius.coroutine
@@ -138,6 +144,8 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
     response = json.loads(response)
     received_heaps = response['received_heaps']
     yield From(trollius.sleep(0.5))
+    yield From(writer.drain())
+    writer.close()
     raise Return(received_heaps >= required_heaps)
 
 
