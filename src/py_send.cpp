@@ -107,8 +107,13 @@ class asyncio_stream_wrapper : public Base
 {
 private:
     semaphore_gil sem;
-    std::vector<py::object> callbacks;
+    // Each item is a (callback, heap) pair
+    std::vector<std::pair<PyObject *, PyObject *> > callbacks;
     std::mutex callbacks_mutex;
+
+    // Prevent copying: the callbacks vector cannot sanely be copied
+    asyncio_stream_wrapper(const asyncio_stream_wrapper &) = delete;
+    asyncio_stream_wrapper &operator=(const asyncio_stream_wrapper &) = delete;
 public:
     using Base::Base;
 
@@ -116,14 +121,25 @@ public:
 
     void async_send_heap(py::object h, py::object callback)
     {
-        // Note that while h isn't used in the lambda, it is
-        // bound to it so that its lifetime persists.
         py::extract<heap_wrapper &> h2(h);
-        Base::async_send_heap(h2(), [this, callback, h] (const boost::system::error_code &, item_pointer_t) mutable
+        /* Normally the callback should not refer to this, since it could have
+         * been reaped by the time the callback occurs. We rely on Python to
+         * hang on to a reference to self.
+         *
+         * The callback and heap are passed around by raw reference, because
+         * it is not safe to use incref/decref operations without the GIL, and
+         * attempting to use py::object instead of PyObject* tends to cause
+         * these operations to occur without it being obvious.
+         */
+        PyObject *h_ptr = h.ptr();
+        PyObject *callback_ptr = callback.ptr();
+        Py_INCREF(h_ptr);
+        Py_INCREF(callback_ptr);
+        Base::async_send_heap(h2(), [this, callback_ptr, h_ptr] (const boost::system::error_code &, item_pointer_t)
         {
             {
                 std::unique_lock<std::mutex> lock(callbacks_mutex);
-                callbacks.push_back(std::move(callback));
+                callbacks.emplace_back(callback_ptr, h_ptr);
             }
             sem.put();
         });
@@ -132,14 +148,28 @@ public:
     void process_callbacks()
     {
         sem.get();
-        std::vector<py::object> current_callbacks;
+        std::vector<std::pair<PyObject *, PyObject *> > current_callbacks;
         {
             std::unique_lock<std::mutex> lock(callbacks_mutex);
             current_callbacks.swap(callbacks);
         }
-        for (const py::object &callback : current_callbacks)
+        for (const auto &item : current_callbacks)
         {
+            PyObject *callback_ptr = item.first;
+            PyObject *h_ptr = item.second;
+            Py_DECREF(h_ptr);
+            py::object callback{py::handle<>(callback_ptr)};
             callback();
+            // Ref to callback will be dropped in destructor for callback
+        }
+    }
+
+    ~asyncio_stream_wrapper()
+    {
+        for (const auto &item : callbacks)
+        {
+            Py_DECREF(item.first);
+            Py_DECREF(item.second);
         }
     }
 };
