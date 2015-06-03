@@ -6,6 +6,7 @@ Bug fixes:
   - Add lots of validation to sending (overflows etc)
   - Error checking in streambuf sender
   - Add test and workaround for endian-swapping within structs (numpy bug https://github.com/numpy/numpy/issues/5356)
+  - Trollius streams leak because the event loop holds a bound reference to a method
 
 Tests:
   - Test binding an illegal UDP port
@@ -21,6 +22,7 @@ New features/improvements:
   - Statistics for memory pool
   - Add default_* and common_defines constants to Python interface
   - Add docstrings to Python extension classes
+  - Support integration with Python 3 asyncio in addition to trollius
 
 Other
   - Fix PySPEAD's assumption that small items are always immediates
