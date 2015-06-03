@@ -47,18 +47,18 @@ class SlaveConnection(object):
             stream_task = None
             while True:
                 command = yield From(self.reader.readline())
-                print("command = ", command)
+                logging.debug("command = %s", command)
                 if not command:
                     break
                 command = json.loads(command)
                 if command['cmd'] == 'start':
                     if stream_task is not None:
-                        print("Bad command", command)
-                        break
+                        logging.warning("Start received while already running: %s", command)
+                        continue
                     args = argparse.Namespace(**command['args'])
                     thread_pool = spead2.ThreadPool()
                     memory_pool = spead2.MemoryPool(
-                        args.heap_size, args.heap_size + 65536, args.mem_max_free, args.mem_initial)
+                        args.heap_size, args.heap_size + 1024, args.mem_max_free, args.mem_initial)
                     stream = spead2.recv.trollius.Stream(thread_pool, 0, args.heaps)
                     stream.set_memory_pool(memory_pool)
                     stream.add_udp_reader(args.port, args.packet, args.recv_buffer)
@@ -68,19 +68,19 @@ class SlaveConnection(object):
                     self.writer.write('ready\n')
                 elif command['cmd'] == 'stop':
                     if stream_task is None:
-                        print("Bad command", command)
-                        break
+                        log.warn("Stop received when already stopped")
+                        continue
                     stream.stop()
                     received_heaps = yield From(stream_task)
                     self.writer.write(json.dumps({'received_heaps': received_heaps}) + '\n')
                     stream_task = None
                     stream = None
                 elif command['cmd'] == 'exit':
-                    return
+                    break
                 else:
-                    print("Bad command", command)
-                    pass   # Bad command
-            print("Connection closed")
+                    logging.warning("Bad command: %s", command)
+                    continue
+            logging.debug("Connection closed")
             if stream_task is not None:
                 stream.stop()
                 yield From(stream_task)
@@ -138,6 +138,8 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
                             shape=(args.heap_size,), dtype=np.uint8,
                             value=np.zeros((args.heap_size,), dtype=np.uint8))
     yield From(send_stream(item_group, stream, num_heaps))
+    # Give receiver time to catch up with any queue
+    yield From(trollius.sleep(0.1))
     writer.write(json.dumps({'cmd': 'stop'}) + '\n')
     # Read number of heaps received
     response = yield From(reader.readline())
