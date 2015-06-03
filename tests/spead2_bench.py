@@ -203,7 +203,7 @@ def main():
 
     args = parser.parse_args()
     if args.log is not None:
-        logging.basicConfig(args.log)
+        logging.basicConfig(level=getattr(logging, args.log.upper()))
     else:
         logging.basicConfig(level=logging.INFO)
     if 'host' in args:
