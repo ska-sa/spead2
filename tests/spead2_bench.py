@@ -130,7 +130,6 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
     stream = spead2.send.trollius.UdpStream(
         thread_pool, args.host, args.port, config, args.send_buffer)
     item_group = spead2.send.ItemGroup(
-        descriptor_frequency=0,
         flavour=spead2.Flavour(4, 64, args.addr_bits, 0))
     for i in range(1):
         item_group.add_item(id=None, name='Test item {}'.format(i),
