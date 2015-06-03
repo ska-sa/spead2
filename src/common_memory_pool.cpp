@@ -19,7 +19,7 @@ memory_pool::memory_pool(std::size_t lower, std::size_t upper, std::size_t max_f
     assert(lower <= upper);
     assert(initial <= max_free);
     for (std::size_t i = 0; i < initial; i++)
-        pool.emplace(new std::uint8_t[upper]);
+        pool.emplace(allocate_for_pool());
 }
 
 void memory_pool::return_to_pool(const std::weak_ptr<memory_pool> &self_weak, std::uint8_t *ptr)
