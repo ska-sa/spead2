@@ -17,8 +17,12 @@
 
 from setuptools import setup, Extension
 import glob
-import numpy
 import sys
+try:
+    import numpy
+    numpy_include = numpy.get_include()
+except ImportError:
+    numpy_include = None
 
 bp_library = 'boost_python-py{0}{1}'.format(sys.version_info.major, sys.version_info.minor)
 
@@ -31,7 +35,7 @@ extensions = [
                  glob.glob('src/py_*.cpp')),
         depends=glob.glob('src/*.h'),
         language='c++',
-        include_dirs=['src', numpy.get_include()],
+        include_dirs=['src', numpy_include],
         extra_compile_args=['-std=c++11'],
         libraries=[bp_library, 'boost_system'])
 ]
@@ -53,6 +57,7 @@ setup(
         'Topic :: System :: Networking'],
     ext_package='spead2',
     ext_modules=extensions,
+    setup_requires=['numpy'],
     install_requires=['numpy'],
     tests_require=['nose', 'decorator'],
     test_suite='nose.collector',
