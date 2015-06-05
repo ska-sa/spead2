@@ -83,10 +83,6 @@ private:
      */
     virtual void heap_ready(live_heap &&) {}
 
-    // Prevent copying
-    stream_base(const stream_base &) = delete;
-    stream_base &operator=(const stream_base &) = delete;
-
 public:
     static constexpr std::size_t default_max_heaps = 4;
 
@@ -178,6 +174,14 @@ private:
             readers.push_back(std::move(ptr));
         }
     }
+
+    /* Prevent moving (copying is already impossible). Moving is not safe
+     * because readers refer back to *this (it could potentially be added if
+     * there is a good reason for it, but it would require adding a new
+     * function to the reader interface.
+     */
+    stream(stream_base &&) = delete;
+    stream &operator=(stream_base &&) = delete;
 
 protected:
     virtual void stop_received() override;

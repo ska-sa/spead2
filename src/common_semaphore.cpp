@@ -31,6 +31,34 @@
 namespace spead2
 {
 
+semaphore::semaphore(semaphore &&other)
+{
+    for (int i = 0; i < 2; i++)
+    {
+        pipe_fds[i] = other.pipe_fds[i];
+        other.pipe_fds[i] = -1;
+    }
+}
+
+semaphore &semaphore::operator=(semaphore &&other)
+{
+    for (int i = 0; i < 2; i++)
+    {
+        if (pipe_fds[i] != -1)
+        {
+            if (close(pipe_fds[i]) == -1)
+                throw std::system_error(errno, std::system_category());
+            pipe_fds[i] = -1;
+        }
+    }
+    for (int i = 0; i < 2; i++)
+    {
+        pipe_fds[i] = other.pipe_fds[i];
+        other.pipe_fds[i] = -1;
+    }
+    return *this;
+}
+
 semaphore::semaphore()
 {
     if (pipe(pipe_fds) == -1)

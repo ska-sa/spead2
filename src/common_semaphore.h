@@ -41,6 +41,11 @@ private:
     semaphore &operator=(const semaphore &) = delete;
 
 public:
+    /// Move constructor
+    semaphore(semaphore &&);
+    /// Move assignment
+    semaphore &operator=(semaphore &&);
+
     /// Increment semaphore.
     void put();
     /**
