@@ -1,4 +1,5 @@
 *.o
 test_recv
 test_send
+spead2_bench
 libspead2.a
