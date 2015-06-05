@@ -1,3 +1,7 @@
 recursive-include src *.h
 recursive-include src test_*.cpp
 recursive-include spead2 *.py
+graft tests
+graft doc
+prune doc/_build
+prune doc/doxygen
