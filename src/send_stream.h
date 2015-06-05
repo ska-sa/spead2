@@ -114,8 +114,8 @@ private:
     /// Number of bytes sent since last sleep
     std::size_t rate_bytes = 0;
     std::unique_ptr<packet_generator> gen; // TODO: make this inlinable
-    /// Signalled whenever a heap is popped from the queue
-    std::condition_variable heap_popped;
+    /// Signalled whenever the last heap is popped from the queue
+    std::condition_variable heap_empty;
 
     void send_next_packet()
     {
@@ -144,7 +144,8 @@ private:
 
                 std::size_t old_heap_bytes = heap_bytes;
                 heap_bytes = 0;
-                heap_popped.notify_all();
+                if (empty)
+                    heap_empty.notify_all();
                 again = !empty;  // Start again on the next heap
                 lock.unlock();
 
@@ -246,13 +247,13 @@ public:
         std::unique_lock<std::mutex> lock(queue_mutex);
         while (!queue.empty())
         {
-            heap_popped.wait(lock);
+            heap_empty.wait(lock);
         }
     }
 
     ~stream()
     {
-        // TODO: add a stop member function and use that install
+        // TODO: add a stop member to abort transmission and use that instead
         flush();
     }
 };
