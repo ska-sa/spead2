@@ -179,11 +179,8 @@ private:
                                     send_next_packet();
                                 });
                             }
-                            else
-                            {
-                                // If we fall behind, don't try to make it up
-                                send_time = now;
-                            }
+                            // If we're behind schedule, we still keep send_time in the past,
+                            // which will help with catching up if we oversleep
                         }
                         if (!sleeping)
                             send_next_packet();
