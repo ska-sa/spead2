@@ -16,7 +16,6 @@
 
 #include <iostream>
 #include <sstream>
-#include <future>
 #include <utility>
 #include <cstdint>
 #include <vector>
@@ -121,16 +120,6 @@ static options parse_master_args(int argc, const char **argv)
     }
 }
 
-class my_heap : public spead2::send::heap
-{
-private:
-    std::promise<std::int64_t> promise;
-
-public:
-    using spead2::send::heap::heap;
-    std::promise<std::int64_t> &get_promise() { return promise; }
-};
-
 static bool measure_connection_once(
     const options &opts, double rate,
     std::int64_t num_heaps, std::int64_t required_heaps)
@@ -170,47 +159,51 @@ static bool measure_connection_once(
         /* Construct the stream */
         spead2::thread_pool thread_pool;
         spead2::flavour flavour(4, 64, opts.heap_address_bits);
+        /* Allow all heaps to be queued up at once. Since they all point to
+         * the same payload, this should not cause excessive memory use.
+         */
         spead2::send::stream_config config(
-            opts.packet_size, rate, opts.burst_size, opts.heaps);
+            opts.packet_size, rate, opts.burst_size, num_heaps + 1);
         spead2::send::udp_stream stream(
             thread_pool.get_io_service(), endpoint, config, opts.send_buffer);
 
-        /* Send the heaps */
-        auto start = std::chrono::high_resolution_clock::now();
-        std::deque<std::future<std::int64_t> > tasks;
-        std::int64_t transferred = 0;
+        /* Build the heaps */
+        std::vector<spead2::send::heap> heaps;
         for (std::int64_t i = 0; i < num_heaps; i++)
         {
-            if (tasks.size() >= opts.heaps)
-            {
-                transferred += tasks.front().get();
-                tasks.pop_front();
-            }
-            auto h = std::make_shared<my_heap>(i + 1, flavour);
+            heaps.emplace_back(i + 1, flavour);
             if (i + 1 < num_heaps)
-                h->add_item(0x1234, data, false);
+                heaps.back().add_item(0x1234, data, false);
             else
-                h->add_end();
-            tasks.push_back(h->get_promise().get_future());
-            stream.async_send_heap(*h, [h] (const boost::system::error_code &ec, spead2::item_pointer_t bytes)
-            {
-                if (ec)
-                    h->get_promise().set_exception(std::make_exception_ptr(boost::system::system_error(ec)));
-                else
-                    h->get_promise().set_value(bytes);
-            });
+                heaps.back().add_end();
         }
-        while (!tasks.empty())
+
+        /* Send the heaps */
+        auto start = std::chrono::high_resolution_clock::now();
+        std::int64_t transferred = 0;
+        boost::system::error_code last_error;
+        for (std::int64_t i = 0; i < num_heaps; i++)
         {
-            transferred += tasks.front().get();
-            tasks.pop_front();
+            auto callback = [&transferred, &last_error] (
+                const boost::system::error_code &ec, spead2::item_pointer_t bytes)
+            {
+                if (!ec)
+                    transferred += bytes;
+                else
+                    last_error = ec;
+            };
+            stream.async_send_heap(heaps[i], callback);
         }
+        stream.flush();
         auto end = std::chrono::high_resolution_clock::now();
+        if (last_error)
+            throw boost::system::system_error(last_error);
+
         std::chrono::duration<double> elapsed_duration = end - start;
         double elapsed = elapsed_duration.count();
         double expected = transferred / rate;
         bool good = true;
-        if (elapsed > 1.05 * expected)
+        if (elapsed > 1.02 * expected)
         {
             if (!opts.quiet)
             {
@@ -232,6 +225,11 @@ static bool measure_connection_once(
     catch (std::ios::failure &e)
     {
         std::cerr << "Connection error: " << control.error().message() << '\n';
+        std::exit(1);
+    }
+    catch (boost::system::system_error &e)
+    {
+        std::cerr << "Transmission error: " << e.what() << '\n';
         std::exit(1);
     }
 }
@@ -323,8 +321,11 @@ class slave_stream : public spead2::recv::stream
 private:
     virtual void heap_ready(spead2::recv::live_heap &&live)
     {
-        spead2::recv::heap heap(std::move(live));
-        num_heaps++;
+        if (live.is_contiguous())
+        {
+            spead2::recv::heap heap(std::move(live));
+            num_heaps++;
+        }
     }
 
 public:
