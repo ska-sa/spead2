@@ -179,16 +179,16 @@ def run_master(args):
         # Need at least 1GB of data to overwhelm cache effects, and want at least
         # 1 second for warmup effects.
         rate = (low + high) * 0.5
-        num_heaps = int(max(1024**3, rate) / args.heap_size) + 2
+        num_heaps = int(max(10**9, rate) / args.heap_size) + 2
         good = yield From(measure_connection(args, rate, num_heaps, num_heaps - 1))
         if not args.quiet:
-            print("Rate: {:.3f} Gbps: {}".format(rate * 8 / 1024**3, "GOOD" if good else "BAD"))
+            print("Rate: {:.3f} Gbps: {}".format(rate * 8 / 10**9, "GOOD" if good else "BAD"))
         if good:
             low = rate
         else:
             high = rate
     rate = (low + high) * 0.5
-    rate_gbps = rate * 8 / 1024**3
+    rate_gbps = rate * 8 / 10**9
     if args.quiet:
         print(rate_gbps)
     else:
