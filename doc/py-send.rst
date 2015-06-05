@@ -79,8 +79,8 @@ Blocking send
       :rtype: :py:class:`bytes`
 
 
-Asychronous send
-^^^^^^^^^^^^^^^^
+Asynchronous send
+^^^^^^^^^^^^^^^^^
 
 As for asychronous receives, asynchronous sends are managed by trollius_. A
 stream can buffer up multiple heaps for asynchronous send, up to the limit
