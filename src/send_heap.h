@@ -136,10 +136,6 @@ private:
      */
     std::vector<std::unique_ptr<std::uint8_t[]> > storage;
 
-    // Prevent copying
-    heap(const heap &) = delete;
-    heap &operator=(const heap &) = delete;
-
 public:
     /**
      * Constructor.
