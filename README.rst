@@ -10,14 +10,14 @@ bindings. The *2* in the name indicates that this is a new implementation of
 the protocol; the protocol remains essentially the same. Compared to the
 PySPEAD_ implementation, spead2:
 
- - is at least an order of magnitude faster when dealing with large heaps;
- - correctly implements several aspects of the protocol that were implemented
-   incorrectly in PySPEAD (bug-compatibility is also available);
- - correctly implements many corner cases that PySPEAD would simply fail on;
- - cleanly supports several SPEAD flavours (e.g. 64-40 and 64-48) in one
-   module, with the receiver adapting to the flavour used by the sender;
- - supports Python 3;
- - supports asynchronous operation, using trollius_.
+- is at least an order of magnitude faster when dealing with large heaps;
+- correctly implements several aspects of the protocol that were implemented
+  incorrectly in PySPEAD (bug-compatibility is also available);
+- correctly implements many corner cases that PySPEAD would simply fail on;
+- cleanly supports several SPEAD flavours (e.g. 64-40 and 64-48) in one
+  module, with the receiver adapting to the flavour used by the sender;
+- supports Python 3;
+- supports asynchronous operation, using trollius_.
 
 For more information, refer to the documentation on readthedocs_.
 
