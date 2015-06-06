@@ -4,3 +4,4 @@ decorator
 sphinx
 sphinxcontrib-napoleon
 breathe
+trollius
