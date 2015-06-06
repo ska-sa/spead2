@@ -23,8 +23,18 @@ import subprocess
 sys.path.insert(0, os.path.abspath('..'))
 
 # Build doxygen first on readthedocs
-if os.environ.get('READTHEDOCS'):
+rtd = os.environ.get('READTHEDOCS') == 'True'
+if rtd:
     subprocess.check_call(['doxygen'])
+    # ReadTheDocs can't build the extension (no Boost), so we have to mock it
+    # See http://docs.readthedocs.org/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules
+    import unittest.mock
+    class Mock(unittest.mock.MagicMock):
+        @classmethod
+        def __getattr__(cls, name):
+            return Mock()
+    MOCK_MODULES = ['spead2._spead2']
+    sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- General configuration ------------------------------------------------
 
@@ -114,7 +124,10 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'alabaster'
+if rtd:
+    html_theme = 'default'
+else:
+    html_theme = 'alabaster'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
