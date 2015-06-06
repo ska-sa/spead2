@@ -33,7 +33,7 @@ if rtd:
         @classmethod
         def __getattr__(cls, name):
             return Mock()
-    MOCK_MODULES = ['spead2._spead2']
+    MOCK_MODULES = ['spead2._spead2', 'spead2._send', 'spead2._recv']
     sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- General configuration ------------------------------------------------
