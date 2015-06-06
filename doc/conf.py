@@ -270,7 +270,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
   ('index', 'spead2', u'spead2 Documentation',
-   u'Bruce Merry', 'spead2', 'One line description of project.',
+   u'SKA South Africa', 'spead2', 'One line description of project.',
    'Miscellaneous'),
 ]
 
