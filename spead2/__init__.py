@@ -19,6 +19,7 @@ from spead2._spead2 import Flavour, ThreadPool, MemoryPool, Stopped, Empty, Stop
     BUG_COMPAT_SHAPE_BIT_1, \
     BUG_COMPAT_SWAP_ENDIAN, \
     BUG_COMPAT_PYSPEAD_0_5_2
+from spead2._version import VERSION, SHORT_VERSION
 import numbers as _numbers
 import numpy as _np
 import logging

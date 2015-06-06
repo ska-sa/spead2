@@ -1,0 +1,2 @@
+SHORT_VERSION = "0.1"
+VERSION = "0.1.dev0"

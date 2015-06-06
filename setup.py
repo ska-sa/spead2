@@ -18,6 +18,7 @@
 from setuptools import setup, Extension
 import glob
 import sys
+from spead2._version import VERSION
 try:
     import numpy
     numpy_include = numpy.get_include()
@@ -44,7 +45,7 @@ setup(
     author='Bruce Merry',
     author_email='bmerry@ska.ac.za',
     name='spead2',
-    version='0.1.dev0',
+    version=VERSION,
     description='High-performance SPEAD implementation',
     classifiers = [
         'Development Status :: 3 - Alpha',
