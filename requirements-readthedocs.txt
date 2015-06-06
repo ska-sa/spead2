@@ -1,0 +1,6 @@
+numpy
+nose
+decorator
+sphinx
+sphinxcontrib-napoleon
+breathe
