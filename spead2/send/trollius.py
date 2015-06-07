@@ -48,7 +48,7 @@ class UdpStream(_UdpStreamAsyncio):
         else:
             self._loop = trollius.get_event_loop()
         super(UdpStream, self).__init__(*args, **kwargs)
-        self._loop.add_reader(self.fd, self.process_callbacks)
+        self._active = 0
 
     @trollius.coroutine
     def async_send_heap(self, heap, loop=None):
@@ -71,8 +71,11 @@ class UdpStream(_UdpStreamAsyncio):
                 future.set_exception(exc)
             else:
                 future.set_result(bytes_transferred)
+            self._active -= 1
+            if self._active == 0:
+                self._loop.remove_reader(self.fd)
         super(UdpStream, self).async_send_heap(heap, callback)
+        if self._active == 0:
+            self._loop.add_reader(self.fd, self.process_callbacks)
+        self._active += 1
         return future
-
-    def __del__(self):
-        self._loop.remove_reader(self.fd)
