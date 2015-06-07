@@ -1,5 +1,39 @@
 Performance tips
 ================
+The :file:`tests` directory contains a script, :file:`spead2_bench.py`, that
+can be used to measure the sustainable performance on a connection, and allows
+many of the tunable parameters to be adjusted. On the receiver, pick a port
+number (which must be free for both TCP and UDP) and run
+
+.. code-block:: sh
+
+   python spead2_bench.py slave <port>
+
+Then, on the sender, run
+
+.. code-block:: sh
+
+   python spead2_bench.py master [options] <host> <port>
+
+where *host* is the hostname of the receiver. This script will run tests at a
+variety of speeds to determine the maximum speed at which the connection seems
+reliable most of the time. This speed is right at the edge of stability: for a
+totally reliable setup, you should use a slightly lower speed.
+
+There is an equivalent :program:`spead2_bench` program using the C++ API in the
+:file:`src` directory, which is built by the Makefile.
+
+Packet size
+-----------
+The default packet size in a :py:class:`~spead2.send.StreamConfig` is 1472
+bytes, which is a safe value for IPv4 in a standard Ethernet setup [#]_.
+However, bigger packets significantly reduce overhead and are vital for
+exceeding 10Gbps. You should pick a packet size, that, when added to the
+overhead for IP and UDP headers, equals the MTU of the link. For example, with
+IPv4 and an MTU of 9200, use a packet size of 9172.
+
+.. [#] The UDP and IP header together add 28 bytes, bringing the IP packet to
+   the conventional MTU of 1500 bytes.
 
 Heap lifetime
 -------------
@@ -37,3 +71,12 @@ equivalent `dtype` and use the fast path, but relying on this is not
 recommended. The `dtype` approach is also the only way to transmit in
 little-endian, which will be faster when the host is little-endian (such as
 x86).
+
+Hardware setup
+--------------
+Many systems are configured to drop to a lower-power state when idle, using
+frequency scaling, C-states and so on. It can take hundreds of microseconds to
+return to full performance, which can translate into megabytes of data on a
+high-speed incoming stream. If a high-speed stream is expected, one should
+disable these features or otherwise bring the system up to full performance
+before the stream starts flowing.
