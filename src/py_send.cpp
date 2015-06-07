@@ -197,7 +197,10 @@ public:
         }
         catch (std::exception &e)
         {
-            /* Clean up the remaining handles */
+            /* Clean up the remaining handles. Note that we only get here if
+             * things have gone very badly wrong, such as an out-of-memory
+             * error.
+             */
             for (const callback_item &item : current_callbacks)
             {
                 Py_XDECREF(item.h);
