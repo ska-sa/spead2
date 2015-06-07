@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO)
 items = []
 
 thread_pool = spead2.ThreadPool()
-stream = spead2.recv.Stream(thread_pool, spead2.BUG_COMPAT_PYSPEAD_0_5_2, 8)
+stream = spead2.recv.Stream(thread_pool, spead2.BUG_COMPAT_PYSPEAD_0_5_2)
 del thread_pool
 pool = spead2.MemoryPool(16384, 26214400, 12, 8)
 stream.set_memory_pool(pool)

@@ -197,29 +197,28 @@ def run_master(args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--log', help='Log configuration file')
+    parser.add_argument('--log', metavar='LEVEL', default='INFO', help='Log level [%(default)s]')
     subparsers = parser.add_subparsers(title='subcommands')
     master = subparsers.add_parser('master')
     master.add_argument('--quiet', action='store_true', default=False, help='Print only the final result')
-    master.add_argument('--packet', type=int, default=9172, help='Maximum packet size to use for UDP')
-    master.add_argument('--heap-size', metavar='BYTES', type=int, default=4194304, help='Payload size for heap')
-    master.add_argument('--addr-bits', type=int, default=40, help='Heap address bits')
-    master.add_argument('--send-buffer', type=int, default=512 * 1024, help='Socket buffer size (sender)')
-    master.add_argument('--recv-buffer', type=int, default=8 * 1024**2, help='Socket buffer size (receiver)')
-    master.add_argument('--burst', type=int, default=65536, help='Send burst size')
-    master.add_argument('--heaps', type=int, default=4, help='Maximum number of in-flight heaps')
-    master.add_argument('--mem-max-free', type=int, default=12, help='Maximum free memory buffers')
-    master.add_argument('--mem-initial', type=int, default=8, help='Initial free memory buffers')
+    master.add_argument('--packet', metavar='BYTES', type=int, default=9172, help='Maximum packet size to use for UDP [%(default)s]')
+    master.add_argument('--heap-size', metavar='BYTES', type=int, default=4194304, help='Payload size for heap [%(default)s]')
+    master.add_argument('--addr-bits', metavar='BITS', type=int, default=40, help='Heap address bits [%(default)s]')
+    group = master.add_argument_group('sender options')
+    group.add_argument('--send-buffer', metavar='BYTES', type=int, default=spead2.send.trollius.UdpStream.DEFAULT_BUFFER_SIZE, help='Socket buffer size [%(default)s]')
+    group.add_argument('--burst', metavar='BYTES', type=int, default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE, help='Send burst size [%(default)s]')
+    group = master.add_argument_group('receiver options')
+    group.add_argument('--recv-buffer', metavar='BYTES', type=int, default=spead2.recv.Stream.DEFAULT_UDP_BUFFER_SIZE, help='Socket buffer size [%(default)s]')
+    group.add_argument('--heaps', type=int, default=spead2.recv.Stream.DEFAULT_MAX_HEAPS, help='Maximum number of in-flight heaps [%(default)s]')
+    group.add_argument('--mem-max-free', type=int, default=12, help='Maximum free memory buffers [%(default)s]')
+    group.add_argument('--mem-initial', type=int, default=8, help='Initial free memory buffers [%(default)s]')
     master.add_argument('host')
     master.add_argument('port', type=int)
     slave = subparsers.add_parser('slave')
     slave.add_argument('port', type=int)
 
     args = parser.parse_args()
-    if args.log is not None:
-        logging.basicConfig(level=getattr(logging, args.log.upper()))
-    else:
-        logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=getattr(logging, args.log.upper()))
     if 'host' in args:
         task = run_master(args)
     else:

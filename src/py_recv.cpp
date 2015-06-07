@@ -309,7 +309,10 @@ void register_module()
               arg("buffer_size") = udp_reader::default_buffer_size,
               arg("bind_hostname") = std::string()))
         .def("stop", &ring_stream_wrapper::stop)
-        .add_property("fd", &ring_stream_wrapper::get_fd);
+        .add_property("fd", &ring_stream_wrapper::get_fd)
+        .def_readonly("DEFAULT_MAX_HEAPS", ring_stream_wrapper::default_max_heaps)
+        .def_readonly("DEFAULT_UDP_MAX_SIZE", udp_reader::default_max_size)
+        .def_readonly("DEFAULT_UDP_BUFFER_SIZE", udp_reader::default_buffer_size);
 }
 
 } // namespace recv

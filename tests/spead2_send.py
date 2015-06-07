@@ -37,25 +37,25 @@ def get_args():
     parser.add_argument('port', type=int)
 
     group = parser.add_argument_group('Data options')
-    group.add_argument('--heap-size', metavar='BYTES', type=int, default=4194304, help='Payload size for heap')
-    group.add_argument('--items', type=int, default=1, help='Number of items per heap')
-    group.add_argument('--dtype', type=str, default='<c8', help='Numpy data type')
-    group.add_argument('--heaps', type=int, help='Number of data heaps to send (default: infinite)')
+    group.add_argument('--heap-size', metavar='BYTES', type=int, default=4194304, help='Payload size for heap [%(default)s]')
+    group.add_argument('--items', type=int, default=1, help='Number of items per heap [%(default)s]')
+    group.add_argument('--dtype', type=str, default='<c8', help='Numpy data type [%(default)s]')
+    group.add_argument('--heaps', type=int, help='Number of data heaps to send [infinite]')
 
     group = parser.add_argument_group('Output options')
-    group.add_argument('--log', help='Log configuration file')
+    group.add_argument('--log', metavar='LEVEL', default='INFO', help='Log level [%(default)s]')
 
     group = parser.add_argument_group('Protocol options')
     group.add_argument('--pyspead', action='store_true', help='Be bug-compatible with PySPEAD')
-    group.add_argument('--addr-bits', type=int, default=40, help='Heap address bits')
-    group.add_argument('--packet', type=int, default=1472, help='Maximum packet size to send')
-    group.add_argument('--descriptors', type=int, help='Description issue frequency')
+    group.add_argument('--addr-bits', type=int, default=40, help='Heap address bits [%(default)s]')
+    group.add_argument('--packet', type=int, default=spead2.send.StreamConfig.DEFAULT_MAX_PACKET_SIZE, help='Maximum packet size to send [%(default)s]')
+    group.add_argument('--descriptors', type=int, help='Description issue frequency [only at start]')
 
     group = parser.add_argument_group('Performance options')
-    group.add_argument('--buffer', type=int, default=512 * 1024, help='Socket buffer size')
-    group.add_argument('--threads', type=int, default=1, help='Number of worker threads')
-    group.add_argument('--burst', type=int, default=65536, help='Burst size')
-    group.add_argument('--rate', metavar='Gb/s', type=float, default=0, help='Transmission rate bound')
+    group.add_argument('--buffer', type=int, default=spead2.send.trollius.UdpStream.DEFAULT_BUFFER_SIZE, help='Socket buffer size  [%(default)s]')
+    group.add_argument('--threads', type=int, default=1, help='Number of worker threads [%(default)s]')
+    group.add_argument('--burst', metavar='BYTES', type=int, default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE, help='Burst size [%(default)s]')
+    group.add_argument('--rate', metavar='Gb/s', type=float, default=0, help='Transmission rate bound [no limit]')
 
     return parser.parse_args()
 
@@ -81,10 +81,7 @@ def run(item_group, stream, args):
 
 def main():
     args = get_args()
-    if args.log is not None:
-        logging.basicConfig(args.log)
-    else:
-        logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=getattr(logging, args.log.upper()))
 
     dtype = np.dtype(args.dtype)
     elements = args.heap_size // (args.items * dtype.itemsize)

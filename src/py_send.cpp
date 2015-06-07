@@ -287,7 +287,10 @@ void register_module()
         .add_property("max_packet_size", &stream_config::get_max_packet_size, &stream_config::set_max_packet_size)
         .add_property("rate", &stream_config::get_rate, &stream_config::set_rate)
         .add_property("burst_size", &stream_config::get_burst_size, &stream_config::set_burst_size)
-        .add_property("max_heaps", &stream_config::get_max_heaps, &stream_config::set_max_heaps);
+        .add_property("max_heaps", &stream_config::get_max_heaps, &stream_config::set_max_heaps)
+        .def_readonly("DEFAULT_MAX_PACKET_SIZE", stream_config::default_max_packet_size)
+        .def_readonly("DEFAULT_MAX_HEAPS", stream_config::default_max_heaps)
+        .def_readonly("DEFAULT_BURST_SIZE", stream_config::default_burst_size);
 
     {
         typedef udp_stream_wrapper<stream_wrapper<udp_stream> > T;
@@ -297,7 +300,8 @@ void register_module()
                      arg("config") = stream_config(),
                      arg("buffer_size") = T::default_buffer_size))[
                 store_handle_postcall<T, &T::thread_pool_handle, 1, 2>()])
-            .def("send_heap", &T::send_heap, arg("heap"));
+            .def("send_heap", &T::send_heap, arg("heap"))
+            .def_readonly("DEFAULT_BUFFER_SIZE", T::default_buffer_size);
     }
 
     {
@@ -311,7 +315,8 @@ void register_module()
             .add_property("fd", &T::get_fd)
             .def("async_send_heap", &T::async_send_heap, arg("heap"))
             .def("flush", &T::flush)
-            .def("process_callbacks", &T::process_callbacks);
+            .def("process_callbacks", &T::process_callbacks)
+            .def_readonly("DEFAULT_BUFFER_SIZE", T::default_buffer_size);
     }
 
     class_<bytes_stream, boost::noncopyable>("BytesStream", init<
