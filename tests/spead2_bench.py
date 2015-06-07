@@ -40,6 +40,8 @@ from trollius import From, Return
 import collections
 import logging
 import traceback
+import timeit
+
 
 class SlaveConnection(object):
     def __init__(self, reader, writer):
@@ -117,19 +119,22 @@ def run_slave(args):
 
 @trollius.coroutine
 def send_stream(item_group, stream, num_heaps):
-    tasks = collections.deque()
+    tasks = []
     for i in range(num_heaps):
-        if len(tasks) >= 2:
-            yield From(trollius.wait([tasks.popleft()]))
         if i == num_heaps - 1:
+            heap = item_group.get_end()
             task = trollius.async(stream.async_send_heap(item_group.get_end()))
         else:
             for item in item_group.values():
                 item.version += 1
-            task = trollius.async(stream.async_send_heap(item_group.get_heap()))
+            heap = item_group.get_heap()
+        task = trollius.async(stream.async_send_heap(heap))
         tasks.append(task)
-    while len(tasks) > 0:
-        yield From(trollius.wait([tasks.popleft()]))
+    yield From(trollius.wait(tasks))
+    transferred = 0
+    for task in tasks:
+        transferred += task.result()
+    raise Return(transferred)
 
 def measure_connection_once(args, rate, num_heaps, required_heaps):
     reader, writer = yield From(trollius.open_connection(args.host, args.port))
@@ -141,17 +146,28 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
     config = spead2.send.StreamConfig(
         max_packet_size=args.packet,
         burst_size=args.burst,
-        rate=rate)
+        rate=rate,
+        max_heaps=num_heaps + 1)
     stream = spead2.send.trollius.UdpStream(
         thread_pool, args.host, args.port, config, args.send_buffer)
     item_group = spead2.send.ItemGroup(
         flavour=spead2.Flavour(4, 64, args.addr_bits, 0))
-    for i in range(1):
-        item_group.add_item(id=None, name='Test item {}'.format(i),
-                            description='A test item with arbitrary value',
-                            shape=(args.heap_size,), dtype=np.uint8,
-                            value=np.zeros((args.heap_size,), dtype=np.uint8))
-    yield From(send_stream(item_group, stream, num_heaps))
+    item_group.add_item(id=None, name='Test item',
+                        description='A test item with arbitrary value',
+                        shape=(args.heap_size,), dtype=np.uint8,
+                        value=np.zeros((args.heap_size,), dtype=np.uint8))
+
+    good = True
+    start = timeit.default_timer()
+    transferred = yield From(send_stream(item_group, stream, num_heaps))
+    end = timeit.default_timer()
+    elapsed = end - start
+    expected = transferred / rate
+    if elapsed > 1.02 * expected:
+        if not args.quiet:
+            logging.warning("transmission took longer than expected (%.3f > %.3f)",
+                            elapsed, expected)
+        good = False
     # Give receiver time to catch up with any queue
     yield From(trollius.sleep(0.1))
     writer.write(json.dumps({'cmd': 'stop'}) + '\n')
@@ -162,7 +178,7 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
     yield From(trollius.sleep(0.5))
     yield From(writer.drain())
     writer.close()
-    raise Return(received_heaps >= required_heaps)
+    raise Return(good and received_heaps >= required_heaps)
 
 
 def measure_connection(args, rate, num_heaps, required_heaps):
@@ -192,7 +208,7 @@ def run_master(args):
     if args.quiet:
         print(rate_gbps)
     else:
-        print("Sustainable rate: {} Gbps".format(rate_gbps))
+        print("Sustainable rate: {:.3f} Gbps".format(rate_gbps))
 
 
 def main():
