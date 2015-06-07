@@ -246,27 +246,26 @@ static bool measure_connection(
 
 static void main_master(int argc, const char **argv)
 {
-    constexpr double giga = 1000000000.0;
     options opts = parse_master_args(argc, argv);
     // These rates are in bytes
-    double low = 0.5e9;
+    double low = 0.0;
     double high = 5e9;
     while (high - low > 1e8 / 8)
     {
         // Need at least 1GB of data to overwhelm cache effects, and want at least
         // 1 second for warmup effects.
         double rate = (low + high) * 0.5;
-        std::int64_t num_heaps = std::int64_t(std::max(giga, rate) / opts.heap_size) + 2;
+        std::int64_t num_heaps = std::int64_t(std::max(1e9, rate) / opts.heap_size) + 2;
         bool good = measure_connection(opts, rate, num_heaps, num_heaps - 1);
         if (!opts.quiet)
-            std::cout << boost::format("Rate: %.3f Gbps: %s\n") % (rate * 8.0 / giga ) % (good ? "GOOD" : "BAD");
+            std::cout << boost::format("Rate: %.3f Gbps: %s\n") % (rate * 8e-9) % (good ? "GOOD" : "BAD");
         if (good)
             low = rate;
         else
             high = rate;
     }
     double rate = (low + high) * 0.5;
-    double rate_gbps = rate * 8 / giga;
+    double rate_gbps = rate * 8e-9;
     if (opts.quiet)
         std::cout << rate_gbps << '\n';
     else

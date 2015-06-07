@@ -83,7 +83,7 @@ class SlaveConnection(object):
                     self.writer.write('ready\n')
                 elif command['cmd'] == 'stop':
                     if stream_task is None:
-                        log.warn("Stop received when already stopped")
+                        logging.warning("Stop received when already stopped")
                         continue
                     stream.stop()
                     received_heaps = yield From(stream_task)
@@ -173,22 +173,22 @@ def measure_connection(args, rate, num_heaps, required_heaps):
 
 def run_master(args):
     # These rates are in bytes
-    low = 0.5e9
+    low = 0.0
     high = 5e9
     while high - low > 1e8 / 8:
         # Need at least 1GB of data to overwhelm cache effects, and want at least
         # 1 second for warmup effects.
         rate = (low + high) * 0.5
-        num_heaps = int(max(10**9, rate) / args.heap_size) + 2
+        num_heaps = int(max(1e9, rate) / args.heap_size) + 2
         good = yield From(measure_connection(args, rate, num_heaps, num_heaps - 1))
         if not args.quiet:
-            print("Rate: {:.3f} Gbps: {}".format(rate * 8 / 10**9, "GOOD" if good else "BAD"))
+            print("Rate: {:.3f} Gbps: {}".format(rate * 8e-9, "GOOD" if good else "BAD"))
         if good:
             low = rate
         else:
             high = rate
     rate = (low + high) * 0.5
-    rate_gbps = rate * 8 / 10**9
+    rate_gbps = rate * 8e-9
     if args.quiet:
         print(rate_gbps)
     else:
