@@ -161,11 +161,14 @@ public:
         Base::async_send_heap(h2(), [this, callback_ptr, h_ptr] (
             const boost::system::error_code &ec, item_pointer_t bytes_transferred)
         {
+            bool was_empty;
             {
                 std::unique_lock<std::mutex> lock(callbacks_mutex);
+                was_empty = callbacks.empty();
                 callbacks.push_back(callback_item{callback_ptr, h_ptr, ec, bytes_transferred});
             }
-            sem.put();
+            if (was_empty)
+                sem.put();
         });
     }
 
