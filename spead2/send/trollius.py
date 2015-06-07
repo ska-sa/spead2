@@ -66,10 +66,13 @@ class UdpStream(_UdpStreamAsyncio):
             loop = self._loop
         future = trollius.Future(loop=self._loop)
 
-        def callback():
-            future.set_result(None)
+        def callback(exc, bytes_transferred):
+            if exc is not None:
+                future.set_exception(exc)
+            else:
+                future.set_result(bytes_transferred)
         super(UdpStream, self).async_send_heap(heap, callback)
-        yield From(future)
+        return future
 
     def __del__(self):
         self._loop.remove_reader(self.fd)

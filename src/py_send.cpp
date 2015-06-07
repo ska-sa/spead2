@@ -122,9 +122,16 @@ template<typename Base>
 class asyncio_stream_wrapper : public Base
 {
 private:
+    struct callback_item
+    {
+        PyObject *callback;
+        PyObject *h;  // heap: kept here because it can only be freed with the GIL
+        boost::system::error_code ec;
+        item_pointer_t bytes_transferred;
+    };
+
     semaphore_gil sem;
-    // Each item is a (callback, heap) pair
-    std::vector<std::pair<PyObject *, PyObject *> > callbacks;
+    std::vector<callback_item> callbacks;
     std::mutex callbacks_mutex;
 
     // Prevent copying: the callbacks vector cannot sanely be copied
@@ -151,11 +158,12 @@ public:
         PyObject *callback_ptr = callback.ptr();
         Py_INCREF(h_ptr);
         Py_INCREF(callback_ptr);
-        Base::async_send_heap(h2(), [this, callback_ptr, h_ptr] (const boost::system::error_code &, item_pointer_t)
+        Base::async_send_heap(h2(), [this, callback_ptr, h_ptr] (
+            const boost::system::error_code &ec, item_pointer_t bytes_transferred)
         {
             {
                 std::unique_lock<std::mutex> lock(callbacks_mutex);
-                callbacks.emplace_back(callback_ptr, h_ptr);
+                callbacks.push_back(callback_item{callback_ptr, h_ptr, ec, bytes_transferred});
             }
             sem.put();
         });
@@ -164,28 +172,47 @@ public:
     void process_callbacks()
     {
         sem.get();
-        std::vector<std::pair<PyObject *, PyObject *> > current_callbacks;
+        std::vector<callback_item> current_callbacks;
         {
             std::unique_lock<std::mutex> lock(callbacks_mutex);
             current_callbacks.swap(callbacks);
         }
-        for (const auto &item : current_callbacks)
+        try
         {
-            PyObject *callback_ptr = item.first;
-            PyObject *h_ptr = item.second;
-            Py_DECREF(h_ptr);
-            py::object callback{py::handle<>(callback_ptr)};
-            callback();
-            // Ref to callback will be dropped in destructor for callback
+            for (callback_item &item : current_callbacks)
+            {
+                Py_DECREF(item.h);
+                item.h = NULL;
+                py::object callback{py::handle<>(item.callback)};
+                item.callback = NULL;
+                py::object exc;
+                if (item.ec)
+                {
+                    py::object exc_class(py::handle<>(py::borrowed(PyExc_IOError)));
+                    exc = exc_class(item.ec.value(), item.ec.message());
+                }
+                callback(exc, item.bytes_transferred);
+                // Ref to callback will be dropped in destructor for item
+            }
+        }
+        catch (std::exception &e)
+        {
+            /* Clean up the remaining handles */
+            for (const callback_item &item : current_callbacks)
+            {
+                Py_XDECREF(item.h);
+                Py_XDECREF(item.callback);
+            }
+            throw;
         }
     }
 
     ~asyncio_stream_wrapper()
     {
-        for (const auto &item : callbacks)
+        for (const callback_item &item : callbacks)
         {
-            Py_DECREF(item.first);
-            Py_DECREF(item.second);
+            Py_DECREF(item.h);
+            Py_DECREF(item.callback);
         }
     }
 };
