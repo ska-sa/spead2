@@ -21,9 +21,9 @@
 #ifndef SPEAD2_COMMON_ENDIAN_H
 #define SPEAD2_COMMON_ENDIAN_H
 
-#include <endian.h>
 #include <cstdint>
 #include <cstring>
+#include "portable_endian.h"
 
 namespace spead2
 {
