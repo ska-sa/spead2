@@ -15,6 +15,8 @@ Contents:
    py
    cpp
    perf
+   changelog
+   license
 
 Indices and tables
 ==================
@@ -22,4 +24,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
