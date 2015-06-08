@@ -18,12 +18,21 @@
 from setuptools import setup, Extension
 import glob
 import sys
-from spead2._version import VERSION
+import os.path
 try:
     import numpy
     numpy_include = numpy.get_include()
 except ImportError:
     numpy_include = None
+
+def find_version():
+    # Cannot simply import it, since that tries to import spead2 as well, which
+    # isn't built yet.
+    globals_ = {}
+    with open(os.path.join(os.path.dirname(__file__), 'spead2', '_version.py')) as f:
+        code = f.read()
+    exec(code, globals_)
+    return globals_['__version__']
 
 bp_library = 'boost_python-py{0}{1}'.format(sys.version_info.major, sys.version_info.minor)
 
@@ -45,7 +54,7 @@ setup(
     author='Bruce Merry',
     author_email='bmerry@ska.ac.za',
     name='spead2',
-    version=VERSION,
+    version=find_version(),
     description='High-performance SPEAD implementation',
     url='https://github.com/ska-sa/spead2',
     classifiers = [
