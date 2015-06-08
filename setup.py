@@ -19,6 +19,7 @@ from setuptools import setup, Extension
 import glob
 import sys
 import os.path
+import ctypes.util
 try:
     import numpy
     numpy_include = numpy.get_include()
@@ -34,7 +35,18 @@ def find_version():
     exec(code, globals_)
     return globals_['__version__']
 
-bp_library = 'boost_python-py{0}{1}'.format(sys.version_info.major, sys.version_info.minor)
+# Different OSes install the Boost.Python library under different names
+bp_library_names = [
+    'boost_python-py{0}{1}'.format(sys.version_info.major, sys.version_info.minor),
+    'boost_python{0}'.format(sys.version_info.major),
+    'boost_python',
+    'boost_python-mt']
+for name in bp_library_names:
+    if ctypes.util.find_library(name):
+        bp_library = name
+        break
+else:
+    raise RuntimeError('Cannot find Boost.Python library')
 
 extensions = [
     Extension(
