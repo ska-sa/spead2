@@ -47,6 +47,7 @@ setup(
     name='spead2',
     version=VERSION,
     description='High-performance SPEAD implementation',
+    url='https://github.com/ska-sa/spead2',
     classifiers = [
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
