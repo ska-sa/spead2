@@ -58,12 +58,16 @@ class SlaveConnection(object):
             except spead2.Stopped:
                 raise Return(num_heaps)
 
+    def _write(self, s):
+        self.writer.write(s.encode('ascii'))
+
     @trollius.coroutine
     def run_control(self):
         try:
             stream_task = None
             while True:
                 command = yield From(self.reader.readline())
+                command = command.decode('ascii')
                 logging.debug("command = %s", command)
                 if not command:
                     break
@@ -82,14 +86,14 @@ class SlaveConnection(object):
                     thread_pool = None
                     memory_pool = None
                     stream_task = trollius.async(self.run_stream(stream))
-                    self.writer.write('ready\n')
+                    self._write('ready\n')
                 elif command['cmd'] == 'stop':
                     if stream_task is None:
                         logging.warning("Stop received when already stopped")
                         continue
                     stream.stop()
                     received_heaps = yield From(stream_task)
-                    self.writer.write(json.dumps({'received_heaps': received_heaps}) + '\n')
+                    self._write(json.dumps({'received_heaps': received_heaps}) + '\n')
                     stream_task = None
                     stream = None
                 elif command['cmd'] == 'exit':
@@ -138,10 +142,12 @@ def send_stream(item_group, stream, num_heaps):
 
 def measure_connection_once(args, rate, num_heaps, required_heaps):
     reader, writer = yield From(trollius.open_connection(args.host, args.port))
-    writer.write(json.dumps({'cmd': 'start', 'args': vars(args)}) + '\n')
+    def write(s):
+        writer.write(s.encode('ascii'))
+    write(json.dumps({'cmd': 'start', 'args': vars(args)}) + '\n')
     # Wait for "ready" response
     response = yield From(reader.readline())
-    assert response == 'ready\n'
+    assert response == b'ready\n'
     thread_pool = spead2.ThreadPool()
     config = spead2.send.StreamConfig(
         max_packet_size=args.packet,
@@ -170,10 +176,10 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
         good = False
     # Give receiver time to catch up with any queue
     yield From(trollius.sleep(0.1))
-    writer.write(json.dumps({'cmd': 'stop'}) + '\n')
+    write(json.dumps({'cmd': 'stop'}) + '\n')
     # Read number of heaps received
     response = yield From(reader.readline())
-    response = json.loads(response)
+    response = json.loads(response.decode('ascii'))
     received_heaps = response['received_heaps']
     yield From(trollius.sleep(0.5))
     yield From(writer.drain())
