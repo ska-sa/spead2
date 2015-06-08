@@ -40,13 +40,23 @@ udp_stream::udp_stream(
     if (buffer_size != 0)
     {
         boost::asio::socket_base::send_buffer_size option(buffer_size);
-        socket.set_option(option);
-        boost::asio::socket_base::send_buffer_size actual;
-        socket.get_option(actual);
-        if (std::size_t(actual.value()) < buffer_size)
+        boost::system::error_code ec;
+        socket.set_option(option, ec);
+        if (ec)
         {
-            log_warning("requested buffer size %d but only received %d: refer to documentation for details on increasing buffer size",
-                        buffer_size, actual.value());
+            log_warning("request for socket buffer size %s failed (%s): refer to documentation for details on increasing buffer size",
+                        buffer_size, ec.message());
+        }
+        else
+        {
+            // Linux silently clips to the maximum allowed size
+            boost::asio::socket_base::receive_buffer_size actual;
+            socket.get_option(actual);
+            if (std::size_t(actual.value()) < buffer_size)
+            {
+                log_warning("requested socket buffer size %d but only received %d: refer to documentation for details on increasing buffer size",
+                            buffer_size, actual.value());
+            }
         }
     }
     this->socket = std::move(socket);
