@@ -31,7 +31,7 @@ stream = spead2.send.trollius.UdpStream(
 del thread_pool  # Make sure this doesn't crash anything
 
 shape = (40, 50)
-ig = spead2.send.ItemGroup(spead2.Flavour(4, 64, 48, spead2.BUG_COMPAT_PYSPEAD_0_5_2))
+ig = spead2.send.ItemGroup(flavour=spead2.Flavour(4, 64, 48, spead2.BUG_COMPAT_PYSPEAD_0_5_2))
 item = ig.add_item(0x1234, 'foo', 'a foo item', shape=shape, dtype=np.int32)
 item.value = np.zeros(shape, np.int32)
 coros = [
