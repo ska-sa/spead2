@@ -388,15 +388,15 @@ class Item(Descriptor):
             for (code, length), field in zip(self.format, value):
                 raw = None
                 if code == 'u':
-                    if field < 0 or field >= (1 << length):
-                        raise ValueError('{} is out of range for u{}'.format(field, length))
-                    raw = field
+                    raw = int(field)
+                    if raw < 0 or raw >= (1 << length):
+                        raise ValueError('{} is out of range for u{}'.format(raw, length))
                 elif code == 'i':
                     top_bit = 1 << (length - 1)
-                    if field < -top_bit or field >= top_bit:
+                    raw = int(field)
+                    if raw < -top_bit or raw >= top_bit:
                         raise ValueError('{} is out of range for i{}'.format(field, length))
                     # convert to 2's complement
-                    raw = field
                     if raw < 0:
                         raw += 2 * top_bit
                 elif code == 'b':

@@ -274,12 +274,12 @@ class TestEncode(object):
     def test_fallback_types(self):
         """Send an array with mixed types and strange packing"""
         id = 0x2345
-        format = [('b', 1), ('c', 7), ('f', 32)]
+        format = [('b', 1), ('c', 7), ('f', 32), ('i', 16)]
         shape = (2,)
-        data = [(True, 'y', 1.0), (False, 'n', -1.0)]
+        data = [(True, 'y', 1.0, 123), (False, 'n', -1.0, -456.0)]
         payload_fields = [
             self.make_descriptor_fallback(id, 'name', 'description', shape, format),
-            b'\xF9\x3F\x80\x00\x00' + b'n\xBF\x80\x00\x00'
+            b'\xF9\x3F\x80\x00\x00\x00\x7B' + b'n\xBF\x80\x00\x00\xFE\x38'
         ]
         payload = b''.join(payload_fields)
         offsets = offset_generator(payload_fields)
