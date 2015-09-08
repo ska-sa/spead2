@@ -28,9 +28,21 @@ class _ItemInfo(object):
         self.item = weakref.ref(item)
 
 
+class Counter(object):
+    """Trivial object wrapper around an int for generating heap counts.
+
+    Using a class allows several :py:class:`HeapGenerator` instances to share a
+    value."""
+    def __init__(self):
+        self.value = 1
+
+
 class HeapGenerator(object):
     """Tracks which items and item values have previously been sent and
-    generates delta heaps with sequential numbering.
+    generates delta heaps with sequential numbering. By default it is designed
+    for use with a single :py:class:`spead2.ItemGroup`, but different item
+    groups can be passed explicitly to :py:meth:`get_heap` provided that they
+    have disjoint IDs.
 
     Parameters
     ----------
@@ -40,11 +52,21 @@ class HeapGenerator(object):
         If specified, descriptors will be re-sent once every `descriptor_frequency` heaps.
     flavour : :py:class:`spead2.Flavour`
         The SPEAD protocol flavour.
+    counter : :py:class:`Counter`, optional
+        If specified, a shared counter used to generate heap IDs
+
+    Attributes
+    ----------
+    counter : :py:class:`Counter`
+        The counter used to generate heap IDs. If this is modified, it must not
+        be replaced with a smaller value.
     """
-    def __init__(self, item_group, descriptor_frequency=None, flavour=_spead2.Flavour()):
+    def __init__(self, item_group, descriptor_frequency=None, flavour=_spead2.Flavour(), counter=None):
         self._item_group = item_group
         self._info = {}              # Maps ID to _ItemInfo
-        self._next_cnt = 1
+        if counter is None:
+            counter = Counter()
+        self.counter = counter
         self._descriptor_frequency = descriptor_frequency
         self._flavour = flavour
 
@@ -58,7 +80,7 @@ class HeapGenerator(object):
             # Never been sent before
             return True
         if self._descriptor_frequency is not None \
-                and self._next_cnt - info.descriptor_cnt >= self._descriptor_frequency:
+                and self.counter.value - info.descriptor_cnt >= self._descriptor_frequency:
             # This descriptor is due for a resend
             return True
         # Check for complete replacement of the item
@@ -69,28 +91,50 @@ class HeapGenerator(object):
             return True
         return False
 
-    def get_heap(self):
+    def get_heap(self, descriptors='stale', data='stale', item_group=None):
         """Return a new heap which contains all the new items and item
         descriptors since the last call.
+
+        Parameters
+        ----------
+        descriptors : {'stale', 'all', 'none'}
+            Which descriptors to send. The default ('stale') sends only
+            descriptors that have not been sent, or have not been sent recently
+            enough according to the `descriptor_frequency` passed to the
+            constructor. The other options are to send all the descriptors or
+            none of them. Sending all descriptors is useful if a new receiver
+            is added which will be out of date.
+        data : {'stale', 'all', 'none'}
+            Which data items to send.
+        item_group : :py:class:`ItemGroup`, optional
+            If specified, uses the items from this item group instead of the
+            one passed to the constructor (which could be `None`).
         """
-        heap = Heap(self._next_cnt, self._flavour)
-        for item in self._item_group.values():
+        if descriptors not in ['stale', 'all', 'none']:
+            raise ValueError("descriptors must be one of 'stale', 'all', 'none'")
+        if data not in ['stale', 'all', 'none']:
+            raise ValueError("data must be one of 'stale', 'all', 'none'")
+        heap = Heap(self.counter.value, self._flavour)
+        if item_group is None:
+            item_group = self._item_group
+        for item in item_group.values():
             info = self._get_info(item)
-            if self._descriptor_stale(item, info):
+            if (descriptors == 'all') or (descriptors == 'stale' and self._descriptor_stale(item, info)):
                 heap.add_descriptor(item)
-                info.descriptor_cnt = self._next_cnt
-            if item.value is not None and info.version != item.version:
-                heap.add_item(item)
-                info.version = item.version
-        self._next_cnt += 1
+                info.descriptor_cnt = self.counter.value
+            if item.value is not None:
+                if (data == 'all') or (data == 'stale' and info.version != item.version):
+                    heap.add_item(item)
+                    info.version = item.version
+        self.counter.value += 1
         return heap
 
     def get_end(self):
         """Return a heap that contains only an end-of-stream marker.
         """
-        heap = Heap(self._next_cnt, self._flavour)
+        heap = Heap(self.counter.value, self._flavour)
         heap.add_end()
-        self._next_cnt += 1
+        self.counter.value += 1
         return heap
 
 
