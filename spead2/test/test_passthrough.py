@@ -100,6 +100,10 @@ class BaseTestPassthrough(object):
     def _test_item_group(self, item_group):
         received_item_group = self.transmit_item_group(item_group)
         assert_item_groups_equal(item_group, received_item_group)
+        if not self.is_legacy_receive:
+            for item in received_item_group.values():
+                if item.dtype is not None:
+                    assert_equal(item.value.dtype, item.value.dtype.newbyteorder('='))
 
     def test_numpy_simple(self):
         """A basic array with numpy encoding"""
@@ -115,6 +119,7 @@ class BaseTestPassthrough(object):
         data = np.random.randn(100, 200)
         ig.add_item(id=0x2345, name='name', description='description',
                     shape=data.shape, dtype=data.dtype, value=data)
+        self._test_item_group(ig)
 
     def test_fallback_struct_whole_bytes(self):
         """A structure with non-byte-aligned elements, but which is

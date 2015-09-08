@@ -454,11 +454,8 @@ class Item(Descriptor):
             else:
                 array1d = _np.array(raw_value, copy=False)[:size_bytes]
             array1d = array1d.view(dtype=self.dtype)
-            if self.dtype.byteorder in ('<', '>'):
-                # Either < or > indicates non-native endianness. Swap it now
-                # so that calculations later will be efficient
-                dtype = self.dtype.newbyteorder()
-                array1d = array1d.byteswap(True).view(dtype=dtype)
+            # Force to native endian
+            array1d = array1d.astype(self.dtype.newbyteorder('='), casting='equiv', copy=False)
             value = _np.reshape(array1d, self.shape, self.order)
 
         if len(self.shape) == 0:

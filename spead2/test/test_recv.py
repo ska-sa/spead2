@@ -251,7 +251,7 @@ class TestDecode(object):
                 Item(0x1234, struct.pack('>fbfbfb', 1.5, 1, 2.5, 2, 4.5, -4))
             ])
         item = self.data_to_item(packet, 0x1234)
-        dtype = np.dtype('>f4,i1')
+        dtype = np.dtype('=f4,i1')
         assert_equal(dtype, item.value.dtype)
         expected = np.array([(1.5, 1), (2.5, 2), (4.5, -4)], dtype=dtype)
         np.testing.assert_equal(expected, item.value)
