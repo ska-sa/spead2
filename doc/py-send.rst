@@ -32,6 +32,7 @@ is paired with one heap generator, a convenience class
 
 .. autoclass:: spead2.send.HeapGenerator
 
+   .. automethod:: spead2.send.HeapGenerator.add_to_heap
    .. automethod:: spead2.send.HeapGenerator.get_heap
    .. automethod:: spead2.send.HeapGenerator.get_end
 

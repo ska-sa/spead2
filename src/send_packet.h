@@ -59,6 +59,7 @@ private:
     static constexpr std::size_t prefix_size = 8 + 4 * sizeof(item_pointer_t);
 
     const heap &h;
+    item_pointer_t cnt;
     std::size_t max_packet_size;
     std::size_t max_item_pointers_per_packet;
 
@@ -77,7 +78,7 @@ private:
     bool need_null_item = false;
 
 public:
-    packet_generator(const heap &h, std::size_t max_packet_size);
+    packet_generator(const heap &h, item_pointer_t cnt, std::size_t max_packet_size);
 
     packet next_packet();
 };

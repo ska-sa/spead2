@@ -42,4 +42,15 @@ flavour::flavour(
     this->bug_compat = bug_compat;
 }
 
+bool flavour::operator==(const flavour &other) const
+{
+    return heap_address_bits == other.heap_address_bits
+        && bug_compat == other.bug_compat;
+}
+
+bool flavour::operator!=(const flavour &other) const
+{
+    return !(*this == other);
+}
+
 } // namespace spead2

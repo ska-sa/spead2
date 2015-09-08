@@ -171,7 +171,7 @@ static bool measure_connection_once(
         std::vector<spead2::send::heap> heaps;
         for (std::int64_t i = 0; i < num_heaps; i++)
         {
-            heaps.emplace_back(i + 1, flavour);
+            heaps.emplace_back(flavour);
             if (i + 1 < num_heaps)
                 heaps.back().add_item(0x1234, data, false);
             else

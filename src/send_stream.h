@@ -87,11 +87,12 @@ private:
     struct queue_item
     {
         const heap &h;
+        item_pointer_t cnt;
         completion_handler handler;
 
         queue_item() = default;
-        queue_item(const heap &h, completion_handler &&handler)
-            : h(std::move(h)), handler(std::move(handler))
+        queue_item(const heap &h, item_pointer_t cnt, completion_handler &&handler)
+            : h(std::move(h)), cnt(cnt), handler(std::move(handler))
         {
         }
     };
@@ -113,6 +114,8 @@ private:
     item_pointer_t heap_bytes = 0;
     /// Number of bytes sent since last sleep
     std::size_t rate_bytes = 0;
+    /// Heap cnt for the next heap to send
+    item_pointer_t next_cnt = 1;
     std::unique_ptr<packet_generator> gen; // TODO: make this inlinable
     /// Signalled whenever the last heap is popped from the queue
     std::condition_variable heap_empty;
@@ -138,7 +141,8 @@ private:
                 queue.pop();
                 empty = queue.empty();
                 if (!empty)
-                    gen.reset(new packet_generator(queue.front().h, config.get_max_packet_size()));
+                    gen.reset(new packet_generator(
+                        queue.front().h, queue.front().cnt, config.get_max_packet_size()));
                 else
                     gen.reset();
 
@@ -219,11 +223,12 @@ public:
             return;
         }
         bool empty = queue.empty();
-        queue.emplace(h, std::move(handler));
+        queue.emplace(h, next_cnt, std::move(handler));
+        next_cnt++;
         if (empty)
         {
             assert(!gen);
-            gen.reset(new packet_generator(queue.front().h, config.get_max_packet_size()));
+            gen.reset(new packet_generator(queue.front().h, queue.front().cnt, config.get_max_packet_size()));
         }
         lock.unlock();
 

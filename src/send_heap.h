@@ -125,7 +125,6 @@ class heap
 {
     friend class packet_generator;
 private:
-    s_item_pointer_t cnt;
     flavour flavour_;
 
     /// Items to write (including descriptors)
@@ -140,24 +139,10 @@ public:
     /**
      * Constructor.
      *
-     * @param cnt         Heap ID
      * @param flavour_    SPEAD flavour that will be used to encode the heap
      */
     explicit heap(
-        s_item_pointer_t cnt = 0,
         const flavour &flavour_ = flavour());
-
-    /// Return heap ID
-    s_item_pointer_t get_cnt() const
-    {
-        return cnt;
-    }
-
-    /// Set heap ID
-    void set_cnt(s_item_pointer_t cnt)
-    {
-        this->cnt = cnt;
-    }
 
     /// Return flavour
     const flavour &get_flavour() const

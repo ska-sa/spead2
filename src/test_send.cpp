@@ -36,7 +36,7 @@ int main()
     spead2::send::udp_stream stream(tp.get_io_service(), *it, spead2::send::stream_config(9000, 0));
     spead2::flavour f(spead2::maximum_version, 64, 48, spead2::BUG_COMPAT_PYSPEAD_0_5_2);
 
-    spead2::send::heap h(0x2, f);
+    spead2::send::heap h(f);
     std::int32_t value1 = htobe32(0xEADBEEF);
     std::int32_t value2[64] = {};
     for (int i = 0; i < 64; i++)
@@ -64,7 +64,7 @@ int main()
             std::cout << "Sent " << bytes_transferred << " bytes in heap\n";
     });
 
-    spead2::send::heap end(0x3, f);
+    spead2::send::heap end(f);
     end.add_end();
     stream.async_send_heap(end, [] (const boost::system::error_code &ec, spead2::item_pointer_t bytes_transferred) {});
     stream.flush();

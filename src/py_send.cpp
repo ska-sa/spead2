@@ -289,17 +289,16 @@ void register_module()
     py::object module(py::handle<>(py::borrowed(PyImport_AddModule("spead2._send"))));
     py::scope scope = module;
 
-    class_<heap_wrapper, boost::noncopyable>("Heap", init<std::int64_t, flavour>(
-            (arg("cnt") = 0, arg("flavour") = flavour())))
-        .add_property("cnt", &heap_wrapper::get_cnt, &heap_wrapper::set_cnt)
+    class_<heap_wrapper, boost::noncopyable>("Heap", init<flavour>(
+            (arg("flavour") = flavour())))
         .add_property("flavour", &heap_wrapper::get_flavour)
         .def("add_item", &heap_wrapper::add_item, arg("item"))
         .def("add_descriptor", &heap_wrapper::add_descriptor,
              (arg("descriptor")))
         .def("add_end", &heap_wrapper::add_end);
 
-    class_<packet_generator_wrapper, boost::noncopyable>("PacketGenerator", init<heap_wrapper &, std::size_t>(
-            (arg("heap"), arg("max_packet_size")))[
+    class_<packet_generator_wrapper, boost::noncopyable>("PacketGenerator", init<heap_wrapper &, item_pointer_t, std::size_t>(
+            (arg("heap"), arg("cnt"), arg("max_packet_size")))[
             store_handle_postcall<packet_generator_wrapper, &packet_generator_wrapper::heap_handle, 1, 2>()])
         .def("__iter__", objects::identity_function())
         .def(

@@ -84,12 +84,12 @@ class Flavour(spead2.Flavour):
     def items_to_bytes(self, items, descriptors=None, max_packet_size=1500):
         if descriptors is None:
             descriptors = items
-        heap = send.Heap(0x123456, self)
+        heap = send.Heap(self)
         for descriptor in descriptors:
             heap.add_descriptor(descriptor)
         for item in items:
             heap.add_item(item)
-        gen = send.PacketGenerator(heap, max_packet_size)
+        gen = send.PacketGenerator(heap, 0x123456, max_packet_size)
         return list(gen)
 
 
@@ -128,10 +128,10 @@ class TestEncode(object):
                            shape=(2, 3), dtype=np.uint16)
         item.value = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.uint16)
         weak = weakref.ref(item.value)
-        heap = send.Heap(0x123456, self.flavour)
+        heap = send.Heap(self.flavour)
         heap.add_item(item)
         del item
-        packets = list(send.PacketGenerator(heap, 1472))
+        packets = list(send.PacketGenerator(heap, 0x123456, 1472))
         assert_is_not_none(weak())
         del heap
         assert_is_none(weak())

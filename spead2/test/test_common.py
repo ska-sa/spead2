@@ -44,6 +44,17 @@ class TestFlavour(object):
         assert_equal(40, flavour.heap_address_bits)
         assert_equal(2, flavour.bug_compat)
 
+    def test_equality(self):
+        flavour1 = spead2.Flavour(4, 64, 40, 2)
+        flavour1b = spead2.Flavour(4, 64, 40, 2)
+        flavour2 = spead2.Flavour(4, 64, 48, 2)
+        flavour3 = spead2.Flavour(4, 64, 40, 4)
+        assert_true(flavour1 == flavour1b)
+        assert_true(flavour1 != flavour2)
+        assert_false(flavour1 != flavour1b)
+        assert_false(flavour1 == flavour2)
+        assert_false(flavour1 == flavour3)
+
 class TestItemGroup(object):
     """Tests for :py:class:`spead2.ItemGroup`"""
 

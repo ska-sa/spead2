@@ -44,8 +44,8 @@ static bool use_immediate(const item &it, std::size_t max_immediate_size)
 }
 
 packet_generator::packet_generator(
-    const heap &h, std::size_t max_packet_size)
-    : h(h), max_packet_size(max_packet_size)
+    const heap &h, item_pointer_t cnt, std::size_t max_packet_size)
+    : h(h), cnt(cnt), max_packet_size(max_packet_size)
 {
     // Round down max packet size so that we can align payload
     max_packet_size &= ~7;
@@ -117,7 +117,7 @@ packet packet_generator::next_packet()
             | (n_item_pointers + 4));
         // TODO: if item_pointer_t is more than 64 bits, this will misalign
         item_pointer_t *pointer = reinterpret_cast<item_pointer_t *>(out.data.get() + 8);
-        *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(HEAP_CNT_ID, h.cnt));
+        *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(HEAP_CNT_ID, cnt));
         *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(HEAP_LENGTH_ID, payload_size));
         *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(PAYLOAD_OFFSET_ID, payload_offset));
         *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(PAYLOAD_LENGTH_ID, packet_payload_length));

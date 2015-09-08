@@ -145,8 +145,8 @@ encode_descriptor(const descriptor &d, const flavour &flavour_)
 }
 
 
-heap::heap(s_item_pointer_t cnt, const flavour &flavour_)
-    : cnt(cnt), flavour_(flavour_)
+heap::heap(const flavour &flavour_)
+    : flavour_(flavour_)
 {
 }
 

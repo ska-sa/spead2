@@ -45,6 +45,9 @@ public:
     int get_item_pointer_bits() const { return 8 * sizeof(item_pointer_t); }
     int get_heap_address_bits() const { return heap_address_bits; }
     bug_compat_mask get_bug_compat() const { return bug_compat; }
+
+    bool operator==(const flavour &other) const;
+    bool operator!=(const flavour &other) const;
 };
 
 } // namespace spead2

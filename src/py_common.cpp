@@ -213,6 +213,8 @@ static void register_module()
             (arg("version"), arg("item_pointer_bits"),
              arg("heap_address_bits"), arg("bug_compat")=0)))
         .def(init<>())
+        .def(self == self)
+        .def(self != self)
         .add_property("version", &flavour::get_version)
         .add_property("item_pointer_bits", &flavour::get_item_pointer_bits)
         .add_property("heap_address_bits", &flavour::get_heap_address_bits)
