@@ -64,8 +64,7 @@ if not rtd:
             depends=glob.glob('src/*.h'),
             language='c++',
             include_dirs=['src', numpy_include],
-            extra_compile_args=['-std=c++11'],
-            extra_link_args=['-s'],    # Massively shrinks the binary
+            extra_compile_args=['-std=c++11', '-g0'],
             libraries=[bp_library, 'boost_system'])
     ]
 else:

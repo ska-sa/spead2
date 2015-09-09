@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Version 0.2.1
+
+- Fix compilation on OS X again. The extension binary will be slightly larger as
+  a result, but still much smaller than before 0.2.0.
+
 .. rubric:: Version 0.2.0
 
 - **backwards-incompatible change**: for sending, the heap count is now tracked
