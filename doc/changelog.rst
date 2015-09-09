@@ -17,6 +17,8 @@ Changelog
 
 - Added overloaded equality tests on Flavour objects.
 
+- Strip the extension binary to massively reduce its size
+
 .. rubric:: Version 0.1.2
 
 - Coerce values to int for legacy 'u' and 'i' fields

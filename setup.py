@@ -59,6 +59,7 @@ extensions = [
         language='c++',
         include_dirs=['src', numpy_include],
         extra_compile_args=['-std=c++11'],
+        extra_link_args=['-s'],    # Massively shrinks the binary
         libraries=[bp_library, 'boost_system'])
 ]
 
