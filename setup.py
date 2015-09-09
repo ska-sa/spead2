@@ -18,6 +18,7 @@
 from setuptools import setup, Extension
 import glob
 import sys
+import os
 import os.path
 import ctypes.util
 try:
@@ -35,33 +36,40 @@ def find_version():
     exec(code, globals_)
     return globals_['__version__']
 
-# Different OSes install the Boost.Python library under different names
-bp_library_names = [
-    'boost_python-py{0}{1}'.format(sys.version_info.major, sys.version_info.minor),
-    'boost_python{0}'.format(sys.version_info.major),
-    'boost_python',
-    'boost_python-mt']
-for name in bp_library_names:
-    if ctypes.util.find_library(name):
-        bp_library = name
-        break
-else:
-    raise RuntimeError('Cannot find Boost.Python library')
+# Can't actually install on readthedocs.org because Boost.Python is missing,
+# but we need setup.py to still be successful to make the doc build work.
+rtd = os.environ.get('READTHEDOCS') == 'True'
 
-extensions = [
-    Extension(
-        '_spead2',
-        sources=(glob.glob('src/common_*.cpp') +
-                 glob.glob('src/recv_*.cpp') +
-                 glob.glob('src/send_*.cpp') +
-                 glob.glob('src/py_*.cpp')),
-        depends=glob.glob('src/*.h'),
-        language='c++',
-        include_dirs=['src', numpy_include],
-        extra_compile_args=['-std=c++11'],
-        extra_link_args=['-s'],    # Massively shrinks the binary
-        libraries=[bp_library, 'boost_system'])
-]
+if not rtd:
+    # Different OSes install the Boost.Python library under different names
+    bp_library_names = [
+        'boost_python-py{0}{1}'.format(sys.version_info.major, sys.version_info.minor),
+        'boost_python{0}'.format(sys.version_info.major),
+        'boost_python',
+        'boost_python-mt']
+    for name in bp_library_names:
+        if ctypes.util.find_library(name):
+            bp_library = name
+            break
+    else:
+        raise RuntimeError('Cannot find Boost.Python library')
+
+    extensions = [
+        Extension(
+            '_spead2',
+            sources=(glob.glob('src/common_*.cpp') +
+                     glob.glob('src/recv_*.cpp') +
+                     glob.glob('src/send_*.cpp') +
+                     glob.glob('src/py_*.cpp')),
+            depends=glob.glob('src/*.h'),
+            language='c++',
+            include_dirs=['src', numpy_include],
+            extra_compile_args=['-std=c++11'],
+            extra_link_args=['-s'],    # Massively shrinks the binary
+            libraries=[bp_library, 'boost_system'])
+    ]
+else:
+    extensions = []
 
 setup(
     author='Bruce Merry',
