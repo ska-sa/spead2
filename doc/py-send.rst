@@ -10,7 +10,7 @@ each, rather than a generic `Stream` class. Because there is common
 configuration between the stream classes, configuration is encapsulated in a
 :py:class:`spead2.send.StreamConfig`.
 
-.. autoclass:: spead2.send.StreamConfig(max_packet_size=1472, rate=0.0, burst_size=65536, max_heaps=4)
+.. py:class:: spead2.send.StreamConfig(max_packet_size=1472, rate=0.0, burst_size=65536, max_heaps=4)
 
    :param int max_packet_size: Heaps will be split into packets of at most this size.
    :param double rate: Maximum transmission rate, in bytes per second, or 0
@@ -89,7 +89,7 @@ specified by `max_heaps` in the :py:class:`~spead2.send.StreamConfig`. If this
 limit is exceeded, heaps will be dropped. There is currently no mechanism to
 distinguish between heaps that were successfully sent and those that were
 dropped on the sending side due to buffer space or OS errors, but in future
-the futures returned by `async_send_heap` may raise errors.
+the futures returned by :meth:`~spead2.send.trollius.UdpStream.async_send_heap` may raise errors.
 
 .. _trollius: http://trollius.readthedocs.org/
 

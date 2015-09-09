@@ -30,12 +30,10 @@ if rtd:
     # ReadTheDocs can't build the extension (no Boost), so we have to mock it
     # See http://docs.readthedocs.org/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules
     import unittest.mock
-    class Mock(unittest.mock.MagicMock):
-        @classmethod
-        def __getattr__(cls, name):
-            return Mock()
     MOCK_MODULES = ['spead2._spead2', 'spead2._send', 'spead2._recv']
-    sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+    sys.modules.update((mod_name, unittest.mock.Mock()) for mod_name in MOCK_MODULES)
+    # Mocking certain classes causes subclasses not to be documented properly
+    sys.modules['spead2._send'].UdpStreamAsyncio = object
 
 # -- General configuration ------------------------------------------------
 
