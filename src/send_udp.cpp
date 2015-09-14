@@ -50,7 +50,7 @@ udp_stream::udp_stream(
         else
         {
             // Linux silently clips to the maximum allowed size
-            boost::asio::socket_base::receive_buffer_size actual;
+            boost::asio::socket_base::send_buffer_size actual;
             socket.get_option(actual);
             if (std::size_t(actual.value()) < buffer_size)
             {

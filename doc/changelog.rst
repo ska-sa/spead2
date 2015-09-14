@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Version 0.2.3
+
+- Fix incorrect warnings about send buffer size
+
 .. rubric:: Version 0.2.2
 
 - Workaround for a PySPEAD bug that would cause PySPEAD to fail if sent a
