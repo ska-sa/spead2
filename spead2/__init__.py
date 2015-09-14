@@ -62,6 +62,7 @@ class Descriptor(object):
     def __init__(self, id, name, description, shape, dtype, order='C', format=None):
         shape = tuple(shape)
         unknowns = sum([x is None for x in shape])
+        self._requested_format = format
         if unknowns > 1:
             raise ValueError('Cannot have multiple unknown dimensions')
         if dtype is not None:
@@ -243,7 +244,13 @@ class Descriptor(object):
         raw.name = self.name
         raw.description = self.description
         raw.shape = self.shape
-        if self.dtype is not None:
+        if (len(self.shape) == 0 and
+            (flavour.bug_compat & BUG_COMPAT_SWAP_ENDIAN) and
+            self._requested_format is not None):
+            # Workaround for PySPEAD bug, that causes a failure if we upgrade
+            # the format to a dtype.
+            raw.format = self._requested_format
+        elif self.dtype is not None:
             if flavour.bug_compat & BUG_COMPAT_SWAP_ENDIAN:
                 dtype = self.dtype.newbyteorder()
             else:

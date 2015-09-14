@@ -18,7 +18,10 @@ which specifies which of these bugs to maintain compatibility with:
 * :py:const:`spead2.BUG_COMPAT_SHAPE_BIT_1`: the first byte of a shape is set
   to 2 to indicate a variably-sized dimension, instead of 1.
 * :py:const:`spead2.BUG_COMPAT_SWAP_ENDIAN`: numpy arrays are encoded/decoded
-  in the opposite endiannes to that specified in the descriptor.
+  in the opposite endianness to that specified in the descriptor.
+* :py:const:`spead2.BUG_COMPAT_NO_SCALAR_NUMPY`: scalar items specified with
+  a descriptor are transmitted with a descriptor, even if it is possible to
+  convert it to a dtype.
 * :py:const:`spead2.BUG_COMPAT_PYSPEAD_0_5_2`: all of the above (and any other
   bugs later found in this version of PySPEAD).
 

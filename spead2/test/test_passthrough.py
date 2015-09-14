@@ -192,6 +192,19 @@ class BaseTestPassthrough(object):
                     shape=(), dtype=None, format=format, value=data)
         self._test_item_group(ig)
 
+    def test_fallback_scalar(self):
+        """Send a scalar using fallback format descriptor.
+
+        PySPEAD has a bug that makes this fail if the format is upgraded to a
+        numpy descriptor.
+        """
+        ig = spead2.send.ItemGroup()
+        format = [('f', 64)]
+        data = 1.5
+        ig.add_item(id=0x2345, name='scalar name', description='scalar description',
+                    shape=(), dtype=None, format=format, value=data)
+        self._test_item_group(ig)
+
     def transmit_item_group(self, item_group):
         """Transmit `item_group` over the chosen transport, and return the
         item group received at the other end.
@@ -254,7 +267,7 @@ class BaseTestPassthroughLegacySend(BaseTestPassthrough):
                     description=item.description,
                     shape=shape,
                     fmt=self.spead.mkfmt(*item.format) if item.format else self.spead.DEFAULT_FMT,
-                    ndarray=item.value if isinstance(item.value, np.ndarray) else None)
+                    ndarray=np.array(item.value) if not item.format else None)
             legacy_item_group[item.name] = item.value
         sender.send_heap(legacy_item_group.get_heap())
         sender.end()

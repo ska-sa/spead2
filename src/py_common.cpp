@@ -206,6 +206,7 @@ static void register_module()
     py::setattr(scope(), "BUG_COMPAT_DESCRIPTOR_WIDTHS", int_to_object(BUG_COMPAT_DESCRIPTOR_WIDTHS));
     py::setattr(scope(), "BUG_COMPAT_SHAPE_BIT_1", int_to_object(BUG_COMPAT_SHAPE_BIT_1));
     py::setattr(scope(), "BUG_COMPAT_SWAP_ENDIAN", int_to_object(BUG_COMPAT_SWAP_ENDIAN));
+    py::setattr(scope(), "BUG_COMPAT_NO_SCALAR_NUMPY", int_to_object(BUG_COMPAT_NO_SCALAR_NUMPY));
     py::setattr(scope(), "BUG_COMPAT_PYSPEAD_0_5_2", int_to_object(BUG_COMPAT_PYSPEAD_0_5_2));
 
     class_<flavour>("Flavour",

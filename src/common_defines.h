@@ -53,8 +53,10 @@ static constexpr bug_compat_mask BUG_COMPAT_DESCRIPTOR_WIDTHS = (1 << 0);
 static constexpr bug_compat_mask BUG_COMPAT_SHAPE_BIT_1       = (1 << 1);
 /// Numpy arrays are encoded in the opposite endian to that indicated by the header
 static constexpr bug_compat_mask BUG_COMPAT_SWAP_ENDIAN       = (1 << 2);
+/// Scalars are not converted from legacy descriptor to numpy descriptor
+static constexpr bug_compat_mask BUG_COMPAT_NO_SCALAR_NUMPY   = (1 << 3);
 /// Bugs in PySPEAD 0.5.2
-static constexpr bug_compat_mask BUG_COMPAT_PYSPEAD_0_5_2     = 0x7;
+static constexpr bug_compat_mask BUG_COMPAT_PYSPEAD_0_5_2     = 0xf;
 
 enum item_id : unsigned int
 {

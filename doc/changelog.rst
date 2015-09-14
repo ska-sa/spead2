@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Version 0.2.2
+
+- Workaround for a PySPEAD bug that would cause PySPEAD to fail if sent a
+  simple scalar value. The user must still specify scalars with a format
+  rather than a dtype to make things work.
+
 .. rubric:: Version 0.2.1
 
 - Fix compilation on OS X again. The extension binary will be slightly larger as
