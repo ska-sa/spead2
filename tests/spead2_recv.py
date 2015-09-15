@@ -38,6 +38,7 @@ def get_args():
     group = parser.add_argument_group('Output options')
     group.add_argument('--log', metavar='LEVEL', default='INFO', help='Log level [%(default)s]')
     group.add_argument('--values', action='store_true', help='Show heap values')
+    group.add_argument('--descriptors', action='store_true', help='Show descriptors')
 
     group = parser.add_argument_group('Protocol options')
     group.add_argument('--pyspead', action='store_true', help='Be bug-compatible with PySPEAD')
@@ -66,6 +67,15 @@ def run_stream(stream, name, args):
             print("Received heap {} on stream {}".format(heap.cnt, name))
             num_heaps += 1
             try:
+                if args.descriptors:
+                    for raw_descriptor in heap.get_descriptors():
+                        descriptor = spead2.Descriptor.from_raw(raw_descriptor, heap.flavour)
+                        print('''\
+Descriptor for {0.name} ({0.id:#x})
+  description: {0.description}
+  format:      {0.format}
+  dtype:       {0.dtype}
+  shape:       {0.shape}'''.format(descriptor))
                 changed = item_group.update(heap)
                 for (key, item) in changed.items():
                     if args.values:
@@ -73,7 +83,7 @@ def run_stream(stream, name, args):
                     else:
                         print(key)
             except ValueError as e:
-                print("Error raised while processing heap: {}".format(e))
+                print("Error raised processing heap: {}".format(e))
         except spead2.Stopped:
             print("Shutting down stream {} after {} heaps".format(name, num_heaps))
             break

@@ -5,6 +5,8 @@ Changelog
 
 - Fix incorrect warnings about send buffer size
 
+- Added --descriptors option to spead2_recv.py.
+
 .. rubric:: Version 0.2.2
 
 - Workaround for a PySPEAD bug that would cause PySPEAD to fail if sent a
