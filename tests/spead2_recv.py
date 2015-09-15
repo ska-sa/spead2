@@ -73,7 +73,7 @@ def run_stream(stream, name, args):
                     else:
                         print(key)
             except ValueError as e:
-                print("Error raised processing heap: {}".format(e))
+                print("Error raised while processing heap: {}".format(e))
         except spead2.Stopped:
             print("Shutting down stream {} after {} heaps".format(name, num_heaps))
             break
