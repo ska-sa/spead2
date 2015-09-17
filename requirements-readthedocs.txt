@@ -1,6 +1,7 @@
 numpy
 nose
 decorator
+six
 sphinx
 sphinxcontrib-napoleon
 breathe

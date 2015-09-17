@@ -318,14 +318,14 @@ class TestDecode(object):
         np.testing.assert_equal(expected, item.value)
 
     def test_fallback_types(self):
-        expected = np.array([(True, 'y', 1.0), (False, 'n', -1.0)], dtype='O,O,>f4')
+        expected = np.array([(True, 17, 'y', 1.0), (False, -23, 'n', -1.0)], dtype='O,O,S1,>f4')
         packet = self.flavour.make_packet_heap(
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_fallback_uint', 'an array with bools, chars and floats',
-                    [('b', 1), ('c', 7), ('f', 32)], (2,)),
-                Item(0x1234, b'\xF9\x3F\x80\x00\x00' + b'n\xBF\x80\x00\x00')
+                    0x1234, 'test_fallback_uint', 'an array with bools, int, chars and floats',
+                    [('b', 1), ('i', 7), ('c', 8), ('f', 32)], (2,)),
+                Item(0x1234, b'\x91y\x3F\x80\x00\x00' + b'\x69n\xBF\x80\x00\x00')
             ])
         item = self.data_to_item(packet, 0x1234)
         np.testing.assert_equal(expected, item.value)

@@ -22,11 +22,22 @@ from spead2._spead2 import Flavour, ThreadPool, MemoryPool, Stopped, Empty, Stop
 import numbers as _numbers
 import numpy as _np
 import logging
+import six
 from spead2._version import __version__
 
 
 _logger = logging.getLogger(__name__)
 _UNRESERVED_ID = 0x1000      #: First ID that can be auto-allocated
+
+
+if six.PY2:
+    def _bytes_to_str_ascii(b):
+        b.decode('ascii')  # Just to check validity, throw away unicode object
+        return b
+else:
+    # Python 3
+    def _bytes_to_str_ascii(b):
+        return b.decode('ascii')
 
 
 class Descriptor(object):
@@ -62,27 +73,23 @@ class Descriptor(object):
     def __init__(self, id, name, description, shape, dtype, order='C', format=None):
         shape = tuple(shape)
         unknowns = sum([x is None for x in shape])
-        self._requested_format = format
         if unknowns > 1:
             raise ValueError('Cannot have multiple unknown dimensions')
         if dtype is not None:
             dtype = _np.dtype(dtype)
+            if dtype.hasobject:
+                raise TypeError('Cannot use dtype that has reference-counted objects')
             if format is not None:
                 raise ValueError('Only one of dtype and format can be specified')
             if unknowns > 0:
                 raise ValueError('Cannot have unknown dimensions when using numpy descriptor')
+            self._internal_dtype = dtype
         else:
             if format is None:
                 raise ValueError('One of dtype and format must be specified')
             if order != 'C':
                 raise ValueError("When specifying format, order must be 'C'")
-            # Try to find a compatible numpy format
-            if unknowns == 0:
-                dtype = self._parse_format(format)
-            else:
-                dtype = None
-            if dtype is not None:
-                format = None
+            self._internal_dtype = self._parse_format(format)
 
         if order not in ['C', 'F']:
             raise ValueError("Order must be 'C' or 'F'")
@@ -93,6 +100,9 @@ class Descriptor(object):
         self.dtype = dtype
         self.order = order
         self.format = format
+
+    def _use_fastpath(self):
+        return not self._internal_dtype.hasobject
 
     @classmethod
     def _parse_numpy_header(cls, header):
@@ -132,10 +142,9 @@ class Descriptor(object):
                 tuple(shape))
 
     @classmethod
-    def _parse_format(cls, fmt, fallback=False):
+    def _parse_format(cls, fmt):
         """Attempt to convert a SPEAD format specification to a numpy dtype.
-        If there is an unsupported field, return `None` if `fallback` is
-        `False`, or use `O` if `fallback` is `True`.
+        Where necessary, `O` is used.
 
         Raises
         ------
@@ -149,17 +158,16 @@ class Descriptor(object):
             if length == 0:
                 raise ValueError('zero-length field (bug_compat mismatch?)')
             if ((code in ('u', 'i') and length in (8, 16, 32, 64)) or
-                    (code == 'f' and length in (32, 64)) or
-                    (code == 'b' and length == 8)):
+                    (code == 'f' and length in (32, 64))):
                 fields.append('>' + code + str(length // 8))
+            elif code == 'b' and length == 8:
+                fields.append('?')
             elif code == 'c' and length == 8:
                 fields.append('S1')
-            elif fallback:
-                if code not in ['u', 'i', 'c', 'b']:
+            else:
+                if code not in ['u', 'i', 'b']:
                     raise ValueError('illegal format ({}, {})'.format(code, length))
                 fields.append('O')
-            else:
-                return None
         return _np.dtype(','.join(fields))
 
     @property
@@ -244,13 +252,7 @@ class Descriptor(object):
         raw.name = self.name
         raw.description = self.description
         raw.shape = self.shape
-        if (len(self.shape) == 0 and
-            (flavour.bug_compat & BUG_COMPAT_SWAP_ENDIAN) and
-            self._requested_format is not None):
-            # Workaround for PySPEAD bug, that causes a failure if we upgrade
-            # the format to a dtype.
-            raw.format = self._requested_format
-        elif self.dtype is not None:
+        if self.dtype is not None:
             if flavour.bug_compat & BUG_COMPAT_SWAP_ENDIAN:
                 dtype = self.dtype.newbyteorder()
             else:
@@ -345,6 +347,9 @@ class Item(Descriptor):
                 array[pos] = current
 
     def _load_recursive(self, shape, gen):
+        """Recursively create a multidimensional array (as lists of lists)
+        from a bit generator.
+        """
         if len(shape) > 0:
             ans = []
             for i in range(shape[0]):
@@ -364,7 +369,7 @@ class Item(Descriptor):
                 elif code == 'b':
                     field = bool(raw)
                 elif code == 'c':
-                    field = chr(raw)
+                    field = six.int2byte(raw)
                 elif code == 'f':
                     if length == 32:
                         field = _np.uint32(raw).view(_np.float32)
@@ -381,15 +386,11 @@ class Item(Descriptor):
                 ans = tuple(fields)
         return ans
 
-    def _store_recursive(self, expected_shape, value, gen):
-        if len(expected_shape) > 0:
-            if expected_shape[0] is not None and expected_shape[0] != len(value):
-                raise ValueError('Value does not conform to the expected shape')
+    def _store_recursive(self, dims, value, gen):
+        if dims > 0:
             for sub in value:
-                self._store_recursive(expected_shape[1:], sub, gen)
+                self._store_recursive(dims - 1, sub, gen)
         else:
-            if isinstance(value, list):
-                raise ValueError('Value has too many dimensions for shape')
             if len(self.format) == 1:
                 value = (value,)
             for (code, length), field in zip(self.format, value):
@@ -409,12 +410,7 @@ class Item(Descriptor):
                 elif code == 'b':
                     raw = 1 if field else 0
                 elif code == 'c':
-                    # In Python 3, indexing a bytes object gives numerical
-                    # values instead of a substring.
-                    if isinstance(field, int):
-                        raw = field
-                    else:
-                        raw = ord(field)
+                    raw = ord(field)
                 elif code == 'f':
                     if length == 32:
                         raw = _np.float32(field).view(_np.uint32)
@@ -428,7 +424,7 @@ class Item(Descriptor):
 
     def set_from_raw(self, raw_item):
         raw_value = raw_item.value
-        if self.dtype is None:
+        if not self._use_fastpath():
             itemsize_bits = self.itemsize_bits
             max_elements = raw_value.shape[0] * 8 // itemsize_bits
             shape = self.dynamic_shape(max_elements)
@@ -444,33 +440,32 @@ class Item(Descriptor):
 
             gen = self._read_bits(raw_value)
             gen.send(None)    # Initialisation of the generator
-            value = _np.array(self._load_recursive(shape, gen),
-                              dtype=self._parse_format(self.format, True))
+            value = _np.array(self._load_recursive(shape, gen), self._internal_dtype)
         else:
-            max_elements = raw_value.shape[0] // self.dtype.itemsize
+            max_elements = raw_value.shape[0] // self._internal_dtype.itemsize
             shape = self.dynamic_shape(max_elements)
             elements = int(_np.product(shape))
             if elements > max_elements:
                 raise ValueError('Item has too few elements for shape (%d < %d)' %
                                  (max_elements, elements))
-            size_bytes = elements * self.dtype.itemsize
+            size_bytes = elements * self._internal_dtype.itemsize
             if raw_item.is_immediate:
                 # Immediates get head padding instead of tail padding
                 # For some reason, np.frombuffer doesn't work on memoryview, but np.array does
                 array1d = _np.array(raw_value, copy=False)[-size_bytes:]
             else:
                 array1d = _np.array(raw_value, copy=False)[:size_bytes]
-            array1d = array1d.view(dtype=self.dtype)
+            array1d = array1d.view(dtype=self._internal_dtype)
             # Force to native endian
-            array1d = array1d.astype(self.dtype.newbyteorder('='), casting='equiv', copy=False)
-            value = _np.reshape(array1d, self.shape, self.order)
+            array1d = array1d.astype(self._internal_dtype.newbyteorder('='), casting='equiv', copy=False)
+            value = _np.reshape(array1d, shape, self.order)
 
         if len(self.shape) == 0:
             # Convert zero-dimensional array to scalar
             value = value[()]
-        elif len(self.shape) == 1 and value.dtype == _np.dtype('S1'):
+        elif len(self.shape) == 1 and self.format == [('c', 8)]:
             # Convert array of characters to a string
-            value = b''.join(value).decode('ascii')
+            value = _bytes_to_str_ascii(b''.join(value))
         self.value = value
 
     def _num_elements(self):
@@ -485,31 +480,69 @@ class Item(Descriptor):
             cur = cur[0]
         return ans
 
+    def _transform_value(self):
+        """Mangle the value into a numpy array. This does several things:
+
+        - If it is stringlike (bytes or unicode) and the expected shape is
+          1D, it is split into an array of characters.
+        - It is coerced to a numpy array, enforcing the dtype and order. Where
+          possible, no copy is made.
+        - The shape is checked against the expected shape.
+
+        Returns
+        -------
+        value : :py:class:`numpy.ndarray`
+            The transformed value
+
+        Raises
+        ------
+        ValueError
+            if the value is `None`
+        ValueError
+            if the value has the wrong shape
+        TypeError
+            if numpy raised it when trying to convert the value
+        """
+        value = self.value
+        if value is None:
+            raise ValueError('Cannot send a value of None')
+        if (isinstance(value, (six.binary_type, six.text_type)) and
+                len(self.shape) == 1):
+            # This is complicated by Python 3 not providing a simple way to
+            # turn a bytes object into a list of one-byte objects, the way
+            # list(str) does.
+            value = [self.value[i : i+1] for i in range(len(self.value))]
+        value = _np.array(value, dtype=self._internal_dtype, order=self.order, copy=False)
+        if not self.compatible_shape(value.shape):
+            raise ValueError('Value has shape {}, expected {}'.format(value.shape, self.shape))
+        return value
+
     def to_buffer(self):
         """Returns an object that implements the buffer protocol for the value.
-        It can be either the original value (if the descriptor uses numpy
-        protocol), or a new temporary object.
+        It can be either the original value (on the fast path), or a new
+        temporary object.
         """
-        if self.value is None:
-            raise ValueError('Cannot send a value of None')
-        if self.dtype is None:
+        value = self._transform_value()
+        if not self._use_fastpath():
             bit_length = self.itemsize_bits * self._num_elements()
             out = bytearray((bit_length + 7) // 8)
             gen = self._write_bits(out)
             gen.send(None)  # Initialise the generator
-            self._store_recursive(self.shape, self.value, gen)
+            # If it's a scalar, unpack it. That way, the input to the
+            # final level of recursion in _store_recursive is always
+            # the scalar rather than the 0D array.
+            if len(self.shape) == 0:
+                value = value[()]
+            self._store_recursive(len(self.shape), value, gen)
             gen.close()
             return out
         else:
-            a = _np.array(self.value, dtype=self.dtype, order=self.order, copy=False)
-            if not self.compatible_shape(a.shape):
-                raise ValueError('Value has shape {}, expected {}'.format(a.shape, self.shape))
             if self.order == 'F':
                 # numpy doesn't allow buffer protocol to be used on arrays that
                 # aren't C-contiguous, but transposition just fiddles the
-                # strides without creating a new array
-                a = a.transpose()
-            return a
+                # strides of the view without creating a new array.
+                value = value.transpose()
+            return value
 
 
 class ItemGroup(object):

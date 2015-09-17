@@ -164,8 +164,8 @@ class BaseTestPassthrough(object):
     def test_fallback_types(self):
         """An array structure using a mix of types."""
         ig = spead2.send.ItemGroup()
-        format = [('b', 1), ('c', 7), ('f', 32)]
-        data = [(True, 'y', 1.0), (False, 'n', -1.0)]
+        format = [('b', 1), ('i', 7), ('c', 8), ('f', 32)]
+        data = [(True, 17, b'y', 1.0), (False, -23, b'n', -1.0)]
         ig.add_item(id=0x2345, name='name', description='description',
                     shape=(2,), dtype=None, format=format, value=data)
         self._test_item_group(ig)

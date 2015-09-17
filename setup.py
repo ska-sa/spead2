@@ -89,7 +89,7 @@ setup(
     ext_package='spead2',
     ext_modules=extensions,
     setup_requires=['numpy'],
-    install_requires=['numpy'],
+    install_requires=['numpy', 'six'],
     tests_require=['nose', 'decorator'],
     test_suite='nose.collector',
     packages=['spead2', 'spead2.recv', 'spead2.send'])
