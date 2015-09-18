@@ -1,11 +1,36 @@
 Changelog
 =========
 
-.. rubric:: Version 0.2.3
+.. rubric:: Version 0.3.0
 
-- Fix incorrect warnings about send buffer size
+This release contains a number of backwards-incompatible changes in the Python
+bindings, although most uses will probably not notice:
+
+- When a received character array is returned as a string, it is now of type
+  :py:class:`str` (previously it was :py:class:`unicode` in Python 2).
+
+- An array of characters with a numpy descriptor with type `S1` will no longer
+  automatically be turned back into a string. Only using a format of
+  `[('c', 8)]`  will do so.
+
+- The `c` format code may now only be used with a length of 8.
+
+- When sending, values will now always be converted to a numpy array first,
+  even if this isn't the final representation that will be put on the network.
+  This may lead to some subtle changes in behaviour.
+
+- The `BUG_COMPAT_NO_SCALAR_NUMPY` introduced in 0.2.2 has been removed. Now,
+  specifying an old-style format will always use that format at the protocol
+  level, rather than replacing it with a numpy descriptor.
+
+There are also some other bug-fixes and improvements:
+
+- Fix incorrect warnings about send buffer size.
 
 - Added --descriptors option to spead2_recv.py.
+
+- The `dtype` argument to :py:meth:`spead2.ItemGroup.add_item` is now
+  optional, removing the need to specify `dtype=None` when passing a format.
 
 .. rubric:: Version 0.2.2
 
