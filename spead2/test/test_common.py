@@ -20,6 +20,17 @@ import spead2
 import numpy as np
 from nose.tools import *
 
+
+def assert_equal_typed(expected, actual, msg=None):
+    """Check that expected and actual compare equal *and* have the same type.
+
+    This is used for checking that strings have the correct type (str vs
+    unicode in Python 2, str vs bytes in Python 3).
+    """
+    assert_equal(expected, actual, msg)
+    assert_equal(type(expected), type(actual), msg)
+
+
 class TestFlavour(object):
     def test_bad_version(self):
         with assert_raises(ValueError):
@@ -54,6 +65,62 @@ class TestFlavour(object):
         assert_false(flavour1 != flavour1b)
         assert_false(flavour1 == flavour2)
         assert_false(flavour1 == flavour3)
+
+
+class TestItem(object):
+    """Tests for :py:class:`spead2.Item`"""
+
+    def test_nonascii_value(self):
+        """Using a non-ASCII unicode character raises a
+        :py:exc:`UnicodeEncodeError`."""
+        item1 = spead2.Item(0x1000, 'name1', 'description',
+            (None,), format=[('c', 8)], dtype=None, value=u'\u0200')
+        item2 = spead2.Item(0x1001, 'name2', 'description2', (),
+            dtype='S5', value=u'\u0201')
+        assert_raises(UnicodeEncodeError, item1.to_buffer)
+        assert_raises(UnicodeEncodeError, item2.to_buffer)
+
+    def test_format_and_dtype(self):
+        """Specifying both a format and dtype raises :py:exc:`ValueError`."""
+        assert_raises(ValueError, spead2.Item, 0x1000, 'name', 'description',
+            (1, 2), format=[('c', 8)], dtype='S1')
+
+    def test_no_format_or_dtype(self):
+        """At least one of format and dtype must be specified."""
+        assert_raises(ValueError, spead2.Item, 0x1000, 'name', 'description',
+            (1, 2), format=None, dtype=None)
+
+    def test_invalid_order(self):
+        """The `order` parameter must be either 'C' or 'F'."""
+        assert_raises(ValueError, spead2.Item, 0x1000, 'name', 'description',
+            (1, 2), np.int32, order='K')
+
+    def test_fortran_fallback(self):
+        """The `order` parameter must be either 'C' for legacy formats."""
+        assert_raises(ValueError, spead2.Item, 0x1000, 'name', 'description',
+            (1, 2), dtype=None, format=[('u', 32)], order='F')
+
+    def test_empty_format(self):
+        """Format must not be empty"""
+        assert_raises(ValueError, spead2.Item, 0x1000, 'name', 'description',
+            (1, 2), dtype=None, format=[])
+
+    def test_assign_none(self):
+        """Changing a value back to `None` raises :py:exc:`ValueError`."""
+        item = spead2.Item(0x1000, 'name', 'description', (), np.int32)
+        with assert_raises(ValueError):
+            item.value = None
+
+    def test_multiple_unknown(self):
+        """Multiple unknown dimensions are not allowed."""
+        assert_raises(ValueError, spead2.Item, 0x1000, 'name', 'description',
+            (5, None, 3, None), format=[('u', 32)], dtype=None)
+
+    def test_numpy_unknown(self):
+        """Unknown dimensions are not permitted when using a numpy descriptor"""
+        assert_raises(ValueError, spead2.Item, 0x1000, 'name', 'description',
+            (5, None), np.int32)
+
 
 class TestItemGroup(object):
     """Tests for :py:class:`spead2.ItemGroup`"""

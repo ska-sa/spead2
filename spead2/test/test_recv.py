@@ -20,6 +20,7 @@ import struct
 import numpy as np
 from nose.tools import *
 from .defines import *
+from .test_common import assert_equal_typed
 
 
 class Item(object):
@@ -129,21 +130,23 @@ class Flavour(object):
                 Item(DESCRIPTOR_SHAPE_ID, self.make_shape(shape))
             ]))
 
-    def make_numpy_descriptor(self, id, name, description, dtype, shape, fortran_order=False):
-        header = str({
-            'descr': np.lib.format.dtype_to_descr(np.dtype(dtype)),
-            'fortran_order': bool(fortran_order),
-            'shape': tuple(shape)
-        })
+    def make_numpy_descriptor_raw(self, id, name, description, header):
         return Item(DESCRIPTOR_ID, self.make_packet_heap(
             1,
             [
                 Item(DESCRIPTOR_ID_ID, id, True),
                 Item(DESCRIPTOR_NAME_ID, name.encode('ascii')),
                 Item(DESCRIPTOR_DESCRIPTION_ID, description.encode('ascii')),
-                Item(DESCRIPTOR_DTYPE_ID, header.encode('ascii')),
-                Item(DESCRIPTOR_SHAPE_ID, self.make_shape(shape))
+                Item(DESCRIPTOR_DTYPE_ID, header.encode('ascii'))
             ]))
+
+    def make_numpy_descriptor(self, id, name, description, dtype, shape, fortran_order=False):
+        header = str({
+            'descr': np.lib.format.dtype_to_descr(np.dtype(dtype)),
+            'fortran_order': bool(fortran_order),
+            'shape': tuple(shape)
+        })
+        return self.make_numpy_descriptor_raw(id, name, description, header)
 
     def make_numpy_descriptor_from(self, id, name, description, array):
         if array.flags.c_contiguous:
@@ -183,7 +186,7 @@ class TestDecode(object):
         ig = spead2.ItemGroup()
         ig.update(heaps[0])
         for name, item in ig.items():
-            assert_equal(name, item.name)
+            assert_equal_typed(name, item.name)
         return ig
 
     def data_to_item(self, data, expected_id):
@@ -228,7 +231,7 @@ class TestDecode(object):
                 Item(0x1234, 'Hello world'.encode('ascii'))
             ])
         item = self.data_to_item(packet, 0x1234)
-        assert_equal('Hello world', item.value)
+        assert_equal_typed('Hello world', item.value)
 
     def test_array(self):
         packet = self.flavour.make_packet_heap(
@@ -372,6 +375,45 @@ class TestDecode(object):
         assert_equal(1, len(heaps))
         ig = spead2.ItemGroup()
         assert_raises(TypeError, ig.update, heaps[0])
+
+    def test_numpy_malformed(self):
+        """Malformed numpy header must raise :py:exc:`ValueError`."""
+        def helper(header):
+            packet = self.flavour.make_packet_heap(
+                1,
+                [
+                    self.flavour.make_numpy_descriptor_raw(
+                        0x1234, 'name', 'description', header)
+                ])
+            heaps = self.data_to_heaps(packet)
+            assert_equal(1, len(heaps))
+            ig = spead2.ItemGroup()
+            assert_raises(ValueError, ig.update, heaps[0])
+        helper("{'descr': 'S1'")  # Syntax error: no closing brace
+        helper("123")             # Not a dictionary
+        helper("import os")       # Security check
+        helper("{'descr': 'S1'}") # Missing keys
+        helper("{'descr': 'S1', 'fortran_order': False, 'shape': (), 'foo': 'bar'}")  # Extra keys
+        helper("{'descr': 'S1', 'fortran_order': False, 'shape': (-1,)}")   # Bad shape
+        helper("{'descr': 1, 'fortran_order': False, 'shape': ()}")         # Bad descriptor
+        helper("{'descr': '+-', 'fortran_order': False, 'shape': ()}")      # Bad descriptor
+        helper("{'descr': 'S1', 'fortran_order': 0, 'shape': ()}")          # Bad fortran_order
+        helper("{'descr': 'S1', 'fortran_order': False, 'shape': (None,)}") # Bad shape
+
+    def test_nonascii(self):
+        """Receiving non-ASCII characters in a c8 string must raise
+        UnicodeDecodeError."""
+        packet = self.flavour.make_packet_heap(
+            1,
+            [
+                self.flavour.make_plain_descriptor(
+                    0x1234, 'test_string', 'a byte string', [('c', 8)], [None]),
+                Item(0x1234, u'\u0200'.encode('utf-8'))
+            ])
+        heaps = self.data_to_heaps(packet)
+        ig = spead2.ItemGroup()
+        assert_raises(UnicodeDecodeError, ig.update, heaps[0])
+
 
 class TestUdpReader(object):
     """Binding an illegal port should throw an exception"""
