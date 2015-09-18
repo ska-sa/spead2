@@ -74,7 +74,7 @@ class TestItem(object):
         """Using a non-ASCII unicode character raises a
         :py:exc:`UnicodeEncodeError`."""
         item1 = spead2.Item(0x1000, 'name1', 'description',
-            (None,), format=[('c', 8)], dtype=None, value=u'\u0200')
+            (None,), format=[('c', 8)], value=u'\u0200')
         item2 = spead2.Item(0x1001, 'name2', 'description2', (),
             dtype='S5', value=u'\u0201')
         assert_raises(UnicodeEncodeError, item1.to_buffer)
@@ -88,7 +88,7 @@ class TestItem(object):
     def test_no_format_or_dtype(self):
         """At least one of format and dtype must be specified."""
         assert_raises(ValueError, spead2.Item, 0x1000, 'name', 'description',
-            (1, 2), format=None, dtype=None)
+            (1, 2), format=None)
 
     def test_invalid_order(self):
         """The `order` parameter must be either 'C' or 'F'."""
@@ -98,12 +98,12 @@ class TestItem(object):
     def test_fortran_fallback(self):
         """The `order` parameter must be either 'C' for legacy formats."""
         assert_raises(ValueError, spead2.Item, 0x1000, 'name', 'description',
-            (1, 2), dtype=None, format=[('u', 32)], order='F')
+            (1, 2), format=[('u', 32)], order='F')
 
     def test_empty_format(self):
         """Format must not be empty"""
         assert_raises(ValueError, spead2.Item, 0x1000, 'name', 'description',
-            (1, 2), dtype=None, format=[])
+            (1, 2), format=[])
 
     def test_assign_none(self):
         """Changing a value back to `None` raises :py:exc:`ValueError`."""
@@ -114,7 +114,7 @@ class TestItem(object):
     def test_multiple_unknown(self):
         """Multiple unknown dimensions are not allowed."""
         assert_raises(ValueError, spead2.Item, 0x1000, 'name', 'description',
-            (5, None, 3, None), format=[('u', 32)], dtype=None)
+            (5, None, 3, None), format=[('u', 32)])
 
     def test_numpy_unknown(self):
         """Unknown dimensions are not permitted when using a numpy descriptor"""

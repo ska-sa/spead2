@@ -128,7 +128,7 @@ class BaseTestPassthrough(object):
         format = [('u', 4), ('f', 64), ('i', 4)]
         data = (12, 1.5, -3)
         ig.add_item(id=0x2345, name='name', description='description',
-                    shape=(), dtype=None, format=format, value=data)
+                    shape=(), format=format, value=data)
         self._test_item_group(ig)
 
     @no_legacy_receive
@@ -142,7 +142,7 @@ class BaseTestPassthrough(object):
         format = [('c', 8)]
         data = 'Hello world'
         ig.add_item(id=0x2345, name='name', description='description',
-                    shape=(None,), dtype=None, format=format, value=data)
+                    shape=(None,), format=format, value=data)
         self._test_item_group(ig)
 
     @no_legacy_receive
@@ -157,7 +157,7 @@ class BaseTestPassthrough(object):
         format = [('u', 7)]
         data = [127, 12, 123]
         ig.add_item(id=0x2345, name='name', description='description',
-                    shape=(len(data),), dtype=None, format=format, value=data)
+                    shape=(len(data),), format=format, value=data)
         self._test_item_group(ig)
 
     @no_legacy
@@ -167,7 +167,7 @@ class BaseTestPassthrough(object):
         format = [('b', 1), ('i', 7), ('c', 8), ('f', 32)]
         data = [(True, 17, b'y', 1.0), (False, -23, b'n', -1.0)]
         ig.add_item(id=0x2345, name='name', description='description',
-                    shape=(2,), dtype=None, format=format, value=data)
+                    shape=(2,), format=format, value=data)
         self._test_item_group(ig)
 
     @no_legacy
@@ -178,7 +178,7 @@ class BaseTestPassthrough(object):
         format = [('u', 8), ('f', 32)]
         data = (12, 1.5)
         ig.add_item(id=0x2345, name='name', description='description',
-                    shape=(), dtype=None, format=format, value=data)
+                    shape=(), format=format, value=data)
         self._test_item_group(ig)
 
     @no_legacy
@@ -189,7 +189,7 @@ class BaseTestPassthrough(object):
         format = [('u', 4), ('f', 64)]
         data = (12, 1.5)
         ig.add_item(id=0x2345, name='name', description='description',
-                    shape=(), dtype=None, format=format, value=data)
+                    shape=(), format=format, value=data)
         self._test_item_group(ig)
 
     def test_fallback_scalar(self):
@@ -202,7 +202,7 @@ class BaseTestPassthrough(object):
         format = [('f', 64)]
         data = 1.5
         ig.add_item(id=0x2345, name='scalar name', description='scalar description',
-                    shape=(), dtype=None, format=format, value=data)
+                    shape=(), format=format, value=data)
         self._test_item_group(ig)
 
     def transmit_item_group(self, item_group):
@@ -317,7 +317,6 @@ class BaseTestPassthroughLegacyReceive(BaseTestPassthrough):
                         name=item.name,
                         description=item.description,
                         shape=shape,
-                        dtype=None,
                         format=list(self.spead.parsefmt(item.format)),
                         value=item.get_value())
             else:

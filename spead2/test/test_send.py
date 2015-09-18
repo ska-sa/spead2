@@ -296,7 +296,7 @@ class TestEncode(object):
             ])
         ]
         item = spead2.Item(id=id, name='name', description='description',
-                           dtype=None, shape=shape, format=format)
+                           shape=shape, format=format)
         item.value = data
         packet = self.flavour.items_to_bytes([item])
         assert_equal(hexlify(expected), hexlify(packet))
@@ -319,7 +319,7 @@ class TestEncode(object):
             ])
         ]
         item = spead2.Item(id=id, name='name', description='description',
-                           dtype=None, shape=(), format=[('u', 16)])
+                           shape=(), format=[('u', 16)])
         item.value = data
         packet = self.flavour.items_to_bytes([item], [])
         assert_equal(hexlify(expected), hexlify(packet))
@@ -342,7 +342,7 @@ class TestEncode(object):
             ])
         ]
         item = spead2.Item(id=id, name='name', description='description',
-                           shape=shape, dtype=None, format=[('u', 8)])
+                           shape=shape, format=[('u', 8)])
         item.value = data
         packet = self.flavour.items_to_bytes([item], [])
         assert_equal(hexlify(expected), hexlify(packet))

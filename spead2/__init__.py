@@ -61,7 +61,7 @@ class Descriptor(object):
         Long item description
     shape : sequence
         Dimensions, with `None` indicating a variable-size dimension
-    dtype : numpy data type
+    dtype : numpy data type, optional
         Data type, or `None` if `format` will be used instead
     order : {'C', 'F'}
         Indicates C-order or Fortran-order storage
@@ -70,7 +70,7 @@ class Descriptor(object):
         is a tuple of field code and bit length.
     """
 
-    def __init__(self, id, name, description, shape, dtype, order='C', format=None):
+    def __init__(self, id, name, description, shape, dtype=None, order='C', format=None):
         shape = tuple(shape)
         unknowns = sum([x is None for x in shape])
         if unknowns > 1:
