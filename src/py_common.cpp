@@ -193,6 +193,44 @@ public:
     }
 };
 
+class bytestring_from_python
+{
+public:
+    bytestring_from_python()
+    {
+    }
+
+    static void *convertible(PyObject *obj_ptr)
+    {
+#if PY_MAJOR_VERSION >= 3
+        if (!PyBytes_Check(obj_ptr))
+            return 0;
+#else
+        if (!PyString_Check(obj_ptr))
+            return 0;
+#endif
+        return obj_ptr;
+    }
+
+    static void construct(
+        PyObject *obj_ptr, py::converter::rvalue_from_python_stage1_data *data)
+    {
+        char *value;
+        Py_ssize_t length;
+#if PY_MAJOR_VERSION >= 3
+        PyBytes_AsStringAndSize(obj_ptr, &value, &length);
+#else
+        PyString_AsStringAndSize(obj_ptr, &value, &length);
+#endif
+        if (PyErr_Occurred())
+            throw py::error_already_set();
+        void *storage = reinterpret_cast<py::converter::rvalue_from_python_storage<bytestring> *>(
+            data)->storage.bytes;
+        new (storage) bytestring(value, length);
+        data->convertible = storage;
+    }
+};
+
 static void register_module()
 {
     using namespace boost::python;
@@ -202,6 +240,10 @@ static void register_module()
     create_exception<ringbuffer_empty>(ringbuffer_empty_type, "spead2.Empty", "Empty");
     register_exception_translator<stop_iteration>(&translate_exception_stop_iteration);
     to_python_converter<bytestring, bytestring_to_python>();
+    py::converter::registry::push_back(
+        &bytestring_from_python::convertible,
+        &bytestring_from_python::construct,
+        py::type_id<bytestring>());
 
     py::setattr(scope(), "BUG_COMPAT_DESCRIPTOR_WIDTHS", int_to_object(BUG_COMPAT_DESCRIPTOR_WIDTHS));
     py::setattr(scope(), "BUG_COMPAT_SHAPE_BIT_1", int_to_object(BUG_COMPAT_SHAPE_BIT_1));
@@ -231,11 +273,12 @@ static void register_module()
 
     class_<descriptor>("RawDescriptor")
         .def_readwrite("id", &descriptor::id)
-        .def_readwrite("name", &descriptor::name)
-        .def_readwrite("description", &descriptor::description)
+        .add_property("name", make_bytestring_getter(&descriptor::name), make_bytestring_setter(&descriptor::name))
+        .add_property("description", make_bytestring_getter(&descriptor::description), make_bytestring_setter(&descriptor::description))
         .add_property("shape", &descriptor_get_shape, &descriptor_set_shape)
         .add_property("format", &descriptor_get_format, &descriptor_set_format)
-        .def_readwrite("numpy_header", &descriptor::numpy_header);
+        .add_property("numpy_header", make_bytestring_getter(&descriptor::numpy_header), make_bytestring_setter(&descriptor::numpy_header))
+    ;
 
     object logging_module = import("logging");
     object logger = logging_module.attr("getLogger")("spead2");

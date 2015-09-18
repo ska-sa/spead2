@@ -18,6 +18,7 @@
 from __future__ import division, print_function
 import spead2
 import numpy as np
+import six
 from nose.tools import *
 
 
@@ -68,7 +69,11 @@ class TestFlavour(object):
 
 
 class TestItem(object):
-    """Tests for :py:class:`spead2.Item`"""
+    """Tests for :py:class:`spead2.Item`.
+
+    Many of these actually test :py:class:`spead2.Descriptor`, but since the
+    internals of these classes are interwined, it is simpler to keep all the
+    tests together here."""
 
     def test_nonascii_value(self):
         """Using a non-ASCII unicode character raises a
@@ -120,6 +125,18 @@ class TestItem(object):
         """Unknown dimensions are not permitted when using a numpy descriptor"""
         assert_raises(ValueError, spead2.Item, 0x1000, 'name', 'description',
             (5, None), np.int32)
+
+    def test_nonascii_name(self):
+        """Name with non-ASCII characters must fail"""
+        with assert_raises(UnicodeEncodeError):
+            item = spead2.Item(0x1000, u'\u0200', 'description', (), np.int32)
+            item.to_raw(spead2.Flavour())
+
+    def test_nonascii_description(self):
+        """Description with non-ASCII characters must fail"""
+        with assert_raises(UnicodeEncodeError):
+            item = spead2.Item(0x1000, 'name', u'\u0200', (), np.int32)
+            item.to_raw(spead2.Flavour())
 
 
 class TestItemGroup(object):

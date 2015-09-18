@@ -120,24 +120,34 @@ class Flavour(object):
         return self.make_packet(all_items, payload)
 
     def make_plain_descriptor(self, id, name, description, format, shape):
+        if not isinstance(name, bytes):
+            name = name.encode('ascii')
+        if not isinstance(description, bytes):
+            description = description.encode('ascii')
         return Item(DESCRIPTOR_ID, self.make_packet_heap(
             1,
             [
                 Item(DESCRIPTOR_ID_ID, id, True),
-                Item(DESCRIPTOR_NAME_ID, name.encode('ascii')),
-                Item(DESCRIPTOR_DESCRIPTION_ID, description.encode('ascii')),
+                Item(DESCRIPTOR_NAME_ID, name),
+                Item(DESCRIPTOR_DESCRIPTION_ID, description),
                 Item(DESCRIPTOR_FORMAT_ID, self.make_format(format)),
                 Item(DESCRIPTOR_SHAPE_ID, self.make_shape(shape))
             ]))
 
     def make_numpy_descriptor_raw(self, id, name, description, header):
+        if not isinstance(name, bytes):
+            name = name.encode('ascii')
+        if not isinstance(description, bytes):
+            description = description.encode('ascii')
+        if not isinstance(header, bytes):
+            header = header.encode('ascii')
         return Item(DESCRIPTOR_ID, self.make_packet_heap(
             1,
             [
                 Item(DESCRIPTOR_ID_ID, id, True),
-                Item(DESCRIPTOR_NAME_ID, name.encode('ascii')),
-                Item(DESCRIPTOR_DESCRIPTION_ID, description.encode('ascii')),
-                Item(DESCRIPTOR_DTYPE_ID, header.encode('ascii'))
+                Item(DESCRIPTOR_NAME_ID, name),
+                Item(DESCRIPTOR_DESCRIPTION_ID, description),
+                Item(DESCRIPTOR_DTYPE_ID, header)
             ]))
 
     def make_numpy_descriptor(self, id, name, description, dtype, shape, fortran_order=False):
@@ -400,15 +410,41 @@ class TestDecode(object):
         helper("{'descr': 'S1', 'fortran_order': 0, 'shape': ()}")          # Bad fortran_order
         helper("{'descr': 'S1', 'fortran_order': False, 'shape': (None,)}") # Bad shape
 
-    def test_nonascii(self):
+    def test_nonascii_value(self):
         """Receiving non-ASCII characters in a c8 string must raise
-        UnicodeDecodeError."""
+        :py:exc:`UnicodeDecodeError`."""
         packet = self.flavour.make_packet_heap(
             1,
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_string', 'a byte string', [('c', 8)], [None]),
                 Item(0x1234, u'\u0200'.encode('utf-8'))
+            ])
+        heaps = self.data_to_heaps(packet)
+        ig = spead2.ItemGroup()
+        assert_raises(UnicodeDecodeError, ig.update, heaps[0])
+
+    def test_nonascii_name(self):
+        """Receiving non-ASCII characters in an item name must raise
+        :py:exc:`UnicodeDecodeError`."""
+        packet = self.flavour.make_packet_heap(
+            1,
+            [
+                self.flavour.make_plain_descriptor(
+                    0x1234, b'\xEF', 'a byte string', [('c', 8)], [None])
+            ])
+        heaps = self.data_to_heaps(packet)
+        ig = spead2.ItemGroup()
+        assert_raises(UnicodeDecodeError, ig.update, heaps[0])
+
+    def test_nonascii_description(self):
+        """Receiving non-ASCII characters in an item description must raise
+        :py:exc:`UnicodeDecodeError`."""
+        packet = self.flavour.make_packet_heap(
+            1,
+            [
+                self.flavour.make_plain_descriptor(
+                    0x1234, 'name', b'\xEF', [('c', 8)], [None])
             ])
         heaps = self.data_to_heaps(packet)
         ig = spead2.ItemGroup()

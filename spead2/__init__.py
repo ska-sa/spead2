@@ -232,8 +232,9 @@ class Descriptor(object):
         dtype = None
         format = None
         if raw_descriptor.numpy_header:
+            header = _bytes_to_str_ascii(raw_descriptor.numpy_header)
             shape, order, dtype = \
-                    cls._parse_numpy_header(raw_descriptor.numpy_header)
+                    cls._parse_numpy_header(header)
             if flavour.bug_compat & BUG_COMPAT_SWAP_ENDIAN:
                 dtype = dtype.newbyteorder()
         else:
@@ -242,22 +243,22 @@ class Descriptor(object):
             format = raw_descriptor.format
         return cls(
                 raw_descriptor.id,
-                raw_descriptor.name,
-                raw_descriptor.description,
+                _bytes_to_str_ascii(raw_descriptor.name),
+                _bytes_to_str_ascii(raw_descriptor.description),
                 shape, dtype, order, format)
 
     def to_raw(self, flavour):
         raw = spead2._spead2.RawDescriptor()
         raw.id = self.id
-        raw.name = self.name
-        raw.description = self.description
+        raw.name = self.name.encode('ascii')
+        raw.description = self.description.encode('ascii')
         raw.shape = self.shape
         if self.dtype is not None:
             if flavour.bug_compat & BUG_COMPAT_SWAP_ENDIAN:
                 dtype = self.dtype.newbyteorder()
             else:
                 dtype = self.dtype
-            raw.numpy_header = self._make_numpy_header(self.shape, dtype, self.order)
+            raw.numpy_header = self._make_numpy_header(self.shape, dtype, self.order).encode('ascii')
         else:
             raw.format = self.format
         return raw

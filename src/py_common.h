@@ -62,6 +62,51 @@ public:
 };
 
 /**
+ * Function object utility to provide getter and setter access to a std::string
+ * element of a structure as if it were declared as a bytestring. Used by
+ * make_bytestring_getter and make_bytestring_setter.
+ */
+template<class Data, class Class>
+class bytestring_member
+{
+public:
+    explicit bytestring_member(Data Class::*ptr) : ptr(ptr) {}
+
+    bytestring operator()(Class &c) const
+    {
+        return c.*ptr;
+    }
+
+    void operator()(Class &c, bytestring value) const
+    {
+        c.*ptr = std::move(value);
+    }
+
+private:
+    Data Class::*ptr;
+};
+
+template<class Data, class Class>
+boost::python::object make_bytestring_getter(Data Class::*ptr)
+{
+    using namespace boost::python;
+    return make_function(
+        bytestring_member<Data, Class>(ptr),
+        return_value_policy<return_by_value>(),
+        boost::mpl::vector2<bytestring, Class &>());
+}
+
+template<class Data, class Class>
+boost::python::object make_bytestring_setter(Data Class::*ptr)
+{
+    using namespace boost::python;
+    return make_function(
+        bytestring_member<Data, Class>(ptr),
+        default_call_policies(),
+        boost::mpl::vector3<void, Class &, bytestring>());
+}
+
+/**
  * RAII wrapper that releases the Python Global Interpreter Lock on
  * construction and reacquires it on destruction. It is also possible to
  * freely acquire and release it during the lifetime; if it is released on

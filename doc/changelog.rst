@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Enforce ASCII encoding on descriptor fields.
+
 .. rubric:: Version 0.3.0
 
 This release contains a number of backwards-incompatible changes in the Python
