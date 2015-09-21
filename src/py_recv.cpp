@@ -45,12 +45,12 @@ class item_wrapper : public item
 {
 private:
     /// Python object containing a @ref heap
-    py::object owning_heap;
+    py::handle<> owning_heap;
 
 public:
     item_wrapper() = default;
     item_wrapper(const item &it, PyObject *owning_heap)
-        : item(it), owning_heap(py::handle<>(py::borrowed(owning_heap))) {}
+        : item(it), owning_heap(py::borrowed(owning_heap)) {}
 
     /**
      * Obtain the raw value, as a Python object memoryview.  Since
@@ -73,9 +73,9 @@ public:
         // Make the numpy array hold a ref to the owning heap
         if (PyArray_SetBaseObject(
                 (PyArrayObject *) array,
-                py::incref(owning_heap.ptr())) == -1)
+                py::incref(owning_heap.get())) == -1)
         {
-            py::decref(owning_heap.ptr());
+            py::decref(owning_heap.get());
             py::throw_error_already_set();
         }
 
