@@ -93,10 +93,14 @@ public:
 };
 
 /**
- * Wrapper for heaps. For some reason boost::python doesn't provide
- * a way for object methods to retrieve their self object, so we have to store
- * a copy of it here, and set it whenever we build one of these objects. We
- * need this for @ref item_wrapper.
+ * Wrapper for heaps. This is used as a held type, so that it gets a back
+ * reference to the Python object (needed so that item_wrapper can hold a
+ * reference to the heap).
+ *
+ * The constructor steals data from the provided heap, but Boost.Python
+ * doesn't currently understand C++11 rvalue semantics. Thus, it is vital
+ * that any wrapped function returning a heap returns a temporary that can be
+ * safely clobbered.
  */
 class heap_wrapper : public heap
 {
@@ -104,9 +108,8 @@ private:
     PyObject *self;
 
 public:
-    /// Constructor when built from Python
-    heap_wrapper(heap &&h) : heap(std::move(h)), self(nullptr) {}
-    void set_self(PyObject *self) { this->self = self; }
+    heap_wrapper(PyObject *self, const heap &h)
+        : heap(std::move(const_cast<heap &>(h))), self(self) {}
 
     /// Wrap @ref heap::get_items, and convert vector to a Python list
     py::list get_items() const
@@ -174,26 +177,10 @@ private:
     py::handle<> thread_pool_handle;
     friend void register_module();
 
-    py::object wrap_heap(heap &&fh)
-    {
-        // We need to allocate a new object to have type heap_wrapper,
-        // but it can move all the resources out of fh.
-        heap_wrapper *wrapper = new heap_wrapper(std::move(fh));
-        std::unique_ptr<heap_wrapper> wrapper_ptr(wrapper);
-        // Wrap the pointer up into a Python object
-        py::manage_new_object::apply<heap_wrapper *>::type converter;
-        PyObject *obj_ptr = converter(wrapper);
-        wrapper_ptr.release();
-        py::object obj{py::handle<>(obj_ptr)};
-        // Tell the wrapper what its Python handle is
-        wrapper->set_self(obj_ptr);
-        return obj;
-    }
-
 public:
     using ring_stream::ring_stream;
 
-    py::object next()
+    heap next()
     {
         try
         {
@@ -205,14 +192,14 @@ public:
         }
     }
 
-    py::object get()
+    heap get()
     {
-        return wrap_heap(ring_stream::pop());
+        return ring_stream::pop();
     }
 
-    py::object get_nowait()
+    heap get_nowait()
     {
-        return wrap_heap(ring_stream::try_pop());
+        return try_pop();
     }
 
     int get_fd() const
@@ -274,7 +261,7 @@ void register_module()
     py::object module(py::handle<>(py::borrowed(PyImport_AddModule("spead2._recv"))));
     py::scope scope = module;
 
-    class_<heap_wrapper, boost::noncopyable>("Heap", no_init)
+    class_<heap, heap_wrapper>("Heap", no_init)
         .add_property("cnt", &heap_wrapper::get_cnt)
         .add_property("flavour", &heap_wrapper::get_flavour)
         .def("get_items", &heap_wrapper::get_items)
