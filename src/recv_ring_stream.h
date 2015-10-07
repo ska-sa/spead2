@@ -127,7 +127,7 @@ void ring_stream<Ringbuffer>::heap_ready(live_heap &&h)
     else
     {
         log_warning("dropped incomplete heap %d (%d/%d bytes of payload)",
-                    h.get_received_length(), h.get_heap_length());
+                    h.get_cnt(), h.get_received_length(), h.get_heap_length());
     }
 }
 
