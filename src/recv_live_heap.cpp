@@ -160,5 +160,15 @@ bool live_heap::is_end_of_stream() const
     return end_of_stream;
 }
 
+s_item_pointer_t live_heap::get_received_length() const
+{
+    return received_length;
+}
+
+s_item_pointer_t live_heap::get_heap_length() const
+{
+    return heap_length;
+}
+
 } // namespace recv
 } // namespace spead2

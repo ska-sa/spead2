@@ -149,6 +149,10 @@ public:
     s_item_pointer_t get_cnt() const { return cnt; }
     /// Get protocol bug compatibility flags
     bug_compat_mask get_bug_compat() const { return bug_compat; }
+    /// Get amount of received payload
+    s_item_pointer_t get_received_length() const;
+    /// Get amount of payload expected, or -1 if not known
+    s_item_pointer_t get_heap_length() const;
 };
 
 } // namespace recv

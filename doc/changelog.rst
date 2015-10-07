@@ -5,6 +5,8 @@ Changelog
 
 - Enforce ASCII encoding on descriptor fields.
 
+- Warn if a heap is dropped due to being incomplete.
+
 .. rubric:: Version 0.3.0
 
 This release contains a number of backwards-incompatible changes in the Python
