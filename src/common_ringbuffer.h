@@ -59,21 +59,16 @@ public:
 };
 
 /**
- * Ring buffer with blocking and non-blocking push and pop. It supports
- * non-copyable objects using move semantics. The producer may signal that it
- * has finished producing data by calling @ref stop, which will gracefully shut
- * down the consumer.
+ * Internal base class for @ref ringbuffer that is independent of the semaphore
+ * type.
  */
-template<typename T, typename DataSemaphore = semaphore, typename SpaceSemaphore = semaphore>
-class ringbuffer
+template<typename T>
+class ringbuffer_base
 {
 private:
     typedef typename std::aligned_storage<sizeof(T), alignof(T)>::type storage_type;
     std::unique_ptr<storage_type[]> storage;
     const std::size_t cap;  ///< Number of slots
-
-    DataSemaphore data_sem;
-    SpaceSemaphore space_sem;
 
     /// Mutex held when reading from the head (needed for safe multi-consumer)
     std::mutex head_mutex;
@@ -81,7 +76,6 @@ private:
     std::mutex tail_mutex;
     std::size_t head = 0;   ///< first slot with data
     std::size_t tail = 0;   ///< first slot without data
-    bool stopped = false;   ///< Protects @a stop from multiple calls
 
     /// Gets pointer to the slot number @a idx
     T *get(std::size_t idx);
@@ -95,12 +89,65 @@ private:
         return idx;
     }
 
+protected:
+    explicit ringbuffer_base(std::size_t cap);
+
     /// Implementation of pushing functions, which doesn't touch semaphores
     template<typename... Args>
     void emplace_internal(Args&&... args);
 
     /// Implementation of popping functions, which doesn't touch semaphores
     T pop_internal();
+};
+
+template<typename T>
+T *ringbuffer_base<T>::get(std::size_t idx)
+{
+    return reinterpret_cast<T*>(&storage[idx]);
+}
+
+template<typename T>
+ringbuffer_base<T>::ringbuffer_base(size_t cap)
+    : storage(new storage_type[cap]), cap(cap)
+{
+    assert(cap > 0);
+}
+
+template<typename T>
+template<typename... Args>
+void ringbuffer_base<T>::emplace_internal(Args&&... args)
+{
+    std::lock_guard<std::mutex> lock(tail_mutex);
+    // Construct in-place
+    new (get(tail)) T(std::forward<Args>(args)...);
+    tail = next(tail);
+}
+
+template<typename T>
+T ringbuffer_base<T>::pop_internal()
+{
+    std::lock_guard<std::mutex> lock(head_mutex);
+    T result = std::move(*get(head));
+    get(head)->~T();
+    head = next(head);
+    return result;
+}
+
+///////////////////////////////////////////////////////////////////////
+
+/**
+ * Ring buffer with blocking and non-blocking push and pop. It supports
+ * non-copyable objects using move semantics. The producer may signal that it
+ * has finished producing data by calling @ref stop, which will gracefully shut
+ * down the consumer.
+ */
+template<typename T, typename DataSemaphore = semaphore, typename SpaceSemaphore = semaphore>
+class ringbuffer : protected ringbuffer_base<T>
+{
+private:
+    DataSemaphore data_sem;
+    SpaceSemaphore space_sem;
+    bool stopped = false;   ///< Protects @a stop from multiple calls
 
 public:
     explicit ringbuffer(std::size_t cap);
@@ -180,16 +227,9 @@ public:
 };
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
-T *ringbuffer<T, DataSemaphore, SpaceSemaphore>::get(std::size_t idx)
-{
-    return reinterpret_cast<T*>(&storage[idx]);
-}
-
-template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 ringbuffer<T, DataSemaphore, SpaceSemaphore>::ringbuffer(size_t cap)
-    : storage(new storage_type[cap]), cap(cap), data_sem(0), space_sem(cap)
+    : ringbuffer_base<T>(cap), data_sem(0), space_sem(cap)
 {
-    assert(cap > 0);
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
@@ -198,19 +238,8 @@ ringbuffer<T, DataSemaphore, SpaceSemaphore>::~ringbuffer()
     // Drain any remaining elements
     while (data_sem.try_get() == 1)
     {
-        get(head)->~T();
-        head = next(head);
+        this->pop_internal();
     }
-}
-
-template<typename T, typename DataSemaphore, typename SpaceSemaphore>
-template<typename... Args>
-void ringbuffer<T, DataSemaphore, SpaceSemaphore>::emplace_internal(Args&&... args)
-{
-    std::lock_guard<std::mutex> lock(tail_mutex);
-    // Construct in-place
-    new (get(tail)) T(std::forward<Args>(args)...);
-    tail = next(tail);
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
@@ -218,7 +247,7 @@ template<typename... Args>
 void ringbuffer<T, DataSemaphore, SpaceSemaphore>::emplace(Args&&... args)
 {
     semaphore_get(space_sem);
-    emplace_internal(std::forward<Args...>(args...));
+    this->emplace_internal(std::forward<Args...>(args...));
     data_sem.put();
 }
 
@@ -228,7 +257,7 @@ void ringbuffer<T, DataSemaphore, SpaceSemaphore>::try_emplace(Args&&... args)
 {
     if (space_sem.try_get() == 1)
     {
-        emplace_internal(std::forward<Args...>(args...));
+        this->emplace_internal(std::forward<Args...>(args...));
         data_sem.put();
     }
 }
@@ -237,7 +266,7 @@ template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 void ringbuffer<T, DataSemaphore, SpaceSemaphore>::push(T &&value)
 {
     semaphore_get(space_sem);
-    emplace_internal(std::move(value));
+    this->emplace_internal(std::move(value));
     data_sem.put();
 }
 
@@ -246,19 +275,9 @@ void ringbuffer<T, DataSemaphore, SpaceSemaphore>::try_push(T &&value)
 {
     if (space_sem.try_get() == 1)
     {
-        emplace_internal(std::move(value));
+        this->emplace_internal(std::move(value));
         data_sem.put();
     }
-}
-
-template<typename T, typename DataSemaphore, typename SpaceSemaphore>
-T ringbuffer<T, DataSemaphore, SpaceSemaphore>::pop_internal()
-{
-    std::lock_guard<std::mutex> lock(head_mutex);
-    T result = std::move(*get(head));
-    get(head)->~T();
-    head = next(head);
-    return result;
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
