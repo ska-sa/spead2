@@ -31,6 +31,7 @@
 #include "send_udp.h"
 #include "send_streambuf.h"
 #include "common_thread_pool.h"
+#include "common_semaphore.h"
 #include "py_common.h"
 
 namespace py = boost::python;
@@ -106,7 +107,7 @@ public:
          * via KeyboardInterrupt. The semaphore needs to be in shared_ptr because
          * if we are interrupted it still needs to exist until the heap is sent.
          */
-        auto sent_sem = std::make_shared<semaphore_gil>();
+        auto sent_sem = std::make_shared<semaphore_gil<semaphore> >();
         Base::async_send_heap(h, [sent_sem] (const boost::system::error_code &, item_pointer_t)
         {
             sent_sem->put();
@@ -130,7 +131,7 @@ private:
         item_pointer_t bytes_transferred;
     };
 
-    semaphore_gil sem;
+    semaphore_gil<semaphore_fd> sem;
     std::vector<callback_item> callbacks;
     std::mutex callbacks_mutex;
 

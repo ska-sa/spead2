@@ -29,7 +29,6 @@
 #include <cassert>
 #include <mutex>
 #include <stdexcept>
-#include "common_ringbuffer.h"
 #include "common_thread_pool.h"
 
 namespace spead2
@@ -229,11 +228,28 @@ public:
  * Semaphore variant that releases the GIL during waits, and throws an
  * exception if interrupted by SIGINT in the Python process.
  */
-class semaphore_gil : public semaphore
+template<typename Semaphore>
+class semaphore_gil : public Semaphore
 {
 public:
+    using Semaphore::Semaphore;
     int get();
 };
+
+template<typename Semaphore>
+int semaphore_gil<Semaphore>::get()
+{
+    release_gil gil;
+    int result = Semaphore::get();
+    if (result == -1)
+    {
+        // Allow SIGINT to abort the wait
+        gil.acquire();
+        if (PyErr_CheckSignals() == -1)
+            boost::python::throw_error_already_set();
+    }
+    return result;
+}
 
 /* Older versions of boost don't understand std::shared_ptr properly. This is
  * in the spead2 namespace so that it will be found by ADL when considering

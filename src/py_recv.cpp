@@ -27,6 +27,7 @@
 #include "recv_ring_stream.h"
 #include "recv_live_heap.h"
 #include "recv_heap.h"
+#include "common_ringbuffer.h"
 #include "py_common.h"
 
 namespace py = boost::python;
@@ -163,7 +164,7 @@ public:
  * on completion of code scheduled through the thread pool must drop the GIL
  * first.
  */
-class ring_stream_wrapper : public ring_stream<ringbuffer_semaphore<live_heap, semaphore_gil> >
+class ring_stream_wrapper : public ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore_gil<semaphore> > >
 {
 private:
     /// Holds a Python reference to the thread pool
@@ -197,7 +198,7 @@ public:
 
     int get_fd() const
     {
-        return get_ringbuffer().get_fd();
+        return get_ringbuffer().get_data_sem().get_fd();
     }
 
     void set_memory_pool(std::shared_ptr<memory_pool> pool)
