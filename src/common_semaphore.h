@@ -17,55 +17,113 @@
 /**
  * @file
  *
- * Semaphore that uses file descriptors, so that it can be plumbed
- * into an event loop.
+ * Semaphore types. There are two types that share a common API, but not a
+ * common base class.
  */
 
 #ifndef SPEAD2_COMMON_SEMAPHORE_H
 #define SPEAD2_COMMON_SEMAPHORE_H
 
+#include <memory>
+#include <atomic>
+#include <semaphore.h>
+
 namespace spead2
 {
+
+/**
+ * Lightweight semaphore that does not support select()-like calls, and
+ * which avoids kernel calls in the uncontended case.
+ */
+class semaphore
+{
+private:
+    sem_t sem;
+
+    /* This will match the value of the semaphore, except that it will be
+     * transiently greater than it (since there is no way to atomically affect
+     * both).
+     *
+     * However, once @ref stop is called, it will be one less than the
+     * semaphore value. Thus, a reader that sees it negative knows that a stop
+     * has arrived.
+     */
+    std::atomic<int> value;
+
+    /// Implementation of @ref and @ref try_get once the semaphore is acquired
+    int get_bottom();
+
+public:
+    explicit semaphore(int initial = 0);
+    ~semaphore();
+
+    /// Increment
+    void put();
+
+    /**
+     * Decrement semaphore, blocking if necessary.
+     *
+     * @retval -1 if a system call was interrupted
+     * @retval 0 if stop was called and the value is zero
+     * @retval 1 on success
+     */
+    int get();
+
+    /**
+     * Decrement semaphore if possible, but do not block.
+     *
+     * @retval -1 if the semaphore is already zero or a system call was interrupted
+     * @retval 0 if the semaphore is already zero and stopped
+     * @retval 1 on success
+     */
+    int try_get();
+
+    /**
+     * Cause @ref get and @ref try_get to return 0 once the semaphore reaches
+     * zero. It is not safe to call @ref post at the same time or after this is
+     * called, nor is it safe to call @ref stop more than once.
+     */
+    void stop();
+};
+
+/////////////////////////////////////////////////////////////////////////////
 
 /**
  * Semaphore that uses file descriptors, so that it can be plumbed
  * into an event loop.
  */
-class semaphore
+class semaphore_fd
 {
 private:
     int pipe_fds[2];
 
     // Prevent copying: semaphores are not copyable resources
-    semaphore(const semaphore &) = delete;
-    semaphore &operator=(const semaphore &) = delete;
+    semaphore_fd(const semaphore_fd &) = delete;
+    semaphore_fd &operator=(const semaphore_fd &) = delete;
 
 public:
-    /// Move constructor
-    semaphore(semaphore &&);
-    /// Move assignment
-    semaphore &operator=(semaphore &&);
+    explicit semaphore_fd(int initial = 0);
+    ~semaphore_fd();
 
-    /// Increment semaphore.
+    /// Move constructor
+    semaphore_fd(semaphore_fd &&);
+    /// Move assignment
+    semaphore_fd &operator=(semaphore_fd &&);
+
+    /// @copydoc semaphore::put
     void put();
-    /**
-     * Decrement semaphore, blocking if necessary, but aborting if the
-     * system call was interrupted.
-     *
-     * @retval -1 if the wait was interrupted
-     * @retval 0 if @ref stop was called
-     * @retval 1 on success
-     */
+
+    /// @copydoc semaphore::get
     int get();
 
-    /// Interrupt any current waiters and release resources
+    /// @copydoc semaphore::try_get
+    int try_get();
+
+    /// @copydoc semaphore::stop
     void stop();
 
     /// Return a file descriptor that will be readable when get will not block
     int get_fd() const;
-
-    semaphore();
-    ~semaphore();
 };
 
 /// Gets a semaphore, restarting automatically on interruptions

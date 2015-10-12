@@ -44,7 +44,7 @@ namespace recv
  *
  * This class is thread-safe.
  */
-template<typename Ringbuffer = ringbuffer_cond<live_heap> >
+template<typename Ringbuffer = ringbuffer<live_heap> >
 class ring_stream : public stream
 {
 private:
@@ -86,7 +86,7 @@ public:
      * Like @ref pop, but if no contiguous heap is available,
      * throws @ref spead2::ringbuffer_empty.
      *
-     * @throw ringbuffer_empty if there is contiguous heap available, but the
+     * @throw ringbuffer_empty if there is no contiguous heap available, but the
      * stream has not been stopped
      * @throw ringbuffer_stopped if @ref stop has been called and
      * there are no more contiguous heaps.
