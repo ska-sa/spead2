@@ -54,12 +54,7 @@ private:
     virtual void heap_ready(live_heap &&) override;
 public:
     /**
-     * Constructor. Note that there are two buffers, both of whose size is
-     * controlled by @a max_heaps:
-     * - the buffer for partial heaps which may still have incoming packets
-     * - the buffer for frozen heaps that the consumer has not get dequeued
-     * The latter needs to be at least as large as the former to prevent
-     * heaps being dropped when the stream is shut down.
+     * Constructor.
      */
     explicit ring_stream(
         boost::asio::io_service &io_service,
@@ -103,7 +98,7 @@ ring_stream<Ringbuffer>::ring_stream(
     boost::asio::io_service &io_service,
     bug_compat_mask bug_compat, std::size_t max_heaps,
     bool contiguous_only)
-    : stream(io_service, bug_compat, max_heaps), ready_heaps(max_heaps),
+    : stream(io_service, bug_compat, max_heaps), ready_heaps(2),
     contiguous_only(contiguous_only)
 {
 }
@@ -113,16 +108,7 @@ void ring_stream<Ringbuffer>::heap_ready(live_heap &&h)
 {
     if (!contiguous_only || h.is_contiguous())
     {
-        try
-        {
-            ready_heaps.try_push(std::move(h));
-        }
-        catch (ringbuffer_full &e)
-        {
-            // Suppress the error, drop the heap
-            log_info("dropped heap %d due to insufficient ringbuffer space",
-                     h.get_cnt());
-        }
+        ready_heaps.push(std::move(h));
     }
     else
     {
