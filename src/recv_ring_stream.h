@@ -69,7 +69,7 @@ public:
     /**
      * Constructor.
      *
-     * @param thread_pool      Used only to find the I/O service
+     * @param pool             Used only to find the I/O service
      * @param bug_compat       Bug compatibility flags for interpreting heaps
      * @param max_heaps        Number of partial heaps
      * @param contiguous_only  If true, only contiguous heaps are pushed to the ring buffer
