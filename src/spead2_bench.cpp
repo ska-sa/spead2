@@ -45,6 +45,7 @@ namespace asio = boost::asio;
 struct options
 {
     bool quiet = false;
+    bool ring = false;
     std::size_t packet_size = 9172;
     std::size_t heap_size = 4194304;
     int heap_address_bits = 40;
@@ -77,6 +78,7 @@ static options parse_master_args(int argc, const char **argv)
     po::options_description desc, hidden, all;
     desc.add_options()
         ("quiet", po::bool_switch(&opts.quiet)->default_value(opts.quiet), "Print only the final result")
+        ("ring", po::bool_switch(&opts.ring)->default_value(opts.ring), "Use a ring buffer for heaps")
         ("packet", make_opt(opts.packet_size), "Maximum packet size to use for UDP")
         ("heap-size", make_opt(opts.heap_size), "Payload size for heap")
         ("addr-bits", make_opt(opts.heap_address_bits), "Heap address bits")
@@ -140,6 +142,7 @@ static bool measure_connection_once(
     {
         control.exceptions(std::ios::failbit);
         control << "start "
+            << int(opts.ring) << ' '
             << opts.packet_size << ' '
             << opts.heap_size << ' '
             << opts.heap_address_bits << ' '
@@ -332,20 +335,76 @@ public:
     std::int64_t num_heaps = 0;
 };
 
-struct slave_connection
+class slave_connection
 {
+protected:
     spead2::thread_pool thread_pool;
     spead2::memory_pool memory_pool;
-    slave_stream stream;
 
     slave_connection(const options &opts, const asio::ip::udp::endpoint &endpoint)
         : thread_pool(),
         memory_pool(
-            opts.heap_size, opts.heap_size + 1024, opts.mem_max_free, opts.mem_initial),
-        stream(thread_pool, 0, opts.heaps)
+            opts.heap_size, opts.heap_size + 1024, opts.mem_max_free, opts.mem_initial)
+    {
+    }
+
+public:
+    virtual std::int64_t stop() = 0;
+
+    virtual ~slave_connection() {}
+};
+
+class slave_connection_callback : public slave_connection
+{
+    slave_stream stream;
+
+public:
+    slave_connection_callback(const options &opts, const asio::ip::udp::endpoint &endpoint)
+        : slave_connection(opts, endpoint), stream(thread_pool, 0, opts.heaps)
     {
         stream.emplace_reader<spead2::recv::udp_reader>(
             endpoint, opts.packet_size, opts.recv_buffer);
+    }
+
+    virtual std::int64_t stop() override
+    {
+        stream.stop();
+        return stream.num_heaps;
+    }
+};
+
+class slave_connection_ring : public slave_connection
+{
+    spead2::recv::ring_stream<> stream;
+    std::thread consumer;
+    std::int64_t num_heaps = 0;
+
+public:
+    slave_connection_ring(const options &opts, const asio::ip::udp::endpoint &endpoint)
+        : slave_connection(opts, endpoint), stream(thread_pool, 0, opts.heaps)
+    {
+        stream.emplace_reader<spead2::recv::udp_reader>(
+            endpoint, opts.packet_size, opts.recv_buffer);
+        consumer = std::thread([this] ()
+        {
+            try
+            {
+                while (true)
+                {
+                    stream.pop();
+                    num_heaps++;
+                }
+            } catch (spead2::ringbuffer_stopped &e)
+            {
+            }
+        });
+    }
+
+    virtual std::int64_t stop() override
+    {
+        stream.stop();
+        consumer.join();
+        return num_heaps;
     }
 };
 
@@ -385,7 +444,8 @@ static void main_slave(int argc, const char **argv)
                     continue;
                 }
                 options opts;
-                toks >> opts.packet_size
+                toks >> opts.ring
+                    >> opts.packet_size
                     >> opts.heap_size
                     >> opts.heap_address_bits
                     >> opts.recv_buffer
@@ -393,7 +453,10 @@ static void main_slave(int argc, const char **argv)
                     >> opts.heaps
                     >> opts.mem_max_free
                     >> opts.mem_initial;
-                connection.reset(new slave_connection(opts, endpoint));
+                if (opts.ring)
+                    connection.reset(new slave_connection_ring(opts, endpoint));
+                else
+                    connection.reset(new slave_connection_callback(opts, endpoint));
                 control << "ready" << std::endl;
             }
             else if (cmd == "stop")
@@ -403,8 +466,7 @@ static void main_slave(int argc, const char **argv)
                     std::cerr << "Stop received when already stopped\n";
                     continue;
                 }
-                connection->stream.stop();
-                auto num_heaps = connection->stream.num_heaps;
+                auto num_heaps = connection->stop();
                 connection.reset();
                 std::cerr << num_heaps << '\n';
                 control << num_heaps << std::endl;

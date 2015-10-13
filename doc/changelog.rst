@@ -7,6 +7,8 @@ Changelog
 
 - Warn if a heap is dropped due to being incomplete.
 
+- Add --ring option to C++ spead2_bench to test ringbuffer performance.
+
 - Reading from a memory buffer (e.g. with
   :py:func:`~spead2.recv.Stream.add_buffer_reader`) is now reliable, instead of
   dropping heaps if the consumer doesn't keep up (heaps can still be dropped if
