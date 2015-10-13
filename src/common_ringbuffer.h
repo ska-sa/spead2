@@ -17,7 +17,7 @@
 /**
  * @file
  *
- * Various types of ring buffers.
+ * Ring buffer.
  */
 
 #ifndef SPEAD2_COMMON_RINGBUFFER_H
@@ -30,6 +30,7 @@
 #include <stdexcept>
 #include <utility>
 #include <cassert>
+#include <climits>
 #include <iostream>
 #include "common_logging.h"
 #include "common_semaphore.h"
@@ -44,18 +45,21 @@ public:
     ringbuffer_full() : std::runtime_error("ring buffer is full") {}
 };
 
-/// Thrown when attempting to do a non-blocking pop from a full ringbuffer
+/// Thrown when attempting to do a non-blocking pop from an empty ringbuffer
 class ringbuffer_empty : public std::runtime_error
 {
 public:
     ringbuffer_empty() : std::runtime_error("ring buffer is empty") {}
 };
 
-/// Thrown when attempting to do a pop from an empty ringbuffer that has been shut down
+/**
+ * Thrown when attempting to do a pop from an empty ringbuffer that has been
+ * stopped, or a push to a ringbuffer that has been stopped.
+ */
 class ringbuffer_stopped : public std::runtime_error
 {
 public:
-    ringbuffer_stopped() : std::runtime_error("ring buffer has been shut down") {}
+    ringbuffer_stopped() : std::runtime_error("ring buffer has been stopped") {}
 };
 
 /**
@@ -72,10 +76,19 @@ private:
 
     /// Mutex held when reading from the head (needed for safe multi-consumer)
     std::mutex head_mutex;
+    std::size_t head = 0;   ///< first slot with data
+    bool stopped = false;   ///< Whether stop has been called
+
     /// Mutex held when writing to the tail (needed for safe multi-producer)
     std::mutex tail_mutex;
-    std::size_t head = 0;   ///< first slot with data
     std::size_t tail = 0;   ///< first slot without data
+    /**
+     * Position in the queue which the receiver should treat as "please stop",
+     * or an invalid position if not yet stopped. Unlike @ref stopped, this is
+     * updated with @ref tail_mutex rather than @ref head_mutex held. Once
+     * set, it is guaranteed to always equal @ref tail.
+     */
+    std::size_t stop_position = SIZE_MAX;
 
     /// Gets pointer to the slot number @a idx
     T *get(std::size_t idx);
@@ -91,6 +104,23 @@ private:
 
 protected:
     explicit ringbuffer_base(std::size_t cap);
+    ~ringbuffer_base();
+
+    /**
+     * Check whether we're stopped and throw an appropriate error.
+     *
+     * @throw ringbuffer_stopped if the ringbuffer is empty and stopped
+     * @throw ringbuffer_empty otherwise
+     */
+    void throw_empty_or_stopped();
+
+    /**
+     * Check whether we're stopped and throw an appropriate error.
+     *
+     * @throw ringbuffer_stopped if the ringbuffer is stopped
+     * @throw ringbuffer_full otherwise
+     */
+    void throw_full_or_stopped();
 
     /// Implementation of pushing functions, which doesn't touch semaphores
     template<typename... Args>
@@ -98,6 +128,9 @@ protected:
 
     /// Implementation of popping functions, which doesn't touch semaphores
     T pop_internal();
+
+    /// Implementation of stopping, without the semaphores
+    void stop_internal();
 };
 
 template<typename T>
@@ -107,10 +140,45 @@ T *ringbuffer_base<T>::get(std::size_t idx)
 }
 
 template<typename T>
-ringbuffer_base<T>::ringbuffer_base(size_t cap)
-    : storage(new storage_type[cap]), cap(cap)
+void ringbuffer_base<T>::throw_empty_or_stopped()
 {
+    std::lock_guard<std::mutex> lock(head_mutex);
+    if (head == stop_position)
+        throw ringbuffer_stopped();
+    else
+        throw ringbuffer_empty();
+}
+
+template<typename T>
+void ringbuffer_base<T>::throw_full_or_stopped()
+{
+    std::lock_guard<std::mutex> lock(tail_mutex);
+    if (stopped)
+        throw ringbuffer_stopped();
+    else
+        throw ringbuffer_full();
+}
+
+template<typename T>
+ringbuffer_base<T>::ringbuffer_base(size_t cap)
+    : storage(new storage_type[cap + 1]), cap(cap + 1), stop_position(cap + 1)
+{
+    /* We allocate one extra slot so that the destructor can disambiguate empty
+     * from full. We could also use the semaphore values, but after stopping
+     * they get used for other things so it is simplest not to rely on them.
+     */
     assert(cap > 0);
+}
+
+template<typename T>
+ringbuffer_base<T>::~ringbuffer_base()
+{
+    // Drain any remaining elements
+    while (head != tail)
+    {
+        get(head)->~T();
+        head = next(head);
+    }
 }
 
 template<typename T>
@@ -118,6 +186,10 @@ template<typename... Args>
 void ringbuffer_base<T>::emplace_internal(Args&&... args)
 {
     std::lock_guard<std::mutex> lock(tail_mutex);
+    if (stopped)
+    {
+        throw ringbuffer_stopped();
+    }
     // Construct in-place
     new (get(tail)) T(std::forward<Args>(args)...);
     tail = next(tail);
@@ -127,10 +199,33 @@ template<typename T>
 T ringbuffer_base<T>::pop_internal()
 {
     std::lock_guard<std::mutex> lock(head_mutex);
+    if (stop_position == head)
+    {
+        throw ringbuffer_stopped();
+    }
     T result = std::move(*get(head));
     get(head)->~T();
     head = next(head);
     return result;
+}
+
+template<typename T>
+void ringbuffer_base<T>::stop_internal()
+{
+    std::size_t saved_tail;
+
+    {
+        std::lock_guard<std::mutex> tail_lock(this->tail_mutex);
+        if (stopped)
+            return;
+        stopped = true;
+        saved_tail = tail;
+    }
+
+    {
+        std::lock_guard<std::mutex> head_lock(this->head_mutex);
+        stop_position = saved_tail;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -139,19 +234,35 @@ T ringbuffer_base<T>::pop_internal()
  * Ring buffer with blocking and non-blocking push and pop. It supports
  * non-copyable objects using move semantics. The producer may signal that it
  * has finished producing data by calling @ref stop, which will gracefully shut
- * down the consumer.
+ * down consumers as well as other producers. This class is fully thread-safe
+ * for multiple producers and consumers.
+ *
+ * \internal
+ *
+ * The design is mostly standard: head and tail pointers, and semaphores
+ * indicating the number of free and filled slots. One slot is always left
+ * empty so that the destructor can distinguish between empty and full without
+ * consulting the semaphores.
+ *
+ * The interesting part is @ref stop. On the producer side, this sets @ref
+ * stopped, which is protected by the tail mutex to immediately prevent any
+ * other pushes. On the consumer side, it sets @ref stop_position (protected
+ * by the head mutex), so that consumers only get @ref ringbuffer_stopped
+ * after consuming already-present elements. To wake everything up and prevent
+ * any further waits, @ref stop ups both semaphores, and any functions that
+ * observe a stop condition after downing a semaphore will re-up it. This
+ * causes the semaphore to be transiently unavailable, which leads to the need
+ * for @ref throw_empty_or_stopped and @ref throw_full_or_stopped.
  */
 template<typename T, typename DataSemaphore = semaphore, typename SpaceSemaphore = semaphore>
 class ringbuffer : protected ringbuffer_base<T>
 {
 private:
-    DataSemaphore data_sem;
-    SpaceSemaphore space_sem;
-    bool stopped = false;   ///< Protects @a stop from multiple calls
+    DataSemaphore data_sem;     ///< Number of filled slots
+    SpaceSemaphore space_sem;   ///< Number of available slots
 
 public:
     explicit ringbuffer(std::size_t cap);
-    ~ringbuffer();
 
     /**
      * Append an item to the queue, if there is space. It uses move
@@ -212,11 +323,6 @@ public:
      * stop consumers if there are still items in the queue; instead,
      * consumers will continue to retrieve remaining items, and will only be
      * signalled once the queue has drained.
-     *
-     * It is safe to call this function multiple times, but it is not
-     * thread-safe.  It is not legal to call @ref push, @ref try_push, @ref
-     * emplace or @ref try_emplace at the same time or after calling this
-     * function.
      */
     void stop();
 
@@ -233,32 +339,39 @@ ringbuffer<T, DataSemaphore, SpaceSemaphore>::ringbuffer(size_t cap)
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
-ringbuffer<T, DataSemaphore, SpaceSemaphore>::~ringbuffer()
-{
-    // Drain any remaining elements
-    while (data_sem.try_get() == 1)
-    {
-        this->pop_internal();
-    }
-}
-
-template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 template<typename... Args>
 void ringbuffer<T, DataSemaphore, SpaceSemaphore>::emplace(Args&&... args)
 {
     semaphore_get(space_sem);
-    this->emplace_internal(std::forward<Args...>(args...));
-    data_sem.put();
+    try
+    {
+        this->emplace_internal(std::forward<Args...>(args...));
+        data_sem.put();
+    }
+    catch (ringbuffer_stopped &e)
+    {
+        // We didn't actually use the slot we reserved with space_sem
+        space_sem.put();
+        throw;
+    }
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 template<typename... Args>
 void ringbuffer<T, DataSemaphore, SpaceSemaphore>::try_emplace(Args&&... args)
 {
-    if (space_sem.try_get() == 1)
+    if (space_sem.try_get() == -1)
+        this->throw_full_or_stopped();
+    try
     {
         this->emplace_internal(std::forward<Args...>(args...));
         data_sem.put();
+    }
+    catch (ringbuffer_stopped &e)
+    {
+        // We didn't actually use the slot we reserved with space_sem
+        space_sem.put();
+        throw;
     }
 }
 
@@ -266,52 +379,80 @@ template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 void ringbuffer<T, DataSemaphore, SpaceSemaphore>::push(T &&value)
 {
     semaphore_get(space_sem);
-    this->emplace_internal(std::move(value));
-    data_sem.put();
+    try
+    {
+        this->emplace_internal(std::move(value));
+        data_sem.put();
+    }
+    catch (ringbuffer_stopped &e)
+    {
+        // We didn't actually use the slot we reserved with space_sem
+        space_sem.put();
+        throw;
+    }
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 void ringbuffer<T, DataSemaphore, SpaceSemaphore>::try_push(T &&value)
 {
-    if (space_sem.try_get() == 1)
+    if (space_sem.try_get() == -1)
+        this->throw_full_or_stopped();
+    try
     {
         this->emplace_internal(std::move(value));
         data_sem.put();
+    }
+    catch (ringbuffer_stopped &e)
+    {
+        // We didn't actually use the slot we reserved with space_sem
+        space_sem.put();
+        throw;
     }
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 T ringbuffer<T, DataSemaphore, SpaceSemaphore>::pop()
 {
-    int status = semaphore_get(data_sem);
-    if (status == 0)
-        throw ringbuffer_stopped();
-    T result = this->pop_internal();
-    space_sem.put();
-    return result;
+    semaphore_get(data_sem);
+    try
+    {
+        T result = this->pop_internal();
+        space_sem.put();
+        return result;
+    }
+    catch (ringbuffer_stopped &e)
+    {
+        // We didn't consume any data, wake up the next waiter
+        data_sem.put();
+        throw;
+    }
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 T ringbuffer<T, DataSemaphore, SpaceSemaphore>::try_pop()
 {
-    int status = data_sem.try_get();
-    if (status == -1)
-        throw ringbuffer_empty();
-    else if (status == 0)
-        throw ringbuffer_stopped();
-    T result = this->pop_internal();
-    space_sem.put();
-    return result;
+    if (data_sem.try_get() == -1)
+        this->throw_empty_or_stopped();
+    try
+    {
+        T result = this->pop_internal();
+        space_sem.put();
+        return result;
+    }
+    catch (ringbuffer_stopped &e)
+    {
+        // We didn't consume any data, wake up the next waiter
+        data_sem.put();
+        throw;
+    }
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 void ringbuffer<T, DataSemaphore, SpaceSemaphore>::stop()
 {
-    if (!stopped)
-    {
-        stopped = true;
-        data_sem.stop();
-    }
+    this->stop_internal();
+    space_sem.put();
+    data_sem.put();
 }
 
 } // namespace spead2

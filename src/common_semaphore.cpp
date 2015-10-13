@@ -44,7 +44,7 @@ static void log_errno(const char *format)
     log_warning(format, code.value(), code.message());
 }
 
-semaphore::semaphore(int initial) : value(initial)
+semaphore::semaphore(int initial)
 {
     if (sem_init(&sem, 0, initial) == -1)
         throw_errno();
@@ -61,38 +61,8 @@ semaphore::~semaphore()
 
 void semaphore::put()
 {
-    value.fetch_add(1, std::memory_order_release);
-    if (sem_post(&sem) == -1)
-    {
-        value--; // Undo the += above
-        throw_errno();
-    }
-}
-
-void semaphore::stop()
-{
-    // Wake up at least one waiter, which will wake up others
     if (sem_post(&sem) == -1)
         throw_errno();
-}
-
-int semaphore::get_bottom()
-{
-    int old = value.fetch_sub(1, std::memory_order_acquire);
-    if (old <= 0)
-    {
-        // The new value is negative, which means we have a stop
-        // rather than a real token. Wake up another waiter.
-        value.fetch_add(1, std::memory_order_release);
-        if (sem_post(&sem) == -1)
-        {
-            value--; // undo the +1
-            throw_errno();
-        }
-        return 0;
-    }
-    else
-        return 1;
 }
 
 int semaphore::try_get()
@@ -106,7 +76,7 @@ int semaphore::try_get()
             throw_errno();
     }
     else
-        return get_bottom();
+        return 0;
 }
 
 int semaphore::get()
@@ -120,7 +90,7 @@ int semaphore::get()
             throw_errno();
     }
     else
-        return get_bottom();
+        return 0;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -222,10 +192,18 @@ int semaphore_fd::get()
                 throw_errno();
         }
         status = read(pipe_fds[0], &byte, 1);
-        if (status >= 0)
-            return status; // either success or write end closed
-        else if (errno != EAGAIN && errno != EWOULDBLOCK)
-            throw_errno();
+        if (status < 0)
+        {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                return -1;
+            else
+                throw_errno();
+        }
+        else
+        {
+            assert(status == 1);
+            return 0;
+        }
     }
 }
 
@@ -233,21 +211,17 @@ int semaphore_fd::try_get()
 {
     char byte = 0;
     int status = read(pipe_fds[0], &byte, 1);
-    if (status < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
+    if (status < 0)
     {
-        throw_errno();
-    }
-    return status;
-}
-
-void semaphore_fd::stop()
-{
-    if (pipe_fds[1] != -1)
-    {
-        int status = close(pipe_fds[1]);
-        pipe_fds[1] = -1;
-        if (status == -1)
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return -1;
+        else
             throw_errno();
+    }
+    else
+    {
+        assert(status == 1);
+        return 0;
     }
 }
 
