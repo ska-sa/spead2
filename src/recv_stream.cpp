@@ -67,7 +67,8 @@ bool stream_base::add_packet(const packet_header &packet)
                 end_of_stream = h.is_end_of_stream();
                 if (h.is_complete())
                 {
-                    heap_ready(std::move(h));
+                    if (!end_of_stream)
+                        heap_ready(std::move(h));
                     heaps.erase(it);
                 }
             }
@@ -86,18 +87,21 @@ bool stream_base::add_packet(const packet_header &packet)
         {
             result = true;
             end_of_stream = h.is_end_of_stream();
-            if (h.is_complete())
+            if (!end_of_stream)
             {
-                heap_ready(std::move(h));
-            }
-            else
-            {
-                heaps.insert(insert_before, std::move(h));
-                if (heaps.size() > max_heaps)
+                if (h.is_complete())
                 {
-                    // Too many active heaps: pop the lowest ID, even if incomplete
-                    heap_ready(std::move(heaps[0]));
-                    heaps.pop_front();
+                    heap_ready(std::move(h));
+                }
+                else
+                {
+                    heaps.insert(insert_before, std::move(h));
+                    if (heaps.size() > max_heaps)
+                    {
+                        // Too many active heaps: pop the lowest ID, even if incomplete
+                        heap_ready(std::move(heaps[0]));
+                        heaps.pop_front();
+                    }
                 }
             }
         }

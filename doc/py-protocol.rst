@@ -40,3 +40,7 @@ When receiving data, some transformations are made:
   zero-dimensional array object.
 * If the format is given and is c8 and the array is one-dimensional, it is
   joined together into a Python :py:class:`str`.
+
+Finally, note that a heap with the CTRL_STREAM_STOP flag will shut down the
+stream, but the heap is not passed on to the application. Senders should thus
+avoid putting any other data in such heaps.

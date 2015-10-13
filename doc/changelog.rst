@@ -26,6 +26,11 @@ Changelog
   C++ API, because the Python API does not provide any access to partial heaps
   anyway.
 
+- **backwards-incompatible change**:
+  A heap with a stop flag is swallowed rather than passed to
+  :cpp:func:`~spead2::recv::stream::heap_ready` (see issue
+  [#29](https://github.com/ska-sa/spead2/issues/29)).
+
 .. rubric:: Version 0.3.0
 
 This release contains a number of backwards-incompatible changes in the Python
