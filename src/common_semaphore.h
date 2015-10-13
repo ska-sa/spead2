@@ -27,44 +27,10 @@
 #include <memory>
 #include <atomic>
 #include <semaphore.h>
+#include <boost/predef.h>
 
 namespace spead2
 {
-
-/**
- * Lightweight semaphore that does not support select()-like calls, and
- * which avoids kernel calls in the uncontended case.
- */
-class semaphore
-{
-private:
-    sem_t sem;
-
-public:
-    explicit semaphore(int initial = 0);
-    ~semaphore();
-
-    /// Increment
-    void put();
-
-    /**
-     * Decrement semaphore, blocking if necessary.
-     *
-     * @retval -1 if a system call was interrupted
-     * @retval 0 on success
-     */
-    int get();
-
-    /**
-     * Decrement semaphore if possible, but do not block.
-     *
-     * @retval -1 if the semaphore is already zero or a system call was interrupted
-     * @retval 0 on success
-     */
-    int try_get();
-};
-
-/////////////////////////////////////////////////////////////////////////////
 
 /**
  * Semaphore that uses file descriptors, so that it can be plumbed
@@ -100,6 +66,59 @@ public:
     /// Return a file descriptor that will be readable when get will not block
     int get_fd() const;
 };
+
+/////////////////////////////////////////////////////////////////////////////
+
+#if !BOOST_OS_MACOS
+/**
+ * Lightweight semaphore that does not support select()-like calls, and
+ * which avoids kernel calls in the uncontended case.
+ */
+class semaphore
+{
+private:
+    sem_t sem;
+
+public:
+    explicit semaphore(int initial = 0);
+    ~semaphore();
+
+    /// Increment
+    void put();
+
+    /**
+     * Decrement semaphore, blocking if necessary.
+     *
+     * @retval -1 if a system call was interrupted
+     * @retval 0 on success
+     */
+    int get();
+
+    /**
+     * Decrement semaphore if possible, but do not block.
+     *
+     * @retval -1 if the semaphore is already zero or a system call was interrupted
+     * @retval 0 on success
+     */
+    int try_get();
+};
+
+#else // BOOST_OS_MACOS
+
+// OS X doesn't implement POSIX semaphores, so we fall back to the fd-based semaphores,
+// but keep it a different type to avoid exposing get_fd.
+class semaphore : private semaphore_fd
+{
+public:
+    using semaphore_fd::semaphore_fd;
+    using semaphore_fd::put;
+    using semaphore_fd::get;
+    using semaphore_fd::try_get;
+};
+
+#endif // BOOST_OS_MACOS
+
+/////////////////////////////////////////////////////////////////////////////
 
 /// Gets a semaphore, restarting automatically on interruptions
 template<typename Semaphore>
