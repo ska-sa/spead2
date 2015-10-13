@@ -170,8 +170,16 @@ heap ring_stream<Ringbuffer>::try_pop()
 template<typename Ringbuffer>
 void ring_stream<Ringbuffer>::stop_received()
 {
-    ready_heaps.stop();
+    /* Note: the order here is important: stream::stop_received flushes the
+     * stream's internal buffer to the ringbuffer before the ringbuffer is
+     * stopped.
+     *
+     * This only applies to a stop received from the network. A stop received
+     * by calling stop() will first stop the ringbuffer to prevent a
+     * deadlock.
+     */
     stream::stop_received();
+    ready_heaps.stop();
 }
 
 template<typename Ringbuffer>

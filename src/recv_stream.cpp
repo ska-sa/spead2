@@ -109,6 +109,10 @@ bool stream_base::add_packet(const packet_header &packet)
 
 void stream_base::flush()
 {
+    for (live_heap &h : heaps)
+    {
+        heap_ready(std::move(h));
+    }
     heaps.clear();
 }
 

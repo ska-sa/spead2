@@ -131,7 +131,7 @@ public:
 
     bug_compat_mask get_bug_compat() const { return bug_compat; }
 
-    /// Discard any partially complete heaps.
+    /// Flush the collection of live heaps, passing them to @ref heap_ready.
     void flush();
 };
 

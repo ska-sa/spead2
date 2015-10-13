@@ -20,9 +20,11 @@ Changelog
   `max_heaps` value to deal with the consumer not always keeping up. Instead,
   it may be necessary to increase the socket buffer size.
 
-- **backwards-incompatible change** (C++ only):
-  :cpp:func:`spead2::stream::flush` now discards heaps instead of reporting
-  them, to prevent deadlocks.
+- **backwards-incompatible change**:
+  Calling :cpp:func:`spead2::recv::ring_stream::stop` now discards remaining
+  partial heaps instead of adding them to the ringbuffer. This only affects the
+  C++ API, because the Python API does not provide any access to partial heaps
+  anyway.
 
 .. rubric:: Version 0.3.0
 
