@@ -7,6 +7,8 @@ Changelog
 
 - Warn if a heap is dropped due to being incomplete.
 
+- Add --ring option to C++ spead2_bench to test ringbuffer performance.
+
 .. rubric:: Version 0.3.0
 
 This release contains a number of backwards-incompatible changes in the Python
