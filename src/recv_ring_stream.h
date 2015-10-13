@@ -95,6 +95,8 @@ public:
 
     virtual void stop_received() override;
 
+    virtual void stop() override;
+
     const Ringbuffer &get_ringbuffer() const { return ready_heaps; }
 };
 
@@ -103,7 +105,7 @@ ring_stream<Ringbuffer>::ring_stream(
     boost::asio::io_service &io_service,
     bug_compat_mask bug_compat, std::size_t max_heaps,
     bool contiguous_only)
-    : stream(io_service, bug_compat, max_heaps), ready_heaps(max_heaps),
+    : stream(io_service, bug_compat, max_heaps), ready_heaps(2),
     contiguous_only(contiguous_only)
 {
 }
@@ -115,12 +117,12 @@ void ring_stream<Ringbuffer>::heap_ready(live_heap &&h)
     {
         try
         {
-            ready_heaps.try_push(std::move(h));
+            ready_heaps.push(std::move(h));
         }
-        catch (ringbuffer_full &e)
+        catch (ringbuffer_stopped &e)
         {
             // Suppress the error, drop the heap
-            log_info("dropped heap %d due to insufficient ringbuffer space",
+            log_info("dropped heap %d due to external stop",
                      h.get_cnt());
         }
     }
@@ -160,12 +162,21 @@ heap ring_stream<Ringbuffer>::try_pop()
 template<typename Ringbuffer>
 void ring_stream<Ringbuffer>::stop_received()
 {
-    /* Note: the order here is important: stream::stop flushes the stream's
-     * internal buffer to the ringbuffer, and this needs to happen before
-     * the ringbuffer is stopped.
-     */
-    stream::stop_received();
     ready_heaps.stop();
+    stream::stop_received();
+}
+
+template<typename Ringbuffer>
+void ring_stream<Ringbuffer>::stop()
+{
+    /* Make sure the ringbuffer is stopped *before* the base implementation
+     * takes the strand. Without this, a heap_ready call could be blocking the
+     * strand, waiting for space in the ring buffer. This will call the
+     * heap_ready call to abort, allowing the strand to be accessed for the
+     * rest of the shutdown.
+     */
+    ready_heaps.stop();
+    stream::stop();
 }
 
 } // namespace recv

@@ -452,9 +452,33 @@ class TestDecode(object):
 
 
 class TestUdpReader(object):
-    """Binding an illegal port should throw an exception"""
     def test_bad_port(self):
+        """Binding an illegal port should throw an exception"""
         tp = spead2.ThreadPool()
         stream = spead2.recv.Stream(tp)
         with assert_raises(RuntimeError):
             stream.add_udp_reader(123)
+
+
+class TestThreads(object):
+    """Tests for situations that could cause deadlocks or other thread safety
+    issues."""
+
+    def __init__(self):
+        self.flavour = FLAVOUR
+
+    def test_full_stop(self):
+        """Must be able to stop even if the consumer is not consuming
+        anything."""
+        thread_pool = spead2.ThreadPool(1)
+        sender = spead2.send.BytesStream(thread_pool)
+        ig = spead2.send.ItemGroup()
+        data = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.uint16)
+        ig.add_item(id=0x2345, name='name', description='description',
+                    shape=data.shape, dtype=data.dtype, value=data)
+        gen = spead2.send.HeapGenerator(ig)
+        for i in range(10):
+            sender.send_heap(gen.get_heap())
+        receiver = spead2.recv.Stream(thread_pool)
+        receiver.add_buffer_reader(sender.getvalue())
+        receiver.stop()

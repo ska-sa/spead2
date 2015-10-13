@@ -131,7 +131,7 @@ public:
 
     bug_compat_mask get_bug_compat() const { return bug_compat; }
 
-    /// Flush the collection of live heaps, passing them to @ref heap_ready.
+    /// Discard any partially complete heaps.
     void flush();
 };
 
@@ -247,8 +247,11 @@ public:
      * Stop the stream and block until all the readers have wound up. After
      * calling this there should be no more outstanding completion handlers
      * in the thread pool.
+     *
+     * In most cases subclasses should override @ref stop_received rather than
+     * this function.
      */
-    void stop();
+    virtual void stop();
 };
 
 /**
