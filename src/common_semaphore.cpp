@@ -44,7 +44,7 @@ static void log_errno(const char *format)
     log_warning(format, code.value(), code.message());
 }
 
-#if !BOOST_OS_MACOS
+#if !__APPLE__
 
 semaphore::semaphore(int initial)
 {
@@ -95,7 +95,7 @@ int semaphore::get()
         return 0;
 }
 
-#endif // !BOOST_OS_MACOS
+#endif // !__APPLE__
 
 /////////////////////////////////////////////////////////////////////////////
 

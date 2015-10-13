@@ -27,7 +27,6 @@
 #include <memory>
 #include <atomic>
 #include <semaphore.h>
-#include <boost/predef.h>
 
 namespace spead2
 {
@@ -69,7 +68,7 @@ public:
 
 /////////////////////////////////////////////////////////////////////////////
 
-#if !BOOST_OS_MACOS
+#if !__APPLE__
 /**
  * Lightweight semaphore that does not support select()-like calls, and
  * which avoids kernel calls in the uncontended case.
@@ -103,7 +102,7 @@ public:
     int try_get();
 };
 
-#else // BOOST_OS_MACOS
+#else // __APPLE__
 
 // OS X doesn't implement POSIX semaphores, so we fall back to the fd-based semaphores,
 // but keep it a different type to avoid exposing get_fd.
@@ -116,7 +115,7 @@ public:
     using semaphore_fd::try_get;
 };
 
-#endif // BOOST_OS_MACOS
+#endif // __APPLE__
 
 /////////////////////////////////////////////////////////////////////////////
 
