@@ -7,6 +7,21 @@ Changelog
 
 - Warn if a heap is dropped due to being incomplete.
 
+- Reading from a memory buffer (e.g. with
+  :py:func:`~spead2.recv.Stream.add_buffer_reader`) is now reliable, instead of
+  dropping heaps if the consumer doesn't keep up (heaps can still be dropped if
+  packets extracted from the buffer are out-of-order, but it is
+  deterministic).
+
+- The receive ringbuffer now has a fixed size (2), and pushes are blocking. The
+  result is lower memory usage, and it is no longer necessary to pass a large
+  `max_heaps` value to deal with the consumer not always keeping up. Instead,
+  it may be necessary to increase the socket buffer size.
+
+- **backwards-incompatible change** (C++ only):
+  :cpp:func:`spead2::stream::flush` now discards heaps instead of reporting
+  them, to prevent 
+
 .. rubric:: Version 0.3.0
 
 This release contains a number of backwards-incompatible changes in the Python

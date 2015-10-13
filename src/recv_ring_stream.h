@@ -35,9 +35,9 @@ namespace recv
 
 /**
  * Specialisation of @ref stream that pushes its results into a ringbuffer.
- * The ringbuffer class may be replaced, but must provide the same interface
- * as @ref ringbuffer_cond. If the ring buffer fills up, new heaps are
- * discarded, rather than blocking the receiver.
+ * The ringbuffer class may be replaced, but must provide the same interface as
+ * @ref ringbuffer. If the ring buffer fills up, @ref add_packet will block the
+ * reader.
  *
  * On the consumer side, heaps are automatically frozen as they are
  * extracted.
@@ -54,18 +54,26 @@ private:
     virtual void heap_ready(live_heap &&) override;
 public:
     /**
-     * Constructor. Note that there are two buffers, both of whose size is
-     * controlled by @a max_heaps:
-     * - the buffer for partial heaps which may still have incoming packets
-     * - the buffer for frozen heaps that the consumer has not get dequeued
-     * The latter needs to be at least as large as the former to prevent
-     * heaps being dropped when the stream is shut down.
+     * Constructor.
+     *
+     * @param io_service       I/O service (also used by the readers)
+     * @param bug_compat       Bug compatibility flags for interpreting heaps
+     * @param max_heaps        Number of partial heaps
+     * @param contiguous_only  If true, only contiguous heaps are pushed to the ring buffer
      */
     explicit ring_stream(
         boost::asio::io_service &io_service,
         bug_compat_mask bug_compat = 0,
         std::size_t max_heaps = default_max_heaps,
         bool contiguous_only = true);
+    /**
+     * Constructor.
+     *
+     * @param thread_pool      Used only to find the I/O service
+     * @param bug_compat       Bug compatibility flags for interpreting heaps
+     * @param max_heaps        Number of partial heaps
+     * @param contiguous_only  If true, only contiguous heaps are pushed to the ring buffer
+     */
     explicit ring_stream(
         thread_pool &pool,
         bug_compat_mask bug_compat = 0,

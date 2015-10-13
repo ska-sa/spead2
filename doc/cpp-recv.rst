@@ -34,13 +34,12 @@ optionally override :cpp:func:`stop_received`.
    :members: emplace_reader, stop, stop_received, flush, heap_ready
 
 A potentially more convenient interface is
-:cpp:class:`spead2::recv::ring_stream\<T>`, which places received heaps into a
-fixed-size thread-safe ring buffer. Another thread can then pull from this
-ring buffer in a loop. The template parameter selects a ring buffer
-implementation. A light-weight choice using C++11 condition variables is
-:cpp:class:`spead2::ringbuffer_cond\<spead2::recv::live_heap>`. A heavier-weight
-alternative that can be connected to :cpp:func:`select`-like functions is
-:cpp:class:`spead2::ringbuffer_semaphore\<spead2::recv::live_heap>`.
+:cpp:class:`spead2::recv::ring_stream\<Ringbuffer>`, which places received
+heaps into a fixed-size thread-safe ring buffer. Another thread can then pull
+from this ring buffer in a loop. The template parameter selects the ringbuffer
+implementation. The default is a good light-weight choice, but if you need to
+use :cpp:func:`select`-like functions to wait for data, you can use
+:cpp:class:`spead2::ringbuffer\<spead2::recv::live_heap, spead2::semaphore_fd, spead2::semaphore>`.
 
 .. doxygenclass:: spead2::recv::ring_stream
 
