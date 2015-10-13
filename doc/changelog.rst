@@ -22,7 +22,7 @@ Changelog
 
 - **backwards-incompatible change** (C++ only):
   :cpp:func:`spead2::stream::flush` now discards heaps instead of reporting
-  them, to prevent 
+  them, to prevent deadlocks.
 
 .. rubric:: Version 0.3.0
 
