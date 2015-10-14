@@ -54,7 +54,8 @@ void nm_desc_destructor::operator()(nm_desc *d) const
 
 netmap_udp_reader::netmap_udp_reader(stream &owner, const std::string &device, int port)
     : reader(owner), handle(get_io_service()),
-    desc(nm_open(("netmap:" + device).c_str(), NULL, 0, NULL))
+    desc(nm_open(("netmap:" + device).c_str(), NULL, 0, NULL)),
+    port_be(htons(port))
 {
     if (!desc)
         throw std::system_error(errno, std::system_category());
@@ -76,26 +77,44 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
         for (int ri = desc->first_rx_ring; ri <= desc->last_rx_ring; ri++)
         {
             netmap_ring *ring = NETMAP_RXRING(desc->nifp, ri);
-            for (unsigned int i = ring->head; i != ring->tail; i = nm_ring_next(ring, i))
+            for (unsigned int i = ring->cur; i != ring->tail; i = nm_ring_next(ring, i))
             {
-                packet_header packet;
-                const unsigned char *data = (const unsigned char *) NETMAP_BUF(ring, i);
-                /* TODO: verify that this packet is
-                 * - big enough
-                 * - IP
-                 * - IPv4
-                 * - unfragmented
-                 * - UDP
-                 * - on the right port
-                 */
-                const unsigned char *payload = data + sizeof(header);
-                std::size_t payload_size = ring->slot[i].len - sizeof(header);
-                std::size_t size = decode_packet(packet, payload, payload_size);
-                if (size == payload_size)
+                if (ring->slot[i].len >= sizeof(header))
                 {
-                    get_stream_base().add_packet(packet);
-                    if (get_stream_base().is_stopped())
-                        log_debug("netmap_udp_reader: end of stream detected");
+                    const unsigned char *data = (const unsigned char *) NETMAP_BUF(ring, i);
+                    const header *ph = (const header *) data;
+                    if (ph->eth.ether_type == htons(ETHERTYPE_IP)
+                        && ph->ip.version == 4
+                        && ph->ip.ihl == 5
+                        && ph->ip.protocol == IPPROTO_UDP
+                        && ph->udp.dest == port_be)
+                    {
+                        packet_header packet;
+                        /* TODO: verify that this packet is
+                         * - big enough
+                         * - IP
+                         * - IPv4
+                         * - unfragmented
+                         * - UDP
+                         * - on the right port
+                         */
+                        const unsigned char *payload = data + sizeof(header);
+                        std::size_t payload_size = ring->slot[i].len - sizeof(header);
+                        log_info("received a packet of size %1%/%2% bytes, flags %3%",
+                                 payload_size, ring->slot[i].len, ring->slot[i].flags);
+                        std::size_t size = decode_packet(packet, payload, payload_size);
+                        if (size == payload_size)
+                        {
+                            get_stream_base().add_packet(packet);
+                            if (get_stream_base().is_stopped())
+                                log_debug("netmap_udp_reader: end of stream detected");
+                        }
+                        else
+                        {
+                            log_warning("discarding packet due to size mismatch (%1% != %2%) flags = %3%",
+                                        size, payload_size, ring->slot[i].flags);
+                        }
+                    }
                 }
             }
             ring->cur = ring->head = ring->tail;
