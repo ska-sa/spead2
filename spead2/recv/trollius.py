@@ -70,7 +70,7 @@ class Stream(spead2.recv.Stream):
             try:
                 heap = self.get_nowait()
             except spead2.Empty:
-                # This can happen if we were woken up for an incomplete heap.
+                # Shouldn't happen, but poll may have been woken spuriously
                 pass
             except spead2.Stopped as e:
                 for waiter in self._waiters:
