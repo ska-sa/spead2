@@ -38,7 +38,7 @@ SEND_SOURCES = $(wildcard send*.cpp)
 SEND_OBJECTS = $(patsubst %.cpp, %.o, $(SEND_SOURCES))
 COMMON_SOURCES = $(wildcard common*.cpp)
 COMMON_OBJECTS = $(patsubst %.cpp, %.o, $(COMMON_SOURCES))
-TARGETS = libspead2.a test_recv test_send test_ringbuffer spead2_bench spead2_recv
+TARGETS = libspead2.a test_recv test_recv_netmap test_send test_ringbuffer spead2_bench spead2_recv
 
 all: $(TARGETS)
 
@@ -50,6 +50,9 @@ libspead2.a: $(RECV_OBJECTS) $(SEND_OBJECTS) $(COMMON_OBJECTS)
 
 test_recv: test_recv.o libspead2.a
 	$(CXX) -o $@ test_recv.o -L. -lspead2 $(LDFLAGS)
+
+test_recv_netmap: test_recv_netmap.o libspead2.a
+	$(CXX) -o $@ test_recv_netmap.o -L. -lspead2 $(LDFLAGS)
 
 test_send: test_send.o libspead2.a
 	$(CXX) -o $@ test_send.o -L. -lspead2 $(LDFLAGS)

@@ -1,5 +1,6 @@
 *.o
 test_recv
+test_recv_netmap
 test_send
 test_ringbuffer
 spead2_bench
