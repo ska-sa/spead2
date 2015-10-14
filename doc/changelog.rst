@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.4.0
 
 - Enforce ASCII encoding on descriptor fields.
 
