@@ -2,4 +2,5 @@
 test_recv
 test_send
 spead2_bench
+spead2_recv
 libspead2.a

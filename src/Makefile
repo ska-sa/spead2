@@ -38,7 +38,7 @@ SEND_SOURCES = $(wildcard send*.cpp)
 SEND_OBJECTS = $(patsubst %.cpp, %.o, $(SEND_SOURCES))
 COMMON_SOURCES = $(wildcard common*.cpp)
 COMMON_OBJECTS = $(patsubst %.cpp, %.o, $(COMMON_SOURCES))
-TARGETS = libspead2.a test_recv test_send spead2_bench
+TARGETS = libspead2.a test_recv test_send spead2_bench spead2_recv
 
 all: $(TARGETS)
 
@@ -56,6 +56,9 @@ test_send: test_send.o libspead2.a
 
 spead2_bench: spead2_bench.o libspead2.a
 	$(CXX) -o $@ spead2_bench.o -L. -lspead2 $(LDFLAGS) -lboost_program_options
+
+spead2_recv: spead2_recv.o libspead2.a
+	$(CXX) -o $@ spead2_recv.o -L. -lspead2 $(LDFLAGS) -lboost_program_options
 
 clean:
 	rm -f *.o $(TARGETS)

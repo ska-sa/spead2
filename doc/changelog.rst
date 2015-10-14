@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add spead2_recv C++, a more fully-featured alternative to test_recv
+
 .. rubric:: Version 0.4.0
 
 - Enforce ASCII encoding on descriptor fields.
