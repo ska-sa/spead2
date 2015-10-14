@@ -101,8 +101,6 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                          */
                         const unsigned char *payload = data + sizeof(header);
                         std::size_t payload_size = slot.len - sizeof(header);
-                        log_info("received a packet of size %1%/%2% bytes, flags %3%",
-                                 payload_size, slot.len, slot.flags);
                         std::size_t size = decode_packet(packet, payload, payload_size);
                         if (size == payload_size)
                         {

@@ -118,7 +118,7 @@ static void run_ringbuffered()
 {
     spead2::thread_pool worker;
     std::shared_ptr<spead2::memory_pool> pool = std::make_shared<spead2::memory_pool>(16384, 26214400, 12, 8);
-    spead2::recv::ring_stream<> stream(worker, 7, 64);
+    spead2::recv::ring_stream<> stream(worker, 7);
     stream.set_memory_pool(pool);
     stream.emplace_reader<spead2::recv::netmap_udp_reader>(std::string("eth1"), 8888);
     while (true)
