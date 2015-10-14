@@ -1,14 +1,22 @@
+sudo: false
 language: python
 python:
     # Note: can only use the system python versions
     - "2.7"
     - "3.2"
-before_install:
-    - sudo apt-add-repository -y ppa:ubuntu-toolchain-r/test
-    - sudo apt-add-repository -y ppa:boost-latest/ppa
-    - sudo apt-get update -qq
-    - sudo apt-get install -qq gcc-4.8 g++-4.8 libboost-system1.55-dev libboost-python1.55-dev python3-dev
+addons:
+    apt:
+        sources:
+            - ubuntu-toolchain-r-test
+            - boost-latest
+        packages:
+            - gcc-4.8
+            - g++-4.8
+            - libboost-system1.55-dev
+            - libboost-python1.55-dev
+            - python3-dev
 install:
+    - cat /etc/lsb-release
     - pip install -r requirements.txt
     # PySPEAD tests are optional, so not listed in requirements.txt
     - if [[ "$TRAVIS_PYTHON_VERSION" == 2.* ]]; then pip install git+https://github.com/ska-sa/PySPEAD#egg=spead; fi
