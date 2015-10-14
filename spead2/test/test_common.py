@@ -79,9 +79,9 @@ class TestItem(object):
         """Using a non-ASCII unicode character raises a
         :py:exc:`UnicodeEncodeError`."""
         item1 = spead2.Item(0x1000, 'name1', 'description',
-            (None,), format=[('c', 8)], value=u'\u0200')
+            (None,), format=[('c', 8)], value=six.u('\u0200'))
         item2 = spead2.Item(0x1001, 'name2', 'description2', (),
-            dtype='S5', value=u'\u0201')
+            dtype='S5', value=six.u('\u0201'))
         assert_raises(UnicodeEncodeError, item1.to_buffer)
         assert_raises(UnicodeEncodeError, item2.to_buffer)
 
@@ -129,13 +129,13 @@ class TestItem(object):
     def test_nonascii_name(self):
         """Name with non-ASCII characters must fail"""
         with assert_raises(UnicodeEncodeError):
-            item = spead2.Item(0x1000, u'\u0200', 'description', (), np.int32)
+            item = spead2.Item(0x1000, six.u('\u0200'), 'description', (), np.int32)
             item.to_raw(spead2.Flavour())
 
     def test_nonascii_description(self):
         """Description with non-ASCII characters must fail"""
         with assert_raises(UnicodeEncodeError):
-            item = spead2.Item(0x1000, 'name', u'\u0200', (), np.int32)
+            item = spead2.Item(0x1000, 'name', six.u('\u0200'), (), np.int32)
             item.to_raw(spead2.Flavour())
 
 

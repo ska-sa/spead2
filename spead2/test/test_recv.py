@@ -18,6 +18,7 @@ import spead2
 import spead2.recv as recv
 import struct
 import numpy as np
+import six
 from nose.tools import *
 from .defines import *
 from .test_common import assert_equal_typed
@@ -418,7 +419,7 @@ class TestDecode(object):
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_string', 'a byte string', [('c', 8)], [None]),
-                Item(0x1234, u'\u0200'.encode('utf-8'))
+                Item(0x1234, six.u('\u0200').encode('utf-8'))
             ])
         heaps = self.data_to_heaps(packet)
         ig = spead2.ItemGroup()
