@@ -79,9 +79,10 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
             netmap_ring *ring = NETMAP_RXRING(desc->nifp, ri);
             for (unsigned int i = ring->cur; i != ring->tail; i = nm_ring_next(ring, i))
             {
-                if (ring->slot[i].len >= sizeof(header))
+                const auto &slot = ring->slot[i];
+                if (slot.len >= sizeof(header))
                 {
-                    const unsigned char *data = (const unsigned char *) NETMAP_BUF(ring, i);
+                    const unsigned char *data = (const unsigned char *) NETMAP_BUF(ring, slot.buf_idx);
                     const header *ph = (const header *) data;
                     if (ph->eth.ether_type == htons(ETHERTYPE_IP)
                         && ph->ip.version == 4
@@ -99,9 +100,9 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                          * - on the right port
                          */
                         const unsigned char *payload = data + sizeof(header);
-                        std::size_t payload_size = ring->slot[i].len - sizeof(header);
+                        std::size_t payload_size = slot.len - sizeof(header);
                         log_info("received a packet of size %1%/%2% bytes, flags %3%",
-                                 payload_size, ring->slot[i].len, ring->slot[i].flags);
+                                 payload_size, slot.len, slot.flags);
                         std::size_t size = decode_packet(packet, payload, payload_size);
                         if (size == payload_size)
                         {
@@ -112,7 +113,7 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                         else
                         {
                             log_warning("discarding packet due to size mismatch (%1% != %2%) flags = %3%",
-                                        size, payload_size, ring->slot[i].flags);
+                                        size, payload_size, slot.flags);
                         }
                     }
                 }
