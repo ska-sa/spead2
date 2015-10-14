@@ -54,7 +54,7 @@ void nm_desc_destructor::operator()(nm_desc *d) const
 
 netmap_udp_reader::netmap_udp_reader(stream &owner, const std::string &device, int port)
     : reader(owner), handle(get_io_service()),
-    desc(nm_open(("netmap:" + device).c_str(), NULL, 0, NULL)),
+    desc(nm_open(("netmap:" + device + "*").c_str(), NULL, 0, NULL)),
     port_be(htons(port))
 {
     if (!desc)
@@ -77,10 +77,13 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
         for (int ri = desc->first_rx_ring; ri <= desc->last_rx_ring; ri++)
         {
             netmap_ring *ring = NETMAP_RXRING(desc->nifp, ri);
+            ring->flags |= NR_FORWARD | NR_TIMESTAMP;
             for (unsigned int i = ring->cur; i != ring->tail; i = nm_ring_next(ring, i))
             {
-                const auto &slot = ring->slot[i];
-                if (slot.len >= sizeof(header))
+                auto &slot = ring->slot[i];
+                bool used = false;
+                // Skip even trying to process packets in the host ring
+                if (ri != desc->req.nr_rx_rings && slot.len >= sizeof(header))
                 {
                     const unsigned char *data = (const unsigned char *) NETMAP_BUF(ring, slot.buf_idx);
                     const header *ph = (const header *) data;
@@ -90,6 +93,7 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                         && ph->ip.protocol == IPPROTO_UDP
                         && ph->udp.dest == port_be)
                     {
+                        used = true;
                         packet_header packet;
                         /* TODO: verify that this packet is
                          * - big enough
@@ -115,6 +119,8 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                         }
                     }
                 }
+                if (!used)
+                    slot.flags |= NS_FORWARD;
             }
             ring->cur = ring->head = ring->tail;
         }
@@ -122,12 +128,10 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
     else
         log_warning("error in netmap receive: %1% (%2%)", error.value(), error.message());
 
-    if (!get_stream_base().is_stopped())
-    {
-        enqueue_receive();
-    }
-    else
+    if (get_stream_base().is_stopped())
         stopped();
+    else
+        enqueue_receive();
 }
 
 void netmap_udp_reader::enqueue_receive()
