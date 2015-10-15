@@ -32,6 +32,30 @@ namespace spead2
 {
 
 /**
+ * Semaphore that uses no system calls, instead spinning on an atomic.
+ *
+ * This is useful for a heavily contended ringbuffer with low capacity.
+ * In most other cases, increasing the ringbuffer size is sufficient.
+ */
+class semaphore_spin
+{
+private:
+    std::atomic<unsigned int> value;
+
+public:
+    explicit semaphore_spin(unsigned int initial = 0);
+
+    /// @copydoc semaphore::put
+    void put();
+
+    /// @copydoc semaphore::get
+    int get();
+
+    /// @copydoc semaphore::try_get
+    int try_get();
+};
+
+/**
  * Semaphore that uses file descriptors, so that it can be plumbed
  * into an event loop.
  */
@@ -45,7 +69,7 @@ private:
     semaphore_fd &operator=(const semaphore_fd &) = delete;
 
 public:
-    explicit semaphore_fd(int initial = 0);
+    explicit semaphore_fd(unsigned int initial = 0);
     ~semaphore_fd();
 
     /// Move constructor
@@ -79,7 +103,7 @@ private:
     sem_t sem;
 
 public:
-    explicit semaphore(int initial = 0);
+    explicit semaphore(unsigned int initial = 0);
     ~semaphore();
 
     /// Increment

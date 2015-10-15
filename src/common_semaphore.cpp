@@ -44,9 +44,44 @@ static void log_errno(const char *format)
     log_warning(format, code.value(), code.message());
 }
 
+semaphore_spin::semaphore_spin(unsigned int initial)
+    : value(initial)
+{
+}
+
+void semaphore_spin::put()
+{
+    value.fetch_add(1, std::memory_order_release);
+}
+
+int semaphore_spin::get()
+{
+    unsigned int cur = value.load(std::memory_order_acquire);
+    while (true)
+    {
+        if (cur == 0)
+            cur = value.load(std::memory_order_acquire);
+        else if (value.compare_exchange_weak(
+            cur, cur - 1, std::memory_order_acquire))
+            break;
+    }
+    return 0;
+}
+
+int semaphore_spin::try_get()
+{
+    unsigned int cur = value.load(std::memory_order_acquire);
+    if (cur > 0
+        && value.compare_exchange_strong(
+            cur, cur - 1, std::memory_order_acquire))
+        return 0;
+    else
+        return -1;
+}
+
 #if !__APPLE__
 
-semaphore::semaphore(int initial)
+semaphore::semaphore(unsigned int initial)
 {
     if (sem_init(&sem, 0, initial) == -1)
         throw_errno();
@@ -127,7 +162,7 @@ semaphore_fd &semaphore_fd::operator=(semaphore_fd &&other)
     return *this;
 }
 
-semaphore_fd::semaphore_fd(int initial)
+semaphore_fd::semaphore_fd(unsigned int initial)
 {
     if (pipe(pipe_fds) == -1)
         throw_errno();

@@ -178,6 +178,8 @@ int main(int argc, const char **argv)
         run<spead2::ringbuffer<item_t, spead2::semaphore_fd, spead2::semaphore_fd>>(opts);
     else if (opts.type == "light")
         run<spead2::ringbuffer<item_t>>(opts);
+    else if (opts.type == "spin")
+        run<spead2::ringbuffer<item_t, spead2::semaphore_spin, spead2::semaphore_spin>>(opts);
 
     return 0;
 }
