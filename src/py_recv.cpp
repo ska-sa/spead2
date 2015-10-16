@@ -266,9 +266,10 @@ void register_module()
         .def_readonly("is_immediate", &item_wrapper::is_immediate)
         .add_property("value", &item_wrapper::get_value);
     class_<ring_stream_wrapper, boost::noncopyable>("Stream",
-            init<thread_pool_wrapper &, bug_compat_mask, std::size_t>(
+            init<thread_pool_wrapper &, bug_compat_mask, std::size_t, std::size_t>(
                 (arg("thread_pool"), arg("bug_compat") = 0,
-                 arg("max_heaps") = ring_stream_wrapper::default_max_heaps))[
+                 arg("max_heaps") = ring_stream_wrapper::default_max_heaps,
+                 arg("ring_heaps") = ring_stream_wrapper::default_ring_heaps))[
                 store_handle_postcall<ring_stream_wrapper, &ring_stream_wrapper::thread_pool_handle, 1, 2>()])
         .def("__iter__", objects::identity_function())
         .def(
@@ -293,6 +294,7 @@ void register_module()
         .def("stop", &ring_stream_wrapper::stop)
         .add_property("fd", &ring_stream_wrapper::get_fd)
         .def_readonly("DEFAULT_MAX_HEAPS", ring_stream_wrapper::default_max_heaps)
+        .def_readonly("DEFAULT_RING_HEAPS", ring_stream_wrapper::default_ring_heaps)
         .def_readonly("DEFAULT_UDP_MAX_SIZE", udp_reader::default_max_size)
         .def_readonly("DEFAULT_UDP_BUFFER_SIZE", udp_reader::default_buffer_size);
 }

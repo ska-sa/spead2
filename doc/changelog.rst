@@ -3,7 +3,16 @@ Changelog
 
 .. rubric:: Development version
 
-- Add spead2_recv C++, a more fully-featured alternative to test_recv
+- Add C++ version of spead2_recv, a more fully-featured alternative to test_recv
+
+- **backwards-incompatible change**:
+  Add `ring_heaps` parameter to :cpp:class:`~spead2::recv::ring_stream`
+  constructor. Code that specifies the
+  :cpp:class:`~spead2::recv::contiguous_only` parameter will need to be
+  modified since the position has changed. Python code is unaffected.
+
+- Increased the default for `ring_heaps` from 2 (previously hardcoded) to 4 to
+  improve throughput for small heaps.
 
 .. rubric:: Version 0.4.0
 

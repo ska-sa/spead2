@@ -50,6 +50,7 @@ def get_args():
     group.add_argument('--buffer', type=int, default=spead2.recv.Stream.DEFAULT_UDP_BUFFER_SIZE, help='Socket buffer size [%(default)s]')
     group.add_argument('--threads', type=int, default=1, help='Number of worker threads [%(default)s]')
     group.add_argument('--heaps', type=int, default=spead2.recv.Stream.DEFAULT_MAX_HEAPS, help='Maximum number of in-flight heaps [%(default)s]')
+    group.add_argument('--ring-heaps', type=int, default=spead2.recv.Stream.DEFAULT_RING_HEAPS, help='Ring buffer capacity in heaps [%(default)s]')
     group.add_argument('--mem-pool', action='store_true', help='Use a memory pool')
     group.add_argument('--mem-lower', type=int, default=16384, help='Minimum allocation which will use the memory pool [%(default)s]')
     group.add_argument('--mem-upper', type=int, default=32 * 1024**2, help='Maximum allocation which will use the memory pool [%(default)s]')
@@ -91,7 +92,7 @@ Descriptor for {0.name} ({0.id:#x})
 def main():
     def make_stream(sources):
         bug_compat = spead2.BUG_COMPAT_PYSPEAD_0_5_2 if args.pyspead else 0
-        stream = spead2.recv.trollius.Stream(thread_pool, bug_compat, args.heaps)
+        stream = spead2.recv.trollius.Stream(thread_pool, bug_compat, args.heaps, args.ring_heaps)
         if memory_pool is not None:
             stream.set_memory_pool(memory_pool)
         for source in sources:

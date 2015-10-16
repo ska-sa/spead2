@@ -34,6 +34,18 @@ namespace recv
 {
 
 /**
+ * Base class for ring_stream containing only the parts that are independent of
+ * the ringbuffer class.
+ */
+class ring_stream_base : public stream
+{
+public:
+    static constexpr std::size_t default_ring_heaps = 4;
+
+    using stream::stream;
+};
+
+/**
  * Specialisation of @ref stream that pushes its results into a ringbuffer.
  * The ringbuffer class may be replaced, but must provide the same interface as
  * @ref ringbuffer. If the ring buffer fills up, @ref add_packet will block the
@@ -45,7 +57,7 @@ namespace recv
  * This class is thread-safe.
  */
 template<typename Ringbuffer = ringbuffer<live_heap> >
-class ring_stream : public stream
+class ring_stream : public ring_stream_base
 {
 private:
     Ringbuffer ready_heaps;
@@ -58,13 +70,15 @@ public:
      *
      * @param io_service       I/O service (also used by the readers)
      * @param bug_compat       Bug compatibility flags for interpreting heaps
-     * @param max_heaps        Number of partial heaps
+     * @param max_heaps        Number of partial heaps to keep around
+     * @param ring_heaps       Capacity of the ringbuffer
      * @param contiguous_only  If true, only contiguous heaps are pushed to the ring buffer
      */
     explicit ring_stream(
         boost::asio::io_service &io_service,
         bug_compat_mask bug_compat = 0,
         std::size_t max_heaps = default_max_heaps,
+        std::size_t ring_heaps = default_ring_heaps,
         bool contiguous_only = true);
     /**
      * Constructor.
@@ -72,14 +86,16 @@ public:
      * @param pool             Used only to find the I/O service
      * @param bug_compat       Bug compatibility flags for interpreting heaps
      * @param max_heaps        Number of partial heaps
+     * @param ring_heaps       Capacity of the ringbuffer
      * @param contiguous_only  If true, only contiguous heaps are pushed to the ring buffer
      */
     explicit ring_stream(
         thread_pool &pool,
         bug_compat_mask bug_compat = 0,
         std::size_t max_heaps = default_max_heaps,
+        std::size_t ring_heaps = default_ring_heaps,
         bool contiguous_only = true)
-        : ring_stream(pool.get_io_service(), bug_compat, max_heaps, contiguous_only) {}
+        : ring_stream(pool.get_io_service(), bug_compat, max_heaps, ring_heaps, contiguous_only) {}
 
     /**
      * Wait until a contiguous heap is available, freeze it, and
@@ -111,9 +127,11 @@ public:
 template<typename Ringbuffer>
 ring_stream<Ringbuffer>::ring_stream(
     boost::asio::io_service &io_service,
-    bug_compat_mask bug_compat, std::size_t max_heaps,
+    bug_compat_mask bug_compat,
+    std::size_t max_heaps,
+    std::size_t ring_heaps,
     bool contiguous_only)
-    : stream(io_service, bug_compat, max_heaps), ready_heaps(2),
+    : ring_stream_base(io_service, bug_compat, max_heaps), ready_heaps(ring_heaps),
     contiguous_only(contiguous_only)
 {
 }

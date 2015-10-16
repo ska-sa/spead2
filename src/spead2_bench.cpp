@@ -53,6 +53,7 @@ struct options
     std::size_t recv_buffer = spead2::recv::udp_reader::default_buffer_size;
     std::size_t burst_size = spead2::send::stream_config::default_burst_size;
     std::size_t heaps = spead2::recv::stream_base::default_max_heaps;
+    std::size_t ring_heaps = spead2::recv::ring_stream_base::default_ring_heaps;
     std::size_t mem_max_free = 12;
     std::size_t mem_initial = 8;
 
@@ -86,6 +87,7 @@ static options parse_master_args(int argc, const char **argv)
         ("recv-buffer", make_opt(opts.recv_buffer), "Socket buffer size (receiver)")
         ("burst", make_opt(opts.burst_size), "Send burst size")
         ("heaps", make_opt(opts.heaps), "Maximum number of in-flight heaps")
+        ("ring-heaps", make_opt(opts.ring_heaps), "Ring buffer capacity in heaps")
         ("mem-max-free", make_opt(opts.mem_max_free), "Maximum free memory buffers")
         ("mem-initial", make_opt(opts.mem_initial), "Initial free memory buffers")
         ("help,h", "Show help text");
@@ -149,6 +151,7 @@ static bool measure_connection_once(
             << opts.recv_buffer << ' '
             << opts.burst_size << ' '
             << opts.heaps << ' '
+            << opts.ring_heaps << ' '
             << opts.mem_max_free << ' '
             << opts.mem_initial << std::endl;
         std::string response;
@@ -381,7 +384,7 @@ class slave_connection_ring : public slave_connection
 
 public:
     slave_connection_ring(const options &opts, const asio::ip::udp::endpoint &endpoint)
-        : slave_connection(opts, endpoint), stream(thread_pool, 0, opts.heaps)
+        : slave_connection(opts, endpoint), stream(thread_pool, 0, opts.heaps, opts.ring_heaps)
     {
         stream.emplace_reader<spead2::recv::udp_reader>(
             endpoint, opts.packet_size, opts.recv_buffer);
@@ -451,6 +454,7 @@ static void main_slave(int argc, const char **argv)
                     >> opts.recv_buffer
                     >> opts.burst_size
                     >> opts.heaps
+                    >> opts.ring_heaps
                     >> opts.mem_max_free
                     >> opts.mem_initial;
                 if (opts.ring)

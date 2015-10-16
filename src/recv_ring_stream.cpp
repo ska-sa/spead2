@@ -18,13 +18,15 @@
  * @file
  */
 
+#include <cstddef>
+#include "recv_ring_stream.h"
+
 namespace spead2
 {
 namespace recv
 {
-namespace detail
-{
 
 constexpr std::size_t ring_stream_base::default_ring_heaps;
 
-}}} // namespace spead2::recv::detail
+} // namespace recv
+} // namespace spead2

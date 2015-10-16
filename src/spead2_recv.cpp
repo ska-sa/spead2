@@ -45,6 +45,7 @@ struct options
     std::size_t buffer = spead2::recv::udp_reader::default_buffer_size;
     int threads = 1;
     std::size_t heaps = spead2::recv::stream::default_max_heaps;
+    std::size_t ring_heaps = spead2::recv::ring_stream_base::default_ring_heaps;
     bool mem_pool = false;
     std::size_t mem_lower = 16384;
     std::size_t mem_upper = 32 * 1024 * 1024;
@@ -89,6 +90,7 @@ static options parse_args(int argc, const char **argv)
         ("buffer", make_opt(opts.buffer), "Socket buffer size")
         ("threads", make_opt(opts.threads), "Number of worker threads")
         ("heaps", make_opt(opts.heaps), "Maximum number of in-flight heaps")
+        ("ring-heaps", make_opt(opts.ring_heaps), "Ring buffer capacity in heaps")
         ("mem-pool", make_opt(opts.mem_pool), "Use a memory pool")
         ("mem-lower", make_opt(opts.mem_lower), "Minimum allocation which will use the memory pool")
         ("mem-upper", make_opt(opts.mem_upper), "Maximum allocation which will use the memory pool")
@@ -233,7 +235,7 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
     std::unique_ptr<spead2::recv::stream> stream;
     spead2::bug_compat_mask bug_compat = opts.pyspead ? spead2::BUG_COMPAT_PYSPEAD_0_5_2 : 0;
     if (opts.ring)
-        stream.reset(new spead2::recv::ring_stream<>(thread_pool, bug_compat, opts.heaps));
+        stream.reset(new spead2::recv::ring_stream<>(thread_pool, bug_compat, opts.heaps, opts.ring_heaps));
     else
         stream.reset(new callback_stream(opts, thread_pool, bug_compat, opts.heaps));
 
