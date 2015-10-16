@@ -183,7 +183,7 @@ semaphore_fd::semaphore_fd(unsigned int initial)
     if (fcntl(pipe_fds[0], F_SETFL, flags) == -1)
         throw_errno();
     // TODO: this could probably be optimised
-    for (int i = 0; i < initial; i++)
+    for (unsigned int i = 0; i < initial; i++)
         put();
 }
 
