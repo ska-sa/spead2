@@ -117,11 +117,9 @@ static options parse_args(int argc, const char **argv)
             usage(std::cout, desc);
             std::exit(0);
         }
-        opts.sources = vm["source"].as<std::vector<std::string>>();
-        if (opts.sources.empty())
-        {
+        if (!vm.count("source"))
             throw po::error("At least one port is required");
-        }
+        opts.sources = vm["source"].as<std::vector<std::string>>();
         return opts;
     }
     catch (po::error &e)
