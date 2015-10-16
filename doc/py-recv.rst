@@ -34,16 +34,17 @@ transports to it with :py:meth:`~spead2.recv.Stream.add_buffer_reader` and
 :py:meth:`~spead2.recv.Stream.add_udp_reader`. Then either iterate over it,
 or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
-.. py:class:: spead2.recv.Stream(thread_pool, bug_compat=0, max_heaps=4)
+.. py:class:: spead2.recv.Stream(thread_pool, bug_compat=0, max_heaps=4, ring_heaps=4)
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
    :param int bug_compat: Bug compatibility flags (see :ref:`py-flavour`)
-   :param int max_heaps: Size of heap buffers. This determines the number
-     of partial heaps that can be live at one time (when a packet from a
-     new heap arrives, the old heap is discarded). It also determines the
-     number of complete heaps not returned to the user that will be kept
-     (new completed heaps will be dropped).
+   :param int max_heaps: The number of partial heaps that can be live at one
+     time. This affects how intermingled heaps can be (due to out-of-order
+     packet delivery) before heaps get dropped.
+   :param int ring_heaps: The capacity of the ring buffer between the network
+     threads and the consumer. Increasing this may reduce lock contention at
+     the cost of more memory usage.
 
    .. py:method:: set_memory_pool(pool)
 

@@ -35,6 +35,30 @@ IPv4 and an MTU of 9200, use a packet size of 9172.
 .. [#] The UDP and IP header together add 28 bytes, bringing the IP packet to
    the conventional MTU of 1500 bytes.
 
+Tuning based on heap size
+-------------------------
+The library has a number of tuning parameters that are reasonable for
+medium-to-large heaps (megabytes to hundreds of megabytes). If using many
+smaller heaps, some of the tuning parameters may need to be adjusted. In
+particular
+
+- Increase the `max_heaps` parameter to the
+  :py:class:`spead2.send.StreamConfig` constructor.
+- Increase the `max_heaps` parameter to the :py:class:`spead2.recv.Stream`
+  constructor if you expect the network to reorder packets significantly
+  (e.g., because data is arriving from multiple senders which are not
+  completely synchronised). For single-packet heaps this has no effect.
+- Increase the `ring_heaps` parameter to the :py:class:`spead2.recv.Stream`
+  constructor to reduce lock contention. This has rapidly diminishing returns
+  beyond about 16.
+
+It is important to experiment to determine good values. Simply cranking
+everything way up can actually reduce performance by increase memory usage and
+thus reducing cache efficiency.
+
+For very large heaps (gigabytes) some of these values can be decreased to 2
+(or possibly even 1) to keep memory usage under control.
+
 Heap lifetime
 -------------
 All the payload for a heap is stored in a single memory allocation, and where
@@ -80,3 +104,11 @@ return to full performance, which can translate into megabytes of data on a
 high-speed incoming stream. If a high-speed stream is expected, one should
 disable these features or otherwise bring the system up to full performance
 before the stream starts flowing.
+
+Similarly, some Ethernet adaptors default to using adaptive interrupt
+mitigation to dynamically adjust the latency/bandwidth tradeoff depending on
+traffic, but can be too slow to adapt. Assuming your application is
+latency-tolerant, this can be disabled with
+
+.. code-block:: sh
+    ethtool -C eth1 adaptive-rx off
