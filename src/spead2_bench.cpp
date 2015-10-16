@@ -178,17 +178,17 @@ static bool measure_connection_once(
         for (std::int64_t i = 0; i < num_heaps; i++)
         {
             heaps.emplace_back(flavour);
-            if (i + 1 < num_heaps)
-                heaps.back().add_item(0x1234, data, false);
-            else
-                heaps.back().add_end();
+            heaps.back().add_item(0x1234, data, false);
         }
+        heaps.emplace_back(flavour);
+        heaps.back().add_end();
 
         /* Send the heaps */
         auto start = std::chrono::high_resolution_clock::now();
         std::int64_t transferred = 0;
         boost::system::error_code last_error;
-        for (std::int64_t i = 0; i < num_heaps; i++)
+        // Go up to and including so that the stop heap goes too
+        for (std::int64_t i = 0; i <= num_heaps; i++)
         {
             auto callback = [&transferred, &last_error] (
                 const boost::system::error_code &ec, spead2::item_pointer_t bytes)

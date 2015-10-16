@@ -124,14 +124,11 @@ def run_slave(args):
 @trollius.coroutine
 def send_stream(item_group, stream, num_heaps):
     tasks = []
-    for i in range(num_heaps):
-        if i == num_heaps - 1:
+    for i in range(num_heaps + 1):
+        if i == num_heaps:
             heap = item_group.get_end()
-            task = trollius.async(stream.async_send_heap(item_group.get_end()))
         else:
-            for item in item_group.values():
-                item.version += 1
-            heap = item_group.get_heap()
+            heap = item_group.get_heap(data='all')
         task = trollius.async(stream.async_send_heap(heap))
         tasks.append(task)
     yield From(trollius.wait(tasks))
