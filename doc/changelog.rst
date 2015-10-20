@@ -18,6 +18,8 @@ Changelog
   allows socket options to be set by the user, for example, to configure
   multicast.
 
+- Force numpy>=1.9.2 to avoid a numpy [bug](https://github.com/numpy/numpy/issues/5356).
+
 .. rubric:: Version 0.4.0
 
 - Enforce ASCII encoding on descriptor fields.

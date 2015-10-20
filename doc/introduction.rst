@@ -27,9 +27,10 @@ and Clang 3.4 have been tried), Python development headers, and
 Boost. At the moment only GNU/Linux has been tested but other POSIX-like
 systems should work too.
 
-The only Python dependency is numpy_. Running the test suite additionally
+The only Python dependencies are numpy_ and six_. Running the test suite additionally
 requires nose_ and decorator_, and some tests depend on PySPEAD_ (they will be
-skipped if it is not installed). Once the dependencies have been installed,
+skipped if it is not installed). Finally, the asynchronous I/O support requires trollius_.
+To install (which will automatically pull in the mandatory dependencies),
 run::
 
     ./setup.py install
@@ -37,8 +38,10 @@ run::
 Other standard methods for installing Python packages should work too.
 
 .. _numpy: http://www.numpy.org
+.. _six: https://pythonhosted.org/six/
 .. _nose: https://nose.readthedocs.org/en/latest/
 .. _decorator: http://pythonhosted.org//decorator/
+.. _trollius: http://trollius.readthedocs.org/en/latest/
 
 High-performance usage requires larger buffer sizes than Linux allows by
 default. The following commands will increase the permitted buffer sizes::
