@@ -26,6 +26,7 @@
 #include <mutex>
 #include <utility>
 #include <memory>
+#include <unistd.h>
 #include "send_heap.h"
 #include "send_stream.h"
 #include "send_udp.h"
@@ -234,25 +235,74 @@ private:
     static boost::asio::ip::udp::endpoint make_endpoint(
         boost::asio::io_service &io_service, const std::string &hostname, int port);
 
+    static boost::asio::ip::udp::socket make_socket(
+        boost::asio::io_service &io_service, const boost::asio::ip::udp &protocol,
+        const py::object &socket);
+
+    /* Intermediate chained constructor that has the hostname and port
+     * converted to an endpoint, so that it can be used in turn to
+     * construct the asio socket.
+     */
+    udp_stream_wrapper(
+        thread_pool &pool,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        const stream_config &config,
+        std::size_t buffer_size,
+        const py::object &socket)
+        : Base(
+            make_socket(pool.get_io_service(), endpoint.protocol(), socket),
+            endpoint,
+            config, buffer_size)
+    {
+    }
+
 public:
     udp_stream_wrapper(
         thread_pool &pool,
         const std::string &hostname,
         int port,
-        const stream_config &config = stream_config(),
-        std::size_t buffer_size = Base::default_buffer_size)
-        : Base(
-            pool.get_io_service(),
-            make_endpoint(pool.get_io_service(), hostname, port),
-            config, buffer_size)
+        const stream_config &config,
+        std::size_t buffer_size,
+        const py::object &socket)
+        : udp_stream_wrapper(
+            pool, make_endpoint(pool.get_io_service(), hostname, port),
+            config, buffer_size, socket)
     {
     }
 };
 
 template<typename Base>
+boost::asio::ip::udp::socket udp_stream_wrapper<Base>::make_socket(
+    boost::asio::io_service &io_service,
+    const boost::asio::ip::udp &protocol,
+    const py::object &socket)
+{
+    using boost::asio::ip::udp;
+    if (!socket.is_none())
+    {
+        int fd = py::extract<int>(socket.attr("fileno")());
+        /* Need to duplicate the FD, since Python still owns the original */
+        int fd2 = ::dup(fd);
+        if (fd2 == -1)
+        {
+            PyErr_SetFromErrno(PyExc_OSError);
+            throw py::error_already_set();
+        }
+        /* TODO: will this leak the FD if the constructor fails? Can the
+         * constructor fail or is it just setting an FD in an object?
+         */
+        return boost::asio::ip::udp::socket(io_service, protocol, fd2);
+    }
+    else
+        return boost::asio::ip::udp::socket(io_service, protocol);
+}
+
+template<typename Base>
 boost::asio::ip::udp::endpoint udp_stream_wrapper<Base>::make_endpoint(
     boost::asio::io_service &io_service, const std::string &hostname, int port)
 {
+    release_gil gil;
+
     using boost::asio::ip::udp;
     udp::endpoint endpoint(boost::asio::ip::address_v4::any(), port);
     udp::resolver resolver(io_service);
@@ -328,10 +378,11 @@ void register_module()
     {
         typedef udp_stream_wrapper<stream_wrapper<udp_stream> > T;
         class_<T, boost::noncopyable>("UdpStream", init<
-                thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t>(
+                thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, const py::object &>(
                     (arg("thread_pool"), arg("hostname"), arg("port"),
                      arg("config") = stream_config(),
-                     arg("buffer_size") = T::default_buffer_size))[
+                     arg("buffer_size") = T::default_buffer_size,
+                     arg("socket") = py::object()))[
                 store_handle_postcall<T, &T::thread_pool_handle, 1, 2>()])
             .def("send_heap", &T::send_heap, arg("heap"))
             .def_readonly("DEFAULT_BUFFER_SIZE", T::default_buffer_size);
@@ -340,10 +391,11 @@ void register_module()
     {
         typedef udp_stream_wrapper<asyncio_stream_wrapper<udp_stream> > T;
         class_<T, boost::noncopyable>("UdpStreamAsyncio", init<
-                thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t>(
+                thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, const py::object &>(
                     (arg("thread_pool"), arg("hostname"), arg("port"),
                      arg("config") = stream_config(),
-                     arg("buffer_size") = T::default_buffer_size))[
+                     arg("buffer_size") = T::default_buffer_size,
+                     arg("socket") = py::object()))[
                 store_handle_postcall<T, &T::thread_pool_handle, 1, 2>()])
             .add_property("fd", &T::get_fd)
             .def("async_send_heap", &T::async_send_heap, arg("heap"))

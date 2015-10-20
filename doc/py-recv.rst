@@ -58,7 +58,7 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
       Feed data from an object implementing the buffer protocol.
 
-   .. py:method:: add_udp_reader(port, max_size=9200, buffer_size=8388608, bind_host_name='')
+   .. py:method:: add_udp_reader(port, max_size=9200, buffer_size=8388608, bind_host_name='', socket=None)
 
       Feed data from a UDP port.
 
@@ -69,6 +69,11 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
         will be logged, but there will not be an error.
       :param str bind_hostname: If specified, the socket will be bound to the
         first IP address found by resolving the given hostname.
+      :param socket.socket socket: If specified, this socket is used rather
+        than a new one. The socket must be open but unbound. The caller must
+        not use this socket any further, although it is not necessary to keep
+        it alive. This is mainly useful for setting socket options such as
+        multicast subscriptions.
 
    .. py:method:: get()
 

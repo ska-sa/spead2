@@ -54,6 +54,16 @@ public:
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size);
+
+    /**
+     * Constructor using an existing socket. The socket must be open but
+     * not bound.
+     */
+    udp_stream(
+        boost::asio::ip::udp::socket &&socket,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        const stream_config &config = stream_config(),
+        std::size_t buffer_size = default_buffer_size);
 };
 
 } // namespace send

@@ -36,19 +36,20 @@ constexpr std::size_t udp_reader::default_buffer_size;
 
 udp_reader::udp_reader(
     stream &owner,
+    boost::asio::ip::udp::socket &&socket,
     const boost::asio::ip::udp::endpoint &endpoint,
     std::size_t max_size,
     std::size_t buffer_size)
-    : reader(owner), socket(get_io_service()), max_size(max_size)
+    : reader(owner), socket(std::move(socket)), max_size(max_size)
 {
+    assert(&this->socket.get_io_service() == &get_io_service());
     // Allocate one extra byte so that overflow can be detected
     buffer.reset(new std::uint8_t[max_size + 1]);
-    socket.open(endpoint.protocol());
     if (buffer_size != 0)
     {
         boost::asio::socket_base::receive_buffer_size option(buffer_size);
         boost::system::error_code ec;
-        socket.set_option(option, ec);
+        this->socket.set_option(option, ec);
         if (ec)
         {
             log_warning("request for buffer size %s failed (%s): refer to documentation for details on increasing buffer size",
@@ -58,7 +59,7 @@ udp_reader::udp_reader(
         {
             // Linux silently clips to the maximum allowed size
             boost::asio::socket_base::receive_buffer_size actual;
-            socket.get_option(actual);
+            this->socket.get_option(actual);
             if (std::size_t(actual.value()) < buffer_size)
             {
                 log_warning("requested buffer size %d but only received %d: refer to documentation for details on increasing buffer size",
@@ -66,8 +67,20 @@ udp_reader::udp_reader(
             }
         }
     }
-    socket.bind(endpoint);
+    this->socket.bind(endpoint);
     enqueue_receive();
+}
+
+udp_reader::udp_reader(
+    stream &owner,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    std::size_t max_size,
+    std::size_t buffer_size)
+    : udp_reader(
+        owner,
+        boost::asio::ip::udp::socket(owner.get_strand().get_io_service(), endpoint.protocol()),
+        endpoint, max_size, buffer_size)
+{
 }
 
 void udp_reader::packet_handler(

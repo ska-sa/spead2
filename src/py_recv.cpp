@@ -21,6 +21,7 @@
 #include <boost/make_shared.hpp>
 #include <numpy/arrayobject.h>
 #include <stdexcept>
+#include <unistd.h>
 #include "recv_udp.h"
 #include "recv_mem.h"
 #include "recv_stream.h"
@@ -171,6 +172,20 @@ private:
     py::handle<> thread_pool_handle;
     friend void register_module();
 
+private:
+    boost::asio::ip::udp::endpoint make_endpoint(const std::string &hostname, int port)
+    {
+        using boost::asio::ip::udp;
+        udp::endpoint endpoint(boost::asio::ip::address_v4::any(), port);
+        if (!hostname.empty())
+        {
+            udp::resolver resolver(get_strand().get_io_service());
+            udp::resolver::query query(hostname, "", udp::resolver::query::passive | udp::resolver::query::address_configured);
+            endpoint.address(resolver.resolve(query)->endpoint().address());
+        }
+        return endpoint;
+    }
+
 public:
     using ring_stream::ring_stream;
 
@@ -218,18 +233,36 @@ public:
         int port,
         std::size_t max_size = udp_reader::default_max_size,
         std::size_t buffer_size = udp_reader::default_buffer_size,
-        const std::string &bind_hostname = "")
+        const std::string &bind_hostname = "",
+        const py::object &socket = py::object())
     {
-        using boost::asio::ip::udp;
-        release_gil gil;
-        udp::endpoint endpoint(boost::asio::ip::address_v4::any(), port);
-        if (!bind_hostname.empty())
+        int fd2 = -1;
+        if (!socket.is_none())
         {
-            udp::resolver resolver(get_strand().get_io_service());
-            udp::resolver::query query(bind_hostname, "", udp::resolver::query::passive | udp::resolver::query::address_configured);
-            endpoint.address(resolver.resolve(query)->endpoint().address());
+            int fd = py::extract<int>(socket.attr("fileno")());
+            /* Python still owns this FD and will close it, so we have to duplicate
+             * it for ourselves.
+             */
+            fd2 = ::dup(fd);
+            if (fd2 == -1)
+            {
+                PyErr_SetFromErrno(PyExc_OSError);
+                throw py::error_already_set();
+            }
         }
-        emplace_reader<udp_reader>(endpoint, max_size, buffer_size);
+
+        release_gil gil;
+        auto endpoint = make_endpoint(bind_hostname, port);
+        if (fd2 == -1)
+        {
+            emplace_reader<udp_reader>(endpoint, max_size, buffer_size);
+        }
+        else
+        {
+            boost::asio::ip::udp::socket asio_socket(
+                get_strand().get_io_service(), endpoint.protocol(), fd2);
+            emplace_reader<udp_reader>(std::move(asio_socket), endpoint, max_size, buffer_size);
+        }
     }
 
     void stop()
@@ -290,7 +323,8 @@ void register_module()
              (arg("port"),
               arg("max_size") = udp_reader::default_max_size,
               arg("buffer_size") = udp_reader::default_buffer_size,
-              arg("bind_hostname") = std::string()))
+              arg("bind_hostname") = std::string(),
+              arg("socket") = py::object()))
         .def("stop", &ring_stream_wrapper::stop)
         .add_property("fd", &ring_stream_wrapper::get_fd)
         .def_readonly("DEFAULT_MAX_HEAPS", ring_stream_wrapper::default_max_heaps)

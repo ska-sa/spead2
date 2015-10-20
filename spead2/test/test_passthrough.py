@@ -23,6 +23,8 @@ import io
 import spead2
 import spead2.send
 import spead2.recv
+import socket
+import struct
 from decorator import decorator
 from nose.tools import *
 from nose.plugins.skip import SkipTest
@@ -221,6 +223,37 @@ class TestPassthroughUdp(BaseTestPassthrough):
                 buffer_size=0)
         receiver = spead2.recv.Stream(thread_pool)
         receiver.add_udp_reader(8888, bind_hostname="localhost")
+        gen = spead2.send.HeapGenerator(item_group)
+        sender.send_heap(gen.get_heap())
+        sender.send_heap(gen.get_end())
+        received_item_group = spead2.ItemGroup()
+        for heap in receiver:
+            received_item_group.update(heap)
+        return received_item_group
+
+
+class TestPassthroughUDPMulticast(BaseTestPassthrough):
+    def transmit_item_group(self, item_group):
+        thread_pool = spead2.ThreadPool(2)
+        mcast_group = '239.255.88.88'
+        localhost = '127.0.0.1'
+        # Configure sending socket for multicast over local interface
+        send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        req = struct.pack('4s4s', socket.inet_aton(mcast_group), socket.inet_aton(localhost))
+        send_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, req)
+        send_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
+        # Configure receiving socket for multicast over local interface
+        recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        recv_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
+        # Proceed as usual
+        sender = spead2.send.UdpStream(
+                thread_pool, mcast_group, 8887,
+                spead2.send.StreamConfig(rate=1e8),
+                buffer_size=0, socket=send_sock)
+        receiver = spead2.recv.Stream(thread_pool)
+        receiver.add_udp_reader(8887, bind_hostname=mcast_group, socket=recv_sock)
+        send_sock.close()  # spead2 should be using a duplicated FD
+        recv_sock.close()
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
         sender.send_heap(gen.get_end())

@@ -32,16 +32,24 @@ udp_stream::udp_stream(
     const boost::asio::ip::udp::endpoint &endpoint,
     const stream_config &config,
     std::size_t buffer_size)
-    : stream<udp_stream>(io_service, config),
-    socket(io_service), endpoint(endpoint)
+    : udp_stream(boost::asio::ip::udp::socket(io_service, endpoint.protocol()),
+                 endpoint, config, buffer_size)
 {
-    boost::asio::ip::udp::socket socket(io_service);
-    socket.open(endpoint.protocol());
+}
+
+udp_stream::udp_stream(
+    boost::asio::ip::udp::socket &&socket,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    const stream_config &config,
+    std::size_t buffer_size)
+    : stream<udp_stream>(socket.get_io_service(), config),
+    socket(std::move(socket)), endpoint(endpoint)
+{
     if (buffer_size != 0)
     {
         boost::asio::socket_base::send_buffer_size option(buffer_size);
         boost::system::error_code ec;
-        socket.set_option(option, ec);
+        this->socket.set_option(option, ec);
         if (ec)
         {
             log_warning("request for socket buffer size %s failed (%s): refer to documentation for details on increasing buffer size",
@@ -51,7 +59,7 @@ udp_stream::udp_stream(
         {
             // Linux silently clips to the maximum allowed size
             boost::asio::socket_base::send_buffer_size actual;
-            socket.get_option(actual);
+            this->socket.get_option(actual);
             if (std::size_t(actual.value()) < buffer_size)
             {
                 log_warning("requested socket buffer size %d but only received %d: refer to documentation for details on increasing buffer size",
@@ -59,7 +67,6 @@ udp_stream::udp_stream(
             }
         }
     }
-    this->socket = std::move(socket);
 }
 
 } // namespace send

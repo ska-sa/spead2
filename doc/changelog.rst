@@ -14,6 +14,10 @@ Changelog
 - Increased the default for `ring_heaps` from 2 (previously hardcoded) to 4 to
   improve throughput for small heaps.
 
+- Add support for user to provide the socket for UDP communications. This
+  allows socket options to be set by the user, for example, to configure
+  multicast.
+
 .. rubric:: Version 0.4.0
 
 - Enforce ASCII encoding on descriptor fields.

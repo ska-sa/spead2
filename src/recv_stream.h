@@ -18,8 +18,8 @@
  * @file
  */
 
-#ifndef SPEAD2_RECV_STREAM
-#define SPEAD2_RECV_STREAM
+#ifndef SPEAD2_RECV_STREAM_H
+#define SPEAD2_RECV_STREAM_H
 
 #include <cstddef>
 #include <deque>
@@ -33,6 +33,7 @@
 #include "recv_live_heap.h"
 #include "recv_reader.h"
 #include "common_memory_pool.h"
+#include "common_bind.h"
 
 namespace spead2
 {
@@ -238,8 +239,8 @@ public:
         // This would probably work better with a lambda (better forwarding),
         // but GCC 4.8 has a bug with accessing parameter packs inside a
         // lambda.
-        run_in_strand(std::bind(
-                &stream::emplace_reader_callback<T, const Args&...>,
+        run_in_strand(detail::reference_bind(
+                std::mem_fn(&stream::emplace_reader_callback<T, Args&&...>),
                 this, std::forward<Args>(args)...));
     }
 
@@ -267,4 +268,4 @@ const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::
 } // namespace recv
 } // namespace spead2
 
-#endif // SPEAD2_RECV_STREAM
+#endif // SPEAD2_RECV_STREAM_H

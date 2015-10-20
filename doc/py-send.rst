@@ -39,7 +39,7 @@ is paired with one heap generator, a convenience class
 Blocking send
 ^^^^^^^^^^^^^
 
-.. py:class:: spead2.send.UdpStream(thread_pool, hostname, port, config, buffer_size=524288)
+.. py:class:: spead2.send.UdpStream(thread_pool, hostname, port, config, buffer_size=524288, socket=None)
 
    Stream using UDP. Note that since UDP is an unreliable protocol, there is
    no guarantee that packets arrive.
@@ -52,6 +52,11 @@ Blocking send
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
      size cannot be set due to OS limits.
+   :param socket.socket socket: If specified, this socket is used rather
+     than a new one. The socket must be open but unbound. The caller must
+     not use this socket any further, although it is not necessary to keep
+     it alive. This is mainly useful for setting socket options such as
+     multicast TTL.
 
    .. py:method:: send_heap(heap)
 
@@ -93,7 +98,7 @@ the futures returned by :meth:`~spead2.send.trollius.UdpStream.async_send_heap` 
 
 .. _trollius: http://trollius.readthedocs.org/
 
-.. autoclass:: spead2.send.trollius.UdpStream(thread_pool, hostname, port, config, buffer_size=524288, loop=None)
+.. autoclass:: spead2.send.trollius.UdpStream(thread_pool, hostname, port, config, buffer_size=524288, socket=None, loop=None)
 
    .. automethod:: spead2.send.trollius.UdpStream.async_send_heap
    .. py:method:: flush
