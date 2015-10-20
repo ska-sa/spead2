@@ -111,4 +111,5 @@ traffic, but can be too slow to adapt. Assuming your application is
 latency-tolerant, this can be disabled with
 
 .. code-block:: sh
+
     ethtool -C eth1 adaptive-rx off
