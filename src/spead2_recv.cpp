@@ -27,7 +27,9 @@
 #include <boost/lexical_cast.hpp>
 #include "common_thread_pool.h"
 #include "recv_udp.h"
-#include "recv_netmap.h"
+#if SPEAD2_USE_NETMAP
+# include "recv_netmap.h"
+#endif
 #include "recv_heap.h"
 #include "recv_live_heap.h"
 #include "recv_ring_stream.h"
@@ -53,7 +55,9 @@ struct options
     std::size_t mem_max_free = 12;
     std::size_t mem_initial = 8;
     bool ring = false;
+#if SPEAD2_USE_NETMAP
     std::string netmap_if;
+#endif
     std::vector<std::string> sources;
 };
 
@@ -99,7 +103,10 @@ static options parse_args(int argc, const char **argv)
         ("mem-max-free", make_opt(opts.mem_max_free), "Maximum free memory buffers")
         ("mem-initial", make_opt(opts.mem_initial), "Initial free memory buffers")
         ("ring", make_opt(opts.ring), "Use ringbuffer instead of callbacks")
-        ("netmap", make_opt(opts.netmap_if), "Netmap interface");
+#if SPEAD2_USE_NETMAP
+        ("netmap", make_opt(opts.netmap_if), "Netmap interface")
+#endif
+    ;
 
     hidden.add_options()
         ("source", po::value<std::vector<std::string>>()->composing(), "sources");
@@ -125,10 +132,12 @@ static options parse_args(int argc, const char **argv)
         if (!vm.count("source"))
             throw po::error("At least one port is required");
         opts.sources = vm["source"].as<std::vector<std::string>>();
+#if SPEAD2_USE_NETMAP
         if (opts.sources.size() > 1 && opts.netmap_if != "")
         {
             throw po::error("--netmap cannot be used with multiple sources");
         }
+#endif
         return opts;
     }
     catch (po::error &e)
@@ -257,12 +266,14 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
         udp::resolver resolver(thread_pool.get_io_service());
         udp::resolver::query query(opts.bind, *i);
         udp::endpoint endpoint = *resolver.resolve(query);
+#if SPEAD2_USE_NETMAP
         if (opts.netmap_if != "")
         {
             stream->emplace_reader<spead2::recv::netmap_udp_reader>(
                 opts.netmap_if, endpoint.port());
         }
         else
+#endif
         {
             stream->emplace_reader<spead2::recv::udp_reader>(endpoint, opts.packet, opts.buffer);
         }

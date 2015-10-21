@@ -18,6 +18,8 @@
  * @file
  */
 
+#if SPEAD2_USE_NETMAP
+
 #include <cstdint>
 #include <boost/asio.hpp>
 #include <cerrno>
@@ -83,26 +85,29 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                 auto &slot = ring->slot[i];
                 bool used = false;
                 // Skip even trying to process packets in the host ring
-                if (ri != desc->req.nr_rx_rings && slot.len >= sizeof(header))
+                if (ri != desc->req.nr_rx_rings
+                    && slot.len >= sizeof(header)
+                    && !(slot.flags & NS_MOREFRAG))
                 {
                     const unsigned char *data = (const unsigned char *) NETMAP_BUF(ring, slot.buf_idx);
                     const header *ph = (const header *) data;
+                    /* Checks that this packet is
+                     * - big enough
+                     * - IPv4, UDP
+                     * - unfragmented
+                     * - on the right port
+                     * It also requires that there are no IP options, since
+                     * otherwise the UDP header is at an unknown offset.
+                     */
                     if (ph->eth.ether_type == htons(ETHERTYPE_IP)
                         && ph->ip.version == 4
                         && ph->ip.ihl == 5
                         && ph->ip.protocol == IPPROTO_UDP
+                        && (ph->ip.frag_off & 0x3f) == 0  /* more fragments bit clear, zero offset */
                         && ph->udp.dest == port_be)
                     {
                         used = true;
                         packet_header packet;
-                        /* TODO: verify that this packet is
-                         * - big enough
-                         * - IP
-                         * - IPv4
-                         * - unfragmented
-                         * - UDP
-                         * - on the right port
-                         */
                         const unsigned char *payload = data + sizeof(header);
                         std::size_t payload_size = slot.len - sizeof(header);
                         std::size_t size = decode_packet(packet, payload, payload_size);
@@ -149,3 +154,5 @@ void netmap_udp_reader::stop()
 
 } // namespace recv
 } // namespace spead2
+
+#endif // SPEAD2_USE_NETMAP

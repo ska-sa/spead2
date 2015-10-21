@@ -23,6 +23,8 @@
 #ifndef SPEAD2_RECV_NETMAP_UDP_READER_H
 #define SPEAD2_RECV_NETMAP_UDP_READER_H
 
+#if SPEAD2_USE_NETMAP
+
 #define NETMAP_WITH_LIBS
 #include <cstdint>
 #include <string>
@@ -64,6 +66,13 @@ private:
     void packet_handler(const boost::system::error_code &error);
 
 public:
+    /**
+     * Constructor.
+     *
+     * @param owner        Owning stream
+     * @param device       Name of the network interface e.g., @c eth0
+     * @param port         UDP port number to listen to
+     */
     netmap_udp_reader(stream &owner, const std::string &device, int port);
 
     virtual void stop() override;
@@ -71,5 +80,7 @@ public:
 
 } // namespace recv
 } // namespace spead2
+
+#endif // SPEAD2_USE_NETMAP
 
 #endif // SPEAD2_RECV_NETMAP_UDP_READER_H

@@ -31,6 +31,9 @@ ifeq ($(VARIANT), release)
     CXXFLAGS += -O3 -DNDEBUG -flto
     LDFLAGS += $(CXXFLAGS) -Wl,--no-as-needed
 endif
+ifeq ($(NETMAP),1)
+    CXXFLAGS += -DSPEAD2_USE_NETMAP=1
+endif
 
 RECV_SOURCES = $(wildcard recv*.cpp)
 RECV_OBJECTS = $(patsubst %.cpp, %.o, $(RECV_SOURCES))
