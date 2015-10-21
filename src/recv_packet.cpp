@@ -83,13 +83,16 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
     out.heap_length = -1;
     out.payload_offset = -1;
     out.payload_length = -1;
-    // Load for special items
+    // Look for special items
     pointer_decoder decoder(heap_address_bits);
+    int first_regular = out.n_items;
     for (int i = 0; i < out.n_items; i++)
     {
         item_pointer_t pointer = load_be<item_pointer_t>(data + 8 + i * sizeof(item_pointer_t));
+        bool special;
         if (decoder.is_immediate(pointer))
         {
+            special = true;
             switch (decoder.get_id(pointer))
             {
             case HEAP_CNT_ID:
@@ -105,9 +108,14 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
                 out.payload_length = decoder.get_immediate(pointer);
                 break;
             default:
+                special = false;
                 break;
             }
         }
+        else
+            special = false;
+        if (!special)
+            first_regular = std::min(first_regular, i);
     }
     if (out.heap_cnt == -1 || out.payload_offset == -1 || out.payload_length == -1)
     {
@@ -127,7 +135,10 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
         return 0;
     }
 
-    out.pointers = data + 8;
+    // Adjust the pointers to skip the specials, since live_heap::add_packet does not
+    // need them
+    out.pointers = data + 8 + first_regular * sizeof(item_pointer_t);
+    out.n_items -= first_regular;
     out.payload = out.pointers + out.n_items * sizeof(item_pointer_t);
     out.heap_address_bits = heap_address_bits;
     return size;

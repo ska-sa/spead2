@@ -115,13 +115,14 @@ bool live_heap::add_packet(const packet_header &packet)
     }
     min_length = std::max(min_length, packet.payload_offset + packet.payload_length);
     pointer_decoder decoder(heap_address_bits);
+    pointers.reserve(pointers.size() + packet.n_items);
     for (int i = 0; i < packet.n_items; i++)
     {
         item_pointer_t pointer = load_be<item_pointer_t>(packet.pointers + i * sizeof(item_pointer_t));
-        s_item_pointer_t item_id = decoder.get_id(pointer);
         if (!decoder.is_immediate(pointer))
             min_length = std::max(min_length, s_item_pointer_t(decoder.get_address(pointer)));
-        if (item_id == 0 || decoder.get_id(pointer) > PAYLOAD_LENGTH_ID)
+        s_item_pointer_t item_id = decoder.get_id(pointer);
+        if (item_id == 0 || item_id > PAYLOAD_LENGTH_ID)
         {
             /* NULL items are included because they can be direct-addressed, and this
              * pointer may determine the length of the previous direct-addressed item.
