@@ -38,7 +38,7 @@ SEND_SOURCES = $(wildcard send*.cpp)
 SEND_OBJECTS = $(patsubst %.cpp, %.o, $(SEND_SOURCES))
 COMMON_SOURCES = $(wildcard common*.cpp)
 COMMON_OBJECTS = $(patsubst %.cpp, %.o, $(COMMON_SOURCES))
-TARGETS = libspead2.a test_recv test_recv_netmap test_send test_ringbuffer spead2_bench spead2_recv
+TARGETS = libspead2.a test_recv test_send test_ringbuffer spead2_bench spead2_recv
 
 all: $(TARGETS)
 
