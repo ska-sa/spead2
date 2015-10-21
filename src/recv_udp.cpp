@@ -18,7 +18,12 @@
  * @file
  */
 
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
+#include <sys/socket.h>
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <boost/asio.hpp>
 #include <iostream>
@@ -33,18 +38,30 @@ namespace recv
 
 constexpr std::size_t udp_reader::default_max_size;
 constexpr std::size_t udp_reader::default_buffer_size;
+constexpr std::size_t udp_reader::default_mmsg;
 
 udp_reader::udp_reader(
     stream &owner,
     boost::asio::ip::udp::socket &&socket,
     const boost::asio::ip::udp::endpoint &endpoint,
     std::size_t max_size,
-    std::size_t buffer_size)
-    : reader(owner), socket(std::move(socket)), max_size(max_size)
+    std::size_t buffer_size,
+    std::size_t mmsg)
+    : reader(owner), socket(std::move(socket)), max_size(max_size),
+    buffer(mmsg), iov(mmsg), msgvec(mmsg)
 {
     assert(&this->socket.get_io_service() == &get_io_service());
-    // Allocate one extra byte so that overflow can be detected
-    buffer.reset(new std::uint8_t[max_size + 1]);
+    for (std::size_t i = 0; i < mmsg; i++)
+    {
+        // Allocate one extra byte so that overflow can be detected
+        buffer[i].reset(new std::uint8_t[max_size + 1]);
+        iov[i].iov_base = (void *) buffer[i].get();
+        iov[i].iov_len = max_size + 1;
+        std::memset(&msgvec[i], 0, sizeof(msgvec[i]));
+        msgvec[i].msg_hdr.msg_iov = &iov[i];
+        msgvec[i].msg_hdr.msg_iovlen = 1;
+    }
+
     if (buffer_size != 0)
     {
         boost::asio::socket_base::receive_buffer_size option(buffer_size);
@@ -75,11 +92,12 @@ udp_reader::udp_reader(
     stream &owner,
     const boost::asio::ip::udp::endpoint &endpoint,
     std::size_t max_size,
-    std::size_t buffer_size)
+    std::size_t buffer_size,
+    std::size_t mmsg)
     : udp_reader(
         owner,
         boost::asio::ip::udp::socket(owner.get_strand().get_io_service(), endpoint.protocol()),
-        endpoint, max_size, buffer_size)
+        endpoint, max_size, buffer_size, mmsg)
 {
 }
 
@@ -93,18 +111,36 @@ void udp_reader::packet_handler(
         {
             log_debug("UDP reader: discarding packet received after stream stopped");
         }
-        else if (bytes_transferred <= max_size && bytes_transferred > 0)
+        else
         {
-            // If it's bigger, the packet might have been truncated
-            packet_header packet;
-            std::size_t size = decode_packet(packet, buffer.get(), bytes_transferred);
-            if (size == bytes_transferred)
+            int received = recvmmsg(socket.native_handle(), msgvec.data(), msgvec.size(),
+                                    MSG_DONTWAIT, nullptr);
+            log_debug("recvmmsg returned %1%", received);
+            if (received == -1)
             {
-                get_stream_base().add_packet(packet);
-                if (get_stream_base().is_stopped())
+                std::error_code code(errno, std::system_category());
+                log_warning("recvmmsg failed: %1% (%2%)", code.value(), code.message());
+            }
+            for (int i = 0; i < received; i++)
+            {
+                std::size_t bytes_transferred = msgvec[i].msg_len;
+                if (bytes_transferred <= max_size && bytes_transferred > 0)
                 {
-                    log_debug("UDP reader: end of stream detected");
+                    // If it's bigger, the packet might have been truncated
+                    packet_header packet;
+                    std::size_t size = decode_packet(packet, buffer[i].get(), bytes_transferred);
+                    if (size == bytes_transferred)
+                    {
+                        get_stream_base().add_packet(packet);
+                        if (get_stream_base().is_stopped())
+                        {
+                            log_debug("UDP reader: end of stream detected");
+                            break;
+                        }
+                    }
                 }
+                else if (bytes_transferred > max_size)
+                    log_debug("dropped packet due to truncation");
             }
             else if (size != 0)
             {
@@ -112,8 +148,6 @@ void udp_reader::packet_handler(
                           size, bytes_transferred);
             }
         }
-        else if (bytes_transferred > max_size)
-            log_debug("dropped packet due to truncation");
     }
     // TODO: log the error if there was one
 
@@ -129,7 +163,7 @@ void udp_reader::enqueue_receive()
 {
     using namespace std::placeholders;
     socket.async_receive_from(
-        boost::asio::buffer(buffer.get(), max_size + 1),
+        boost::asio::null_buffers(),
         endpoint,
         get_stream().get_strand().wrap(std::bind(&udp_reader::packet_handler, this, _1, _2)));
 }

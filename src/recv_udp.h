@@ -21,6 +21,10 @@
 #ifndef SPEAD2_RECV_UDP_H
 #define SPEAD2_RECV_UDP_H
 
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
+#include <sys/socket.h>
 #include <cstdint>
 #include <boost/asio.hpp>
 #include "recv_reader.h"
@@ -43,10 +47,14 @@ private:
     boost::asio::ip::udp::socket socket;
     /// Unused, but need to provide the memory for asio to write to
     boost::asio::ip::udp::endpoint endpoint;
-    /// Buffer for asynchronous receive, of size @a max_size + 1.
-    std::unique_ptr<std::uint8_t[]> buffer;
     /// Maximum packet size we will accept
     std::size_t max_size;
+    /// Buffer for asynchronous receive, of size @a max_size + 1.
+    std::vector<std::unique_ptr<std::uint8_t[]>> buffer;
+    /// Scatter-gather array for each buffer
+    std::vector<struct iovec> iov;
+    /// recvmmsg control structures
+    std::vector<struct mmsghdr> msgvec;
 
     /// Start an asynchronous receive
     void enqueue_receive();
@@ -61,6 +69,8 @@ public:
     static constexpr std::size_t default_max_size = 9200;
     /// Socket receive buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 8 * 1024 * 1024;
+    /// Number of packets to receive in one go, if not passed explicitly to the constructor
+    static constexpr std::size_t default_mmsg = 64;
 
     /**
      * Constructor.
@@ -76,7 +86,8 @@ public:
         stream &owner,
         const boost::asio::ip::udp::endpoint &endpoint,
         std::size_t max_size = default_max_size,
-        std::size_t buffer_size = default_buffer_size);
+        std::size_t buffer_size = default_buffer_size,
+        std::size_t mmsg = default_mmsg);
 
     /**
      * Constructor using an existing socket. This allows socket options (e.g.,
@@ -97,7 +108,8 @@ public:
         boost::asio::ip::udp::socket &&socket,
         const boost::asio::ip::udp::endpoint &endpoint,
         std::size_t max_size = default_max_size,
-        std::size_t buffer_size = default_buffer_size);
+        std::size_t buffer_size = default_buffer_size,
+        std::size_t mmsg = default_mmsg);
 
     virtual void stop() override;
 };
