@@ -41,7 +41,6 @@ Other standard methods for installing Python packages should work too.
 .. _six: https://pythonhosted.org/six/
 .. _nose: https://nose.readthedocs.org/en/latest/
 .. _decorator: http://pythonhosted.org//decorator/
-.. _trollius: http://trollius.readthedocs.org/en/latest/
 
 High-performance usage requires larger buffer sizes than Linux allows by
 default. The following commands will increase the permitted buffer sizes::
