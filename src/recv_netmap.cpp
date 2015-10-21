@@ -112,10 +112,10 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                             if (get_stream_base().is_stopped())
                                 log_debug("netmap_udp_reader: end of stream detected");
                         }
-                        else
+                        else if (size != 0)
                         {
-                            log_warning("discarding packet due to size mismatch (%1% != %2%) flags = %3%",
-                                        size, payload_size, slot.flags);
+                            log_debug("discarding packet due to size mismatch (%1% != %2%) flags = %3%",
+                                      size, payload_size, slot.flags);
                         }
                     }
                 }
