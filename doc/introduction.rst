@@ -52,4 +52,10 @@ Installing spead2 for C++
 -------------------------
 At the moment there is no intention to create a shared library, because the
 ABI is not stable. Instead, use the source files directly in your code, or
-build a static library with your preferred options.
+build a static library with your preferred options. The provided Makefile
+produces an optimised static library.
+
+There is optional support for :doc:`netmap <cpp-netmap>` (disabled by default)
+and for acceleration using :manpage:`recvmmsg(2)` (enabled if a sufficiently new
+glibc is detected). To override the defaults, pass :makevar:`NETMAP=1` or
+:makevar:`RECVMMSG=0` to :program:`make`.

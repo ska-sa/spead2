@@ -21,6 +21,14 @@
 #ifndef SPEAD2_RECV_UDP_H
 #define SPEAD2_RECV_UDP_H
 
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
+#include "common_features.h"
+#if SPEAD2_USE_RECVMMSG
+# include <sys/socket.h>
+# include <sys/types.h>
+#endif
 #include <cstdint>
 #include <boost/asio.hpp>
 #include "recv_reader.h"
@@ -43,13 +51,29 @@ private:
     boost::asio::ip::udp::socket socket;
     /// Unused, but need to provide the memory for asio to write to
     boost::asio::ip::udp::endpoint endpoint;
-    /// Buffer for asynchronous receive, of size @a max_size + 1.
-    std::unique_ptr<std::uint8_t[]> buffer;
     /// Maximum packet size we will accept
     std::size_t max_size;
+#if SPEAD2_USE_RECVMMSG
+    /// Buffer for asynchronous receive, of size @a max_size + 1.
+    std::vector<std::unique_ptr<std::uint8_t[]>> buffer;
+    /// Scatter-gather array for each buffer
+    std::vector<iovec> iov;
+    /// recvmmsg control structures
+    std::vector<mmsghdr> msgvec;
+#else
+    /// Buffer for asynchronous receive, of size @a max_size + 1.
+    std::unique_ptr<std::uint8_t[]> buffer;
+#endif
 
     /// Start an asynchronous receive
     void enqueue_receive();
+
+    /**
+     * Handle a single received packet.
+     *
+     * @return whether the packet caused the stream to stop
+     */
+    bool process_one_packet(const std::uint8_t *data, std::size_t length);
 
     /// Callback on completion of asynchronous receive
     void packet_handler(
@@ -61,6 +85,8 @@ public:
     static constexpr std::size_t default_max_size = 9200;
     /// Socket receive buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 8 * 1024 * 1024;
+    /// Number of packets to receive in one go, if recvmmsg support is present
+    static constexpr std::size_t mmsg_count = 64;
 
     /**
      * Constructor.
