@@ -240,7 +240,8 @@ class TestPassthroughUDPMulticast(BaseTestPassthrough):
         # Configure sending socket for multicast over local interface
         send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         req = struct.pack('4s4s', socket.inet_aton(mcast_group), socket.inet_aton(localhost))
-        send_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, req)
+        send_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
+                             socket.inet_aton(localhost))
         send_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
         # Configure receiving socket for multicast over local interface
         recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
