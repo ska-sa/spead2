@@ -104,3 +104,5 @@ the futures returned by :meth:`~spead2.send.trollius.UdpStream.async_send_heap` 
    .. py:method:: flush
 
       Block until all enqueued heaps have been sent (or dropped).
+
+   .. automethod:: spead2.send.trollius.UdpStream.async_flush

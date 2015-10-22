@@ -1,6 +1,14 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Fix compilation on systems without glibc
+
+- Fix test suite for non-Linux systems
+
+- Add :py:meth:`spead2.send.trollius.UdpStream.async_flush`
+
 .. rubric:: Version 0.4.1
 
 - Add C++ version of spead2_recv, a more fully-featured alternative to test_recv
