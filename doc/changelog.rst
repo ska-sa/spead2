@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.4.1
 
 - Add C++ version of spead2_recv, a more fully-featured alternative to test_recv
 
