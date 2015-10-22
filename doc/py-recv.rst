@@ -58,7 +58,7 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
       Feed data from an object implementing the buffer protocol.
 
-   .. py:method:: add_udp_reader(port, max_size=9200, buffer_size=8388608, bind_host_name='', socket=None)
+   .. py:method:: add_udp_reader(port, max_size=9200, buffer_size=8388608, bind_hostname='', socket=None)
 
       Feed data from a UDP port.
 
