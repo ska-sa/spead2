@@ -26,11 +26,17 @@
 // Include some glibc header to get __GLIBC_PREREQ
 #include <climits>
 
-// recvmmsg support was added to glibc 2.12
+/* recvmmsg support was added to glibc 2.12. Note: the test for
+ * __GLIBC_PREREQ(2, 12) needs to be nested rather than connected with &&, to
+ * prevent the preprocessor trying to expand it when it is not defined.
+ */
 #ifndef SPEAD2_USE_RECVMMSG
-# if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 12)
-#  define SPEAD2_USE_RECVMMSG 1
-# else
+# if defined(__GLIBC_PREREQ)
+#  if __GLIBC_PREREQ(2, 12)
+#   define SPEAD2_USE_RECVMMSG 1
+#  endif
+# endif
+# ifndef SPEAD2_USE_RECVMMSG
 #  define SPEAD2_USE_RECVMMSG 0
 # endif
 #endif
