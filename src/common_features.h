@@ -28,7 +28,9 @@
 
 // recvmmsg support was added to glibc 2.12
 #ifndef SPEAD2_USE_RECVMMSG
-# if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 12)
+# if defined(__APPLE__)
+#  define SPEAD2_USE_RECVMMSG 0
+# elif defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2, 12)
 #  define SPEAD2_USE_RECVMMSG 1
 # else
 #  define SPEAD2_USE_RECVMMSG 0
