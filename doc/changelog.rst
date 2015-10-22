@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.4.2
 
 - Fix compilation on systems without glibc
 
