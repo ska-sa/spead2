@@ -46,3 +46,13 @@ class TestUdpStream(object):
         # The above only queues up the async sends on the event loop. The rest of the
         # test needs to be run from inside the event loop
         trollius.get_event_loop().run_until_complete(self._test_async_flush())
+
+    def test_async_flush_fail(self):
+        """Test async_flush in the case that the last heap sent failed.
+        This is arranged by filling up the queue slots first.
+        """
+        for i in range(5):
+            trollius.async(self.stream.async_send_heap(self.heap))
+        # The above only queues up the async sends on the event loop. The rest of the
+        # test needs to be run from inside the event loop
+        trollius.get_event_loop().run_until_complete(self._test_async_flush())

@@ -166,7 +166,7 @@ public:
 
     int get_fd() const { return sem.get_fd(); }
 
-    void async_send_heap(py::object h, py::object callback)
+    bool async_send_heap(py::object h, py::object callback)
     {
         py::extract<heap_wrapper &> h2(h);
         /* Normally the callback should not refer to this, since it could have
@@ -182,7 +182,7 @@ public:
         PyObject *callback_ptr = callback.ptr();
         Py_INCREF(h_ptr);
         Py_INCREF(callback_ptr);
-        Base::async_send_heap(h2(), [this, callback_ptr, h_ptr] (
+        return Base::async_send_heap(h2(), [this, callback_ptr, h_ptr] (
             const boost::system::error_code &ec, item_pointer_t bytes_transferred)
         {
             bool was_empty;

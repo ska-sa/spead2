@@ -211,15 +211,27 @@ public:
      * Send @a h asynchronously, with @a handler called on completion. The
      * caller must ensure that @a h remains valid (as well as any memory it
      * points to) until @a handler is called.
+     *
+     * If this function returns @c true, then the heap has been added to the
+     * queue. The completion handlers for such heaps are guaranteed to be
+     * called in order.
+     *
+     * If this function returns @c false, the heap was rejected due to
+     * insufficient space. The handler is called as soon as possible
+     * (from a thread running the io_service), with error code @c
+     * boost::asio::error::would_block.
+     *
+     * @retval  false  If the heap was immediately discarded
+     * @retval  true   If the heap was enqueued
      */
-    void async_send_heap(const heap &h, completion_handler handler)
+    bool async_send_heap(const heap &h, completion_handler handler)
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
         if (queue.size() >= config.get_max_heaps())
         {
             log_warning("async_send_heap: dropping heap because queue is full");
-            handler(boost::asio::error::would_block, 0);
-            return;
+            get_io_service().dispatch(std::bind(handler, boost::asio::error::would_block, 0));
+            return false;
         }
         bool empty = queue.empty();
         queue.emplace(h, next_cnt, std::move(handler));
@@ -239,6 +251,7 @@ public:
             send_time = timer_type::clock_type::now();
             io_service.dispatch([this] { send_next_packet(); });
         }
+        return true;
     }
 
     /**

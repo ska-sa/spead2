@@ -49,7 +49,7 @@ class UdpStream(_UdpStreamAsyncio):
             self._loop = trollius.get_event_loop()
         super(UdpStream, self).__init__(*args, **kwargs)
         self._active = 0
-        self._last_future = None
+        self._last_queued_future = None
 
     @trollius.coroutine
     def async_send_heap(self, heap, loop=None):
@@ -75,12 +75,13 @@ class UdpStream(_UdpStreamAsyncio):
             self._active -= 1
             if self._active == 0:
                 self._loop.remove_reader(self.fd)
-                self._last_future = None  # Purely to free the memory
-        super(UdpStream, self).async_send_heap(heap, callback)
+                self._last_queued_future = None  # Purely to free the memory
+        queued = super(UdpStream, self).async_send_heap(heap, callback)
         if self._active == 0:
             self._loop.add_reader(self.fd, self.process_callbacks)
         self._active += 1
-        self._last_future = future
+        if queued:
+            self._last_queued_future = future
         return future
 
     @trollius.coroutine
@@ -88,6 +89,6 @@ class UdpStream(_UdpStreamAsyncio):
         """Asynchronously wait for all enqueued heaps to be sent. Note that
         this only waits for heaps passed to :meth:`async_send_heap` prior to
         this call, not ones added while waiting."""
-        future = self._last_future
+        future = self._last_queued_future
         if future is not None:
-            yield From(future)
+            yield From(trollius.wait([future]))

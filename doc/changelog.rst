@@ -10,6 +10,9 @@ Changelog
 - :py:meth:`spead2.send.UdpStream.send_heap` now correctly raises
   :py:exc:`IOError` if the heap is rejected due to being full.
 
+- Fix :py:meth:`spead2.send.trollius.UdpStream.async_send_heap` for the case
+  where the last sent heap failed.
+
 .. rubric:: Version 0.4.2
 
 - Fix compilation on systems without glibc
