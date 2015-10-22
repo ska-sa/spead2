@@ -4,6 +4,17 @@ python:
     # Note: can only use the system python versions
     - "2.7"
     - "3.2"
+env:
+    - TEST=cxx CXX="g++-4.8" NETMAP=0 RECVMMSG=1
+    - TEST=cxx CXX="g++-4.8" NETMAP=1 RECVMMSG=0
+    - TEST=cxx CXX="clang++" NETMAP=0 RECVMMSG=1
+    - TEST=cxx CXX="clang++" NETMAP=1 RECVMMSG=0
+    - TEST=python CC="gcc-4.8" CXX="g++-4.8"
+    - TEST=python CC="clang" CXX="clang++"
+matrix:
+    exclude:
+        - python: 3.2
+          env: TEST=cxx
 addons:
     apt:
         sources:
@@ -12,24 +23,12 @@ addons:
         packages:
             - gcc-4.8
             - g++-4.8
+            - clang
             - libboost-system1.55-dev
             - libboost-python1.55-dev
             - libboost-program-options1.55-dev
             - python3-dev
 install:
-    - cat /etc/lsb-release
-    - pip install -r requirements.txt
-    # PySPEAD tests are optional, so not listed in requirements.txt
-    - if [[ "$TRAVIS_PYTHON_VERSION" == 2.* ]]; then pip install git+https://github.com/ska-sa/PySPEAD#egg=spead; fi
-    - git clone https://github.com/luigirizzo/netmap
+    - ./travis-install.sh
 script:
-    # Test C++ build without netmap
-    - make -j4 -C src CXX=g++-4.8 AR=ar
-    # Test C++ build with netmap
-    - make -C src clean && CPATH=$PWD/netmap/sys make -j4 -C src CXX=g++-4.8 AR=ar NETMAP=1
-    # Test C++ build without recvmmsg
-    - make -C src clean && make -j4 -C src CXX=g++-4.8 AR=ar RECVMMSG=0
-    # The -e is necessary to make nosetests work, because otherwise it tries to find the
-    # .so in the current directory instead of the install directory.
-    - CC=gcc-4.8 pip install -e .
-    - nosetests -v
+    - ./travis-script.sh
