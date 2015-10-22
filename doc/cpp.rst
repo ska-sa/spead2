@@ -25,3 +25,4 @@ source code.
    cpp-recv
    cpp-send
    cpp-logging
+   cpp-netmap

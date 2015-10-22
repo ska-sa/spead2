@@ -14,13 +14,20 @@ addons:
             - g++-4.8
             - libboost-system1.55-dev
             - libboost-python1.55-dev
+            - libboost-program-options1.55-dev
             - python3-dev
 install:
     - cat /etc/lsb-release
     - pip install -r requirements.txt
     # PySPEAD tests are optional, so not listed in requirements.txt
     - if [[ "$TRAVIS_PYTHON_VERSION" == 2.* ]]; then pip install git+https://github.com/ska-sa/PySPEAD#egg=spead; fi
+    - git clone https://github.com/luigirizzo/netmap
+script:
+    # Test C++ build without netmap
+    - make -C src CXX=g++-4.8 AR=ar
+    # Test C++ build with netmap
+    - make -C src clean && CPATH=$PWD/netmap/sys make -C src CXX=g++-4.8 AR=ar NETMAP=1
     # The -e is necessary to make nosetests work, because otherwise it tries to find the
     # .so in the current directory instead of the install directory.
     - CC=gcc-4.8 pip install -e .
-script: nosetests -v
+    - nosetests -v

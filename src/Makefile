@@ -31,6 +31,9 @@ ifeq ($(VARIANT), release)
     CXXFLAGS += -O3 -DNDEBUG -flto
     LDFLAGS += $(CXXFLAGS) -Wl,--no-as-needed
 endif
+ifeq ($(NETMAP),1)
+    CXXFLAGS += -DSPEAD2_USE_NETMAP=1
+endif
 
 RECV_SOURCES = $(wildcard recv*.cpp)
 RECV_OBJECTS = $(patsubst %.cpp, %.o, $(RECV_SOURCES))
@@ -50,6 +53,9 @@ libspead2.a: $(RECV_OBJECTS) $(SEND_OBJECTS) $(COMMON_OBJECTS)
 
 test_recv: test_recv.o libspead2.a
 	$(CXX) -o $@ test_recv.o -L. -lspead2 $(LDFLAGS)
+
+test_recv_netmap: test_recv_netmap.o libspead2.a
+	$(CXX) -o $@ test_recv_netmap.o -L. -lspead2 $(LDFLAGS)
 
 test_send: test_send.o libspead2.a
 	$(CXX) -o $@ test_send.o -L. -lspead2 $(LDFLAGS)

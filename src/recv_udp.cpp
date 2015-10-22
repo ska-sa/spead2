@@ -106,6 +106,11 @@ void udp_reader::packet_handler(
                     log_debug("UDP reader: end of stream detected");
                 }
             }
+            else if (size != 0)
+            {
+                log_debug("discarding packet due to size mismatch (%1% != %2%)",
+                          size, bytes_transferred);
+            }
         }
         else if (bytes_transferred > max_size)
             log_debug("dropped packet due to truncation");
