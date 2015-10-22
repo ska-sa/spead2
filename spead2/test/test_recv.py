@@ -450,6 +450,44 @@ class TestDecode(object):
         ig = spead2.ItemGroup()
         assert_raises(UnicodeDecodeError, ig.update, heaps[0])
 
+    def test_no_heap_size(self):
+        """Heap consisting of packets with no heap size items must work.
+        This also tests mixing the general items in with the packet items.
+        """
+        payload1 = bytes(np.arange(0, 64, dtype=np.uint8).data)
+        payload2 = bytes(np.arange(64, 96, dtype=np.uint8).data)
+        packet1 = self.flavour.make_packet(
+            [
+                Item(HEAP_CNT_ID, 1, True),
+                Item(0x1000, None, False, offset=0),
+                Item(PAYLOAD_OFFSET_ID, 0, True),
+                Item(PAYLOAD_LENGTH_ID, 64, True)
+            ], payload1)
+        packet2 = self.flavour.make_packet(
+            [
+                Item(HEAP_CNT_ID, 1, True),
+                Item(PAYLOAD_OFFSET_ID, 64, True),
+                Item(PAYLOAD_LENGTH_ID, 32, True)
+            ], payload2)
+        heaps = self.data_to_heaps(packet1 + packet2)
+        assert_equal(1, len(heaps))
+        raw_items = heaps[0].get_items()
+        assert_equal(1, len(raw_items))
+        assert_equal(payload1 + payload2, raw_items[0].value)
+
+    def test_bad_offset(self):
+        """Heap with out-of-range offset should be dropped"""
+        packet = self.flavour.make_packet(
+            [
+                Item(HEAP_CNT_ID, 1, True),
+                Item(HEAP_LENGTH_ID, 64, True),
+                Item(PAYLOAD_OFFSET_ID, 0, True),
+                Item(PAYLOAD_LENGTH_ID, 64, True),
+                Item(0x1000, None, False, offset=65)
+            ], b'\0' * 64)
+        heaps = self.data_to_heaps(packet)
+        assert_equal(0, len(heaps))
+
 
 class TestUdpReader(object):
     def test_bad_port(self):

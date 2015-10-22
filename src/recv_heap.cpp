@@ -117,6 +117,7 @@ heap::heap(live_heap &&h)
                 end = decoder.get_address(h.pointers[i + 1]);
             else
                 end = h.min_length;
+            assert(start <= h.min_length);
             if (start == end)
             {
                 log_debug("skipping empty item %d", new_item.id);

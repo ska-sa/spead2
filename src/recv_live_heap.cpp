@@ -110,10 +110,14 @@ bool live_heap::add_packet(const packet_header &packet)
     if (heap_length < 0 && packet.heap_length >= 0)
     {
         heap_length = packet.heap_length;
-        min_length = heap_length;
-        payload_reserve(heap_length, true);
+        min_length = std::max(min_length, heap_length);
+        payload_reserve(min_length, true);
     }
-    min_length = std::max(min_length, packet.payload_offset + packet.payload_length);
+    else
+    {
+        min_length = std::max(min_length, packet.payload_offset + packet.payload_length);
+        payload_reserve(min_length, false);
+    }
     pointer_decoder decoder(heap_address_bits);
     pointers.reserve(pointers.size() + packet.n_items);
     for (int i = 0; i < packet.n_items; i++)
@@ -148,7 +152,11 @@ bool live_heap::add_packet(const packet_header &packet)
 
 bool live_heap::is_complete() const
 {
-    return received_length == heap_length;
+    /* The check against min_length is purely a sanity check on the packet:
+     * if it contains item pointer offsets that are bigger than the explicitly
+     * provided heap length, it cannot be decoded correctly.
+     */
+    return received_length == heap_length && received_length == min_length;
 }
 
 bool live_heap::is_contiguous() const

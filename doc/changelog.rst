@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Handle heaps that have out-of-range item offsets without crashing (#32)
+
+- Fix handling of heaps without heap length headers
+
 .. rubric:: Version 0.4.2
 
 - Fix compilation on systems without glibc
