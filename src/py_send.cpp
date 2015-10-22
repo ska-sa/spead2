@@ -22,6 +22,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL spead2_ARRAY_API
 #define NO_IMPORT_ARRAY
 #include <boost/python.hpp>
+#include <boost/system/system_error.hpp>
 #include <stdexcept>
 #include <mutex>
 #include <utility>
@@ -98,25 +99,46 @@ bytestring packet_generator_wrapper::next()
 template<typename Base>
 class stream_wrapper : public Base
 {
+private:
+    struct callback_state
+    {
+        /**
+         * Semaphore triggered by the callback. It uses a semaphore rather
+         * than a promise because a semaphore can be interrupted.
+         */
+        semaphore_gil<semaphore> sem;
+        /**
+         * Error code from the callback.
+         */
+        boost::system::error_code ec;
+        /**
+         * Bytes transferred (encoded heap size).
+         */
+        item_pointer_t bytes_transferred = 0;
+    };
+
 public:
     using Base::Base;
 
     /// Sends heap synchronously
-    void send_heap(const heap_wrapper &h)
+    item_pointer_t send_heap(const heap_wrapper &h)
     {
-        /* A simple future-promise sync here works, but prevents interruption
-         * via KeyboardInterrupt. The semaphore needs to be in shared_ptr because
-         * if we are interrupted it still needs to exist until the heap is sent.
+        /* The semaphore state needs to be in shared_ptr because if we are
+         * interrupted and throw an exception, it still needs to exist until
+         * the heap is sent.
          */
-        auto sent_sem = std::make_shared<semaphore_gil<semaphore> >();
-        Base::async_send_heap(h, [sent_sem] (const boost::system::error_code &, item_pointer_t)
+        auto state = std::make_shared<callback_state>();
+        Base::async_send_heap(h, [state] (const boost::system::error_code &ec, item_pointer_t bytes_transferred)
         {
-            sent_sem->put();
+            state->ec = ec;
+            state->bytes_transferred = bytes_transferred;
+            state->sem.put();
         });
-        while (sent_sem->get() == -1)
-        {
-            // retry if interrupted for other reason
-        }
+        semaphore_get(state->sem);
+        if (state->ec)
+            throw boost_io_error(state->ec);
+        else
+            return state->bytes_transferred;
     }
 };
 

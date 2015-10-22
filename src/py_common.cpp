@@ -17,6 +17,7 @@
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL spead2_ARRAY_API
 #include <boost/python.hpp>
+#include <boost/system/system_error.hpp>
 #include <numpy/arrayobject.h>
 #include <memory>
 #include "py_common.h"
@@ -73,6 +74,12 @@ static void translate_exception(const ringbuffer_empty &e)
 static void translate_exception_stop_iteration(const stop_iteration &e)
 {
     PyErr_SetString(PyExc_StopIteration, e.what());
+}
+
+static void translate_exception_boost_io_error(const boost_io_error &e)
+{
+    py::tuple args = py::make_tuple(e.code().value(), e.what());
+    PyErr_SetObject(PyExc_IOError, args.ptr());
 }
 
 static py::object descriptor_get_shape(const descriptor &d)
@@ -225,6 +232,7 @@ static void register_module()
     create_exception<ringbuffer_stopped>(ringbuffer_stopped_type, "spead2.Stopped", "Stopped");
     create_exception<ringbuffer_empty>(ringbuffer_empty_type, "spead2.Empty", "Empty");
     register_exception_translator<stop_iteration>(&translate_exception_stop_iteration);
+    register_exception_translator<boost_io_error>(&translate_exception_boost_io_error);
     to_python_converter<bytestring, bytestring_to_python>();
     py::converter::registry::push_back(
         &bytestring_from_python::convertible,

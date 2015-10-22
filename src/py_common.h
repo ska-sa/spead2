@@ -26,6 +26,7 @@
 #include <boost/python.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/version.hpp>
+#include <boost/system/system_error.hpp>
 #include <cassert>
 #include <mutex>
 #include <stdexcept>
@@ -38,6 +39,13 @@ class stop_iteration : public std::exception
 {
 public:
     using std::exception::exception;
+};
+
+/// Wrapper for generating Python IOError from a boost error code
+class boost_io_error : public boost::system::system_error
+{
+public:
+    using boost::system::system_error::system_error;
 };
 
 /**

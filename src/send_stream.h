@@ -218,7 +218,6 @@ public:
         if (queue.size() >= config.get_max_heaps())
         {
             log_warning("async_send_heap: dropping heap because queue is full");
-            // TODO: send an error code to the handler
             handler(boost::asio::error::would_block, 0);
             return;
         }

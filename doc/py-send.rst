@@ -88,13 +88,13 @@ Blocking send
 Asynchronous send
 ^^^^^^^^^^^^^^^^^
 
-As for asychronous receives, asynchronous sends are managed by trollius_. A
+As for asynchronous receives, asynchronous sends are managed by trollius_. A
 stream can buffer up multiple heaps for asynchronous send, up to the limit
 specified by `max_heaps` in the :py:class:`~spead2.send.StreamConfig`. If this
-limit is exceeded, heaps will be dropped. There is currently no mechanism to
-distinguish between heaps that were successfully sent and those that were
-dropped on the sending side due to buffer space or OS errors, but in future
-the futures returned by :meth:`~spead2.send.trollius.UdpStream.async_send_heap` may raise errors.
+limit is exceeded, heaps will be dropped, and the returned future has an
+:py:exc:`IOError` exception set. Currently any OS-level errors are silently
+lost, but in future the futures returned by
+:meth:`~spead2.send.trollius.UdpStream.async_send_heap` may raise errors.
 
 .. _trollius: http://trollius.readthedocs.org/
 

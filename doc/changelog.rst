@@ -7,6 +7,9 @@ Changelog
 
 - Fix handling of heaps without heap length headers
 
+- :py:meth:`spead2.send.UdpStream.send_heap` now correctly raises
+  :py:exc:`IOError` if the heap is rejected due to being full.
+
 .. rubric:: Version 0.4.2
 
 - Fix compilation on systems without glibc

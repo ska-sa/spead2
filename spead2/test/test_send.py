@@ -20,6 +20,8 @@ import struct
 import binascii
 import numpy as np
 import weakref
+import threading
+import time
 from nose.tools import *
 from .defines import *
 
@@ -346,3 +348,32 @@ class TestEncode(object):
         item.value = data
         packet = self.flavour.items_to_bytes([item], [])
         assert_equal(hexlify(expected), hexlify(packet))
+
+class TestStream(object):
+    def setup(self):
+        # A slow stream, so that we can test overflowing the queue
+        self.stream = send.BytesStream(
+                spead2.ThreadPool(),
+                send.StreamConfig(rate=10e6, max_heaps=2))
+        # A large heap
+        ig = send.ItemGroup()
+        ig.add_item(0x1000, 'test', 'A large item', shape=(256 * 1024,), dtype=np.uint8)
+        ig['test'].value = np.zeros((256 * 1024,), np.uint8)
+        self.heap = ig.get_heap()
+        self.threads = []
+
+    def teardown(self):
+        for thread in self.threads:
+            thread.join()
+
+    def test_overflow(self):
+        # Use threads to fill up the first two slots. This is necessary because
+        # send_heap is synchronous.
+        for i in range(2):
+            thread = threading.Thread(target=lambda: self.stream.send_heap(self.heap))
+            thread.start()
+            self.threads.append(thread)
+        # There shouldn't be room now. The sleep is an ugly hack to wait for
+        # the threads to enqueue their heaps.
+        time.sleep(0.02)
+        assert_raises(IOError, self.stream.send_heap, self.heap)
