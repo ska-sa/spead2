@@ -51,9 +51,9 @@ struct packet_header
     s_item_pointer_t payload_length;
     /** @} */
     /// The item pointers in the packet, in big endian, and not necessarily aligned
-    const uint8_t *pointers;
+    const std::uint8_t *pointers;
     /// Start of the packet payload
-    const uint8_t *payload;
+    const std::uint8_t *payload;
 };
 
 /**
@@ -65,7 +65,7 @@ struct packet_header
  * @returns Actual packet size on success, or 0 on failure (due to malformed or
  * truncated packet).
  */
-std::size_t decode_packet(packet_header &out, const uint8_t *raw, std::size_t max_size);
+std::size_t decode_packet(packet_header &out, const std::uint8_t *raw, std::size_t max_size);
 
 } // namespace recv
 } // namespace spead2

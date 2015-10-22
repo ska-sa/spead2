@@ -22,6 +22,9 @@ Changelog
 
 - Add experimental support for receiving packets via netmap
 
+- Improved receive performance on Linux, particularly for small packets, using
+  [recvmmsg](http://linux.die.net/man/2/recvmmsg).
+
 .. rubric:: Version 0.4.0
 
 - Enforce ASCII encoding on descriptor fields.

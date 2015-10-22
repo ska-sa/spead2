@@ -24,9 +24,11 @@ install:
     - git clone https://github.com/luigirizzo/netmap
 script:
     # Test C++ build without netmap
-    - make -C src CXX=g++-4.8 AR=ar
+    - make -j4 -C src CXX=g++-4.8 AR=ar
     # Test C++ build with netmap
-    - make -C src clean && CPATH=$PWD/netmap/sys make -C src CXX=g++-4.8 AR=ar NETMAP=1
+    - make -C src clean && CPATH=$PWD/netmap/sys make -j4 -C src CXX=g++-4.8 AR=ar NETMAP=1
+    # Test C++ build without recvmmsg
+    - make -C src clean && make -j4 -C src CXX=g++-4.8 AR=ar RECVMMSG=0
     # The -e is necessary to make nosetests work, because otherwise it tries to find the
     # .so in the current directory instead of the install directory.
     - CC=gcc-4.8 pip install -e .

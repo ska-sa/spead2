@@ -34,6 +34,9 @@ endif
 ifeq ($(NETMAP),1)
     CXXFLAGS += -DSPEAD2_USE_NETMAP=1
 endif
+ifneq ($(RECVMMSG),)
+    CXXFLAGS += -DSPEAD2_USE_RECVMMSG=$(RECVMMSG)
+endif
 
 RECV_SOURCES = $(wildcard recv*.cpp)
 RECV_OBJECTS = $(patsubst %.cpp, %.o, $(RECV_SOURCES))

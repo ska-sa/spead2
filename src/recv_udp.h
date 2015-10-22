@@ -24,7 +24,11 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
-#include <sys/socket.h>
+#include "common_features.h"
+#if SPEAD2_USE_RECVMMSG
+# include <sys/socket.h>
+# include <sys/types.h>
+#endif
 #include <cstdint>
 #include <boost/asio.hpp>
 #include "recv_reader.h"
@@ -49,15 +53,27 @@ private:
     boost::asio::ip::udp::endpoint endpoint;
     /// Maximum packet size we will accept
     std::size_t max_size;
+#if SPEAD2_USE_RECVMMSG
     /// Buffer for asynchronous receive, of size @a max_size + 1.
     std::vector<std::unique_ptr<std::uint8_t[]>> buffer;
     /// Scatter-gather array for each buffer
-    std::vector<struct iovec> iov;
+    std::vector<iovec> iov;
     /// recvmmsg control structures
-    std::vector<struct mmsghdr> msgvec;
+    std::vector<mmsghdr> msgvec;
+#else
+    /// Buffer for asynchronous receive, of size @a max_size + 1.
+    std::unique_ptr<std::uint8_t[]> buffer;
+#endif
 
     /// Start an asynchronous receive
     void enqueue_receive();
+
+    /**
+     * Handle a single received packet.
+     *
+     * @return whether the packet caused the stream to stop
+     */
+    bool process_one_packet(const std::uint8_t *data, std::size_t length);
 
     /// Callback on completion of asynchronous receive
     void packet_handler(
@@ -69,8 +85,8 @@ public:
     static constexpr std::size_t default_max_size = 9200;
     /// Socket receive buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 8 * 1024 * 1024;
-    /// Number of packets to receive in one go, if not passed explicitly to the constructor
-    static constexpr std::size_t default_mmsg = 64;
+    /// Number of packets to receive in one go, if recvmmsg support is present
+    static constexpr std::size_t mmsg_count = 64;
 
     /**
      * Constructor.
@@ -86,8 +102,7 @@ public:
         stream &owner,
         const boost::asio::ip::udp::endpoint &endpoint,
         std::size_t max_size = default_max_size,
-        std::size_t buffer_size = default_buffer_size,
-        std::size_t mmsg = default_mmsg);
+        std::size_t buffer_size = default_buffer_size);
 
     /**
      * Constructor using an existing socket. This allows socket options (e.g.,
@@ -108,8 +123,7 @@ public:
         boost::asio::ip::udp::socket &&socket,
         const boost::asio::ip::udp::endpoint &endpoint,
         std::size_t max_size = default_max_size,
-        std::size_t buffer_size = default_buffer_size,
-        std::size_t mmsg = default_mmsg);
+        std::size_t buffer_size = default_buffer_size);
 
     virtual void stop() override;
 };
