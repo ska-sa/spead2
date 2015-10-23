@@ -236,12 +236,6 @@ class TestPassthroughUdp6(BaseTestPassthrough):
     def transmit_item_group(self, item_group):
         if not socket.has_ipv6:
             raise SkipTest('platform does not support IPv6')
-        try:
-            # Travis CI can't resolve ::1
-            socket.inet_pton(socket.AF_INET6, '::1')
-        except socket.error:
-            raise SkipTest('platform does not support IPv6')
-
         thread_pool = spead2.ThreadPool(2)
         sender = spead2.send.UdpStream(
                 thread_pool, "::1", 8888,
