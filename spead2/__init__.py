@@ -553,7 +553,21 @@ class ItemGroup(object):
 
     def _add_item(self, item):
         if item.id in self._by_id or item.name in self._by_name:
-            _logger.info('Descriptor replacement for ID %d, name %s', item.id, item.name)
+            # Check if this is just the same thing
+            same = False
+            try:
+                old = self._by_id[item.id]
+                if (old.name == item.name and
+                    old.description == item.description and
+                    old.shape == item.shape and
+                    old.dtype == item.dtype and
+                    old.order == item.order and
+                    old.format == item.format):
+                    same = True
+            except KeyError:
+                pass   # Means the name was the same but the id is new
+            if not same:
+                _logger.info('Descriptor replacement for ID %d, name %s', item.id, item.name)
         self._by_id[item.id] = item
         self._by_name[item.name] = item
 

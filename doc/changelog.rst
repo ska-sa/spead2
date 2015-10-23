@@ -17,6 +17,9 @@ Changelog
 - Use :manpage:`eventfd(2)` for semaphores on Linux, which makes a very small
   improvement in ringbuffer performance.
 
+- Prevent messages about descriptor replacements for descriptor reissues with
+  no change.
+
 .. rubric:: Version 0.4.2
 
 - Fix compilation on systems without glibc
