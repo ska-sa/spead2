@@ -165,13 +165,8 @@ public:
  * on completion of code scheduled through the thread pool must drop the GIL
  * first.
  */
-class ring_stream_wrapper : public ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore> >
+class ring_stream_wrapper : public thread_pool_handle_wrapper, public ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore> >
 {
-private:
-    /// Holds a Python reference to the thread pool
-    py::handle<> thread_pool_handle;
-    friend void register_module();
-
 private:
     boost::asio::ip::udp::endpoint make_endpoint(const std::string &hostname, int port)
     {
@@ -303,7 +298,7 @@ void register_module()
                 (arg("thread_pool"), arg("bug_compat") = 0,
                  arg("max_heaps") = ring_stream_wrapper::default_max_heaps,
                  arg("ring_heaps") = ring_stream_wrapper::default_ring_heaps))[
-                store_handle_postcall<ring_stream_wrapper, &ring_stream_wrapper::thread_pool_handle, 1, 2>()])
+                store_handle_postcall<ring_stream_wrapper, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
         .def("__iter__", objects::identity_function())
         .def(
 #if PY_MAJOR_VERSION >= 3

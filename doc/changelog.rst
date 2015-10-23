@@ -20,6 +20,8 @@ Changelog
 - Prevent messages about descriptor replacements for descriptor reissues with
   no change.
 
+- Fix a use-after-free bug (affecting Python only).
+
 .. rubric:: Version 0.4.2
 
 - Fix compilation on systems without glibc

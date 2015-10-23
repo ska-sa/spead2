@@ -232,6 +232,16 @@ public:
     void stop();
 };
 
+/* Container for a thread pool handle. It's put into a separate class so that
+ * it can be inherited from by wrapper classes that need it, earlier in the
+ * inheritance chain than objects that depend on it. That's necessary to obtain
+ * the correct destructor ordering.
+ */
+struct thread_pool_handle_wrapper
+{
+    boost::python::handle<> thread_pool_handle;
+};
+
 /**
  * Semaphore variant that releases the GIL during waits, and throws an
  * exception if interrupted by SIGINT in the Python process.
@@ -280,7 +290,7 @@ T *get_pointer(const std::shared_ptr<T> &p)
  * with_custodian_and_ward, which in some cases seems to not respect
  * dependencies when the interpreter is shut down.
  */
-template<typename T, boost::python::handle<> T::*handle_ptr,
+template<typename T, typename P, boost::python::handle<> P::*handle_ptr,
     std::size_t custodian, std::size_t ward,
     class BasePolicy_ = boost::python::default_call_policies>
 struct store_handle_postcall : BasePolicy_
