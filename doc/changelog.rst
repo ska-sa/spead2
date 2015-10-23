@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.4.3
 
 - Handle heaps that have out-of-range item offsets without crashing (#32)
 
