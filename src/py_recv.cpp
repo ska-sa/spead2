@@ -176,7 +176,7 @@ private:
         if (!hostname.empty())
         {
             udp::resolver resolver(get_strand().get_io_service());
-            udp::resolver::query query(hostname, "", udp::resolver::query::passive | udp::resolver::query::address_configured);
+            udp::resolver::query query(hostname, "", udp::resolver::query::passive);
             endpoint.address(resolver.resolve(query)->endpoint().address());
         }
         return endpoint;

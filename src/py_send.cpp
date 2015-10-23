@@ -325,7 +325,7 @@ boost::asio::ip::udp::endpoint udp_stream_wrapper<Base>::make_endpoint(
     using boost::asio::ip::udp;
     udp::endpoint endpoint(boost::asio::ip::address_v4::any(), port);
     udp::resolver resolver(io_service);
-    udp::resolver::query query(hostname, "", udp::resolver::query::address_configured);
+    udp::resolver::query query(hostname, "", boost::asio::ip::resolver_query_base::flags(0));
     endpoint.address(resolver.resolve(query)->endpoint().address());
     return endpoint;
 }
