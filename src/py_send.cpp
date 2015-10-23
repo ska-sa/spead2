@@ -252,7 +252,7 @@ class udp_stream_wrapper : public thread_pool_handle_wrapper, public Base
 {
 private:
     static boost::asio::ip::udp::endpoint make_endpoint(
-        boost::asio::io_service &io_service, const std::string &hostname, int port);
+        boost::asio::io_service &io_service, const std::string &hostname, std::uint16_t port);
 
     static boost::asio::ip::udp::socket make_socket(
         boost::asio::io_service &io_service, const boost::asio::ip::udp &protocol,
@@ -279,7 +279,7 @@ public:
     udp_stream_wrapper(
         thread_pool &pool,
         const std::string &hostname,
-        int port,
+        std::uint16_t port,
         const stream_config &config,
         std::size_t buffer_size,
         const py::object &socket)
@@ -318,7 +318,7 @@ boost::asio::ip::udp::socket udp_stream_wrapper<Base>::make_socket(
 
 template<typename Base>
 boost::asio::ip::udp::endpoint udp_stream_wrapper<Base>::make_endpoint(
-    boost::asio::io_service &io_service, const std::string &hostname, int port)
+    boost::asio::io_service &io_service, const std::string &hostname, std::uint16_t port)
 {
     release_gil gil;
 

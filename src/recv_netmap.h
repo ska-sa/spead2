@@ -73,7 +73,7 @@ public:
      * @param device       Name of the network interface e.g., @c eth0
      * @param port         UDP port number to listen to
      */
-    netmap_udp_reader(stream &owner, const std::string &device, int port);
+    netmap_udp_reader(stream &owner, const std::string &device, uint16_t port);
 
     virtual void stop() override;
 };

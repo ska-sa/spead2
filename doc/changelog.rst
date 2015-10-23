@@ -22,6 +22,9 @@ Changelog
 
 - Fix a use-after-free bug (affecting Python only).
 
+- Throw :py:exc:`OverflowError` on out-of-range UDP port number, instead of
+  wrapping.
+
 .. rubric:: Version 0.4.2
 
 - Fix compilation on systems without glibc

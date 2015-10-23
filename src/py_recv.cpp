@@ -21,6 +21,7 @@
 #include <boost/make_shared.hpp>
 #include <numpy/arrayobject.h>
 #include <stdexcept>
+#include <cstdint>
 #include <unistd.h>
 #include "recv_udp.h"
 #include "recv_mem.h"
@@ -168,7 +169,7 @@ public:
 class ring_stream_wrapper : public thread_pool_handle_wrapper, public ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore> >
 {
 private:
-    boost::asio::ip::udp::endpoint make_endpoint(const std::string &hostname, int port)
+    boost::asio::ip::udp::endpoint make_endpoint(const std::string &hostname, std::uint16_t port)
     {
         using boost::asio::ip::udp;
         udp::endpoint endpoint(boost::asio::ip::address_v4::any(), port);
@@ -225,7 +226,7 @@ public:
     }
 
     void add_udp_reader(
-        int port,
+        std::uint16_t port,
         std::size_t max_size = udp_reader::default_max_size,
         std::size_t buffer_size = udp_reader::default_buffer_size,
         const std::string &bind_hostname = "",

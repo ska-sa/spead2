@@ -54,7 +54,7 @@ void nm_desc_destructor::operator()(nm_desc *d) const
 
 } // namespace detail
 
-netmap_udp_reader::netmap_udp_reader(stream &owner, const std::string &device, int port)
+netmap_udp_reader::netmap_udp_reader(stream &owner, const std::string &device, std::uint16_t port)
     : reader(owner), handle(get_io_service()),
     desc(nm_open(("netmap:" + device + "*").c_str(), NULL, 0, NULL)),
     port_be(htons(port))

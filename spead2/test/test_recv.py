@@ -535,3 +535,12 @@ class TestStream(object):
         receiver.add_buffer_reader(sender.getvalue())
         heaps = list(receiver)
         assert_equal(1, len(heaps))
+
+class TestUdpStream(object):
+    def test_out_of_range_udp_port(self):
+        receiver = spead2.recv.Stream(spead2.ThreadPool())
+        assert_raises(OverflowError, receiver.add_udp_reader, 100000)
+
+    def test_illegal_udp_port(self):
+        receiver = spead2.recv.Stream(spead2.ThreadPool())
+        assert_raises(RuntimeError, receiver.add_udp_reader, 22)
