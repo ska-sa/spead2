@@ -5,6 +5,10 @@ spead2
    :target: https://readthedocs.org/projects/spead2/?badge=latest
    :alt: Documentation Status
 
+.. image:: https://travis-ci.org/ska-sa/spead2.svg?branch=master
+   :target: https://travis-ci.org/ska-sa/spead2
+   :alt: Test Status
+
 spead2 is an implementation of the SPEAD_ protocol, with both Python and C++
 bindings. The *2* in the name indicates that this is a new implementation of
 the protocol; the protocol remains essentially the same. Compared to the
