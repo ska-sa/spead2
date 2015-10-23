@@ -67,7 +67,7 @@ static options parse_args(int argc, const char **argv)
     options opts;
     po::options_description desc;
     desc.add_options()
-        ("type", make_opt(opts.type), "Semaphore type (light | fd)")
+        ("type", make_opt(opts.type), "Semaphore type (light | fd | pipe | eventfd | posix)")
         ("capacity", make_opt(opts.capacity), "Ring buffer capacity")
         ("items", make_opt(opts.items), "Items to transmit")
         ("producer-cpu,p", make_opt(opts.producer_cpu), "CPU core to bind producer to")
@@ -180,6 +180,21 @@ int main(int argc, const char **argv)
         run<spead2::ringbuffer<item_t>>(opts);
     else if (opts.type == "spin")
         run<spead2::ringbuffer<item_t, spead2::semaphore_spin, spead2::semaphore_spin>>(opts);
+    else if (opts.type == "pipe")
+        run<spead2::ringbuffer<item_t, spead2::semaphore_pipe, spead2::semaphore_pipe>>(opts);
+#if SPEAD2_USE_POSIX_SEMAPHORES
+    else if (opts.type == "posix")
+        run<spead2::ringbuffer<item_t, spead2::semaphore_posix, spead2::semaphore_posix>>(opts);
+#endif
+#if SPEAD2_USE_EVENTFD
+    else if (opts.type == "eventfd")
+        run<spead2::ringbuffer<item_t, spead2::semaphore_eventfd, spead2::semaphore_eventfd>>(opts);
+#endif
+    else
+    {
+        std::cerr << "Unknown semaphore type " << opts.type << "\n";
+        return 2;
+    }
 
     return 0;
 }

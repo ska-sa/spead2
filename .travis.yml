@@ -5,16 +5,22 @@ python:
     - "2.7"
     - "3.2"
 env:
-    - TEST=cxx CXX="g++-4.8" NETMAP=0 RECVMMSG=1
-    - TEST=cxx CXX="g++-4.8" NETMAP=1 RECVMMSG=0
-    - TEST=cxx CXX="clang++" NETMAP=0 RECVMMSG=1
-    - TEST=cxx CXX="clang++" NETMAP=1 RECVMMSG=0
+    - TEST=cxx CXX="g++-4.8" NETMAP=0 RECVMMSG=1 EVENTFD=1
+    - TEST=cxx CXX="g++-4.8" NETMAP=1 RECVMMSG=0 EVENTFD=0
+    - TEST=cxx CXX="clang++" NETMAP=0 RECVMMSG=1 EVENTFD=1
+    - TEST=cxx CXX="clang++" NETMAP=1 RECVMMSG=0 EVENTFD=0
     - TEST=python CC="gcc-4.8" CXX="g++-4.8"
     - TEST=python CC="clang" CXX="clang++"
 matrix:
     exclude:
         - python: 3.2
-          env: TEST=cxx
+          env: TEST=cxx CXX="g++-4.8" NETMAP=0 RECVMMSG=1 EVENTFD=1
+        - python: 3.2
+          env: TEST=cxx CXX="g++-4.8" NETMAP=1 RECVMMSG=0 EVENTFD=0
+        - python: 3.2
+          env: TEST=cxx CXX="clang++" NETMAP=0 RECVMMSG=1 EVENTFD=1
+        - python: 3.2
+          env: TEST=cxx CXX="clang++" NETMAP=1 RECVMMSG=0 EVENTFD=0
 addons:
     apt:
         sources:

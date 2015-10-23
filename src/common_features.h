@@ -25,6 +25,8 @@
 
 // Include some glibc header to get __GLIBC_PREREQ
 #include <climits>
+// Get _POSIX_* defines
+#include <unistd.h>
 
 /* recvmmsg support was added to glibc 2.12. Note: the test for
  * __GLIBC_PREREQ(2, 12) needs to be nested rather than connected with &&, to
@@ -38,6 +40,25 @@
 # endif
 # ifndef SPEAD2_USE_RECVMMSG
 #  define SPEAD2_USE_RECVMMSG 0
+# endif
+#endif
+
+#ifndef SPEAD2_USE_POSIX_SEMAPHORES
+# if defined(__APPLE__) || !defined(_POSIX_SEMAPHORES) || _POSIX_SEMAPHORES < 0
+#  define SPEAD2_USE_POSIX_SEMAPHORES 0
+# else
+#  define SPEAD2_USE_POSIX_SEMAPHORES 1
+# endif
+#endif
+
+#ifndef SPEAD2_USE_EVENTFD
+# if defined(__GLIBC_PREREQ)
+#  if __GLIBC_PREREQ(2, 9)
+#   define SPEAD2_USE_EVENTFD 1
+#  endif
+# endif
+# ifndef SPEAD2_USE_EVENTFD
+#  define SPEAD2_USE_EVENTFD 0
 # endif
 #endif
 

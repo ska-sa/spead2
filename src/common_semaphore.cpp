@@ -21,6 +21,10 @@
  * into an event loop.
  */
 
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
+#include "common_features.h"
 #include <cerrno>
 #include <system_error>
 #include <unistd.h>
@@ -29,6 +33,9 @@
 #include <atomic>
 #include "common_semaphore.h"
 #include "common_logging.h"
+#if SPEAD2_USE_EVENTFD
+# include <sys/eventfd.h>
+#endif
 
 namespace spead2
 {
@@ -79,15 +86,17 @@ int semaphore_spin::try_get()
         return -1;
 }
 
-#if !__APPLE__
+/////////////////////////////////////////////////////////////////////////////
 
-semaphore::semaphore(unsigned int initial)
+#if SPEAD2_USE_POSIX_SEMAPHORES
+
+semaphore_posix::semaphore_posix(unsigned int initial)
 {
     if (sem_init(&sem, 0, initial) == -1)
         throw_errno();
 }
 
-semaphore::~semaphore()
+semaphore_posix::~semaphore_posix()
 {
     if (sem_destroy(&sem) == -1)
     {
@@ -96,13 +105,13 @@ semaphore::~semaphore()
     }
 }
 
-void semaphore::put()
+void semaphore_posix::put()
 {
     if (sem_post(&sem) == -1)
         throw_errno();
 }
 
-int semaphore::try_get()
+int semaphore_posix::try_get()
 {
     int status = sem_trywait(&sem);
     if (status == -1)
@@ -116,7 +125,7 @@ int semaphore::try_get()
         return 0;
 }
 
-int semaphore::get()
+int semaphore_posix::get()
 {
     int status = sem_wait(&sem);
     if (status == -1)
@@ -130,11 +139,11 @@ int semaphore::get()
         return 0;
 }
 
-#endif // !__APPLE__
+#endif // SPEAD2_USE_POSIX_SEMAPHORES
 
 /////////////////////////////////////////////////////////////////////////////
 
-semaphore_fd::semaphore_fd(semaphore_fd &&other)
+semaphore_pipe::semaphore_pipe(semaphore_pipe &&other)
 {
     for (int i = 0; i < 2; i++)
     {
@@ -143,7 +152,7 @@ semaphore_fd::semaphore_fd(semaphore_fd &&other)
     }
 }
 
-semaphore_fd &semaphore_fd::operator=(semaphore_fd &&other)
+semaphore_pipe &semaphore_pipe::operator=(semaphore_pipe &&other)
 {
     for (int i = 0; i < 2; i++)
     {
@@ -162,7 +171,7 @@ semaphore_fd &semaphore_fd::operator=(semaphore_fd &&other)
     return *this;
 }
 
-semaphore_fd::semaphore_fd(unsigned int initial)
+semaphore_pipe::semaphore_pipe(unsigned int initial)
 {
     if (pipe(pipe_fds) == -1)
         throw_errno();
@@ -187,7 +196,7 @@ semaphore_fd::semaphore_fd(unsigned int initial)
         put();
 }
 
-semaphore_fd::~semaphore_fd()
+semaphore_pipe::~semaphore_pipe()
 {
     for (int i = 0; i < 2; i++)
         if (pipe_fds[i] != -1)
@@ -200,7 +209,7 @@ semaphore_fd::~semaphore_fd()
         }
 }
 
-void semaphore_fd::put()
+void semaphore_pipe::put()
 {
     char byte = 0;
     int status;
@@ -214,7 +223,7 @@ void semaphore_fd::put()
     } while (status < 0);
 }
 
-int semaphore_fd::get()
+int semaphore_pipe::get()
 {
     char byte = 0;
     while (true)
@@ -234,7 +243,7 @@ int semaphore_fd::get()
         if (status < 0)
         {
             if (errno == EAGAIN || errno == EWOULDBLOCK)
-                return -1;
+                continue; // spurious wakeup from poll
             else
                 throw_errno();
         }
@@ -246,7 +255,7 @@ int semaphore_fd::get()
     }
 }
 
-int semaphore_fd::try_get()
+int semaphore_pipe::try_get()
 {
     char byte = 0;
     int status = read(pipe_fds[0], &byte, 1);
@@ -264,9 +273,112 @@ int semaphore_fd::try_get()
     }
 }
 
-int semaphore_fd::get_fd() const
+int semaphore_pipe::get_fd() const
 {
     return pipe_fds[0];
 }
+
+/////////////////////////////////////////////////////////////////////////////
+
+#if SPEAD2_USE_EVENTFD
+
+semaphore_eventfd::semaphore_eventfd(semaphore_eventfd &&other)
+{
+    fd = other.fd;
+    other.fd = -1;
+}
+
+semaphore_eventfd::~semaphore_eventfd()
+{
+    if (fd != -1 && close(fd) == -1)
+        log_errno("failed to close eventfd: %1% (%2%)");
+}
+
+semaphore_eventfd &semaphore_eventfd::operator=(semaphore_eventfd &&other)
+{
+    std::swap(fd, other.fd);
+    if (other.fd != -1)
+    {
+        if (close(other.fd) == -1)
+            throw_errno();
+        other.fd = -1;
+    }
+    return *this;
+}
+
+semaphore_eventfd::semaphore_eventfd(unsigned int initial)
+{
+    fd = eventfd(initial, EFD_CLOEXEC | EFD_NONBLOCK | EFD_SEMAPHORE);
+    if (fd == -1)
+        throw_errno();
+}
+
+void semaphore_eventfd::put()
+{
+    int status;
+    do
+    {
+        status = eventfd_write(fd, 1);
+        if (status == -1)
+        {
+            if (errno != -1)
+                throw_errno();
+        }
+    } while (status == -1);
+}
+
+int semaphore_eventfd::try_get()
+{
+    eventfd_t value;
+    int status = eventfd_read(fd, &value);
+    if (status == -1)
+    {
+        if (errno == EAGAIN || errno == EINTR)
+            return -1;
+        else
+            throw_errno();
+    }
+    assert(status == 0);
+    return 0;
+}
+
+int semaphore_eventfd::get()
+{
+    while (true)
+    {
+        eventfd_t value;
+        struct pollfd pfd = {};
+        pfd.fd = fd;
+        pfd.events = POLLIN;
+        int status = poll(&pfd, 1, -1);
+        if (status == -1)
+        {
+            if (errno == EINTR)
+                return -1;
+            else
+                throw_errno();
+        }
+        status = eventfd_read(fd, &value);
+        if (status < 0)
+        {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                continue; // spurious wakeup from poll
+            else
+                throw_errno();
+        }
+        else
+        {
+            assert(status == 0);
+            return 0;
+        }
+    }
+}
+
+int semaphore_eventfd::get_fd() const
+{
+    return fd;
+}
+
+#endif // SPEAD2_USE_EVENTFD
 
 } // namespace spead2

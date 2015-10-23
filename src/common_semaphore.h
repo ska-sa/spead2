@@ -24,9 +24,15 @@
 #ifndef SPEAD2_COMMON_SEMAPHORE_H
 #define SPEAD2_COMMON_SEMAPHORE_H
 
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
+#include "common_features.h"
 #include <memory>
 #include <atomic>
-#include <semaphore.h>
+#if SPEAD2_USE_POSIX_SEMAPHORES
+# include <semaphore.h>
+#endif
 
 namespace spead2
 {
@@ -44,67 +50,6 @@ private:
 
 public:
     explicit semaphore_spin(unsigned int initial = 0);
-
-    /// @copydoc semaphore::put
-    void put();
-
-    /// @copydoc semaphore::get
-    int get();
-
-    /// @copydoc semaphore::try_get
-    int try_get();
-};
-
-/**
- * Semaphore that uses file descriptors, so that it can be plumbed
- * into an event loop.
- */
-class semaphore_fd
-{
-private:
-    int pipe_fds[2];
-
-    // Prevent copying: semaphores are not copyable resources
-    semaphore_fd(const semaphore_fd &) = delete;
-    semaphore_fd &operator=(const semaphore_fd &) = delete;
-
-public:
-    explicit semaphore_fd(unsigned int initial = 0);
-    ~semaphore_fd();
-
-    /// Move constructor
-    semaphore_fd(semaphore_fd &&);
-    /// Move assignment
-    semaphore_fd &operator=(semaphore_fd &&);
-
-    /// @copydoc semaphore::put
-    void put();
-
-    /// @copydoc semaphore::get
-    int get();
-
-    /// @copydoc semaphore::try_get
-    int try_get();
-
-    /// Return a file descriptor that will be readable when get will not block
-    int get_fd() const;
-};
-
-/////////////////////////////////////////////////////////////////////////////
-
-#if !__APPLE__
-/**
- * Lightweight semaphore that does not support select()-like calls, and
- * which avoids kernel calls in the uncontended case.
- */
-class semaphore
-{
-private:
-    sem_t sem;
-
-public:
-    explicit semaphore(unsigned int initial = 0);
-    ~semaphore();
 
     /// Increment
     void put();
@@ -126,10 +71,118 @@ public:
     int try_get();
 };
 
-#else // __APPLE__
+/**
+ * Semaphore that uses file descriptors, so that it can be plumbed
+ * into an event loop.
+ */
+class semaphore_pipe
+{
+private:
+    int pipe_fds[2];
 
-// OS X doesn't implement POSIX semaphores, so we fall back to the fd-based semaphores,
-// but keep it a different type to avoid exposing get_fd.
+    // Prevent copying: semaphores are not copyable resources
+    semaphore_pipe(const semaphore_pipe &) = delete;
+    semaphore_pipe &operator=(const semaphore_pipe &) = delete;
+
+public:
+    explicit semaphore_pipe(unsigned int initial = 0);
+    ~semaphore_pipe();
+
+    /// Move constructor
+    semaphore_pipe(semaphore_pipe &&);
+    /// Move assignment
+    semaphore_pipe &operator=(semaphore_pipe &&);
+
+    /// @copydoc semaphore_spin::put
+    void put();
+
+    /// @copydoc semaphore_spin::get
+    int get();
+
+    /// @copydoc semaphore_spin::try_get
+    int try_get();
+
+    /// Return a file descriptor that will be readable when get will not block
+    int get_fd() const;
+};
+
+/**
+ * Variant of @ref semaphore_pipe that uses eventfd(2) instead of a pipe.
+ */
+class semaphore_eventfd
+{
+private:
+    int fd;
+
+    // Prevent copying: semaphores are not copyable resources
+    semaphore_eventfd(const semaphore_eventfd &) = delete;
+    semaphore_eventfd &operator=(const semaphore_eventfd &) = delete;
+
+public:
+    explicit semaphore_eventfd(unsigned int initial = 0);
+    ~semaphore_eventfd();
+
+    /// Move constructor
+    semaphore_eventfd(semaphore_eventfd &&);
+    /// Move assignment
+    semaphore_eventfd &operator=(semaphore_eventfd &&);
+
+    /// @copydoc semaphore_spin::put
+    void put();
+
+    /// @copydoc semaphore_spin::get
+    int get();
+
+    /// @copydoc semaphore_spin::try_get
+    int try_get();
+
+    /// @copydoc semaphore_pipe::get_fd
+    int get_fd() const;
+};
+
+
+/////////////////////////////////////////////////////////////////////////////
+
+#if SPEAD2_USE_POSIX_SEMAPHORES
+/**
+ * Lightweight semaphore that does not support select()-like calls, and
+ * which avoids kernel calls in the uncontended case.
+ */
+class semaphore_posix
+{
+private:
+    sem_t sem;
+
+public:
+    explicit semaphore_posix(unsigned int initial = 0);
+    ~semaphore_posix();
+
+    /// @copydoc semaphore_spin::put
+    void put();
+
+    /// @copydoc semaphore_spin::get
+    int get();
+
+    /// @copydoc semaphore_spin::try_get
+    int try_get();
+};
+
+#endif // SPEAD2_USE_POSIX_SEMAPHORES
+
+#if SPEAD2_USE_EVENTFD
+typedef semaphore_eventfd semaphore_fd;
+#else
+typedef semaphore_pipe semaphore_fd;
+#endif
+
+#if SPEAD2_USE_POSIX_SEMAPHORES
+
+typedef semaphore_posix semaphore;
+
+#else
+
+// Fall back to the file descriptor-based semaphores, but keep it a different
+// type to avoid exposing get_fd.
 class semaphore : private semaphore_fd
 {
 public:
@@ -139,7 +192,7 @@ public:
     using semaphore_fd::try_get;
 };
 
-#endif // __APPLE__
+#endif // !SPEAD2_USE_POSIX_SEMAPHORES
 
 /////////////////////////////////////////////////////////////////////////////
 

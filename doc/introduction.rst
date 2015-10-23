@@ -56,6 +56,7 @@ build a static library with your preferred options. The provided Makefile
 produces an optimised static library.
 
 There is optional support for :doc:`netmap <cpp-netmap>` (disabled by default)
-and for acceleration using :manpage:`recvmmsg(2)` (enabled if a sufficiently new
-glibc is detected). To override the defaults, pass :makevar:`NETMAP=1` or
-:makevar:`RECVMMSG=0` to :program:`make`.
+and for acceleration using :manpage:`recvmmsg(2)` and :manpage:`eventfd(2)`
+(enabled if a sufficiently new glibc is detected). To override the defaults,
+pass :makevar:`NETMAP=1`, :makevar:`RECVMMSG=0` or :makevar:`EVENTFD=0` to
+:program:`make`.

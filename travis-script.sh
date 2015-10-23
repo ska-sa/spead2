@@ -10,7 +10,7 @@ if [ "$TEST" = "cxx" ]; then
     else
         VARIANT=release
     fi
-    make -j4 -C src CXX="$CXX" AR=ar NETMAP="$NETMAP" RECVMMSG="$RECVMMSG" VARIANT="$VARIANT"
+    make -j4 -C src CXX="$CXX" AR=ar NETMAP="$NETMAP" RECVMMSG="$RECVMMSG" EVENTFD="$EVENTFD" VARIANT="$VARIANT"
 fi
 
 if [ "$TEST" = "python" ]; then

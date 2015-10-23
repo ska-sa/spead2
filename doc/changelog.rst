@@ -14,6 +14,9 @@ Changelog
 - Fix :py:meth:`spead2.send.trollius.UdpStream.async_send_heap` for the case
   where the last sent heap failed.
 
+- Use :manpage:`eventfd(2)` for semaphores on Linux, which makes a very small
+  improvement in ringbuffer performance.
+
 .. rubric:: Version 0.4.2
 
 - Fix compilation on systems without glibc
