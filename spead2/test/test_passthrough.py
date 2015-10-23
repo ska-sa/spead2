@@ -232,6 +232,24 @@ class TestPassthroughUdp(BaseTestPassthrough):
         return received_item_group
 
 
+class TestPassthroughUdp6(BaseTestPassthrough):
+    def transmit_item_group(self, item_group):
+        thread_pool = spead2.ThreadPool(2)
+        sender = spead2.send.UdpStream(
+                thread_pool, "::1", 8888,
+                spead2.send.StreamConfig(rate=1e8),
+                buffer_size=0)
+        receiver = spead2.recv.Stream(thread_pool)
+        receiver.add_udp_reader(8888, bind_hostname="::1")
+        gen = spead2.send.HeapGenerator(item_group)
+        sender.send_heap(gen.get_heap())
+        sender.send_heap(gen.get_end())
+        received_item_group = spead2.ItemGroup()
+        for heap in receiver:
+            received_item_group.update(heap)
+        return received_item_group
+
+
 class TestPassthroughUDPMulticast(BaseTestPassthrough):
     def transmit_item_group(self, item_group):
         thread_pool = spead2.ThreadPool(2)
