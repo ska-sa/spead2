@@ -56,3 +56,17 @@ class TestUdpStream(object):
         # The above only queues up the async sends on the event loop. The rest of the
         # test needs to be run from inside the event loop
         trollius.get_event_loop().run_until_complete(self._test_async_flush())
+
+    def _test_send_error(self, future):
+        with assert_raises(IOError):
+            yield From(future)
+
+    def test_send_error(self):
+        """An error in sending must be reported through the future."""
+        # Create a stream with a packet size that is bigger than the likely
+        # MTU. It should cause an error.
+        stream = UdpStream(
+            spead2.ThreadPool(), "localhost", 8888,
+            spead2.send.StreamConfig(max_packet_size=100000), buffer_size=0)
+        future = stream.async_send_heap(self.heap)
+        trollius.get_event_loop().run_until_complete(self._test_send_error(future))

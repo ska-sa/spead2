@@ -8,7 +8,8 @@ Changelog
 - Fix handling of heaps without heap length headers
 
 - :py:meth:`spead2.send.UdpStream.send_heap` now correctly raises
-  :py:exc:`IOError` if the heap is rejected due to being full.
+  :py:exc:`IOError` if the heap is rejected due to being full, or if there was
+  an OS-level error in sending the heap.
 
 - Fix :py:meth:`spead2.send.trollius.UdpStream.async_send_heap` for the case
   where the last sent heap failed.

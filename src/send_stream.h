@@ -120,7 +120,14 @@ private:
     /// Signalled whenever the last heap is popped from the queue
     std::condition_variable heap_empty;
 
-    void send_next_packet()
+    /**
+     * Asynchronously send the next packet from the current heap
+     * (or the next heap, if the current one is finished).
+     *
+     * @param ec Error from sending the previous packet. If set, the rest of the
+     *           current heap is aborted.
+     */
+    void send_next_packet(boost::system::error_code ec = boost::system::error_code())
     {
         bool again;
         do
@@ -128,7 +135,7 @@ private:
             assert(gen);
             again = false;
             packet pkt = gen->next_packet();
-            if (pkt.buffers.empty())
+            if (ec || pkt.buffers.empty())
             {
                 // Reached the end of a heap. Pop the current one, and start the
                 // next one if there is one.
@@ -157,7 +164,7 @@ private:
                  * if the queue is empty, the destructor is free to complete
                  * and take the memory out from under us.
                  */
-                handler(boost::system::error_code(), old_heap_bytes);
+                handler(ec, old_heap_bytes);
             }
             else
             {
@@ -165,7 +172,11 @@ private:
                     pkt,
                     [this] (const boost::system::error_code &ec, std::size_t bytes_transferred)
                     {
-                        // TODO: log the error? Abort on error?
+                        if (ec)
+                        {
+                            send_next_packet(ec);
+                            return;
+                        }
                         bool sleeping = false;
                         rate_bytes += bytes_transferred;
                         heap_bytes += bytes_transferred;
@@ -181,7 +192,7 @@ private:
                                 timer.expires_at(send_time);
                                 timer.async_wait([this] (const boost::system::error_code &error)
                                 {
-                                    send_next_packet();
+                                    send_next_packet(error);
                                 });
                             }
                             // If we're behind schedule, we still keep send_time in the past,

@@ -353,8 +353,8 @@ class TestStream(object):
     def setup(self):
         # A slow stream, so that we can test overflowing the queue
         self.stream = send.BytesStream(
-                spead2.ThreadPool(),
-                send.StreamConfig(rate=10e6, max_heaps=2))
+            spead2.ThreadPool(),
+            send.StreamConfig(rate=10e6, max_heaps=2))
         # A large heap
         ig = send.ItemGroup()
         ig.add_item(0x1000, 'test', 'A large item', shape=(256 * 1024,), dtype=np.uint8)
@@ -377,3 +377,12 @@ class TestStream(object):
         # the threads to enqueue their heaps.
         time.sleep(0.02)
         assert_raises(IOError, self.stream.send_heap, self.heap)
+
+    def test_send_error(self):
+        """An error in sending must be reported."""
+        # Create a stream with a packet size that is bigger than the likely
+        # MTU. It should cause an error.
+        stream = send.UdpStream(
+            spead2.ThreadPool(), "localhost", 8888,
+            send.StreamConfig(max_packet_size=100000), buffer_size=0)
+        assert_raises(IOError, stream.send_heap, self.heap)
