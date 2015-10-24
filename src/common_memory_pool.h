@@ -23,7 +23,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <mutex>
 #include <stack>
 #include <memory>
@@ -48,8 +47,19 @@ namespace spead2
  */
 class memory_pool : public std::enable_shared_from_this<memory_pool>
 {
+private:
+    class destructor
+    {
+    private:
+        std::shared_ptr<memory_pool> owner;
+    public:
+        destructor() = default;
+        explicit destructor(std::shared_ptr<memory_pool> owner);
+        void operator()(std::uint8_t *ptr) const;
+    };
+
 public:
-    typedef std::unique_ptr<std::uint8_t[], std::function<void(std::uint8_t *)> > pointer;
+    typedef std::unique_ptr<std::uint8_t[], destructor> pointer;
 
 private:
     std::size_t lower, upper, max_free;

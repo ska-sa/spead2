@@ -19,6 +19,8 @@
  */
 
 #include <cassert>
+#include <utility>
+#include <memory>
 #include "common_memory_pool.h"
 #include "common_logging.h"
 
@@ -38,14 +40,18 @@ memory_pool::memory_pool(std::size_t lower, std::size_t upper, std::size_t max_f
         pool.emplace(allocate_for_pool());
 }
 
-void memory_pool::return_to_pool(const std::weak_ptr<memory_pool> &self_weak, std::uint8_t *ptr)
+memory_pool::destructor::destructor(std::shared_ptr<memory_pool> owner)
+    : owner(std::move(owner))
 {
-    std::shared_ptr<memory_pool> self = self_weak.lock();
-    if (self)
-        self->return_to_pool(ptr);
+}
+
+void memory_pool::destructor::operator()(std::uint8_t *ptr) const
+{
+    if (owner)
+        owner->return_to_pool(ptr);
     else
     {
-        log_debug("dropping memory because the pool has been freed");
+        // Not allocated from pool
         delete[] ptr;
     }
 }
@@ -96,13 +102,12 @@ memory_pool::pointer memory_pool::allocate(std::size_t size)
         }
         // The pool may be discarded while the memory is still allocated: in
         // this case, it is simply freed.
-        std::weak_ptr<memory_pool> self(shared_from_this());
-        return pointer(ptr.release(), [self] (std::uint8_t *p) { return_to_pool(self, p); });
+        return pointer(ptr.release(), destructor(shared_from_this()));
     }
     else
     {
         log_debug("allocating %d bytes without using the pool", size);
-        return pointer(new std::uint8_t[size], std::default_delete<std::uint8_t[]>());
+        return pointer(new std::uint8_t[size]);
     }
 }
 

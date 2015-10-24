@@ -58,7 +58,7 @@ void live_heap::payload_reserve(std::size_t size, bool exact)
         else
         {
             std::uint8_t *ptr = new std::uint8_t[size];
-            new_payload = memory_pool::pointer(ptr, std::default_delete<std::uint8_t[]>());
+            new_payload = memory_pool::pointer(ptr);
         }
         if (payload)
             std::memcpy(new_payload.get(), payload.get(), payload_reserved);
