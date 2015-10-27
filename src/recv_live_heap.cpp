@@ -69,7 +69,7 @@ void live_heap::payload_reserve(std::size_t size, bool exact)
 
 bool live_heap::add_packet(const packet_header &packet)
 {
-    assert(cnt == package.heap_cnt);
+    assert(cnt == packet.heap_cnt);
     if (heap_length >= 0
         && packet.heap_length >= 0
         && packet.heap_length != heap_length)
