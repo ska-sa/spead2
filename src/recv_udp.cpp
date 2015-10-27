@@ -127,12 +127,12 @@ bool udp_reader::process_one_packet(const std::uint8_t *data, std::size_t length
         }
         else if (size != 0)
         {
-            log_debug("discarding packet due to size mismatch (%1% != %2%)",
-                      size, length);
+            log_info("discarding packet due to size mismatch (%1% != %2%)",
+                     size, length);
         }
     }
     else if (length > max_size)
-        log_debug("dropped packet due to truncation");
+        log_info("dropped packet due to truncation");
     return stopped;
 }
 
@@ -144,7 +144,7 @@ void udp_reader::packet_handler(
     {
         if (get_stream_base().is_stopped())
         {
-            log_debug("UDP reader: discarding packet received after stream stopped");
+            log_info("UDP reader: discarding packet received after stream stopped");
         }
         else
         {

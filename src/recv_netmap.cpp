@@ -119,8 +119,8 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                         }
                         else if (size != 0)
                         {
-                            log_debug("discarding packet due to size mismatch (%1% != %2%) flags = %3%",
-                                      size, payload_size, slot.flags);
+                            log_info("discarding packet due to size mismatch (%1% != %2%) flags = %3%",
+                                     size, payload_size, slot.flags);
                         }
                     }
                 }

@@ -69,27 +69,23 @@ void live_heap::payload_reserve(std::size_t size, bool exact)
 
 bool live_heap::add_packet(const packet_header &packet)
 {
-    if (cnt != packet.heap_cnt)
-    {
-        log_debug("packet rejected because HEAP_CNT does not match");
-        return false;
-    }
+    assert(cnt == package.heap_cnt);
     if (heap_length >= 0
         && packet.heap_length >= 0
         && packet.heap_length != heap_length)
     {
         // this could cause overflows later if not caught
-        log_debug("packet rejected because its HEAP_LEN is inconsistent with the heap");
+        log_info("packet rejected because its HEAP_LEN is inconsistent with the heap");
         return false;
     }
     if (packet.heap_length >= 0 && packet.heap_length < min_length)
     {
-        log_debug("packet rejected because its HEAP_LEN is too small for the heap");
+        log_info("packet rejected because its HEAP_LEN is too small for the heap");
         return false;
     }
     if (heap_address_bits != -1 && packet.heap_address_bits != heap_address_bits)
     {
-        log_debug("packet rejected because its flavour is inconsistent with the heap");
+        log_info("packet rejected because its flavour is inconsistent with the heap");
         return false;
     }
 
@@ -97,6 +93,8 @@ bool live_heap::add_packet(const packet_header &packet)
     bool new_offset = packet_offsets.insert(packet.payload_offset).second;
     if (!new_offset)
     {
+        // Only debug level for this, because it can legitimately happen in the
+        // network.
         log_debug("packet rejected because it is a duplicate");
         return false;
     }

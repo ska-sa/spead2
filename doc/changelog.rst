@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Increase log level for packet rejection from DEBUG to INFO
+
+- Some minor optimisations
+
 .. rubric:: Version 0.4.3
 
 - Handle heaps that have out-of-range item offsets without crashing (#32)

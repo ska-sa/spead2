@@ -49,32 +49,32 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
 {
     if (max_size < 8)
     {
-        log_debug("packet rejected because too small (%d bytes)", max_size);
+        log_info("packet rejected because too small (%d bytes)", max_size);
         return 0;
     }
     std::uint64_t header = load_be<std::uint64_t>(data);
     if (extract_bits(header, 48, 16) != magic_version)
     {
-        log_debug("packet rejected because magic or version did not match");
+        log_info("packet rejected because magic or version did not match");
         return 0;
     }
     int item_id_bits = extract_bits(header, 40, 8) * 8;
     int heap_address_bits = extract_bits(header, 32, 8) * 8;
     if (item_id_bits == 0 || heap_address_bits == 0)
     {
-        log_debug("packet rejected because flavour is invalid");
+        log_info("packet rejected because flavour is invalid");
         return 0;
     }
     if (item_id_bits + heap_address_bits != 8 * sizeof(item_pointer_t))
     {
-        log_debug("packet rejected because flavour is not SPEAD-64-*");
+        log_info("packet rejected because flavour is not SPEAD-64-*");
         return 0;
     }
 
     out.n_items = extract_bits(header, 0, 16);
     if (std::size_t(out.n_items) * sizeof(item_pointer_t) + 8 > max_size)
     {
-        log_debug("packet rejected because the items overflow the packet");
+        log_info("packet rejected because the items overflow the packet");
         return 0;
     }
 
@@ -119,19 +119,19 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
     }
     if (out.heap_cnt == -1 || out.payload_offset == -1 || out.payload_length == -1)
     {
-        log_debug("packet rejected because it does not have required items");
+        log_info("packet rejected because it does not have required items");
         return 0;
     }
     std::size_t size = out.payload_length + out.n_items * sizeof(item_pointer_t) + 8;
     if (size > max_size)
     {
-        log_debug("packet rejected because payload length overflows packet size (%d > %d)",
+        log_info("packet rejected because payload length overflows packet size (%d > %d)",
                   size, max_size);
         return 0;
     }
     if (out.heap_length >= 0 && out.payload_offset + out.payload_length > out.heap_length)
     {
-        log_debug("packet rejected because payload would overflow given heap length");
+        log_info("packet rejected because payload would overflow given heap length");
         return 0;
     }
 
