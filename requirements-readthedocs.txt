@@ -3,6 +3,5 @@ nose
 decorator
 six
 sphinx
-sphinxcontrib-napoleon
 breathe
 trollius

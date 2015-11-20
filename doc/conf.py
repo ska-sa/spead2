@@ -48,7 +48,7 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
-    'sphinxcontrib.napoleon',
+    'sphinx.ext.napoleon',
     'breathe'
 ]
 
