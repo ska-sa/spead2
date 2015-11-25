@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.4.5
 
 - Fix bug causing some log messages to be remapped to DEBUG level
 
