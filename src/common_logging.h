@@ -99,7 +99,7 @@ static inline void log_msg(log_level level, const char *format, T0&& arg0, Ts&&.
     template<typename T0, typename... Ts>                              \
     static inline void BOOST_PP_CAT(log_, name)(const char *format, T0 &&arg0, Ts&&... args) \
     {                                                                  \
-        log_msg(log_level::debug, format, std::forward<T0>(arg0), std::forward<Ts>(args)...); \
+        log_msg(log_level::name, format, std::forward<T0>(arg0), std::forward<Ts>(args)...); \
     }
 
 SPEAD2_DEFINE_LOG_LEVEL(debug)

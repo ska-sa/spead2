@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Fix bug causing some log messages to be remapped to DEBUG level
+
 .. rubric:: Version 0.4.4
 
 - Increase log level for packet rejection from DEBUG to INFO
