@@ -65,7 +65,8 @@ if not rtd:
             language='c++',
             include_dirs=['src', numpy_include],
             extra_compile_args=['-std=c++11', '-g0'],
-            libraries=[bp_library, 'boost_system'])
+            libraries=[bp_library, 'boost_system'],
+            extra_link_args=['-static-libstdc++'])
     ]
 else:
     extensions = []
