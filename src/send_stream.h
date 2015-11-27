@@ -117,6 +117,8 @@ private:
     /// Heap cnt for the next heap to send
     item_pointer_t next_cnt = 1;
     std::unique_ptr<packet_generator> gen; // TODO: make this inlinable
+    /// Packet undergoing transmission by send_next_packet
+    packet current_packet;
     /// Signalled whenever the last heap is popped from the queue
     std::condition_variable heap_empty;
 
@@ -134,8 +136,8 @@ private:
         {
             assert(gen);
             again = false;
-            packet pkt = gen->next_packet();
-            if (ec || pkt.buffers.empty())
+            current_packet = gen->next_packet();
+            if (ec || current_packet.buffers.empty())
             {
                 // Reached the end of a heap. Pop the current one, and start the
                 // next one if there is one.
@@ -156,7 +158,11 @@ private:
                 std::size_t old_heap_bytes = heap_bytes;
                 heap_bytes = 0;
                 if (empty)
+                {
                     heap_empty.notify_all();
+                    // Avoid hanging on to data indefinitely
+                    current_packet = packet();
+                }
                 again = !empty;  // Start again on the next heap
                 lock.unlock();
 
@@ -169,7 +175,7 @@ private:
             else
             {
                 static_cast<Derived *>(this)->async_send_packet(
-                    pkt,
+                    current_packet,
                     [this] (const boost::system::error_code &ec, std::size_t bytes_transferred)
                     {
                         if (ec)

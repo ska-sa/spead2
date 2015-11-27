@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Version 0.4.6
+
+- Fix a data corruption (use-after-free) bug on send side when data is being
+  sent faster than the socket can handle it.
+
 .. rubric:: Version 0.4.5
 
 - Fix bug causing some log messages to be remapped to DEBUG level
