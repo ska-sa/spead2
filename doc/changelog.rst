@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Added in-memory mode to the C++ version of spead2_bench, to measure the
+  packet handling speed independently of the lossy networking code
+
 .. rubric:: Version 0.4.6
 
 - Fix a data corruption (use-after-free) bug on send side when data is being

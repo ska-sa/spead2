@@ -35,9 +35,11 @@
 #include "recv_heap.h"
 #include "recv_live_heap.h"
 #include "recv_ring_stream.h"
+#include "recv_mem.h"
 #include "send_heap.h"
 #include "send_udp.h"
 #include "send_stream.h"
+#include "send_streambuf.h"
 
 namespace po = boost::program_options;
 namespace asio = boost::asio;
@@ -61,45 +63,85 @@ struct options
     std::string port;
 };
 
+enum class command_mode
+{
+    MASTER,
+    SLAVE,
+    MEM
+};
+
 template<typename T>
 static po::typed_value<T> *make_opt(T &var)
 {
     return po::value<T>(&var)->default_value(var);
 }
 
-static void usage_master(std::ostream &o, const po::options_description &desc)
+static void usage(std::ostream &o, const po::options_description &desc, command_mode mode)
 {
-    o << "Usage: spead2_bench master <host> <port> [options]\n";
+    switch (mode)
+    {
+    case command_mode::MASTER:
+        o << "Usage: spead2_bench master <host> <port> [options]\n";
+        break;
+    case command_mode::SLAVE:
+        o << "Usage: spead2_bench slave <port>\n";
+        break;
+    case command_mode::MEM:
+        o << "Usage spead2_bench mem [options]\n";
+        break;
+    }
     o << desc;
 }
 
-static options parse_master_args(int argc, const char **argv)
+static options parse_args(int argc, const char **argv, command_mode mode)
 {
     options opts;
     po::options_description desc, hidden, all;
+    if (mode == command_mode::MASTER || mode == command_mode::MEM)
+    {
+        desc.add_options()
+            ("quiet", po::bool_switch(&opts.quiet)->default_value(opts.quiet), "Print only the final result")
+            ("ring", po::bool_switch(&opts.ring)->default_value(opts.ring), "Use a ring buffer for heaps")
+            ("packet", make_opt(opts.packet_size), "Maximum packet size to use for UDP")
+            ("heap-size", make_opt(opts.heap_size), "Payload size for heap")
+            ("addr-bits", make_opt(opts.heap_address_bits), "Heap address bits")
+            ("heaps", make_opt(opts.heaps), "Maximum number of in-flight heaps")
+            ("ring-heaps", make_opt(opts.ring_heaps), "Ring buffer capacity in heaps")
+            ("mem-max-free", make_opt(opts.mem_max_free), "Maximum free memory buffers")
+            ("mem-initial", make_opt(opts.mem_initial), "Initial free memory buffers");
+    }
+    if (mode == command_mode::MASTER)
+    {
+        desc.add_options()
+            ("send-buffer", make_opt(opts.send_buffer), "Socket buffer size (sender)")
+            ("recv-buffer", make_opt(opts.recv_buffer), "Socket buffer size (receiver)")
+            ("burst", make_opt(opts.burst_size), "Send burst size");
+        hidden.add_options()
+            ("host", po::value<std::string>(&opts.host));
+    }
     desc.add_options()
-        ("quiet", po::bool_switch(&opts.quiet)->default_value(opts.quiet), "Print only the final result")
-        ("ring", po::bool_switch(&opts.ring)->default_value(opts.ring), "Use a ring buffer for heaps")
-        ("packet", make_opt(opts.packet_size), "Maximum packet size to use for UDP")
-        ("heap-size", make_opt(opts.heap_size), "Payload size for heap")
-        ("addr-bits", make_opt(opts.heap_address_bits), "Heap address bits")
-        ("send-buffer", make_opt(opts.send_buffer), "Socket buffer size (sender)")
-        ("recv-buffer", make_opt(opts.recv_buffer), "Socket buffer size (receiver)")
-        ("burst", make_opt(opts.burst_size), "Send burst size")
-        ("heaps", make_opt(opts.heaps), "Maximum number of in-flight heaps")
-        ("ring-heaps", make_opt(opts.ring_heaps), "Ring buffer capacity in heaps")
-        ("mem-max-free", make_opt(opts.mem_max_free), "Maximum free memory buffers")
-        ("mem-initial", make_opt(opts.mem_initial), "Initial free memory buffers")
         ("help,h", "Show help text");
-    hidden.add_options()
-        ("host", po::value<std::string>(&opts.host))
-        ("port", po::value<std::string>(&opts.port));
+    if (mode == command_mode::MASTER || mode == command_mode::SLAVE)
+    {
+        hidden.add_options()
+            ("port", po::value<std::string>(&opts.port));
+    }
     all.add(desc);
     all.add(hidden);
 
     po::positional_options_description positional;
-    positional.add("host", 1);
-    positional.add("port", 2);
+    switch (mode)
+    {
+    case command_mode::MASTER:
+        positional.add("host", 1);
+        positional.add("port", 2);
+        break;
+    case command_mode::SLAVE:
+        positional.add("port", 1);
+        break;
+    case command_mode::MEM:
+        break;
+    }
     try
     {
         po::variables_map vm;
@@ -111,7 +153,7 @@ static options parse_master_args(int argc, const char **argv)
         po::notify(vm);
         if (vm.count("help"))
         {
-            usage_master(std::cout, desc);
+            usage(std::cout, desc, mode);
             std::exit(0);
         }
         return opts;
@@ -119,7 +161,7 @@ static options parse_master_args(int argc, const char **argv)
     catch (po::error &e)
     {
         std::cerr << e.what() << '\n';
-        usage_master(std::cerr, desc);
+        usage(std::cerr, desc, mode);
         std::exit(2);
     }
 }
@@ -252,7 +294,7 @@ static bool measure_connection(
 
 static void main_master(int argc, const char **argv)
 {
-    options opts = parse_master_args(argc, argv);
+    options opts = parse_args(argc, argv, command_mode::MASTER);
     // These rates are in bytes
     double low = 0.0;
     double high = 5e9;
@@ -278,53 +320,10 @@ static void main_master(int argc, const char **argv)
         std::cout << boost::format("Sustainable rate: %.3f Gbps\n") % rate_gbps;
 }
 
-static void usage_slave(std::ostream &o, const po::options_description &desc)
-{
-    o << "Usage: spead2_bench slave <port>\n";
-    o << desc;
-}
-
-static options parse_slave_args(int argc, const char **argv)
-{
-    options opts;
-    po::options_description desc, hidden, all;
-    desc.add_options()
-        ("help,h", "Show help text");
-    hidden.add_options()
-        ("port", po::value<std::string>(&opts.port));
-    all.add(desc);
-    all.add(hidden);
-
-    po::positional_options_description positional;
-    positional.add("port", 1);
-    try
-    {
-        po::variables_map vm;
-        po::store(po::command_line_parser(argc, argv)
-            .style(po::command_line_style::default_style & ~po::command_line_style::allow_guessing)
-            .options(all)
-            .positional(positional)
-            .run(), vm);
-        po::notify(vm);
-        if (vm.count("help"))
-        {
-            usage_slave(std::cout, desc);
-            std::exit(0);
-        }
-        return opts;
-    }
-    catch (po::error &e)
-    {
-        std::cerr << e.what() << '\n';
-        usage_slave(std::cerr, desc);
-        std::exit(2);
-    }
-}
-
-class slave_stream : public spead2::recv::stream
+class recv_stream : public spead2::recv::stream
 {
 private:
-    virtual void heap_ready(spead2::recv::live_heap &&live)
+    virtual void heap_ready(spead2::recv::live_heap &&live) override
     {
         if (live.is_contiguous())
         {
@@ -333,61 +332,74 @@ private:
         }
     }
 
+    virtual void stop_received() override
+    {
+        if (!is_stopped())
+        {
+            spead2::recv::stream::stop_received();
+            stopped_promise.set_value();
+        }
+    }
+
 public:
     using spead2::recv::stream::stream;
     std::int64_t num_heaps = 0;
+    std::promise<void> stopped_promise;
 };
 
-class slave_connection
+class recv_connection
 {
 protected:
     spead2::thread_pool thread_pool;
     spead2::memory_pool memory_pool;
 
-    slave_connection(const options &opts, const asio::ip::udp::endpoint &endpoint)
+    explicit recv_connection(const options &opts)
         : thread_pool(),
-        memory_pool(
-            opts.heap_size, opts.heap_size + 1024, opts.mem_max_free, opts.mem_initial)
+        memory_pool(opts.heap_size, opts.heap_size + 1024, opts.mem_max_free, opts.mem_initial)
     {
     }
 
 public:
-    virtual std::int64_t stop() = 0;
+    virtual std::int64_t stop(bool force) = 0;
 
-    virtual ~slave_connection() {}
+    virtual ~recv_connection() {}
 };
 
-class slave_connection_callback : public slave_connection
+class recv_connection_callback : public recv_connection
 {
-    slave_stream stream;
+    recv_stream stream;
 
 public:
-    slave_connection_callback(const options &opts, const asio::ip::udp::endpoint &endpoint)
-        : slave_connection(opts, endpoint), stream(thread_pool, 0, opts.heaps)
+    explicit recv_connection_callback(const options &opts)
+        : recv_connection(opts), stream(thread_pool, 0, opts.heaps)
     {
-        stream.emplace_reader<spead2::recv::udp_reader>(
-            endpoint, opts.packet_size, opts.recv_buffer);
     }
 
-    virtual std::int64_t stop() override
+    template<typename Reader, typename... Args>
+    void emplace_reader(Args&&... args)
     {
-        stream.stop();
+        stream.emplace_reader<Reader>(std::forward<Args>(args)...);
+    }
+
+    virtual std::int64_t stop(bool force) override
+    {
+        if (force)
+            stream.stop();
+        stream.stopped_promise.get_future().get();
         return stream.num_heaps;
     }
 };
 
-class slave_connection_ring : public slave_connection
+class recv_connection_ring : public recv_connection
 {
     spead2::recv::ring_stream<> stream;
     std::thread consumer;
     std::int64_t num_heaps = 0;
 
 public:
-    slave_connection_ring(const options &opts, const asio::ip::udp::endpoint &endpoint)
-        : slave_connection(opts, endpoint), stream(thread_pool, 0, opts.heaps, opts.ring_heaps)
+    explicit recv_connection_ring(const options &opts)
+        : recv_connection(opts), stream(thread_pool, 0, opts.heaps, opts.ring_heaps)
     {
-        stream.emplace_reader<spead2::recv::udp_reader>(
-            endpoint, opts.packet_size, opts.recv_buffer);
         consumer = std::thread([this] ()
         {
             try
@@ -403,9 +415,16 @@ public:
         });
     }
 
-    virtual std::int64_t stop() override
+    template<typename Reader, typename... Args>
+    void emplace_reader(Args&&... args)
     {
-        stream.stop();
+        stream.emplace_reader<Reader>(std::forward<Args>(args)...);
+    }
+
+    virtual std::int64_t stop(bool force) override
+    {
+        if (force)
+            stream.stop();
         consumer.join();
         return num_heaps;
     }
@@ -415,7 +434,7 @@ static void main_slave(int argc, const char **argv)
 {
     using asio::ip::tcp;
     using asio::ip::udp;
-    options slave_opts = parse_slave_args(argc, argv);
+    options slave_opts = parse_args(argc, argv, command_mode::SLAVE);
     spead2::thread_pool thread_pool;
 
     /* Look up the bind address */
@@ -429,7 +448,7 @@ static void main_slave(int argc, const char **argv)
     {
         tcp::iostream control;
         acceptor.accept(*control.rdbuf());
-        std::unique_ptr<slave_connection> connection;
+        std::unique_ptr<recv_connection> connection;
         while (true)
         {
             std::string line;
@@ -458,9 +477,17 @@ static void main_slave(int argc, const char **argv)
                     >> opts.mem_max_free
                     >> opts.mem_initial;
                 if (opts.ring)
-                    connection.reset(new slave_connection_ring(opts, endpoint));
+                {
+                    std::unique_ptr<recv_connection_ring> conn(new recv_connection_ring(opts));
+                    conn->emplace_reader<spead2::recv::udp_reader>(endpoint, opts.packet_size, opts.recv_buffer);
+                    connection = std::move(conn);
+                }
                 else
-                    connection.reset(new slave_connection_callback(opts, endpoint));
+                {
+                    std::unique_ptr<recv_connection_callback> conn(new recv_connection_callback(opts));
+                    conn->emplace_reader<spead2::recv::udp_reader>(endpoint, opts.packet_size, opts.recv_buffer);
+                    connection = std::move(conn);
+                }
                 control << "ready" << std::endl;
             }
             else if (cmd == "stop")
@@ -470,7 +497,7 @@ static void main_slave(int argc, const char **argv)
                     std::cerr << "Stop received when already stopped\n";
                     continue;
                 }
-                auto num_heaps = connection->stop();
+                auto num_heaps = connection->stop(true);
                 connection.reset();
                 std::cerr << num_heaps << '\n';
                 control << num_heaps << std::endl;
@@ -483,12 +510,80 @@ static void main_slave(int argc, const char **argv)
     }
 }
 
+static void build_streambuf(std::streambuf &streambuf, const options &opts, std::int64_t num_heaps)
+{
+    spead2::thread_pool thread_pool;
+    spead2::flavour flavour(4, 64, opts.heap_address_bits);
+    spead2::send::stream_config config(opts.packet_size);
+    spead2::send::streambuf_stream stream(thread_pool.get_io_service(), streambuf, config);
+    spead2::send::heap heap(flavour), end_heap(flavour);
+    std::vector<std::uint8_t> data(opts.heap_size);
+    heap.add_item(0x1234, data, false);
+    end_heap.add_end();
+    for (std::int64_t i = 0; i < num_heaps; i++)
+    {
+        boost::system::error_code last_error;
+        auto callback = [&last_error] (const boost::system::error_code &ec, spead2::item_pointer_t bytes)
+        {
+            if (!ec)
+                last_error = ec;
+        };
+        stream.async_send_heap(i < num_heaps - 1 ? heap : end_heap, callback);
+        stream.flush();
+        if (last_error)
+            throw boost::system::system_error(last_error);
+    }
+}
+
+static void main_mem(int argc, const char **argv)
+{
+    options opts = parse_args(argc, argv, command_mode::MEM);
+    // Use about 1GiB of data
+    std::int64_t num_heaps = 1024 * 1024 * 1024 / opts.heap_size + 1;
+    std::stringstream ss;
+    build_streambuf(*ss.rdbuf(), opts, num_heaps);
+    const std::string &data = ss.str();
+
+    spead2::thread_pool thread_pool;
+    std::unique_ptr<recv_connection> connection;
+    std::chrono::high_resolution_clock::time_point start, end;
+    if (opts.ring)
+    {
+        std::unique_ptr<recv_connection_ring> conn(new recv_connection_ring(opts));
+        start = std::chrono::high_resolution_clock::now();
+        conn->emplace_reader<spead2::recv::mem_reader>((const std::uint8_t *) data.data(), data.size());
+        connection = std::move(conn);
+    }
+    else
+    {
+        std::unique_ptr<recv_connection_callback> conn(new recv_connection_callback(opts));
+        start = std::chrono::high_resolution_clock::now();
+        conn->emplace_reader<spead2::recv::mem_reader>((const std::uint8_t *) data.data(), data.size());
+        connection = std::move(conn);
+    }
+    connection->stop(false);
+    end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_duration = end - start;
+    double elapsed = elapsed_duration.count();
+    double rate = data.size() / elapsed;
+    double rate_gbps = rate * 8e-9;
+    if (!opts.quiet)
+    {
+        std::cout << "Transferred " << data.size() << " bytes in " << elapsed << " seconds\n";
+        std::cout << rate_gbps << " Gbps\n";
+    }
+    else
+        std::cout << rate_gbps << '\n';
+}
+
 int main(int argc, const char **argv)
 {
     if (argc >= 2 && argv[1] == std::string("master"))
         main_master(argc - 1, argv + 1);
     else if (argc >= 2 && argv[1] == std::string("slave"))
         main_slave(argc - 1, argv + 1);
+    else if (argc >= 2 && argv[1] == std::string("mem"))
+        main_mem(argc - 1, argv + 1);
     else
     {
         std::cerr << "Usage:\n"
