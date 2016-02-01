@@ -18,6 +18,7 @@ VARIANT = release
 AR = gcc-ar
 CXX = g++
 CXXFLAGS = -Wall -std=c++11 -pthread
+CXXFLAGS_UNITTEST = -DBOOST_TEST_DYN_LINK -DBOOST_TEST_MODULE=spead2
 LDFLAGS = -lboost_system -pthread
 ifeq ($(VARIANT), fulldebug)
     CXXFLAGS += -g -fsanitize=address -D_GLIBCXX_DEBUG -DSPEAD2_MAX_LOG_LEVEL=spead2::log_level::debug
@@ -41,15 +42,24 @@ ifneq ($(EVENTFD),)
     CXXFLAGS += -DSPEAD2_USE_EVENTFD=$(EVENTFD)
 endif
 
-RECV_SOURCES = $(wildcard recv*.cpp)
+RECV_SOURCES = $(wildcard recv_*.cpp)
 RECV_OBJECTS = $(patsubst %.cpp, %.o, $(RECV_SOURCES))
-SEND_SOURCES = $(wildcard send*.cpp)
+SEND_SOURCES = $(wildcard send_*.cpp)
 SEND_OBJECTS = $(patsubst %.cpp, %.o, $(SEND_SOURCES))
-COMMON_SOURCES = $(wildcard common*.cpp)
+COMMON_SOURCES = $(wildcard common_*.cpp)
 COMMON_OBJECTS = $(patsubst %.cpp, %.o, $(COMMON_SOURCES))
+TEST_SOURCES = $(wildcard unittest_*.cpp)
+TEST_OBJECTS = $(patsubst %.cpp, %.o, $(TEST_SOURCES))
 TARGETS = libspead2.a test_recv test_send test_ringbuffer spead2_bench spead2_recv
+TEST_TARGETS = spead2_unittest
 
 all: $(TARGETS)
+
+test: $(TEST_TARGETS)
+	./spead2_unittest
+
+unittest_%.o: unittest_%.cpp *.h
+	$(CXX) $(CXXFLAGS) $(CXXFLAGS_UNITTEST) -c $<
 
 %.o: %.cpp *.h
 	$(CXX) $(CXXFLAGS) -c $<
@@ -75,5 +85,10 @@ spead2_bench: spead2_bench.o libspead2.a
 spead2_recv: spead2_recv.o libspead2.a
 	$(CXX) -o $@ spead2_recv.o -L. -lspead2 $(LDFLAGS) -lboost_program_options
 
+spead2_unittest: $(TEST_OBJECTS) libspead2.a
+	$(CXX) -o $@ $(TEST_OBJECTS) -L. -lspead2 $(LDFLAGS) -lboost_unit_test_framework
+
 clean:
 	rm -f *.o $(TARGETS)
+
+.PHONY: all clean test

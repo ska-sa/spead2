@@ -33,6 +33,9 @@
 
 namespace spead2
 {
+
+namespace unittest { namespace recv { namespace live_heap { struct payload_ranges; }}}
+
 namespace recv
 {
 
@@ -59,6 +62,7 @@ class live_heap
 {
 private:
     friend class heap;
+    friend struct ::spead2::unittest::recv::live_heap::payload_ranges;
 
     /// Heap ID encoded in packets
     s_item_pointer_t cnt;
