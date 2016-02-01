@@ -5,6 +5,9 @@ Changelog
 
 - Added in-memory mode to the C++ version of spead2_bench, to measure the
   packet handling speed independently of the lossy networking code
+- Optimization to duplicate packet checks. This makes a substantial
+  performance improvement when using small (e.g. 512 byte) packets and large
+  heaps.
 
 .. rubric:: Version 0.4.6
 
