@@ -25,7 +25,7 @@
 #include <cstdint>
 #include <vector>
 #include <memory>
-#include <unordered_set>
+#include <map>
 #include <functional>
 #include "common_defines.h"
 #include "common_memory_pool.h"
@@ -92,16 +92,13 @@ private:
      */
     std::vector<item_pointer_t> pointers;
     /**
-     * Set of payload offsets found in packets. This is used only to
-     * detect duplicate packets.
-     *
-     * @todo investigate more efficient structures here, e.g.
-     * - a bitfield (one bit per payload byte)
-     * - using a Bloom filter first (almost all queries should miss)
-     * - using a linked list per offset>>13 (which is maybe equivalent to
-     *   just changing the hash function)
+     * Parts of the payload that have been seen. Each key indicates the start
+     * of a contiguous region of received data, and the value indicates the end
+     * of that contiguous region. Since packets are expected to arrive
+     * more-or-less in order (or more-or-less in order for each of a small
+     * number of streams) the map is not expected to grow large.
      */
-    std::unordered_set<s_item_pointer_t> packet_offsets;
+    std::map<s_item_pointer_t, s_item_pointer_t> payload_ranges;
 
     /// Backing memory pool
     std::shared_ptr<memory_pool> pool;
@@ -111,6 +108,12 @@ private:
      * @a exact is false, then a doubling heuristic will be used.
      */
     void payload_reserve(std::size_t size, bool exact);
+
+    /**
+     * Update @ref payload_ranges with a new range. Returns true if the new
+     * range was inserted, or false if it was discarded as a duplicate.
+     */
+    bool add_payload_range(s_item_pointer_t first, s_item_pointer_t last);
 
 public:
     /**

@@ -67,6 +67,45 @@ void live_heap::payload_reserve(std::size_t size, bool exact)
     }
 }
 
+bool live_heap::add_payload_range(s_item_pointer_t first, s_item_pointer_t last)
+{
+    decltype(payload_ranges)::iterator prev, next, ptr;
+    next = payload_ranges.upper_bound(first);
+    if (next != payload_ranges.end() && next->first < last)
+    {
+        log_warning("packet rejected because it partially overlaps existing payload");
+        return false;
+    }
+    else if (next == payload_ranges.begin()
+        || (prev = std::prev(next))->second < first)
+    {
+        // The prior range, if any, does not intersect this one
+        ptr = payload_ranges.emplace_hint(next, first, last);
+    }
+    else if (prev->second == first)
+    {
+        prev->second = last;
+        ptr = prev;
+    }
+    else
+    {
+        /* Only debug level for this, because it can legitimately happen in the
+         * network. There are also ways this can happen with a partial overlap
+         * instead of a duplicate, but it would cost more cycles to test for
+         * it.
+         */
+        log_debug("packet rejected because it is a duplicate");
+        return false;
+    }
+
+    if (next != payload_ranges.end() && next->first == last)
+    {
+        ptr->second = next->second;
+        payload_ranges.erase(next);
+    }
+    return true;
+}
+
 bool live_heap::add_packet(const packet_header &packet)
 {
     assert(cnt == packet.heap_cnt);
@@ -90,14 +129,10 @@ bool live_heap::add_packet(const packet_header &packet)
     }
 
     // Packet seems sane, check if we've already seen it, and if not, insert it
-    bool new_offset = packet_offsets.insert(packet.payload_offset).second;
-    if (!new_offset)
-    {
-        // Only debug level for this, because it can legitimately happen in the
-        // network.
-        log_debug("packet rejected because it is a duplicate");
+    bool new_packet = add_payload_range(packet.payload_offset,
+                                        packet.payload_offset + packet.payload_length);
+    if (!new_packet)
         return false;
-    }
 
     ///////////////////////////////////////////////
     // Packet is now accepted, and we modify state
