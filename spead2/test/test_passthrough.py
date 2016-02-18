@@ -258,11 +258,11 @@ class TestPassthroughUDPCustomSocket(BaseTestPassthrough):
         send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sender = spead2.send.UdpStream(
-                thread_pool, "localhost", 8888,
+                thread_pool, "127.0.0.1", 8888,
                 spead2.send.StreamConfig(rate=1e8),
                 buffer_size=0, socket=send_sock)
         receiver = spead2.recv.Stream(thread_pool)
-        receiver.add_udp_reader(8888, bind_hostname="localhost", socket=recv_sock)
+        receiver.add_udp_reader(8888, bind_hostname="127.0.0.1", socket=recv_sock)
         send_sock.close()
         recv_sock.close()
         gen = spead2.send.HeapGenerator(item_group)
