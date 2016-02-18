@@ -34,6 +34,7 @@
 #include "recv_reader.h"
 #include "recv_udp.h"
 #include "common_logging.h"
+#include <iostream>
 
 namespace spead2
 {
@@ -96,6 +97,49 @@ udp_reader::udp_reader(
     enqueue_receive();
 }
 
+static boost::asio::ip::udp::socket make_multicast_v4_socket(
+    boost::asio::io_service &io_service,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    const boost::asio::ip::address &interface_address)
+{
+    if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
+        throw std::invalid_argument("endpoint is not an IPv4 multicast address");
+    if (!interface_address.is_v4())
+        throw std::invalid_argument("interface address is not an IPv4 address");
+    boost::asio::ip::udp::socket socket(io_service, endpoint.protocol());
+    socket.set_option(boost::asio::socket_base::reuse_address(true));
+    socket.set_option(boost::asio::ip::multicast::join_group(
+        endpoint.address().to_v4(), interface_address.to_v4()));
+    return socket;
+}
+
+static boost::asio::ip::udp::socket make_multicast_v6_socket(
+    boost::asio::io_service &io_service,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    unsigned int interface_index)
+{
+    if (!endpoint.address().is_v6() || !endpoint.address().is_multicast())
+        throw std::invalid_argument("endpoint is not an IPv6 multicast address");
+    boost::asio::ip::udp::socket socket(io_service, endpoint.protocol());
+    socket.set_option(boost::asio::socket_base::reuse_address(true));
+    socket.set_option(boost::asio::ip::multicast::join_group(
+        endpoint.address().to_v6(), interface_index));
+    return socket;
+}
+
+static boost::asio::ip::udp::socket make_socket(
+    boost::asio::io_service &io_service,
+    const boost::asio::ip::udp::endpoint &endpoint)
+{
+    boost::asio::ip::udp::socket socket(io_service, endpoint.protocol());
+    if (endpoint.address().is_multicast())
+    {
+        socket.set_option(boost::asio::socket_base::reuse_address(true));
+        socket.set_option(boost::asio::ip::multicast::join_group(endpoint.address()));
+    }
+    return socket;
+}
+
 udp_reader::udp_reader(
     stream &owner,
     const boost::asio::ip::udp::endpoint &endpoint,
@@ -103,7 +147,33 @@ udp_reader::udp_reader(
     std::size_t buffer_size)
     : udp_reader(
         owner,
-        boost::asio::ip::udp::socket(owner.get_strand().get_io_service(), endpoint.protocol()),
+        make_socket(owner.get_strand().get_io_service(), endpoint),
+        endpoint, max_size, buffer_size)
+{
+}
+
+udp_reader::udp_reader(
+    stream &owner,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    std::size_t max_size,
+    std::size_t buffer_size,
+    const boost::asio::ip::address &interface_address)
+    : udp_reader(
+        owner,
+        make_multicast_v4_socket(owner.get_strand().get_io_service(), endpoint, interface_address),
+        endpoint, max_size, buffer_size)
+{
+}
+
+udp_reader::udp_reader(
+    stream &owner,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    std::size_t max_size,
+    std::size_t buffer_size,
+    unsigned int interface_index)
+    : udp_reader(
+        owner,
+        make_multicast_v6_socket(owner.get_strand().get_io_service(), endpoint, interface_index),
         endpoint, max_size, buffer_size)
 {
 }

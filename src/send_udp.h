@@ -64,6 +64,69 @@ public:
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size);
+
+    /**
+     * Constructor with multicast hop count.
+     *
+     * @param io_service   I/O service for sending data
+     * @param endpoint     Multicast group and port
+     * @param config       Stream configuration
+     * @param buffer_size  Socket buffer size (0 for OS default)
+     * @param ttl          Maximum number of hops
+     *
+     * @throws std::invalid_argument if @a endpoint is not a multicast address
+     */
+    udp_stream(
+        boost::asio::io_service &io_service,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        const stream_config &config,
+        std::size_t buffer_size,
+        int ttl);
+
+    /**
+     * Constructor with multicast hop count and outgoing interface address
+     * (IPv4 only).
+     *
+     * @param io_service   I/O service for sending data
+     * @param endpoint     Multicast group and port
+     * @param config       Stream configuration
+     * @param buffer_size  Socket buffer size (0 for OS default)
+     * @param ttl          Maximum number of hops
+     * @param interface_address   Address of the outgoing interface
+     *
+     * @throws std::invalid_argument if @a endpoint is not an IPv4 multicast address
+     * @throws std::invalid_argument if @a interface_address is not an IPv4 address
+     */
+    udp_stream(
+        boost::asio::io_service &io_service,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        const stream_config &config,
+        std::size_t buffer_size,
+        int ttl,
+        const boost::asio::ip::address &interface_address);
+
+    /**
+     * Constructor with multicast hop count and outgoing interface address
+     * (IPv6 only).
+     *
+     * @param io_service   I/O service for sending data
+     * @param endpoint     Multicast group and port
+     * @param config       Stream configuration
+     * @param buffer_size  Socket buffer size (0 for OS default)
+     * @param ttl          Maximum number of hops
+     * @param interface_index   Index of the outgoing interface
+     *
+     * @throws std::invalid_argument if @a endpoint is not an IPv6 multicast address
+     *
+     * @see if_nametoindex(3)
+     */
+    udp_stream(
+        boost::asio::io_service &io_service,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        const stream_config &config,
+        std::size_t buffer_size,
+        int ttl,
+        unsigned int interface_index);
 };
 
 } // namespace send

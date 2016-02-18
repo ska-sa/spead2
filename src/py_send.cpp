@@ -251,6 +251,9 @@ template<typename Base>
 class udp_stream_wrapper : public thread_pool_handle_wrapper, public Base
 {
 private:
+    static boost::asio::ip::address make_address(
+        boost::asio::io_service &io_service, const std::string &hostname);
+
     static boost::asio::ip::udp::endpoint make_endpoint(
         boost::asio::io_service &io_service, const std::string &hostname, std::uint16_t port);
 
@@ -258,7 +261,7 @@ private:
         boost::asio::io_service &io_service, const boost::asio::ip::udp &protocol,
         const py::object &socket);
 
-    /* Intermediate chained constructor that has the hostname and port
+    /* Intermediate chained constructors that has the hostname and port
      * converted to an endpoint, so that it can be used in turn to
      * construct the asio socket.
      */
@@ -275,6 +278,28 @@ private:
     {
     }
 
+    udp_stream_wrapper(
+        thread_pool &pool,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        const stream_config &config,
+        std::size_t buffer_size,
+        int ttl)
+        : Base(pool.get_io_service(), endpoint, config, buffer_size, ttl)
+    {
+    }
+
+    template<typename T>
+    udp_stream_wrapper(
+        thread_pool &pool,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        const stream_config &config,
+        std::size_t buffer_size,
+        int ttl,
+        const T &interface)
+        : Base(pool.get_io_service(), endpoint, config, buffer_size, ttl, interface)
+    {
+    }
+
 public:
     udp_stream_wrapper(
         thread_pool &pool,
@@ -286,6 +311,50 @@ public:
         : udp_stream_wrapper(
             pool, make_endpoint(pool.get_io_service(), hostname, port),
             config, buffer_size, socket)
+    {
+    }
+
+    udp_stream_wrapper(
+        thread_pool &pool,
+        const std::string &multicast_group,
+        std::uint16_t port,
+        const stream_config &config,
+        std::size_t buffer_size,
+        int ttl)
+        : udp_stream_wrapper(
+            pool, make_endpoint(pool.get_io_service(), multicast_group, port),
+            config, buffer_size, ttl)
+    {
+    }
+
+    udp_stream_wrapper(
+        thread_pool &pool,
+        const std::string &multicast_group,
+        std::uint16_t port,
+        const stream_config &config,
+        std::size_t buffer_size,
+        int ttl,
+        const std::string &interface_address)
+        : udp_stream_wrapper(
+            pool, make_endpoint(pool.get_io_service(), multicast_group, port),
+            config, buffer_size, ttl,
+            interface_address.empty() ?
+                boost::asio::ip::address_v4::any() :
+                make_address(pool.get_io_service(), interface_address))
+    {
+    }
+
+    udp_stream_wrapper(
+        thread_pool &pool,
+        const std::string &multicast_group,
+        std::uint16_t port,
+        const stream_config &config,
+        std::size_t buffer_size,
+        int ttl,
+        unsigned int interface_index)
+        : udp_stream_wrapper(
+            pool, make_endpoint(pool.get_io_service(), multicast_group, port),
+            config, buffer_size, ttl, interface_index)
     {
     }
 };
@@ -317,17 +386,24 @@ boost::asio::ip::udp::socket udp_stream_wrapper<Base>::make_socket(
 }
 
 template<typename Base>
-boost::asio::ip::udp::endpoint udp_stream_wrapper<Base>::make_endpoint(
-    boost::asio::io_service &io_service, const std::string &hostname, std::uint16_t port)
+boost::asio::ip::address udp_stream_wrapper<Base>::make_address(
+    boost::asio::io_service &io_service, const std::string &hostname)
 {
     release_gil gil;
 
     using boost::asio::ip::udp;
-    udp::endpoint endpoint(boost::asio::ip::address_v4::any(), port);
     udp::resolver resolver(io_service);
     udp::resolver::query query(hostname, "", boost::asio::ip::resolver_query_base::flags(0));
-    endpoint.address(resolver.resolve(query)->endpoint().address());
-    return endpoint;
+    return resolver.resolve(query)->endpoint().address();
+}
+
+template<typename Base>
+boost::asio::ip::udp::endpoint udp_stream_wrapper<Base>::make_endpoint(
+    boost::asio::io_service &io_service, const std::string &hostname, std::uint16_t port)
+{
+    using boost::asio::ip::udp;
+
+    return udp::endpoint(make_address(io_service, hostname), port);
 }
 
 class bytes_stream : private std::stringbuf, public thread_pool_handle_wrapper, public stream_wrapper<streambuf_stream>
@@ -399,6 +475,26 @@ void register_module()
                      arg("buffer_size") = T::default_buffer_size,
                      arg("socket") = py::object()))[
                 store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
+            .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int>(
+                    (arg("thread_pool"), arg("multicast_group"), arg("port"),
+                     arg("config") = stream_config(),
+                     arg("buffer_size") = T::default_buffer_size,
+                     arg("ttl")))[
+                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
+            .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, std::string>(
+                    (arg("thread_pool"), arg("multicast_group"), arg("port"),
+                     arg("config") = stream_config(),
+                     arg("buffer_size") = T::default_buffer_size,
+                     arg("ttl"),
+                     arg("interface_address")))[
+                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
+            .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, unsigned int>(
+                    (arg("thread_pool"), arg("multicast_group"), arg("port"),
+                     arg("config") = stream_config(),
+                     arg("buffer_size") = T::default_buffer_size,
+                     arg("ttl"),
+                     arg("interface_index")))[
+                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
             .def("send_heap", &T::send_heap, arg("heap"))
             .def_readonly("DEFAULT_BUFFER_SIZE", T::default_buffer_size);
     }
@@ -411,6 +507,26 @@ void register_module()
                      arg("config") = stream_config(),
                      arg("buffer_size") = T::default_buffer_size,
                      arg("socket") = py::object()))[
+                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
+            .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int>(
+                    (arg("thread_pool"), arg("multicast_group"), arg("port"),
+                     arg("config") = stream_config(),
+                     arg("buffer_size") = T::default_buffer_size,
+                     arg("ttl")))[
+                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
+            .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, std::string>(
+                    (arg("thread_pool"), arg("multicast_group"), arg("port"),
+                     arg("config") = stream_config(),
+                     arg("buffer_size") = T::default_buffer_size,
+                     arg("ttl"),
+                     arg("interface_address")))[
+                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
+            .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, unsigned int>(
+                    (arg("thread_pool"), arg("multicast_group"), arg("port"),
+                     arg("config") = stream_config(),
+                     arg("buffer_size") = T::default_buffer_size,
+                     arg("ttl"),
+                     arg("interface_index")))[
                 store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
             .add_property("fd", &T::get_fd)
             .def("async_send_heap", &T::async_send_heap, arg("heap"))

@@ -37,6 +37,82 @@ udp_stream::udp_stream(
 {
 }
 
+static boost::asio::ip::udp::socket make_multicast_socket(
+    boost::asio::io_service &io_service,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    int ttl)
+{
+    if (!endpoint.address().is_multicast())
+        throw std::invalid_argument("endpoint is not a multicast address");
+    boost::asio::ip::udp::socket socket(io_service, endpoint.protocol());
+    socket.set_option(boost::asio::ip::multicast::hops(ttl));
+    return socket;
+}
+
+static boost::asio::ip::udp::socket make_multicast_v4_socket(
+    boost::asio::io_service &io_service,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    int ttl,
+    const boost::asio::ip::address &interface_address)
+{
+    if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
+        throw std::invalid_argument("endpoint is not an IPv4 multicast address");
+    if (!interface_address.is_v4())
+        throw std::invalid_argument("interface address it not an IPv4 address");
+    boost::asio::ip::udp::socket socket(io_service, endpoint.protocol());
+    socket.set_option(boost::asio::ip::multicast::hops(ttl));
+    socket.set_option(boost::asio::ip::multicast::outbound_interface(interface_address.to_v4()));
+    return socket;
+}
+
+static boost::asio::ip::udp::socket make_multicast_v6_socket(
+    boost::asio::io_service &io_service,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    int ttl, unsigned int interface_index)
+{
+    if (!endpoint.address().is_v6() || !endpoint.address().is_multicast())
+        throw std::invalid_argument("endpoint is not an IPv4 multicast address");
+    boost::asio::ip::udp::socket socket(io_service, endpoint.protocol());
+    socket.set_option(boost::asio::ip::multicast::hops(ttl));
+    socket.set_option(boost::asio::ip::multicast::outbound_interface(interface_index));
+    return socket;
+}
+
+udp_stream::udp_stream(
+    boost::asio::io_service &io_service,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    const stream_config &config,
+    std::size_t buffer_size,
+    int ttl)
+    : udp_stream(make_multicast_socket(io_service, endpoint, ttl),
+                 endpoint, config, buffer_size)
+{
+}
+
+udp_stream::udp_stream(
+    boost::asio::io_service &io_service,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    const stream_config &config,
+    std::size_t buffer_size,
+    int ttl,
+    const boost::asio::ip::address &interface_address)
+    : udp_stream(make_multicast_v4_socket(io_service, endpoint, ttl, interface_address),
+                 endpoint, config, buffer_size)
+{
+}
+
+udp_stream::udp_stream(
+    boost::asio::io_service &io_service,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    const stream_config &config,
+    std::size_t buffer_size,
+    int ttl,
+    unsigned int interface_index)
+    : udp_stream(make_multicast_v6_socket(io_service, endpoint, ttl, interface_index),
+                 endpoint, config, buffer_size)
+{
+}
+
 udp_stream::udp_stream(
     boost::asio::ip::udp::socket &&socket,
     const boost::asio::ip::udp::endpoint &endpoint,

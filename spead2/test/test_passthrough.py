@@ -252,29 +252,59 @@ class TestPassthroughUdp6(BaseTestPassthrough):
         return received_item_group
 
 
+class TestPassthroughUDPCustomSocket(BaseTestPassthrough):
+    def transmit_item_group(self, item_group):
+        thread_pool = spead2.ThreadPool(2)
+        send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sender = spead2.send.UdpStream(
+                thread_pool, "localhost", 8888,
+                spead2.send.StreamConfig(rate=1e8),
+                buffer_size=0, socket=send_sock)
+        receiver = spead2.recv.Stream(thread_pool)
+        receiver.add_udp_reader(8888, bind_hostname="localhost", socket=recv_sock)
+        send_sock.close()
+        recv_sock.close()
+        gen = spead2.send.HeapGenerator(item_group)
+        sender.send_heap(gen.get_heap())
+        sender.send_heap(gen.get_end())
+        received_item_group = spead2.ItemGroup()
+        for heap in receiver:
+            received_item_group.update(heap)
+        return received_item_group
+
+
 class TestPassthroughUDPMulticast(BaseTestPassthrough):
     def transmit_item_group(self, item_group):
         thread_pool = spead2.ThreadPool(2)
         mcast_group = '239.255.88.88'
-        localhost = '127.0.0.1'
-        # Configure sending socket for multicast over local interface
-        send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        req = struct.pack('4s4s', socket.inet_aton(mcast_group), socket.inet_aton(localhost))
-        send_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
-                             socket.inet_aton(localhost))
-        send_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
-        # Configure receiving socket for multicast over local interface
-        recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        recv_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, req)
-        # Proceed as usual
+        interface_address = '127.0.0.1'
         sender = spead2.send.UdpStream(
                 thread_pool, mcast_group, 8887,
                 spead2.send.StreamConfig(rate=1e8),
-                buffer_size=0, socket=send_sock)
+                buffer_size=0, ttl=1, interface_address=interface_address)
         receiver = spead2.recv.Stream(thread_pool)
-        receiver.add_udp_reader(8887, bind_hostname=mcast_group, socket=recv_sock)
-        send_sock.close()  # spead2 should be using a duplicated FD
-        recv_sock.close()
+        receiver.add_udp_reader(mcast_group, 8887, interface_address=interface_address)
+        gen = spead2.send.HeapGenerator(item_group)
+        sender.send_heap(gen.get_heap())
+        sender.send_heap(gen.get_end())
+        received_item_group = spead2.ItemGroup()
+        for heap in receiver:
+            received_item_group.update(heap)
+        return received_item_group
+
+
+class TestPassthroughUDP6Multicast(BaseTestPassthrough):
+    def transmit_item_group(self, item_group):
+        thread_pool = spead2.ThreadPool(2)
+        mcast_group = 'ff14::1234'
+        interface_index = 0
+        sender = spead2.send.UdpStream(
+                thread_pool, mcast_group, 8887,
+                spead2.send.StreamConfig(rate=1e8),
+                buffer_size=0, ttl=0, interface_index=interface_index)
+        receiver = spead2.recv.Stream(thread_pool)
+        receiver.add_udp_reader(mcast_group, 8887, interface_index=interface_index)
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
         sender.send_heap(gen.get_end())

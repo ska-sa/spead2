@@ -91,6 +91,10 @@ public:
     /**
      * Constructor.
      *
+     * If @a endpoint is a multicast address, then this constructor will
+     * subscribe to the multicast group, and also set @c SO_REUSEADDR so that
+     * multiple sockets can be subscribed to the multicast group.
+     *
      * @param owner        Owning stream
      * @param endpoint     Address on which to listen
      * @param max_size     Maximum packet size that will be accepted.
@@ -105,9 +109,57 @@ public:
         std::size_t buffer_size = default_buffer_size);
 
     /**
+     * Constructor with explicit multicast interface address (IPv4 only).
+     *
+     * The socket will have @c SO_REUSEADDR set, so that multiple sockets can
+     * all listen to the same multicast stream. If you want to let the
+     * system pick the interface for the multicast subscription, use
+     * @c boost::asio::ip::address_v4::any(), or use the default constructor.
+     *
+     * @param owner        Owning stream
+     * @param endpoint     Multicast group and port
+     * @param max_size     Maximum packet size that will be accepted.
+     * @param buffer_size  Requested socket buffer size.
+     * @param interface_address  Address of the interface which should join the group
+     *
+     * @throws std::invalid_argument If @a endpoint is not an IPv4 multicast address
+     * @throws std::invalid_argument If @a interface_address is not an IPv4 address
+     */
+    udp_reader(
+        stream &owner,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        std::size_t max_size,
+        std::size_t buffer_size,
+        const boost::asio::ip::address &interface_address);
+
+    /**
+     * Constructor with explicit multicast interface index (IPv6 only).
+     *
+     * The socket will have @c SO_REUSEADDR set, so that multiple sockets can
+     * all listen to the same multicast stream. If you want to let the
+     * system pick the interface for the multicast subscription, set
+     * @a interface_index to 0, or use the standard constructor.
+     *
+     * @param owner        Owning stream
+     * @param endpoint     Multicast group and port
+     * @param max_size     Maximum packet size that will be accepted.
+     * @param buffer_size  Requested socket buffer size.
+     * @param interface_index  Address of the interface which should join the group
+     *
+     * @see if_nametoindex(3)
+     */
+    udp_reader(
+        stream &owner,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        std::size_t max_size,
+        std::size_t buffer_size,
+        unsigned int interface_index);
+
+    /**
      * Constructor using an existing socket. This allows socket options (e.g.,
-     * multicast subscriptions) to be set by the caller. The socket should not
-     * be bound.
+     * multicast subscriptions) to be fine-tuned by the caller. The socket
+     * should not be bound. Note that there is no special handling for
+     * multicast addresses here.
      *
      * @param owner        Owning stream
      * @param socket       Existing socket which will be taken over. It must

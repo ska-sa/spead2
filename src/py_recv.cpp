@@ -169,17 +169,22 @@ public:
 class ring_stream_wrapper : public thread_pool_handle_wrapper, public ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore> >
 {
 private:
-    boost::asio::ip::udp::endpoint make_endpoint(const std::string &hostname, std::uint16_t port)
+    boost::asio::ip::address make_address(const std::string &hostname)
     {
-        using boost::asio::ip::udp;
-        udp::endpoint endpoint(boost::asio::ip::address_v4::any(), port);
-        if (!hostname.empty())
+        if (hostname.empty())
+            return boost::asio::ip::address_v4::any();
+        else
         {
+            using boost::asio::ip::udp;
             udp::resolver resolver(get_strand().get_io_service());
             udp::resolver::query query(hostname, "", udp::resolver::query::passive);
-            endpoint.address(resolver.resolve(query)->endpoint().address());
+            return resolver.resolve(query)->endpoint().address();
         }
-        return endpoint;
+    }
+
+    boost::asio::ip::udp::endpoint make_endpoint(const std::string &hostname, std::uint16_t port)
+    {
+        return boost::asio::ip::udp::endpoint(make_address(hostname), port);
     }
 
 public:
@@ -261,6 +266,30 @@ public:
         }
     }
 
+    void add_udp_reader_multicast_v4(
+        const std::string &multicast_group,
+        std::uint16_t port,
+        std::size_t max_size,
+        std::size_t buffer_size,
+        const std::string &interface_address)
+    {
+        release_gil gil;
+        auto endpoint = make_endpoint(multicast_group, port);
+        emplace_reader<udp_reader>(endpoint, max_size, buffer_size, make_address(interface_address));
+    }
+
+    void add_udp_reader_multicast_v6(
+        const std::string &multicast_group,
+        std::uint16_t port,
+        std::size_t max_size,
+        std::size_t buffer_size,
+        unsigned int interface_index)
+    {
+        release_gil gil;
+        auto endpoint = make_endpoint(multicast_group, port);
+        emplace_reader<udp_reader>(endpoint, max_size, buffer_size, interface_index);
+    }
+
     void stop()
     {
         release_gil gil;
@@ -321,6 +350,20 @@ void register_module()
               arg("buffer_size") = udp_reader::default_buffer_size,
               arg("bind_hostname") = std::string(),
               arg("socket") = py::object()))
+        .def("add_udp_reader", &ring_stream_wrapper::add_udp_reader_multicast_v4,
+             (
+              arg("multicast_group"),
+              arg("port"),
+              arg("max_size") = udp_reader::default_max_size,
+              arg("buffer_size") = udp_reader::default_buffer_size,
+              arg("interface_address") = "0.0.0.0"))
+        .def("add_udp_reader", &ring_stream_wrapper::add_udp_reader_multicast_v6,
+             (
+              arg("multicast_group"),
+              arg("port"),
+              arg("max_size") = udp_reader::default_max_size,
+              arg("buffer_size") = udp_reader::default_buffer_size,
+              arg("interface_index") = (unsigned int) 0))
         .def("stop", &ring_stream_wrapper::stop)
         .add_property("fd", &ring_stream_wrapper::get_fd)
         .def_readonly("DEFAULT_MAX_HEAPS", ring_stream_wrapper::default_max_heaps)
