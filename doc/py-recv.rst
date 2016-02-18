@@ -68,12 +68,39 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
         default is used. If a buffer this large cannot be allocated, a warning
         will be logged, but there will not be an error.
       :param str bind_hostname: If specified, the socket will be bound to the
-        first IP address found by resolving the given hostname.
+        first IP address found by resolving the given hostname. If this is a
+        multicast group, then it will also subscribe to this multicast group.
       :param socket.socket socket: If specified, this socket is used rather
         than a new one. The socket must be open but unbound. The caller must
         not use this socket any further, although it is not necessary to keep
-        it alive. This is mainly useful for setting socket options such as
-        multicast subscriptions.
+        it alive. This is mainly useful for fine-tuning socket options such
+        as multicast subscriptions.
+
+   .. py:method:: add_udp_reader(multicast_group, port, max_size=9200, buffer_size=8388608, interface_address)
+
+      Feed data from a UDP port with multicast (IPv4 only).
+
+      :param str multicast_group: Hostname/IP address of the multicast group to subscribe to
+      :param int port: UDP port number
+      :param int max_size: Largest packet size that will be accepted.
+      :param int buffer_size: Kernel socket buffer size. If this is 0, the OS
+        default is used. If a buffer this large cannot be allocated, a warning
+        will be logged, but there will not be an error.
+      :param str interface_address: Hostname/IP address of the interface which
+        will be subscribed, or the empty string to let the OS decide.
+
+   .. py:method:: add_udp_reader(multicast_group, port, max_size=9200, buffer_size=8388608, interface_index)
+
+      Feed data from a UDP port with multicast (IPv6 only).
+
+      :param str multicast_group: Hostname/IP address of the multicast group to subscribe to
+      :param int port: UDP port number
+      :param int max_size: Largest packet size that will be accepted.
+      :param int buffer_size: Kernel socket buffer size. If this is 0, the OS
+        default is used. If a buffer this large cannot be allocated, a warning
+        will be logged, but there will not be an error.
+      :param str interface_index: Index of the interface which will be
+        subscribed, or 0 to let the OS decide.
 
    .. py:method:: get()
 

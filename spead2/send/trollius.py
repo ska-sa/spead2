@@ -24,7 +24,8 @@ from spead2._send import UdpStreamAsyncio as _UdpStreamAsyncio
 
 
 class UdpStream(_UdpStreamAsyncio):
-    """SPEAD over UDP with asynchronous sends.
+    """SPEAD over UDP with asynchronous sends. The other constructors
+    defined for :py:class:`spead2.send.UdpStream` are also applicable here.
 
     Parameters
     ----------

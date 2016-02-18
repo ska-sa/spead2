@@ -1,6 +1,15 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Added friendlier support for multicast. When a multicast address is passed
+  to :py:meth:`~spead2.recv.Stream.add_udp_reader`, the socket will
+  automatically join the multicast group and set :cpp:const:`SO_REUSEADDR` so
+  that multiple sockets can consume from the same stream. There are also new
+  constructors and methods to give explicit control over the TTL (send)
+  and interface (send and receive), including support for IPv6.
+
 .. rubric:: Version 0.4.7
 
 - Added in-memory mode to the C++ version of spead2_bench, to measure the

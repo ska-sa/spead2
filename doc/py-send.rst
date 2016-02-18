@@ -55,14 +55,60 @@ Blocking send
    :param socket.socket socket: If specified, this socket is used rather
      than a new one. The socket must be open but unbound. The caller must
      not use this socket any further, although it is not necessary to keep
-     it alive. This is mainly useful for setting socket options such as
-     multicast TTL.
+     it alive. This is mainly useful for fine-tuning socket options.
 
    .. py:method:: send_heap(heap)
 
       Sends a :py:class:`spead2.send.Heap` to the peer, and wait for
       completion. There is currently no indication of whether it successfully
       arrived.
+
+.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config, buffer_size=524288, ttl)
+
+   Stream using UDP, with multicast TTL. Note that the regular constructor will
+   also work with UDP, but does not give any control over the TTL.
+
+   :param thread_pool: Thread pool handling the I/O
+   :type thread_pool: :py:class:`spead2.ThreadPool`
+   :param str multicast_group: Multicast group hostname/IP address
+   :param int port: Destination port
+   :param config: Stream configuration
+   :type config: :py:class:`spead2.send.StreamConfig`
+   :param int buffer_size: Socket buffer size. A warning is logged if this
+     size cannot be set due to OS limits.
+   :param int ttl: Multicast TTL
+
+.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config, buffer_size=524288, ttl, interface_address)
+
+   Stream using UDP, with multicast TTL and interface address (IPv4 only).
+
+   :param thread_pool: Thread pool handling the I/O
+   :type thread_pool: :py:class:`spead2.ThreadPool`
+   :param str multicast_group: Multicast group hostname/IP address
+   :param int port: Destination port
+   :param config: Stream configuration
+   :type config: :py:class:`spead2.send.StreamConfig`
+   :param int buffer_size: Socket buffer size. A warning is logged if this
+     size cannot be set due to OS limits.
+   :param int ttl: Multicast TTL
+   :param str interface_address: Hostname/IP address of the interface on which
+     to send the data
+
+.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config, buffer_size=524288, ttl, interface_index)
+
+   Stream using UDP, with multicast TTL and interface index (IPv6 only).
+
+   :param thread_pool: Thread pool handling the I/O
+   :type thread_pool: :py:class:`spead2.ThreadPool`
+   :param str multicast_group: Multicast group hostname/IP address
+   :param int port: Destination port
+   :param config: Stream configuration
+   :type config: :py:class:`spead2.send.StreamConfig`
+   :param int buffer_size: Socket buffer size. A warning is logged if this
+     size cannot be set due to OS limits.
+   :param int ttl: Multicast TTL
+   :param str interface_index: Index of the interface on which to send the
+     data
 
 .. py:class:: spead2.send.BytesStream(thread_pool, config)
 
