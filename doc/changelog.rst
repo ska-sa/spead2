@@ -5,7 +5,7 @@ Changelog
 
 - Added friendlier support for multicast. When a multicast address is passed
   to :py:meth:`~spead2.recv.Stream.add_udp_reader`, the socket will
-  automatically join the multicast group and set :cpp:const:`SO_REUSEADDR` so
+  automatically join the multicast group and set :cpp:var:`SO_REUSEADDR` so
   that multiple sockets can consume from the same stream. There are also new
   constructors and methods to give explicit control over the TTL (send)
   and interface (send and receive), including support for IPv6.
