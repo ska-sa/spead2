@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.5.0
 
 - Added friendlier support for multicast. When a multicast address is passed
   to :py:meth:`~spead2.recv.Stream.add_udp_reader`, the socket will
