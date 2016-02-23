@@ -553,10 +553,12 @@ class ItemGroup(object):
 
     def _add_item(self, item):
         if item.id in self._by_id or item.name in self._by_name:
+            new_version = item.version
             # Check if this is just the same thing
             same = False
             try:
                 old = self._by_id[item.id]
+                new_version = max(new_version, old.version)
                 if (old.name == item.name and
                     old.description == item.description and
                     old.shape == item.shape and
@@ -568,6 +570,12 @@ class ItemGroup(object):
                 pass   # Means the name was the same but the id is new
             if not same:
                 _logger.info('Descriptor replacement for ID %d, name %s', item.id, item.name)
+                # Find a version number that is big enough to not be confused
+                try:
+                    new_version = max(new_version, self._by_name[item.name].version)
+                except KeyError:
+                    pass
+            item.version = new_version
         self._by_id[item.id] = item
         self._by_name[item.name] = item
 
@@ -644,6 +652,6 @@ class ItemGroup(object):
                 _logger.warning('Item with ID %d received but there is no descriptor', raw_item.id)
             else:
                 item.set_from_raw(raw_item)
-                item.version = heap.cnt
+                item.version += 1
                 updated_items[item.name] = item
         return updated_items

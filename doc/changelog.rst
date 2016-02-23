@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Changed item versioning on receive to increment version number on each update
+  rather that setting to heap id. This is more robust to using a single item
+  or item group with multiple streams, and most closely matches the send path.
+
 .. rubric:: Version 0.5.0
 
 - Added friendlier support for multicast. When a multicast address is passed
