@@ -34,6 +34,7 @@ is paired with one heap generator, a convenience class
 
    .. automethod:: spead2.send.HeapGenerator.add_to_heap
    .. automethod:: spead2.send.HeapGenerator.get_heap
+   .. automethod:: spead2.send.HeapGenerator.get_start
    .. automethod:: spead2.send.HeapGenerator.get_end
 
 Blocking send

@@ -318,7 +318,8 @@ void register_module()
         .add_property("flavour",
             make_function(&heap_wrapper::get_flavour, return_value_policy<copy_const_reference>()))
         .def("get_items", &heap_wrapper::get_items)
-        .def("get_descriptors", &heap_wrapper::get_descriptors);
+        .def("get_descriptors", &heap_wrapper::get_descriptors)
+        .def("is_start_of_stream", &heap_wrapper::is_start_of_stream);
     class_<item_wrapper>("RawItem", no_init)
         .def_readonly("id", &item_wrapper::id)
         .def_readonly("is_immediate", &item_wrapper::is_immediate)

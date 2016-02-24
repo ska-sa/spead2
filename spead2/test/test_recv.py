@@ -20,7 +20,6 @@ import struct
 import numpy as np
 import six
 from nose.tools import *
-from .defines import *
 from .test_common import assert_equal_typed
 
 
@@ -104,10 +103,10 @@ class Flavour(object):
                 payload_size += len(bytes(item.value))
 
         all_items = [
-            Item(HEAP_CNT_ID, heap_cnt, True),
-            Item(PAYLOAD_OFFSET_ID, 0, True),
-            Item(PAYLOAD_LENGTH_ID, payload_size, True),
-            Item(HEAP_LENGTH_ID, payload_size, True)]
+            Item(spead2.HEAP_CNT_ID, heap_cnt, True),
+            Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
+            Item(spead2.PAYLOAD_LENGTH_ID, payload_size, True),
+            Item(spead2.HEAP_LENGTH_ID, payload_size, True)]
         offset = 0
         payload = bytearray(payload_size)
         for item in items:
@@ -125,14 +124,14 @@ class Flavour(object):
             name = name.encode('ascii')
         if not isinstance(description, bytes):
             description = description.encode('ascii')
-        return Item(DESCRIPTOR_ID, self.make_packet_heap(
+        return Item(spead2.DESCRIPTOR_ID, self.make_packet_heap(
             1,
             [
-                Item(DESCRIPTOR_ID_ID, id, True),
-                Item(DESCRIPTOR_NAME_ID, name),
-                Item(DESCRIPTOR_DESCRIPTION_ID, description),
-                Item(DESCRIPTOR_FORMAT_ID, self.make_format(format)),
-                Item(DESCRIPTOR_SHAPE_ID, self.make_shape(shape))
+                Item(spead2.DESCRIPTOR_ID_ID, id, True),
+                Item(spead2.DESCRIPTOR_NAME_ID, name),
+                Item(spead2.DESCRIPTOR_DESCRIPTION_ID, description),
+                Item(spead2.DESCRIPTOR_FORMAT_ID, self.make_format(format)),
+                Item(spead2.DESCRIPTOR_SHAPE_ID, self.make_shape(shape))
             ]))
 
     def make_numpy_descriptor_raw(self, id, name, description, header):
@@ -142,13 +141,13 @@ class Flavour(object):
             description = description.encode('ascii')
         if not isinstance(header, bytes):
             header = header.encode('ascii')
-        return Item(DESCRIPTOR_ID, self.make_packet_heap(
+        return Item(spead2.DESCRIPTOR_ID, self.make_packet_heap(
             1,
             [
-                Item(DESCRIPTOR_ID_ID, id, True),
-                Item(DESCRIPTOR_NAME_ID, name),
-                Item(DESCRIPTOR_DESCRIPTION_ID, description),
-                Item(DESCRIPTOR_DTYPE_ID, header)
+                Item(spead2.DESCRIPTOR_ID_ID, id, True),
+                Item(spead2.DESCRIPTOR_NAME_ID, name),
+                Item(spead2.DESCRIPTOR_DESCRIPTION_ID, description),
+                Item(spead2.DESCRIPTOR_DTYPE_ID, header)
             ]))
 
     def make_numpy_descriptor(self, id, name, description, dtype, shape, fortran_order=False):
@@ -356,6 +355,19 @@ class TestDecode(object):
         item = self.data_to_item(packet, 0x1234)
         assert_equal(expected, item.value)
 
+    def test_is_start_of_stream(self):
+        packet = self.flavour.make_packet_heap(
+            1,
+            [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_START, immediate=True)])
+        heaps = self.data_to_heaps(packet)
+        assert_true(heaps[0].is_start_of_stream())
+
+        packet = self.flavour.make_packet_heap(
+            1,
+            [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_DESCRIPTOR_REISSUE, immediate=True)])
+        heaps = self.data_to_heaps(packet)
+        assert_false(heaps[0].is_start_of_stream())
+
     def test_size_mismatch(self):
         packet = self.flavour.make_packet_heap(
             1,
@@ -458,16 +470,16 @@ class TestDecode(object):
         payload2 = bytes(np.arange(64, 96, dtype=np.uint8).data)
         packet1 = self.flavour.make_packet(
             [
-                Item(HEAP_CNT_ID, 1, True),
+                Item(spead2.HEAP_CNT_ID, 1, True),
                 Item(0x1000, None, False, offset=0),
-                Item(PAYLOAD_OFFSET_ID, 0, True),
-                Item(PAYLOAD_LENGTH_ID, 64, True)
+                Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
+                Item(spead2.PAYLOAD_LENGTH_ID, 64, True)
             ], payload1)
         packet2 = self.flavour.make_packet(
             [
-                Item(HEAP_CNT_ID, 1, True),
-                Item(PAYLOAD_OFFSET_ID, 64, True),
-                Item(PAYLOAD_LENGTH_ID, 32, True)
+                Item(spead2.HEAP_CNT_ID, 1, True),
+                Item(spead2.PAYLOAD_OFFSET_ID, 64, True),
+                Item(spead2.PAYLOAD_LENGTH_ID, 32, True)
             ], payload2)
         heaps = self.data_to_heaps(packet1 + packet2)
         assert_equal(1, len(heaps))
@@ -479,10 +491,10 @@ class TestDecode(object):
         """Heap with out-of-range offset should be dropped"""
         packet = self.flavour.make_packet(
             [
-                Item(HEAP_CNT_ID, 1, True),
-                Item(HEAP_LENGTH_ID, 64, True),
-                Item(PAYLOAD_OFFSET_ID, 0, True),
-                Item(PAYLOAD_LENGTH_ID, 64, True),
+                Item(spead2.HEAP_CNT_ID, 1, True),
+                Item(spead2.HEAP_LENGTH_ID, 64, True),
+                Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
+                Item(spead2.PAYLOAD_LENGTH_ID, 64, True),
                 Item(0x1000, None, False, offset=65)
             ], b'\0' * 64)
         heaps = self.data_to_heaps(packet)

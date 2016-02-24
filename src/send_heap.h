@@ -174,6 +174,14 @@ public:
     void add_descriptor(const descriptor &descriptor);
 
     /**
+     * Add a start-of-stream control item.
+     */
+    void add_start()
+    {
+        add_item(STREAM_CTRL_ID, CTRL_STREAM_START);
+    }
+
+    /**
      * Add an end-of-stream control item.
      */
     void add_end()

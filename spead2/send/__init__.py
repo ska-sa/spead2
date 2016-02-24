@@ -124,6 +124,13 @@ class HeapGenerator(object):
         self.add_to_heap(heap, *args, **kwargs)
         return heap
 
+    def get_start(self):
+        """Return a heap that contains only a start-of-stream marker.
+        """
+        heap = Heap(self._flavour)
+        heap.add_start()
+        return heap
+
     def get_end(self):
         """Return a heap that contains only an end-of-stream marker.
         """

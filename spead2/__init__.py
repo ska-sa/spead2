@@ -14,11 +14,28 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import spead2._spead2
-from spead2._spead2 import Flavour, ThreadPool, MemoryPool, Stopped, Empty, Stopped, \
-    BUG_COMPAT_DESCRIPTOR_WIDTHS, \
-    BUG_COMPAT_SHAPE_BIT_1, \
-    BUG_COMPAT_SWAP_ENDIAN, \
-    BUG_COMPAT_PYSPEAD_0_5_2
+from spead2._spead2 import (Flavour, ThreadPool, MemoryPool, Stopped, Empty, Stopped, \
+    BUG_COMPAT_DESCRIPTOR_WIDTHS,
+    BUG_COMPAT_SHAPE_BIT_1,
+    BUG_COMPAT_SWAP_ENDIAN,
+    BUG_COMPAT_PYSPEAD_0_5_2,
+    NULL_ID,
+    HEAP_CNT_ID,
+    HEAP_LENGTH_ID,
+    PAYLOAD_OFFSET_ID,
+    PAYLOAD_LENGTH_ID,
+    DESCRIPTOR_ID,
+    STREAM_CTRL_ID,
+    DESCRIPTOR_NAME_ID,
+    DESCRIPTOR_DESCRIPTION_ID,
+    DESCRIPTOR_SHAPE_ID,
+    DESCRIPTOR_FORMAT_ID,
+    DESCRIPTOR_ID_ID,
+    DESCRIPTOR_DTYPE_ID,
+    CTRL_STREAM_START,
+    CTRL_DESCRIPTOR_REISSUE,
+    CTRL_STREAM_STOP,
+    CTRL_DESCRIPTOR_UPDATE)
 import numbers as _numbers
 import numpy as _np
 import logging
@@ -644,7 +661,7 @@ class ItemGroup(object):
             self._add_item(item)
         updated_items = {}
         for raw_item in heap.get_items():
-            if raw_item.id <= 6:
+            if raw_item.id <= STREAM_CTRL_ID:
                 continue     # Special fields, not real items
             try:
                 item = self._by_id[raw_item.id]

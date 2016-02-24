@@ -23,7 +23,6 @@ import weakref
 import threading
 import time
 from nose.tools import *
-from .defines import *
 
 
 def hexlify(data):
@@ -114,11 +113,11 @@ class TestEncode(object):
         expected = [
             b''.join([
                 self.flavour.make_header(5),
-                self.flavour.make_immediate(HEAP_CNT_ID, 0x123456),
-                self.flavour.make_immediate(HEAP_LENGTH_ID, 1),
-                self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
-                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, 1),
-                self.flavour.make_address(NULL_ID, 0),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 1),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 1),
+                self.flavour.make_address(spead2.NULL_ID, 0),
                 struct.pack('B', 0)])
         ]
         packet = self.flavour.items_to_bytes([])
@@ -151,16 +150,16 @@ class TestEncode(object):
         offsets = offset_generator(payload_fields)
         descriptor = b''.join([
             self.flavour.make_header(10),
-            self.flavour.make_immediate(HEAP_CNT_ID, 1),
-            self.flavour.make_immediate(HEAP_LENGTH_ID, len(payload)),
-            self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
-            self.flavour.make_immediate(PAYLOAD_LENGTH_ID, len(payload)),
-            self.flavour.make_immediate(DESCRIPTOR_ID_ID, id),
-            self.flavour.make_address(DESCRIPTOR_NAME_ID, next(offsets)),
-            self.flavour.make_address(DESCRIPTOR_DESCRIPTION_ID, next(offsets)),
-            self.flavour.make_address(DESCRIPTOR_FORMAT_ID, next(offsets)),
-            self.flavour.make_address(DESCRIPTOR_SHAPE_ID, next(offsets)),
-            self.flavour.make_address(DESCRIPTOR_DTYPE_ID, next(offsets)),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 1),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, len(payload)),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, len(payload)),
+            self.flavour.make_immediate(spead2.DESCRIPTOR_ID_ID, id),
+            self.flavour.make_address(spead2.DESCRIPTOR_NAME_ID, next(offsets)),
+            self.flavour.make_address(spead2.DESCRIPTOR_DESCRIPTION_ID, next(offsets)),
+            self.flavour.make_address(spead2.DESCRIPTOR_FORMAT_ID, next(offsets)),
+            self.flavour.make_address(spead2.DESCRIPTOR_SHAPE_ID, next(offsets)),
+            self.flavour.make_address(spead2.DESCRIPTOR_DTYPE_ID, next(offsets)),
             payload
         ])
         return descriptor
@@ -176,15 +175,15 @@ class TestEncode(object):
         offsets = offset_generator(payload_fields)
         descriptor = b''.join([
             self.flavour.make_header(9),
-            self.flavour.make_immediate(HEAP_CNT_ID, 1),
-            self.flavour.make_immediate(HEAP_LENGTH_ID, len(payload)),
-            self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
-            self.flavour.make_immediate(PAYLOAD_LENGTH_ID, len(payload)),
-            self.flavour.make_immediate(DESCRIPTOR_ID_ID, id),
-            self.flavour.make_address(DESCRIPTOR_NAME_ID, next(offsets)),
-            self.flavour.make_address(DESCRIPTOR_DESCRIPTION_ID, next(offsets)),
-            self.flavour.make_address(DESCRIPTOR_FORMAT_ID, next(offsets)),
-            self.flavour.make_address(DESCRIPTOR_SHAPE_ID, next(offsets)),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 1),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, len(payload)),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, len(payload)),
+            self.flavour.make_immediate(spead2.DESCRIPTOR_ID_ID, id),
+            self.flavour.make_address(spead2.DESCRIPTOR_NAME_ID, next(offsets)),
+            self.flavour.make_address(spead2.DESCRIPTOR_DESCRIPTION_ID, next(offsets)),
+            self.flavour.make_address(spead2.DESCRIPTOR_FORMAT_ID, next(offsets)),
+            self.flavour.make_address(spead2.DESCRIPTOR_SHAPE_ID, next(offsets)),
             payload
         ])
         return descriptor
@@ -203,11 +202,11 @@ class TestEncode(object):
         expected = [
             b''.join([
                 self.flavour.make_header(6),
-                self.flavour.make_immediate(HEAP_CNT_ID, 0x123456),
-                self.flavour.make_immediate(HEAP_LENGTH_ID, len(payload)),
-                self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
-                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, len(payload)),
-                self.flavour.make_address(DESCRIPTOR_ID, next(offsets)),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, len(payload)),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, len(payload)),
+                self.flavour.make_address(spead2.DESCRIPTOR_ID, next(offsets)),
                 self.flavour.make_address(id, next(offsets)),
                 payload
             ])
@@ -229,10 +228,10 @@ class TestEncode(object):
         expected = [
             b''.join([
                 self.flavour.make_header(5),
-                self.flavour.make_immediate(HEAP_CNT_ID, 0x123456),
-                self.flavour.make_immediate(HEAP_LENGTH_ID, len(payload)),
-                self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
-                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, len(payload)),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, len(payload)),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, len(payload)),
                 self.flavour.make_address(id, 0),
                 payload
             ])
@@ -258,11 +257,11 @@ class TestEncode(object):
         expected = [
             b''.join([
                 self.flavour.make_header(6),
-                self.flavour.make_immediate(HEAP_CNT_ID, 0x123456),
-                self.flavour.make_immediate(HEAP_LENGTH_ID, len(payload)),
-                self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
-                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, len(payload)),
-                self.flavour.make_address(DESCRIPTOR_ID, next(offsets)),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, len(payload)),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, len(payload)),
+                self.flavour.make_address(spead2.DESCRIPTOR_ID, next(offsets)),
                 self.flavour.make_address(id, next(offsets)),
                 payload
             ])
@@ -288,11 +287,11 @@ class TestEncode(object):
         expected = [
             b''.join([
                 self.flavour.make_header(6),
-                self.flavour.make_immediate(HEAP_CNT_ID, 0x123456),
-                self.flavour.make_immediate(HEAP_LENGTH_ID, len(payload)),
-                self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
-                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, len(payload)),
-                self.flavour.make_address(DESCRIPTOR_ID, next(offsets)),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, len(payload)),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, len(payload)),
+                self.flavour.make_address(spead2.DESCRIPTOR_ID, next(offsets)),
                 self.flavour.make_address(id, next(offsets)),
                 payload
             ])
@@ -311,12 +310,12 @@ class TestEncode(object):
         expected = [
             b''.join([
                 self.flavour.make_header(6),
-                self.flavour.make_immediate(HEAP_CNT_ID, 0x123456),
-                self.flavour.make_immediate(HEAP_LENGTH_ID, 1),
-                self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
-                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, 1),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 1),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 1),
                 self.flavour.make_immediate(id, data),
-                self.flavour.make_address(NULL_ID, 0),
+                self.flavour.make_address(spead2.NULL_ID, 0),
                 struct.pack('B', 0)
             ])
         ]
@@ -335,10 +334,10 @@ class TestEncode(object):
         expected = [
             b''.join([
                 self.flavour.make_header(5),
-                self.flavour.make_immediate(HEAP_CNT_ID, 0x123456),
-                self.flavour.make_immediate(HEAP_LENGTH_ID, len(payload)),
-                self.flavour.make_immediate(PAYLOAD_OFFSET_ID, 0),
-                self.flavour.make_immediate(PAYLOAD_LENGTH_ID, len(payload)),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, len(payload)),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, len(payload)),
                 self.flavour.make_address(id, 0),
                 payload
             ])
@@ -348,6 +347,45 @@ class TestEncode(object):
         item.value = data
         packet = self.flavour.items_to_bytes([item], [])
         assert_equal(hexlify(expected), hexlify(packet))
+
+    def test_start(self):
+        """Tests sending a start-of-stream marker."""
+        expected = [
+            b''.join([
+                self.flavour.make_header(6),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 1),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 1),
+                self.flavour.make_immediate(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_START),
+                self.flavour.make_address(spead2.NULL_ID, 0),
+                struct.pack('B', 0)
+            ])
+        ]
+        heap = send.Heap(self.flavour)
+        heap.add_start()
+        packet = list(send.PacketGenerator(heap, 0x123456, 1500))
+        assert_equal(hexlify(expected), hexlify(packet))
+
+    def test_end(self):
+        """Tests sending an end-of-stream marker."""
+        expected = [
+            b''.join([
+                self.flavour.make_header(6),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 1),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 1),
+                self.flavour.make_immediate(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_STOP),
+                self.flavour.make_address(spead2.NULL_ID, 0),
+                struct.pack('B', 0)
+            ])
+        ]
+        heap = send.Heap(self.flavour)
+        heap.add_end()
+        packet = list(send.PacketGenerator(heap, 0x123456, 1500))
+        assert_equal(hexlify(expected), hexlify(packet))
+
 
 class TestStream(object):
     def setup(self):

@@ -437,6 +437,7 @@ void register_module()
         .def("add_item", &heap_wrapper::add_item, arg("item"))
         .def("add_descriptor", &heap_wrapper::add_descriptor,
              (arg("descriptor")))
+        .def("add_start", &heap_wrapper::add_start)
         .def("add_end", &heap_wrapper::add_end);
 
     class_<packet_generator_wrapper, boost::noncopyable>("PacketGenerator", init<heap_wrapper &, item_pointer_t, std::size_t>(

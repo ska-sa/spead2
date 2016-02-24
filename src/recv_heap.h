@@ -45,7 +45,7 @@ struct item
     s_item_pointer_t id;
     /// Start of memory containing value
     std::uint8_t *ptr;
-    /// Start of memory containing length
+    /// Length of memory
     std::size_t length;
     /// Whether the item is immediate (needed to validate certain special IDs)
     bool is_immediate;
@@ -103,6 +103,12 @@ public:
 
     /// Extract and decode descriptors from this heap
     std::vector<descriptor> get_descriptors() const;
+
+    /**
+     * Convenience function to check whether any of the items is
+     * a @c CTRL_STREAM_START.
+     */
+    bool is_start_of_stream() const;
 };
 
 } // namespace recv

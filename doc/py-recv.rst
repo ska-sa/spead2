@@ -20,6 +20,10 @@ normally passed to :py:meth:`spead2.ItemGroup.update`.
 
       SPEAD flavour used to encode the heap (see :ref:`py-flavour`)
 
+   .. py:function:: is_start_of_stream()
+
+      Returns true if the packet contains a stream start control item.
+
 .. note:: Malformed packets (such as an unsupported SPEAD version, or
   inconsistent heap lengths) are dropped, with a log message. However,
   errors in interpreting a fully assembled heap (such as invalid/unsupported

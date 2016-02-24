@@ -41,6 +41,14 @@ When receiving data, some transformations are made:
 * If the format is given and is c8 and the array is one-dimensional, it is
   joined together into a Python :py:class:`str`.
 
-Finally, note that a heap with the CTRL_STREAM_STOP flag will shut down the
-stream, but the heap is not passed on to the application. Senders should thus
-avoid putting any other data in such heaps.
+Stream control items
+--------------------
+A heap with the :py:const:`~spead2.CTRL_STREAM_STOP` flag will shut down the
+stream, but the heap is not passed on to the application.  Senders should thus
+avoid putting any other data in such heaps. These heaps are not automatically
+sent; use :py:meth:`spead2.send.HeapGenerator.get_end` to produce such a heap.
+
+In contrast, stream start flags (:py:const:`~spead2.CTRL_STREAM_START`) have no
+effect on internal processing. Senders can generate them using
+:py:meth:`spead2.send.HeapGenerator.get_start` and receivers can detect them using
+:py:meth:`spead2.recv.Heap.is_start_of_stream`.

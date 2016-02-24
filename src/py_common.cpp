@@ -239,10 +239,32 @@ static void register_module()
         &bytestring_from_python::construct,
         py::type_id<bytestring>());
 
-    py::setattr(scope(), "BUG_COMPAT_DESCRIPTOR_WIDTHS", int_to_object(BUG_COMPAT_DESCRIPTOR_WIDTHS));
-    py::setattr(scope(), "BUG_COMPAT_SHAPE_BIT_1", int_to_object(BUG_COMPAT_SHAPE_BIT_1));
-    py::setattr(scope(), "BUG_COMPAT_SWAP_ENDIAN", int_to_object(BUG_COMPAT_SWAP_ENDIAN));
-    py::setattr(scope(), "BUG_COMPAT_PYSPEAD_0_5_2", int_to_object(BUG_COMPAT_PYSPEAD_0_5_2));
+#define EXPORT_ENUM(x) (py::setattr(scope(), #x, int_to_object(long(x))))
+    EXPORT_ENUM(BUG_COMPAT_DESCRIPTOR_WIDTHS);
+    EXPORT_ENUM(BUG_COMPAT_SHAPE_BIT_1);
+    EXPORT_ENUM(BUG_COMPAT_SWAP_ENDIAN);
+    EXPORT_ENUM(BUG_COMPAT_PYSPEAD_0_5_2);
+
+    EXPORT_ENUM(NULL_ID);
+    EXPORT_ENUM(HEAP_CNT_ID);
+    EXPORT_ENUM(HEAP_LENGTH_ID);
+    EXPORT_ENUM(PAYLOAD_OFFSET_ID);
+    EXPORT_ENUM(PAYLOAD_LENGTH_ID);
+    EXPORT_ENUM(DESCRIPTOR_ID);
+    EXPORT_ENUM(STREAM_CTRL_ID);
+
+    EXPORT_ENUM(DESCRIPTOR_NAME_ID);
+    EXPORT_ENUM(DESCRIPTOR_DESCRIPTION_ID);
+    EXPORT_ENUM(DESCRIPTOR_SHAPE_ID);
+    EXPORT_ENUM(DESCRIPTOR_FORMAT_ID);
+    EXPORT_ENUM(DESCRIPTOR_ID_ID);
+    EXPORT_ENUM(DESCRIPTOR_DTYPE_ID);
+
+    EXPORT_ENUM(CTRL_STREAM_START);
+    EXPORT_ENUM(CTRL_DESCRIPTOR_REISSUE);
+    EXPORT_ENUM(CTRL_STREAM_STOP);
+    EXPORT_ENUM(CTRL_DESCRIPTOR_UPDATE);
+#undef EXPORT_ENUM
 
     class_<flavour>("Flavour",
         init<int, int, int, bug_compat_mask>(

@@ -241,5 +241,17 @@ std::vector<descriptor> heap::get_descriptors() const
     return s.descriptors;
 }
 
+bool heap::is_start_of_stream() const
+{
+    for (const item &item : items)
+        if (item.id == STREAM_CTRL_ID)
+        {
+            item_pointer_t value = load_bytes_be(item.ptr, item.length);
+            if (value == CTRL_STREAM_START)
+                return true;
+        }
+    return false;
+}
+
 } // namespace recv
 } // namespace spead2
