@@ -103,7 +103,11 @@ heap::heap(live_heap &&h)
         new_item.id = decoder.get_id(pointer);
         if (new_item.id == 0)
             continue; // just padding
-        if (new_item.id > STREAM_CTRL_ID && !seen_items.insert(new_item.id).second)
+        /* Note: we cannot actually do the insertion here, because where the
+         * item pointer for addressed items is duplicated, all but one of
+         * the duplicates references an empty item.
+         */
+        if (new_item.id > STREAM_CTRL_ID && seen_items.count(new_item.id))
         {
             log_debug("Duplicate item with ID %d", new_item.id);
             continue;
@@ -121,6 +125,7 @@ heap::heap(live_heap &&h)
             log_debug("Found new immediate item ID %d, value %d",
                       new_item.id, decoder.get_immediate(pointer));
             next_immediate += immediate_size;
+            seen_items.insert(new_item.id);
         }
         else
         {
@@ -141,6 +146,7 @@ heap::heap(live_heap &&h)
             new_item.length = end - start;
             log_debug("found new addressed item ID %d, offset %d, length %d",
                       new_item.id, start, end - start);
+            seen_items.insert(new_item.id);
         }
         items.push_back(new_item);
     }
