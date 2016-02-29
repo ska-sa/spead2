@@ -23,6 +23,7 @@
 #include <utility>
 #include <cstring>
 #include <string>
+#include <unordered_set>
 #include "recv_live_heap.h"
 #include "recv_heap.h"
 #include "recv_stream.h"
@@ -87,6 +88,14 @@ heap::heap(live_heap &&h)
     uint8_t *next_immediate = immediate_payload.get();
     items.reserve(h.pointers.size());
 
+    /* Some SPEAD implementations send duplicate items, which can add
+     * significant overhead in the Python API to process. We filter them out
+     * here using seen_items to track which IDs have already appeared.
+     *
+     * DESCRIPTOR_ID is a special case, because a heap can contain multiple
+     * descriptors.
+     */
+    std::unordered_set<item_pointer_t> seen_items;
     for (std::size_t i = 0; i < h.pointers.size(); i++)
     {
         item new_item;
@@ -94,6 +103,11 @@ heap::heap(live_heap &&h)
         new_item.id = decoder.get_id(pointer);
         if (new_item.id == 0)
             continue; // just padding
+        if (new_item.id > STREAM_CTRL_ID && !seen_items.insert(new_item.id).second)
+        {
+            log_debug("Duplicate item with ID %d", new_item.id);
+            continue;
+        }
         new_item.is_immediate = decoder.is_immediate(pointer);
         if (new_item.is_immediate)
         {

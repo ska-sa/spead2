@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Version 0.6.1
+
+- Filter out duplicate items from a heap. It is undefined which of a set of
+  duplicates will be retained (it was already undefined for
+  :py:class:`spead2.ItemGroup`).
+
 .. rubric:: Version 0.6.0
 
 - Changed item versioning on receive to increment version number on each update
