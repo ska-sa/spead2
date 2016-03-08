@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.6.2
 
 - Add a fast path for integer items that exactly fit in an immediate.
 
