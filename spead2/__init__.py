@@ -46,6 +46,10 @@ from spead2._version import __version__
 _logger = logging.getLogger(__name__)
 _UNRESERVED_ID = 0x1000      #: First ID that can be auto-allocated
 
+_FASTPATH_NONE = 0
+_FASTPATH_IMMEDIATE = 1
+_FASTPATH_NUMPY = 2
+
 
 if six.PY2:
     def _bytes_to_str_ascii(b):
@@ -117,9 +121,16 @@ class Descriptor(object):
         self.dtype = dtype
         self.order = order
         self.format = format
-
-    def _use_fastpath(self):
-        return not self._internal_dtype.hasobject
+        if not self._internal_dtype.hasobject:
+            self._fastpath = _FASTPATH_NUMPY
+        elif (not shape and
+                dtype is None and
+                len(format) == 1 and
+                format[0][0] in ('u', 'i') and
+                self._internal_dtype.hasobject):
+            self._fastpath = _FASTPATH_IMMEDIATE
+        else:
+            self._fastpath = _FASTPATH_NONE
 
     @classmethod
     def _parse_numpy_header(cls, header):
@@ -442,24 +453,7 @@ class Item(Descriptor):
 
     def set_from_raw(self, raw_item):
         raw_value = raw_item.value
-        if not self._use_fastpath():
-            itemsize_bits = self.itemsize_bits
-            max_elements = raw_value.shape[0] * 8 // itemsize_bits
-            shape = self.dynamic_shape(max_elements)
-            elements = int(_np.product(shape))
-            bits = elements * itemsize_bits
-            if elements > max_elements:
-                raise ValueError('Item has too few elements for shape (%d < %d)' %
-                                 (max_elements, elements))
-            if raw_item.is_immediate:
-                # Immediates get head padding instead of tail padding
-                size_bytes = (bits + 7) // 8
-                raw_value = raw_value[-size_bytes:]
-
-            gen = self._read_bits(raw_value)
-            gen.send(None)    # Initialisation of the generator
-            value = _np.array(self._load_recursive(shape, gen), self._internal_dtype)
-        else:
+        if self._fastpath == _FASTPATH_NUMPY:
             max_elements = raw_value.shape[0] // self._internal_dtype.itemsize
             shape = self.dynamic_shape(max_elements)
             elements = int(_np.product(shape))
@@ -477,8 +471,33 @@ class Item(Descriptor):
             # Force to native endian
             array1d = array1d.astype(self._internal_dtype.newbyteorder('='), casting='equiv', copy=False)
             value = _np.reshape(array1d, shape, self.order)
+        elif (self._fastpath == _FASTPATH_IMMEDIATE and
+                raw_item.is_immediate and
+                raw_value.shape[0] * 8 == self.format[0][1]):
+            value = raw_item.immediate_value
+            if self.format[0][0] == 'i':
+                top = 1 << (self.format[0][1] - 1)
+                if value >= top:
+                    value -= 2 * top
+        else:
+            itemsize_bits = self.itemsize_bits
+            max_elements = raw_value.shape[0] * 8 // itemsize_bits
+            shape = self.dynamic_shape(max_elements)
+            elements = int(_np.product(shape))
+            bits = elements * itemsize_bits
+            if elements > max_elements:
+                raise ValueError('Item has too few elements for shape (%d < %d)' %
+                                 (max_elements, elements))
+            if raw_item.is_immediate:
+                # Immediates get head padding instead of tail padding
+                size_bytes = (bits + 7) // 8
+                raw_value = raw_value[-size_bytes:]
 
-        if len(self.shape) == 0:
+            gen = self._read_bits(raw_value)
+            gen.send(None)    # Initialisation of the generator
+            value = _np.array(self._load_recursive(shape, gen), self._internal_dtype)
+
+        if len(self.shape) == 0 and isinstance(value, _np.ndarray):
             # Convert zero-dimensional array to scalar
             value = value[()]
         elif len(self.shape) == 1 and self.format == [('c', 8)]:
@@ -537,11 +556,11 @@ class Item(Descriptor):
 
     def to_buffer(self):
         """Returns an object that implements the buffer protocol for the value.
-        It can be either the original value (on the fast path), or a new
+        It can be either the original value (on the numpy fast path), or a new
         temporary object.
         """
         value = self._transform_value()
-        if not self._use_fastpath():
+        if self._fastpath != _FASTPATH_NUMPY:
             bit_length = self.itemsize_bits * self._num_elements()
             out = bytearray((bit_length + 7) // 8)
             gen = self._write_bits(out)

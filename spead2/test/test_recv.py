@@ -231,6 +231,27 @@ class TestDecode(object):
         assert isinstance(item.value, np.uint32)
         assert_equal(0x12345678, item.value)
 
+    def test_scalar_int_immediate_fastpath(self):
+        packet = self.flavour.make_packet_heap(
+            1,
+            [
+                self.flavour.make_plain_descriptor(
+                    0x1234, 'test_scalar_uint', 'a scalar integer', [('u', 48)], []),
+                self.flavour.make_plain_descriptor(
+                    0x1235, 'test_scalar_positive', 'a positive scalar integer', [('i', 48)], []),
+                self.flavour.make_plain_descriptor(
+                    0x1236, 'test_scalar_negative', 'a negative scalar integer', [('i', 48)], []),
+                Item(0x1234, 0x9234567890AB, True),
+                Item(0x1235, 0x1234567890AB, True),
+                Item(0x1236, 0x9234567890AB, True)
+            ])
+        ig = self.data_to_ig(packet)
+        assert_equal(3, len(ig))
+        item = ig[0x1234]
+        assert_equal(0x9234567890AB, ig[0x1234].value)
+        assert_equal(0x1234567890AB, ig[0x1235].value)
+        assert_equal(-0x6DCBA9876F55, ig[0x1236].value)
+
     def test_string(self):
         packet = self.flavour.make_packet_heap(
             1,

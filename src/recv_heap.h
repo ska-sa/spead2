@@ -47,7 +47,9 @@ struct item
     std::uint8_t *ptr;
     /// Length of memory
     std::size_t length;
-    /// Whether the item is immediate (needed to validate certain special IDs)
+    /// The immediate interpreted as an integer (undefined if not immediate)
+    item_pointer_t immediate_value;
+    /// Whether the item is immediate
     bool is_immediate;
 };
 

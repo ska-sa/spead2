@@ -117,13 +117,14 @@ heap::heap(live_heap &&h)
         {
             new_item.ptr = next_immediate;
             new_item.length = immediate_size;
+            new_item.immediate_value = decoder.get_immediate(pointer);
             item_pointer_t pointer_be = htobe<item_pointer_t>(pointer);
             std::memcpy(
                 next_immediate,
                 reinterpret_cast<const std::uint8_t *>(&pointer_be) + id_size,
                 immediate_size);
             log_debug("Found new immediate item ID %d, value %d",
-                      new_item.id, decoder.get_immediate(pointer));
+                      new_item.id, new_item.immediate_value);
             next_immediate += immediate_size;
             seen_items.insert(new_item.id);
         }

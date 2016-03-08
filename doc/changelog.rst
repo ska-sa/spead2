@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add a fast path for integer items that exactly fit in an immediate.
+
 .. rubric:: Version 0.6.1
 
 - Filter out duplicate items from a heap. It is undefined which of a set of

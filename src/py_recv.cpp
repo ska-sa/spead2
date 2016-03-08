@@ -323,6 +323,7 @@ void register_module()
     class_<item_wrapper>("RawItem", no_init)
         .def_readonly("id", &item_wrapper::id)
         .def_readonly("is_immediate", &item_wrapper::is_immediate)
+        .def_readonly("immediate_value", &item_wrapper::immediate_value)
         .add_property("value", &item_wrapper::get_value);
     class_<ring_stream_wrapper, boost::noncopyable>("Stream",
             init<thread_pool_wrapper &, bug_compat_mask, std::size_t, std::size_t>(
