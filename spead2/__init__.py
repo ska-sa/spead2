@@ -61,6 +61,13 @@ else:
         return b.decode('ascii')
 
 
+def _shape_elements(shape):
+    elements = 1
+    for dimension in shape:
+        elements *= dimension
+    return elements
+
+
 class Descriptor(object):
     """Metadata for a SPEAD item.
 
@@ -456,7 +463,7 @@ class Item(Descriptor):
         if self._fastpath == _FASTPATH_NUMPY:
             max_elements = raw_value.shape[0] // self._internal_dtype.itemsize
             shape = self.dynamic_shape(max_elements)
-            elements = int(_np.product(shape))
+            elements = _shape_elements(shape)
             if elements > max_elements:
                 raise ValueError('Item has too few elements for shape (%d < %d)' %
                                  (max_elements, elements))
@@ -483,7 +490,7 @@ class Item(Descriptor):
             itemsize_bits = self.itemsize_bits
             max_elements = raw_value.shape[0] * 8 // itemsize_bits
             shape = self.dynamic_shape(max_elements)
-            elements = int(_np.product(shape))
+            elements = _shape_elements(shape)
             bits = elements * itemsize_bits
             if elements > max_elements:
                 raise ValueError('Item has too few elements for shape (%d < %d)' %
@@ -507,7 +514,7 @@ class Item(Descriptor):
 
     def _num_elements(self):
         if isinstance(self.value, _np.ndarray):
-            return int(_np.product(self.value.shape))
+            return self.value.size
         cur = self.value
         ans = 1
         for size in self.shape:

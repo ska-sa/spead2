@@ -5,6 +5,9 @@ Changelog
 
 - Add a fast path for integer items that exactly fit in an immediate.
 
+- Optimise Python code by replacing np.product with a pure Python
+  implementation.
+
 .. rubric:: Version 0.6.1
 
 - Filter out duplicate items from a heap. It is undefined which of a set of
