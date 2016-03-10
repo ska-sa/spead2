@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.6.3
 
 - Partially fix #40: :py:meth:`~spead2.recv.Stream.set_max_heaps` and
   :py:meth:`~spead2.recv.Stream.set_memory_pool` will no longer deadlock if
