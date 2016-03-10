@@ -28,6 +28,7 @@
 #include <functional>
 #include <future>
 #include <mutex>
+#include <atomic>
 #include <type_traits>
 #include <boost/asio.hpp>
 #include "recv_live_heap.h"
@@ -68,14 +69,23 @@ private:
      * Maximum number of live heaps permitted. Temporarily one more might be
      * present immediate prior to one being ejected.
      */
-    std::size_t max_heaps;
+    std::atomic<std::size_t> max_heaps;
     /// Live heaps, ordered by heap ID
     std::deque<live_heap> heaps;
     /// @ref stop_received has been called, either externally or by stream control
     bool stopped = false;
     /// Protocol bugs to be compatible with
     bug_compat_mask bug_compat;
-    /// Memory pool used by heaps
+
+    /// Mutex protecting @ref pool
+    std::mutex pool_mutex;
+    /**
+     * Memory pool used by heaps.
+     *
+     * This is protected by pool_mutex. C++11 mandates free @c atomic_load and
+     * @c atomic_store on @c shared_ptr, but GCC 4.8 doesn't implement it. Also,
+     * std::atomic<std::shared_ptr<T>> causes undefined symbol errors.
+     */
     std::shared_ptr<memory_pool> pool;
 
     /**
@@ -218,16 +228,16 @@ protected:
 public:
     using stream_base::get_bug_compat;
     using stream_base::default_max_heaps;
+    using stream_base::set_max_heaps;
+    using stream_base::set_memory_pool;
 
     boost::asio::io_service::strand &get_strand() { return strand; }
 
-    // TODO: introduce constant for default max_heaps
     explicit stream(boost::asio::io_service &service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
     explicit stream(thread_pool &pool, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
     virtual ~stream() override;
 
     void set_max_heaps(std::size_t max_heaps);
-    void set_memory_pool(std::shared_ptr<memory_pool> pool);
 
     /**
      * Add a new reader by passing its constructor arguments, excluding

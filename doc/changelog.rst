@@ -1,6 +1,13 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Partially fix #40: :py:meth:`~spead2.recv.Stream.set_max_heaps` and
+  :py:meth:`~spead2.recv.Stream.set_memory_pool` will no longer deadlock if
+  called on a stream that has already had a reader added and is receiving
+  data.
+
 .. rubric:: Version 0.6.2
 
 - Add a fast path for integer items that exactly fit in an immediate.

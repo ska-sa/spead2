@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <utility>
 #include <cassert>
+#include <atomic>
 #include "recv_stream.h"
 #include "recv_live_heap.h"
 #include "common_thread_pool.h"
@@ -39,11 +40,12 @@ stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
 
 void stream_base::set_max_heaps(std::size_t max_heaps)
 {
-    this->max_heaps = max_heaps;
+    this->max_heaps.store(max_heaps, std::memory_order_relaxed);
 }
 
 void stream_base::set_memory_pool(std::shared_ptr<memory_pool> pool)
 {
+    std::lock_guard<std::mutex> lock(pool_mutex);
     this->pool = std::move(pool);
 }
 
@@ -82,6 +84,11 @@ bool stream_base::add_packet(const packet_header &packet)
     {
         // Doesn't match any previously seen heap, so create a new one
         live_heap h(packet.heap_cnt, bug_compat);
+        std::shared_ptr<memory_pool> pool;
+        {
+            std::lock_guard<std::mutex> lock(pool_mutex);
+            pool = this->pool;
+        }
         h.set_memory_pool(pool);
         if (h.add_packet(packet))
         {
@@ -96,7 +103,7 @@ bool stream_base::add_packet(const packet_header &packet)
                 else
                 {
                     heaps.insert(insert_before, std::move(h));
-                    if (heaps.size() > max_heaps)
+                    if (heaps.size() > max_heaps.load(std::memory_order_relaxed))
                     {
                         // Too many active heaps: pop the lowest ID, even if incomplete
                         heap_ready(std::move(heaps[0]));
@@ -135,16 +142,6 @@ stream::stream(boost::asio::io_service &io_service, bug_compat_mask bug_compat, 
 stream::stream(thread_pool &thread_pool, bug_compat_mask bug_compat, std::size_t max_heaps)
     : stream(thread_pool.get_io_service(), bug_compat, max_heaps)
 {
-}
-
-void stream::set_max_heaps(std::size_t max_heaps)
-{
-    run_in_strand([this, max_heaps] { stream_base::set_max_heaps(max_heaps); });
-}
-
-void stream::set_memory_pool(std::shared_ptr<memory_pool> pool)
-{
-    run_in_strand([this, pool] { stream_base::set_memory_pool(std::move(pool)); });
 }
 
 void stream::stop_received()
