@@ -61,15 +61,40 @@ struct packet_header;
  *
  * This class is @em not thread-safe. Almost all use cases (possibly excluding
  * testing) will derive from @ref stream.
+ *
+ * @internal
+ *
+ * The live heaps are stored in a circular queue (this has fewer pointer
+ * indirections than @c std::deque). The heap cnts stored in another circular
+ * queue with the same indexing. The heap cnt queue is redundant, but having a
+ * separate queue of heap cnts reduces the number of cache lines touched to
+ * find the right heap.
+ *
+ * When a heap is removed from the circular queue, the queue is not shifted
+ * up. Instead, a hole is left. The queue thus only needs a head and not a
+ * tail. When adding a new heap, any heap stored in the head position is
+ * evicted. This means that heaps may be evicted before it is strictly
+ * necessary from the point of view of available storage, but this prevents
+ * heaps with lost packets from hanging around forever.
  */
 class stream_base
 {
 private:
+    typedef typename std::aligned_storage<sizeof(live_heap), alignof(live_heap)>::type storage_type;
     /**
-     * Maximum number of live heaps permitted. Temporarily one more might be
-     * present immediate prior to one being ejected.
+     * Circular queue for heaps.
+     *
+     * A particular heap is in a constructed state iff the corresponding
+     * element of @a heap_cnt is non-negative.
      */
-    std::atomic<std::size_t> max_heaps;
+    std::unique_ptr<storage_type[]> heap_storage;
+    /// Circular queue for heap cnts, with -1 indicating a hole.
+    std::unique_ptr<s_item_pointer_t[]> heap_cnts;
+    /// Position of the most recently added heap
+    std::size_t head;
+
+    /// Maximum number of live heaps permitted.
+    std::size_t max_heaps;
     /// Live heaps, ordered by heap ID
     std::deque<live_heap> heaps;
     /// @ref stop_received has been called, either externally or by stream control
@@ -104,14 +129,7 @@ public:
      * @param max_heaps    Maximum number of live (in-flight) heaps held in the stream
      */
     explicit stream_base(bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
-    virtual ~stream_base() = default;
-
-    /**
-     * Change the maximum heap count. This will not immediately cause heaps to
-     * be ejected if over the limit, but will prevent any increase until the
-     * number is back under the limit.
-     */
-    void set_max_heaps(std::size_t max_heaps);
+    virtual ~stream_base();
 
     /**
      * Set a pool to use for allocating heap memory.
@@ -228,7 +246,6 @@ protected:
 public:
     using stream_base::get_bug_compat;
     using stream_base::default_max_heaps;
-    using stream_base::set_max_heaps;
     using stream_base::set_memory_pool;
 
     boost::asio::io_service::strand &get_strand() { return strand; }
@@ -236,8 +253,6 @@ public:
     explicit stream(boost::asio::io_service &service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
     explicit stream(thread_pool &pool, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
     virtual ~stream() override;
-
-    void set_max_heaps(std::size_t max_heaps);
 
     /**
      * Add a new reader by passing its constructor arguments, excluding

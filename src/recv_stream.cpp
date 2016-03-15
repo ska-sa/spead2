@@ -34,13 +34,20 @@ namespace recv
 constexpr std::size_t stream_base::default_max_heaps;
 
 stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
-    : max_heaps(max_heaps), bug_compat(bug_compat)
+    : heap_storage(new storage_type[max_heaps]),
+    heap_cnts(new s_item_pointer_t[max_heaps]),
+    head(0),
+    max_heaps(max_heaps), bug_compat(bug_compat)
 {
+    for (std::size_t i = 0; i < max_heaps; i++)
+        heap_cnts[i] = -1;
 }
 
-void stream_base::set_max_heaps(std::size_t max_heaps)
+stream_base::~stream_base()
 {
-    this->max_heaps.store(max_heaps, std::memory_order_relaxed);
+    for (std::size_t i = 0; i < max_heaps; i++)
+        if (heap_cnts[i] != -1)
+            reinterpret_cast<live_heap *>(&heap_storage[i])->~live_heap();
 }
 
 void stream_base::set_memory_pool(std::shared_ptr<memory_pool> pool)
@@ -52,67 +59,65 @@ void stream_base::set_memory_pool(std::shared_ptr<memory_pool> pool)
 bool stream_base::add_packet(const packet_header &packet)
 {
     assert(!stopped);
-    // Look for matching heap
-    auto insert_before = heaps.begin();
-    bool result = false;
-    bool end_of_stream = false;
-    bool found = false;
-    for (auto it = heaps.begin(); it != heaps.end(); ++it)
+    // Look for matching heap. For large heaps, this will in most
+    // cases be in the heap position
+    live_heap *h = NULL;
+    std::size_t position = 0;
+    s_item_pointer_t heap_cnt = packet.heap_cnt;
+    if (heap_cnts[head] == heap_cnt)
     {
-        live_heap &h = *it;
-        if (h.get_cnt() == packet.heap_cnt)
-        {
-            found = true;
-            if (h.add_packet(packet))
+        position = head;
+        h = reinterpret_cast<live_heap *>(&heap_storage[head]);
+    }
+    else
+    {
+        for (std::size_t i = 0; i < max_heaps; i++)
+            if (heap_cnts[i] == heap_cnt)
             {
-                result = true;
-                end_of_stream = h.is_end_of_stream();
-                if (h.is_complete())
-                {
-                    if (!end_of_stream)
-                        heap_ready(std::move(h));
-                    heaps.erase(it);
-                }
+                position = i;
+                h = reinterpret_cast<live_heap *>(&heap_storage[i]);
+                break;
             }
-            break;
+
+        if (!h)
+        {
+            // Never seen this heap before. Evict the old one in its slot,
+            // if any. Note: not safe to dereference h just anywhere here!
+            if (++head == max_heaps)
+                head = 0;
+            position = head;
+            h = reinterpret_cast<live_heap *>(&heap_storage[head]);
+            if (heap_cnts[head] != -1)
+            {
+                heap_ready(std::move(*h));
+                h->~live_heap();
+            }
+            heap_cnts[head] = heap_cnt;
+            new (h) live_heap(heap_cnt, bug_compat);
+            std::shared_ptr<memory_pool> pool;
+            {
+                std::lock_guard<std::mutex> lock(pool_mutex);
+                pool = this->pool;
+            }
+            h->set_memory_pool(pool);
         }
-        else if (h.get_cnt() < packet.heap_cnt)
-            insert_before = next(it);
     }
 
-    if (!found)
+    bool result = false;
+    bool end_of_stream = false;
+    if (h->add_packet(packet))
     {
-        // Doesn't match any previously seen heap, so create a new one
-        live_heap h(packet.heap_cnt, bug_compat);
-        std::shared_ptr<memory_pool> pool;
+        result = true;
+        end_of_stream = h->is_end_of_stream();
+        if (h->is_complete())
         {
-            std::lock_guard<std::mutex> lock(pool_mutex);
-            pool = this->pool;
-        }
-        h.set_memory_pool(pool);
-        if (h.add_packet(packet))
-        {
-            result = true;
-            end_of_stream = h.is_end_of_stream();
             if (!end_of_stream)
-            {
-                if (h.is_complete())
-                {
-                    heap_ready(std::move(h));
-                }
-                else
-                {
-                    heaps.insert(insert_before, std::move(h));
-                    if (heaps.size() > max_heaps.load(std::memory_order_relaxed))
-                    {
-                        // Too many active heaps: pop the lowest ID, even if incomplete
-                        heap_ready(std::move(heaps[0]));
-                        heaps.pop_front();
-                    }
-                }
-            }
+                heap_ready(std::move(*h));
+            heap_cnts[position] = -1;
+            h->~live_heap();
         }
     }
+
     if (end_of_stream)
         stop_received();
     return result;
