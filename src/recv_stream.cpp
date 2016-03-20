@@ -125,11 +125,18 @@ bool stream_base::add_packet(const packet_header &packet)
 
 void stream_base::flush()
 {
-    for (live_heap &h : heaps)
+    for (std::size_t i = 0; i < max_heaps; i++)
     {
-        heap_ready(std::move(h));
+        if (++head == max_heaps)
+            head = 0;
+        if (heap_cnts[head] != -1)
+        {
+            live_heap *h = reinterpret_cast<live_heap *>(&heap_storage[head]);
+            heap_ready(std::move(*h));
+            h->~live_heap();
+            heap_cnts[head] = -1;
+        }
     }
-    heaps.clear();
 }
 
 void stream_base::stop_received()

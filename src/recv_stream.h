@@ -95,8 +95,6 @@ private:
 
     /// Maximum number of live heaps permitted.
     std::size_t max_heaps;
-    /// Live heaps, ordered by heap ID
-    std::deque<live_heap> heaps;
     /// @ref stop_received has been called, either externally or by stream control
     bool stopped = false;
     /// Protocol bugs to be compatible with
