@@ -540,9 +540,12 @@ static void main_mem(int argc, const char **argv)
     options opts = parse_args(argc, argv, command_mode::MEM);
     // Use about 1GiB of data
     std::int64_t num_heaps = 1024 * 1024 * 1024 / opts.heap_size + 1;
-    std::stringstream ss;
-    build_streambuf(*ss.rdbuf(), opts, num_heaps);
-    const std::string &data = ss.str();
+    std::string data;
+    {
+        std::stringstream ss;
+        build_streambuf(*ss.rdbuf(), opts, num_heaps);
+        data = ss.str();
+    }
 
     spead2::thread_pool thread_pool;
     std::unique_ptr<recv_connection> connection;
