@@ -16,6 +16,7 @@
 from __future__ import division, print_function
 import spead2
 import spead2.recv as recv
+import spead2.send as send
 import struct
 import numpy as np
 import six
@@ -541,12 +542,12 @@ class TestStream(object):
         """Must be able to stop even if the consumer is not consuming
         anything."""
         thread_pool = spead2.ThreadPool(1)
-        sender = spead2.send.BytesStream(thread_pool)
-        ig = spead2.send.ItemGroup()
+        sender = send.BytesStream(thread_pool)
+        ig = send.ItemGroup()
         data = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.uint16)
         ig.add_item(id=0x2345, name='name', description='description',
                     shape=data.shape, dtype=data.dtype, value=data)
-        gen = spead2.send.HeapGenerator(ig)
+        gen = send.HeapGenerator(ig)
         for i in range(10):
             sender.send_heap(gen.get_heap(data='all'))
         receiver = spead2.recv.Stream(thread_pool)
@@ -556,12 +557,12 @@ class TestStream(object):
     def test_no_stop_heap(self):
         """A heap containing a stop is not passed to the ring"""
         thread_pool = spead2.ThreadPool(1)
-        sender = spead2.send.BytesStream(thread_pool)
-        ig = spead2.send.ItemGroup()
+        sender = send.BytesStream(thread_pool)
+        ig = send.ItemGroup()
         data = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.uint16)
         ig.add_item(id=0x2345, name='name', description='description',
                     shape=data.shape, dtype=data.dtype, value=data)
-        gen = spead2.send.HeapGenerator(ig)
+        gen = send.HeapGenerator(ig)
         sender.send_heap(gen.get_heap(data='all'))
         sender.send_heap(gen.get_end())
         receiver = spead2.recv.Stream(thread_pool)
