@@ -592,7 +592,9 @@ int main(int argc, const char **argv)
         std::cerr << "Usage:\n"
             << "    spead2_bench master <host> <port> [options]\n"
             << "OR\n"
-            << "    spead2_bench slave <port> [options]\n";
+            << "    spead2_bench slave <port> [options]\n"
+            << "OR\n"
+            << "    spead2_bench mem [options]\n";
         return 2;
     }
 
