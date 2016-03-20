@@ -60,7 +60,7 @@ bool stream_base::add_packet(const packet_header &packet)
 {
     assert(!stopped);
     // Look for matching heap. For large heaps, this will in most
-    // cases be in the heap position
+    // cases be in the head position.
     live_heap *h = NULL;
     std::size_t position = 0;
     s_item_pointer_t heap_cnt = packet.heap_cnt;
