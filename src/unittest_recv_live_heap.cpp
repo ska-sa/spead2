@@ -12,7 +12,7 @@ ostream &operator<<(ostream &o, const pair<A, B> &v)
     return o << "(" << v.first << ", " << v.second << ")";
 }
 
-} // namespace std;
+} // namespace std
 
 namespace spead2
 {

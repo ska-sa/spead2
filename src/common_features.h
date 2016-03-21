@@ -62,4 +62,20 @@
 # endif
 #endif
 
+#ifndef SPEAD2_USE_MOVNTDQ
+# if defined(__SSE2__)
+#  define SPEAD2_USE_MOVNTDQ 1
+# else
+#  define SPEAD2_USE_MOVNTDQ 0
+# endif
+#endif
+
+#ifndef SPEAD2_USE_MOVNTDQ256
+# if defined(__AVX__)
+#  define SPEAD2_USE_MOVNTDQ256 1
+# else
+#  define SPEAD2_USE_MOVNTDQ256 0
+# endif
+#endif
+
 #endif // SPEAD2_COMMON_FEATURES_H

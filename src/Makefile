@@ -18,7 +18,7 @@ VARIANT = release
 AR = gcc-ar
 CXX = g++
 CXXFLAGS = -Wall -std=c++11 -pthread
-CXXFLAGS_UNITTEST = -DBOOST_TEST_DYN_LINK -DBOOST_TEST_MODULE=spead2
+CXXFLAGS_UNITTEST = -DBOOST_TEST_DYN_LINK
 LDFLAGS = -lboost_system -pthread
 ifeq ($(VARIANT), fulldebug)
     CXXFLAGS += -g -fsanitize=address -D_GLIBCXX_DEBUG -DSPEAD2_MAX_LOG_LEVEL=spead2::log_level::debug
