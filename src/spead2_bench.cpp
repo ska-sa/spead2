@@ -351,11 +351,11 @@ class recv_connection
 {
 protected:
     spead2::thread_pool thread_pool;
-    spead2::memory_pool memory_pool;
+    std::shared_ptr<spead2::memory_pool> memory_pool;
 
     explicit recv_connection(const options &opts)
         : thread_pool(),
-        memory_pool(opts.heap_size, opts.heap_size + 1024, opts.mem_max_free, opts.mem_initial)
+        memory_pool(std::make_shared<spead2::memory_pool>(opts.heap_size, opts.heap_size + 1024, opts.mem_max_free, opts.mem_initial))
     {
     }
 
@@ -373,6 +373,7 @@ public:
     explicit recv_connection_callback(const options &opts)
         : recv_connection(opts), stream(thread_pool, 0, opts.heaps)
     {
+        stream.set_memory_pool(memory_pool);
     }
 
     template<typename Reader, typename... Args>
@@ -400,6 +401,7 @@ public:
     explicit recv_connection_ring(const options &opts)
         : recv_connection(opts), stream(thread_pool, 0, opts.heaps, opts.ring_heaps)
     {
+        stream.set_memory_pool(memory_pool);
         consumer = std::thread([this] ()
         {
             try
