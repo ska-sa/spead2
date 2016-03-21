@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Reduce memory usage in spead2_bench (C++ version)
+
+- Fix C++ version of spead2_bench to actually use the memory pool
+
 .. rubric:: Version 0.6.3
 
 - Partially fix #40: :py:meth:`~spead2.recv.Stream.set_max_heaps` and

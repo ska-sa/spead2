@@ -351,11 +351,11 @@ class recv_connection
 {
 protected:
     spead2::thread_pool thread_pool;
-    spead2::memory_pool memory_pool;
+    std::shared_ptr<spead2::memory_pool> memory_pool;
 
     explicit recv_connection(const options &opts)
         : thread_pool(),
-        memory_pool(opts.heap_size, opts.heap_size + 1024, opts.mem_max_free, opts.mem_initial)
+        memory_pool(std::make_shared<spead2::memory_pool>(opts.heap_size, opts.heap_size + 1024, opts.mem_max_free, opts.mem_initial))
     {
     }
 
@@ -373,6 +373,7 @@ public:
     explicit recv_connection_callback(const options &opts)
         : recv_connection(opts), stream(thread_pool, 0, opts.heaps)
     {
+        stream.set_memory_pool(memory_pool);
     }
 
     template<typename Reader, typename... Args>
@@ -400,6 +401,7 @@ public:
     explicit recv_connection_ring(const options &opts)
         : recv_connection(opts), stream(thread_pool, 0, opts.heaps, opts.ring_heaps)
     {
+        stream.set_memory_pool(memory_pool);
         consumer = std::thread([this] ()
         {
             try
@@ -540,9 +542,12 @@ static void main_mem(int argc, const char **argv)
     options opts = parse_args(argc, argv, command_mode::MEM);
     // Use about 1GiB of data
     std::int64_t num_heaps = 1024 * 1024 * 1024 / opts.heap_size + 1;
-    std::stringstream ss;
-    build_streambuf(*ss.rdbuf(), opts, num_heaps);
-    const std::string &data = ss.str();
+    std::string data;
+    {
+        std::stringstream ss;
+        build_streambuf(*ss.rdbuf(), opts, num_heaps);
+        data = ss.str();
+    }
 
     spead2::thread_pool thread_pool;
     std::unique_ptr<recv_connection> connection;
@@ -589,7 +594,9 @@ int main(int argc, const char **argv)
         std::cerr << "Usage:\n"
             << "    spead2_bench master <host> <port> [options]\n"
             << "OR\n"
-            << "    spead2_bench slave <port> [options]\n";
+            << "    spead2_bench slave <port> [options]\n"
+            << "OR\n"
+            << "    spead2_bench mem [options]\n";
         return 2;
     }
 
