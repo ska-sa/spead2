@@ -41,6 +41,9 @@ endif
 ifneq ($(EVENTFD),)
     CXXFLAGS += -DSPEAD2_USE_EVENTFD=$(EVENTFD)
 endif
+ifneq ($(MOVNTDQ),)
+    CXXFLAGS += -DSPEAD2_USE_MOVNTDQ=$(MOVNTDQ)
+endif
 
 RECV_SOURCES = $(wildcard recv_*.cpp)
 RECV_OBJECTS = $(patsubst %.cpp, %.o, $(RECV_SOURCES))
