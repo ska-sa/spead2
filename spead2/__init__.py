@@ -35,7 +35,9 @@ from spead2._spead2 import (Flavour, ThreadPool, MemoryPool, Stopped, Empty, Sto
     CTRL_STREAM_START,
     CTRL_DESCRIPTOR_REISSUE,
     CTRL_STREAM_STOP,
-    CTRL_DESCRIPTOR_UPDATE)
+    CTRL_DESCRIPTOR_UPDATE,
+    MEMCPY_STD,
+    MEMCPY_NONTEMPORAL)
 import numbers as _numbers
 import numpy as _np
 import logging

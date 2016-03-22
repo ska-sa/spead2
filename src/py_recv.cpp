@@ -223,6 +223,11 @@ public:
         ring_stream::set_memory_pool(std::move(pool));
     }
 
+    void set_memcpy(int id)
+    {
+        ring_stream::set_memcpy(memcpy_function_id(id));
+    }
+
     void add_buffer_reader(py::object buffer)
     {
         buffer_view view(buffer);
@@ -344,6 +349,8 @@ void register_module()
         .def("get_nowait", &ring_stream_wrapper::get_nowait)
         .def("set_memory_pool", &ring_stream_wrapper::set_memory_pool,
              arg("pool"))
+        .def("set_memcpy", &ring_stream_wrapper::set_memcpy,
+             arg("id"))
         .def("add_buffer_reader", &ring_stream_wrapper::add_buffer_reader,
              arg("buffer"))
         .def("add_udp_reader", &ring_stream_wrapper::add_udp_reader,

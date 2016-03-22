@@ -3,10 +3,6 @@ Changelog
 
 .. rubric:: Development version
 
-- Reduce memory usage in spead2_bench (C++ version)
-
-- Fix C++ version of spead2_bench to actually use the memory pool
-
 - Change handling of incomplete heaps. Previously, incomplete heaps were only
   abandoned once there were more than `max_heaps` of them. Now, they are
   abandoned once `max_heaps` more heaps are seen, even if those heaps were
@@ -18,6 +14,13 @@ Changelog
   :py:meth:`~spead2.recv.Stream.set_max_heaps`. It was not previously
   documented, so hopefully is not being used. It could not be efficiently
   supported with the design changes above.
+
+- Add :py:meth:`spead2.recv.Stream.set_memcpy` to control non-temporal caching
+  hints.
+
+- Fix C++ version of spead2_bench to actually use the memory pool
+
+- Reduce memory usage in spead2_bench (C++ version)
 
 .. rubric:: Version 0.6.3
 

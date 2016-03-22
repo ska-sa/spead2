@@ -99,8 +99,8 @@ class BaseTestPassthrough(object):
     is_legacy_send = False
     is_legacy_receive = False
 
-    def _test_item_group(self, item_group):
-        received_item_group = self.transmit_item_group(item_group)
+    def _test_item_group(self, item_group, memcpy=spead2.MEMCPY_STD):
+        received_item_group = self.transmit_item_group(item_group, memcpy)
         assert_item_groups_equal(item_group, received_item_group)
         if not self.is_legacy_receive:
             for item in received_item_group.values():
@@ -116,7 +116,8 @@ class BaseTestPassthrough(object):
         self._test_item_group(ig)
 
     def test_numpy_large(self):
-        """A numpy style array split across several packets"""
+        """A numpy style array split across several packets. It also
+        uses non-temporal copies to test that that works"""
         ig = spead2.send.ItemGroup()
         data = np.random.randn(100, 200)
         ig.add_item(id=0x2345, name='name', description='description',
@@ -207,7 +208,7 @@ class BaseTestPassthrough(object):
                     shape=(), format=format, value=data)
         self._test_item_group(ig)
 
-    def transmit_item_group(self, item_group):
+    def transmit_item_group(self, item_group, memcpy):
         """Transmit `item_group` over the chosen transport, and return the
         item group received at the other end.
         """
@@ -215,13 +216,14 @@ class BaseTestPassthrough(object):
 
 
 class TestPassthroughUdp(BaseTestPassthrough):
-    def transmit_item_group(self, item_group):
+    def transmit_item_group(self, item_group, memcpy):
         thread_pool = spead2.ThreadPool(2)
         sender = spead2.send.UdpStream(
                 thread_pool, "localhost", 8888,
                 spead2.send.StreamConfig(rate=1e8),
                 buffer_size=0)
         receiver = spead2.recv.Stream(thread_pool)
+        receiver.set_memcpy(memcpy)
         receiver.add_udp_reader(8888, bind_hostname="localhost")
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
@@ -233,7 +235,7 @@ class TestPassthroughUdp(BaseTestPassthrough):
 
 
 class TestPassthroughUdp6(BaseTestPassthrough):
-    def transmit_item_group(self, item_group):
+    def transmit_item_group(self, item_group, memcpy):
         if not socket.has_ipv6:
             raise SkipTest('platform does not support IPv6')
         thread_pool = spead2.ThreadPool(2)
@@ -242,6 +244,7 @@ class TestPassthroughUdp6(BaseTestPassthrough):
                 spead2.send.StreamConfig(rate=1e8),
                 buffer_size=0)
         receiver = spead2.recv.Stream(thread_pool)
+        receiver.set_memcpy(memcpy)
         receiver.add_udp_reader(8888, bind_hostname="::1")
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
@@ -253,7 +256,7 @@ class TestPassthroughUdp6(BaseTestPassthrough):
 
 
 class TestPassthroughUDPCustomSocket(BaseTestPassthrough):
-    def transmit_item_group(self, item_group):
+    def transmit_item_group(self, item_group, memcpy):
         thread_pool = spead2.ThreadPool(2)
         send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -262,6 +265,7 @@ class TestPassthroughUDPCustomSocket(BaseTestPassthrough):
                 spead2.send.StreamConfig(rate=1e8),
                 buffer_size=0, socket=send_sock)
         receiver = spead2.recv.Stream(thread_pool)
+        receiver.set_memcpy(memcpy)
         receiver.add_udp_reader(8888, bind_hostname="127.0.0.1", socket=recv_sock)
         send_sock.close()
         recv_sock.close()
@@ -275,7 +279,7 @@ class TestPassthroughUDPCustomSocket(BaseTestPassthrough):
 
 
 class TestPassthroughUDPMulticast(BaseTestPassthrough):
-    def transmit_item_group(self, item_group):
+    def transmit_item_group(self, item_group, memcpy):
         thread_pool = spead2.ThreadPool(2)
         mcast_group = '239.255.88.88'
         interface_address = '127.0.0.1'
@@ -284,6 +288,7 @@ class TestPassthroughUDPMulticast(BaseTestPassthrough):
                 spead2.send.StreamConfig(rate=1e8),
                 buffer_size=0, ttl=1, interface_address=interface_address)
         receiver = spead2.recv.Stream(thread_pool)
+        receiver.set_memcpy(memcpy)
         receiver.add_udp_reader(mcast_group, 8887, interface_address=interface_address)
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
@@ -295,7 +300,7 @@ class TestPassthroughUDPMulticast(BaseTestPassthrough):
 
 
 class TestPassthroughUDP6Multicast(BaseTestPassthrough):
-    def transmit_item_group(self, item_group):
+    def transmit_item_group(self, item_group, memcpy):
         thread_pool = spead2.ThreadPool(2)
         mcast_group = 'ff14::1234'
         interface_index = 0
@@ -304,6 +309,7 @@ class TestPassthroughUDP6Multicast(BaseTestPassthrough):
                 spead2.send.StreamConfig(rate=1e8),
                 buffer_size=0, ttl=0, interface_index=interface_index)
         receiver = spead2.recv.Stream(thread_pool)
+        receiver.set_memcpy(memcpy)
         receiver.add_udp_reader(mcast_group, 8887, interface_index=interface_index)
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
@@ -315,13 +321,14 @@ class TestPassthroughUDP6Multicast(BaseTestPassthrough):
 
 
 class TestPassthroughMem(BaseTestPassthrough):
-    def transmit_item_group(self, item_group):
+    def transmit_item_group(self, item_group, memcpy):
         thread_pool = spead2.ThreadPool(2)
         sender = spead2.send.BytesStream(thread_pool)
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
         sender.send_heap(gen.get_end())
         receiver = spead2.recv.Stream(thread_pool)
+        receiver.set_memcpy(memcpy)
         receiver.add_buffer_reader(sender.getvalue())
         received_item_group = spead2.ItemGroup()
         for heap in receiver:
@@ -332,7 +339,7 @@ class TestPassthroughMem(BaseTestPassthrough):
 class BaseTestPassthroughLegacySend(BaseTestPassthrough):
     is_legacy_send = True
 
-    def transmit_item_group(self, item_group):
+    def transmit_item_group(self, item_group, memcpy):
         if not self.spead:
             raise SkipTest('spead module not importable')
         transport = io.BytesIO()
@@ -357,6 +364,7 @@ class BaseTestPassthroughLegacySend(BaseTestPassthrough):
         sender.end()
         thread_pool = spead2.ThreadPool(1)
         receiver = spead2.recv.Stream(thread_pool, bug_compat=spead2.BUG_COMPAT_PYSPEAD_0_5_2)
+        receiver.set_memcpy(memcpy)
         receiver.add_buffer_reader(transport.getvalue())
         received_item_group = spead2.ItemGroup()
         for heap in receiver:
@@ -375,7 +383,7 @@ class TestPassthroughLegacySend64_48(BaseTestPassthroughLegacySend):
 class BaseTestPassthroughLegacyReceive(BaseTestPassthrough):
     is_legacy_receive = True
 
-    def transmit_item_group(self, item_group):
+    def transmit_item_group(self, item_group, memcpy):
         if not self.spead:
             raise SkipTest('spead module not importable')
         thread_pool = spead2.ThreadPool(1)

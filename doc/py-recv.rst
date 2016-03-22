@@ -58,6 +58,20 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
       :param pool: New memory pool
       :type pool: :py:class:`spead2.MemoryPool`
 
+   .. py:method:: set_memcpy(id)
+
+      Set the method used to copy data from the network to the heap. The
+      default is :py:const:`MEMCPY_STD`. This can be changed to
+      :py:const:`MEMCPY_NONTEMPORAL`, which writes to the destination with a
+      non-temporal cache hint (if SSE2 is enabled at compile time). This can
+      improve performance with large heaps if the data is not going to be used
+      immediately, by reducing cache pollution. Be careful when benchmarking:
+      receiving heaps will generally appear faster, but it can slow down
+      subsequent processing of the heap because it will not be cached.
+
+      :param id: Identifier for the copy function
+      :type id: {:py:const:`MEMCPY_STD`, :py:const:`MEMCPY_NONTEMPORAL`}
+
    .. py:method:: add_buffer_reader(buffer)
 
       Feed data from an object implementing the buffer protocol.
