@@ -12,7 +12,7 @@ BOOST_AUTO_TEST_SUITE(common)
 BOOST_AUTO_TEST_SUITE(memcpy)
 
 // Checks every combination of src and dest alignment relative to a page
-BOOST_AUTO_TEST_CASE(memcpy_nt_alignments)
+BOOST_AUTO_TEST_CASE(memcpy_nontemporal_alignments)
 {
     constexpr int head_pad = 32;
     constexpr int tail_pad = 32;
@@ -29,7 +29,8 @@ BOOST_AUTO_TEST_CASE(memcpy_nt_alignments)
                 std::memset(dest_buffer, 255, sizeof(dest_buffer));
                 for (int k = 0; k < buffer_size; k++)
                     src_buffer[k] = k % 255;
-                spead2::detail::memcpy_nt(dest_buffer + head_pad + i, src_buffer + head_pad + j, len);
+                spead2::detail::memcpy_nontemporal(dest_buffer + head_pad + i,
+                                                   src_buffer + head_pad + j, len);
                 for (int k = 0; k < head_pad + i; k++)
                     BOOST_CHECK_EQUAL(255, dest_buffer[k]);
                 for (int k = 0; k < len; k++)

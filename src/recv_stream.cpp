@@ -70,7 +70,7 @@ void stream_base::set_memcpy(memcpy_function_id id)
         set_memcpy(std::memcpy);
         break;
     case MEMCPY_NONTEMPORAL:
-        set_memcpy(spead2::memcpy_nt);
+        set_memcpy(spead2::memcpy_nontemporal);
         break;
     default:
         throw std::invalid_argument("Unknown memcpy function");

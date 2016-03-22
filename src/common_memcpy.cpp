@@ -26,7 +26,7 @@
 namespace spead2
 {
 
-void *memcpy_nt(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept
+void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept
 {
 #if !SPEAD2_USE_MOVNTDQ
     return std::memcpy(dest, src, n);

@@ -30,7 +30,7 @@
 namespace spead2
 {
 
-void *memcpy_nt(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
+void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
 
 } // namespace spead2
 
