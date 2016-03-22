@@ -48,6 +48,7 @@ struct options
 {
     bool quiet = false;
     bool ring = false;
+    bool memcpy_nt = false;
     std::size_t packet_size = 9172;
     std::size_t heap_size = 4194304;
     int heap_address_bits = 40;
@@ -102,6 +103,7 @@ static options parse_args(int argc, const char **argv, command_mode mode)
         desc.add_options()
             ("quiet", po::bool_switch(&opts.quiet)->default_value(opts.quiet), "Print only the final result")
             ("ring", po::bool_switch(&opts.ring)->default_value(opts.ring), "Use a ring buffer for heaps")
+            ("memcpy-nt", po::bool_switch(&opts.memcpy_nt)->default_value(opts.memcpy_nt), "Use non-temporal memcpy")
             ("packet", make_opt(opts.packet_size), "Maximum packet size to use for UDP")
             ("heap-size", make_opt(opts.heap_size), "Payload size for heap")
             ("addr-bits", make_opt(opts.heap_address_bits), "Heap address bits")
@@ -187,6 +189,7 @@ static bool measure_connection_once(
         control.exceptions(std::ios::failbit);
         control << "start "
             << int(opts.ring) << ' '
+            << int(opts.memcpy_nt) << ' '
             << opts.packet_size << ' '
             << opts.heap_size << ' '
             << opts.heap_address_bits << ' '
@@ -374,6 +377,8 @@ public:
         : recv_connection(opts), stream(thread_pool, 0, opts.heaps)
     {
         stream.set_memory_pool(memory_pool);
+        if (opts.memcpy_nt)
+            stream.set_memcpy(spead2::MEMCPY_NONTEMPORAL);
     }
 
     template<typename Reader, typename... Args>
@@ -402,6 +407,8 @@ public:
         : recv_connection(opts), stream(thread_pool, 0, opts.heaps, opts.ring_heaps)
     {
         stream.set_memory_pool(memory_pool);
+        if (opts.memcpy_nt)
+            stream.set_memcpy(spead2::MEMCPY_NONTEMPORAL);
         consumer = std::thread([this] ()
         {
             try
@@ -469,6 +476,7 @@ static void main_slave(int argc, const char **argv)
                 }
                 options opts;
                 toks >> opts.ring
+                    >> opts.memcpy_nt
                     >> opts.packet_size
                     >> opts.heap_size
                     >> opts.heap_address_bits

@@ -22,6 +22,7 @@
 #include <cstring>
 #include <algorithm>
 #include <utility>
+#include <stdexcept>
 #include "recv_live_heap.h"
 #include "recv_utils.h"
 #include "common_defines.h"
@@ -44,6 +45,11 @@ void live_heap::set_memory_pool(std::shared_ptr<memory_pool> pool)
     this->pool = std::move(pool);
 }
 
+void live_heap::set_memcpy(memcpy_function memcpy)
+{
+    this->memcpy = memcpy;
+}
+
 void live_heap::payload_reserve(std::size_t size, bool exact)
 {
     if (size > payload_reserved)
@@ -61,7 +67,7 @@ void live_heap::payload_reserve(std::size_t size, bool exact)
             new_payload = memory_pool::pointer(ptr);
         }
         if (payload)
-            std::memcpy(new_payload.get(), payload.get(), payload_reserved);
+            this->memcpy(new_payload.get(), payload.get(), payload_reserved);
         payload = std::move(new_payload);
         payload_reserved = size;
     }
@@ -173,9 +179,9 @@ bool live_heap::add_packet(const packet_header &packet)
 
     if (packet.payload_length > 0)
     {
-        std::memcpy(payload.get() + packet.payload_offset,
-                    packet.payload,
-                    packet.payload_length);
+        this->memcpy(payload.get() + packet.payload_offset,
+                     packet.payload,
+                     packet.payload_length);
         received_length += packet.payload_length;
     }
     log_debug("packet with %d bytes of payload at offset %d added to heap %d",

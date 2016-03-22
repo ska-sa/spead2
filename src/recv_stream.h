@@ -100,6 +100,9 @@ private:
     /// Protocol bugs to be compatible with
     bug_compat_mask bug_compat;
 
+    /// Function used to copy heap payloads
+    std::atomic<memcpy_function> memcpy{std::memcpy};
+
     /// Mutex protecting @ref pool
     std::mutex pool_mutex;
     /**
@@ -133,6 +136,12 @@ public:
      * Set a pool to use for allocating heap memory.
      */
     void set_memory_pool(std::shared_ptr<memory_pool> pool);
+
+    /// Set an alternative memcpy function for copying heap payload
+    void set_memcpy(memcpy_function memcpy);
+
+    /// Set builtin memcpy function to use for copying payload
+    void set_memcpy(memcpy_function_id id);
 
     /**
      * Add a packet that was received, and which has been examined by @a
@@ -245,6 +254,7 @@ public:
     using stream_base::get_bug_compat;
     using stream_base::default_max_heaps;
     using stream_base::set_memory_pool;
+    using stream_base::set_memcpy;
 
     boost::asio::io_service::strand &get_strand() { return strand; }
 

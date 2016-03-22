@@ -82,6 +82,14 @@ enum ctrl_mode : unsigned int
     CTRL_DESCRIPTOR_UPDATE = 3
 };
 
+enum memcpy_function_id : unsigned int
+{
+    MEMCPY_STD,
+    MEMCPY_NONTEMPORAL
+};
+
+typedef void *(*memcpy_function)(void * __restrict__, const void * __restrict__, std::size_t);
+
 /**
  * An unpacked descriptor.
  *

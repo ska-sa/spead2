@@ -55,6 +55,7 @@ struct options
     std::size_t mem_max_free = 12;
     std::size_t mem_initial = 8;
     bool ring = false;
+    bool memcpy_nt = false;
 #if SPEAD2_USE_NETMAP
     std::string netmap_if;
 #endif
@@ -103,6 +104,7 @@ static options parse_args(int argc, const char **argv)
         ("mem-max-free", make_opt(opts.mem_max_free), "Maximum free memory buffers")
         ("mem-initial", make_opt(opts.mem_initial), "Initial free memory buffers")
         ("ring", make_opt(opts.ring), "Use ringbuffer instead of callbacks")
+        ("memcpy-nt", make_opt(opts.memcpy_nt), "Use non-temporal memcpy")
 #if SPEAD2_USE_NETMAP
         ("netmap", make_opt(opts.netmap_if), "Netmap interface")
 #endif
@@ -261,6 +263,8 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
             opts.mem_lower, opts.mem_upper, opts.mem_max_free, opts.mem_initial);
         stream->set_memory_pool(pool);
     }
+    if (opts.memcpy_nt)
+        stream->set_memcpy(spead2::MEMCPY_NONTEMPORAL);
     for (It i = first_source; i != last_source; ++i)
     {
         udp::resolver resolver(thread_pool.get_io_service());

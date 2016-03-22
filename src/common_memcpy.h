@@ -29,12 +29,9 @@
  */
 namespace spead2
 {
-namespace detail
-{
 
-void *memcpy_nt(void * __restrict__ dest, const void * __restrict__ src, std::size_t n);
+void *memcpy_nt(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
 
-} // namespace detail
 } // namespace spead2
 
 #endif // SPEAD2_COMMON_MEMCPY_H

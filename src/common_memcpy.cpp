@@ -25,10 +25,8 @@
 
 namespace spead2
 {
-namespace detail
-{
 
-void *memcpy_nt(void * __restrict__ dest, const void * __restrict__ src, std::size_t n)
+void *memcpy_nt(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept
 {
 #if !SPEAD2_USE_MOVNTDQ
     return std::memcpy(dest, src, n);
@@ -68,5 +66,4 @@ void *memcpy_nt(void * __restrict__ dest, const void * __restrict__ src, std::si
 #endif // SPEAD2_USE_MOVNTDQ
 }
 
-} // namespace detail
 } // namespace spead2

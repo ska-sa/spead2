@@ -24,6 +24,7 @@
 #include <atomic>
 #include "recv_stream.h"
 #include "recv_live_heap.h"
+#include "common_memcpy.h"
 #include "common_thread_pool.h"
 
 namespace spead2
@@ -54,6 +55,26 @@ void stream_base::set_memory_pool(std::shared_ptr<memory_pool> pool)
 {
     std::lock_guard<std::mutex> lock(pool_mutex);
     this->pool = std::move(pool);
+}
+
+void stream_base::set_memcpy(memcpy_function memcpy)
+{
+    this->memcpy.store(memcpy, std::memory_order_relaxed);
+}
+
+void stream_base::set_memcpy(memcpy_function_id id)
+{
+    switch (id)
+    {
+    case MEMCPY_STD:
+        set_memcpy(std::memcpy);
+        break;
+    case MEMCPY_NONTEMPORAL:
+        set_memcpy(spead2::memcpy_nt);
+        break;
+    default:
+        throw std::invalid_argument("Unknown memcpy function");
+    }
 }
 
 bool stream_base::add_packet(const packet_header &packet)
@@ -100,6 +121,7 @@ bool stream_base::add_packet(const packet_header &packet)
                 pool = this->pool;
             }
             h->set_memory_pool(pool);
+            h->set_memcpy(memcpy.load(std::memory_order_relaxed));
         }
     }
 

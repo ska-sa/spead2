@@ -23,6 +23,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <vector>
 #include <memory>
 #include <map>
@@ -70,8 +71,6 @@ private:
     s_item_pointer_t heap_length = -1;
     /// Number of bytes of payload received
     s_item_pointer_t received_length = 0;
-    /// True if a stream control packeting indicating end-of-heap was found
-    bool end_of_stream = false;
     /**
      * Minimum possible payload size, determined from the payload range in
      * packets and item pointers, or equal to @ref heap_length if that is
@@ -82,6 +81,10 @@ private:
     int heap_address_bits = -1;
     /// Protocol bugs to accept
     bug_compat_mask bug_compat;
+    /// True if a stream control packet indicating end-of-heap was found
+    bool end_of_stream = false;
+    /// Function to use for copying payload
+    memcpy_function memcpy = std::memcpy;
     /**
      * Heap payload. When the length is unknown, this is grown by successive
      * doubling. While @c std::vector would take care of that for us, it also
@@ -133,6 +136,9 @@ public:
      * @c new.
      */
     void set_memory_pool(std::shared_ptr<memory_pool> pool);
+
+    /// Set memcpy function to use for copying payload
+    void set_memcpy(memcpy_function memcpy);
 
     /**
      * Attempt to add a packet to the heap. The packet must have been
