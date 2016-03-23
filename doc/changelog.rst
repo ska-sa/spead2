@@ -1,11 +1,11 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.7.0
 
-- Change handling of incomplete heaps. Previously, incomplete heaps were only
-  abandoned once there were more than `max_heaps` of them. Now, they are
-  abandoned once `max_heaps` more heaps are seen, even if those heaps were
+- Change handling of incomplete heaps (fixes #39). Previously, incomplete heaps
+  were only abandoned once there were more than `max_heaps` of them. Now, they
+  are abandoned once `max_heaps` more heaps are seen, even if those heaps were
   complete. This causes the warnings for incomplete heaps to appear closer to
   the time they arrived, and also has some extremely small performance
   advantages due to changes in the implementation.
