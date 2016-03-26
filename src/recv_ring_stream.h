@@ -97,6 +97,8 @@ public:
         bool contiguous_only = true)
         : ring_stream(pool.get_io_service(), bug_compat, max_heaps, ring_heaps, contiguous_only) {}
 
+    virtual ~ring_stream() override;
+
     /**
      * Wait until a contiguous heap is available, freeze it, and
      * return it; or until the stream is stopped.
@@ -134,6 +136,17 @@ ring_stream<Ringbuffer>::ring_stream(
     : ring_stream_base(io_service, bug_compat, max_heaps), ready_heaps(ring_heaps),
     contiguous_only(contiguous_only)
 {
+}
+
+template<typename Ringbuffer>
+ring_stream<Ringbuffer>::~ring_stream()
+{
+    /* See the comments in stop() for why this is necessary. Note that even
+     * though stream's destructor calls stop() and stop is virtual, the
+     * nature of destructors means that stream's version of stop is called
+     * there.
+     */
+    ready_heaps.stop();
 }
 
 template<typename Ringbuffer>
