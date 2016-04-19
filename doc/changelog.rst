@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Version 0.7.1
+
+- Fix ring_stream destructor to not deadlock (fixes #41)
+
 .. rubric:: Version 0.7.0
 
 - Change handling of incomplete heaps (fixes #39). Previously, incomplete heaps
