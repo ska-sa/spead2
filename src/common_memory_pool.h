@@ -26,6 +26,8 @@
 #include <mutex>
 #include <stack>
 #include <memory>
+#include <boost/asio.hpp>
+#include "common_thread_pool.h"
 
 namespace spead2
 {
@@ -62,17 +64,23 @@ public:
     typedef std::unique_ptr<std::uint8_t[], destructor> pointer;
 
 private:
-    std::size_t lower, upper, max_free;
+    boost::asio::io_service *io_service;
+    const std::size_t lower, upper, max_free, initial, low_water;
     std::mutex mutex;
     std::stack<std::unique_ptr<std::uint8_t[]> > pool;
+    bool refilling = false;
 
     void return_to_pool(std::uint8_t *ptr);
-    static void return_to_pool(const std::weak_ptr<memory_pool> &self_weak, std::uint8_t *ptr);
-    std::unique_ptr<std::uint8_t[]> allocate_for_pool();
+    static std::unique_ptr<std::uint8_t[]> allocate_for_pool(std::size_t upper);
+    static void refill(std::size_t upper, std::weak_ptr<memory_pool> self_weak);
+
+    memory_pool(boost::asio::io_service *io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water);
 
 public:
     memory_pool();
     memory_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial);
+    memory_pool(boost::asio::io_service &io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water);
+    memory_pool(thread_pool &tpool, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water);
     pointer allocate(std::size_t size);
 };
 

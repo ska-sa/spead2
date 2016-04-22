@@ -1,6 +1,5 @@
 #include <boost/test/unit_test.hpp>
 #include <utility>
-#include <ostream>
 #include "common_memcpy.h"
 
 namespace spead2

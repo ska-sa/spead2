@@ -284,7 +284,10 @@ static void register_module()
     class_<memory_pool, std::shared_ptr<memory_pool>, boost::noncopyable>(
         "MemoryPool",
         init<std::size_t, std::size_t, std::size_t, std::size_t>(
-            (arg("lower"), arg("upper"), arg("max_free"), arg("initial"))));
+            (arg("lower"), arg("upper"), arg("max_free"), arg("initial"))))
+        .def(init<thread_pool_wrapper &, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t>(
+                (arg("thread_pool"), arg("lower"), arg("upper"), arg("max_free"), arg("initial"), arg("low_water")))[
+                with_custodian_and_ward<1, 2>()]);
 
     class_<thread_pool_wrapper, boost::noncopyable>("ThreadPool", init<int>(
             (arg("threads") = 1)))
