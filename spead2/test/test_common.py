@@ -32,6 +32,19 @@ def assert_equal_typed(expected, actual, msg=None):
     assert_equal(type(expected), type(actual), msg)
 
 
+class TestThreadPool(object):
+    """Smoke tests for :py:class:`spead2.ThreadPool`. These are very simple
+    tests, because it is not actually possible to check things like the
+    thread affinity."""
+    def test_simple(self):
+        spead2.ThreadPool()
+        spead2.ThreadPool(4)
+
+    def test_affinity(self):
+        spead2.ThreadPool(3, [0, 1])
+        spead2.ThreadPool(1, [1, 0, 2])
+
+
 class TestFlavour(object):
     def test_bad_version(self):
         with assert_raises(ValueError):

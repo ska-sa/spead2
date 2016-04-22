@@ -188,12 +188,22 @@ memory, while setting too narrow a range will prevent the memory pool from
 being used at all. A memory pool is best suited for cases where the heaps are
 all roughly the same size.
 
-.. py:class:: spead2.MemoryPool(lower, upper, max_free, initial)
+A memory pool can optionally use a background task (scheduled onto a thread
+pool) to replenish the pool when it gets low. This is useful when heaps are
+being captured and stored indefinitely rather than processed and released.
 
+.. py:class:: spead2.MemoryPool(thread_pool, lower, upper, max_free, initial, low_water)
+
+   Constructor. One can omit `thread_pool` and `low_water` to skip the
+   background refilling.
+
+   :param ThreadPool thread_pool: thread pool used for
+     refilling the memory pool
    :param int lower: Minimum allocation size to handle with the pool
    :param int upper: Size of allocations to make
    :param int max_free: Maximum number of allocations held in the pool
    :param int initial: Number of allocations to put in the free pool
      initially.
-
-
+   :param int low_water: When fewer than this many buffers remain, the
+     background task will be started and allocate new memory until `initial`
+     buffers are available.

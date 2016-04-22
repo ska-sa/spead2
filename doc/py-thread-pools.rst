@@ -19,9 +19,13 @@ pool with only one thread.
 
 .. py:currentmodule:: spead2
 
-.. py:class:: spead2.ThreadPool(threads=1)
+.. py:class:: spead2.ThreadPool(threads=1, affinity=[])
 
-   Construct a thread pool and start the threads.
+   Construct a thread pool and start the threads. A list of integers can be
+   provided for `affinity` to have the threads bound to specific CPU cores
+   (this is only implemented for glibc). If there are fewer values than
+   threads, the list is reused cyclically (although in this case you're
+   probably better off having fewer threads in this case).
 
    .. py:method:: stop()
 

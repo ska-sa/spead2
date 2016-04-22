@@ -1,6 +1,13 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Extend :py:class:`~spead2.MemoryPool` to allow a background thread to
+  replenish the pool when it gets low.
+- Extend :py:class:`~spead2.ThreadPool` to allow the user to pin the threads to
+  specific CPU cores (on glibc).
+
 .. rubric:: Version 0.7.1
 
 - Fix ring_stream destructor to not deadlock (fixes #41)
