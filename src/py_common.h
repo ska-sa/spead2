@@ -30,6 +30,7 @@
 #include <cassert>
 #include <mutex>
 #include <stdexcept>
+#include "common_memory_pool.h"
 #include "common_thread_pool.h"
 
 namespace spead2
@@ -232,7 +233,8 @@ public:
     void stop();
 };
 
-/* Container for a thread pool handle. It's put into a separate class so that
+/**
+ * Container for a thread pool handle. It's put into a separate class so that
  * it can be inherited from by wrapper classes that need it, earlier in the
  * inheritance chain than objects that depend on it. That's necessary to obtain
  * the correct destructor ordering.
@@ -240,6 +242,22 @@ public:
 struct thread_pool_handle_wrapper
 {
     boost::python::handle<> thread_pool_handle;
+};
+
+/**
+ * Wrapper around @ref memory_pool that holds a Python handle to the
+ * underlying thread pool, if any.
+ */
+class memory_pool_wrapper : public thread_pool_handle_wrapper, public memory_pool
+{
+public:
+    using memory_pool::memory_pool;
+};
+
+/// Like @ref thread_pool_handle_wrapper, but for a memory pool
+struct memory_pool_handle_wrapper
+{
+    boost::python::handle<> memory_pool_handle;
 };
 
 /**
@@ -271,7 +289,7 @@ int semaphore_gil<Semaphore>::get()
 
 /* Older versions of boost don't understand std::shared_ptr properly. This is
  * in the spead2 namespace so that it will be found by ADL when considering
- * std::shared_ptr<spead2::memory_pool>.
+ * std::shared_ptr<spead2::memory_pool_wrapper>.
  *
  * Due to https://svn.boost.org/trac/boost/ticket/7473, Boost does not detect
  * standard library support in Clang 3.4.

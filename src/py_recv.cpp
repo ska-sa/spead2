@@ -166,7 +166,9 @@ public:
  * on completion of code scheduled through the thread pool must drop the GIL
  * first.
  */
-class ring_stream_wrapper : public thread_pool_handle_wrapper, public ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore> >
+class ring_stream_wrapper : public thread_pool_handle_wrapper,
+                            public memory_pool_handle_wrapper,
+                            public ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore> >
 {
 private:
     boost::asio::ip::address make_address(const std::string &hostname)
@@ -217,7 +219,7 @@ public:
         return get_ringbuffer().get_data_sem().get_fd();
     }
 
-    void set_memory_pool(std::shared_ptr<memory_pool> pool)
+    void set_memory_pool(std::shared_ptr<memory_pool_wrapper> pool)
     {
         release_gil gil;
         ring_stream::set_memory_pool(std::move(pool));
@@ -348,7 +350,8 @@ void register_module()
         .def("get", &ring_stream_wrapper::get)
         .def("get_nowait", &ring_stream_wrapper::get_nowait)
         .def("set_memory_pool", &ring_stream_wrapper::set_memory_pool,
-             arg("pool"))
+             (arg("pool")),
+             store_handle_postcall<ring_stream_wrapper, memory_pool_handle_wrapper, &memory_pool_handle_wrapper::memory_pool_handle, 1, 2>())
         .def("set_memcpy", &ring_stream_wrapper::set_memcpy,
              arg("id"))
         .def("add_buffer_reader", &ring_stream_wrapper::add_buffer_reader,

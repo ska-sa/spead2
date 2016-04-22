@@ -281,13 +281,13 @@ static void register_module()
         .add_property("heap_address_bits", &flavour::get_heap_address_bits)
         .add_property("bug_compat", &flavour::get_bug_compat);
 
-    class_<memory_pool, std::shared_ptr<memory_pool>, boost::noncopyable>(
+    class_<memory_pool_wrapper, std::shared_ptr<memory_pool_wrapper>, boost::noncopyable>(
         "MemoryPool",
         init<std::size_t, std::size_t, std::size_t, std::size_t>(
             (arg("lower"), arg("upper"), arg("max_free"), arg("initial"))))
         .def(init<thread_pool_wrapper &, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t>(
                 (arg("thread_pool"), arg("lower"), arg("upper"), arg("max_free"), arg("initial"), arg("low_water")))[
-                with_custodian_and_ward<1, 2>()]);
+                store_handle_postcall<memory_pool_wrapper, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()]);
 
     class_<thread_pool_wrapper, boost::noncopyable>("ThreadPool", init<int>(
             (arg("threads") = 1)))

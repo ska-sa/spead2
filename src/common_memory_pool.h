@@ -81,6 +81,7 @@ public:
     memory_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial);
     memory_pool(boost::asio::io_service &io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water);
     memory_pool(thread_pool &tpool, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water);
+    virtual ~memory_pool() = default;
     pointer allocate(std::size_t size);
 };
 
