@@ -69,7 +69,7 @@ public:
     /**
      * Set CPU affinity of current thread.
      */
-    static void setaffinity(int core);
+    static void set_affinity(int core);
 };
 
 } // namespace spead2

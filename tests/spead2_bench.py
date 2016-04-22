@@ -78,7 +78,7 @@ class SlaveConnection(object):
                         continue
                     args = argparse.Namespace(**command['args'])
                     if args.recv_affinity is not None and len(args.recv_affinity) > 0:
-                        spead2.ThreadPool.setaffinity(args.recv_affinity[0])
+                        spead2.ThreadPool.set_affinity(args.recv_affinity[0])
                         thread_pool = spead2.ThreadPool(1, args.recv_affinity[1:] + args.recv_affinity[:1])
                     else:
                         thread_pool = spead2.ThreadPool()
@@ -151,7 +151,7 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
     response = yield From(reader.readline())
     assert response == b'ready\n'
     if args.send_affinity is not None and len(args.send_affinity) > 0:
-        spead2.ThreadPool.setaffinity(args.send_affinity[0])
+        spead2.ThreadPool.set_affinity(args.send_affinity[0])
         thread_pool = spead2.ThreadPool(1, args.send_affinity[1:] + args.send_affinity[:1])
     else:
         thread_pool = spead2.ThreadPool()

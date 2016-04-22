@@ -309,8 +309,8 @@ static void register_module()
     class_<thread_pool_wrapper, boost::noncopyable>("ThreadPool", init<int>(
             (arg("threads") = 1)))
         .def(init<int, py::list>((arg("threads"), arg("affinity"))))
-        .def("setaffinity", &thread_pool_wrapper::setaffinity)
-        .staticmethod("setaffinity")
+        .def("set_affinity", &thread_pool_wrapper::set_affinity)
+        .staticmethod("set_affinity")
         .def("stop", &thread_pool_wrapper::stop);
 
     class_<descriptor>("RawDescriptor")

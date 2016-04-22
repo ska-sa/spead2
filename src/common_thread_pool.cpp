@@ -59,12 +59,12 @@ thread_pool::thread_pool(int num_threads, const std::vector<int> &affinity)
         {
             int core = affinity[i % affinity.size()];
             workers.push_back(std::async(std::launch::async, [this, core] {
-                setaffinity(core); io_service.run(); }));
+                set_affinity(core); io_service.run(); }));
         }
     }
 }
 
-void thread_pool::setaffinity(int core)
+void thread_pool::set_affinity(int core)
 {
 #if SPEAD2_USE_PTHREAD_SETAFFINITY_NP
     if (core < 0 || core >= CPU_SETSIZE)

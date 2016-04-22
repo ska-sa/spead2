@@ -115,7 +115,7 @@ def main():
     logging.basicConfig(level=getattr(logging, args.log.upper()))
 
     if args.affinity is not None and len(args.affinity) > 0:
-        spead2.ThreadPool.setaffinity(args.affinity[0])
+        spead2.ThreadPool.set_affinity(args.affinity[0])
         thread_pool = spead2.ThreadPool(args.threads, args.affinity[1:] + args.affinity[:1])
     else:
         thread_pool = spead2.ThreadPool(args.threads)
