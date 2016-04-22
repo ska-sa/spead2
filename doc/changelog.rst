@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.8.0
 
 - Extend :py:class:`~spead2.MemoryPool` to allow a background thread to
   replenish the pool when it gets low.
