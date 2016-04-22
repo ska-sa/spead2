@@ -70,6 +70,25 @@ def _shape_elements(shape):
     return elements
 
 
+def parse_range_list(ranges):
+    """Split a string like 2,3-5,8,9-11 into a list of integers. This is
+    intended to ease adding command-line options for dealing with affinity.
+    """
+    if not ranges:
+        return []
+    parts = ranges.split(',')
+    out = []
+    for part in parts:
+        fields = part.split('-', 1)
+        if len(fields) == 2:
+            start = int(fields[0])
+            end = int(fields[1])
+            out.extend(range(start, end + 1))
+        else:
+            out.append(int(fields[0]))
+    return out
+
+
 class Descriptor(object):
     """Metadata for a SPEAD item.
 

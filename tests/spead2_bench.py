@@ -77,6 +77,11 @@ class SlaveConnection(object):
                         logging.warning("Start received while already running: %s", command)
                         continue
                     args = argparse.Namespace(**command['args'])
+                    if args.recv_affinity is not None and len(args.recv_affinity) > 0:
+                        spead2.ThreadPool.setaffinity(args.recv_affinity[0])
+                        thread_pool = spead2.ThreadPool(1, args.recv_affinity[1:] + args.recv_affinity[:1])
+                    else:
+                        thread_pool = spead2.ThreadPool()
                     thread_pool = spead2.ThreadPool()
                     memory_pool = spead2.MemoryPool(
                         args.heap_size, args.heap_size + 1024, args.mem_max_free, args.mem_initial)
@@ -145,6 +150,11 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
     # Wait for "ready" response
     response = yield From(reader.readline())
     assert response == b'ready\n'
+    if args.send_affinity is not None and len(args.send_affinity) > 0:
+        spead2.ThreadPool.setaffinity(args.send_affinity[0])
+        thread_pool = spead2.ThreadPool(1, args.send_affinity[1:] + args.send_affinity[:1])
+    else:
+        thread_pool = spead2.ThreadPool()
     thread_pool = spead2.ThreadPool()
     config = spead2.send.StreamConfig(
         max_packet_size=args.packet,
@@ -224,9 +234,11 @@ def main():
     master.add_argument('--heap-size', metavar='BYTES', type=int, default=4194304, help='Payload size for heap [%(default)s]')
     master.add_argument('--addr-bits', metavar='BITS', type=int, default=40, help='Heap address bits [%(default)s]')
     group = master.add_argument_group('sender options')
+    group.add_argument('--send-affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
     group.add_argument('--send-buffer', metavar='BYTES', type=int, default=spead2.send.trollius.UdpStream.DEFAULT_BUFFER_SIZE, help='Socket buffer size [%(default)s]')
     group.add_argument('--burst', metavar='BYTES', type=int, default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE, help='Send burst size [%(default)s]')
     group = master.add_argument_group('receiver options')
+    group.add_argument('--recv-affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
     group.add_argument('--recv-buffer', metavar='BYTES', type=int, default=spead2.recv.Stream.DEFAULT_UDP_BUFFER_SIZE, help='Socket buffer size [%(default)s]')
     group.add_argument('--heaps', type=int, default=spead2.recv.Stream.DEFAULT_MAX_HEAPS, help='Maximum number of in-flight heaps [%(default)s]')
     group.add_argument('--ring-heaps', type=int, default=spead2.recv.Stream.DEFAULT_RING_HEAPS, help='Ring buffer capacity in heaps [%(default)s]')

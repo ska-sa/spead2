@@ -56,6 +56,7 @@ def get_args():
     group.add_argument('--threads', type=int, default=1, help='Number of worker threads [%(default)s]')
     group.add_argument('--burst', metavar='BYTES', type=int, default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE, help='Burst size [%(default)s]')
     group.add_argument('--rate', metavar='Gb/s', type=float, default=0, help='Transmission rate bound [no limit]')
+    group.add_argument('--affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
 
     return parser.parse_args()
 
@@ -98,7 +99,11 @@ def main():
                             description='A test item with arbitrary value',
                             shape=(elements,), dtype=dtype,
                             value=np.zeros((elements,), dtype=dtype))
-    thread_pool = spead2.ThreadPool(args.threads)
+    if args.affinity is not None and len(args.affinity) > 0:
+        spead2.ThreadPool.setaffinity(args.affinity[0])
+        thread_pool = spead2.ThreadPool(args.threads, args.affinity[1:] + args.affinity[:1])
+    else:
+        thread_pool = spead2.ThreadPool(args.threads)
     config = spead2.send.StreamConfig(
         max_packet_size=args.packet,
         burst_size=args.burst,

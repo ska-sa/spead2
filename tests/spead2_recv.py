@@ -56,6 +56,7 @@ def get_args():
     group.add_argument('--mem-upper', type=int, default=32 * 1024**2, help='Maximum allocation which will use the memory pool [%(default)s]')
     group.add_argument('--mem-max-free', type=int, default=12, help='Maximum free memory buffers [%(default)s]')
     group.add_argument('--mem-initial', type=int, default=8, help='Initial free memory buffers [%(default)s]')
+    group.add_argument('--affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
     return parser.parse_args()
 
 @trollius.coroutine
@@ -113,7 +114,11 @@ def main():
     args = get_args()
     logging.basicConfig(level=getattr(logging, args.log.upper()))
 
-    thread_pool = spead2.ThreadPool(args.threads)
+    if args.affinity is not None and len(args.affinity) > 0:
+        spead2.ThreadPool.setaffinity(args.affinity[0])
+        thread_pool = spead2.ThreadPool(args.threads, args.affinity[1:] + args.affinity[:1])
+    else:
+        thread_pool = spead2.ThreadPool(args.threads)
     memory_pool = None
     if args.mem_pool:
         memory_pool = spead2.MemoryPool(args.mem_lower, args.mem_upper, args.mem_max_free, args.mem_initial)
