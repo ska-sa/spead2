@@ -228,6 +228,7 @@ class thread_pool_wrapper : public thread_pool
 {
 public:
     using thread_pool::thread_pool;
+    thread_pool_wrapper(int num_threads, boost::python::list affinity);
 
     ~thread_pool_wrapper();
     void stop();

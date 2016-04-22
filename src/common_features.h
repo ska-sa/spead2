@@ -70,4 +70,15 @@
 # endif
 #endif
 
+#ifndef SPEAD2_USE_PTHREAD_SETAFFINITY_NP
+# if defined(__GLIBC_PREREQ)
+#  if __GLIBC_PREREQ(2, 3)
+#   define SPEAD2_USE_PTHREAD_SETAFFINITY_NP 1
+#  endif
+# endif
+# ifndef SPEAD2_USE_PTHREAD_SETAFFINITY_NP
+#  define SPEAD2_USE_PTHREAD_SETAFFINITY_NP 0
+# endif
+#endif
+
 #endif // SPEAD2_COMMON_FEATURES_H

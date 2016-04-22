@@ -52,6 +52,13 @@ private:
 
 public:
     explicit thread_pool(int num_threads = 1);
+    /**
+     * Construct with explicit core affinity for the threads. The @a affinity
+     * list can be shorter or longer than @a num_threads. Threads are allocated
+     * in round-robin fashion to cores. Failures to set affinity are logged
+     * but do not cause an exception.
+     */
+    thread_pool(int num_threads, const std::vector<int> &affinity);
     ~thread_pool();
 
     /// Retrieve the embedded io_service
@@ -59,6 +66,10 @@ public:
 
     /// Shut down the thread pool
     void stop();
+    /**
+     * Set CPU affinity of current thread.
+     */
+    static void setaffinity(int core);
 };
 
 } // namespace spead2

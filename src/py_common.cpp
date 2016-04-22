@@ -152,6 +152,23 @@ static py::object int_to_object(long ival)
     return py::object(py::handle<>(obj));
 }
 
+static std::vector<int> list_to_vector_int(py::list list)
+{
+    std::vector<int> vector;
+    vector.reserve(len(list));
+    for (long i = 0; i < len(list); i++)
+    {
+        int value = py::extract<int>(list[i]);
+        vector.push_back(value);
+    }
+    return vector;
+}
+
+thread_pool_wrapper::thread_pool_wrapper(int num_threads, py::list affinity)
+    : thread_pool(num_threads, list_to_vector_int(affinity))
+{
+}
+
 thread_pool_wrapper::~thread_pool_wrapper()
 {
     stop();
@@ -291,6 +308,9 @@ static void register_module()
 
     class_<thread_pool_wrapper, boost::noncopyable>("ThreadPool", init<int>(
             (arg("threads") = 1)))
+        .def(init<int, py::list>((arg("threads"), arg("affinity"))))
+        .def("setaffinity", &thread_pool_wrapper::setaffinity)
+        .staticmethod("setaffinity")
         .def("stop", &thread_pool_wrapper::stop);
 
     class_<descriptor>("RawDescriptor")
