@@ -17,7 +17,7 @@ PySPEAD_ implementation, spead2:
 
 .. _SPEAD: https://casper.berkeley.edu/wiki/SPEAD
 .. _PySPEAD: https://github.com/ska-sa/PySPEAD/
-.. _trollius: http://trollius.readthedocs.org/
+.. _trollius: http://trollius.readthedocs.io/
 
 Installing spead2 for Python
 ----------------------------
@@ -39,7 +39,7 @@ Other standard methods for installing Python packages should work too.
 
 .. _numpy: http://www.numpy.org
 .. _six: https://pythonhosted.org/six/
-.. _nose: https://nose.readthedocs.org/en/latest/
+.. _nose: https://nose.readthedocs.io/en/latest/
 .. _decorator: http://pythonhosted.org//decorator/
 
 High-performance usage requires larger buffer sizes than Linux allows by

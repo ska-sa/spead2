@@ -28,7 +28,7 @@ rtd = os.environ.get('READTHEDOCS') == 'True'
 if rtd:
     subprocess.check_call(['doxygen'])
     # ReadTheDocs can't build the extension (no Boost), so we have to mock it
-    # See http://docs.readthedocs.org/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules
+    # See http://docs.readthedocs.io/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules
     import unittest.mock
     MOCK_MODULES = ['spead2._spead2', 'spead2._send', 'spead2._recv']
     sys.modules.update((mod_name, unittest.mock.Mock()) for mod_name in MOCK_MODULES)

@@ -27,5 +27,5 @@ For more information, refer to the documentation on readthedocs_.
 
 .. _SPEAD: https://casper.berkeley.edu/wiki/SPEAD
 .. _PySPEAD: https://github.com/ska-sa/PySPEAD/
-.. _trollius: http://trollius.readthedocs.org/
-.. _readthedocs: http://spead2.readthedocs.org/en/latest/
+.. _trollius: http://trollius.readthedocs.io/
+.. _readthedocs: http://spead2.readthedocs.io/en/latest/

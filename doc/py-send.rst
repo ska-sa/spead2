@@ -143,7 +143,7 @@ limit is exceeded, heaps will be dropped, and the returned future has an
 low-level error in sending the heap (for example, if the packet size exceeds
 the MTU).
 
-.. _trollius: http://trollius.readthedocs.org/
+.. _trollius: http://trollius.readthedocs.io/
 
 .. autoclass:: spead2.send.trollius.UdpStream(thread_pool, hostname, port, config, buffer_size=524288, socket=None, loop=None)
 

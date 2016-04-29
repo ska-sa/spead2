@@ -170,7 +170,7 @@ asynchronous I/O frameworks like twisted_.
 
       :param loop: Trollius event loop to use, overriding constructor.
 
-.. _trollius: http://trollius.readthedocs.org/
+.. _trollius: http://trollius.readthedocs.io/
 .. _twisted: https://twistedmatrix.com/trac/
 
 .. _py-memory-pools:
