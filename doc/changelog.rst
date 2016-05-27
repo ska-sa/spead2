@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.8.1
 
 - Suppress ``recvmmsg: resource temporarily unavailable`` warnings (fixes #43)
 
