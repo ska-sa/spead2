@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Suppress ``recvmmsg: resource temporarily unavailable`` warnings (fixes #43)
+
 .. rubric:: Version 0.8.0
 
 - Extend :py:class:`~spead2.MemoryPool` to allow a background thread to
