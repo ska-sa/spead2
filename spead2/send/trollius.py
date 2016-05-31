@@ -44,9 +44,8 @@ class UdpStream(_UdpStreamAsyncio):
         Event loop to use (defaults to `trollius.get_event_loop()`)
     """
     def __init__(self, *args, **kwargs):
-        if 'loop' in kwargs:
-            self._loop = kwargs.pop('loop')
-        else:
+        self._loop = kwargs.pop('loop', None)
+        if self._loop is None:
             self._loop = trollius.get_event_loop()
         super(UdpStream, self).__init__(*args, **kwargs)
         self._active = 0
