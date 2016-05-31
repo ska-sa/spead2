@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Version 0.8.2
+
+- Ensure correct operation when `loop=None` is passed explicitly to trollius
+  stream constructors, for consistency with functions that have it as a keyword
+  parameter.
+
 .. rubric:: Version 0.8.1
 
 - Suppress ``recvmmsg: resource temporarily unavailable`` warnings (fixes #43)
