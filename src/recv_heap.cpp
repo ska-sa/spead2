@@ -156,7 +156,7 @@ heap::heap(live_heap &&h)
                        h.heap_address_bits, h.bug_compat);
     payload = std::move(h.payload);
     // Reset h so that it still satisfies its invariants
-    h = live_heap(0, h.bug_compat);
+    h = live_heap(0, h.bug_compat, h.allocator);
 }
 
 descriptor heap::to_descriptor() const

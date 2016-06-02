@@ -38,7 +38,8 @@ stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
     : heap_storage(new storage_type[max_heaps]),
     heap_cnts(new s_item_pointer_t[max_heaps]),
     head(0),
-    max_heaps(max_heaps), bug_compat(bug_compat)
+    max_heaps(max_heaps), bug_compat(bug_compat),
+    allocator(std::make_shared<memory_allocator>())
 {
     for (std::size_t i = 0; i < max_heaps; i++)
         heap_cnts[i] = -1;
@@ -53,8 +54,13 @@ stream_base::~stream_base()
 
 void stream_base::set_memory_pool(std::shared_ptr<memory_pool> pool)
 {
-    std::lock_guard<std::mutex> lock(pool_mutex);
-    this->pool = std::move(pool);
+    set_memory_allocator(std::move(pool));
+}
+
+void stream_base::set_memory_allocator(std::shared_ptr<memory_allocator> allocator)
+{
+    std::lock_guard<std::mutex> lock(allocator_mutex);
+    this->allocator = std::move(allocator);
 }
 
 void stream_base::set_memcpy(memcpy_function memcpy)
@@ -114,13 +120,12 @@ bool stream_base::add_packet(const packet_header &packet)
                 h->~live_heap();
             }
             heap_cnts[head] = heap_cnt;
-            new (h) live_heap(heap_cnt, bug_compat);
-            std::shared_ptr<memory_pool> pool;
+            std::shared_ptr<memory_allocator> allocator;
             {
-                std::lock_guard<std::mutex> lock(pool_mutex);
-                pool = this->pool;
+                std::lock_guard<std::mutex> lock(allocator_mutex);
+                allocator = this->allocator;
             }
-            h->set_memory_pool(pool);
+            new (h) live_heap(heap_cnt, bug_compat, allocator);
             h->set_memcpy(memcpy.load(std::memory_order_relaxed));
         }
     }

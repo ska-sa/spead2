@@ -103,16 +103,17 @@ private:
     /// Function used to copy heap payloads
     std::atomic<memcpy_function> memcpy{std::memcpy};
 
-    /// Mutex protecting @ref pool
-    std::mutex pool_mutex;
+    /// Mutex protecting @ref allocator
+    std::mutex allocator_mutex;
     /**
-     * Memory pool used by heaps.
+     * Memory allocator used by heaps.
      *
-     * This is protected by pool_mutex. C++11 mandates free @c atomic_load and
-     * @c atomic_store on @c shared_ptr, but GCC 4.8 doesn't implement it. Also,
-     * std::atomic<std::shared_ptr<T>> causes undefined symbol errors.
+     * This is protected by allocator_mutex. C++11 mandates free @c atomic_load
+     * and @c atomic_store on @c shared_ptr, but GCC 4.8 doesn't implement it.
+     * Also, std::atomic<std::shared_ptr<T>> causes undefined symbol errors, and
+     * is illegal because shared_ptr is not a POD type.
      */
-    std::shared_ptr<memory_pool> pool;
+    std::shared_ptr<memory_allocator> allocator;
 
     /**
      * Callback called when a heap is being ejected from the live list.
@@ -134,8 +135,15 @@ public:
 
     /**
      * Set a pool to use for allocating heap memory.
+     *
+     * @deprecated Use @ref set_memory_allocator instead
      */
     void set_memory_pool(std::shared_ptr<memory_pool> pool);
+
+    /**
+     * Set an allocator to use for allocating heap memory.
+     */
+    void set_memory_allocator(std::shared_ptr<memory_allocator> allocator);
 
     /// Set an alternative memcpy function for copying heap payload
     void set_memcpy(memcpy_function memcpy);
@@ -254,6 +262,7 @@ public:
     using stream_base::get_bug_compat;
     using stream_base::default_max_heaps;
     using stream_base::set_memory_pool;
+    using stream_base::set_memory_allocator;
     using stream_base::set_memcpy;
 
     boost::asio::io_service::strand &get_strand() { return strand; }

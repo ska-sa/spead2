@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2016 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -28,6 +28,7 @@
 #include <memory>
 #include <boost/asio.hpp>
 #include "common_thread_pool.h"
+#include "common_memory_allocator.h"
 
 namespace spead2
 {
@@ -47,42 +48,35 @@ namespace spead2
  *
  * This class is thread-safe.
  */
-class memory_pool : public std::enable_shared_from_this<memory_pool>
+class memory_pool : public memory_allocator
 {
-private:
-    class destructor
-    {
-    private:
-        std::shared_ptr<memory_pool> owner;
-    public:
-        destructor() = default;
-        explicit destructor(std::shared_ptr<memory_pool> owner);
-        void operator()(std::uint8_t *ptr) const;
-    };
-
-public:
-    typedef std::unique_ptr<std::uint8_t[], destructor> pointer;
-
 private:
     boost::asio::io_service *io_service;
     const std::size_t lower, upper, max_free, initial, low_water;
+    const std::shared_ptr<memory_allocator> base_allocator;
     std::mutex mutex;
-    std::stack<std::unique_ptr<std::uint8_t[]> > pool;
+    /// Free pool; these pointers are owned by the base allocator
+    std::stack<pointer> pool;
     bool refilling = false;
 
-    void return_to_pool(std::uint8_t *ptr);
-    static std::unique_ptr<std::uint8_t[]> allocate_for_pool(std::size_t upper);
-    static void refill(std::size_t upper, std::weak_ptr<memory_pool> self_weak);
+    virtual void free(std::uint8_t *ptr, void *user) override;
+    // Makes ourself the owner
+    pointer convert(pointer &&base);
+    static void refill(std::size_t upper, std::shared_ptr<memory_allocator> allocator,
+                       std::weak_ptr<memory_pool> self_weak);
 
-    memory_pool(boost::asio::io_service *io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water);
+    memory_pool(boost::asio::io_service *io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water,
+                std::shared_ptr<memory_allocator> allocator);
 
 public:
     memory_pool();
-    memory_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial);
-    memory_pool(boost::asio::io_service &io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water);
-    memory_pool(thread_pool &tpool, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water);
-    virtual ~memory_pool() = default;
-    pointer allocate(std::size_t size);
+    memory_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
+                std::shared_ptr<memory_allocator> allocator = nullptr);
+    memory_pool(boost::asio::io_service &io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water,
+                std::shared_ptr<memory_allocator> allocator = nullptr);
+    memory_pool(thread_pool &tpool, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water,
+                std::shared_ptr<memory_allocator> allocator = nullptr);
+    virtual pointer allocate(std::size_t size) override;
 };
 
 } // namespace spead2

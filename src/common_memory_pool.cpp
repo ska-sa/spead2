@@ -21,6 +21,7 @@
 #include <cassert>
 #include <utility>
 #include <memory>
+#include <cstdint>
 #include "common_memory_pool.h"
 #include "common_logging.h"
 
@@ -28,95 +29,87 @@ namespace spead2
 {
 
 memory_pool::memory_pool()
-    : memory_pool(nullptr, 0, 0, 0, 0, 0)
+    : memory_pool(nullptr, 0, 0, 0, 0, 0, nullptr)
 {
 }
 
-memory_pool::memory_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial)
-    : memory_pool(nullptr, lower, upper, max_free, initial, 0)
+memory_pool::memory_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
+                         std::shared_ptr<memory_allocator> allocator)
+    : memory_pool(nullptr, lower, upper, max_free, initial, 0, std::move(allocator))
 {
 }
 
 memory_pool::memory_pool(
     boost::asio::io_service &io_service,
     std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
-    std::size_t low_water)
-    : memory_pool(&io_service, lower, upper, max_free, initial, low_water)
+    std::size_t low_water,
+    std::shared_ptr<memory_allocator> allocator)
+    : memory_pool(&io_service, lower, upper, max_free, initial, low_water, std::move(allocator))
 {
 }
 
 memory_pool::memory_pool(
     thread_pool &tpool,
     std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
-    std::size_t low_water)
-    : memory_pool(&tpool.get_io_service(), lower, upper, max_free, initial, low_water)
+    std::size_t low_water,
+    std::shared_ptr<memory_allocator> allocator)
+    : memory_pool(&tpool.get_io_service(), lower, upper, max_free, initial, low_water,
+                  std::move(allocator))
 {
 }
 
 memory_pool::memory_pool(
     boost::asio::io_service *io_service,
     std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
-    std::size_t low_water)
+    std::size_t low_water,
+    std::shared_ptr<memory_allocator> allocator)
     : io_service(io_service), lower(lower), upper(upper), max_free(max_free),
-    initial(initial), low_water(low_water)
+    initial(initial), low_water(low_water),
+    base_allocator(allocator ? move(allocator) : std::make_shared<memory_allocator>())
 {
     assert(lower <= upper);
     assert(initial <= max_free);
     assert(low_water <= initial);
     assert(low_water == 0 || io_service != nullptr);
     for (std::size_t i = 0; i < initial; i++)
-        pool.emplace(allocate_for_pool(upper));
+        pool.emplace(base_allocator->allocate(upper));
 }
 
-memory_pool::destructor::destructor(std::shared_ptr<memory_pool> owner)
-    : owner(std::move(owner))
+void memory_pool::free(std::uint8_t *ptr, void *user)
 {
-}
-
-void memory_pool::destructor::operator()(std::uint8_t *ptr) const
-{
-    if (owner)
-        owner->return_to_pool(ptr);
-    else
-    {
-        // Not allocated from pool
-        delete[] ptr;
-    }
-}
-
-void memory_pool::return_to_pool(std::uint8_t *ptr)
-{
+    pointer wrapped(ptr, deleter(base_allocator, user));
     std::unique_lock<std::mutex> lock(mutex);
     if (pool.size() < max_free)
     {
         log_debug("returning memory to the pool");
-        pool.emplace(ptr);
+        pool.push(move(wrapped));
     }
     else
     {
         log_debug("dropping memory because the pool is full");
         lock.unlock();
-        delete[] ptr;
+        // deleter for wrapped will free the memory
     }
 }
 
-std::unique_ptr<std::uint8_t[]> memory_pool::allocate_for_pool(std::size_t upper)
+memory_pool::pointer memory_pool::convert(pointer &&base)
 {
-    std::uint8_t *ptr = new std::uint8_t[upper];
-    // Pre-fault the memory by touching every page
-    for (std::size_t i = 0; i < upper; i += 4096)
-        ptr[i] = 0;
-    return std::unique_ptr<std::uint8_t[]>(ptr);
+    pointer wrapped(base.get(), deleter(shared_from_this(), base.get_deleter().user));
+    base.release();
+    return wrapped;
 }
 
-void memory_pool::refill(std::size_t upper, std::weak_ptr<memory_pool> self_weak)
+void memory_pool::refill(std::size_t upper, std::shared_ptr<memory_allocator> allocator,
+                         std::weak_ptr<memory_pool> self_weak)
 {
     while (true)
     {
-        std::unique_ptr<std::uint8_t[]> ptr = allocate_for_pool(upper);
+        pointer ptr = allocator->allocate(upper);
         std::shared_ptr<memory_pool> self = self_weak.lock();
         if (!self)
+        {
             break;  // The memory pool vanished from under us
+        }
         std::lock_guard<std::mutex> lock(self->mutex);
         if (self->pool.size() < self->max_free)
         {
@@ -136,19 +129,29 @@ memory_pool::pointer memory_pool::allocate(std::size_t size)
 {
     if (size >= lower && size <= upper)
     {
+        /* Declaration order here is important: if there is an exception,
+         * we want to drop the lock before trying to put the pointer back in
+         * the pool.
+         */
+        pointer ptr;
         std::unique_lock<std::mutex> lock(mutex);
-        std::unique_ptr<uint8_t[]> ptr;
         if (!pool.empty())
         {
-            ptr.reset(pool.top().release());
+            ptr = std::move(pool.top());
             pool.pop();
+            ptr = convert(std::move(ptr));
             if (pool.size() < low_water && !refilling)
             {
                 refilling = true;
-                std::weak_ptr<memory_pool> weak{shared_from_this()};
-                // C++ (or at least GCC) won't let me capture the member by value directly
+                std::shared_ptr<memory_pool> self =
+                    std::static_pointer_cast<memory_pool>(shared_from_this());
+                std::weak_ptr<memory_pool> weak{self};
+                // C++ (or at least GCC) won't let me capture the members by value directly
                 const std::size_t upper = this->upper;
-                io_service->post([upper, weak] { refill(upper, std::move(weak)); });
+                std::shared_ptr<memory_allocator> allocator = base_allocator;
+                io_service->post([upper, allocator, weak] {
+                    refill(upper, allocator, std::move(weak));
+                });
             }
             lock.unlock();
             log_debug("allocating %d bytes from pool", size);
@@ -156,20 +159,16 @@ memory_pool::pointer memory_pool::allocate(std::size_t size)
         else
         {
             lock.unlock();
-            ptr = allocate_for_pool(upper);
+            ptr = convert(base_allocator->allocate(upper));
             log_debug("allocating %d bytes which will be added to the pool", size);
         }
-        // The pool may be discarded while the memory is still allocated: in
-        // this case, it is simply freed.
-        return pointer(ptr.release(), destructor(shared_from_this()));
+        return ptr;
     }
     else
     {
         log_debug("allocating %d bytes without using the pool", size);
-        return pointer(new std::uint8_t[size]);
+        return base_allocator->allocate(size);
     }
 }
 
 } // namespace spead2
-
-#include "common_memory_pool.h"

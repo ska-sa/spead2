@@ -29,7 +29,7 @@
 #include <map>
 #include <functional>
 #include "common_defines.h"
-#include "common_memory_pool.h"
+#include "common_memory_allocator.h"
 #include "recv_packet.h"
 
 namespace spead2
@@ -90,7 +90,7 @@ private:
      * doubling. While @c std::vector would take care of that for us, it also
      * zero-fills the memory, which would be inefficient.
      */
-    memory_pool::pointer payload;
+    memory_allocator::pointer payload;
     /// Size of the memory in @ref payload
     std::size_t payload_reserved = 0;
     /**
@@ -107,8 +107,8 @@ private:
      */
     std::map<s_item_pointer_t, s_item_pointer_t> payload_ranges;
 
-    /// Backing memory pool
-    std::shared_ptr<memory_pool> pool;
+    /// Backing memory allocator
+    std::shared_ptr<memory_allocator> allocator;
 
     /**
      * Make sure at least @a size bytes are allocated for payload. If
@@ -128,14 +128,10 @@ public:
      *
      * @param cnt          Heap ID
      * @param bug_compat   Bugs to expect in the protocol
+     * @param allocator    Allocator used to allocate payload data
      */
-    explicit live_heap(s_item_pointer_t cnt, bug_compat_mask bug_compat);
-
-    /**
-     * Set a memory pool to use for payload data, instead of allocating with
-     * @c new.
-     */
-    void set_memory_pool(std::shared_ptr<memory_pool> pool);
+    explicit live_heap(s_item_pointer_t cnt, bug_compat_mask bug_compat,
+                       std::shared_ptr<memory_allocator> allocator);
 
     /// Set memcpy function to use for copying payload
     void set_memcpy(memcpy_function memcpy);

@@ -34,15 +34,12 @@ namespace spead2
 namespace recv
 {
 
-live_heap::live_heap(s_item_pointer_t cnt, bug_compat_mask bug_compat)
-    : cnt(cnt), bug_compat(bug_compat)
+live_heap::live_heap(s_item_pointer_t cnt, bug_compat_mask bug_compat,
+                     std::shared_ptr<memory_allocator> allocator)
+    : cnt(cnt), bug_compat(bug_compat), allocator(std::move(allocator))
 {
+    assert(this->allocator);
     assert(cnt >= 0);
-}
-
-void live_heap::set_memory_pool(std::shared_ptr<memory_pool> pool)
-{
-    this->pool = std::move(pool);
 }
 
 void live_heap::set_memcpy(memcpy_function memcpy)
@@ -58,14 +55,8 @@ void live_heap::payload_reserve(std::size_t size, bool exact)
         {
             size = payload_reserved * 2;
         }
-        memory_pool::pointer new_payload;
-        if (pool != nullptr)
-            new_payload = pool->allocate(size);
-        else
-        {
-            std::uint8_t *ptr = new std::uint8_t[size];
-            new_payload = memory_pool::pointer(ptr);
-        }
+        memory_allocator::pointer new_payload;
+        new_payload = allocator->allocate(size);
         if (payload)
             this->memcpy(new_payload.get(), payload.get(), payload_reserved);
         payload = std::move(new_payload);
