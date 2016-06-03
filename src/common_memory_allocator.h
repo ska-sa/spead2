@@ -98,7 +98,7 @@ class mmap_allocator : public memory_allocator
 public:
     const int flags;
 
-    explicit mmap_allocator(int flags);
+    explicit mmap_allocator(int flags = 0);
     virtual pointer allocate(std::size_t size, void *hint) override;
 
 private:
