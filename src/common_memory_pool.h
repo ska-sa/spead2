@@ -76,7 +76,7 @@ public:
                 std::shared_ptr<memory_allocator> allocator = nullptr);
     memory_pool(thread_pool &tpool, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water,
                 std::shared_ptr<memory_allocator> allocator = nullptr);
-    virtual pointer allocate(std::size_t size) override;
+    virtual pointer allocate(std::size_t size, void *hint) override;
 };
 
 } // namespace spead2

@@ -36,8 +36,9 @@ void memory_allocator::prefault(std::uint8_t *data, std::size_t size)
         data[i] = 0;
 }
 
-memory_allocator::pointer memory_allocator::allocate(std::size_t size)
+memory_allocator::pointer memory_allocator::allocate(std::size_t size, void *hint)
 {
+    (void) hint;
     std::uint8_t *ptr = new std::uint8_t[size];
     prefault(ptr, size);
     return pointer(ptr, deleter(shared_from_this()));
@@ -61,8 +62,9 @@ mmap_allocator::mmap_allocator(int flags) : flags(flags)
 #endif
 }
 
-mmap_allocator::pointer mmap_allocator::allocate(std::size_t size)
+mmap_allocator::pointer mmap_allocator::allocate(std::size_t size, void *hint)
 {
+    (void) hint;
     int use_flags = flags | MAP_ANONYMOUS | MAP_PRIVATE
 #ifdef MAP_POPULATE
         | MAP_POPULATE

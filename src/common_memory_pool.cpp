@@ -72,7 +72,7 @@ memory_pool::memory_pool(
     assert(low_water <= initial);
     assert(low_water == 0 || io_service != nullptr);
     for (std::size_t i = 0; i < initial; i++)
-        pool.emplace(base_allocator->allocate(upper));
+        pool.emplace(base_allocator->allocate(upper, nullptr));
 }
 
 void memory_pool::free(std::uint8_t *ptr, void *user)
@@ -104,7 +104,7 @@ void memory_pool::refill(std::size_t upper, std::shared_ptr<memory_allocator> al
 {
     while (true)
     {
-        pointer ptr = allocator->allocate(upper);
+        pointer ptr = allocator->allocate(upper, nullptr);
         std::shared_ptr<memory_pool> self = self_weak.lock();
         if (!self)
         {
@@ -125,8 +125,9 @@ void memory_pool::refill(std::size_t upper, std::shared_ptr<memory_allocator> al
     }
 }
 
-memory_pool::pointer memory_pool::allocate(std::size_t size)
+memory_pool::pointer memory_pool::allocate(std::size_t size, void *hint)
 {
+    (void) hint;
     if (size >= lower && size <= upper)
     {
         /* Declaration order here is important: if there is an exception,
@@ -159,7 +160,7 @@ memory_pool::pointer memory_pool::allocate(std::size_t size)
         else
         {
             lock.unlock();
-            ptr = convert(base_allocator->allocate(upper));
+            ptr = convert(base_allocator->allocate(upper, nullptr));
             log_debug("allocating %d bytes which will be added to the pool", size);
         }
         return ptr;
@@ -167,7 +168,7 @@ memory_pool::pointer memory_pool::allocate(std::size_t size)
     else
     {
         log_debug("allocating %d bytes without using the pool", size);
-        return base_allocator->allocate(size);
+        return base_allocator->allocate(size, nullptr);
     }
 }
 

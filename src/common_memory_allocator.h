@@ -58,10 +58,11 @@ public:
      * and pre-faults the memory.
      *
      * @param size         Number of bytes to allocate
+     * @param hint         Usage-dependent extra information
      * @returns Pointer to newly allocated memory
      * @throw std::bad_alloc if allocation failed
      */
-    virtual pointer allocate(std::size_t size);
+    virtual pointer allocate(std::size_t size, void *hint);
 
 protected:
     void prefault(std::uint8_t *ptr, std::size_t size);
@@ -98,7 +99,7 @@ public:
     const int flags;
 
     explicit mmap_allocator(int flags);
-    virtual pointer allocate(std::size_t size) override;
+    virtual pointer allocate(std::size_t size, void *hint) override;
 
 private:
     virtual void free(std::uint8_t *ptr, void *user) override;

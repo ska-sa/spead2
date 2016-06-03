@@ -114,7 +114,7 @@ private:
      * Make sure at least @a size bytes are allocated for payload. If
      * @a exact is false, then a doubling heuristic will be used.
      */
-    void payload_reserve(std::size_t size, bool exact);
+    void payload_reserve(std::size_t size, bool exact, const packet_header &packet);
 
     /**
      * Update @ref payload_ranges with a new range. Returns true if the new

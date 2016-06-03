@@ -47,7 +47,7 @@ void live_heap::set_memcpy(memcpy_function memcpy)
     this->memcpy = memcpy;
 }
 
-void live_heap::payload_reserve(std::size_t size, bool exact)
+void live_heap::payload_reserve(std::size_t size, bool exact, const packet_header &packet)
 {
     if (size > payload_reserved)
     {
@@ -56,7 +56,7 @@ void live_heap::payload_reserve(std::size_t size, bool exact)
             size = payload_reserved * 2;
         }
         memory_allocator::pointer new_payload;
-        new_payload = allocator->allocate(size);
+        new_payload = allocator->allocate(size, (void *) &packet);
         if (payload)
             this->memcpy(new_payload.get(), payload.get(), payload_reserved);
         payload = std::move(new_payload);
@@ -141,12 +141,12 @@ bool live_heap::add_packet(const packet_header &packet)
     {
         heap_length = packet.heap_length;
         min_length = std::max(min_length, heap_length);
-        payload_reserve(min_length, true);
+        payload_reserve(min_length, true, packet);
     }
     else
     {
         min_length = std::max(min_length, packet.payload_offset + packet.payload_length);
-        payload_reserve(min_length, false);
+        payload_reserve(min_length, false, packet);
     }
     pointer_decoder decoder(heap_address_bits);
     pointers.reserve(pointers.size() + packet.n_items);

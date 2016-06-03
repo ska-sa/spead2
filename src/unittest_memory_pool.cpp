@@ -21,7 +21,7 @@ BOOST_AUTO_TEST_CASE(memory_pool_refill)
         tpool, 1024 * 1024, 2 * 1024 * 1024, 8, 4, 2);
     std::vector<spead2::memory_pool::pointer> pointers;
     for (int i = 0; i < 100; i++)
-        pointers.push_back(pool->allocate(1024 * 1024));
+        pointers.push_back(pool->allocate(1024 * 1024, nullptr));
 }
 
 class mock_allocator : public spead2::memory_allocator
@@ -37,8 +37,9 @@ public:
     std::vector<record> records;
     std::vector<std::unique_ptr<std::uint8_t[]>> saved;
 
-    virtual pointer allocate(std::size_t size) override
+    virtual pointer allocate(std::size_t size, void *hint) override
     {
+        (void) hint;
         std::uint8_t *ptr = new std::uint8_t[size];
         records.push_back(record{true, size, ptr});
         return pointer(ptr, deleter(shared_from_this(), ptr - 1));
@@ -63,18 +64,18 @@ BOOST_AUTO_TEST_CASE(memory_pool_pass_user)
         1024, 2048, 2, 1, allocator);
 
     // Pooled allocation, comes from the pre-allocated slot
-    pointer p1 = pool->allocate(1536);
+    pointer p1 = pool->allocate(1536, nullptr);
     // Pooled allocations, newly allocated
-    pointer p2 = pool->allocate(1500);
-    pointer p3 = pool->allocate(1024);
+    pointer p2 = pool->allocate(1500, nullptr);
+    pointer p3 = pool->allocate(1024, nullptr);
 
     // Free all the pointers. p3 should be dropped
     p1.reset(); p2.reset(); p3.reset();
 
     // Make another allocation, which should come from the pool (p1)
-    pointer p4 = pool->allocate(1600);
+    pointer p4 = pool->allocate(1600, nullptr);
     // Allocation not from the pool
-    pointer p5 = pool->allocate(2049);
+    pointer p5 = pool->allocate(2049, nullptr);
 
     // Release our reference to the pool. It should be destroyed once p4 is freed
     pool.reset();
