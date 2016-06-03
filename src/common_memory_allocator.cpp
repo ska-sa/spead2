@@ -71,7 +71,7 @@ mmap_allocator::pointer mmap_allocator::allocate(std::size_t size, void *hint)
     ;
 
     std::uint8_t *ptr = (std::uint8_t *) mmap(nullptr, size, PROT_READ | PROT_WRITE, use_flags, -1, 0);
-    if (!ptr)
+    if (ptr == MAP_FAILED)
         throw std::bad_alloc();
 #ifndef MAP_POPULATE
     prefault(ptr, size);
