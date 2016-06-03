@@ -99,6 +99,8 @@ public:
 
     explicit mmap_allocator(int flags);
     virtual pointer allocate(std::size_t size) override;
+
+private:
     virtual void free(std::uint8_t *ptr, void *user) override;
 };
 
