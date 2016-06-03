@@ -1,6 +1,8 @@
 #include <boost/test/unit_test.hpp>
 #include <utility>
 #include <ostream>
+#include <memory>
+#include "common_memory_allocator.h"
 #include "recv_live_heap.h"
 
 namespace std
@@ -25,7 +27,7 @@ BOOST_AUTO_TEST_SUITE(live_heap)
 BOOST_AUTO_TEST_CASE(payload_ranges)
 {
     using spead2::recv::live_heap;
-    live_heap heap(1, 0);
+    live_heap heap(1, 0, std::make_shared<spead2::memory_allocator>());
 
     BOOST_CHECK(heap.add_payload_range(100, 200));
     std::pair<const s_item_pointer_t, s_item_pointer_t> expected1[] = {{100, 200}};
