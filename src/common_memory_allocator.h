@@ -29,6 +29,37 @@
 namespace spead2
 {
 
+class memory_allocator;
+
+/**
+ * Pointer that implements the NullablePointer concept, but contains a
+ * reference to the allocator that allocated it, and an arbitrary user
+ * handle.
+ */
+template<typename T>
+class memory_allocation
+{
+private:
+    T *ptr;
+    std::shared_ptr<memory_allocator> allocator;
+    void *user;
+
+public:
+    memory_allocation(std::nullptr_t ptr = nullptr) : ptr(ptr), user(nullptr) {}
+    memory_allocation(T *ptr, std::shared_ptr<memory_allocator> allocator, void *user = nullptr)
+        : ptr(ptr), allocator(std::move(allocator)), user(user) {}
+    explicit operator bool() { return ptr; }
+    bool operator==(memory_allocation other) const { return ptr == other.ptr; }
+    bool operator!=(memory_allocation other) const { return ptr != other.ptr; }
+    T &operator*() const { return *ptr; }
+    T *operator->() const { return ptr; }
+    T *get() const { return ptr; }
+    T &operator[](std::size_t i) { return ptr[i]; }
+
+    std::shared_ptr<memory_allocator> get_allocator() const { return allocator; }
+    void *get_user() const { return user; }
+};
+
 /**
  * Polymorphic class for managing memory allocations in a memory pool. This
  * can be overloaded to provide custom memory allocations.
@@ -39,14 +70,8 @@ public:
     class deleter
     {
     public:
-        std::shared_ptr<memory_allocator> allocator;
-        void *user = nullptr;
-
-        deleter() = default;
-        explicit deleter(std::shared_ptr<memory_allocator> allocator, void *user = nullptr)
-            : allocator(std::move(allocator)), user(user) {}
-
-        void operator()(std::uint8_t *ptr);
+        typedef memory_allocation<std::uint8_t> pointer;
+        void operator()(pointer ptr);
     };
 
     typedef std::unique_ptr<std::uint8_t[], deleter> pointer;

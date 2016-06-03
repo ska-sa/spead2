@@ -58,7 +58,7 @@ void live_heap::payload_reserve(std::size_t size, bool exact, const packet_heade
         memory_allocator::pointer new_payload;
         new_payload = allocator->allocate(size, (void *) &packet);
         if (payload)
-            this->memcpy(new_payload.get(), payload.get(), payload_reserved);
+            this->memcpy(new_payload.get().get(), payload.get().get(), payload_reserved);
         payload = std::move(new_payload);
         payload_reserved = size;
     }
@@ -170,7 +170,7 @@ bool live_heap::add_packet(const packet_header &packet)
 
     if (packet.payload_length > 0)
     {
-        this->memcpy(payload.get() + packet.payload_offset,
+        this->memcpy(payload.get().get() + packet.payload_offset,
                      packet.payload,
                      packet.payload_length);
         received_length += packet.payload_length;

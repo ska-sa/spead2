@@ -77,7 +77,7 @@ memory_pool::memory_pool(
 
 void memory_pool::free(std::uint8_t *ptr, void *user)
 {
-    pointer wrapped(ptr, deleter(base_allocator, user));
+    pointer wrapped(deleter::pointer(ptr, base_allocator, user));
     std::unique_lock<std::mutex> lock(mutex);
     if (pool.size() < max_free)
     {
@@ -94,7 +94,7 @@ void memory_pool::free(std::uint8_t *ptr, void *user)
 
 memory_pool::pointer memory_pool::convert(pointer &&base)
 {
-    pointer wrapped(base.get(), deleter(shared_from_this(), base.get_deleter().user));
+    pointer wrapped(deleter::pointer(base.get().get(), shared_from_this(), base.get().get_user()));
     base.release();
     return wrapped;
 }

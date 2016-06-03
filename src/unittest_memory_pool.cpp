@@ -42,7 +42,7 @@ public:
         (void) hint;
         std::uint8_t *ptr = new std::uint8_t[size];
         records.push_back(record{true, size, ptr});
-        return pointer(ptr, deleter(shared_from_this(), ptr - 1));
+        return pointer(deleter::pointer(ptr, shared_from_this(), ptr - 1));
     }
 
 private:
@@ -70,7 +70,9 @@ BOOST_AUTO_TEST_CASE(memory_pool_pass_user)
     pointer p3 = pool->allocate(1024, nullptr);
 
     // Free all the pointers. p3 should be dropped
-    p1.reset(); p2.reset(); p3.reset();
+    p1.reset();
+    p2.reset();
+    p3.reset();
 
     // Make another allocation, which should come from the pool (p1)
     pointer p4 = pool->allocate(1600, nullptr);
