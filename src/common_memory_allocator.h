@@ -63,6 +63,9 @@ public:
      */
     virtual pointer allocate(std::size_t size);
 
+protected:
+    void prefault(std::uint8_t *ptr, std::size_t size);
+
 private:
     /**
      * Free memory previously returned from @ref allocate.
@@ -71,6 +74,32 @@ private:
      * @param user         User-defined handle returned by @ref allocate
      */
     virtual void free(std::uint8_t *ptr, void *user);
+};
+
+/**
+ * Allocator that uses mmap. This is useful for large allocations, where the
+ * cost of going to the kernel (bypassing malloc) and the page-grained
+ * padding is justified. The main reasons to use this over the default
+ * allocator are:
+ * - pointers are page-aligned, which is useful for things like direct I/O
+ * - on Linux is uses @c MAP_POPULATE, which avoids lots of cache pollution
+ *   when pre-faulting the hard way.
+ * - it is possible to specify additional flags, e.g. MAP_HUGETLB or
+ *   MAP_LOCKED.
+ *
+ * @internal
+ *
+ * The user data pointer is used to store the length of the mapping to pass
+ * to munmap (via uintptr_t).
+ */
+class mmap_allocator : public memory_allocator
+{
+public:
+    const int flags;
+
+    explicit mmap_allocator(int flags);
+    virtual pointer allocate(std::size_t size) override;
+    virtual void free(std::uint8_t *ptr, void *user) override;
 };
 
 } // namespace spead2

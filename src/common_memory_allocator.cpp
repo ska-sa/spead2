@@ -28,12 +28,17 @@ void memory_allocator::deleter::operator()(std::uint8_t *ptr)
     allocator->free(ptr, user);
 }
 
+void memory_allocator::prefault(std::uint8_t *data, std::size_t size)
+{
+    // Pre-fault the memory by touching every page
+    for (std::size_t i = 0; i < size; i += 4096)
+        data[i] = 0;
+}
+
 memory_allocator::pointer memory_allocator::allocate(std::size_t size)
 {
     std::uint8_t *ptr = new std::uint8_t[size];
-    // Pre-fault the memory by touching every page
-    for (std::size_t i = 0; i < size; i += 4096)
-        ptr[i] = 0;
+    prefault(ptr, size);
     return pointer(ptr, deleter(shared_from_this()));
 }
 
@@ -41,6 +46,41 @@ void memory_allocator::free(std::uint8_t *ptr, void *user)
 {
     (void) user; // prevent warnings about unused parameters
     delete[] ptr;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
+#include <sys/mman.h>
+
+mmap_allocator::mmap_allocator(int flags) : flags(flags)
+{
+    flags |= MAP_ANONYMOUS | MAP_PRIVATE;
+#ifdef MAP_POPULATE
+    flags |= MAP_POPULATE;
+#endif
+}
+
+mmap_allocator::pointer mmap_allocator::allocate(std::size_t size)
+{
+    int use_flags = flags | MAP_ANONYMOUS | MAP_PRIVATE
+#ifdef MAP_POPULATE
+        | MAP_POPULATE
+#endif
+    ;
+
+    std::uint8_t *ptr = (std::uint8_t *) mmap(nullptr, size, PROT_READ | PROT_WRITE, use_flags, -1, 0);
+    if (!ptr)
+        throw std::bad_alloc();
+#ifndef MAP_POPULATE
+    prefault(ptr, size);
+#endif
+    return pointer(ptr, deleter(shared_from_this(), (void *) std::uintptr_t(size)));
+}
+
+void mmap_allocator::free(std::uint8_t *ptr, void *user)
+{
+    std::size_t size = std::uintptr_t(user);
+    munmap(ptr, size);
 }
 
 } // namespace spead2
