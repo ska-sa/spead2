@@ -26,6 +26,7 @@ namespace spead2
 void memory_allocator::deleter::operator()(std::uint8_t *ptr)
 {
     allocator->free(ptr, user);
+    allocator.reset();
 }
 
 void memory_allocator::prefault(std::uint8_t *data, std::size_t size)
