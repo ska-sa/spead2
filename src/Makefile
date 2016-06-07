@@ -35,6 +35,10 @@ endif
 ifeq ($(NETMAP),1)
     CXXFLAGS += -DSPEAD2_USE_NETMAP=1
 endif
+ifeq ($(IBV),1)
+    CXXFLAGS += -DSPEAD2_USE_IBV=1
+    LDFLAGS += -lrdmacm -libverbs
+endif
 ifneq ($(RECVMMSG),)
     CXXFLAGS += -DSPEAD2_USE_RECVMMSG=$(RECVMMSG)
 endif

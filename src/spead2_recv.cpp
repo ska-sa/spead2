@@ -30,6 +30,9 @@
 #if SPEAD2_USE_NETMAP
 # include "recv_netmap.h"
 #endif
+#if SPEAD2_USE_IBV
+# include "recv_udp_ibv.h"
+#endif
 #include "recv_heap.h"
 #include "recv_live_heap.h"
 #include "recv_ring_stream.h"
@@ -58,6 +61,9 @@ struct options
     bool memcpy_nt = false;
 #if SPEAD2_USE_NETMAP
     std::string netmap_if;
+#endif
+#if SPEAD2_USE_IBV
+    std::string ibv_if;
 #endif
     std::vector<std::string> sources;
 };
@@ -107,6 +113,9 @@ static options parse_args(int argc, const char **argv)
         ("memcpy-nt", make_opt(opts.memcpy_nt), "Use non-temporal memcpy")
 #if SPEAD2_USE_NETMAP
         ("netmap", make_opt(opts.netmap_if), "Netmap interface")
+#endif
+#if SPEAD2_USE_IBV
+        ("ibv", make_opt(opts.ibv_if), "Interface address for ibverbs")
 #endif
     ;
 
@@ -275,6 +284,15 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
         {
             stream->emplace_reader<spead2::recv::netmap_udp_reader>(
                 opts.netmap_if, endpoint.port());
+        }
+        else
+#endif
+#if SPEAD2_USE_IBV
+        if (opts.ibv_if != "")
+        {
+            boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(opts.ibv_if);
+            stream->emplace_reader<spead2::recv::udp_ibv_reader>(
+                endpoint, interface_address, opts.packet, opts.buffer);
         }
         else
 #endif
