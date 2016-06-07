@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Version 0.9.0
+
+- Add support for custom memory allocators.
+
 .. rubric:: Version 0.8.2
 
 - Ensure correct operation when `loop=None` is passed explicitly to trollius
