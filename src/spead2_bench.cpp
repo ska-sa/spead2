@@ -376,7 +376,7 @@ public:
     explicit recv_connection_callback(const options &opts)
         : recv_connection(opts), stream(thread_pool, 0, opts.heaps)
     {
-        stream.set_memory_pool(memory_pool);
+        stream.set_memory_allocator(memory_pool);
         if (opts.memcpy_nt)
             stream.set_memcpy(spead2::MEMCPY_NONTEMPORAL);
     }
@@ -406,7 +406,7 @@ public:
     explicit recv_connection_ring(const options &opts)
         : recv_connection(opts), stream(thread_pool, 0, opts.heaps, opts.ring_heaps)
     {
-        stream.set_memory_pool(memory_pool);
+        stream.set_memory_allocator(memory_pool);
         if (opts.memcpy_nt)
             stream.set_memcpy(spead2::MEMCPY_NONTEMPORAL);
         consumer = std::thread([this] ()

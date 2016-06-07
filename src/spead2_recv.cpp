@@ -261,7 +261,7 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
     {
         std::shared_ptr<spead2::memory_pool> pool = std::make_shared<spead2::memory_pool>(
             opts.mem_lower, opts.mem_upper, opts.mem_max_free, opts.mem_initial);
-        stream->set_memory_pool(pool);
+        stream->set_memory_allocator(pool);
     }
     if (opts.memcpy_nt)
         stream->set_memcpy(spead2::MEMCPY_NONTEMPORAL);

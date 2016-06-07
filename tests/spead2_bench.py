@@ -86,7 +86,7 @@ class SlaveConnection(object):
                     memory_pool = spead2.MemoryPool(
                         args.heap_size, args.heap_size + 1024, args.mem_max_free, args.mem_initial)
                     stream = spead2.recv.trollius.Stream(thread_pool, 0, args.heaps, args.ring_heaps)
-                    stream.set_memory_pool(memory_pool)
+                    stream.set_memory_allocator(memory_pool)
                     stream.add_udp_reader(args.port, args.packet, args.recv_buffer)
                     thread_pool = None
                     memory_pool = None
