@@ -305,12 +305,21 @@ static void register_module()
         "MmapAllocator", init<int>(args("flags") = 0));
     implicitly_convertible<std::shared_ptr<mmap_allocator>, std::shared_ptr<memory_allocator>>();
 
+    /* Boost.Python's incomplete support for std::shared_ptr seems to not work
+     * with default arguments, so instead there is a profusion of
+     * constructions.
+     */
     class_<memory_pool_wrapper, bases<memory_allocator>, std::shared_ptr<memory_pool_wrapper>, boost::noncopyable>(
-        "MemoryPool",
-        init<std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(
-            (arg("lower"), arg("upper"), arg("max_free"), arg("initial"), arg("allocator") = std::shared_ptr<memory_allocator>())))
+        "MemoryPool", no_init)
+        .def(init<std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(
+                (arg("lower"), arg("upper"), arg("max_free"), arg("initial"), arg("allocator"))))
+        .def(init<std::size_t, std::size_t, std::size_t, std::size_t>(
+                (arg("lower"), arg("upper"), arg("max_free"), arg("initial"))))
         .def(init<thread_pool_wrapper &, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(
                 (arg("thread_pool"), arg("lower"), arg("upper"), arg("max_free"), arg("initial"), arg("low_water"), arg("allocator") = std::shared_ptr<memory_allocator>()))[
+                store_handle_postcall<memory_pool_wrapper, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
+        .def(init<thread_pool_wrapper &, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(
+                (arg("thread_pool"), arg("lower"), arg("upper"), arg("max_free"), arg("initial"), arg("low_water")))[
                 store_handle_postcall<memory_pool_wrapper, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()]);
     implicitly_convertible<std::shared_ptr<memory_pool_wrapper>, std::shared_ptr<memory_allocator>>();
 
