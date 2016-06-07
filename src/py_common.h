@@ -30,6 +30,7 @@
 #include <cassert>
 #include <mutex>
 #include <stdexcept>
+#include "common_memory_allocator.h"
 #include "common_memory_pool.h"
 #include "common_thread_pool.h"
 
@@ -255,10 +256,10 @@ public:
     using memory_pool::memory_pool;
 };
 
-/// Like @ref thread_pool_handle_wrapper, but for a memory pool
-struct memory_pool_handle_wrapper
+/// Like @ref thread_pool_handle_wrapper, but for a memory allocator
+struct memory_allocator_handle_wrapper
 {
-    boost::python::handle<> memory_pool_handle;
+    boost::python::handle<> memory_allocator_handle;
 };
 
 /**

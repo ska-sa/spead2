@@ -167,7 +167,7 @@ public:
  * first.
  */
 class ring_stream_wrapper : public thread_pool_handle_wrapper,
-                            public memory_pool_handle_wrapper,
+                            public memory_allocator_handle_wrapper,
                             public ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore> >
 {
 private:
@@ -222,7 +222,13 @@ public:
     void set_memory_pool(std::shared_ptr<memory_pool_wrapper> pool)
     {
         release_gil gil;
-        ring_stream::set_memory_pool(std::move(pool));
+        ring_stream::set_memory_allocator(std::move(pool));
+    }
+
+    void set_memory_allocator(std::shared_ptr<memory_allocator> allocator)
+    {
+        release_gil gil;
+        ring_stream::set_memory_allocator(std::move(allocator));
     }
 
     void set_memcpy(int id)
@@ -349,9 +355,12 @@ void register_module()
         , &ring_stream_wrapper::next)
         .def("get", &ring_stream_wrapper::get)
         .def("get_nowait", &ring_stream_wrapper::get_nowait)
+        .def("set_memory_allocator", &ring_stream_wrapper::set_memory_allocator,
+             (arg("allocator")),
+             store_handle_postcall<ring_stream_wrapper, memory_allocator_handle_wrapper, &memory_allocator_handle_wrapper::memory_allocator_handle, 1, 2>())
         .def("set_memory_pool", &ring_stream_wrapper::set_memory_pool,
              (arg("pool")),
-             store_handle_postcall<ring_stream_wrapper, memory_pool_handle_wrapper, &memory_pool_handle_wrapper::memory_pool_handle, 1, 2>())
+             store_handle_postcall<ring_stream_wrapper, memory_allocator_handle_wrapper, &memory_allocator_handle_wrapper::memory_allocator_handle, 1, 2>())
         .def("set_memcpy", &ring_stream_wrapper::set_memcpy,
              arg("id"))
         .def("add_buffer_reader", &ring_stream_wrapper::add_buffer_reader,
