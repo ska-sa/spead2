@@ -53,3 +53,16 @@ Reader classes are constructed inside a stream by calling
 
 .. doxygenclass:: spead2::recv::mem_reader
    :members: mem_reader
+
+Memory allocators
+-----------------
+In addition to the memory allocators described in :ref:`py-memory-allocators`,
+new allocators can be created by subclassing :cpp:class:`spead2::memory_allocator`.
+For an allocator set on a stream, a pointer to a
+:cpp:class:`spead2::recv::packet_header` is passed as a hint to the allocator,
+allowing memory to be placed according to information in the packet. Note that
+this can be any packet from the heap, so you must not rely on it being the
+initial packet.
+
+.. doxygenclass:: spead2::memory_allocator
+   :members: allocate, free

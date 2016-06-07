@@ -50,13 +50,13 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
      threads and the consumer. Increasing this may reduce lock contention at
      the cost of more memory usage.
 
-   .. py:method:: set_memory_pool(pool)
+   .. py:method:: set_memory_allocator(allocator)
 
-      Set or change the memory pool for a stream. See :ref:`py-memory-pools` for
-      details.
+      Set or change the memory allocator for a stream. See
+      :ref:`py-memory-allocators` for details.
 
-      :param pool: New memory pool
-      :type pool: :py:class:`spead2.MemoryPool`
+      :param pool: New memory allocator
+      :type pool: :py:class:`spead2.MemoryAllocator`
 
    .. py:method:: set_memcpy(id)
 
@@ -173,14 +173,32 @@ asynchronous I/O frameworks like twisted_.
 .. _trollius: http://trollius.readthedocs.io/
 .. _twisted: https://twistedmatrix.com/trac/
 
-.. _py-memory-pools:
+.. _py-memory-allocators:
 
-Memory pools
-^^^^^^^^^^^^
-For high-performance receiving, it is possible to have heaps allocated from a
-memory pool rather than directly from the system library. A particular
-advantage is that memory can be pre-faulted in advance of the stream arriving,
-thus avoiding expensive page faulting when the initial heaps arrive.
+Memory allocators
+^^^^^^^^^^^^^^^^^
+To allow for performance tuning, it is possible to use an alternative memory
+allocator for heap payloads. A few allocator classes are provided; new classes
+must currently be written in C++. The default (which is also the base class
+for all allocators) is :py:class:`spead2.MemoryAllocator`, which has no
+constructor arguments or methods. An alternative is
+:py:class:`spead2.MmapAllocator`.
+
+.. py:class:: spead2.MmapAllocator(flags=0)
+
+    An allocator using :manpage:`mmap(2)`. This may be slightly faster for large
+    allocations, and allows setting custom mmap flags. This is mainly intended
+    for use with the C++ API, but is exposed to Python as well.
+
+    :param int flags:
+        Extra flags to pass to :manpage:`mmap(2)`. Finding the numeric values
+        for OS-specific flags is left as a problem for the user.
+
+The most important custom allocator is :py:class:`spead2.MemoryPool`. It allocates
+from a pool, rather than directly from the system. This can lead to
+significant performance improvements when the allocations are large enough
+that the C library allocator does not recycle the memory itself, but instead
+requests memory from the kernel.
 
 A memory pool has a range of sizes that it will handle from its pool, by
 allocating the upper bound size. Thus, setting too wide a range will waste
@@ -192,7 +210,7 @@ A memory pool can optionally use a background task (scheduled onto a thread
 pool) to replenish the pool when it gets low. This is useful when heaps are
 being captured and stored indefinitely rather than processed and released.
 
-.. py:class:: spead2.MemoryPool(thread_pool, lower, upper, max_free, initial, low_water)
+.. py:class:: spead2.MemoryPool(thread_pool, lower, upper, max_free, initial, low_water, allocator=None)
 
    Constructor. One can omit `thread_pool` and `low_water` to skip the
    background refilling.
@@ -207,3 +225,4 @@ being captured and stored indefinitely rather than processed and released.
    :param int low_water: When fewer than this many buffers remain, the
      background task will be started and allocate new memory until `initial`
      buffers are available.
+   :param MemoryAllocator allocator: Underlying memory allocator

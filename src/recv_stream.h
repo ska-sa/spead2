@@ -136,7 +136,7 @@ public:
     /**
      * Set a pool to use for allocating heap memory.
      *
-     * @deprecated Use @ref set_memory_allocator instead
+     * @deprecated Use @ref spead2::recv::stream_base::set_memory_allocator instead.
      */
     void set_memory_pool(std::shared_ptr<memory_pool> pool);
 
