@@ -204,7 +204,7 @@ void udp_reader::packet_handler(
                     break;
             }
 #else
-            process_one_packet(buffer.get(), bytes_transferred);
+            process_one_packet(buffer.get(), bytes_transferred, max_size);
 #endif
         }
     }
