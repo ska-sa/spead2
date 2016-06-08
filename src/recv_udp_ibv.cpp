@@ -47,23 +47,38 @@ namespace recv
 constexpr std::size_t udp_ibv_reader::default_max_size;
 constexpr std::size_t udp_ibv_reader::default_buffer_size;
 
-[[noreturn]] static void throw_errno()
+[[noreturn]] static void throw_errno(const char *msg, int err)
 {
-    throw std::system_error(errno, std::system_category());
+    /* Many of the ibv_ functions don't explicitly document that errno is
+     * set. To protect against the case where it isn't, errno is set to 0
+     * first.
+     */
+    if (err == 0)
+    {
+        log_warning("%1%: unknown error", msg);
+        throw std::system_error(EINVAL, std::system_category());
+    }
+    else
+    {
+        std::system_error exception(err, std::system_category());
+        log_warning("%1%: %2%", msg, exception.what());
+        throw exception;
+    }
 }
 
-[[noreturn]] static void throw_errno(int err)
+[[noreturn]] static void throw_errno(const char *msg)
 {
-    throw std::system_error(err, std::system_category());
+    throw_errno(msg, errno);
 }
 
 std::unique_ptr<rdma_event_channel, detail::rdma_event_channel_deleter>
 udp_ibv_reader::create_event_channel()
 {
+    errno = 0;
     std::unique_ptr<rdma_event_channel, detail::rdma_event_channel_deleter>
         event_channel{rdma_create_event_channel()};
     if (!event_channel)
-        throw_errno();
+        throw_errno("rdma_create_event_channel failed");
     return event_channel;
 }
 
@@ -71,9 +86,10 @@ std::unique_ptr<rdma_cm_id, detail::rdma_cm_id_deleter>
 udp_ibv_reader::create_id(rdma_event_channel *event_channel)
 {
     rdma_cm_id *cm_id = nullptr;
+    errno = 0;
     int status = rdma_create_id(event_channel, &cm_id, nullptr, RDMA_PS_UDP);
     if (status < 0)
-        throw_errno();
+        throw_errno("rdma_create_id failed");
     return std::unique_ptr<rdma_cm_id, detail::rdma_cm_id_deleter>(cm_id);
 }
 
@@ -86,18 +102,20 @@ void udp_ibv_reader::bind_address(
     auto bytes = interface_address.to_v4().to_bytes();
     address.sin_family = AF_INET;
     std::memcpy(&address.sin_addr.s_addr, &bytes, sizeof(address.sin_addr.s_addr));
+    errno = 0;
     int status = rdma_bind_addr(cm_id, (sockaddr *) &address);
     if (status < 0)
-        throw_errno();
+        throw_errno("rdma_bind_addr failed");
 }
 
 std::unique_ptr<ibv_comp_channel, detail::ibv_comp_channel_deleter>
 udp_ibv_reader::create_comp_channel(ibv_context *context)
 {
+    errno = 0;
     std::unique_ptr<ibv_comp_channel, detail::ibv_comp_channel_deleter>
         comp_channel(ibv_create_comp_channel(context));
     if (!comp_channel)
-        throw std::bad_alloc();
+        throw_errno("ibv_create_comp_channel failed");
     return comp_channel;
 }
 
@@ -106,7 +124,7 @@ boost::asio::posix::stream_descriptor udp_ibv_reader::wrap_comp_channel(
 {
     int fd = dup(comp_channel->fd);
     if (fd < 0)
-        throw_errno();
+        throw_errno("dup failed");
     boost::asio::posix::stream_descriptor descriptor(io_service, fd);
     descriptor.native_non_blocking(true);
     return descriptor;
@@ -116,20 +134,22 @@ std::unique_ptr<ibv_cq, detail::ibv_cq_deleter>
 udp_ibv_reader::create_cq(
     ibv_context *context, int cqe, ibv_comp_channel *comp_channel, int comp_vector)
 {
+    errno = 0;
     std::unique_ptr<ibv_cq, detail::ibv_cq_deleter>
         cq(ibv_create_cq(context, cqe, nullptr, comp_channel, comp_vector));
     if (!cq)
-        throw std::bad_alloc();
+        throw_errno("ibv_create_cq failed");
     return cq;
 }
 
 std::unique_ptr<ibv_pd, detail::ibv_pd_deleter>
 udp_ibv_reader::create_pd(ibv_context *context)
 {
+    errno = 0;
     std::unique_ptr<ibv_pd, detail::ibv_pd_deleter>
         pd(ibv_alloc_pd(context));
     if (!pd)
-        throw std::bad_alloc();
+        throw_errno("ibv_alloc_pd failed");
     return pd;
 }
 
@@ -145,19 +165,21 @@ udp_ibv_reader::create_qp(ibv_pd *pd, ibv_cq *send_cq, ibv_cq *recv_cq, std::siz
     attr.cap.max_recv_wr = n_slots;
     attr.cap.max_send_sge = 1;
     attr.cap.max_recv_sge = 1;
+    errno = 0;
     std::unique_ptr<ibv_qp, detail::ibv_qp_deleter> qp(ibv_create_qp(pd, &attr));
     if (!qp)
-        throw std::bad_alloc();
+        throw_errno("ibv_create_qp failed");
     return qp;
 }
 
 std::unique_ptr<ibv_mr, detail::ibv_mr_deleter>
 udp_ibv_reader::create_mr(ibv_pd *pd, void *addr, std::size_t length)
 {
+    errno = 0;
     std::unique_ptr<ibv_mr, detail::ibv_mr_deleter>
         mr(ibv_reg_mr(pd, addr, length, IBV_ACCESS_LOCAL_WRITE));
     if (!mr)
-        throw std::bad_alloc();
+        throw_errno("ibv_reg_mr failed");
     return mr;
 }
 
@@ -169,7 +191,7 @@ void udp_ibv_reader::init_qp(ibv_qp *qp, int port_num)
     attr.port_num = port_num;
     int status = ibv_modify_qp(qp, &attr, IBV_QP_STATE | IBV_QP_PORT);
     if (status != 0)
-        throw_errno(status);
+        throw_errno("ibv_modify_qp failed", status);
 }
 
 std::unique_ptr<ibv_flow, detail::ibv_flow_deleter>
@@ -216,10 +238,11 @@ udp_ibv_reader::create_flow(ibv_qp *qp, const boost::asio::ip::udp::endpoint &en
     flow_rule.udp.val.dst_port = htobe16(endpoint.port());
     flow_rule.udp.mask.dst_port = 0xFFFF;
 
+    errno = 0;
     std::unique_ptr<ibv_flow, detail::ibv_flow_deleter>
         flow(ibv_create_flow(qp, &flow_rule.attr));
     if (!flow)
-        throw std::bad_alloc();
+        throw_errno("ibv_create_flow failed");
     return flow;
 }
 
@@ -230,14 +253,14 @@ void udp_ibv_reader::rtr_qp(ibv_qp *qp)
     attr.qp_state = IBV_QPS_RTR;
     int status = ibv_modify_qp(qp, &attr, IBV_QP_STATE);
     if (status != 0)
-        throw_errno(status);
+        throw_errno("ibv_modify_qp to IBV_QPS_RTR failed", status);
 }
 
 void udp_ibv_reader::req_notify_cq(ibv_cq *cq)
 {
     int status = ibv_req_notify_cq(cq, 0);
     if (status != 0)
-        throw_errno();
+        throw_errno("ibv_req_notify_cq failed", status);
 }
 
 void udp_ibv_reader::post_slot(std::size_t index)
@@ -245,7 +268,7 @@ void udp_ibv_reader::post_slot(std::size_t index)
     ibv_recv_wr *bad_wr;
     int status = ibv_post_recv(qp.get(), &slots[index].wr, &bad_wr);
     if (status != 0)
-        throw_errno(status);
+        throw_errno("ibv_post_recv failed", status);
 }
 
 // TODO: this is copy-pasted from udp_reader. Unify them
