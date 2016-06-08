@@ -208,7 +208,8 @@ void udp_reader::packet_handler(
 #endif
         }
     }
-    // TODO: log the error if there was one
+    else
+        log_warning("Error in UDP receiver: %1%", error.message());
 
     if (!get_stream_base().is_stopped())
     {

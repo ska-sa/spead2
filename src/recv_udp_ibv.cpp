@@ -341,7 +341,8 @@ void udp_ibv_reader::packet_handler(const boost::system::error_code &error)
             } while (received > 0 || (received == 0 && !comp_channel && !stop_poll.load()));
         }
     }
-    // TODO: log errors
+    else
+        log_warning("Error in UDP receiver: %1%", error.message());
 
     if (!get_stream_base().is_stopped())
     {
