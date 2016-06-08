@@ -14,9 +14,14 @@ if [ "$TEST" = "cxx" ]; then
     make -j4 -C src CXX="$CXX" AR=ar NETMAP="$NETMAP" RECVMMSG="$RECVMMSG" EVENTFD="$EVENTFD" IBV="$IBV" VARIANT="$VARIANT" test
 fi
 
-if [ "$TEST" = "python" ]; then
+if [ "$TEST" = "python2" ]; then
     # The -e is necessary to make nosetests work, because otherwise it tries to find the
     # .so in the current directory instead of the install directory.
-    CC="$CC" pip install -e .
+    CC="$CC" sudo -H pip install -e .
+    nosetests -v
+fi
+
+if [ "$TEST" = "python3" ]; then
+    CC="$CC" sudo -H pip3 install -e .
     nosetests -v
 fi

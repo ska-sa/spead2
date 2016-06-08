@@ -1,40 +1,29 @@
-sudo: false
-language: python
-python:
-    # Note: can only use the system python versions
-    - "2.7"
-    - "3.2"
+sudo: required
+dist: trusty
+language: generic
 env:
-    - TEST=cxx CXX="g++-4.8" NETMAP=0 RECVMMSG=1 EVENTFD=1 IBV=0
-    - TEST=cxx CXX="g++-4.8" NETMAP=1 RECVMMSG=0 EVENTFD=0 IBV=1
-    - TEST=cxx CXX="clang++" NETMAP=0 RECVMMSG=1 EVENTFD=1
-    - TEST=cxx CXX="clang++" NETMAP=1 RECVMMSG=0 EVENTFD=0
-    - TEST=python CC="gcc-4.8" CXX="g++-4.8"
-    - TEST=python CC="clang" CXX="clang++"
-matrix:
-    exclude:
-        - python: 3.2
-          env: TEST=cxx CXX="g++-4.8" NETMAP=0 RECVMMSG=1 EVENTFD=1
-        - python: 3.2
-          env: TEST=cxx CXX="g++-4.8" NETMAP=1 RECVMMSG=0 EVENTFD=0
-        - python: 3.2
-          env: TEST=cxx CXX="clang++" NETMAP=0 RECVMMSG=1 EVENTFD=1
-        - python: 3.2
-          env: TEST=cxx CXX="clang++" NETMAP=1 RECVMMSG=0 EVENTFD=0
+    - TEST=cxx CXX="g++" NETMAP=0 RECVMMSG=1 EVENTFD=1 IBV=0
+    - TEST=cxx CXX="g++" NETMAP=1 RECVMMSG=0 EVENTFD=0 IBV=1
+    - TEST=cxx CXX="clang++" NETMAP=0 RECVMMSG=1 EVENTFD=1 IBV=0
+    - TEST=cxx CXX="clang++" NETMAP=1 RECVMMSG=0 EVENTFD=0 IBV=1
+    - TEST=python2 CC="gcc" CXX="g++"
+    - TEST=python2 CC="clang" CXX="clang++"
+    - TEST=python3 CC="gcc" CXX="g++"
+    - TEST=python3 CC="clang" CXX="clang++"
 addons:
     apt:
-        sources:
-            - ubuntu-toolchain-r-test
-            - boost-latest
         packages:
-            - gcc-4.8
-            - g++-4.8
+            - gcc
+            - g++
             - clang
             - libboost-system1.55-dev
             - libboost-python1.55-dev
             - libboost-test1.55-dev
             - libboost-program-options1.55-dev
+            - python-dev
             - python3-dev
+            - python-pip
+            - python3-pip
             - librdmacm-dev
             - libibverbs-dev
 install:
