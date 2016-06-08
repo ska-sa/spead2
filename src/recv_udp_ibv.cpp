@@ -289,48 +289,55 @@ void udp_ibv_reader::packet_handler(
         }
         else
         {
-            ibv_cq *event_cq;
-            void *event_context;
-            int status = ibv_get_cq_event(comp_channel.get(), &event_cq, &event_context);
-            int received = 0;
-            if (status < 0)
+            if (comp_channel)
             {
-                log_warning("ibv_get_cq_event failed");
-            }
-            else
-            {
-                // TODO: defer acks until shutdown
-                ibv_ack_cq_events(event_cq, 1);
-                req_notify_cq(event_cq);
-                received = ibv_poll_cq(event_cq, n_slots, wc.get());
-                if (received < 0)
-                    log_warning("ibv_poll_cq failed");
-            }
-            for (int i = 0; i < received; i++)
-            {
-                int index = wc[i].wr_id;
-                if (wc[i].status != IBV_WC_SUCCESS)
-                {
-                    log_warning("Work Request failed with code %1%", wc[i].status);
-                }
+                ibv_cq *event_cq;
+                void *event_context;
+                int status = ibv_get_cq_event(comp_channel.get(), &event_cq, &event_context);
+                if (status < 0)
+                    log_warning("ibv_get_cq_event failed");
                 else
                 {
-                    const std::uint8_t *ptr = reinterpret_cast<std::uint8_t *>(
-                        reinterpret_cast<std::uintptr_t>(slots[index].sge.addr));
-                    std::size_t len = wc[i].byte_len;
-                    // TODO: check for VLAN tagging, IP header options, IP fragmentation
-                    constexpr int HEADER_LENGTH = 42; // Eth: 14 IP: 20 UDP: 8
-                    if (len >= HEADER_LENGTH)
-                    {
-                        len -= HEADER_LENGTH;
-                        ptr += HEADER_LENGTH;
-                        bool stopped = process_one_packet(ptr, len);
-                        if (stopped)
-                            break;
-                    }
+                    // TODO: defer acks until shutdown
+                    ibv_ack_cq_events(event_cq, 1);
+                    req_notify_cq(event_cq);
                 }
-                post_slot(index);
             }
+            int received;
+            do
+            {
+                received = ibv_poll_cq(recv_cq.get(), n_slots, wc.get());
+                if (received < 0)
+                    log_warning("ibv_poll_cq failed");
+                for (int i = 0; i < received; i++)
+                {
+                    int index = wc[i].wr_id;
+                    if (wc[i].status != IBV_WC_SUCCESS)
+                    {
+                        log_warning("Work Request failed with code %1%", wc[i].status);
+                    }
+                    else
+                    {
+                        const std::uint8_t *ptr = reinterpret_cast<std::uint8_t *>(
+                            reinterpret_cast<std::uintptr_t>(slots[index].sge.addr));
+                        std::size_t len = wc[i].byte_len;
+                        // TODO: check for VLAN tagging, IP header options, IP fragmentation
+                        constexpr int HEADER_LENGTH = 42; // Eth: 14 IP: 20 UDP: 8
+                        if (len >= HEADER_LENGTH)
+                        {
+                            len -= HEADER_LENGTH;
+                            ptr += HEADER_LENGTH;
+                            bool stopped = process_one_packet(ptr, len);
+                            if (stopped)
+                            {
+                                received = -1; // breaks out of the outer loop
+                                break;
+                            }
+                        }
+                    }
+                    post_slot(index);
+                }
+            } while (received > 0 || (received == 0 && !comp_channel && !stop_poll.load()));
         }
     }
     // TODO: log errors
@@ -346,9 +353,19 @@ void udp_ibv_reader::packet_handler(
 void udp_ibv_reader::enqueue_receive()
 {
     using namespace std::placeholders;
-    comp_channel_wrapper.async_read_some(
-        boost::asio::null_buffers(),
-        get_stream().get_strand().wrap(std::bind(&udp_ibv_reader::packet_handler, this, _1, _2)));
+    if (comp_channel)
+    {
+        // Asynchronous mode
+        comp_channel_wrapper.async_read_some(
+            boost::asio::null_buffers(),
+            get_stream().get_strand().wrap(std::bind(&udp_ibv_reader::packet_handler, this, _1, _2)));
+    }
+    else
+    {
+        // Polling mode
+        get_stream().get_strand().post(std::bind(
+                &udp_ibv_reader::packet_handler, this, boost::system::error_code(), 0));
+    }
 }
 
 udp_ibv_reader::udp_ibv_reader(
@@ -362,7 +379,8 @@ udp_ibv_reader::udp_ibv_reader(
     max_size(max_size),
     n_slots(std::max(std::size_t(1), buffer_size / max_size)),
     join_socket(owner.get_strand().get_io_service(), endpoint.protocol()),
-    comp_channel_wrapper(owner.get_strand().get_io_service())
+    comp_channel_wrapper(owner.get_strand().get_io_service()),
+    stop_poll(false)
 {
     if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
         throw std::invalid_argument("endpoint is not an IPv4 multicast address");
@@ -377,10 +395,15 @@ udp_ibv_reader::udp_ibv_reader(
     ibv_context *context = cm_id->verbs;
     assert(context);
 
-    comp_channel = create_comp_channel(context);
-    comp_channel_wrapper = wrap_comp_channel(owner.get_strand().get_io_service(), comp_channel.get());
+    if (comp_vector >= 0)
+    {
+        comp_channel = create_comp_channel(context);
+        comp_channel_wrapper = wrap_comp_channel(owner.get_strand().get_io_service(), comp_channel.get());
+        recv_cq = create_cq(context, n_slots, comp_channel.get(), comp_vector % context->num_comp_vectors);
+    }
+    else
+        recv_cq = create_cq(context, n_slots, nullptr, 0);
     send_cq = create_cq(context, 1, nullptr, 0);
-    recv_cq = create_cq(context, n_slots, comp_channel.get(), comp_vector);
     pd = create_pd(context);
     qp = create_qp(pd.get(), send_cq.get(), recv_cq.get(), n_slots);
     init_qp(qp.get(), cm_id->port_num);
@@ -406,14 +429,18 @@ udp_ibv_reader::udp_ibv_reader(
     join_socket.set_option(boost::asio::ip::multicast::join_group(
         endpoint.address().to_v4(), interface_address.to_v4()));
 
-    req_notify_cq(recv_cq.get());
+    if (comp_channel)
+        req_notify_cq(recv_cq.get());
     enqueue_receive();
     rtr_qp(qp.get());
 }
 
 void udp_ibv_reader::stop()
 {
-    comp_channel_wrapper.close();
+    if (comp_channel)
+        comp_channel_wrapper.close();
+    else
+        stop_poll = true;
 }
 
 } // namespace recv

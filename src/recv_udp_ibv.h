@@ -140,6 +140,7 @@ private:
     std::unique_ptr<ibv_mr, detail::ibv_mr_deleter> mr;
     std::unique_ptr<slot[]> slots;
     std::unique_ptr<ibv_wc[]> wc;
+    std::atomic<bool> stop_poll;  ///< Signals poll-mode to stop
 
     static std::unique_ptr<rdma_event_channel, detail::rdma_event_channel_deleter>
     create_event_channel();
@@ -204,7 +205,15 @@ public:
      * @param max_size     Maximum packet size that will be accepted
      * @param buffer_size  Requested memory allocation for work requests
      * @param interface_address  Address of the interface which should join the group and listen for data
-     * @param comp_vector  Completion channel vector (interrupt) for asynchronous operation
+     * @param comp_vector  Completion channel vector (interrupt) for asynchronous operation, or
+     *                     a negative value to poll continuously. Polling
+     *                     should not be used if there are other users of the
+     *                     thread pool. If a non-negative value is provided, it
+     *                     is taken modulo the number of available completion
+     *                     vectors. This allows a number of readers to be
+     *                     assigned sequential completion vectors and have them
+     *                     load-balanced, without concern for the number
+     *                     available.
      *
      * @throws std::invalid_argument If @a endpoint is not an IPv4 multicast address
      * @throws std::invalid_argument If @a interface_address is not an IPv4 address
