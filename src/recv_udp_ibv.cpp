@@ -44,7 +44,6 @@ namespace spead2
 namespace recv
 {
 
-constexpr std::size_t udp_ibv_reader::default_max_size;
 constexpr std::size_t udp_ibv_reader::default_buffer_size;
 
 [[noreturn]] static void throw_errno(const char *msg, int err)
@@ -271,35 +270,6 @@ void udp_ibv_reader::post_slot(std::size_t index)
         throw_errno("ibv_post_recv failed", status);
 }
 
-// TODO: this is copy-pasted from udp_reader. Unify them
-bool udp_ibv_reader::process_one_packet(const std::uint8_t *data, std::size_t length)
-{
-    bool stopped = false;
-    if (length <= max_size && length > 0)
-    {
-        // If it's bigger, the packet might have been truncated
-        packet_header packet;
-        std::size_t size = decode_packet(packet, data, length);
-        if (size == length)
-        {
-            get_stream_base().add_packet(packet);
-            if (get_stream_base().is_stopped())
-            {
-                log_debug("UDP ibverbs reader: end of stream detected");
-                stopped = true;
-            }
-        }
-        else if (size != 0)
-        {
-            log_info("discarding packet due to size mismatch (%1% != %2%)",
-                     size, length);
-        }
-    }
-    else if (length > max_size)
-        log_info("dropped packet due to truncation");
-    return stopped;
-}
-
 void udp_ibv_reader::packet_handler(const boost::system::error_code &error)
 {
     if (!error)
@@ -348,7 +318,7 @@ void udp_ibv_reader::packet_handler(const boost::system::error_code &error)
                         {
                             len -= HEADER_LENGTH;
                             ptr += HEADER_LENGTH;
-                            bool stopped = process_one_packet(ptr, len);
+                            bool stopped = process_one_packet(ptr, len, max_size);
                             if (stopped)
                             {
                                 received = -1; // breaks out of the outer loop
@@ -396,7 +366,7 @@ udp_ibv_reader::udp_ibv_reader(
     std::size_t max_size,
     std::size_t buffer_size,
     int comp_vector)
-    : reader(owner),
+    : udp_reader_base(owner),
     max_size(max_size),
     n_slots(std::max(std::size_t(1), buffer_size / max_size)),
     join_socket(owner.get_strand().get_io_service(), endpoint.protocol()),

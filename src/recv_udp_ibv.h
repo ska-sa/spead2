@@ -35,6 +35,7 @@
 #include <boost/asio.hpp>
 #include "recv_reader.h"
 #include "recv_stream.h"
+#include "recv_udp_base.h"
 
 namespace spead2
 {
@@ -117,7 +118,7 @@ struct ibv_flow_deleter
  * the Infiniband verbs API. It currently only supports multicast IPv4, with
  * no fragmentation, IP header options, or VLAN tags.
  */
-class udp_ibv_reader : public reader
+class udp_ibv_reader : public udp_reader_base
 {
 private:
     struct slot
@@ -204,15 +205,6 @@ private:
     void post_slot(std::size_t index);
 
     /**
-     * Process a single packet. The @a data and @a length must point to the
-     * start of the UDP payload.
-     *
-     * @todo This is identical to the function in @ref udp_reader. Unify
-     * them.
-     */
-    bool process_one_packet(const std::uint8_t *data, std::size_t length);
-
-    /**
      * Retrieve packets from the completion queue and process them.
      *
      * This is called from the io_service either when the completion channel
@@ -228,8 +220,6 @@ private:
     void enqueue_receive();
 
 public:
-    /// Maximum packet size, if none is explicitly passed to the constructor
-    static constexpr std::size_t default_max_size = 9200;
     /// Receive buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 16 * 1024 * 1024;
 

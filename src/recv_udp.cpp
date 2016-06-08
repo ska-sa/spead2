@@ -30,18 +30,16 @@
 #include <cstring>
 #include <functional>
 #include <boost/asio.hpp>
-#include <iostream>
 #include "recv_reader.h"
 #include "recv_udp.h"
+#include "recv_udp_base.h"
 #include "common_logging.h"
-#include <iostream>
 
 namespace spead2
 {
 namespace recv
 {
 
-constexpr std::size_t udp_reader::default_max_size;
 constexpr std::size_t udp_reader::default_buffer_size;
 
 udp_reader::udp_reader(
@@ -50,7 +48,7 @@ udp_reader::udp_reader(
     const boost::asio::ip::udp::endpoint &endpoint,
     std::size_t max_size,
     std::size_t buffer_size)
-    : reader(owner), socket(std::move(socket)), max_size(max_size),
+    : udp_reader_base(owner), socket(std::move(socket)), max_size(max_size),
 #if SPEAD2_USE_RECVMMSG
     buffer(mmsg_count), iov(mmsg_count), msgvec(mmsg_count)
 #else
@@ -178,34 +176,6 @@ udp_reader::udp_reader(
 {
 }
 
-bool udp_reader::process_one_packet(const std::uint8_t *data, std::size_t length)
-{
-    bool stopped = false;
-    if (length <= max_size && length > 0)
-    {
-        // If it's bigger, the packet might have been truncated
-        packet_header packet;
-        std::size_t size = decode_packet(packet, data, length);
-        if (size == length)
-        {
-            get_stream_base().add_packet(packet);
-            if (get_stream_base().is_stopped())
-            {
-                log_debug("UDP reader: end of stream detected");
-                stopped = true;
-            }
-        }
-        else if (size != 0)
-        {
-            log_info("discarding packet due to size mismatch (%1% != %2%)",
-                     size, length);
-        }
-    }
-    else if (length > max_size)
-        log_info("dropped packet due to truncation");
-    return stopped;
-}
-
 void udp_reader::packet_handler(
     const boost::system::error_code &error,
     std::size_t bytes_transferred)
@@ -229,7 +199,7 @@ void udp_reader::packet_handler(
             }
             for (int i = 0; i < received; i++)
             {
-                bool stopped = process_one_packet(buffer[i].get(), msgvec[i].msg_len);
+                bool stopped = process_one_packet(buffer[i].get(), msgvec[i].msg_len, max_size);
                 if (stopped)
                     break;
             }

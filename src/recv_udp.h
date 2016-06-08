@@ -33,6 +33,7 @@
 #include <boost/asio.hpp>
 #include "recv_reader.h"
 #include "recv_stream.h"
+#include "recv_udp_base.h"
 
 namespace spead2
 {
@@ -44,7 +45,7 @@ namespace recv
  *
  * @todo Log errors somehow?
  */
-class udp_reader : public reader
+class udp_reader : public udp_reader_base
 {
 private:
     /// UDP socket we are listening on
@@ -68,21 +69,12 @@ private:
     /// Start an asynchronous receive
     void enqueue_receive();
 
-    /**
-     * Handle a single received packet.
-     *
-     * @return whether the packet caused the stream to stop
-     */
-    bool process_one_packet(const std::uint8_t *data, std::size_t length);
-
     /// Callback on completion of asynchronous receive
     void packet_handler(
         const boost::system::error_code &error,
         std::size_t bytes_transferred);
 
 public:
-    /// Maximum packet size, if none is explicitly passed to the constructor
-    static constexpr std::size_t default_max_size = 9200;
     /// Socket receive buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 8 * 1024 * 1024;
     /// Number of packets to receive in one go, if recvmmsg support is present
