@@ -312,9 +312,19 @@ void udp_ibv_reader::packet_handler(const boost::system::error_code &error)
                         const std::uint8_t *ptr = reinterpret_cast<std::uint8_t *>(
                             reinterpret_cast<std::uintptr_t>(slots[index].sge.addr));
                         std::size_t len = wc[i].byte_len;
-                        // TODO: check for VLAN tagging, IP header options, IP fragmentation
+
                         constexpr int HEADER_LENGTH = 42; // Eth: 14 IP: 20 UDP: 8
-                        if (len >= HEADER_LENGTH)
+                        constexpr std::uint8_t ethertype_ipv4[2] = {0x80, 0x00};
+                        // Sanity checks
+                        if (len <= HEADER_LENGTH)
+                            log_warning("Frame is too short to contain UDP payload, discarding");
+                        else if (std::memcmp(ethertype_ipv4, ptr + 12, 2))
+                            log_warning("Frame has wrong ethernet type (VLAN tagging?), discarding");
+                        else if (ptr[14] != 0x45)
+                            log_warning("Frame is not IPv4 or has extra options, discarding");
+                        else if ((ptr[20] & 0x3f) || (ptr[21] != 0)) // flags and fragment offset
+                            log_warning("IP message is fragmented, discarding");
+                        else
                         {
                             len -= HEADER_LENGTH;
                             ptr += HEADER_LENGTH;
