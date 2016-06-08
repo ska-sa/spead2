@@ -10,8 +10,8 @@ if [ "$TEST" = "cxx" ]; then
     else
         VARIANT=release
     fi
-    make -j4 -C src CXX="$CXX" AR=ar NETMAP="$NETMAP" RECVMMSG="$RECVMMSG" EVENTFD="$EVENTFD" VARIANT="$VARIANT"
-    make -j4 -C src CXX="$CXX" AR=ar NETMAP="$NETMAP" RECVMMSG="$RECVMMSG" EVENTFD="$EVENTFD" VARIANT="$VARIANT" test
+    make -j4 -C src CXX="$CXX" AR=ar NETMAP="$NETMAP" RECVMMSG="$RECVMMSG" EVENTFD="$EVENTFD" IBV="$IBV" VARIANT="$VARIANT"
+    make -j4 -C src CXX="$CXX" AR=ar NETMAP="$NETMAP" RECVMMSG="$RECVMMSG" EVENTFD="$EVENTFD" IBV="$IBV" VARIANT="$VARIANT" test
 fi
 
 if [ "$TEST" = "python" ]; then

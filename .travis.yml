@@ -5,8 +5,8 @@ python:
     - "2.7"
     - "3.2"
 env:
-    - TEST=cxx CXX="g++-4.8" NETMAP=0 RECVMMSG=1 EVENTFD=1
-    - TEST=cxx CXX="g++-4.8" NETMAP=1 RECVMMSG=0 EVENTFD=0
+    - TEST=cxx CXX="g++-4.8" NETMAP=0 RECVMMSG=1 EVENTFD=1 IBV=0
+    - TEST=cxx CXX="g++-4.8" NETMAP=1 RECVMMSG=0 EVENTFD=0 IBV=1
     - TEST=cxx CXX="clang++" NETMAP=0 RECVMMSG=1 EVENTFD=1
     - TEST=cxx CXX="clang++" NETMAP=1 RECVMMSG=0 EVENTFD=0
     - TEST=python CC="gcc-4.8" CXX="g++-4.8"
@@ -35,6 +35,8 @@ addons:
             - libboost-test1.55-dev
             - libboost-program-options1.55-dev
             - python3-dev
+            - librdmacm-dev
+            - libibverbs-dev
 install:
     - ./travis-install.sh
 script:
