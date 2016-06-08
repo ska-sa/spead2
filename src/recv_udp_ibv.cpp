@@ -314,7 +314,7 @@ void udp_ibv_reader::packet_handler(const boost::system::error_code &error)
                         std::size_t len = wc[i].byte_len;
 
                         constexpr int HEADER_LENGTH = 42; // Eth: 14 IP: 20 UDP: 8
-                        constexpr std::uint8_t ethertype_ipv4[2] = {0x80, 0x00};
+                        constexpr std::uint8_t ethertype_ipv4[2] = {0x08, 0x00};
                         // Sanity checks
                         if (len <= HEADER_LENGTH)
                             log_warning("Frame is too short to contain UDP payload, discarding");
