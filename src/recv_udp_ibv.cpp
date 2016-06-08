@@ -277,9 +277,7 @@ bool udp_ibv_reader::process_one_packet(const std::uint8_t *data, std::size_t le
     return stopped;
 }
 
-void udp_ibv_reader::packet_handler(
-    const boost::system::error_code &error,
-    std::size_t bytes_transferred)
+void udp_ibv_reader::packet_handler(const boost::system::error_code &error)
 {
     if (!error)
     {
@@ -358,13 +356,13 @@ void udp_ibv_reader::enqueue_receive()
         // Asynchronous mode
         comp_channel_wrapper.async_read_some(
             boost::asio::null_buffers(),
-            get_stream().get_strand().wrap(std::bind(&udp_ibv_reader::packet_handler, this, _1, _2)));
+            get_stream().get_strand().wrap(std::bind(&udp_ibv_reader::packet_handler, this, _1)));
     }
     else
     {
         // Polling mode
         get_stream().get_strand().post(std::bind(
-                &udp_ibv_reader::packet_handler, this, boost::system::error_code(), 0));
+                &udp_ibv_reader::packet_handler, this, boost::system::error_code()));
     }
 }
 

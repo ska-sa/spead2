@@ -44,6 +44,8 @@ namespace recv
 namespace detail
 {
 
+// Deleters for unique_ptr wrappers of the various ibverbs structures
+
 struct rdma_cm_id_deleter
 {
     void operator()(rdma_cm_id *cm_id)
@@ -124,10 +126,19 @@ private:
         ibv_sge sge;
     };
 
+    ///< Maximum supported packet size
     const std::size_t max_size;
+    ///< Number of packets that can be queued
     const std::size_t n_slots;
+    /**
+     * Socket that is used only to join the multicast group. It is not
+     * bound to a port.
+     */
     boost::asio::ip::udp::socket join_socket;
+    /// Data buffer for all the packets
     std::unique_ptr<std::uint8_t[]> buffer;
+
+    // All the data structures required by ibverbs
     std::unique_ptr<rdma_event_channel, detail::rdma_event_channel_deleter> event_channel;
     std::unique_ptr<rdma_cm_id, detail::rdma_cm_id_deleter> cm_id;
     std::unique_ptr<ibv_pd, detail::ibv_pd_deleter> pd;
@@ -138,9 +149,16 @@ private:
     std::unique_ptr<ibv_qp, detail::ibv_qp_deleter> qp;
     std::unique_ptr<ibv_flow, detail::ibv_flow_deleter> flow;
     std::unique_ptr<ibv_mr, detail::ibv_mr_deleter> mr;
+
+    /// array of @ref n_slots slots for work requests
     std::unique_ptr<slot[]> slots;
+    /// array of @ref n_slots work completions
     std::unique_ptr<ibv_wc[]> wc;
-    std::atomic<bool> stop_poll;  ///< Signals poll-mode to stop
+    /// Signals poll-mode to stop
+    std::atomic<bool> stop_poll;
+
+    // Utility functions to create all the data structures and throw exceptions
+    // on failure
 
     static std::unique_ptr<rdma_event_channel, detail::rdma_event_channel_deleter>
     create_event_channel();
@@ -171,30 +189,48 @@ private:
     static std::unique_ptr<ibv_mr, detail::ibv_mr_deleter>
     create_mr(ibv_pd *pd, void *addr, std::size_t length);
 
+    /// Advance @a qp to @c INIT state
     static void init_qp(ibv_qp *qp, int port_num);
 
     static std::unique_ptr<ibv_flow, detail::ibv_flow_deleter>
     create_flow(ibv_qp *qp, const boost::asio::ip::udp::endpoint &endpoint,
                 int port_num);
 
+    /// Advance @a qp to @c RTR (ready-to-receive) state
     static void rtr_qp(ibv_qp *qp);
 
     static void req_notify_cq(ibv_cq *cq);
 
     void post_slot(std::size_t index);
 
+    /**
+     * Process a single packet. The @a data and @a length must point to the
+     * start of the UDP payload.
+     *
+     * @todo This is identical to the function in @ref udp_reader. Unify
+     * them.
+     */
     bool process_one_packet(const std::uint8_t *data, std::size_t length);
 
-    void packet_handler(
-        const boost::system::error_code &error,
-        std::size_t bytes_transferred);
+    /**
+     * Retrieve packets from the completion queue and process them.
+     *
+     * This is called from the io_service either when the completion channel
+     * is notified (non-polling mode) or by a post to the strand (polling
+     * mode).
+     */
+    void packet_handler(const boost::system::error_code &error);
 
+    /**
+     * Request a callback when there is data (or as soon as possible, in
+     * polling mode).
+     */
     void enqueue_receive();
 
 public:
     /// Maximum packet size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_max_size = 9200;
-    /// Socket receive buffer size, if none is explicitly passed to the constructor
+    /// Receive buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 8 * 1024 * 1024;
 
     /**
@@ -203,7 +239,10 @@ public:
      * @param owner        Owning stream
      * @param endpoint     Multicast group and port
      * @param max_size     Maximum packet size that will be accepted
-     * @param buffer_size  Requested memory allocation for work requests
+     * @param buffer_size  Requested memory allocation for work requests. Note
+     *                     that this is used to determine the number of packets
+     *                     to buffer; if the packets are smaller than @a max_size,
+     *                     then fewer bytes will be buffered.
      * @param interface_address  Address of the interface which should join the group and listen for data
      * @param comp_vector  Completion channel vector (interrupt) for asynchronous operation, or
      *                     a negative value to poll continuously. Polling
