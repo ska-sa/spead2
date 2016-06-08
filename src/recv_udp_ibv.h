@@ -231,7 +231,7 @@ public:
     /// Maximum packet size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_max_size = 9200;
     /// Receive buffer size, if none is explicitly passed to the constructor
-    static constexpr std::size_t default_buffer_size = 8 * 1024 * 1024;
+    static constexpr std::size_t default_buffer_size = 16 * 1024 * 1024;
 
     /**
      * Constructor.
