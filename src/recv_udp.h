@@ -172,6 +172,41 @@ public:
     virtual void stop() override;
 };
 
+/**
+ * Factory overload to allow udp_reader to be dynamically substituted with
+ * udp_ibv_reader based on environment variables.
+ */
+template<>
+struct reader_factory<udp_reader>
+{
+    static std::unique_ptr<reader> make_reader(
+        stream &owner,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        std::size_t max_size = udp_reader::default_max_size,
+        std::size_t buffer_size = udp_reader::default_buffer_size);
+
+    static std::unique_ptr<reader> make_reader(
+        stream &owner,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        std::size_t max_size,
+        std::size_t buffer_size,
+        const boost::asio::ip::address &interface_address);
+
+    static std::unique_ptr<reader> make_reader(
+        stream &owner,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        std::size_t max_size,
+        std::size_t buffer_size,
+        unsigned int interface_index);
+
+    static std::unique_ptr<reader> make_reader(
+        stream &owner,
+        boost::asio::ip::udp::socket &&socket,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        std::size_t max_size = udp_reader::default_max_size,
+        std::size_t buffer_size = udp_reader::default_buffer_size);
+};
+
 } // namespace recv
 } // namespace spead2
 

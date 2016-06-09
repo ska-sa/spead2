@@ -28,11 +28,15 @@
 #endif
 #include <cstdint>
 #include <cstring>
+#include <cstdlib>
+#include <mutex>
 #include <functional>
 #include <boost/asio.hpp>
+#include <boost/lexical_cast.hpp>
 #include "recv_reader.h"
 #include "recv_udp.h"
 #include "recv_udp_base.h"
+#include "recv_udp_ibv.h"
 #include "common_logging.h"
 
 namespace spead2
@@ -240,6 +244,115 @@ void udp_reader::stop()
      * path where it is no longer safe to do so.
      */
     socket.close();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
+static bool ibv_override;
+static int ibv_comp_vector;
+static boost::asio::ip::address ibv_interface;
+static std::once_flag ibv_once;
+
+static void init_ibv_override()
+{
+    const char *interface = getenv("SPEAD2_IBV_INTERFACE");
+    ibv_override = false;
+    if (interface && interface[0])
+    {
+#if !SPEAD2_USE_IBV
+        log_warning("SPEAD2_IBV_INTERFACE found, but ibverbs support not compiled in");
+#else
+        boost::system::error_code ec;
+        ibv_interface = boost::asio::ip::address_v4::from_string(interface, ec);
+        if (ec)
+        {
+            log_warning("SPEAD2_IBV_INTERFACE could not be parsed as an IPv4 address: %1%", ec.message());
+        }
+        else
+        {
+            ibv_override = true;
+            const char *comp_vector = getenv("SPEAD2_IBV_COMP_VECTOR");
+            if (comp_vector && comp_vector[0])
+            {
+                try
+                {
+                    ibv_comp_vector = boost::lexical_cast<int>(comp_vector);
+                }
+                catch (boost::bad_lexical_cast)
+                {
+                    log_warning("SPEAD2_IBV_COMP_VECTOR is not a valid integer, ignoring");
+                }
+            }
+        }
+#endif
+    }
+}
+
+std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
+    stream &owner,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    std::size_t max_size,
+    std::size_t buffer_size)
+{
+    if (endpoint.address().is_v4() && endpoint.address().is_multicast())
+    {
+        std::call_once(ibv_once, init_ibv_override);
+#if SPEAD2_USE_IBV
+        if (ibv_override)
+        {
+            log_info("Overriding reader for %1%:%2% to use ibverbs",
+                     endpoint.address().to_string(), endpoint.port());
+            return std::unique_ptr<reader>(new udp_ibv_reader(
+                    owner, endpoint, ibv_interface, max_size, buffer_size, ibv_comp_vector));
+        }
+#endif
+    }
+    return std::unique_ptr<reader>(new udp_reader(owner, endpoint, max_size, buffer_size));
+}
+
+std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
+    stream &owner,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    std::size_t max_size,
+    std::size_t buffer_size,
+    const boost::asio::ip::address &interface_address)
+{
+    if (endpoint.address().is_v4() && endpoint.address().is_multicast())
+    {
+        std::call_once(ibv_once, init_ibv_override);
+#if SPEAD2_USE_IBV
+        if (ibv_override)
+        {
+            log_info("Overriding reader for %1%:%2% to use ibverbs",
+                     endpoint.address().to_string(), endpoint.port());
+            return std::unique_ptr<reader>(new udp_ibv_reader(
+                    owner, endpoint, interface_address, max_size, buffer_size, ibv_comp_vector));
+        }
+#endif
+    }
+    return std::unique_ptr<reader>(new udp_reader(owner, endpoint, max_size, buffer_size, interface_address));
+}
+
+std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
+    stream &owner,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    std::size_t max_size,
+    std::size_t buffer_size,
+    unsigned int interface_index)
+{
+    return std::unique_ptr<reader>(new udp_reader(
+            owner, endpoint, max_size, buffer_size, interface_index));
+}
+
+std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
+    stream &owner,
+    boost::asio::ip::udp::socket &&socket,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    std::size_t max_size,
+    std::size_t buffer_size)
+{
+    return std::unique_ptr<reader>(new udp_reader(
+            owner, std::move(socket), endpoint, max_size, buffer_size));
 }
 
 } // namespace recv

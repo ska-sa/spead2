@@ -213,8 +213,7 @@ private:
         if (!is_stopped())
         {
             readers.reserve(readers.size() + 1);
-            reader *r = new T(*this, std::forward<Args>(args)...);
-            std::unique_ptr<reader> ptr(r);
+            std::unique_ptr<reader> ptr(reader_factory<T>::make_reader(*this, std::forward<Args>(args)...));
             readers.push_back(std::move(ptr));
         }
     }
