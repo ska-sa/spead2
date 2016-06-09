@@ -316,9 +316,9 @@ static void register_module()
         .def(init<std::size_t, std::size_t, std::size_t, std::size_t>(
                 (arg("lower"), arg("upper"), arg("max_free"), arg("initial"))))
         .def(init<thread_pool_wrapper &, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(
-                (arg("thread_pool"), arg("lower"), arg("upper"), arg("max_free"), arg("initial"), arg("low_water"), arg("allocator") = std::shared_ptr<memory_allocator>()))[
+                (arg("thread_pool"), arg("lower"), arg("upper"), arg("max_free"), arg("initial"), arg("low_water"), arg("allocator")))[
                 store_handle_postcall<memory_pool_wrapper, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-        .def(init<thread_pool_wrapper &, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(
+        .def(init<thread_pool_wrapper &, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t>(
                 (arg("thread_pool"), arg("lower"), arg("upper"), arg("max_free"), arg("initial"), arg("low_water")))[
                 store_handle_postcall<memory_pool_wrapper, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()]);
     implicitly_convertible<std::shared_ptr<memory_pool_wrapper>, std::shared_ptr<memory_allocator>>();

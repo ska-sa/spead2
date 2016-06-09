@@ -560,25 +560,30 @@ static void main_mem(int argc, const char **argv)
     spead2::thread_pool thread_pool;
     std::unique_ptr<recv_connection> connection;
     std::chrono::high_resolution_clock::time_point start, end;
-    if (opts.ring)
+    double elapsed = 0.0;
+    const int passes = 100;
+    for (int pass = 0; pass < passes; pass++)
     {
-        std::unique_ptr<recv_connection_ring> conn(new recv_connection_ring(opts));
-        start = std::chrono::high_resolution_clock::now();
-        conn->emplace_reader<spead2::recv::mem_reader>((const std::uint8_t *) data.data(), data.size());
-        connection = std::move(conn);
+        if (opts.ring)
+        {
+            std::unique_ptr<recv_connection_ring> conn(new recv_connection_ring(opts));
+            start = std::chrono::high_resolution_clock::now();
+            conn->emplace_reader<spead2::recv::mem_reader>((const std::uint8_t *) data.data(), data.size());
+            connection = std::move(conn);
+        }
+        else
+        {
+            std::unique_ptr<recv_connection_callback> conn(new recv_connection_callback(opts));
+            start = std::chrono::high_resolution_clock::now();
+            conn->emplace_reader<spead2::recv::mem_reader>((const std::uint8_t *) data.data(), data.size());
+            connection = std::move(conn);
+        }
+        connection->stop(false);
+        end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed_duration = end - start;
+        elapsed += elapsed_duration.count();
     }
-    else
-    {
-        std::unique_ptr<recv_connection_callback> conn(new recv_connection_callback(opts));
-        start = std::chrono::high_resolution_clock::now();
-        conn->emplace_reader<spead2::recv::mem_reader>((const std::uint8_t *) data.data(), data.size());
-        connection = std::move(conn);
-    }
-    connection->stop(false);
-    end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed_duration = end - start;
-    double elapsed = elapsed_duration.count();
-    double rate = data.size() / elapsed;
+    double rate = data.size() * passes / elapsed;
     double rate_gbps = rate * 8e-9;
     if (!opts.quiet)
     {

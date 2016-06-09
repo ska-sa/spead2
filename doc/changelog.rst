@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Version 0.9.1
+
+- Fix using a :py:class:`~spead2.MemoryPool` with a thread pool and low water
+  mark (regression in 0.9.0).
+
 .. rubric:: Version 0.9.0
 
 - Add support for custom memory allocators.
