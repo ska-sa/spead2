@@ -25,6 +25,7 @@ import spead2.send
 import spead2.recv
 import socket
 import struct
+import os
 from decorator import decorator
 from nose.tools import *
 from nose.plugins.skip import SkipTest
@@ -321,6 +322,31 @@ class TestPassthroughUdpMulticast(BaseTestPassthrough):
             received_item_group.update(heap)
         return received_item_group
 
+class TestPassthroughUDPIBV(BaseTestPassthrough):
+    def transmit_item_group(self, item_group, memcpy, allocator):
+        if not hasattr(spead2.recv.Stream, 'add_udp_ibv_reader'):
+            raise SkipTest('spead2 was compiled without ibverbs support')
+        interface_address = os.environ.get('SPEAD2_TEST_IBV_INTERFACE')
+        if interface_address is None:
+            raise SkipTest('Skipping IBV test because SPEAD2_TEST_IBV_INTERFACE is not set')
+        thread_pool = spead2.ThreadPool(2)
+        mcast_group = '239.255.88.88'
+        sender = spead2.send.UdpStream(
+                thread_pool, mcast_group, 8887,
+                spead2.send.StreamConfig(rate=1e8),
+                buffer_size=0, ttl=1, interface_address=interface_address)
+        receiver = spead2.recv.Stream(thread_pool)
+        receiver.set_memcpy(memcpy)
+        if allocator is not None:
+            receiver.set_memory_allocator(allocator)
+        receiver.add_udp_ibv_reader(mcast_group, 8887, interface_address=interface_address)
+        gen = spead2.send.HeapGenerator(item_group)
+        sender.send_heap(gen.get_heap())
+        sender.send_heap(gen.get_end())
+        received_item_group = spead2.ItemGroup()
+        for heap in receiver:
+            received_item_group.update(heap)
+        return received_item_group
 
 class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
     def transmit_item_group(self, item_group, memcpy, allocator):

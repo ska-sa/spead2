@@ -16,11 +16,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from setuptools import setup, Extension
+import distutils.ccompiler
 import glob
 import sys
 import os
 import os.path
 import ctypes.util
+import tempfile
+import shutil
+
 try:
     import numpy
     numpy_include = numpy.get_include()
@@ -35,6 +39,38 @@ def find_version():
         code = f.read()
     exec(code, globals_)
     return globals_['__version__']
+
+def has_ibv():
+    """Check whether we can compile and link against libibverbs and librdmacm.
+    This is based on distutils.ccompiler.CCompiler.has_function, but modified
+    to make a valid function call (has_function calls the function with no
+    arguments), and to clean up after itself."""
+    compiler = distutils.ccompiler.new_compiler()
+    tmpdir = tempfile.mkdtemp()
+    source = os.path.join(tmpdir, 'test.c')
+    objects = []
+    try:
+        with open(source, 'w') as f:
+            f.write("""#include <infiniband/verbs.h>
+#include <rdma/rdma_cma.h>
+
+int main(int argc, char **argv)
+{
+    rdma_create_event_channel();
+    ibv_create_flow(NULL, NULL);
+}""")
+        try:
+            objects = compiler.compile([source], output_dir=tmpdir)
+        except distutils.ccompiler.CompileError:
+            return False
+
+        try:
+            compiler.link_executable(objects, "a.out", output_dir=tmpdir, libraries=['rdmacm', 'ibverbs'])
+        except (distutils.ccompiler.LinkError, TypeError):
+            return False
+        return True
+    finally:
+        shutil.rmtree(tmpdir)
 
 # Can't actually install on readthedocs.org because Boost.Python is missing,
 # but we need setup.py to still be successful to make the doc build work.
@@ -54,6 +90,15 @@ if not rtd:
     else:
         raise RuntimeError('Cannot find Boost.Python library')
 
+    libraries = [bp_library, 'boost_system']
+    define_macros = []
+    if has_ibv():
+        libraries.extend(['rdmacm', 'ibverbs'])
+        define_macros.append(('SPEAD2_USE_IBV', '1'))
+        print('Including ibverbs support')
+    else:
+        print('ibverbs not detected, so support will not be included')
+
     extensions = [
         Extension(
             '_spead2',
@@ -64,8 +109,9 @@ if not rtd:
             depends=glob.glob('src/*.h'),
             language='c++',
             include_dirs=['src', numpy_include],
+            define_macros=define_macros,
             extra_compile_args=['-std=c++11', '-g0'],
-            libraries=[bp_library, 'boost_system'])
+            libraries=libraries)
     ]
 else:
     extensions = []
@@ -90,6 +136,6 @@ setup(
     ext_modules=extensions,
     setup_requires=['numpy'],
     install_requires=['numpy>=1.9.2', 'six'],
-    tests_require=['nose', 'decorator', 'trollius'],
+    tests_require=['nose', 'decorator', 'trollius', 'netifaces'],
     test_suite='nose.collector',
     packages=['spead2', 'spead2.recv', 'spead2.send'])
