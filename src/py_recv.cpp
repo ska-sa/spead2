@@ -416,6 +416,11 @@ void register_module()
 #endif
         .def("stop", &ring_stream_wrapper::stop)
         .add_property("fd", &ring_stream_wrapper::get_fd)
+#if SPEAD2_USE_IBV
+        .def_readonly("DEFAULT_UDP_IBV_MAX_SIZE", udp_ibv_reader::default_max_size)
+        .def_readonly("DEFAULT_UDP_IBV_BUFFER_SIZE", udp_ibv_reader::default_buffer_size)
+        .def_readonly("DEFAULT_UDP_IBV_MAX_POLL", udp_ibv_reader::default_max_poll)
+#endif
         .def_readonly("DEFAULT_MAX_HEAPS", ring_stream_wrapper::default_max_heaps)
         .def_readonly("DEFAULT_RING_HEAPS", ring_stream_wrapper::default_ring_heaps)
         .def_readonly("DEFAULT_UDP_MAX_SIZE", udp_reader::default_max_size)

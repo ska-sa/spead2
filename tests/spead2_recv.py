@@ -59,6 +59,7 @@ def get_args():
     group.add_argument('--affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
     group.add_argument('--ibv', type=str, metavar='ADDRESS', help='Use ibverbs with this interface address [no]')
     group.add_argument('--ibv-vector', type=int, default=0, metavar='N', help='Completion vector, or -1 to use polling [%(default)s]')
+    group.add_argument('--ibv-max-poll', type=int, default=spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL, help='Maximum number of times to poll in a row [%(default)s]')
     return parser.parse_args()
 
 @trollius.coroutine

@@ -65,6 +65,7 @@ struct options
 #if SPEAD2_USE_IBV
     std::string ibv_if;
     int ibv_comp_vector = 0;
+    int ibv_max_poll = spead2::recv::udp_ibv_reader::default_max_poll;
 #endif
     std::vector<std::string> sources;
 };
@@ -118,6 +119,7 @@ static options parse_args(int argc, const char **argv)
 #if SPEAD2_USE_IBV
         ("ibv", make_opt(opts.ibv_if), "Interface address for ibverbs")
         ("ibv-vector", make_opt(opts.ibv_comp_vector), "Interrupt vector (-1 for polled)")
+        ("ibv-max-poll", make_opt(opts.ibv_max_poll), "Maximum number of times to poll in a row")
 #endif
     ;
 
@@ -294,7 +296,8 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
         {
             boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(opts.ibv_if);
             stream->emplace_reader<spead2::recv::udp_ibv_reader>(
-                endpoint, interface_address, opts.packet, opts.buffer, opts.ibv_comp_vector);
+                endpoint, interface_address, opts.packet, opts.buffer,
+                opts.ibv_comp_vector, opts.ibv_max_poll);
         }
         else
 #endif
