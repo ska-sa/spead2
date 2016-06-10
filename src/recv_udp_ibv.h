@@ -236,7 +236,7 @@ public:
     /// Receive buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 16 * 1024 * 1024;
     /// Number of times to poll in a row, if none is explicitly passed to the constructor
-    static constexpr int default_max_poll = 100;
+    static constexpr int default_max_poll = 10;
 
     /**
      * Constructor.
