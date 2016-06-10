@@ -131,6 +131,9 @@ private:
     const std::size_t max_size;
     ///< Number of packets that can be queued
     const std::size_t n_slots;
+    ///< Number of times to poll before waiting
+    const int max_poll;
+
     /**
      * Socket that is used only to join the multicast group. It is not
      * bound to a port.
@@ -202,7 +205,17 @@ private:
 
     static void req_notify_cq(ibv_cq *cq);
 
+    /// Post a work request to the qp
     void post_slot(std::size_t index);
+
+    /**
+     * Do one pass over the completion queue.
+     *
+     * @retval -1 if there was an ibverbs failure
+     * @retval -2 if the stream received a stop packet
+     * @retval n otherwise, where n is the number of packets received
+     */
+    int poll_once();
 
     /**
      * Retrieve packets from the completion queue and process them.
@@ -222,6 +235,8 @@ private:
 public:
     /// Receive buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 16 * 1024 * 1024;
+    /// Number of times to poll in a row, if none is explicitly passed to the constructor
+    static constexpr int default_max_poll = 100;
 
     /**
      * Constructor.
@@ -243,6 +258,10 @@ public:
      *                     assigned sequential completion vectors and have them
      *                     load-balanced, without concern for the number
      *                     available.
+     * @param max_poll     Maximum number of times to poll in a row, without
+     *                     waiting for an interrupt (if @a comp_vector is
+     *                     non-negative) or letting other code run on the
+     *                     thread (if @a comp_vector is negative).
      *
      * @throws std::invalid_argument If @a endpoint is not an IPv4 multicast address
      * @throws std::invalid_argument If @a interface_address is not an IPv4 address
@@ -253,7 +272,8 @@ public:
         const boost::asio::ip::address &interface_address,
         std::size_t max_size = default_max_size,
         std::size_t buffer_size = default_buffer_size,
-        int comp_vector = 0);
+        int comp_vector = 0,
+        int max_poll = default_max_poll);
 
     virtual void stop() override;
 };

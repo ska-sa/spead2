@@ -311,11 +311,13 @@ public:
         const std::string &interface_address,
         std::size_t max_size,
         std::size_t buffer_size,
-        int comp_vector)
+        int comp_vector,
+        int max_poll)
     {
         release_gil gil;
         auto endpoint = make_endpoint(multicast_group, port);
-        emplace_reader<udp_ibv_reader>(endpoint, make_address(interface_address), max_size, buffer_size, comp_vector);
+        emplace_reader<udp_ibv_reader>(endpoint, make_address(interface_address),
+                                       max_size, buffer_size, comp_vector, max_poll);
     }
 #endif
 
@@ -409,7 +411,8 @@ void register_module()
               arg("interface_address"),
               arg("max_size") = udp_ibv_reader::default_max_size,
               arg("buffer_size") = udp_ibv_reader::default_buffer_size,
-              arg("comp_vector") = 0))
+              arg("comp_vector") = 0),
+              arg("max_poll") = udp_ibv_reader::default_max_poll)
 #endif
         .def("stop", &ring_stream_wrapper::stop)
         .add_property("fd", &ring_stream_wrapper::get_fd)

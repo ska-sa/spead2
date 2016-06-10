@@ -45,6 +45,7 @@ namespace recv
 {
 
 constexpr std::size_t udp_ibv_reader::default_buffer_size;
+constexpr int udp_ibv_reader::default_max_poll;
 
 [[noreturn]] static void throw_errno(const char *msg, int err)
 {
@@ -270,6 +271,52 @@ void udp_ibv_reader::post_slot(std::size_t index)
         throw_errno("ibv_post_recv failed", status);
 }
 
+int udp_ibv_reader::poll_once()
+{
+    int received = ibv_poll_cq(recv_cq.get(), n_slots, wc.get());
+    if (received < 0)
+    {
+        log_warning("ibv_poll_cq failed");
+        return -1;
+    }
+    for (int i = 0; i < received; i++)
+    {
+        int index = wc[i].wr_id;
+        if (wc[i].status != IBV_WC_SUCCESS)
+        {
+            log_warning("Work Request failed with code %1%", wc[i].status);
+        }
+        else
+        {
+            const std::uint8_t *ptr = reinterpret_cast<std::uint8_t *>(
+                reinterpret_cast<std::uintptr_t>(slots[index].sge.addr));
+            std::size_t len = wc[i].byte_len;
+
+            constexpr int HEADER_LENGTH = 42; // Eth: 14 IP: 20 UDP: 8
+            constexpr std::uint8_t ethertype_ipv4[2] = {0x08, 0x00};
+            // Sanity checks
+            if (len <= HEADER_LENGTH)
+                log_warning("Frame is too short to contain UDP payload, discarding");
+            else if (std::memcmp(ethertype_ipv4, ptr + 12, 2))
+                log_warning("Frame has wrong ethernet type (VLAN tagging?), discarding");
+            else if (ptr[14] != 0x45)
+                log_warning("Frame is not IPv4 or has extra options, discarding");
+            else if ((ptr[20] & 0x3f) || (ptr[21] != 0)) // flags and fragment offset
+                log_warning("IP message is fragmented, discarding");
+            else
+            {
+                len -= HEADER_LENGTH;
+                ptr += HEADER_LENGTH;
+                bool stopped = process_one_packet(ptr, len, max_size);
+                if (stopped)
+                    return -2;
+            }
+        }
+        post_slot(index);
+    }
+    return received;
+}
+
 void udp_ibv_reader::packet_handler(const boost::system::error_code &error)
 {
     if (!error)
@@ -291,54 +338,30 @@ void udp_ibv_reader::packet_handler(const boost::system::error_code &error)
                 {
                     // TODO: defer acks until shutdown
                     ibv_ack_cq_events(event_cq, 1);
-                    req_notify_cq(event_cq);
                 }
             }
-            int received;
-            do
+            for (int i = 0; i < max_poll; i++)
             {
-                received = ibv_poll_cq(recv_cq.get(), n_slots, wc.get());
-                if (received < 0)
-                    log_warning("ibv_poll_cq failed");
-                for (int i = 0; i < received; i++)
+                if (comp_channel)
                 {
-                    int index = wc[i].wr_id;
-                    if (wc[i].status != IBV_WC_SUCCESS)
+                    if (i == max_poll - 1)
                     {
-                        log_warning("Work Request failed with code %1%", wc[i].status);
+                        /* We need to call req_notify_cq *before* the last
+                         * poll_once, because notifications are edge-triggered.
+                         * If we did it the other way around, there is a race
+                         * where a new packet can arrive after poll_once but
+                         * before req_notify_cq, failing to trigger a
+                         * notification.
+                         */
+                        req_notify_cq(recv_cq.get());
                     }
-                    else
-                    {
-                        const std::uint8_t *ptr = reinterpret_cast<std::uint8_t *>(
-                            reinterpret_cast<std::uintptr_t>(slots[index].sge.addr));
-                        std::size_t len = wc[i].byte_len;
-
-                        constexpr int HEADER_LENGTH = 42; // Eth: 14 IP: 20 UDP: 8
-                        constexpr std::uint8_t ethertype_ipv4[2] = {0x08, 0x00};
-                        // Sanity checks
-                        if (len <= HEADER_LENGTH)
-                            log_warning("Frame is too short to contain UDP payload, discarding");
-                        else if (std::memcmp(ethertype_ipv4, ptr + 12, 2))
-                            log_warning("Frame has wrong ethernet type (VLAN tagging?), discarding");
-                        else if (ptr[14] != 0x45)
-                            log_warning("Frame is not IPv4 or has extra options, discarding");
-                        else if ((ptr[20] & 0x3f) || (ptr[21] != 0)) // flags and fragment offset
-                            log_warning("IP message is fragmented, discarding");
-                        else
-                        {
-                            len -= HEADER_LENGTH;
-                            ptr += HEADER_LENGTH;
-                            bool stopped = process_one_packet(ptr, len, max_size);
-                            if (stopped)
-                            {
-                                received = -1; // breaks out of the outer loop
-                                break;
-                            }
-                        }
-                    }
-                    post_slot(index);
                 }
-            } while (received > 0 || (received == 0 && !comp_channel && !stop_poll.load()));
+                else if (stop_poll.load())
+                    break;
+                int received = poll_once();
+                if (received < 0)
+                    break;
+            }
         }
     }
     else
@@ -376,10 +399,12 @@ udp_ibv_reader::udp_ibv_reader(
     const boost::asio::ip::address &interface_address,
     std::size_t max_size,
     std::size_t buffer_size,
-    int comp_vector)
+    int comp_vector,
+    int max_poll)
     : udp_reader_base(owner),
     max_size(max_size),
     n_slots(std::max(std::size_t(1), buffer_size / max_size)),
+    max_poll(max_poll),
     join_socket(owner.get_strand().get_io_service(), endpoint.protocol()),
     comp_channel_wrapper(owner.get_strand().get_io_service()),
     stop_poll(false)
@@ -388,6 +413,8 @@ udp_ibv_reader::udp_ibv_reader(
         throw std::invalid_argument("endpoint is not an IPv4 multicast address");
     if (!interface_address.is_v4())
         throw std::invalid_argument("interface address is not an IPv4 address");
+    if (max_poll <= 0)
+        throw std::invalid_argument("max_poll must be positive");
     // Re-compute buffer_size as a whole number of slots
     buffer_size = n_slots * max_size;
 
