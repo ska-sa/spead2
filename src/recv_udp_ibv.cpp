@@ -404,7 +404,7 @@ udp_ibv_reader::udp_ibv_reader(
     int max_poll)
     : udp_reader_base(owner),
     max_size(max_size),
-    n_slots(std::max(std::size_t(1), buffer_size / (max_size + HEADER_LENGTH)),
+    n_slots(std::max(std::size_t(1), buffer_size / (max_size + HEADER_LENGTH))),
     max_poll(max_poll),
     join_socket(owner.get_strand().get_io_service(), endpoint.protocol()),
     comp_channel_wrapper(owner.get_strand().get_io_service()),
