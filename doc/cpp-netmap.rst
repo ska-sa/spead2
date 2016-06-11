@@ -1,5 +1,5 @@
-netmap support
-==============
+Support for netmap
+==================
 
 Introduction
 ------------

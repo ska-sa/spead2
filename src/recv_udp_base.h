@@ -32,7 +32,7 @@ namespace recv
 
 /**
  * Base class that has common logic between @ref udp_reader and @ref
- * udp_reader_ibv.
+ * udp_ibv_reader.
  */
 class udp_reader_base : public reader
 {

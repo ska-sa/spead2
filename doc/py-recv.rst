@@ -76,7 +76,7 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
       Feed data from an object implementing the buffer protocol.
 
-   .. py:method:: add_udp_reader(port, max_size=9200, buffer_size=8388608, bind_hostname='', socket=None)
+   .. py:method:: add_udp_reader(port, max_size=DEFAULT_UDP_MAX_SIZE, buffer_size=DEFAULT_UDP_BUFFER_SIZE, bind_hostname='', socket=None)
 
       Feed data from a UDP port.
 
@@ -94,7 +94,7 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
         it alive. This is mainly useful for fine-tuning socket options such
         as multicast subscriptions.
 
-   .. py:method:: add_udp_reader(multicast_group, port, max_size=9200, buffer_size=8388608, interface_address)
+   .. py:method:: add_udp_reader(multicast_group, port, max_size=DEFAULT_UDP_MAX_SIZE, buffer_size=DEFAULT_UDP_BUFFER_SIZE, interface_address)
 
       Feed data from a UDP port with multicast (IPv4 only).
 
@@ -107,7 +107,7 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
       :param str interface_address: Hostname/IP address of the interface which
         will be subscribed, or the empty string to let the OS decide.
 
-   .. py:method:: add_udp_reader(multicast_group, port, max_size=9200, buffer_size=8388608, interface_index)
+   .. py:method:: add_udp_reader(multicast_group, port, max_size=DEFAULT_UDP_MAX_SIZE, buffer_size=DEFAULT_UDP_BUFFER_SIZE, interface_index)
 
       Feed data from a UDP port with multicast (IPv6 only).
 
