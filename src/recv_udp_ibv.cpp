@@ -46,6 +46,7 @@ namespace recv
 
 constexpr std::size_t udp_ibv_reader::default_buffer_size;
 constexpr int udp_ibv_reader::default_max_poll;
+static constexpr int HEADER_LENGTH = 42; // Eth: 14 IP: 20 UDP: 8
 
 [[noreturn]] static void throw_errno(const char *msg, int err)
 {
@@ -403,7 +404,7 @@ udp_ibv_reader::udp_ibv_reader(
     int max_poll)
     : udp_reader_base(owner),
     max_size(max_size),
-    n_slots(std::max(std::size_t(1), buffer_size / max_size)),
+    n_slots(std::max(std::size_t(1), buffer_size / (max_size + HEADER_LENGTH)),
     max_poll(max_poll),
     join_socket(owner.get_strand().get_io_service(), endpoint.protocol()),
     comp_channel_wrapper(owner.get_strand().get_io_service()),
@@ -416,7 +417,8 @@ udp_ibv_reader::udp_ibv_reader(
     if (max_poll <= 0)
         throw std::invalid_argument("max_poll must be positive");
     // Re-compute buffer_size as a whole number of slots
-    buffer_size = n_slots * max_size;
+    const int max_raw_size = max_size + HEADER_LENGTH;
+    buffer_size = n_slots * max_raw_size;
 
     event_channel = create_event_channel();
     cm_id = create_id(event_channel.get());
@@ -445,8 +447,8 @@ udp_ibv_reader::udp_ibv_reader(
     for (std::size_t i = 0; i < n_slots; i++)
     {
         std::memset(&slots[i], 0, sizeof(slots[i]));
-        slots[i].sge.addr = (uintptr_t) &buffer[i * max_size];
-        slots[i].sge.length = max_size;
+        slots[i].sge.addr = (uintptr_t) &buffer[i * max_raw_size];
+        slots[i].sge.length = max_raw_size;
         slots[i].sge.lkey = mr->lkey;
         slots[i].wr.sg_list = &slots[i].sge;
         slots[i].wr.num_sge = 1;
