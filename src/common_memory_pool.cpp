@@ -77,7 +77,7 @@ memory_pool::memory_pool(
 
 void memory_pool::free(std::uint8_t *ptr, void *user)
 {
-    pointer wrapped(deleter::pointer(ptr, base_allocator, user));
+    pointer wrapped(ptr, deleter(base_allocator, user));
     std::unique_lock<std::mutex> lock(mutex);
     if (pool.size() < max_free)
     {
@@ -94,7 +94,7 @@ void memory_pool::free(std::uint8_t *ptr, void *user)
 
 memory_pool::pointer memory_pool::convert(pointer &&base)
 {
-    pointer wrapped(deleter::pointer(base.get().get(), shared_from_this(), base.get().get_user()));
+    pointer wrapped(base.get(), deleter(shared_from_this(), base.get_deleter().get_user()));
     base.release();
     return wrapped;
 }
@@ -128,13 +128,13 @@ void memory_pool::refill(std::size_t upper, std::shared_ptr<memory_allocator> al
 memory_pool::pointer memory_pool::allocate(std::size_t size, void *hint)
 {
     (void) hint;
+    pointer ptr;
     if (size >= lower && size <= upper)
     {
         /* Declaration order here is important: if there is an exception,
          * we want to drop the lock before trying to put the pointer back in
          * the pool.
          */
-        pointer ptr;
         std::unique_lock<std::mutex> lock(mutex);
         if (!pool.empty())
         {
@@ -163,13 +163,13 @@ memory_pool::pointer memory_pool::allocate(std::size_t size, void *hint)
             ptr = convert(base_allocator->allocate(upper, nullptr));
             log_debug("allocating %d bytes which will be added to the pool", size);
         }
-        return ptr;
     }
     else
     {
         log_debug("allocating %d bytes without using the pool", size);
-        return base_allocator->allocate(size, nullptr);
+        ptr = base_allocator->allocate(size, nullptr);
     }
+    return ptr;
 }
 
 } // namespace spead2
