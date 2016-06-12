@@ -1,6 +1,13 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Avoid per-packet shared_ptr reference counting, accidentally introduced in
+  0.9.0, which caused a small performance regression. This is unfortunately a
+  **breaking** change to the interface for implementing custom memory
+  allocators.
+
 .. rubric:: Version 0.9.1
 
 - Fix using a :py:class:`~spead2.MemoryPool` with a thread pool and low water

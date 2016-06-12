@@ -23,9 +23,16 @@
 namespace spead2
 {
 
-void memory_allocator::deleter::operator()(pointer ptr)
+memory_allocator::deleter::deleter(std::shared_ptr<memory_allocator> allocator,
+                                   void *user)
+    : allocator(std::move(allocator)), user(user)
 {
-    ptr.get_allocator()->free(ptr.get(), ptr.get_user());
+}
+
+void memory_allocator::deleter::operator()(std::uint8_t *ptr)
+{
+    allocator->free(ptr, user);
+    allocator.reset();
 }
 
 void memory_allocator::prefault(std::uint8_t *data, std::size_t size)
@@ -37,10 +44,10 @@ void memory_allocator::prefault(std::uint8_t *data, std::size_t size)
 
 memory_allocator::pointer memory_allocator::allocate(std::size_t size, void *hint)
 {
-    (void) hint;
+    (void) hint; // prevent warnings about unused parameters
     std::uint8_t *ptr = new std::uint8_t[size];
     prefault(ptr, size);
-    return pointer(deleter::pointer(ptr, shared_from_this()));
+    return pointer(ptr, deleter(shared_from_this()));
 }
 
 void memory_allocator::free(std::uint8_t *ptr, void *user)
@@ -76,7 +83,7 @@ mmap_allocator::pointer mmap_allocator::allocate(std::size_t size, void *hint)
 #ifndef MAP_POPULATE
     prefault(ptr, size);
 #endif
-    return pointer(deleter::pointer(ptr, shared_from_this(), (void *) std::uintptr_t(size)));
+    return pointer(ptr, deleter(shared_from_this(), (void *) std::uintptr_t(size)));
 }
 
 void mmap_allocator::free(std::uint8_t *ptr, void *user)
