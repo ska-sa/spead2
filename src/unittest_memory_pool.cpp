@@ -42,7 +42,7 @@ public:
         (void) hint;
         std::uint8_t *ptr = new std::uint8_t[size];
         records.push_back(record{true, size, ptr});
-        return pointer(deleter::pointer(ptr, shared_from_this(), ptr - 1));
+        return pointer(ptr, deleter(shared_from_this(), ptr - 1));
     }
 
 private:
