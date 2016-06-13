@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <unistd.h>
 #include "recv_udp.h"
+#include "recv_udp_ibv.h"
 #include "recv_mem.h"
 #include "recv_stream.h"
 #include "recv_ring_stream.h"
@@ -303,6 +304,23 @@ public:
         emplace_reader<udp_reader>(endpoint, max_size, buffer_size, interface_index);
     }
 
+#if SPEAD2_USE_IBV
+    void add_udp_ibv_reader(
+        const std::string &multicast_group,
+        std::uint16_t port,
+        const std::string &interface_address,
+        std::size_t max_size,
+        std::size_t buffer_size,
+        int comp_vector,
+        int max_poll)
+    {
+        release_gil gil;
+        auto endpoint = make_endpoint(multicast_group, port);
+        emplace_reader<udp_ibv_reader>(endpoint, make_address(interface_address),
+                                       max_size, buffer_size, comp_vector, max_poll);
+    }
+#endif
+
     void stop()
     {
         release_gil gil;
@@ -385,8 +403,24 @@ void register_module()
               arg("max_size") = udp_reader::default_max_size,
               arg("buffer_size") = udp_reader::default_buffer_size,
               arg("interface_index") = (unsigned int) 0))
+#if SPEAD2_USE_IBV
+        .def("add_udp_ibv_reader", &ring_stream_wrapper::add_udp_ibv_reader,
+             (
+              arg("multicast_group"),
+              arg("port"),
+              arg("interface_address"),
+              arg("max_size") = udp_ibv_reader::default_max_size,
+              arg("buffer_size") = udp_ibv_reader::default_buffer_size,
+              arg("comp_vector") = 0),
+              arg("max_poll") = udp_ibv_reader::default_max_poll)
+#endif
         .def("stop", &ring_stream_wrapper::stop)
         .add_property("fd", &ring_stream_wrapper::get_fd)
+#if SPEAD2_USE_IBV
+        .def_readonly("DEFAULT_UDP_IBV_MAX_SIZE", udp_ibv_reader::default_max_size)
+        .def_readonly("DEFAULT_UDP_IBV_BUFFER_SIZE", udp_ibv_reader::default_buffer_size)
+        .def_readonly("DEFAULT_UDP_IBV_MAX_POLL", udp_ibv_reader::default_max_poll)
+#endif
         .def_readonly("DEFAULT_MAX_HEAPS", ring_stream_wrapper::default_max_heaps)
         .def_readonly("DEFAULT_RING_HEAPS", ring_stream_wrapper::default_ring_heaps)
         .def_readonly("DEFAULT_UDP_MAX_SIZE", udp_reader::default_max_size)

@@ -18,3 +18,4 @@ with the C++ backend.
    py-recv
    py-send
    py-logging
+   py-ibverbs

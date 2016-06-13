@@ -33,6 +33,7 @@
 #include <boost/asio.hpp>
 #include "recv_reader.h"
 #include "recv_stream.h"
+#include "recv_udp_base.h"
 
 namespace spead2
 {
@@ -44,7 +45,7 @@ namespace recv
  *
  * @todo Log errors somehow?
  */
-class udp_reader : public reader
+class udp_reader : public udp_reader_base
 {
 private:
     /// UDP socket we are listening on
@@ -68,21 +69,12 @@ private:
     /// Start an asynchronous receive
     void enqueue_receive();
 
-    /**
-     * Handle a single received packet.
-     *
-     * @return whether the packet caused the stream to stop
-     */
-    bool process_one_packet(const std::uint8_t *data, std::size_t length);
-
     /// Callback on completion of asynchronous receive
     void packet_handler(
         const boost::system::error_code &error,
         std::size_t bytes_transferred);
 
 public:
-    /// Maximum packet size, if none is explicitly passed to the constructor
-    static constexpr std::size_t default_max_size = 9200;
     /// Socket receive buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 8 * 1024 * 1024;
     /// Number of packets to receive in one go, if recvmmsg support is present
@@ -178,6 +170,41 @@ public:
         std::size_t buffer_size = default_buffer_size);
 
     virtual void stop() override;
+};
+
+/**
+ * Factory overload to allow udp_reader to be dynamically substituted with
+ * udp_ibv_reader based on environment variables.
+ */
+template<>
+struct reader_factory<udp_reader>
+{
+    static std::unique_ptr<reader> make_reader(
+        stream &owner,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        std::size_t max_size = udp_reader::default_max_size,
+        std::size_t buffer_size = udp_reader::default_buffer_size);
+
+    static std::unique_ptr<reader> make_reader(
+        stream &owner,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        std::size_t max_size,
+        std::size_t buffer_size,
+        const boost::asio::ip::address &interface_address);
+
+    static std::unique_ptr<reader> make_reader(
+        stream &owner,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        std::size_t max_size,
+        std::size_t buffer_size,
+        unsigned int interface_index);
+
+    static std::unique_ptr<reader> make_reader(
+        stream &owner,
+        boost::asio::ip::udp::socket &&socket,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        std::size_t max_size = udp_reader::default_max_size,
+        std::size_t buffer_size = udp_reader::default_buffer_size);
 };
 
 } // namespace recv

@@ -240,9 +240,21 @@ class TestPassthroughUdp(BaseTestPassthrough):
 
 
 class TestPassthroughUdp6(BaseTestPassthrough):
-    def transmit_item_group(self, item_group, memcpy, allocator):
+    @classmethod
+    def check_ipv6(cls):
         if not socket.has_ipv6:
             raise SkipTest('platform does not support IPv6')
+        # Travis' Trusty image fails to bind to a multicast
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        try:
+            sock.bind(("::1", 8888))
+        except IOError:
+            raise SkipTest('platform cannot bind IPv6 localhost address')
+        finally:
+            sock.close()
+
+    def transmit_item_group(self, item_group, memcpy, allocator):
+        self.check_ipv6()
         thread_pool = spead2.ThreadPool(2)
         sender = spead2.send.UdpStream(
                 thread_pool, "::1", 8888,
@@ -262,7 +274,7 @@ class TestPassthroughUdp6(BaseTestPassthrough):
         return received_item_group
 
 
-class TestPassthroughUDPCustomSocket(BaseTestPassthrough):
+class TestPassthroughUdpCustomSocket(BaseTestPassthrough):
     def transmit_item_group(self, item_group, memcpy, allocator):
         thread_pool = spead2.ThreadPool(2)
         send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -287,7 +299,7 @@ class TestPassthroughUDPCustomSocket(BaseTestPassthrough):
         return received_item_group
 
 
-class TestPassthroughUDPMulticast(BaseTestPassthrough):
+class TestPassthroughUdpMulticast(BaseTestPassthrough):
     def transmit_item_group(self, item_group, memcpy, allocator):
         thread_pool = spead2.ThreadPool(2)
         mcast_group = '239.255.88.88'
@@ -309,9 +321,9 @@ class TestPassthroughUDPMulticast(BaseTestPassthrough):
             received_item_group.update(heap)
         return received_item_group
 
-
-class TestPassthroughUDP6Multicast(BaseTestPassthrough):
+class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
     def transmit_item_group(self, item_group, memcpy, allocator):
+        self.check_ipv6()
         thread_pool = spead2.ThreadPool(2)
         mcast_group = 'ff14::1234'
         interface_index = 0

@@ -27,11 +27,11 @@ and Clang 3.4 have been tried), Python development headers, and
 Boost. At the moment only GNU/Linux has been tested but other POSIX-like
 systems should work too.
 
-The only Python dependencies are numpy_ and six_. Running the test suite additionally
+The only Python dependencies are numpy_ and six_, although support for
+asynchronous I/O also requires trollius_. Running the test suite additionally
 requires nose_ and decorator_, and some tests depend on PySPEAD_ (they will be
-skipped if it is not installed). Finally, the asynchronous I/O support requires trollius_.
-To install (which will automatically pull in the mandatory dependencies),
-run::
+skipped if it is not installed). To install (which will automatically pull in
+the mandatory dependencies), run::
 
     ./setup.py install
 
@@ -40,13 +40,16 @@ Other standard methods for installing Python packages should work too.
 .. _numpy: http://www.numpy.org
 .. _six: https://pythonhosted.org/six/
 .. _nose: https://nose.readthedocs.io/en/latest/
-.. _decorator: http://pythonhosted.org//decorator/
+.. _decorator: http://pythonhosted.org/decorator/
 
 High-performance usage requires larger buffer sizes than Linux allows by
 default. The following commands will increase the permitted buffer sizes::
 
     sysctl net.core.wmem_max=16777216
     sysctl net.core.rmem_max=16777216
+
+If libibverbs and librdmacm are installed (including development headers), then
+support for :doc:`ibverbs <py-ibverbs>` will automatically be included.
 
 Installing spead2 for C++
 -------------------------
@@ -55,8 +58,9 @@ ABI is not stable. Instead, use the source files directly in your code, or
 build a static library with your preferred options. The provided Makefile
 produces an optimised static library.
 
-There is optional support for :doc:`netmap <cpp-netmap>` (disabled by default)
+There is optional support for :doc:`netmap <cpp-netmap>` and :doc:`ibverbs
+<py-ibverbs>` (both disabled by default)
 and for acceleration using :manpage:`recvmmsg(2)` and :manpage:`eventfd(2)`
 (enabled if a sufficiently new glibc is detected). To override the defaults,
-pass :makevar:`NETMAP=1`, :makevar:`RECVMMSG=0` or :makevar:`EVENTFD=0` to
-:program:`make`.
+pass :makevar:`NETMAP=1`, :makevar:`IBV=1`, :makevar:`RECVMMSG=0` or
+:makevar:`EVENTFD=0` to :program:`make`.

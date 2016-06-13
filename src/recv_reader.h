@@ -23,6 +23,7 @@
 
 #include <boost/asio.hpp>
 #include <future>
+#include <utility>
 
 namespace spead2
 {
@@ -81,6 +82,22 @@ public:
      * handler. This function is called outside the strand.
      */
     void join();
+};
+
+/**
+ * Factory for creating a new reader. This is used by @ref
+ * stream::emplace_reader to create the reader. The default implementation
+ * simply chains to the constructor, but it can be overloaded in cases where
+ * it is desirable to select the class dynamically.
+ */
+template<typename Reader>
+struct reader_factory
+{
+    template<typename... Args>
+    static std::unique_ptr<reader> make_reader(Args&&... args)
+    {
+        return std::unique_ptr<reader>(new Reader(std::forward<Args>(args)...));
+    }
 };
 
 } // namespace recv
