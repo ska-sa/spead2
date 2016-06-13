@@ -113,7 +113,8 @@ def main():
                         raise NotImplementedError('spead2 was compiled without ibverbs support')
                     if not args.bind:
                         raise ValueError('--bind is required to be a multicast group when using --ibv')
-                    stream.add_udp_ibv_reader(args.bind, port, args.ibv, args.packet, args.buffer, args.ibv_vector)
+                    stream.add_udp_ibv_reader(args.bind, port, args.ibv, args.packet,
+                                              args.buffer, args.ibv_vector, args.ibv_max_poll)
                 else:
                     stream.add_udp_reader(port, args.packet, args.buffer, args.bind)
         return stream

@@ -5,6 +5,7 @@ Changelog
 
 - Fixed a bug in registering `add_udp_ibv_reader` in Python, which broke
   :program:`spead2_recv.py`, and possibly any other code using this API.
+- Fixed :program:`spead2_recv.py` ignoring :option:`--ibv-max-poll` option
 
 .. rubric:: Version 0.10.0
 
