@@ -57,9 +57,10 @@ def get_args():
     group.add_argument('--mem-max-free', type=int, default=12, help='Maximum free memory buffers [%(default)s]')
     group.add_argument('--mem-initial', type=int, default=8, help='Initial free memory buffers [%(default)s]')
     group.add_argument('--affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
-    group.add_argument('--ibv', type=str, metavar='ADDRESS', help='Use ibverbs with this interface address [no]')
-    group.add_argument('--ibv-vector', type=int, default=0, metavar='N', help='Completion vector, or -1 to use polling [%(default)s]')
-    group.add_argument('--ibv-max-poll', type=int, default=spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL, help='Maximum number of times to poll in a row [%(default)s]')
+    if hasattr(spead2.recv.Stream, 'add_udp_ibv_reader'):
+        group.add_argument('--ibv', type=str, metavar='ADDRESS', help='Use ibverbs with this interface address [no]')
+        group.add_argument('--ibv-vector', type=int, default=0, metavar='N', help='Completion vector, or -1 to use polling [%(default)s]')
+        group.add_argument('--ibv-max-poll', type=int, default=spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL, help='Maximum number of times to poll in a row [%(default)s]')
     return parser.parse_args()
 
 @trollius.coroutine
@@ -107,7 +108,7 @@ def main():
                     text = f.read()
                 stream.add_buffer_reader(text)
             else:
-                if args.ibv is not None:
+                if 'ibv' in args and args.ibv is not None:
                     if not hasattr(stream, 'add_udp_ibv_reader'):
                         raise NotImplementedError('spead2 was compiled without ibverbs support')
                     if not args.bind:
