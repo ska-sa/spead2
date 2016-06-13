@@ -1,7 +1,10 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.10.0
+
+- Added support for libibverbs for improved performance in both :doc:`Python
+  <py-ibverbs>` and :doc:`C++ <cpp-ibverbs>`.
 
 - Avoid per-packet shared_ptr reference counting, accidentally introduced in
   0.9.0, which caused a small performance regression. This is unfortunately a
