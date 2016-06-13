@@ -411,8 +411,8 @@ void register_module()
               arg("interface_address"),
               arg("max_size") = udp_ibv_reader::default_max_size,
               arg("buffer_size") = udp_ibv_reader::default_buffer_size,
-              arg("comp_vector") = 0),
-              arg("max_poll") = udp_ibv_reader::default_max_poll)
+              arg("comp_vector") = 0,
+              arg("max_poll") = udp_ibv_reader::default_max_poll))
 #endif
         .def("stop", &ring_stream_wrapper::stop)
         .add_property("fd", &ring_stream_wrapper::get_fd)

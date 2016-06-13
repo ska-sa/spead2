@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Version 0.10.1
+
+- Fixed a bug in registering `add_udp_ibv_reader` in Python, which broke
+  :program:`spead2_recv.py`, and possibly any other code using this API.
+
 .. rubric:: Version 0.10.0
 
 - Added support for libibverbs for improved performance in both :doc:`Python
