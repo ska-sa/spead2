@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Version 0.10.2
+
+- Fix a performance problem when a heap contains many packets and every
+  packet contains item pointers. The performance was quadratic instead of
+  linear.
+
 .. rubric:: Version 0.10.1
 
 - Fixed a bug in registering `add_udp_ibv_reader` in Python, which broke

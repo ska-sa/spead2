@@ -149,7 +149,12 @@ bool live_heap::add_packet(const packet_header &packet)
         payload_reserve(min_length, false, packet);
     }
     pointer_decoder decoder(heap_address_bits);
-    pointers.reserve(pointers.size() + packet.n_items);
+    /* Try to avoid too many reallocations for pointers. We can't just
+     * unconditionally call reserve for the size we actually want, because we
+     * should avoid disabling vector's doubling heuristic.
+     */
+    if (pointers.empty())
+        pointers.reserve(packet.n_items);
     for (int i = 0; i < packet.n_items; i++)
     {
         item_pointer_t pointer = load_be<item_pointer_t>(packet.pointers + i * sizeof(item_pointer_t));
