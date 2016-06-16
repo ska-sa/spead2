@@ -187,7 +187,7 @@ descriptor heap::to_descriptor() const
                 out.numpy_header = std::string(reinterpret_cast<const char *>(item.ptr), item.length);
                 break;
             default:
-                log_info("Unrecognised descriptor item ID %x", item.id);
+                log_info("Unrecognised descriptor item ID %#x", item.id);
                 break;
         }
     }

@@ -6,7 +6,8 @@ Changelog
 - Suppress "operation aborted" warnings from UDP reader when using the API
   to stop a stream (introduced in 0.10.0).
 - Improved elimination of duplicate item pointers, removing them as they're
-  received rather than when freezing a live heap (fixes #46)
+  received rather than when freezing a live heap (fixes #46).
+- Use hex for reporting item IDs in log messages
 
 .. rubric:: Version 0.10.2
 
