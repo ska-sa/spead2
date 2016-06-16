@@ -8,6 +8,7 @@ Changelog
 - Improved elimination of duplicate item pointers, removing them as they're
   received rather than when freezing a live heap (fixes #46).
 - Use hex for reporting item IDs in log messages
+- Fix reading from closed file descriptor after stream.stop() (fixes #42)
 
 .. rubric:: Version 0.10.2
 

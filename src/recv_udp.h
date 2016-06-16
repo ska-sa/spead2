@@ -53,6 +53,14 @@ private:
     /// Maximum packet size we will accept
     std::size_t max_size;
 #if SPEAD2_USE_RECVMMSG
+    /**
+     * A dup(2) of @ref socket. This is used for the actual recvmmsg call. The
+     * duplicate is needed so that we can asynchronously call socket.close()
+     * to shut down the reader while racing with the recvmmsg call. The
+     * close call will just cancel pending handlers, without causing us to
+     * read from a closed file descriptor.
+     */
+    boost::asio::ip::udp::socket socket2;
     /// Buffer for asynchronous receive, of size @a max_size + 1.
     std::vector<std::unique_ptr<std::uint8_t[]>> buffer;
     /// Scatter-gather array for each buffer

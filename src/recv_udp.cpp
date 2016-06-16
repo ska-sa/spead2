@@ -25,7 +25,9 @@
 #if SPEAD2_USE_RECVMMSG
 # include <sys/socket.h>
 # include <sys/types.h>
+# include <unistd.h>
 #endif
+#include <system_error>
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
@@ -46,6 +48,28 @@ namespace recv
 
 constexpr std::size_t udp_reader::default_buffer_size;
 
+#if SPEAD2_USE_RECVMMSG
+static boost::asio::ip::udp::socket duplicate_socket(
+    boost::asio::ip::udp::socket &socket)
+{
+    int fd = socket.native_handle();
+    int fd2 = dup(fd);
+    if (fd2 < 0)
+        throw std::system_error(errno, std::system_category());
+    try
+    {
+        boost::asio::ip::udp::socket socket2(
+            socket.get_io_service(), socket.local_endpoint().protocol(), fd2);
+        return socket2;
+    }
+    catch (std::exception)
+    {
+        close(fd2);
+        throw;
+    }
+}
+#endif
+
 udp_reader::udp_reader(
     stream &owner,
     boost::asio::ip::udp::socket &&socket,
@@ -54,6 +78,7 @@ udp_reader::udp_reader(
     std::size_t buffer_size)
     : udp_reader_base(owner), socket(std::move(socket)), max_size(max_size),
 #if SPEAD2_USE_RECVMMSG
+    socket2(socket.get_io_service()),
     buffer(mmsg_count), iov(mmsg_count), msgvec(mmsg_count)
 #else
     buffer(new std::uint8_t[max_size + 1])
@@ -96,6 +121,9 @@ udp_reader::udp_reader(
         }
     }
     this->socket.bind(endpoint);
+#if SPEAD2_USE_RECVMMSG
+    socket2 = duplicate_socket(this->socket);
+#endif
     enqueue_receive();
 }
 
@@ -193,7 +221,7 @@ void udp_reader::packet_handler(
         else
         {
 #if SPEAD2_USE_RECVMMSG
-            int received = recvmmsg(socket.native_handle(), msgvec.data(), msgvec.size(),
+            int received = recvmmsg(socket2.native_handle(), msgvec.data(), msgvec.size(),
                                     MSG_DONTWAIT, nullptr);
             log_debug("recvmmsg returned %1%", received);
             if (received == -1 && errno != EAGAIN && errno != EWOULDBLOCK)
@@ -220,7 +248,10 @@ void udp_reader::packet_handler(
         enqueue_receive();
     }
     else
+    {
+        socket2.close();
         stopped();
+    }
 }
 
 void udp_reader::enqueue_receive()
