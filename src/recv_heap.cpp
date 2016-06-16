@@ -23,7 +23,6 @@
 #include <utility>
 #include <cstring>
 #include <string>
-#include <unordered_set>
 #include "recv_live_heap.h"
 #include "recv_heap.h"
 #include "recv_stream.h"
@@ -88,14 +87,6 @@ heap::heap(live_heap &&h)
     uint8_t *next_immediate = immediate_payload.get();
     items.reserve(h.pointers.size());
 
-    /* Some SPEAD implementations send duplicate items, which can add
-     * significant overhead in the Python API to process. We filter them out
-     * here using seen_items to track which IDs have already appeared.
-     *
-     * DESCRIPTOR_ID is a special case, because a heap can contain multiple
-     * descriptors.
-     */
-    std::unordered_set<item_pointer_t> seen_items;
     for (std::size_t i = 0; i < h.pointers.size(); i++)
     {
         item new_item;
@@ -103,15 +94,6 @@ heap::heap(live_heap &&h)
         new_item.id = decoder.get_id(pointer);
         if (new_item.id == 0)
             continue; // just padding
-        /* Note: we cannot actually do the insertion here, because where the
-         * item pointer for addressed items is duplicated, all but one of
-         * the duplicates references an empty item.
-         */
-        if (new_item.id > STREAM_CTRL_ID && seen_items.count(new_item.id))
-        {
-            log_debug("Duplicate item with ID %d", new_item.id);
-            continue;
-        }
         new_item.is_immediate = decoder.is_immediate(pointer);
         if (new_item.is_immediate)
         {
@@ -126,7 +108,6 @@ heap::heap(live_heap &&h)
             log_debug("Found new immediate item ID %d, value %d",
                       new_item.id, new_item.immediate_value);
             next_immediate += immediate_size;
-            seen_items.insert(new_item.id);
         }
         else
         {
@@ -147,7 +128,6 @@ heap::heap(live_heap &&h)
             new_item.length = end - start;
             log_debug("found new addressed item ID %d, offset %d, length %d",
                       new_item.id, start, end - start);
-            seen_items.insert(new_item.id);
         }
         items.push_back(new_item);
     }

@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <cstring>
 #include <vector>
+#include <unordered_set>
 #include <memory>
 #include <map>
 #include <functional>
@@ -98,6 +99,14 @@ private:
      * are extracted in @ref packet_header. They are in native endian.
      */
     std::vector<item_pointer_t> pointers;
+    /**
+     * The pointers again, but this time as a set. This is used purely to
+     * eliminate the duplicates that some implementations send us (in every
+     * single packet). This can't currently completely replace
+     * @ref pointers, because we need to preserve ordering in order to figure
+     * out item boundaries in the presence of zero-length items.
+     */
+    std::unordered_set<item_pointer_t> seen_pointers;
     /**
      * Parts of the payload that have been seen. Each key indicates the start
      * of a contiguous region of received data, and the value indicates the end

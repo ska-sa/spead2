@@ -377,6 +377,37 @@ class TestDecode(object):
         item = self.data_to_item(packet, 0x1234)
         assert_equal(expected, item.value)
 
+    def test_duplicates(self):
+        payload = bytearray(64)
+        payload[:] = range(64)
+        packets = [
+            self.flavour.make_packet([
+                Item(spead2.HEAP_CNT_ID, 1, True),
+                Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
+                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
+                Item(spead2.HEAP_LENGTH_ID, 64, True),
+                Item(0x1600, 12345, True),
+                Item(0x5000, 0, False, offset=0)], payload[0 : 32]),
+            self.flavour.make_packet([
+                Item(spead2.HEAP_CNT_ID, 1, True),
+                Item(spead2.PAYLOAD_OFFSET_ID, 32, True),
+                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
+                Item(spead2.HEAP_LENGTH_ID, 64, True),
+                Item(0x1600, 12345, True),
+                Item(0x5000, 0, False, offset=0)], payload[32 : 64])
+        ]
+        heaps = self.data_to_heaps(b''.join(packets))
+        assert_equal(1, len(heaps))
+        items = heaps[0].get_items()
+        assert_equal(2, len(items))
+        items.sort(key=lambda item: item.id)
+        assert_equal(0x1600, items[0].id)
+        assert_true(items[0].is_immediate)
+        assert_equal(12345, items[0].immediate_value)
+        assert_equal(0x5000, items[1].id)
+        assert_false(items[1].is_immediate)
+        assert_equal(payload, bytearray(items[1].value))
+
     def test_is_start_of_stream(self):
         packet = self.flavour.make_packet_heap(
             1,

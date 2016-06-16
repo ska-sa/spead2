@@ -153,23 +153,26 @@ bool live_heap::add_packet(const packet_header &packet)
      * unconditionally call reserve for the size we actually want, because we
      * should avoid disabling vector's doubling heuristic.
      */
-    if (pointers.empty())
+    if (pointers.capacity() == 0)
         pointers.reserve(packet.n_items);
     for (int i = 0; i < packet.n_items; i++)
     {
         item_pointer_t pointer = load_be<item_pointer_t>(packet.pointers + i * sizeof(item_pointer_t));
-        if (!decoder.is_immediate(pointer))
-            min_length = std::max(min_length, s_item_pointer_t(decoder.get_address(pointer)));
-        s_item_pointer_t item_id = decoder.get_id(pointer);
-        if (item_id == 0 || item_id > PAYLOAD_LENGTH_ID)
+        if (seen_pointers.insert(pointer).second) // true if this is a new addition
         {
-            /* NULL items are included because they can be direct-addressed, and this
-             * pointer may determine the length of the previous direct-addressed item.
-             */
-            pointers.push_back(pointer);
-            if (item_id == STREAM_CTRL_ID && decoder.is_immediate(pointer)
-                && decoder.get_immediate(pointer) == CTRL_STREAM_STOP)
-                end_of_stream = true;
+            if (!decoder.is_immediate(pointer))
+                min_length = std::max(min_length, s_item_pointer_t(decoder.get_address(pointer)));
+            s_item_pointer_t item_id = decoder.get_id(pointer);
+            if (item_id == 0 || item_id > PAYLOAD_LENGTH_ID)
+            {
+                /* NULL items are included because they can be direct-addressed, and this
+                 * pointer may determine the length of the previous direct-addressed item.
+                 */
+                pointers.push_back(pointer);
+                if (item_id == STREAM_CTRL_ID && decoder.is_immediate(pointer)
+                    && decoder.get_immediate(pointer) == CTRL_STREAM_STOP)
+                    end_of_stream = true;
+            }
         }
     }
 
