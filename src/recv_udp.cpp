@@ -249,7 +249,9 @@ void udp_reader::packet_handler(
     }
     else
     {
+#if SPEAD2_USE_RECVMMSG
         socket2.close();
+#endif
         stopped();
     }
 }

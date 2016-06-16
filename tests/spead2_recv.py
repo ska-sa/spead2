@@ -39,6 +39,7 @@ def get_args():
     group.add_argument('--log', metavar='LEVEL', default='INFO', help='Log level [%(default)s]')
     group.add_argument('--values', action='store_true', help='Show heap values')
     group.add_argument('--descriptors', action='store_true', help='Show descriptors')
+    group.add_argument('--max-heaps', type=int, help='Stop receiving after this many heaps')
 
     group = parser.add_argument_group('Protocol options')
     group.add_argument('--pyspead', action='store_true', help='Be bug-compatible with PySPEAD')
@@ -69,6 +70,9 @@ def run_stream(stream, name, args):
     num_heaps = 0
     while True:
         try:
+            if num_heaps == args.max_heaps:
+                stream.stop()
+                break
             heap = yield From(stream.get())
             print("Received heap {} on stream {}".format(heap.cnt, name))
             num_heaps += 1
