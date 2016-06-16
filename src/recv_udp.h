@@ -42,8 +42,6 @@ namespace recv
 
 /**
  * Asynchronous stream reader that receives packets over UDP.
- *
- * @todo Log errors somehow?
  */
 class udp_reader : public udp_reader_base
 {
