@@ -9,6 +9,8 @@ Changelog
   received rather than when freezing a live heap (fixes #46).
 - Use hex for reporting item IDs in log messages
 - Fix reading from closed file descriptor after stream.stop() (fixes #42)
+- Fix segmentation fault when using ibverbs but trying to bind to a
+  non-RDMA device network interface (fixes #45)
 
 .. rubric:: Version 0.10.2
 

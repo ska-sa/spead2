@@ -107,6 +107,8 @@ void udp_ibv_reader::bind_address(
     int status = rdma_bind_addr(cm_id, (sockaddr *) &address);
     if (status < 0)
         throw_errno("rdma_bind_addr failed");
+    if (cm_id->verbs == nullptr)
+        throw_errno("rdma_bind_addr did not bind to an RDMA device", ENODEV);
 }
 
 std::unique_ptr<ibv_comp_channel, detail::ibv_comp_channel_deleter>
