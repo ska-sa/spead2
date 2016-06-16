@@ -365,7 +365,7 @@ void udp_ibv_reader::packet_handler(const boost::system::error_code &error)
             }
         }
     }
-    else
+    else if (error != boost::asio::error::operation_aborted)
         log_warning("Error in UDP receiver: %1%", error.message());
 
     if (!get_stream_base().is_stopped())

@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Suppress "operation aborted" warnings from UDP reader when using the API
+  to stop a stream (introduced in 0.10.0).
+
 .. rubric:: Version 0.10.2
 
 - Fix a performance problem when a heap contains many packets and every
