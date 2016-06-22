@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.10.3
 
 - Suppress "operation aborted" warnings from UDP reader when using the API
   to stop a stream (introduced in 0.10.0).
