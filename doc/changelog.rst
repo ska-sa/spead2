@@ -1,6 +1,13 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Split out a separate py_register.cpp that does the module registration.
+  This makes it easier to build other Python extensions using the C++ API
+  and using bits of the Python glue, without creating the spead Python
+  module.
+
 .. rubric:: Version 0.10.3
 
 - Suppress "operation aborted" warnings from UDP reader when using the API

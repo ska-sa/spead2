@@ -348,6 +348,8 @@ struct store_handle_postcall : BasePolicy_
     }
 };
 
+void register_module();
+
 } // namespace spead2
 
 #endif // SPEAD2_PY_COMMON_H

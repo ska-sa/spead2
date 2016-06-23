@@ -16,9 +16,9 @@
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL spead2_ARRAY_API
+#define NO_IMPORT_ARRAY
 #include <boost/python.hpp>
 #include <boost/system/system_error.hpp>
-#include <numpy/arrayobject.h>
 #include <memory>
 #include "py_common.h"
 #include "common_ringbuffer.h"
@@ -241,7 +241,7 @@ public:
     }
 };
 
-static void register_module()
+void register_module()
 {
     using namespace boost::python;
     using namespace spead2;
@@ -345,36 +345,3 @@ static void register_module()
 }
 
 } // namespace spead2
-
-#include "py_recv.h"
-#include "py_send.h"
-
-/* Wrapper to deal with import_array returning nothing in Python 2, NULL in
- * Python 3.
- */
-#if PY_MAJOR_VERSION >= 3
-static void *call_import_array(bool &success)
-#else
-static void call_import_array(bool &success)
-#endif
-{
-    success = false;
-    import_array(); // This is a macro that might return
-    success = true;
-#if PY_MAJOR_VERSION >= 3
-    return NULL;
-#endif
-}
-
-BOOST_PYTHON_MODULE(_spead2)
-{
-    // Needed to make NumPy functions work
-    bool numpy_imported = false;
-    call_import_array(numpy_imported);
-    if (!numpy_imported)
-        py::throw_error_already_set();
-
-    spead2::register_module();
-    spead2::recv::register_module();
-    spead2::send::register_module();
-}
