@@ -33,6 +33,7 @@
 #include "common_memory_allocator.h"
 #include "common_memory_pool.h"
 #include "common_thread_pool.h"
+#include "common_logging.h"
 
 namespace spead2
 {
@@ -345,6 +346,32 @@ struct store_handle_postcall : BasePolicy_
             return nullptr;
         }
         return result;
+    }
+};
+
+class log_function_python
+{
+private:
+    boost::python::object logger;
+public:
+    typedef void result_type;
+
+    log_function_python() = default;
+    explicit log_function_python(const boost::python::object &logger) : logger(logger) {}
+
+    void operator()(log_level level, const std::string &msg)
+    {
+        acquire_gil gil;
+
+        static const char *const level_methods[] =
+        {
+            "warning",
+            "info",
+            "debug"
+        };
+        unsigned int level_idx = static_cast<unsigned int>(level);
+        assert(level_idx < sizeof(level_methods) / sizeof(level_methods[0]));
+        logger.attr(level_methods[level_idx])("%s", msg);
     }
 };
 

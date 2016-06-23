@@ -7,6 +7,8 @@ Changelog
   This makes it easier to build other Python extensions using the C++ API
   and using bits of the Python glue, without creating the spead Python
   module.
+- Other refactoring of :file:`py_*.cpp` to support reuse in other C++ extension
+  modules.
 
 .. rubric:: Version 0.10.3
 

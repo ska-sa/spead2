@@ -33,31 +33,6 @@ namespace py = boost::python;
 namespace spead2
 {
 
-class log_function_python
-{
-private:
-    py::object logger;
-public:
-    typedef void result_type;
-
-    explicit log_function_python(const py::object &logger) : logger(logger) {}
-
-    void operator()(log_level level, const std::string &msg)
-    {
-        acquire_gil gil;
-
-        static const char *const level_methods[] =
-        {
-            "warning",
-            "info",
-            "debug"
-        };
-        unsigned int level_idx = static_cast<unsigned int>(level);
-        assert(level_idx < sizeof(level_methods) / sizeof(level_methods[0]));
-        logger.attr(level_methods[level_idx])("%s", msg);
-    }
-};
-
 static PyObject *ringbuffer_stopped_type;
 static PyObject *ringbuffer_empty_type;
 
