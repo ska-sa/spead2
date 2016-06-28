@@ -1,14 +1,11 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 0.10.4
 
-- Split out a separate py_register.cpp that does the module registration.
-  This makes it easier to build other Python extensions using the C++ API
-  and using bits of the Python glue, without creating the spead Python
-  module.
-- Other refactoring of :file:`py_*.cpp` to support reuse in other C++ extension
-  modules.
+- Some of the Boost.Python glue code was refactored to make it possible to
+  reuse parts of it in writing new Python extensions that use the C++ spead2
+  API.
 
 .. rubric:: Version 0.10.3
 
