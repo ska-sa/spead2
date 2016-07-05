@@ -23,6 +23,8 @@
 #include "common_logging.h"
 #include <iostream>
 #include <cassert>
+#include <system_error>
+#include <cerrno>
 
 namespace spead2
 {
@@ -57,5 +59,36 @@ void log_msg_impl(log_level level, const std::string &msg)
 }
 
 } // namespace detail
+
+void log_errno(const char *format, int err)
+{
+    std::error_code code(err, std::system_category());
+    log_warning(format, code.value(), code.message());
+}
+
+void log_errno(const char *format)
+{
+    log_errno(format, errno);
+}
+
+[[noreturn]] void throw_errno(const char *msg, int err)
+{
+    if (err == 0)
+    {
+        throw std::system_error(
+            std::make_error_code(std::errc::invalid_argument),
+            msg + std::string(" (unknown error)"));
+    }
+    else
+    {
+        std::system_error exception(err, std::system_category());
+        throw exception;
+    }
+}
+
+[[noreturn]] void throw_errno(const char *msg)
+{
+    throw_errno(msg, errno);
+}
 
 } // namespace spead2

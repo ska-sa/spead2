@@ -40,17 +40,6 @@
 namespace spead2
 {
 
-[[noreturn]] static void throw_errno()
-{
-    throw std::system_error(errno, std::system_category());
-}
-
-static void log_errno(const char *format)
-{
-    std::error_code code(errno, std::system_category());
-    log_warning(format, code.value(), code.message());
-}
-
 semaphore_spin::semaphore_spin(unsigned int initial)
     : value(initial)
 {
@@ -93,7 +82,7 @@ int semaphore_spin::try_get()
 semaphore_posix::semaphore_posix(unsigned int initial)
 {
     if (sem_init(&sem, 0, initial) == -1)
-        throw_errno();
+        throw_errno("sem_init failed");
 }
 
 semaphore_posix::~semaphore_posix()
@@ -108,7 +97,7 @@ semaphore_posix::~semaphore_posix()
 void semaphore_posix::put()
 {
     if (sem_post(&sem) == -1)
-        throw_errno();
+        throw_errno("sem_post failed");
 }
 
 int semaphore_posix::try_get()
@@ -119,7 +108,7 @@ int semaphore_posix::try_get()
         if (errno == EAGAIN || errno == EINTR)
             return -1;
         else
-            throw_errno();
+            throw_errno("sem_trywait failed");
     }
     else
         return 0;
@@ -133,7 +122,7 @@ int semaphore_posix::get()
         if (errno == EINTR)
             return -1;
         else
-            throw_errno();
+            throw_errno("sem_wait failed");
     }
     else
         return 0;
@@ -159,7 +148,7 @@ semaphore_pipe &semaphore_pipe::operator=(semaphore_pipe &&other)
         if (pipe_fds[i] != -1)
         {
             if (close(pipe_fds[i]) == -1)
-                throw_errno();
+                throw_errno("close failed");
             pipe_fds[i] = -1;
         }
     }
@@ -174,23 +163,23 @@ semaphore_pipe &semaphore_pipe::operator=(semaphore_pipe &&other)
 semaphore_pipe::semaphore_pipe(unsigned int initial)
 {
     if (pipe(pipe_fds) == -1)
-        throw_errno();
+        throw_errno("pipe failed");
     for (int i = 0; i < 2; i++)
     {
         int flags = fcntl(pipe_fds[i], F_GETFD);
         if (flags == -1)
-            throw_errno();
+            throw_errno("fcntl failed");
         flags |= FD_CLOEXEC;
         if (fcntl(pipe_fds[i], F_SETFD, flags) == -1)
-            throw_errno();
+            throw_errno("fcntl failed");
     }
     // Make the read end non-blocking, for try_get
     int flags = fcntl(pipe_fds[0], F_GETFL);
     if (flags == -1)
-        throw_errno();
+        throw_errno("fcntl failed");
     flags |= O_NONBLOCK;
     if (fcntl(pipe_fds[0], F_SETFL, flags) == -1)
-        throw_errno();
+        throw_errno("fcntl failed");
     // TODO: this could probably be optimised
     for (unsigned int i = 0; i < initial; i++)
         put();
@@ -218,7 +207,7 @@ void semaphore_pipe::put()
         status = write(pipe_fds[1], &byte, 1);
         if (status < 0 && errno != EINTR)
         {
-            throw_errno();
+            throw_errno("write failed");
         }
     } while (status < 0);
 }
@@ -237,7 +226,7 @@ int semaphore_pipe::get()
             if (errno == EINTR)
                 return -1;
             else
-                throw_errno();
+                throw_errno("poll failed");
         }
         status = read(pipe_fds[0], &byte, 1);
         if (status < 0)
@@ -245,7 +234,7 @@ int semaphore_pipe::get()
             if (errno == EAGAIN || errno == EWOULDBLOCK)
                 continue; // spurious wakeup from poll
             else
-                throw_errno();
+                throw_errno("read failed");
         }
         else
         {
@@ -264,7 +253,7 @@ int semaphore_pipe::try_get()
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return -1;
         else
-            throw_errno();
+            throw_errno("read failed");
     }
     else
     {
@@ -300,7 +289,7 @@ semaphore_eventfd &semaphore_eventfd::operator=(semaphore_eventfd &&other)
     if (other.fd != -1)
     {
         if (close(other.fd) == -1)
-            throw_errno();
+            throw_errno("close failed");
         other.fd = -1;
     }
     return *this;
@@ -310,7 +299,7 @@ semaphore_eventfd::semaphore_eventfd(unsigned int initial)
 {
     fd = eventfd(initial, EFD_CLOEXEC | EFD_NONBLOCK | EFD_SEMAPHORE);
     if (fd == -1)
-        throw_errno();
+        throw_errno("eventfd failed");
 }
 
 void semaphore_eventfd::put()
@@ -322,7 +311,7 @@ void semaphore_eventfd::put()
         if (status == -1)
         {
             if (errno != -1)
-                throw_errno();
+                throw_errno("eventfd_write failed");
         }
     } while (status == -1);
 }
@@ -336,7 +325,7 @@ int semaphore_eventfd::try_get()
         if (errno == EAGAIN || errno == EINTR)
             return -1;
         else
-            throw_errno();
+            throw_errno("eventfd_read failed");
     }
     assert(status == 0);
     return 0;
@@ -356,7 +345,7 @@ int semaphore_eventfd::get()
             if (errno == EINTR)
                 return -1;
             else
-                throw_errno();
+                throw_errno("poll failed");
         }
         status = eventfd_read(fd, &value);
         if (status < 0)
@@ -364,7 +353,7 @@ int semaphore_eventfd::get()
             if (errno == EAGAIN || errno == EWOULDBLOCK)
                 continue; // spurious wakeup from poll
             else
-                throw_errno();
+                throw_errno("eventfd_read failed");
         }
         else
         {

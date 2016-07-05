@@ -108,6 +108,16 @@ SPEAD2_DEFINE_LOG_LEVEL(warning)
 
 #undef SPEAD2_DEFINE_LOG_LEVEL
 
+/// Write a warning log message about an errno constant
+void log_errno(const char *format, int err);
+/// Write a warning log message about errno
+void log_errno(const char *format);
+
+/// Throw a system_error about an errno constant
+[[noreturn]] void throw_errno(const char *msg, int err);
+/// Throw a system_error about errno
+[[noreturn]] void throw_errno(const char *msg);
+
 } // namespace spead2
 
 #endif // SPEAD2_COMMON_LOGGING_H

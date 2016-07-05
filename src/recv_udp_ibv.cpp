@@ -48,30 +48,6 @@ constexpr std::size_t udp_ibv_reader::default_buffer_size;
 constexpr int udp_ibv_reader::default_max_poll;
 static constexpr int HEADER_LENGTH = 42; // Eth: 14 IP: 20 UDP: 8
 
-[[noreturn]] static void throw_errno(const char *msg, int err)
-{
-    /* Many of the ibv_ functions don't explicitly document that errno is
-     * set. To protect against the case where it isn't, errno is set to 0
-     * first.
-     */
-    if (err == 0)
-    {
-        log_warning("%1%: unknown error", msg);
-        throw std::system_error(EINVAL, std::system_category());
-    }
-    else
-    {
-        std::system_error exception(err, std::system_category());
-        log_warning("%1%: %2%", msg, exception.what());
-        throw exception;
-    }
-}
-
-[[noreturn]] static void throw_errno(const char *msg)
-{
-    throw_errno(msg, errno);
-}
-
 std::unique_ptr<rdma_event_channel, detail::rdma_event_channel_deleter>
 udp_ibv_reader::create_event_channel()
 {
