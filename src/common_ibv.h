@@ -164,6 +164,7 @@ public:
 
     // bad_wr is ignored, because we throw an exception on failure
     void post_recv(ibv_recv_wr *wr);
+    void post_send(ibv_send_wr *wr);
 };
 
 class ibv_mr_t : public std::unique_ptr<ibv_mr, detail::ibv_mr_deleter>

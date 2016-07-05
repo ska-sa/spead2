@@ -178,6 +178,15 @@ void ibv_qp_t::post_recv(ibv_recv_wr *wr)
         throw_errno("ibv_post_recv failed", status);
 }
 
+void ibv_qp_t::post_send(ibv_send_wr *wr)
+{
+    assert(get());
+    ibv_send_wr *bad_wr;
+    int status = ibv_post_send(get(), wr, &bad_wr);
+    if (status != 0)
+        throw_errno("ibv_post_send failed", status);
+}
+
 ibv_flow_t::ibv_flow_t(const ibv_qp_t &qp, ibv_flow_attr *flow_attr)
 {
     errno = 0;
