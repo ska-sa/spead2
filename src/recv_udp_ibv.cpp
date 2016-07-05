@@ -48,134 +48,23 @@ constexpr std::size_t udp_ibv_reader::default_buffer_size;
 constexpr int udp_ibv_reader::default_max_poll;
 static constexpr int HEADER_LENGTH = 42; // Eth: 14 IP: 20 UDP: 8
 
-std::unique_ptr<rdma_event_channel, detail::rdma_event_channel_deleter>
-udp_ibv_reader::create_event_channel()
-{
-    errno = 0;
-    std::unique_ptr<rdma_event_channel, detail::rdma_event_channel_deleter>
-        event_channel{rdma_create_event_channel()};
-    if (!event_channel)
-        throw_errno("rdma_create_event_channel failed");
-    return event_channel;
-}
-
-std::unique_ptr<rdma_cm_id, detail::rdma_cm_id_deleter>
-udp_ibv_reader::create_id(rdma_event_channel *event_channel)
-{
-    rdma_cm_id *cm_id = nullptr;
-    errno = 0;
-    int status = rdma_create_id(event_channel, &cm_id, nullptr, RDMA_PS_UDP);
-    if (status < 0)
-        throw_errno("rdma_create_id failed");
-    return std::unique_ptr<rdma_cm_id, detail::rdma_cm_id_deleter>(cm_id);
-}
-
-void udp_ibv_reader::bind_address(
-    rdma_cm_id *cm_id,
-    const boost::asio::ip::address &interface_address)
-{
-    sockaddr_in address;
-    std::memset(&address, 0, sizeof(address));
-    auto bytes = interface_address.to_v4().to_bytes();
-    address.sin_family = AF_INET;
-    std::memcpy(&address.sin_addr.s_addr, &bytes, sizeof(address.sin_addr.s_addr));
-    errno = 0;
-    int status = rdma_bind_addr(cm_id, (sockaddr *) &address);
-    if (status < 0)
-        throw_errno("rdma_bind_addr failed");
-    if (cm_id->verbs == nullptr)
-        throw_errno("rdma_bind_addr did not bind to an RDMA device", ENODEV);
-}
-
-std::unique_ptr<ibv_comp_channel, detail::ibv_comp_channel_deleter>
-udp_ibv_reader::create_comp_channel(ibv_context *context)
-{
-    errno = 0;
-    std::unique_ptr<ibv_comp_channel, detail::ibv_comp_channel_deleter>
-        comp_channel(ibv_create_comp_channel(context));
-    if (!comp_channel)
-        throw_errno("ibv_create_comp_channel failed");
-    return comp_channel;
-}
-
-boost::asio::posix::stream_descriptor udp_ibv_reader::wrap_comp_channel(
-    boost::asio::io_service &io_service, ibv_comp_channel *comp_channel)
-{
-    int fd = dup(comp_channel->fd);
-    if (fd < 0)
-        throw_errno("dup failed");
-    boost::asio::posix::stream_descriptor descriptor(io_service, fd);
-    descriptor.native_non_blocking(true);
-    return descriptor;
-}
-
-std::unique_ptr<ibv_cq, detail::ibv_cq_deleter>
-udp_ibv_reader::create_cq(
-    ibv_context *context, int cqe, ibv_comp_channel *comp_channel, int comp_vector)
-{
-    errno = 0;
-    std::unique_ptr<ibv_cq, detail::ibv_cq_deleter>
-        cq(ibv_create_cq(context, cqe, nullptr, comp_channel, comp_vector));
-    if (!cq)
-        throw_errno("ibv_create_cq failed");
-    return cq;
-}
-
-std::unique_ptr<ibv_pd, detail::ibv_pd_deleter>
-udp_ibv_reader::create_pd(ibv_context *context)
-{
-    errno = 0;
-    std::unique_ptr<ibv_pd, detail::ibv_pd_deleter>
-        pd(ibv_alloc_pd(context));
-    if (!pd)
-        throw_errno("ibv_alloc_pd failed");
-    return pd;
-}
-
-std::unique_ptr<ibv_qp, detail::ibv_qp_deleter>
-udp_ibv_reader::create_qp(ibv_pd *pd, ibv_cq *send_cq, ibv_cq *recv_cq, std::size_t n_slots)
+ibv_qp_t udp_ibv_reader::create_qp(
+    const ibv_pd_t &pd, const ibv_cq_t &send_cq, const ibv_cq_t &recv_cq, std::size_t n_slots)
 {
     ibv_qp_init_attr attr;
     memset(&attr, 0, sizeof(attr));
-    attr.send_cq = send_cq;
-    attr.recv_cq = recv_cq;
+    attr.send_cq = send_cq.get();
+    attr.recv_cq = recv_cq.get();
     attr.qp_type = IBV_QPT_RAW_PACKET;
     attr.cap.max_send_wr = 1;
     attr.cap.max_recv_wr = n_slots;
     attr.cap.max_send_sge = 1;
     attr.cap.max_recv_sge = 1;
-    errno = 0;
-    std::unique_ptr<ibv_qp, detail::ibv_qp_deleter> qp(ibv_create_qp(pd, &attr));
-    if (!qp)
-        throw_errno("ibv_create_qp failed");
-    return qp;
+    return ibv_qp_t(pd, &attr);
 }
 
-std::unique_ptr<ibv_mr, detail::ibv_mr_deleter>
-udp_ibv_reader::create_mr(ibv_pd *pd, void *addr, std::size_t length)
-{
-    errno = 0;
-    std::unique_ptr<ibv_mr, detail::ibv_mr_deleter>
-        mr(ibv_reg_mr(pd, addr, length, IBV_ACCESS_LOCAL_WRITE));
-    if (!mr)
-        throw_errno("ibv_reg_mr failed");
-    return mr;
-}
-
-void udp_ibv_reader::init_qp(ibv_qp *qp, int port_num)
-{
-    ibv_qp_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.qp_state = IBV_QPS_INIT;
-    attr.port_num = port_num;
-    int status = ibv_modify_qp(qp, &attr, IBV_QP_STATE | IBV_QP_PORT);
-    if (status != 0)
-        throw_errno("ibv_modify_qp failed", status);
-}
-
-std::unique_ptr<ibv_flow, detail::ibv_flow_deleter>
-udp_ibv_reader::create_flow(ibv_qp *qp, const boost::asio::ip::udp::endpoint &endpoint,
-                            int port_num)
+ibv_flow_t udp_ibv_reader::create_flow(
+    const ibv_qp_t &qp, const boost::asio::ip::udp::endpoint &endpoint, int port_num)
 {
     struct
     {
@@ -217,47 +106,12 @@ udp_ibv_reader::create_flow(ibv_qp *qp, const boost::asio::ip::udp::endpoint &en
     flow_rule.udp.val.dst_port = htobe16(endpoint.port());
     flow_rule.udp.mask.dst_port = 0xFFFF;
 
-    errno = 0;
-    std::unique_ptr<ibv_flow, detail::ibv_flow_deleter>
-        flow(ibv_create_flow(qp, &flow_rule.attr));
-    if (!flow)
-        throw_errno("ibv_create_flow failed");
-    return flow;
-}
-
-void udp_ibv_reader::rtr_qp(ibv_qp *qp)
-{
-    struct ibv_qp_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.qp_state = IBV_QPS_RTR;
-    int status = ibv_modify_qp(qp, &attr, IBV_QP_STATE);
-    if (status != 0)
-        throw_errno("ibv_modify_qp to IBV_QPS_RTR failed", status);
-}
-
-void udp_ibv_reader::req_notify_cq(ibv_cq *cq)
-{
-    int status = ibv_req_notify_cq(cq, 0);
-    if (status != 0)
-        throw_errno("ibv_req_notify_cq failed", status);
-}
-
-void udp_ibv_reader::post_slot(std::size_t index)
-{
-    ibv_recv_wr *bad_wr;
-    int status = ibv_post_recv(qp.get(), &slots[index].wr, &bad_wr);
-    if (status != 0)
-        throw_errno("ibv_post_recv failed", status);
+    return ibv_flow_t(qp, &flow_rule.attr);
 }
 
 int udp_ibv_reader::poll_once()
 {
-    int received = ibv_poll_cq(recv_cq.get(), n_slots, wc.get());
-    if (received < 0)
-    {
-        log_warning("ibv_poll_cq failed");
-        return -1;
-    }
+    int received = recv_cq.poll(n_slots, wc.get());
     for (int i = 0; i < received; i++)
     {
         int index = wc[i].wr_id;
@@ -291,7 +145,7 @@ int udp_ibv_reader::poll_once()
                     return -2;
             }
         }
-        post_slot(index);
+        qp.post_recv(&slots[index].wr);
     }
     return received;
 }
@@ -310,14 +164,9 @@ void udp_ibv_reader::packet_handler(const boost::system::error_code &error)
             {
                 ibv_cq *event_cq;
                 void *event_context;
-                int status = ibv_get_cq_event(comp_channel.get(), &event_cq, &event_context);
-                if (status < 0)
-                    log_warning("ibv_get_cq_event failed");
-                else
-                {
-                    // TODO: defer acks until shutdown
-                    ibv_ack_cq_events(event_cq, 1);
-                }
+                comp_channel.get_event(&event_cq, &event_context);
+                // TODO: defer acks until shutdown
+                recv_cq.ack_events(1);
             }
             for (int i = 0; i < max_poll; i++)
             {
@@ -332,7 +181,7 @@ void udp_ibv_reader::packet_handler(const boost::system::error_code &error)
                          * before req_notify_cq, failing to trigger a
                          * notification.
                          */
-                        req_notify_cq(recv_cq.get());
+                        recv_cq.req_notify(false);
                     }
                 }
                 else if (stop_poll.load())
@@ -398,28 +247,26 @@ udp_ibv_reader::udp_ibv_reader(
     const int max_raw_size = max_size + HEADER_LENGTH;
     buffer_size = n_slots * max_raw_size;
 
-    event_channel = create_event_channel();
-    cm_id = create_id(event_channel.get());
-    bind_address(cm_id.get(), interface_address);
-    ibv_context *context = cm_id->verbs;
-    assert(context);
+    cm_id = rdma_cm_id_t(event_channel, nullptr, RDMA_PS_UDP);
+    cm_id.bind_addr(interface_address);
 
     if (comp_vector >= 0)
     {
-        comp_channel = create_comp_channel(context);
-        comp_channel_wrapper = wrap_comp_channel(owner.get_strand().get_io_service(), comp_channel.get());
-        recv_cq = create_cq(context, n_slots, comp_channel.get(), comp_vector % context->num_comp_vectors);
+        comp_channel = ibv_comp_channel_t(cm_id);
+        comp_channel_wrapper = comp_channel.wrap(owner.get_strand().get_io_service());
+        recv_cq = ibv_cq_t(cm_id, n_slots, nullptr,
+                           comp_channel, comp_vector % cm_id->verbs->num_comp_vectors);
     }
     else
-        recv_cq = create_cq(context, n_slots, nullptr, 0);
-    send_cq = create_cq(context, 1, nullptr, 0);
-    pd = create_pd(context);
-    qp = create_qp(pd.get(), send_cq.get(), recv_cq.get(), n_slots);
-    init_qp(qp.get(), cm_id->port_num);
-    flow = create_flow(qp.get(), endpoint, cm_id->port_num);
+        recv_cq = ibv_cq_t(cm_id, n_slots, nullptr);
+    send_cq = ibv_cq_t(cm_id, 1, nullptr);
+    pd = ibv_pd_t(cm_id);
+    qp = create_qp(pd, send_cq, recv_cq, n_slots);
+    qp.modify(IBV_QPS_INIT, cm_id->port_num);
+    flow = create_flow(qp, endpoint, cm_id->port_num);
 
     buffer.reset(new std::uint8_t[buffer_size]);
-    mr = create_mr(pd.get(), buffer.get(), buffer_size);
+    mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
     slots.reset(new slot[n_slots]);
     wc.reset(new ibv_wc[n_slots]);
     for (std::size_t i = 0; i < n_slots; i++)
@@ -431,7 +278,7 @@ udp_ibv_reader::udp_ibv_reader(
         slots[i].wr.sg_list = &slots[i].sge;
         slots[i].wr.num_sge = 1;
         slots[i].wr.wr_id = i;
-        post_slot(i);
+        qp.post_recv(&slots[i].wr);
     }
 
     join_socket.set_option(boost::asio::socket_base::reuse_address(true));
@@ -439,9 +286,9 @@ udp_ibv_reader::udp_ibv_reader(
         endpoint.address().to_v4(), interface_address.to_v4()));
 
     if (comp_channel)
-        req_notify_cq(recv_cq.get());
+        recv_cq.req_notify(false);
     enqueue_receive();
-    rtr_qp(qp.get());
+    qp.modify(IBV_QPS_RTR);
 }
 
 void udp_ibv_reader::stop()

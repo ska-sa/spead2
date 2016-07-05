@@ -33,6 +33,7 @@
 #include <cstddef>
 #include <memory>
 #include <boost/asio.hpp>
+#include "common_ibv.h"
 #include "recv_reader.h"
 #include "recv_stream.h"
 #include "recv_udp_base.h"
@@ -41,77 +42,6 @@ namespace spead2
 {
 namespace recv
 {
-
-namespace detail
-{
-
-// Deleters for unique_ptr wrappers of the various ibverbs structures
-
-struct rdma_cm_id_deleter
-{
-    void operator()(rdma_cm_id *cm_id)
-    {
-        rdma_destroy_id(cm_id);
-    }
-};
-
-struct rdma_event_channel_deleter
-{
-    void operator()(rdma_event_channel *event_channel)
-    {
-        rdma_destroy_event_channel(event_channel);
-    }
-};
-
-struct ibv_qp_deleter
-{
-    void operator()(ibv_qp *qp)
-    {
-        ibv_destroy_qp(qp);
-    }
-};
-
-struct ibv_cq_deleter
-{
-    void operator()(ibv_cq *cq)
-    {
-        ibv_destroy_cq(cq);
-    }
-};
-
-struct ibv_mr_deleter
-{
-    void operator()(ibv_mr *mr)
-    {
-        ibv_dereg_mr(mr);
-    }
-};
-
-struct ibv_pd_deleter
-{
-    void operator()(ibv_pd *pd)
-    {
-        ibv_dealloc_pd(pd);
-    }
-};
-
-struct ibv_comp_channel_deleter
-{
-    void operator()(ibv_comp_channel *comp_channel)
-    {
-        ibv_destroy_comp_channel(comp_channel);
-    }
-};
-
-struct ibv_flow_deleter
-{
-    void operator()(ibv_flow *flow)
-    {
-        ibv_destroy_flow(flow);
-    }
-};
-
-} // namespace detail
 
 /**
  * Synchronous or asynchronous stream reader that reads UDP packets using
@@ -143,16 +73,16 @@ private:
     std::unique_ptr<std::uint8_t[]> buffer;
 
     // All the data structures required by ibverbs
-    std::unique_ptr<rdma_event_channel, detail::rdma_event_channel_deleter> event_channel;
-    std::unique_ptr<rdma_cm_id, detail::rdma_cm_id_deleter> cm_id;
-    std::unique_ptr<ibv_pd, detail::ibv_pd_deleter> pd;
-    std::unique_ptr<ibv_comp_channel, detail::ibv_comp_channel_deleter> comp_channel;
+    rdma_event_channel_t event_channel;
+    rdma_cm_id_t cm_id;
+    ibv_pd_t pd;
+    ibv_comp_channel_t comp_channel;
     boost::asio::posix::stream_descriptor comp_channel_wrapper;
-    std::unique_ptr<ibv_cq, detail::ibv_cq_deleter> send_cq;
-    std::unique_ptr<ibv_cq, detail::ibv_cq_deleter> recv_cq;
-    std::unique_ptr<ibv_qp, detail::ibv_qp_deleter> qp;
-    std::unique_ptr<ibv_flow, detail::ibv_flow_deleter> flow;
-    std::unique_ptr<ibv_mr, detail::ibv_mr_deleter> mr;
+    ibv_cq_t send_cq;
+    ibv_cq_t recv_cq;
+    ibv_qp_t qp;
+    ibv_flow_t flow;
+    ibv_mr_t mr;
 
     /// array of @ref n_slots slots for work requests
     std::unique_ptr<slot[]> slots;
@@ -161,52 +91,16 @@ private:
     /// Signals poll-mode to stop
     std::atomic<bool> stop_poll;
 
-    // Utility functions to create all the data structures and throw exceptions
-    // on failure
+    // Utility functions to create the data structures
+    static ibv_qp_t
+    create_qp(const ibv_pd_t &pd, const ibv_cq_t &send_cq, const ibv_cq_t &recv_cq,
+              std::size_t n_slots);
 
-    static std::unique_ptr<rdma_event_channel, detail::rdma_event_channel_deleter>
-    create_event_channel();
-
-    static std::unique_ptr<rdma_cm_id, detail::rdma_cm_id_deleter>
-    create_id(rdma_event_channel *event_channel);
-
-    static void bind_address(
-        rdma_cm_id *cm_id,
-        const boost::asio::ip::address &interface_address);
-
-    static std::unique_ptr<ibv_comp_channel, detail::ibv_comp_channel_deleter>
-    create_comp_channel(ibv_context *context);
-
-    static boost::asio::posix::stream_descriptor wrap_comp_channel(
-        boost::asio::io_service &io_service, ibv_comp_channel *comp_channel);
-
-    static std::unique_ptr<ibv_cq, detail::ibv_cq_deleter>
-    create_cq(
-        ibv_context *context, int cqe, ibv_comp_channel *comp_channel, int comp_vector);
-
-    static std::unique_ptr<ibv_pd, detail::ibv_pd_deleter>
-    create_pd(ibv_context *context);
-
-    static std::unique_ptr<ibv_qp, detail::ibv_qp_deleter>
-    create_qp(ibv_pd *pd, ibv_cq *send_cq, ibv_cq *recv_cq, std::size_t n_slots);
-
-    static std::unique_ptr<ibv_mr, detail::ibv_mr_deleter>
-    create_mr(ibv_pd *pd, void *addr, std::size_t length);
-
-    /// Advance @a qp to @c INIT state
-    static void init_qp(ibv_qp *qp, int port_num);
-
-    static std::unique_ptr<ibv_flow, detail::ibv_flow_deleter>
-    create_flow(ibv_qp *qp, const boost::asio::ip::udp::endpoint &endpoint,
+    static ibv_flow_t
+    create_flow(const ibv_qp_t &qp, const boost::asio::ip::udp::endpoint &endpoint,
                 int port_num);
 
-    /// Advance @a qp to @c RTR (ready-to-receive) state
-    static void rtr_qp(ibv_qp *qp);
-
     static void req_notify_cq(ibv_cq *cq);
-
-    /// Post a work request to the qp
-    void post_slot(std::size_t index);
 
     /**
      * Do one pass over the completion queue.
