@@ -24,12 +24,10 @@
 #include <boost/asio.hpp>
 #include <cerrno>
 #include <system_error>
-#include <netinet/ip.h>
-#include <netinet/udp.h>
-#include <net/ethernet.h>
 #include "recv_reader.h"
 #include "recv_netmap.h"
 #include "common_logging.h"
+#include "common_raw_packet.h"
 
 namespace spead2
 {
@@ -57,7 +55,7 @@ void nm_desc_destructor::operator()(nm_desc *d) const
 netmap_udp_reader::netmap_udp_reader(stream &owner, const std::string &device, std::uint16_t port)
     : reader(owner), handle(get_io_service()),
     desc(nm_open(("netmap:" + device + "*").c_str(), NULL, 0, NULL)),
-    port_be(htons(port))
+    port(port)
 {
     if (!desc)
         throw std::system_error(errno, std::system_category());
@@ -67,13 +65,6 @@ netmap_udp_reader::netmap_udp_reader(stream &owner, const std::string &device, s
 
 void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
 {
-    struct header
-    {
-        ether_header eth;
-        iphdr ip;
-        udphdr udp;
-    } __attribute__((__packed__));
-
     if (!error)
     {
         for (int ri = desc->first_rx_ring; ri <= desc->last_rx_ring; ri++)
@@ -86,32 +77,38 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                 bool used = false;
                 // Skip even trying to process packets in the host ring
                 if (ri != desc->req.nr_rx_rings
-                    && slot.len >= sizeof(header)
                     && !(slot.flags & NS_MOREFRAG))
                 {
                     const unsigned char *data = (const unsigned char *) NETMAP_BUF(ring, slot.buf_idx);
-                    const header *ph = (const header *) data;
-                    /* Checks that this packet is
-                     * - big enough
-                     * - IPv4, UDP
-                     * - unfragmented
-                     * - on the right port
-                     * It also requires that there are no IP options, since
-                     * otherwise the UDP header is at an unknown offset.
-                     */
-                    if (ph->eth.ether_type == htons(ETHERTYPE_IP)
-                        && ph->ip.version == 4
-                        && ph->ip.ihl == 5
-                        && ph->ip.protocol == IPPROTO_UDP
-                        && (ph->ip.frag_off & 0x3f) == 0  /* more fragments bit clear, zero offset */
-                        && ph->udp.dest == port_be)
+                    packet_buffer payload;
+                    try
                     {
-                        used = true;
+                        ethernet_frame eth(const_cast<unsigned char *>(data), slot.len);
+                        if (eth.ethertype() == ipv4_packet::ethertype)
+                        {
+                            ipv4_packet ipv4 = eth.payload_ipv4();
+                            if (ipv4.version() == 4
+                                && ipv4.protocol() == udp_packet::protocol
+                                && !ipv4.is_fragment())
+                            {
+                                udp_packet udp = ipv4.payload_udp();
+                                if (udp.destination_port() == port)
+                                {
+                                    used = true;
+                                    payload = udp.payload();
+                                }
+                            }
+                        }
+                    }
+                    catch (std::length_error)
+                    {
+                        // just pass them to the host stack
+                    }
+                    if (used)
+                    {
                         packet_header packet;
-                        const unsigned char *payload = data + sizeof(header);
-                        std::size_t payload_size = slot.len - sizeof(header);
-                        std::size_t size = decode_packet(packet, payload, payload_size);
-                        if (size == payload_size)
+                        std::size_t size = decode_packet(packet, payload.get(), payload.size());
+                        if (size == payload.size())
                         {
                             get_stream_base().add_packet(packet);
                             if (get_stream_base().is_stopped())
@@ -120,7 +117,7 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                         else if (size != 0)
                         {
                             log_info("discarding packet due to size mismatch (%1% != %2%) flags = %3%",
-                                     size, payload_size, slot.flags);
+                                     size, payload.size(), slot.flags);
                         }
                     }
                 }

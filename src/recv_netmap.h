@@ -56,8 +56,8 @@ private:
     boost::asio::posix::stream_descriptor handle;
     /// Information about the netmap mapping
     std::unique_ptr<nm_desc, detail::nm_desc_destructor> desc;
-    /// UDP ports to listen on, in network byte order
-    uint16_t port_be;
+    /// UDP port to listen on
+    uint16_t port;
 
     /// Start an asynchronous receive
     void enqueue_receive();
