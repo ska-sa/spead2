@@ -50,6 +50,34 @@ struct Endian<std::uint64_t>
     }
 };
 
+template<>
+struct Endian<std::uint32_t>
+{
+    static std::uint32_t htobe(std::uint32_t in)
+    {
+        return htobe32(in);
+    }
+
+    static std::uint32_t betoh(std::uint32_t in)
+    {
+        return be32toh(in);
+    }
+};
+
+template<>
+struct Endian<std::uint16_t>
+{
+    static std::uint16_t htobe(std::uint16_t in)
+    {
+        return htobe16(in);
+    }
+
+    static std::uint16_t betoh(std::uint16_t in)
+    {
+        return be16toh(in);
+    }
+};
+
 } // namespace detail
 
 template<typename T>

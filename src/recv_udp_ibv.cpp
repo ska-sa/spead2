@@ -38,6 +38,7 @@
 #include "recv_udp_ibv.h"
 #include "common_endian.h"
 #include "common_logging.h"
+#include "common_raw_packet.h"
 
 namespace spead2
 {
@@ -121,28 +122,37 @@ int udp_ibv_reader::poll_once()
         }
         else
         {
-            const std::uint8_t *ptr = reinterpret_cast<std::uint8_t *>(
+            const void *ptr = reinterpret_cast<void *>(
                 reinterpret_cast<std::uintptr_t>(slots[index].sge.addr));
             std::size_t len = wc[i].byte_len;
 
-            constexpr int HEADER_LENGTH = 42; // Eth: 14 IP: 20 UDP: 8
-            constexpr std::uint8_t ethertype_ipv4[2] = {0x08, 0x00};
             // Sanity checks
-            if (len <= HEADER_LENGTH)
-                log_warning("Frame is too short to contain UDP payload, discarding");
-            else if (std::memcmp(ethertype_ipv4, ptr + 12, 2))
-                log_warning("Frame has wrong ethernet type (VLAN tagging?), discarding");
-            else if (ptr[14] != 0x45)
-                log_warning("Frame is not IPv4 or has extra options, discarding");
-            else if ((ptr[20] & 0x3f) || (ptr[21] != 0)) // flags and fragment offset
-                log_warning("IP message is fragmented, discarding");
-            else
+            try
             {
-                len -= HEADER_LENGTH;
-                ptr += HEADER_LENGTH;
-                bool stopped = process_one_packet(ptr, len, max_size);
-                if (stopped)
-                    return -2;
+                ethernet_frame eth(const_cast<void *>(ptr), len);
+                if (eth.ethertype() != ipv4_packet::ethertype)
+                    log_warning("Frame has wrong ethernet type (VLAN tagging?), discarding");
+                else
+                {
+                    ipv4_packet ipv4 = eth.payload_ipv4();
+                    if (ipv4.version() != 4)
+                        log_warning("Frame is not IPv4, discarding");
+                    else if (ipv4.is_fragment())
+                        log_warning("IP datagram is fragmented, discarding");
+                    else if (ipv4.protocol() != udp_packet::protocol)
+                        log_warning("Packet is not UDP, discarding");
+                    else
+                    {
+                        packet_buffer payload = ipv4.payload_udp().payload();
+                        bool stopped = process_one_packet(payload.get(), payload.size(), max_size);
+                        if (stopped)
+                            return -2;
+                    }
+                }
+            }
+            catch (std::length_error &e)
+            {
+                log_warning(e.what());
             }
         }
         qp.post_recv(&slots[index].wr);
