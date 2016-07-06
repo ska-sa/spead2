@@ -34,6 +34,23 @@
 namespace spead2
 {
 
+mac_address multicast_mac(const boost::asio::ip::address_v4 &address)
+{
+    mac_address ans;
+    auto bytes = address.to_bytes();
+    std::memcpy(&ans[2], &bytes, 4);
+    ans[0] = 0x01;
+    ans[1] = 0x00;
+    ans[2] = 0x5e;
+    ans[3] &= 0x7f;
+    return ans;
+}
+
+mac_address multicast_mac(const boost::asio::ip::address &address)
+{
+    return multicast_mac(address.to_v4());
+}
+
 /////////////////////////////////////////////////////////////////////////////
 
 packet_buffer::packet_buffer() : ptr(nullptr), length(0) {}
@@ -43,7 +60,7 @@ packet_buffer::packet_buffer(void *ptr, std::size_t size)
 {
 }
 
-unsigned char *packet_buffer::get() const
+unsigned char *packet_buffer::data() const
 {
     return ptr;
 }
@@ -51,6 +68,11 @@ unsigned char *packet_buffer::get() const
 std::size_t packet_buffer::size() const
 {
     return length;
+}
+
+packet_buffer::operator boost::asio::mutable_buffer() const
+{
+    return boost::asio::mutable_buffer(ptr, length);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -70,7 +92,7 @@ packet_buffer udp_packet::payload() const
     std::size_t len = length();
     if (len > size() || len < min_size)
         throw std::length_error("length header is invalid");
-    return packet_buffer(get() + min_size, length() - min_size);
+    return packet_buffer(data() + min_size, length() - min_size);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -83,6 +105,18 @@ ipv4_packet::ipv4_packet(void *ptr, std::size_t size)
 {
     if (size < min_size)
         throw std::length_error("packet is too small to be an IPv4 packet");
+}
+
+void ipv4_packet::update_checksum()
+{
+    int h = header_length();
+    std::uint32_t sum = 0;
+    checksum(0); // avoid including the old checksum in the new
+    for (int i = 0; i < h; i += 2)
+        sum += get_be<std::uint16_t>(i);
+    while (sum > 0xffff)
+        sum = (sum & 0xffff) + (sum >> 16);
+    checksum(~std::uint16_t(sum));
 }
 
 bool ipv4_packet::is_fragment() const
@@ -109,7 +143,7 @@ udp_packet ipv4_packet::payload_udp() const
         throw std::length_error("ihl header is invalid");
     if (len > size() || len < h)
         throw std::length_error("length header is invalid");
-    return udp_packet(get() + h, total_length() - h);
+    return udp_packet(data() + h, total_length() - h);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -126,7 +160,7 @@ ethernet_frame::ethernet_frame(void *ptr, std::size_t size)
 ipv4_packet ethernet_frame::payload_ipv4() const
 {
     // TODO: handle VLAN tags
-    return ipv4_packet(get() + min_size, size() - min_size);
+    return ipv4_packet(data() + min_size, size() - min_size);
 }
 
 } // namespace spead2

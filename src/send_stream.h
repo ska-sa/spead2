@@ -80,8 +80,10 @@ private:
 template<typename Derived>
 class stream
 {
-private:
+protected:
     typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
+
+private:
     typedef boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock> timer_type;
 
     struct queue_item

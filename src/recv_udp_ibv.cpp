@@ -47,7 +47,8 @@ namespace recv
 
 constexpr std::size_t udp_ibv_reader::default_buffer_size;
 constexpr int udp_ibv_reader::default_max_poll;
-static constexpr int HEADER_LENGTH = 42; // Eth: 14 IP: 20 UDP: 8
+static constexpr int header_length =
+    ethernet_frame::min_size + ipv4_packet::min_size + udp_packet::min_size;
 
 ibv_qp_t udp_ibv_reader::create_qp(
     const ibv_pd_t &pd, const ibv_cq_t &send_cq, const ibv_cq_t &recv_cq, std::size_t n_slots)
@@ -86,19 +87,16 @@ ibv_flow_t udp_ibv_reader::create_flow(
      * thus have to construct the Ethernet multicast address corresponding to
      * the IP multicast address from RFC 7042.
      */
-    auto bytes = endpoint.address().to_v4().to_bytes(); // big-endian address
     flow_rule.eth.type = IBV_FLOW_SPEC_ETH;
     flow_rule.eth.size = sizeof(flow_rule.eth);
-    std::memcpy(&flow_rule.eth.val.dst_mac[2], &bytes, sizeof(bytes));
-    flow_rule.eth.val.dst_mac[0] = 0x01;
-    flow_rule.eth.val.dst_mac[1] = 0x00;
-    flow_rule.eth.val.dst_mac[2] = 0x5e;
-    flow_rule.eth.val.dst_mac[3] &= 0x7f;
+    mac_address dst_mac = multicast_mac(endpoint.address());
+    std::memcpy(&flow_rule.eth.val.dst_mac, &dst_mac, sizeof(dst_mac));
     // Set all 1's mask
     std::memset(&flow_rule.eth.mask.dst_mac, 0xFF, sizeof(flow_rule.eth.mask.dst_mac));
 
     flow_rule.ip.type = IBV_FLOW_SPEC_IPV4;
     flow_rule.ip.size = sizeof(flow_rule.ip);
+    auto bytes = endpoint.address().to_v4().to_bytes(); // big-endian address
     std::memcpy(&flow_rule.ip.val.dst_ip, &bytes, sizeof(bytes));
     std::memset(&flow_rule.ip.mask.dst_ip, 0xFF, sizeof(flow_rule.ip.mask.dst_ip));
 
@@ -144,7 +142,7 @@ int udp_ibv_reader::poll_once()
                     else
                     {
                         packet_buffer payload = ipv4.payload_udp().payload();
-                        bool stopped = process_one_packet(payload.get(), payload.size(), max_size);
+                        bool stopped = process_one_packet(payload.data(), payload.size(), max_size);
                         if (stopped)
                             return -2;
                     }
@@ -241,7 +239,7 @@ udp_ibv_reader::udp_ibv_reader(
     int max_poll)
     : udp_reader_base(owner),
     max_size(max_size),
-    n_slots(std::max(std::size_t(1), buffer_size / (max_size + HEADER_LENGTH))),
+    n_slots(std::max(std::size_t(1), buffer_size / (max_size + header_length))),
     max_poll(max_poll),
     join_socket(owner.get_strand().get_io_service(), endpoint.protocol()),
     comp_channel_wrapper(owner.get_strand().get_io_service()),
@@ -254,7 +252,7 @@ udp_ibv_reader::udp_ibv_reader(
     if (max_poll <= 0)
         throw std::invalid_argument("max_poll must be positive");
     // Re-compute buffer_size as a whole number of slots
-    const int max_raw_size = max_size + HEADER_LENGTH;
+    const std::size_t max_raw_size = max_size + header_length;
     buffer_size = n_slots * max_raw_size;
 
     cm_id = rdma_cm_id_t(event_channel, nullptr, RDMA_PS_UDP);

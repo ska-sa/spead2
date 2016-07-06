@@ -31,6 +31,8 @@
 #include <array>
 #include <boost/preprocessor/cat.hpp>
 #include <boost/asio/ip/address_v4.hpp>
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/buffer.hpp>
 #include "common_endian.h"
 
 namespace spead2
@@ -38,6 +40,9 @@ namespace spead2
 
 /// An ethernet MAC address.
 typedef std::array<unsigned char, 6> mac_address;
+
+mac_address multicast_mac(const boost::asio::ip::address_v4 &address);
+mac_address multicast_mac(const boost::asio::ip::address &address);
 
 class packet_buffer
 {
@@ -75,8 +80,9 @@ protected:
 public:
     packet_buffer();
     packet_buffer(void *ptr, std::size_t length);
+    operator boost::asio::mutable_buffer() const;
 
-    unsigned char *get() const;
+    unsigned char *data() const;
     std::size_t size() const;
 };
 
@@ -135,6 +141,8 @@ public:
     SPEAD2_DECLARE_FIELD(10, std::uint16_t, checksum, _be)
     SPEAD2_DECLARE_FIELD(12, boost::asio::ip::address_v4, source_address, _ip)
     SPEAD2_DECLARE_FIELD(16, boost::asio::ip::address_v4, destination_address, _ip)
+
+    void update_checksum();
 
     // Computed values, not raw fields
     bool is_fragment() const;

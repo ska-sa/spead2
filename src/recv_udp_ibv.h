@@ -33,6 +33,7 @@
 #include <cstddef>
 #include <memory>
 #include <boost/asio.hpp>
+#include <boost/noncopyable.hpp>
 #include "common_ibv.h"
 #include "recv_reader.h"
 #include "recv_stream.h"
@@ -51,7 +52,7 @@ namespace recv
 class udp_ibv_reader : public udp_reader_base
 {
 private:
-    struct slot
+    struct slot : boost::noncopyable
     {
         ibv_recv_wr wr;
         ibv_sge sge;

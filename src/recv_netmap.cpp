@@ -107,7 +107,7 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                     if (used)
                     {
                         packet_header packet;
-                        std::size_t size = decode_packet(packet, payload.get(), payload.size());
+                        std::size_t size = decode_packet(packet, payload.data(), payload.size());
                         if (size == payload.size())
                         {
                             get_stream_base().add_packet(packet);

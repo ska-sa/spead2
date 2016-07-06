@@ -58,7 +58,7 @@ static boost::asio::ip::udp::socket make_multicast_v4_socket(
     if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
         throw std::invalid_argument("endpoint is not an IPv4 multicast address");
     if (!interface_address.is_v4())
-        throw std::invalid_argument("interface address it not an IPv4 address");
+        throw std::invalid_argument("interface address is not an IPv4 address");
     boost::asio::ip::udp::socket socket(io_service, endpoint.protocol());
     socket.set_option(boost::asio::ip::multicast::hops(ttl));
     socket.set_option(boost::asio::ip::multicast::outbound_interface(interface_address.to_v4()));
