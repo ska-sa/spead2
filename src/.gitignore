@@ -4,5 +4,6 @@ test_send
 test_ringbuffer
 spead2_bench
 spead2_recv
+spead2_send
 spead2_unittest
 libspead2.a

@@ -57,7 +57,7 @@ COMMON_SOURCES = $(wildcard common_*.cpp)
 COMMON_OBJECTS = $(patsubst %.cpp, %.o, $(COMMON_SOURCES))
 TEST_SOURCES = $(wildcard unittest_*.cpp)
 TEST_OBJECTS = $(patsubst %.cpp, %.o, $(TEST_SOURCES))
-TARGETS = libspead2.a test_recv test_send test_ringbuffer spead2_bench spead2_recv
+TARGETS = libspead2.a test_recv test_send test_ringbuffer spead2_bench spead2_recv spead2_send
 TEST_TARGETS = spead2_unittest
 
 all: $(TARGETS)
@@ -91,6 +91,9 @@ spead2_bench: spead2_bench.o libspead2.a
 
 spead2_recv: spead2_recv.o libspead2.a
 	$(CXX) -o $@ spead2_recv.o -L. -lspead2 $(LDFLAGS) -lboost_program_options
+
+spead2_send: spead2_send.o libspead2.a
+	$(CXX) -o $@ spead2_send.o -L. -lspead2 $(LDFLAGS) -lboost_program_options
 
 spead2_unittest: $(TEST_OBJECTS) libspead2.a
 	$(CXX) -o $@ $(TEST_OBJECTS) -L. -lspead2 $(LDFLAGS) -lboost_unit_test_framework
