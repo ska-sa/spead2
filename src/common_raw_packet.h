@@ -125,8 +125,8 @@ private:
 public:
     static constexpr std::size_t min_size = 20;
     static constexpr std::uint16_t ethertype = 0x0800;
-    static constexpr std::uint16_t FLAG_DO_NOT_FRAGMENT = 0x4000;
-    static constexpr std::uint16_t FLAG_MORE_FRAGMENTS = 0x2000;
+    static constexpr std::uint16_t flag_do_not_fragment = 0x4000;
+    static constexpr std::uint16_t flag_more_fragments = 0x2000;
 
     ipv4_packet() = default;
     ipv4_packet(void *ptr, std::size_t size);

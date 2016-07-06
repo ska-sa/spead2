@@ -99,6 +99,8 @@ packet_buffer udp_packet::payload() const
 
 constexpr std::uint16_t ipv4_packet::ethertype;
 constexpr std::size_t ipv4_packet::min_size;
+constexpr std::uint16_t ipv4_packet::flag_do_not_fragment;
+constexpr std::uint16_t ipv4_packet::flag_more_fragments;
 
 ipv4_packet::ipv4_packet(void *ptr, std::size_t size)
     : packet_buffer(ptr, size)
@@ -122,7 +124,7 @@ void ipv4_packet::update_checksum()
 bool ipv4_packet::is_fragment() const
 {
     // If either the more fragments flag is set, or we have a non-zero offset
-    return flags_frag_off() & (FLAG_MORE_FRAGMENTS | 0x1fff);
+    return flags_frag_off() & (flag_more_fragments | 0x1fff);
 }
 
 std::size_t ipv4_packet::header_length() const

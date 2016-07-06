@@ -206,7 +206,7 @@ udp_ibv_stream::udp_ibv_stream(
         ipv4.version_ihl(0x45);
         // total_length will change later to the actual packet size
         ipv4.total_length(config.get_max_packet_size() + ipv4_packet::min_size + udp_packet::min_size);
-        ipv4.flags_frag_off(ipv4_packet::FLAG_DO_NOT_FRAGMENT);
+        ipv4.flags_frag_off(ipv4_packet::flag_do_not_fragment);
         ipv4.ttl(ttl);
         ipv4.protocol(udp_packet::protocol);
         ipv4.source_address(interface_address.to_v4());
