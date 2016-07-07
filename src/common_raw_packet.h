@@ -39,7 +39,7 @@ namespace spead2
 {
 
 /// An ethernet MAC address.
-typedef std::array<unsigned char, 6> mac_address;
+typedef std::array<std::uint8_t, 6> mac_address;
 
 /**
  * Return the MAC address corresponding to an IPv4 multicast group, as
@@ -58,7 +58,7 @@ mac_address interface_mac(const boost::asio::ip::address &address);
 class packet_buffer
 {
 private:
-    unsigned char *ptr;
+    std::uint8_t *ptr;
     std::size_t length;
 
 protected:
@@ -93,7 +93,7 @@ public:
     packet_buffer(void *ptr, std::size_t length);
     operator boost::asio::mutable_buffer() const;
 
-    unsigned char *data() const;
+    std::uint8_t *data() const;
     std::size_t size() const;
 };
 

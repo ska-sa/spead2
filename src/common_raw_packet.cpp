@@ -129,11 +129,11 @@ mac_address interface_mac(const boost::asio::ip::address &address)
 packet_buffer::packet_buffer() : ptr(nullptr), length(0) {}
 
 packet_buffer::packet_buffer(void *ptr, std::size_t size)
-    : ptr(reinterpret_cast<unsigned char *>(ptr)), length(size)
+    : ptr(reinterpret_cast<std::uint8_t *>(ptr)), length(size)
 {
 }
 
-unsigned char *packet_buffer::data() const
+std::uint8_t *packet_buffer::data() const
 {
     return ptr;
 }

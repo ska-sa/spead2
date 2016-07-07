@@ -79,11 +79,11 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                 if (ri != desc->req.nr_rx_rings
                     && !(slot.flags & NS_MOREFRAG))
                 {
-                    const unsigned char *data = (const unsigned char *) NETMAP_BUF(ring, slot.buf_idx);
+                    const std::uint8_t *data = (const std::uint8_t *) NETMAP_BUF(ring, slot.buf_idx);
                     packet_buffer payload;
                     try
                     {
-                        ethernet_frame eth(const_cast<unsigned char *>(data), slot.len);
+                        ethernet_frame eth(const_cast<std::uint8_t *>(data), slot.len);
                         if (eth.ethertype() == ipv4_packet::ethertype)
                         {
                             ipv4_packet ipv4 = eth.payload_ipv4();

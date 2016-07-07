@@ -1,5 +1,6 @@
 #include <boost/test/unit_test.hpp>
 #include <utility>
+#include <cstdint>
 #include "common_memcpy.h"
 
 namespace spead2
@@ -19,8 +20,8 @@ BOOST_AUTO_TEST_CASE(memcpy_nontemporal_alignments)
     constexpr int align_range = 64;
     constexpr int buffer_size = head_pad + align_range + max_len + tail_pad;
 
-    unsigned char src_buffer[buffer_size];
-    unsigned char dest_buffer[buffer_size];
+    std::uint8_t src_buffer[buffer_size];
+    std::uint8_t dest_buffer[buffer_size];
     for (int i = 0; i < align_range; i++)
         for (int j = 0; j < align_range; j++)
             for (int len = 0; len <= max_len; len++)
