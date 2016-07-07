@@ -233,6 +233,17 @@ udp_ibv_stream::udp_ibv_stream(
     }
 }
 
+udp_ibv_stream::~udp_ibv_stream()
+{
+    /* Wait until we have confirmation that all the packets
+     * have been put on the wire before tearing down the data
+     * structures.
+     */
+    flush();
+    while (available.size() < n_slots)
+        reap();
+}
+
 } // namespace send
 } // namespace spead2
 
