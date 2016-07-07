@@ -115,13 +115,22 @@ void udp_ibv_stream::async_send_packet(const packet &pkt, completion_handler &&h
         reap();
         if (available.empty())
         {
-            send_cq.req_notify(false);
-            // Need to check again, in case of a race
-            reap();
-            comp_channel_wrapper.async_read_some(
-                boost::asio::null_buffers(),
-                rerun_async_send_packet(this, pkt, std::move(handler)));
-            return;
+            if (comp_channel)
+            {
+                send_cq.req_notify(false);
+                // Need to check again, in case of a race
+                reap();
+                comp_channel_wrapper.async_read_some(
+                    boost::asio::null_buffers(),
+                    rerun_async_send_packet(this, pkt, std::move(handler)));
+                return;
+            }
+            else
+            {
+                // Poll mode - keep trying until we have space
+                while (available.empty())
+                    reap();
+            }
         }
         slot *s = available.back();
         available.pop_back();
@@ -175,10 +184,15 @@ udp_ibv_stream::udp_ibv_stream(
 
     cm_id.bind_addr(interface_address);
     pd = ibv_pd_t(cm_id);
-    comp_channel = ibv_comp_channel_t(cm_id);
-    comp_channel_wrapper = comp_channel.wrap(io_service);
-    send_cq = ibv_cq_t(cm_id, n_slots, nullptr,
-                       comp_channel, comp_vector % cm_id->verbs->num_comp_vectors);
+    if (comp_vector >= 0)
+    {
+        comp_channel = ibv_comp_channel_t(cm_id);
+        comp_channel_wrapper = comp_channel.wrap(io_service);
+        send_cq = ibv_cq_t(cm_id, n_slots, nullptr,
+                           comp_channel, comp_vector % cm_id->verbs->num_comp_vectors);
+    }
+    else
+        send_cq = ibv_cq_t(cm_id, n_slots, nullptr);
     recv_cq = ibv_cq_t(cm_id, 1, nullptr);
     qp = create_qp(pd, send_cq, recv_cq, n_slots);
     qp.modify(IBV_QPS_INIT, cm_id->port_num);
