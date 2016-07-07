@@ -420,6 +420,58 @@ public:
     }
 };
 
+template<typename T>
+static boost::python::class_<T, boost::noncopyable> udp_stream_register(const char *name)
+{
+    using namespace boost::python;
+    return class_<T, boost::noncopyable>(name, init<
+            thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, const py::object &>(
+                (arg("thread_pool"), arg("hostname"), arg("port"),
+                 arg("config") = stream_config(),
+                 arg("buffer_size") = T::default_buffer_size,
+                 arg("socket") = py::object()))[
+            store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
+        .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int>(
+                (arg("thread_pool"), arg("multicast_group"), arg("port"),
+                 arg("config") = stream_config(),
+                 arg("buffer_size") = T::default_buffer_size,
+                 arg("ttl")))[
+            store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
+        .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, std::string>(
+                (arg("thread_pool"), arg("multicast_group"), arg("port"),
+                 arg("config") = stream_config(),
+                 arg("buffer_size") = T::default_buffer_size,
+                 arg("ttl"),
+                 arg("interface_address")))[
+            store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
+        .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, unsigned int>(
+                (arg("thread_pool"), arg("multicast_group"), arg("port"),
+                 arg("config") = stream_config(),
+                 arg("buffer_size") = T::default_buffer_size,
+                 arg("ttl"),
+                 arg("interface_index")))[
+            store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
+        .def_readonly("DEFAULT_BUFFER_SIZE", T::default_buffer_size);
+}
+
+template<typename T>
+void sync_stream_register(boost::python::class_<T, boost::noncopyable> &stream_class)
+{
+    using namespace boost::python;
+    stream_class.def("send_heap", &T::send_heap, arg("heap"));
+}
+
+template<typename T>
+void async_stream_register(boost::python::class_<T, boost::noncopyable> &stream_class)
+{
+    using namespace boost::python;
+    stream_class
+        .add_property("fd", &T::get_fd)
+        .def("async_send_heap", &T::async_send_heap, arg("heap"))
+        .def("flush", &T::flush)
+        .def("process_callbacks", &T::process_callbacks);
+}
+
 /// Register the send module with Boost.Python
 void register_module()
 {
@@ -468,72 +520,13 @@ void register_module()
         .def_readonly("DEFAULT_BURST_SIZE", stream_config::default_burst_size);
 
     {
-        typedef udp_stream_wrapper<stream_wrapper<udp_stream> > T;
-        class_<T, boost::noncopyable>("UdpStream", init<
-                thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, const py::object &>(
-                    (arg("thread_pool"), arg("hostname"), arg("port"),
-                     arg("config") = stream_config(),
-                     arg("buffer_size") = T::default_buffer_size,
-                     arg("socket") = py::object()))[
-                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-            .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int>(
-                    (arg("thread_pool"), arg("multicast_group"), arg("port"),
-                     arg("config") = stream_config(),
-                     arg("buffer_size") = T::default_buffer_size,
-                     arg("ttl")))[
-                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-            .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, std::string>(
-                    (arg("thread_pool"), arg("multicast_group"), arg("port"),
-                     arg("config") = stream_config(),
-                     arg("buffer_size") = T::default_buffer_size,
-                     arg("ttl"),
-                     arg("interface_address")))[
-                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-            .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, unsigned int>(
-                    (arg("thread_pool"), arg("multicast_group"), arg("port"),
-                     arg("config") = stream_config(),
-                     arg("buffer_size") = T::default_buffer_size,
-                     arg("ttl"),
-                     arg("interface_index")))[
-                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-            .def("send_heap", &T::send_heap, arg("heap"))
-            .def_readonly("DEFAULT_BUFFER_SIZE", T::default_buffer_size);
+        auto stream_class = udp_stream_register<udp_stream_wrapper<stream_wrapper<udp_stream>>>("UdpStream");
+        sync_stream_register(stream_class);
     }
 
     {
-        typedef udp_stream_wrapper<asyncio_stream_wrapper<udp_stream> > T;
-        class_<T, boost::noncopyable>("UdpStreamAsyncio", init<
-                thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, const py::object &>(
-                    (arg("thread_pool"), arg("hostname"), arg("port"),
-                     arg("config") = stream_config(),
-                     arg("buffer_size") = T::default_buffer_size,
-                     arg("socket") = py::object()))[
-                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-            .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int>(
-                    (arg("thread_pool"), arg("multicast_group"), arg("port"),
-                     arg("config") = stream_config(),
-                     arg("buffer_size") = T::default_buffer_size,
-                     arg("ttl")))[
-                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-            .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, std::string>(
-                    (arg("thread_pool"), arg("multicast_group"), arg("port"),
-                     arg("config") = stream_config(),
-                     arg("buffer_size") = T::default_buffer_size,
-                     arg("ttl"),
-                     arg("interface_address")))[
-                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-            .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, unsigned int>(
-                    (arg("thread_pool"), arg("multicast_group"), arg("port"),
-                     arg("config") = stream_config(),
-                     arg("buffer_size") = T::default_buffer_size,
-                     arg("ttl"),
-                     arg("interface_index")))[
-                store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-            .add_property("fd", &T::get_fd)
-            .def("async_send_heap", &T::async_send_heap, arg("heap"))
-            .def("flush", &T::flush)
-            .def("process_callbacks", &T::process_callbacks)
-            .def_readonly("DEFAULT_BUFFER_SIZE", T::default_buffer_size);
+        auto stream_class = udp_stream_register<udp_stream_wrapper<asyncio_stream_wrapper<udp_stream>>>("UdpStreamAsyncio");
+        async_stream_register(stream_class);
     }
 
     class_<bytes_stream, boost::noncopyable>("BytesStream", init<
