@@ -26,8 +26,18 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <string>
+#include <memory>
 #include <stdexcept>
+#include <system_error>
 #include <boost/asio/ip/address_v4.hpp>
+#include <boost/asio/ip/address.hpp>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <net/ethernet.h>
+#include <net/if_arp.h>
+#include <netpacket/packet.h>
+#include <ifaddrs.h>
 #include "common_raw_packet.h"
 #include "common_endian.h"
 
@@ -49,6 +59,69 @@ mac_address multicast_mac(const boost::asio::ip::address_v4 &address)
 mac_address multicast_mac(const boost::asio::ip::address &address)
 {
     return multicast_mac(address.to_v4());
+}
+
+namespace
+{
+struct freeifaddrs_deleter
+{
+    void operator()(ifaddrs *ifa) const { freeifaddrs(ifa); }
+};
+} // anonymous namespace
+
+mac_address interface_mac(const boost::asio::ip::address &address)
+{
+    ifaddrs *ifap;
+    if (getifaddrs(&ifap) < 0)
+        throw std::system_error(errno, std::system_category(), "getifaddrs failed");
+    std::unique_ptr<ifaddrs, freeifaddrs_deleter> ifap_owner(ifap);
+
+    // Map address to an interface name
+    char *if_name = nullptr;
+    for (ifaddrs *cur = ifap; cur; cur = cur->ifa_next)
+    {
+        if (cur->ifa_addr && *(sa_family_t *) cur->ifa_addr == AF_INET && address.is_v4())
+        {
+            const sockaddr_in *cur_address = (const sockaddr_in *) cur->ifa_addr;
+            const auto expected = address.to_v4().to_bytes();
+            if (memcmp(&cur_address->sin_addr, &expected, sizeof(expected)) == 0)
+            {
+                if_name = cur->ifa_name;
+                break;
+            }
+        }
+        else if (cur->ifa_addr && *(sa_family_t *) cur->ifa_addr == AF_INET6 && address.is_v6())
+        {
+            const sockaddr_in6 *cur_address = (const sockaddr_in6 *) cur->ifa_addr;
+            const auto expected = address.to_v6().to_bytes();
+            if (memcmp(&cur_address->sin6_addr, &expected, sizeof(expected)) == 0)
+            {
+                if_name = cur->ifa_name;
+                break;
+            }
+        }
+    }
+    if (!if_name)
+    {
+        throw std::runtime_error("no interface found with the address " + address.to_string());
+    }
+
+    // Now find the MAC address for this interface
+    for (ifaddrs *cur = ifap; cur; cur = cur->ifa_next)
+    {
+        if (std::strcmp(cur->ifa_name, if_name) == 0
+            && cur->ifa_addr && *(sa_family_t *) cur->ifa_addr == AF_PACKET)
+        {
+            const sockaddr_ll *ll = (sockaddr_ll *) cur->ifa_addr;
+            if (ll->sll_hatype == ARPHRD_ETHER && ll->sll_halen == 6)
+            {
+                mac_address mac;
+                std::memcpy(&mac, ll->sll_addr, 6);
+                return mac;
+            }
+        }
+    }
+    throw std::runtime_error(std::string("no MAC address found for interface ") + if_name);
 }
 
 /////////////////////////////////////////////////////////////////////////////

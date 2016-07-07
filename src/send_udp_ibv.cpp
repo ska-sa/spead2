@@ -203,6 +203,8 @@ udp_ibv_stream::udp_ibv_stream(
     buffer = allocator->allocate(max_raw_size * n_slots, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
     slots.reset(new slot[n_slots]);
+    mac_address destination_mac = multicast_mac(endpoint.address());
+    mac_address source_mac = interface_mac(interface_address);
     for (std::size_t i = 0; i < n_slots; i++)
     {
         slots[i].frame = ethernet_frame(buffer.get() + i * max_raw_size, max_raw_size);
@@ -212,12 +214,11 @@ udp_ibv_stream::udp_ibv_stream(
         slots[i].wr.num_sge = 1;
         slots[i].wr.opcode = IBV_WR_SEND;
         slots[i].wr.wr_id = i;
-        slots[i].frame.destination_mac(multicast_mac(endpoint.address().to_v4()));
-        // TODO: get from the interface
-        // slots[i].frame.source_mac(...)
+        slots[i].frame.destination_mac(destination_mac);
+        slots[i].frame.source_mac(source_mac);
         slots[i].frame.ethertype(ipv4_packet::ethertype);
         ipv4_packet ipv4 = slots[i].frame.payload_ipv4();
-        ipv4.version_ihl(0x45);
+        ipv4.version_ihl(0x45);  // IPv4, 20 byte header
         // total_length will change later to the actual packet size
         ipv4.total_length(config.get_max_packet_size() + ipv4_packet::min_size + udp_packet::min_size);
         ipv4.flags_frag_off(ipv4_packet::flag_do_not_fragment);

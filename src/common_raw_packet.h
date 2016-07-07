@@ -41,8 +41,19 @@ namespace spead2
 /// An ethernet MAC address.
 typedef std::array<unsigned char, 6> mac_address;
 
+/**
+ * Return the MAC address corresponding to an IPv4 multicast group, as
+ * defined in RFC 7042.
+ */
 mac_address multicast_mac(const boost::asio::ip::address_v4 &address);
 mac_address multicast_mac(const boost::asio::ip::address &address);
+
+/**
+ * Determine the MAC address for an interface, given the interface's IP address.
+ *
+ * @throw std::invalid_argument if no interface with this IP address is found.
+ */
+mac_address interface_mac(const boost::asio::ip::address &address);
 
 class packet_buffer
 {
