@@ -168,7 +168,7 @@ static options parse_args(int argc, const char **argv, command_mode mode)
     }
 }
 
-static bool measure_connection_once(
+static std::pair<bool, double> measure_connection_once(
     const options &opts, double rate,
     std::int64_t num_heaps, std::int64_t required_heaps)
 {
@@ -251,18 +251,7 @@ static bool measure_connection_once(
             throw boost::system::system_error(last_error);
 
         std::chrono::duration<double> elapsed_duration = end - start;
-        double elapsed = elapsed_duration.count();
-        double expected = transferred / rate;
-        bool good = true;
-        if (elapsed > 1.02 * expected)
-        {
-            if (!opts.quiet)
-            {
-                std::cout << boost::format("WARNING: transmission took longer than expected (%.3f > %.3f)\n")
-                    % elapsed % expected;
-            }
-            good = false;
-        }
+        double actual_rate = transferred / elapsed_duration.count();
 
         /* Get results */
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -271,7 +260,8 @@ static bool measure_connection_once(
         control >> received_heaps;
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         control.close();
-        return good && received_heaps >= required_heaps;
+        bool good = (received_heaps >= required_heaps);
+        return std::make_pair(good, actual_rate);
     }
     catch (std::ios::failure &e)
     {
@@ -285,38 +275,65 @@ static bool measure_connection_once(
     }
 }
 
-static bool measure_connection(
+static std::pair<bool, double> measure_connection(
     const options &opts, double rate,
     std::int64_t num_heaps, std::int64_t required_heaps)
 {
-    int total = 0;
-    for (int i = 0; i < 5; i++)
-        total += measure_connection_once(opts, rate, num_heaps, required_heaps);
-    return total >= 3;
+    bool good = true;
+    double rate_sum = 0.0;
+    const int passes = 5;
+    for (int i = 0; i < passes; i++)
+    {
+        std::pair<bool, double> result = measure_connection_once(opts, rate, num_heaps, required_heaps);
+        if (!result.first)
+            good = false;
+        rate_sum += result.second;
+    }
+    return std::make_pair(good, rate_sum / passes);
 }
 
 static void main_master(int argc, const char **argv)
 {
     options opts = parse_args(argc, argv, command_mode::MASTER);
-    // These rates are in bytes
-    double low = 0.0;
-    double high = 5e9;
-    while (high - low > 1e8 / 8)
+    double best_actual = 0.0;
+
+    // Send 1GB as fast as possible to find an upper bound - receive rate does
+    // not matter
+    std::int64_t num_heaps = std::int64_t(1e9 / opts.heap_size) + 2;
+    std::pair<bool, double> result = measure_connection(opts, 0.0, num_heaps, num_heaps - 1);
+    if (result.first)
     {
-        // Need at least 1GB of data to overwhelm cache effects, and want at least
-        // 1 second for warmup effects.
-        double rate = (low + high) * 0.5;
-        std::int64_t num_heaps = std::int64_t(std::max(1e9, rate) / opts.heap_size) + 2;
-        bool good = measure_connection(opts, rate, num_heaps, num_heaps - 1);
         if (!opts.quiet)
-            std::cout << boost::format("Rate: %.3f Gbps: %s\n") % (rate * 8e-9) % (good ? "GOOD" : "BAD");
-        if (good)
-            low = rate;
-        else
-            high = rate;
+            std::cout << "Limited by send spead\n";
+        best_actual = result.second;
     }
-    double rate = (low + high) * 0.5;
-    double rate_gbps = rate * 8e-9;
+    else
+    {
+        // These rates are in bytes
+        double low = 0.0;
+        double high = result.second;
+        while (high - low > high * 0.02)
+        {
+            // Need at least 1GB of data to overwhelm cache effects, and want at least
+            // 1 second for warmup effects.
+            double rate = (low + high) * 0.5;
+            num_heaps = std::int64_t(std::max(1e9, rate) / opts.heap_size) + 2;
+            result = measure_connection(opts, rate, num_heaps, num_heaps - 1);
+            bool good = result.first;
+            double actual_rate = result.second;
+            if (!opts.quiet)
+                std::cout << boost::format("Rate: %.3f Gbps (%.3f actual): %s\n")
+                    % (rate * 8e-9) % (actual_rate * 8e-9) % (good ? "GOOD" : "BAD");
+            if (good)
+            {
+                low = rate;
+                best_actual = actual_rate;
+            }
+            else
+                high = rate;
+        }
+    }
+    double rate_gbps = best_actual * 8e-9;
     if (opts.quiet)
         std::cout << rate_gbps << '\n';
     else
