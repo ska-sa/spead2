@@ -23,33 +23,15 @@ import spead2.send
 from spead2._send import UdpStreamAsyncio as _UdpStreamAsyncio
 
 
-class UdpStream(_UdpStreamAsyncio):
-    """SPEAD over UDP with asynchronous sends. The other constructors
-    defined for :py:class:`spead2.send.UdpStream` are also applicable here.
-
-    Parameters
-    ----------
-    thread_pool : :py:class:`spead2.ThreadPool`
-        Thread pool handling the I/O
-    hostname : str
-        Peer hostname
-    port : int
-        Peer port
-    config : :py:class:`spead2.send.StreamConfig`
-        Stream configuration
-    buffer_size : int
-        Socket buffer size. A warning is logged if this size cannot be set due
-        to OS limits.
-    loop : :py:class:`trollius.BaseEventLoop`, optional
-        Event loop to use (defaults to `trollius.get_event_loop()`)
-    """
+class _UdpStreamMixin(object):
+    """Mixin class used to define :class:`UdpStream` and :class:`UdpIbvStream`."""
     def __init__(self, *args, **kwargs):
         self._loop = kwargs.pop('loop', None)
         if self._loop is None:
             self._loop = trollius.get_event_loop()
-        super(UdpStream, self).__init__(*args, **kwargs)
         self._active = 0
         self._last_queued_future = None
+        super(_UdpStreamMixin, self).__init__(*args, **kwargs)
 
     @trollius.coroutine
     def async_send_heap(self, heap, loop=None):
@@ -76,7 +58,7 @@ class UdpStream(_UdpStreamAsyncio):
             if self._active == 0:
                 self._loop.remove_reader(self.fd)
                 self._last_queued_future = None  # Purely to free the memory
-        queued = super(UdpStream, self).async_send_heap(heap, callback)
+        queued = super(_UdpStreamMixin, self).async_send_heap(heap, callback)
         if self._active == 0:
             self._loop.add_reader(self.fd, self.process_callbacks)
         self._active += 1
@@ -92,3 +74,73 @@ class UdpStream(_UdpStreamAsyncio):
         future = self._last_queued_future
         if future is not None:
             yield From(trollius.wait([future]))
+
+class UdpStream( _UdpStreamMixin, _UdpStreamAsyncio):
+    """SPEAD over UDP with asynchronous sends. The other constructors
+    defined for :py:class:`spead2.send.UdpStream` are also applicable here.
+
+    Parameters
+    ----------
+    thread_pool : :py:class:`spead2.ThreadPool`
+        Thread pool handling the I/O
+    hostname : str
+        Peer hostname
+    port : int
+        Peer port
+    config : :py:class:`spead2.send.StreamConfig`
+        Stream configuration
+    buffer_size : int
+        Socket buffer size. A warning is logged if this size cannot be set due
+        to OS limits.
+    loop : :py:class:`trollius.BaseEventLoop`, optional
+        Event loop to use (defaults to ``trollius.get_event_loop()``)
+    """
+    def __init__(self, *args, **kwargs):
+        super(UdpStream, self).__init__(*args, **kwargs)
+
+try:
+    from spead2._send import UdpIbvStreamAsyncio as _UdpIbvStreamAsyncio
+
+    class UdpIbvStream(_UdpStreamMixin, _UdpIbvStreamAsyncio):
+        """Like :class:`UdpStream`, but using the Infiniband Verbs API.
+
+        Parameters
+        ----------
+        thread_pool : :py:class:`spead2.ThreadPool`
+            Thread pool handling the I/O
+        multicast_group : str
+            IP address (or DNS name) of multicast group to join
+        port : int
+            Peer port
+        config : :py:class:`spead2.send.StreamConfig`
+            Stream configuration
+        interface_address : str
+            IP address of network interface from which to send
+        buffer_size : int, optional
+            Buffer size
+        ttl : int, optional
+            Time-To-Live of packets
+        comp_vector : int, optional
+            Completion channel vector (interrupt)
+            for asynchronous operation, or
+            a negative value to poll continuously. Polling
+            should not be used if there are other users of the
+            thread pool. If a non-negative value is provided, it
+            is taken modulo the number of available completion
+            vectors. This allows a number of readers to be
+            assigned sequential completion vectors and have them
+            load-balanced, without concern for the number
+            available.
+        max_poll : int
+            Maximum number of times to poll in a row, without
+            waiting for an interrupt (if `comp_vector` is
+            non-negative) or letting other code run on the
+            thread (if `comp_vector` is negative).
+        loop : :py:class:`trollius.BaseEventLoop`, optional
+            Event loop to use (defaults to ``trollius.get_event_loop()``)
+        """
+        def __init__(self, *args, **kwargs):
+            super(UdpIbvStream, self).__init__(*args, **kwargs)
+
+except ImportError:
+    pass   # C

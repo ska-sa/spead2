@@ -31,6 +31,7 @@
 #include "send_heap.h"
 #include "send_stream.h"
 #include "send_udp.h"
+#include "send_udp_ibv.h"
 #include "send_streambuf.h"
 #include "common_thread_pool.h"
 #include "common_semaphore.h"
@@ -247,20 +248,51 @@ public:
     }
 };
 
+static boost::asio::ip::address make_address(
+    boost::asio::io_service &io_service, const std::string &hostname)
+{
+    release_gil gil;
+
+    using boost::asio::ip::udp;
+    udp::resolver resolver(io_service);
+    udp::resolver::query query(hostname, "", boost::asio::ip::resolver_query_base::flags(0));
+    return resolver.resolve(query)->endpoint().address();
+}
+
+static boost::asio::ip::udp::endpoint make_endpoint(
+    boost::asio::io_service &io_service, const std::string &hostname, std::uint16_t port)
+{
+    return boost::asio::ip::udp::endpoint(make_address(io_service, hostname), port);
+}
+
+static boost::asio::ip::udp::socket make_socket(
+    boost::asio::io_service &io_service, const boost::asio::ip::udp &protocol,
+    const py::object &socket)
+{
+    using boost::asio::ip::udp;
+    if (!socket.is_none())
+    {
+        int fd = py::extract<int>(socket.attr("fileno")());
+        /* Need to duplicate the FD, since Python still owns the original */
+        int fd2 = ::dup(fd);
+        if (fd2 == -1)
+        {
+            PyErr_SetFromErrno(PyExc_OSError);
+            throw py::error_already_set();
+        }
+        /* TODO: will this leak the FD if the constructor fails? Can the
+         * constructor fail or is it just setting an FD in an object?
+         */
+        return boost::asio::ip::udp::socket(io_service, protocol, fd2);
+    }
+    else
+        return boost::asio::ip::udp::socket(io_service, protocol);
+}
+
 template<typename Base>
 class udp_stream_wrapper : public thread_pool_handle_wrapper, public Base
 {
 private:
-    static boost::asio::ip::address make_address(
-        boost::asio::io_service &io_service, const std::string &hostname);
-
-    static boost::asio::ip::udp::endpoint make_endpoint(
-        boost::asio::io_service &io_service, const std::string &hostname, std::uint16_t port);
-
-    static boost::asio::ip::udp::socket make_socket(
-        boost::asio::io_service &io_service, const boost::asio::ip::udp &protocol,
-        const py::object &socket);
-
     /* Intermediate chained constructors that has the hostname and port
      * converted to an endpoint, so that it can be used in turn to
      * construct the asio socket.
@@ -359,52 +391,30 @@ public:
     }
 };
 
+#if SPEAD2_USE_IBV
 template<typename Base>
-boost::asio::ip::udp::socket udp_stream_wrapper<Base>::make_socket(
-    boost::asio::io_service &io_service,
-    const boost::asio::ip::udp &protocol,
-    const py::object &socket)
+class udp_ibv_stream_wrapper : public thread_pool_handle_wrapper, public Base
 {
-    using boost::asio::ip::udp;
-    if (!socket.is_none())
+public:
+    udp_ibv_stream_wrapper(
+        thread_pool &pool,
+        const std::string &multicast_group,
+        std::uint16_t port,
+        const stream_config &config,
+        const std::string &interface_address,
+        std::size_t buffer_size,
+        int ttl,
+        int comp_vector,
+        int max_poll)
+        : Base(pool.get_io_service(),
+               make_endpoint(pool.get_io_service(), multicast_group, port),
+               config,
+               make_address(pool.get_io_service(), interface_address),
+               buffer_size, ttl, comp_vector, max_poll)
     {
-        int fd = py::extract<int>(socket.attr("fileno")());
-        /* Need to duplicate the FD, since Python still owns the original */
-        int fd2 = ::dup(fd);
-        if (fd2 == -1)
-        {
-            PyErr_SetFromErrno(PyExc_OSError);
-            throw py::error_already_set();
-        }
-        /* TODO: will this leak the FD if the constructor fails? Can the
-         * constructor fail or is it just setting an FD in an object?
-         */
-        return boost::asio::ip::udp::socket(io_service, protocol, fd2);
     }
-    else
-        return boost::asio::ip::udp::socket(io_service, protocol);
-}
-
-template<typename Base>
-boost::asio::ip::address udp_stream_wrapper<Base>::make_address(
-    boost::asio::io_service &io_service, const std::string &hostname)
-{
-    release_gil gil;
-
-    using boost::asio::ip::udp;
-    udp::resolver resolver(io_service);
-    udp::resolver::query query(hostname, "", boost::asio::ip::resolver_query_base::flags(0));
-    return resolver.resolve(query)->endpoint().address();
-}
-
-template<typename Base>
-boost::asio::ip::udp::endpoint udp_stream_wrapper<Base>::make_endpoint(
-    boost::asio::io_service &io_service, const std::string &hostname, std::uint16_t port)
-{
-    using boost::asio::ip::udp;
-
-    return udp::endpoint(make_address(io_service, hostname), port);
-}
+};
+#endif
 
 class bytes_stream : private std::stringbuf, public thread_pool_handle_wrapper, public stream_wrapper<streambuf_stream>
 {
@@ -453,6 +463,27 @@ static boost::python::class_<T, boost::noncopyable> udp_stream_register(const ch
             store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
         .def_readonly("DEFAULT_BUFFER_SIZE", T::default_buffer_size);
 }
+
+#if SPEAD2_USE_IBV
+template<typename T>
+static boost::python::class_<T, boost::noncopyable> udp_ibv_stream_register(const char *name)
+{
+    using namespace boost::python;
+    return class_<T, boost::noncopyable>(
+        name,
+        init<thread_pool_wrapper &, std::string, int, const stream_config &, std::string, std::size_t, int, int, int>(
+            (arg("thread_pool"), arg("multicast_group"), arg("port"),
+             arg("config") = stream_config(),
+             arg("interface_address"),
+             arg("buffer_size") = T::default_buffer_size,
+             arg("ttl") = 1,
+             arg("comp_vector") = 0,
+             arg("max_poll") = T::default_max_poll))[
+            store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
+        .def_readonly("DEFAULT_BUFFER_SIZE", T::default_buffer_size)
+        .def_readonly("DEFAULT_MAX_POLL", T::default_max_poll);
+}
+#endif
 
 template<typename T>
 void sync_stream_register(boost::python::class_<T, boost::noncopyable> &stream_class)
@@ -523,11 +554,21 @@ void register_module()
         auto stream_class = udp_stream_register<udp_stream_wrapper<stream_wrapper<udp_stream>>>("UdpStream");
         sync_stream_register(stream_class);
     }
-
     {
         auto stream_class = udp_stream_register<udp_stream_wrapper<asyncio_stream_wrapper<udp_stream>>>("UdpStreamAsyncio");
         async_stream_register(stream_class);
     }
+
+#if SPEAD2_USE_IBV
+    {
+        auto stream_class = udp_ibv_stream_register<udp_ibv_stream_wrapper<stream_wrapper<udp_ibv_stream>>>("UdpIbvStream");
+        sync_stream_register(stream_class);
+    }
+    {
+        auto stream_class = udp_ibv_stream_register<udp_ibv_stream_wrapper<asyncio_stream_wrapper<udp_ibv_stream>>>("UdpIbvStreamAsyncio");
+        async_stream_register(stream_class);
+    }
+#endif
 
     class_<bytes_stream, boost::noncopyable>("BytesStream", init<
                 thread_pool_wrapper &, const stream_config &>(
