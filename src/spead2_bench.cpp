@@ -402,9 +402,11 @@ static void main_master(int argc, const char **argv)
     options opts = parse_args(argc, argv, command_mode::MASTER);
     double best_actual = 0.0;
 
-    // Send 1GB as fast as possible to find an upper bound - receive rate does
-    // not matter
+    /* Send 1GB as fast as possible to find an upper bound - receive rate
+     * does not matter. Also do a warmup run first to warm up the receiver.
+     */
     std::int64_t num_heaps = std::int64_t(1e9 / opts.heap_size) + 2;
+    measure_connection_once(opts, 0.0, num_heaps, 0); // warmup
     std::pair<bool, double> result = measure_connection(opts, 0.0, num_heaps, num_heaps - 1);
     if (result.first)
     {
@@ -414,6 +416,9 @@ static void main_master(int argc, const char **argv)
     }
     else
     {
+        if (!opts.quiet)
+            std::cout << boost::format("Send rate: %.3f Gbps\n") % (result.second * 8e-9);
+
         // These rates are in bytes
         double low = 0.0;
         double high = result.second;
