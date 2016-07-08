@@ -282,7 +282,9 @@ void udp_reader::stop()
 /////////////////////////////////////////////////////////////////////////////
 
 static bool ibv_override;
+#if SPEAD2_USE_IBV
 static int ibv_comp_vector;
+#endif
 static boost::asio::ip::address ibv_interface;
 static std::once_flag ibv_once;
 
