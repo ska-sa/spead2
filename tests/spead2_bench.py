@@ -130,18 +130,19 @@ def run_slave(args):
 
 @trollius.coroutine
 def send_stream(item_group, stream, num_heaps):
-    tasks = []
+    tasks = collections.deque()
+    transferred = 0
     for i in range(num_heaps + 1):
+        while len(tasks) >= 2:
+            transferred += yield From(tasks.popleft())
         if i == num_heaps:
             heap = item_group.get_end()
         else:
             heap = item_group.get_heap(data='all')
         task = trollius.async(stream.async_send_heap(heap))
         tasks.append(task)
-    yield From(trollius.wait(tasks))
-    transferred = 0
     for task in tasks:
-        transferred += task.result()
+        transferred += yield From(task)
     raise Return(transferred)
 
 
@@ -173,17 +174,11 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
                         shape=(args.heap_size,), dtype=np.uint8,
                         value=np.zeros((args.heap_size,), dtype=np.uint8))
 
-    good = True
     start = timeit.default_timer()
     transferred = yield From(send_stream(item_group, stream, num_heaps))
     end = timeit.default_timer()
     elapsed = end - start
-    expected = transferred / rate
-    if elapsed > 1.02 * expected:
-        if not args.quiet:
-            logging.warning("transmission took longer than expected (%.3f > %.3f)",
-                            elapsed, expected)
-        good = False
+    actual_rate = transferred / elapsed
     # Give receiver time to catch up with any queue
     yield From(trollius.sleep(0.1))
     write(json.dumps({'cmd': 'stop'}) + '\n')
@@ -194,34 +189,53 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
     yield From(trollius.sleep(0.5))
     yield From(writer.drain())
     writer.close()
-    raise Return(good and received_heaps >= required_heaps)
+    logging.debug("Received %d/%d heaps in %f seconds, rate %.3f Gbps",
+            received_heaps, num_heaps, elapsed, actual_rate * 8e-9)
+    raise Return(received_heaps >= required_heaps, actual_rate)
 
 
 def measure_connection(args, rate, num_heaps, required_heaps):
-    total = 0
-    for i in range(5):
-        total += yield From(measure_connection_once(args, rate, num_heaps, required_heaps))
-    raise Return(total >= 3)
+    good = True
+    rate_sum = 0.0
+    passes = 5
+    for i in range(passes):
+        status, actual_rate = yield From(measure_connection_once(args, rate, num_heaps, required_heaps))
+        good = good and status
+        rate_sum += actual_rate
+    raise Return(good, rate_sum / passes)
 
 
 def run_master(args):
-    # These rates are in bytes
-    low = 0.0
-    high = 5e9
-    while high - low > 1e8 / 8:
-        # Need at least 1GB of data to overwhelm cache effects, and want at least
-        # 1 second for warmup effects.
-        rate = (low + high) * 0.5
-        num_heaps = int(max(1e9, rate) / args.heap_size) + 2
-        good = yield From(measure_connection(args, rate, num_heaps, num_heaps - 1))
+    best_actual = 0.0
+
+    # Send 1GB as fast as possible to find an upper bound - receive rate
+    # does not matter. Also do a warmup run first to warm up the receiver.
+    num_heaps = int(1e9 / args.heap_size) + 2
+    yield From(measure_connection_once(args, 0.0, num_heaps, 0))  # warmup
+    good, actual_rate = yield From(measure_connection(args, 0.0, num_heaps, num_heaps - 1))
+    if good:
         if not args.quiet:
-            print("Rate: {:.3f} Gbps: {}".format(rate * 8e-9, "GOOD" if good else "BAD"))
-        if good:
-            low = rate
-        else:
-            high = rate
-    rate = (low + high) * 0.5
-    rate_gbps = rate * 8e-9
+            print("Limited by send spead")
+        best_actual = actual_rate
+    else:
+        print("Send rate: {:.3f} Gbps".format(actual_rate * 8e-9))
+        low = 0.0
+        high = actual_rate
+        while high - low > high * 0.02:
+            # Need at least 1GB of data to overwhelm cache effects, and want at least
+            # 1 second for warmup effects.
+            rate = (low + high) * 0.5
+            num_heaps = int(max(1e9, rate) / args.heap_size) + 2
+            good, actual_rate = yield From(measure_connection(args, rate, num_heaps, num_heaps - 1))
+            if not args.quiet:
+                print("Rate: {:.3f} Gbps {:.3f} actual): {}".format(
+                    rate * 8e-9, actual_rate * 8e-9, "GOOD" if good else "BAD"))
+            if good:
+                low = rate
+                best_actual = actual_rate
+            else:
+                high = rate
+    rate_gbps = best_actual * 8e-9
     if args.quiet:
         print(rate_gbps)
     else:
