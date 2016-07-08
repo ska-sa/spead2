@@ -45,7 +45,7 @@ namespace send
 {
 
 /**
- * Steam using Infiniband versions for acceleration. Only IPv4 multicast
+ * Stream using Infiniband versions for acceleration. Only IPv4 multicast
  * with an explicit source address are supported.
  */
 class udp_ibv_stream : public stream<udp_ibv_stream>
@@ -125,7 +125,7 @@ private:
     };
 
 public:
-    /// Recommended receive buffer size
+    /// Default receive buffer size, if none is passed to the constructor
     static constexpr std::size_t default_buffer_size = 512 * 1024;
     /// Number of times to poll in a row, if none is explicitly passed to the constructor
     static constexpr int default_max_poll = 10;

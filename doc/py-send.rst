@@ -40,7 +40,7 @@ is paired with one heap generator, a convenience class
 Blocking send
 ^^^^^^^^^^^^^
 
-.. py:class:: spead2.send.UdpStream(thread_pool, hostname, port, config, buffer_size=524288, socket=None)
+.. py:class:: spead2.send.UdpStream(thread_pool, hostname, port, config, buffer_size=DEFAULT_BUFFER_SIZE, socket=None)
 
    Stream using UDP. Note that since UDP is an unreliable protocol, there is
    no guarantee that packets arrive.
@@ -64,7 +64,7 @@ Blocking send
       completion. There is currently no indication of whether it successfully
       arrived.
 
-.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config, buffer_size=524288, ttl)
+.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config, buffer_size=DEFAULT_BUFFER_SIZE, ttl)
 
    Stream using UDP, with multicast TTL. Note that the regular constructor will
    also work with UDP, but does not give any control over the TTL.
