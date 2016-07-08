@@ -254,7 +254,7 @@ def run_master(args):
             num_heaps = int(max(1e9, rate) / args.heap_size) + 2
             good, actual_rate = yield From(measure_connection(args, rate, num_heaps, num_heaps - 1))
             if not args.quiet:
-                print("Rate: {:.3f} Gbps {:.3f} actual): {}".format(
+                print("Rate: {:.3f} Gbps ({:.3f} actual): {}".format(
                     rate * 8e-9, actual_rate * 8e-9, "GOOD" if good else "BAD"))
             if good:
                 low = rate
