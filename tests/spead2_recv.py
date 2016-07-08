@@ -58,6 +58,7 @@ def get_args():
     group.add_argument('--mem-upper', type=int, default=32 * 1024**2, help='Maximum allocation which will use the memory pool [%(default)s]')
     group.add_argument('--mem-max-free', type=int, default=12, help='Maximum free memory buffers [%(default)s]')
     group.add_argument('--mem-initial', type=int, default=8, help='Initial free memory buffers [%(default)s]')
+    group.add_argument('--memcpy-nt', action='store_true', help='Use non-temporal memcpy')
     group.add_argument('--affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
     if hasattr(spead2.recv.Stream, 'add_udp_ibv_reader'):
         group.add_argument('--ibv', type=str, metavar='ADDRESS', help='Use ibverbs with this interface address [no]')
@@ -107,6 +108,8 @@ def main():
         stream = spead2.recv.trollius.Stream(thread_pool, bug_compat, args.heaps, args.ring_heaps)
         if memory_pool is not None:
             stream.set_memory_allocator(memory_pool)
+        if args.memcpy_nt:
+            stream.set_memcpy(spead2.MEMCPY_NONTEMPORAL)
         for source in sources:
             try:
                 port = int(source)
