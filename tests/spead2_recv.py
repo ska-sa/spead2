@@ -31,6 +31,7 @@ import argparse
 import trollius
 from trollius import From
 
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('source', nargs='+', help='Sources (filenames and port numbers')
@@ -63,6 +64,7 @@ def get_args():
         group.add_argument('--ibv-vector', type=int, default=0, metavar='N', help='Completion vector, or -1 to use polling [%(default)s]')
         group.add_argument('--ibv-max-poll', type=int, default=spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL, help='Maximum number of times to poll in a row [%(default)s]')
     return parser.parse_args()
+
 
 @trollius.coroutine
 def run_stream(stream, name, args):
@@ -97,6 +99,7 @@ Descriptor for {0.name} ({0.id:#x})
         except spead2.Stopped:
             print("Shutting down stream {} after {} heaps".format(name, num_heaps))
             break
+
 
 def main():
     def make_stream(sources):
@@ -148,6 +151,7 @@ def main():
     # Trigger any recorded exception
     for t in tasks:
         t.result()
+
 
 if __name__ == '__main__':
     main()

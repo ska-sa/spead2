@@ -31,6 +31,7 @@ import trollius
 import collections
 from trollius import From
 
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('host')
@@ -60,6 +61,7 @@ def get_args():
 
     return parser.parse_args()
 
+
 @trollius.coroutine
 def run(item_group, stream, args):
     tasks = collections.deque()
@@ -79,6 +81,7 @@ def run(item_group, stream, args):
         tasks.append(task)
     while len(tasks) > 0:
         yield From(trollius.wait([tasks.popleft()]))
+
 
 def main():
     args = get_args()
@@ -115,6 +118,7 @@ def main():
         trollius.get_event_loop().run_until_complete(run(item_group, stream, args))
     except KeyboardInterrupt:
         sys.exit(1)
+
 
 if __name__ == '__main__':
     main()
