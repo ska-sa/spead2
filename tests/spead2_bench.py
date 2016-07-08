@@ -87,7 +87,10 @@ class SlaveConnection(object):
                         args.heap_size, args.heap_size + 1024, args.mem_max_free, args.mem_initial)
                     stream = spead2.recv.trollius.Stream(thread_pool, 0, args.heaps, args.ring_heaps)
                     stream.set_memory_allocator(memory_pool)
-                    stream.add_udp_reader(args.port, args.packet, args.recv_buffer)
+                    if args.multicast is not None:
+                        stream.add_udp_reader(args.port, args.packet, args.recv_buffer, str(args.multicast))
+                    else:
+                        stream.add_udp_reader(args.port, args.packet, args.recv_buffer)
                     thread_pool = None
                     memory_pool = None
                     stream_task = trollius.async(self.run_stream(stream))
@@ -165,8 +168,11 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
         burst_size=args.burst,
         rate=rate,
         max_heaps=num_heaps + 1)
+    host = args.host
+    if args.multicast is not None:
+        host = args.multicast
     stream = spead2.send.trollius.UdpStream(
-        thread_pool, args.host, args.port, config, args.send_buffer)
+        thread_pool, host, args.port, config, args.send_buffer)
     item_group = spead2.send.ItemGroup(
         flavour=spead2.Flavour(4, 64, args.addr_bits, 0))
     item_group.add_item(id=None, name='Test item',
@@ -251,6 +257,7 @@ def main():
     master.add_argument('--packet', metavar='BYTES', type=int, default=9172, help='Maximum packet size to use for UDP [%(default)s]')
     master.add_argument('--heap-size', metavar='BYTES', type=int, default=4194304, help='Payload size for heap [%(default)s]')
     master.add_argument('--addr-bits', metavar='BITS', type=int, default=40, help='Heap address bits [%(default)s]')
+    master.add_argument('--multicast', metavar='ADDRESS', type=str, help='Send via multicast group [unicast]')
     group = master.add_argument_group('sender options')
     group.add_argument('--send-affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
     group.add_argument('--send-buffer', metavar='BYTES', type=int, default=spead2.send.trollius.UdpStream.DEFAULT_BUFFER_SIZE, help='Socket buffer size [%(default)s]')
