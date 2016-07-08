@@ -116,8 +116,6 @@ def main():
                 stream.add_buffer_reader(text)
             else:
                 if 'ibv' in args and args.ibv is not None:
-                    if not hasattr(stream, 'add_udp_ibv_reader'):
-                        raise NotImplementedError('spead2 was compiled without ibverbs support')
                     if not args.bind:
                         raise ValueError('--bind is required to be a multicast group when using --ibv')
                     stream.add_udp_ibv_reader(args.bind, port, args.ibv, args.packet,
