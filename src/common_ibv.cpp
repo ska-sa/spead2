@@ -1,14 +1,13 @@
+#if SPEAD2_USE_IBV
 #include <cerrno>
 #include <cstring>
 #include <cassert>
 #include <memory>
 #include <boost/asio.hpp>
-#include <infiniband/verbs.h>
-#include <rdma/rdma_cma.h>
 #include "common_logging.h"
 #include "common_ibv.h"
-
-#if SPEAD2_USE_IBV
+#include <infiniband/verbs.h>
+#include <rdma/rdma_cma.h>
 
 namespace spead2
 {
