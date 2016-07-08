@@ -1,11 +1,26 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add support for sending data using libibverbs API (previously only supported
+  for receiving)
+- Add :option:`--memcpy-nt` to :command:`spead2_recv.py` and
+  :command:`spead2_bench.py`
+- Multicast support in :command:`spead2_bench.py` and :command:`spead2_bench`
+- Changes to the algorithm for :command:`spead2_bench.py` and
+  :command:`spead2_bench`: it now starts by computing the maximum send speed,
+  and then either reporting that this is the limiting factor, or using it to
+  start the binary search for the receive speed. It is also stricter about
+  lost heaps.
+- Some internal refactoring of code for dealing with raw packets, so that it
+  is shared between the netmap and ibv readers.
+- Report function name that failed in semaphore system_error exceptions.
+
 .. rubric:: Version 0.10.4
 
-- Some of the Boost.Python glue code was refactored to make it possible to
-  reuse parts of it in writing new Python extensions that use the C++ spead2
-  API.
+- Refactor some of the Boost.Python glue code to make it possible to reuse
+  parts of it in writing new Python extensions that use the C++ spead2 API.
 
 .. rubric:: Version 0.10.3
 
