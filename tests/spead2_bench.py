@@ -93,6 +93,8 @@ class SlaveConnection(object):
                         args.heap_size, args.heap_size + 1024, args.mem_max_free, args.mem_initial)
                     stream = spead2.recv.trollius.Stream(thread_pool, 0, args.heaps, args.ring_heaps)
                     stream.set_memory_allocator(memory_pool)
+                    if args.memcpy_nt:
+                        stream.set_memcpy(spead2.MEMCPY_NONTEMPORAL)
                     bind_hostname = '' if args.multicast is None else args.multicast
                     if 'recv_ibv' in args and args.recv_ibv is not None:
                         try:
@@ -295,6 +297,7 @@ def main():
         group.add_argument('--recv-ibv-max-poll', type=int, default=spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL, help='Maximum number of times to poll in a row [%(default)s]')
     group.add_argument('--heaps', type=int, default=spead2.recv.Stream.DEFAULT_MAX_HEAPS, help='Maximum number of in-flight heaps [%(default)s]')
     group.add_argument('--ring-heaps', type=int, default=spead2.recv.Stream.DEFAULT_RING_HEAPS, help='Ring buffer capacity in heaps [%(default)s]')
+    group.add_argument('--memcpy-nt', action='store_true', help='Use non-temporal memcpy [no]')
     group.add_argument('--mem-max-free', type=int, default=12, help='Maximum free memory buffers [%(default)s]')
     group.add_argument('--mem-initial', type=int, default=8, help='Initial free memory buffers [%(default)s]')
     master.add_argument('host')
