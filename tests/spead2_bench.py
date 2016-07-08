@@ -41,6 +41,7 @@ import collections
 import logging
 import traceback
 import timeit
+import six
 
 
 class SlaveConnection(object):
@@ -77,6 +78,11 @@ class SlaveConnection(object):
                         logging.warning("Start received while already running: %s", command)
                         continue
                     args = argparse.Namespace(**command['args'])
+                    if six.PY2:
+                        args_dict = vars(args)
+                        for key in args_dict:
+                            if isinstance(args_dict[key], unicode):
+                                args_dict[key] = args_dict[key].encode('ascii')
                     if args.recv_affinity is not None and len(args.recv_affinity) > 0:
                         spead2.ThreadPool.set_affinity(args.recv_affinity[0])
                         thread_pool = spead2.ThreadPool(1, args.recv_affinity[1:] + args.recv_affinity[:1])
@@ -87,10 +93,19 @@ class SlaveConnection(object):
                         args.heap_size, args.heap_size + 1024, args.mem_max_free, args.mem_initial)
                     stream = spead2.recv.trollius.Stream(thread_pool, 0, args.heaps, args.ring_heaps)
                     stream.set_memory_allocator(memory_pool)
-                    if args.multicast is not None:
-                        stream.add_udp_reader(args.port, args.packet, args.recv_buffer, str(args.multicast))
+                    bind_hostname = '' if args.multicast is None else args.multicast
+                    if 'recv_ibv' in args and args.recv_ibv is not None:
+                        try:
+                            stream.add_udp_ibv_reader(
+                                bind_hostname, args.port,
+                                args.recv_ibv,
+                                args.packet, args.recv_buffer,
+                                args.recv_ibv_vector, args.recv_ibv_max_poll)
+                        except AttributeError:
+                            logging.error('--recv-ibv passed but slave does not support ibv')
+                            sys.exit(1)
                     else:
-                        stream.add_udp_reader(args.port, args.packet, args.recv_buffer)
+                        stream.add_udp_reader(args.port, args.packet, args.recv_buffer, bind_hostname)
                     thread_pool = None
                     memory_pool = None
                     stream_task = trollius.async(self.run_stream(stream))
@@ -171,8 +186,13 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
     host = args.host
     if args.multicast is not None:
         host = args.multicast
-    stream = spead2.send.trollius.UdpStream(
-        thread_pool, host, args.port, config, args.send_buffer)
+    if 'send_ibv' in args and args.send_ibv is not None:
+        stream = spead2.send.trollius.UdpIbvStream(
+            thread_pool, host, args.port, config, args.send_ibv, args.send_buffer,
+            1, args.send_ibv_vector, args.send_ibv_max_poll)
+    else:
+        stream = spead2.send.trollius.UdpStream(
+            thread_pool, host, args.port, config, args.send_buffer)
     item_group = spead2.send.ItemGroup(
         flavour=spead2.Flavour(4, 64, args.addr_bits, 0))
     item_group.add_item(id=None, name='Test item',
@@ -262,9 +282,17 @@ def main():
     group.add_argument('--send-affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
     group.add_argument('--send-buffer', metavar='BYTES', type=int, default=spead2.send.trollius.UdpStream.DEFAULT_BUFFER_SIZE, help='Socket buffer size [%(default)s]')
     group.add_argument('--burst', metavar='BYTES', type=int, default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE, help='Send burst size [%(default)s]')
+    if hasattr(spead2.send, 'UdpIbvStream'):
+        group.add_argument('--send-ibv', type=str, metavar='ADDRESS', help='Use ibverbs with this interface address [no]')
+        group.add_argument('--send-ibv-vector', type=int, default=0, metavar='N', help='Completion vector, or -1 to use polling [%(default)s]')
+        group.add_argument('--send-ibv-max-poll', type=int, default=spead2.send.UdpIbvStream.DEFAULT_MAX_POLL, help='Maximum number of times to poll in a row [%(default)s]')
     group = master.add_argument_group('receiver options')
     group.add_argument('--recv-affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
     group.add_argument('--recv-buffer', metavar='BYTES', type=int, default=spead2.recv.Stream.DEFAULT_UDP_BUFFER_SIZE, help='Socket buffer size [%(default)s]')
+    if hasattr(spead2.recv.Stream, 'add_udp_ibv_reader'):
+        group.add_argument('--recv-ibv', type=str, metavar='ADDRESS', help='Use ibverbs with this interface address [no]')
+        group.add_argument('--recv-ibv-vector', type=int, default=0, metavar='N', help='Completion vector, or -1 to use polling [%(default)s]')
+        group.add_argument('--recv-ibv-max-poll', type=int, default=spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL, help='Maximum number of times to poll in a row [%(default)s]')
     group.add_argument('--heaps', type=int, default=spead2.recv.Stream.DEFAULT_MAX_HEAPS, help='Maximum number of in-flight heaps [%(default)s]')
     group.add_argument('--ring-heaps', type=int, default=spead2.recv.Stream.DEFAULT_RING_HEAPS, help='Ring buffer capacity in heaps [%(default)s]')
     group.add_argument('--mem-max-free', type=int, default=12, help='Maximum free memory buffers [%(default)s]')
