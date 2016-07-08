@@ -58,6 +58,10 @@ def get_args():
     group.add_argument('--burst', metavar='BYTES', type=int, default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE, help='Burst size [%(default)s]')
     group.add_argument('--rate', metavar='Gb/s', type=float, default=0, help='Transmission rate bound [no limit]')
     group.add_argument('--affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
+    if hasattr(spead2.send, 'UdpIbvStream'):
+        group.add_argument('--ibv', type=str, metavar='ADDRESS', help='Use ibverbs with this interface address [no]')
+        group.add_argument('--ibv-vector', type=int, default=0, metavar='N', help='Completion vector, or -1 to use polling [%(default)s]')
+        group.add_argument('--ibv-max-poll', type=int, default=spead2.send.UdpIbvStream.DEFAULT_MAX_POLL, help='Maximum number of times to poll in a row [%(default)s]')
 
     return parser.parse_args()
 
@@ -111,8 +115,13 @@ def main():
         max_packet_size=args.packet,
         burst_size=args.burst,
         rate=args.rate * 1024**3 / 8)
-    stream = spead2.send.trollius.UdpStream(
-        thread_pool, args.host, args.port, config, args.buffer)
+    if 'ibv' in args and args.ibv is not None:
+        stream = spead2.send.trollius.UdpIbvStream(
+            thread_pool, args.host, args.port, config, args.ibv,
+            args.buffer, args.ibv_vector, args.ibv_max_poll)
+    else:
+        stream = spead2.send.trollius.UdpStream(
+            thread_pool, args.host, args.port, config, args.buffer)
 
     try:
         trollius.get_event_loop().run_until_complete(run(item_group, stream, args))
