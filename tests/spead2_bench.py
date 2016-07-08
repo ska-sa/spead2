@@ -122,9 +122,11 @@ def slave_connection(reader, writer):
     except Exception:
         traceback.print_exc()
 
+
 def run_slave(args):
     server = yield From(trollius.start_server(slave_connection, port=args.port))
     yield From(server.wait_closed())
+
 
 @trollius.coroutine
 def send_stream(item_group, stream, num_heaps):
@@ -141,6 +143,7 @@ def send_stream(item_group, stream, num_heaps):
     for task in tasks:
         transferred += task.result()
     raise Return(transferred)
+
 
 def measure_connection_once(args, rate, num_heaps, required_heaps):
     reader, writer = yield From(trollius.open_connection(args.host, args.port))
@@ -199,6 +202,7 @@ def measure_connection(args, rate, num_heaps, required_heaps):
     for i in range(5):
         total += yield From(measure_connection_once(args, rate, num_heaps, required_heaps))
     raise Return(total >= 3)
+
 
 def run_master(args):
     # These rates are in bytes
