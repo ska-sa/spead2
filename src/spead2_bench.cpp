@@ -419,7 +419,6 @@ static void main_master(int argc, const char **argv)
         if (!opts.quiet)
             std::cout << boost::format("Send rate: %.3f Gbps\n") % (result.second * 8e-9);
 
-        // These rates are in bytes
         double low = 0.0;
         double high = result.second;
         while (high - low > high * 0.02)
