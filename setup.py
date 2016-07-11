@@ -16,14 +16,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from setuptools import setup, Extension
-import distutils.ccompiler
+from distutils.command.build_ext import build_ext
 import glob
 import sys
 import os
 import os.path
 import ctypes.util
-import tempfile
-import shutil
+import re
+import subprocess
+
 
 try:
     import numpy
@@ -31,46 +32,33 @@ try:
 except ImportError:
     numpy_include = None
 
+
 def find_version():
-    # Cannot simply import it, since that tries to import spead2 as well, which
-    # isn't built yet.
-    globals_ = {}
-    with open(os.path.join(os.path.dirname(__file__), 'spead2', '_version.py')) as f:
-        code = f.read()
-    exec(code, globals_)
-    return globals_['__version__']
+    with open('configure.ac', 'r') as f:
+        for line in f:
+            match = re.match(r'AC_INIT\(\[spead2\], \[(.*)\]\)', line)
+            if match:
+                return match.group(1)
+    raise RuntimeError('Could not determine version')
 
-def has_ibv():
-    """Check whether we can compile and link against libibverbs and librdmacm.
-    This is based on distutils.ccompiler.CCompiler.has_function, but modified
-    to make a valid function call (has_function calls the function with no
-    arguments), and to clean up after itself."""
-    compiler = distutils.ccompiler.new_compiler()
-    tmpdir = tempfile.mkdtemp()
-    source = os.path.join(tmpdir, 'test.c')
-    objects = []
-    try:
-        with open(source, 'w') as f:
-            f.write("""#include <infiniband/verbs.h>
-#include <rdma/rdma_cma.h>
 
-int main(int argc, char **argv)
-{
-    rdma_create_event_channel();
-    ibv_create_flow(NULL, NULL);
-}""")
-        try:
-            objects = compiler.compile([source], output_dir=tmpdir)
-        except distutils.ccompiler.CompileError:
-            return False
+class BuildExt(build_ext):
+    def run(self):
+        self.mkpath(self.build_temp)
+        subprocess.check_call(os.path.abspath('configure'), cwd=self.build_temp)
+        # Ugly hack to add libraries conditional on configure result
+        have_ibv = False
+        with open(os.path.join(self.build_temp, 'src', 'common_features.h')) as f:
+            for line in f:
+                if line == '#define SPEAD2_USE_IBV 1':
+                    have_ibv = True
+        for extension in self.extensions:
+            if have_ibv:
+                extension.libraries.extend(['rdmacm', 'ibverbs'])
+            extension.include_dirs.insert(0, os.path.join(self.build_temp, 'src'))
+        # distutils uses old-style classes, so no super
+        build_ext.run(self)
 
-        try:
-            compiler.link_executable(objects, "a.out", output_dir=tmpdir, libraries=['rdmacm', 'ibverbs'])
-        except (distutils.ccompiler.LinkError, TypeError):
-            return False
-        return True
-    finally:
-        shutil.rmtree(tmpdir)
 
 # Can't actually install on readthedocs.org because Boost.Python is missing,
 # but we need setup.py to still be successful to make the doc build work.
@@ -91,13 +79,8 @@ if not rtd:
         raise RuntimeError('Cannot find Boost.Python library')
 
     libraries = [bp_library, 'boost_system']
-    define_macros = []
-    if has_ibv():
-        libraries.extend(['rdmacm', 'ibverbs'])
-        define_macros.append(('SPEAD2_USE_IBV', '1'))
-        print('Including ibverbs support')
-    else:
-        print('ibverbs not detected, so support will not be included')
+    # TODO: detect this from configure output
+    libraries.extend(['rdmacm', 'ibverbs'])
 
     extensions = [
         Extension(
@@ -109,7 +92,6 @@ if not rtd:
             depends=glob.glob('src/*.h'),
             language='c++',
             include_dirs=['src', numpy_include],
-            define_macros=define_macros,
             extra_compile_args=['-std=c++11', '-g0'],
             libraries=libraries)
     ]
@@ -134,6 +116,7 @@ setup(
         'Topic :: System :: Networking'],
     ext_package='spead2',
     ext_modules=extensions,
+    cmdclass={'build_ext': BuildExt},
     setup_requires=['numpy'],
     install_requires=['numpy>=1.9.2', 'six'],
     tests_require=['nose', 'decorator', 'trollius'],
