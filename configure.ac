@@ -1,4 +1,6 @@
 AC_INIT([spead2], [0])
+# Suppress the default CXXFLAGS
+: ${CXXFLAGS=""}
 AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([foreign])
 AC_PROG_CXX
