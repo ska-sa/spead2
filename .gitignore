@@ -15,7 +15,6 @@ Makefile.in
 /depcomp
 /install-sh
 /missing
-/stamp-h1
 /test-driver
 .deps
 *.pyc
