@@ -34,12 +34,13 @@ except ImportError:
 
 
 def find_version():
-    with open('configure.ac', 'r') as f:
-        for line in f:
-            match = re.match(r'AC_INIT\(\[spead2\], \[(.*)\]\)', line)
-            if match:
-                return match.group(1)
-    raise RuntimeError('Could not determine version')
+    # Cannot simply import it, since that tries to import spead2 as well, which
+    # isn't built yet.
+    globals_ = {}
+    with open(os.path.join(os.path.dirname(__file__), 'spead2', '_version.py')) as f:
+        code = f.read()
+    exec(code, globals_)
+    return globals_['__version__']
 
 
 class BuildExt(build_ext):

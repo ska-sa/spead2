@@ -1,4 +1,4 @@
-AC_INIT([spead2], [0.11.0])
+AC_INIT([spead2], [0])
 AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([foreign])
 AC_PROG_CXX
@@ -89,5 +89,5 @@ SPEAD2_ARG_WITH(
 
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
 
-AC_CONFIG_FILES([Makefile src/Makefile src/common_features.h spead2/_version.py])
+AC_CONFIG_FILES([Makefile src/Makefile src/common_features.h])
 AC_OUTPUT
