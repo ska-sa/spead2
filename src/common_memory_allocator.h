@@ -92,7 +92,7 @@ private:
  * padding is justified. The main reasons to use this over the default
  * allocator are:
  * - pointers are page-aligned, which is useful for things like direct I/O
- * - on Linux is uses @c MAP_POPULATE, which avoids lots of cache pollution
+ * - on Linux it uses @c MAP_POPULATE, which avoids lots of cache pollution
  *   when pre-faulting the hard way.
  * - it is possible to specify additional flags, e.g. MAP_HUGETLB or
  *   MAP_LOCKED.
@@ -105,9 +105,16 @@ private:
 class mmap_allocator : public memory_allocator
 {
 public:
-    const int flags;
+    const int flags;         ///< Requested flags given to constructor
+    const bool prefer_huge;  ///< Whether to prefer huge pages
 
-    explicit mmap_allocator(int flags = 0);
+    /**
+     * Constructor.
+     *
+     * @param flags   Extra flags to pass on to mmap
+     */
+    explicit mmap_allocator(int flags = 0, bool prefer_huge = false);
+
     virtual pointer allocate(std::size_t size, void *hint) override;
 
 private:

@@ -11,7 +11,14 @@ namespace unittest
 BOOST_AUTO_TEST_SUITE(common)
 BOOST_AUTO_TEST_SUITE(memory_allocator)
 
-typedef boost::mpl::list<spead2::memory_allocator, spead2::mmap_allocator> test_types;
+// Wrapper to pass prefer_huge to the mmap_allocator constructor
+class huge_mmap_allocator : public spead2::mmap_allocator
+{
+public:
+    huge_mmap_allocator() : spead2::mmap_allocator(0, true) {}
+};
+
+typedef boost::mpl::list<spead2::memory_allocator, spead2::mmap_allocator, huge_mmap_allocator> test_types;
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(allocator_test, T, test_types)
 {

@@ -60,12 +60,9 @@ void memory_allocator::free(std::uint8_t *ptr, void *user)
 
 #include <sys/mman.h>
 
-mmap_allocator::mmap_allocator(int flags) : flags(flags)
+mmap_allocator::mmap_allocator(int flags, bool prefer_huge)
+    : flags(flags), prefer_huge(prefer_huge)
 {
-    flags |= MAP_ANONYMOUS | MAP_PRIVATE;
-#ifdef MAP_POPULATE
-    flags |= MAP_POPULATE;
-#endif
 }
 
 mmap_allocator::pointer mmap_allocator::allocate(std::size_t size, void *hint)
@@ -77,7 +74,17 @@ mmap_allocator::pointer mmap_allocator::allocate(std::size_t size, void *hint)
 #endif
     ;
 
-    std::uint8_t *ptr = (std::uint8_t *) mmap(nullptr, size, PROT_READ | PROT_WRITE, use_flags, -1, 0);
+    std::uint8_t *ptr = (std::uint8_t *) MAP_FAILED;
+#ifdef MAP_HUGETLB
+    if (prefer_huge)
+        ptr = (std::uint8_t *) mmap(nullptr, size, PROT_READ | PROT_WRITE, use_flags | MAP_HUGETLB, -1, 0);
+#endif
+    if (ptr == MAP_FAILED)
+    {
+        // Either fallback from prefer-huge, or prefer_huge is false
+        ptr = (std::uint8_t *) mmap(nullptr, size, PROT_READ | PROT_WRITE, use_flags, -1, 0);
+    }
+
     if (ptr == MAP_FAILED)
         throw std::bad_alloc();
 #ifndef MAP_POPULATE
