@@ -89,5 +89,5 @@ SPEAD2_ARG_WITH(
 
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
 
-AC_CONFIG_FILES([Makefile src/Makefile src/common_features.h])
+AC_CONFIG_FILES([Makefile src/Makefile src/common_features.h spead2/_version.py])
 AC_OUTPUT
