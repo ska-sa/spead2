@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e -x
 
+autoreconf --install
 if [ "$TEST" = "cxx" ]; then
     if [ "$NETMAP" = "yes" ]; then
         export CPATH="$PWD/netmap/sys"
@@ -10,7 +11,6 @@ if [ "$TEST" = "cxx" ]; then
     else
         VARIANT=release
     fi
-    autoreconf --install
     AR=ar CXX="$CXX" ./configure \
         --with-netmap="$NETMAP" \
         --with-recvmmsg="$RECVMMSG" \
