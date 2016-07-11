@@ -99,6 +99,6 @@ spead2_unittest: $(TEST_OBJECTS) libspead2.a
 	$(CXX) -o $@ $(TEST_OBJECTS) -L. -lspead2 $(LDFLAGS) -lboost_unit_test_framework
 
 clean:
-	rm -f *.o $(TARGETS)
+	rm -f *.o $(TARGETS) $(TEST_TARGETS)
 
 .PHONY: all clean test
