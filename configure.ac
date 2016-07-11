@@ -7,6 +7,22 @@ AC_PROG_CXX
 AC_PROG_RANLIB
 AC_LANG(C++)
 
+### Check for -std=c++11
+
+save_CXXFLAGS="$CXXFLAGS"
+CXXFLAGS="-std=c++11 $CXXFLAGS"
+SPEAD2_CHECK_FEATURE([compiler_cxx11], [-std=c++11], [unordered_map], [], [std::unordered_map<int, int> m], [],
+                     [AC_MSG_ERROR([C++11 support is required])])
+CXXFLAGS="$save_CXXFLAGS"
+
+### Check whether -flto works
+
+save_CXXFLAGS="$CXXFLAGS"
+CXXFLAGS="-flto $CXXFLAGS"
+SPEAD2_CHECK_FEATURE([compiler_lto], [-flto], [], [], [], [HAVE_LTO=1], [HAVE_LTO=0])
+CXXFLAGS="$save_CXXFLAGS"
+AM_CONDITIONAL(HAVE_LTO, [test "x$HAVE_LTO" = x1])
+
 ### Required libraries
 
 SPEAD2_CHECK_LIB([boost/program_options.hpp], [boost_program_options],

@@ -1,5 +1,9 @@
-AM_CXXFLAGS = -std=c++11 -O3 -flto
-AM_LDFLAGS = $(AM_CXXFLAGS)
+AM_CXXFLAGS = -std=c++11 -O3
+AM_LDFLAGS =
+if HAVE_LTO
+AM_CXXFLAGS += -flto
+AM_LDFLAGS += $(AM_CXXFLAGS)
+endif
 LIBS = libspead2.a -lboost_system -lpthread
 # We use common_features.h to pass feature settings, not defines or config.h
 DEFS =
