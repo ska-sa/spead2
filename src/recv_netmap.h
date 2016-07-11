@@ -23,6 +23,7 @@
 #ifndef SPEAD2_RECV_NETMAP_UDP_READER_H
 #define SPEAD2_RECV_NETMAP_UDP_READER_H
 
+#include "common_features.h"
 #if SPEAD2_USE_NETMAP
 
 #define NETMAP_WITH_LIBS

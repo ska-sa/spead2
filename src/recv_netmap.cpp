@@ -18,6 +18,8 @@
  * @file
  */
 
+#include "common_features.h"
+
 #if SPEAD2_USE_NETMAP
 
 #include <cstdint>

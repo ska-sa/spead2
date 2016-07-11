@@ -2,7 +2,7 @@
 set -e -x
 
 if [ "$TEST" = "cxx" ]; then
-    if [ "$NETMAP" = "1" ]; then
+    if [ "$NETMAP" = "yes" ]; then
         export CPATH="$PWD/netmap/sys"
     fi
     if [ "$CXX" = "clang++" ]; then
@@ -10,8 +10,14 @@ if [ "$TEST" = "cxx" ]; then
     else
         VARIANT=release
     fi
-    make -j4 -C src CXX="$CXX" AR=ar NETMAP="$NETMAP" RECVMMSG="$RECVMMSG" EVENTFD="$EVENTFD" IBV="$IBV" VARIANT="$VARIANT"
-    make -j4 -C src CXX="$CXX" AR=ar NETMAP="$NETMAP" RECVMMSG="$RECVMMSG" EVENTFD="$EVENTFD" IBV="$IBV" VARIANT="$VARIANT" test
+    autoreconf --install
+    AR=ar CXX="$CXX" ./configure \
+        --with-netmap="$NETMAP" \
+        --with-recvmmsg="$RECVMMSG" \
+        --with-event-fd="$EVENTFD" \
+        --with-ibv="$IBV"
+    make -j4
+    make -j4 check
 fi
 
 if [ "$TEST" = "python2" ]; then
