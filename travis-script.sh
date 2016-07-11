@@ -14,7 +14,7 @@ if [ "$TEST" = "cxx" ]; then
     AR=ar CXX="$CXX" ./configure \
         --with-netmap="$NETMAP" \
         --with-recvmmsg="$RECVMMSG" \
-        --with-event-fd="$EVENTFD" \
+        --with-eventfd="$EVENTFD" \
         --with-ibv="$IBV"
     make -j4
     make -j4 check
