@@ -199,7 +199,7 @@ udp_ibv_stream::udp_ibv_stream(
     qp.modify(IBV_QPS_RTR);
     qp.modify(IBV_QPS_RTS);
 
-    std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>();
+    std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(max_raw_size * n_slots, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
     slots.reset(new slot[n_slots]);

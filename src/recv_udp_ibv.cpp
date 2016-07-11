@@ -273,7 +273,8 @@ udp_ibv_reader::udp_ibv_reader(
     qp.modify(IBV_QPS_INIT, cm_id->port_num);
     flow = create_flow(qp, endpoint, cm_id->port_num);
 
-    buffer.reset(new std::uint8_t[buffer_size]);
+    std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
+    buffer = allocator->allocate(buffer_size, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
     slots.reset(new slot[n_slots]);
     wc.reset(new ibv_wc[n_slots]);

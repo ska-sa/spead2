@@ -71,7 +71,7 @@ private:
      */
     boost::asio::ip::udp::socket join_socket;
     /// Data buffer for all the packets
-    std::unique_ptr<std::uint8_t[]> buffer;
+    memory_allocator::pointer buffer;
 
     // All the data structures required by ibverbs
     rdma_event_channel_t event_channel;
