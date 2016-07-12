@@ -16,8 +16,8 @@
 
 #include <iostream>
 #include <utility>
-#include <endian.h>
 #include <boost/asio.hpp>
+#include <spead2/common_endian.h>
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_defines.h>
 #include <spead2/common_flavour.h>
@@ -37,7 +37,7 @@ int main()
     spead2::flavour f(spead2::maximum_version, 64, 48, spead2::BUG_COMPAT_PYSPEAD_0_5_2);
 
     spead2::send::heap h(f);
-    std::int32_t value1 = htobe32(0xEADBEEF);
+    std::int32_t value1 = spead2::htobe(std::uint32_t(0xEADBEEF));
     std::int32_t value2[64] = {};
     for (int i = 0; i < 64; i++)
         value2[i] = i;
