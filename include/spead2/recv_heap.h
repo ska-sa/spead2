@@ -25,9 +25,9 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
-#include "common_defines.h"
-#include "common_flavour.h"
-#include "common_memory_allocator.h"
+#include <spead2/common_defines.h>
+#include <spead2/common_flavour.h>
+#include <spead2/common_memory_allocator.h>
 
 namespace spead2
 {

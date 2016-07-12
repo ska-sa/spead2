@@ -24,7 +24,7 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
-#include "common_features.h"
+#include <spead2/common_features.h>
 #if SPEAD2_USE_IBV
 
 #include <boost/asio.hpp>
@@ -33,11 +33,11 @@
 #include <vector>
 #include <functional>
 #include <boost/noncopyable.hpp>
-#include "send_packet.h"
-#include "send_stream.h"
-#include "common_ibv.h"
-#include "common_memory_allocator.h"
-#include "common_raw_packet.h"
+#include <spead2/send_packet.h>
+#include <spead2/send_stream.h>
+#include <spead2/common_ibv.h>
+#include <spead2/common_memory_allocator.h>
+#include <spead2/common_raw_packet.h>
 
 namespace spead2
 {

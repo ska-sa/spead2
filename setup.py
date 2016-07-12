@@ -49,14 +49,14 @@ class BuildExt(build_ext):
         subprocess.check_call(os.path.abspath('configure'), cwd=self.build_temp)
         # Ugly hack to add libraries conditional on configure result
         have_ibv = False
-        with open(os.path.join(self.build_temp, 'src', 'common_features.h')) as f:
+        with open(os.path.join(self.build_temp, 'include', 'spead2', 'common_features.h')) as f:
             for line in f:
                 if line == '#define SPEAD2_USE_IBV 1':
                     have_ibv = True
         for extension in self.extensions:
             if have_ibv:
                 extension.libraries.extend(['rdmacm', 'ibverbs'])
-            extension.include_dirs.insert(0, os.path.join(self.build_temp, 'src'))
+            extension.include_dirs.insert(0, os.path.join(self.build_temp, 'include'))
         # distutils uses old-style classes, so no super
         build_ext.run(self)
 
@@ -92,7 +92,7 @@ if not rtd:
                      glob.glob('src/py_*.cpp')),
             depends=glob.glob('src/*.h'),
             language='c++',
-            include_dirs=['src', numpy_include],
+            include_dirs=['include', numpy_include],
             extra_compile_args=['-std=c++11', '-g0'],
             libraries=libraries)
     ]

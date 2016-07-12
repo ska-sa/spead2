@@ -21,12 +21,12 @@
 #ifndef SPEAD2_RECV_RING_STREAM
 #define SPEAD2_RECV_RING_STREAM
 
-#include "common_ringbuffer.h"
-#include "common_logging.h"
-#include "common_thread_pool.h"
-#include "recv_live_heap.h"
-#include "recv_heap.h"
-#include "recv_stream.h"
+#include <spead2/common_ringbuffer.h>
+#include <spead2/common_logging.h>
+#include <spead2/common_thread_pool.h>
+#include <spead2/recv_live_heap.h>
+#include <spead2/recv_heap.h>
+#include <spead2/recv_stream.h>
 
 namespace spead2
 {

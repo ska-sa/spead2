@@ -23,8 +23,8 @@
 
 #include <boost/asio.hpp>
 #include <utility>
-#include "send_packet.h"
-#include "send_stream.h"
+#include <spead2/send_packet.h>
+#include <spead2/send_stream.h>
 
 namespace spead2
 {

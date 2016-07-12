@@ -23,7 +23,7 @@
 #ifndef SPEAD2_RECV_NETMAP_UDP_READER_H
 #define SPEAD2_RECV_NETMAP_UDP_READER_H
 
-#include "common_features.h"
+#include <spead2/common_features.h>
 #if SPEAD2_USE_NETMAP
 
 #define NETMAP_WITH_LIBS
@@ -31,8 +31,8 @@
 #include <string>
 #include <boost/asio.hpp>
 #include <net/netmap_user.h>
-#include "recv_reader.h"
-#include "recv_stream.h"
+#include <spead2/recv_reader.h>
+#include <spead2/recv_stream.h>
 
 namespace spead2
 {

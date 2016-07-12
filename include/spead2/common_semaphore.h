@@ -27,7 +27,7 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
-#include "common_features.h"
+#include <spead2/common_features.h>
 #include <memory>
 #include <atomic>
 #if SPEAD2_USE_POSIX_SEMAPHORES

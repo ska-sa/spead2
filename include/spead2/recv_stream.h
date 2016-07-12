@@ -31,10 +31,10 @@
 #include <atomic>
 #include <type_traits>
 #include <boost/asio.hpp>
-#include "recv_live_heap.h"
-#include "recv_reader.h"
-#include "common_memory_pool.h"
-#include "common_bind.h"
+#include <spead2/recv_live_heap.h>
+#include <spead2/recv_reader.h>
+#include <spead2/common_memory_pool.h>
+#include <spead2/common_bind.h>
 
 namespace spead2
 {

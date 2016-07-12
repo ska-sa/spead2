@@ -17,8 +17,8 @@
 #include <cstddef>
 #include <utility>
 #include <boost/asio.hpp>
-#include "send_udp.h"
-#include "common_defines.h"
+#include <spead2/send_udp.h>
+#include <spead2/common_defines.h>
 
 namespace spead2
 {

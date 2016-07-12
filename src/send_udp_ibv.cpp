@@ -21,11 +21,11 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
-#include "common_features.h"
+#include <spead2/common_features.h>
 #if SPEAD2_USE_IBV
 
-#include "common_raw_packet.h"
-#include "send_udp_ibv.h"
+#include <spead2/common_raw_packet.h>
+#include <spead2/send_udp_ibv.h>
 
 namespace spead2
 {

@@ -23,7 +23,7 @@
 #ifndef SPEAD2_RECV_UTILS_H
 #define SPEAD2_RECV_UTILS_H
 
-#include "common_defines.h"
+#include <spead2/common_defines.h>
 
 namespace spead2
 {

@@ -18,9 +18,9 @@
 #define PY_ARRAY_UNIQUE_SYMBOL spead2_ARRAY_API
 #include <boost/python.hpp>
 #include <numpy/arrayobject.h>
-#include "py_common.h"
-#include "py_recv.h"
-#include "py_send.h"
+#include <spead2/py_common.h>
+#include <spead2/py_recv.h>
+#include <spead2/py_send.h>
 
 namespace py = boost::python;
 

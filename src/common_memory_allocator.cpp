@@ -18,7 +18,7 @@
  * @file
  */
 
-#include "common_memory_pool.h"
+#include <spead2/common_memory_pool.h>
 
 namespace spead2
 {

@@ -23,7 +23,7 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "recv_reader.h"
+#include <spead2/recv_reader.h>
 
 namespace spead2
 {

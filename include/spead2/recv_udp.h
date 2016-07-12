@@ -24,16 +24,16 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
-#include "common_features.h"
+#include <spead2/common_features.h>
 #if SPEAD2_USE_RECVMMSG
 # include <sys/socket.h>
 # include <sys/types.h>
 #endif
 #include <cstdint>
 #include <boost/asio.hpp>
-#include "recv_reader.h"
-#include "recv_stream.h"
-#include "recv_udp_base.h"
+#include <spead2/recv_reader.h>
+#include <spead2/recv_stream.h>
+#include <spead2/recv_udp_base.h>
 
 namespace spead2
 {

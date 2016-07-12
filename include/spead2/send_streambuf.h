@@ -24,7 +24,7 @@
 #include <streambuf>
 #include <functional>
 #include <boost/asio.hpp>
-#include "send_stream.h"
+#include <spead2/send_stream.h>
 
 namespace spead2
 {

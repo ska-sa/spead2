@@ -26,7 +26,7 @@
 #include <functional>
 #include <boost/format.hpp>
 #include <boost/preprocessor/cat.hpp>
-#include "common_defines.h"
+#include <spead2/common_defines.h>
 
 namespace spead2
 {

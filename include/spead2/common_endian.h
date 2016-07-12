@@ -23,7 +23,7 @@
 
 #include <cstdint>
 #include <cstring>
-#include "portable_endian.h"
+#include <spead2/portable_endian.h>
 
 namespace spead2
 {

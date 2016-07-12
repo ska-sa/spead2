@@ -33,10 +33,10 @@
 #include <boost/asio.hpp>
 #include <boost/asio/high_resolution_timer.hpp>
 #include <boost/system/error_code.hpp>
-#include "send_heap.h"
-#include "send_packet.h"
-#include "common_logging.h"
-#include "common_defines.h"
+#include <spead2/send_heap.h>
+#include <spead2/send_packet.h>
+#include <spead2/common_logging.h>
+#include <spead2/common_defines.h>
 
 namespace spead2
 {

@@ -18,15 +18,15 @@
  * @file
  */
 
-#include "common_features.h"
+#include <spead2/common_features.h>
 #if SPEAD2_USE_IBV
 #include <cerrno>
 #include <cstring>
 #include <cassert>
 #include <memory>
 #include <boost/asio.hpp>
-#include "common_logging.h"
-#include "common_ibv.h"
+#include <spead2/common_logging.h>
+#include <spead2/common_ibv.h>
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
 

@@ -29,9 +29,9 @@
 #include <memory>
 #include <map>
 #include <functional>
-#include "common_defines.h"
-#include "common_memory_allocator.h"
-#include "recv_packet.h"
+#include <spead2/common_defines.h>
+#include <spead2/common_memory_allocator.h>
+#include <spead2/recv_packet.h>
 
 namespace spead2
 {

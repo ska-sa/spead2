@@ -18,7 +18,7 @@
  * @file
  */
 
-#include "common_features.h"
+#include <spead2/common_features.h>
 
 #if SPEAD2_USE_NETMAP
 
@@ -26,10 +26,10 @@
 #include <boost/asio.hpp>
 #include <cerrno>
 #include <system_error>
-#include "recv_reader.h"
-#include "recv_netmap.h"
-#include "common_logging.h"
-#include "common_raw_packet.h"
+#include <spead2/recv_reader.h>
+#include <spead2/recv_netmap.h>
+#include <spead2/common_logging.h>
+#include <spead2/common_raw_packet.h>
 
 namespace spead2
 {

@@ -19,8 +19,8 @@
  */
 
 #include <stdexcept>
-#include "common_flavour.h"
-#include "common_defines.h"
+#include <spead2/common_flavour.h>
+#include <spead2/common_defines.h>
 
 namespace spead2
 {

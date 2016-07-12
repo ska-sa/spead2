@@ -24,15 +24,15 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
-#include "common_features.h"
+#include <spead2/common_features.h>
 #include <cerrno>
 #include <system_error>
 #include <unistd.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <atomic>
-#include "common_semaphore.h"
-#include "common_logging.h"
+#include <spead2/common_semaphore.h>
+#include <spead2/common_logging.h>
 #if SPEAD2_USE_EVENTFD
 # include <sys/eventfd.h>
 #endif

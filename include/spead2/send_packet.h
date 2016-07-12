@@ -26,7 +26,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <boost/asio/buffer.hpp>
-#include "common_defines.h"
+#include <spead2/common_defines.h>
 
 namespace spead2
 {

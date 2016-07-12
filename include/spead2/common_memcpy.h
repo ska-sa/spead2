@@ -18,7 +18,7 @@
 #define SPEAD2_COMMON_MEMCPY_H
 
 #include <cstddef>
-#include "common_features.h"
+#include <spead2/common_features.h>
 
 /**
  * Variant of memcpy that uses a non-temporal hint for the destination.

@@ -28,7 +28,7 @@
 #include <cstdint>
 #include <memory>
 #include <boost/asio.hpp>
-#include "recv_reader.h"
+#include <spead2/recv_reader.h>
 
 namespace spead2
 {

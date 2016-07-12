@@ -19,11 +19,11 @@
 #include <chrono>
 #include <cstdint>
 #include <boost/asio.hpp>
-#include "common_thread_pool.h"
-#include "recv_udp.h"
-#include "recv_heap.h"
-#include "recv_live_heap.h"
-#include "recv_ring_stream.h"
+#include <spead2/common_thread_pool.h>
+#include <spead2/recv_udp.h>
+#include <spead2/recv_heap.h>
+#include <spead2/recv_live_heap.h>
+#include <spead2/recv_ring_stream.h>
 
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
 

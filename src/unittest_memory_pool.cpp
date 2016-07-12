@@ -1,8 +1,8 @@
 #include <boost/test/unit_test.hpp>
 #include <vector>
 #include <memory>
-#include "common_memory_pool.h"
-#include "common_thread_pool.h"
+#include <spead2/common_memory_pool.h>
+#include <spead2/common_thread_pool.h>
 
 namespace spead2
 {

@@ -19,7 +19,7 @@
  */
 
 #include <cstddef>
-#include "recv_ring_stream.h"
+#include <spead2/recv_ring_stream.h>
 
 namespace spead2
 {

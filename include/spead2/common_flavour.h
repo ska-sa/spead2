@@ -18,43 +18,38 @@
  * @file
  */
 
-#ifndef SPEAD2_RECV_MEM_H
-#define SPEAD2_RECV_MEM_H
+#ifndef SPEAD2_COMMON_FLAVOUR_H
+#define SPEAD2_COMMON_FLAVOUR_H
 
-#include <cstdint>
-#include "recv_reader.h"
+#include <spead2/common_defines.h>
 
 namespace spead2
 {
-namespace recv
-{
-
-class reader;
 
 /**
- * Reader class that feeds data from a memory buffer to a stream. The caller
- * must ensure that the underlying memory buffer is not destroyed before
- * this class.
- *
- * @note For simple cases, use @ref mem_to_stream instead. This class is
- * only necessary if one wants to plug in to a @ref stream.
+ * A variant of the SPEAD protocol.
  */
-class mem_reader : public reader
+class flavour
 {
 private:
-    /// Start of data
-    const std::uint8_t *ptr;
-    /// Length of data
-    std::size_t length;
+    int heap_address_bits = 40;
+    bug_compat_mask bug_compat = 0;
 
 public:
-    mem_reader(stream &owner,
-               const std::uint8_t *ptr, std::size_t length);
+    flavour() = default;
+    explicit flavour(
+        int version, int item_pointer_bits,
+        int heap_address_bits, bug_compat_mask bug_compat = 0);
 
-    virtual void stop() override {}
+    int get_version() const { return 4; }
+    int get_item_pointer_bits() const { return 8 * sizeof(item_pointer_t); }
+    int get_heap_address_bits() const { return heap_address_bits; }
+    bug_compat_mask get_bug_compat() const { return bug_compat; }
+
+    bool operator==(const flavour &other) const;
+    bool operator!=(const flavour &other) const;
 };
 
-} // namespace recv
 } // namespace spead2
 
-#endif // SPEAD2_RECV_MEM_H
+#endif // SPEAD2_COMMON_FLAVOUR_H

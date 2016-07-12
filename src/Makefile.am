@@ -1,4 +1,5 @@
 AM_CXXFLAGS = -std=c++11
+AM_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
 LIBS = libspead2.a -lboost_system -lpthread
 # We use common_features.h to pass feature settings, not defines or config.h
 DEFS =

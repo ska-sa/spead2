@@ -28,8 +28,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cassert>
-#include "common_defines.h"
-#include "common_flavour.h"
+#include <spead2/common_defines.h>
+#include <spead2/common_flavour.h>
 
 namespace spead2
 {

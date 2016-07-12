@@ -27,8 +27,8 @@
 #include <stack>
 #include <memory>
 #include <boost/asio.hpp>
-#include "common_thread_pool.h"
-#include "common_memory_allocator.h"
+#include <spead2/common_thread_pool.h>
+#include <spead2/common_memory_allocator.h>
 
 namespace spead2
 {

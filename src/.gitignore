@@ -10,4 +10,3 @@ libspead2.a
 test-suite.log
 spead2_unittest.log
 spead2_unittest.trs
-common_features.h

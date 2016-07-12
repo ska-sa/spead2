@@ -1,7 +1,7 @@
 PROJECT_NAME           = "spead2"
 OUTPUT_DIRECTORY       = doxygen
 STRIP_FROM_PATH        = ../src
-STRIP_FROM_INC_PATH    = ../src
+STRIP_FROM_INC_PATH    = ../include/spead2
 JAVADOC_AUTOBRIEF      = YES
 
 # If the MARKDOWN_SUPPORT tag is enabled then doxygen pre-processes all comments
@@ -55,7 +55,7 @@ PREDEFINED             = SPEAD2_USE_NETMAP=1 SPEAD2_USE_IBV=1
 QUIET                  = YES
 WARN_IF_UNDOCUMENTED   = NO
 
-INPUT                  = ../src
+INPUT                  = ../src ../include/spead2
 EXCLUDE_PATTERNS       = test_*
 
 GENERATE_HTML          = NO

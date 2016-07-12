@@ -30,10 +30,10 @@
 #include <cassert>
 #include <mutex>
 #include <stdexcept>
-#include "common_memory_allocator.h"
-#include "common_memory_pool.h"
-#include "common_thread_pool.h"
-#include "common_logging.h"
+#include <spead2/common_memory_allocator.h>
+#include <spead2/common_memory_pool.h>
+#include <spead2/common_thread_pool.h>
+#include <spead2/common_logging.h>
 
 namespace spead2
 {

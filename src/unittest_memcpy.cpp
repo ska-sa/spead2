@@ -1,7 +1,7 @@
 #include <boost/test/unit_test.hpp>
 #include <utility>
 #include <cstdint>
-#include "common_memcpy.h"
+#include <spead2/common_memcpy.h>
 
 namespace spead2
 {

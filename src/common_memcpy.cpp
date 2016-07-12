@@ -17,8 +17,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include "common_features.h"
-#include "common_memcpy.h"
+#include <spead2/common_features.h>
+#include <spead2/common_memcpy.h>
 #if SPEAD2_USE_MOVNTDQ
 # include <emmintrin.h>
 #endif

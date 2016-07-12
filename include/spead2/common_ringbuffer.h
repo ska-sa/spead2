@@ -32,8 +32,8 @@
 #include <cassert>
 #include <climits>
 #include <iostream>
-#include "common_logging.h"
-#include "common_semaphore.h"
+#include <spead2/common_logging.h>
+#include <spead2/common_semaphore.h>
 
 namespace spead2
 {

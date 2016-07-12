@@ -24,7 +24,7 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
-#include "common_features.h"
+#include <spead2/common_features.h>
 #include <memory>
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>

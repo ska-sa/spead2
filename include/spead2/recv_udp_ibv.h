@@ -24,7 +24,7 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
-#include "common_features.h"
+#include <spead2/common_features.h>
 #if SPEAD2_USE_IBV
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
@@ -34,10 +34,10 @@
 #include <memory>
 #include <boost/asio.hpp>
 #include <boost/noncopyable.hpp>
-#include "common_ibv.h"
-#include "recv_reader.h"
-#include "recv_stream.h"
-#include "recv_udp_base.h"
+#include <spead2/common_ibv.h>
+#include <spead2/recv_reader.h>
+#include <spead2/recv_stream.h>
+#include <spead2/recv_udp_base.h>
 
 namespace spead2
 {

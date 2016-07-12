@@ -33,7 +33,7 @@
 #include <boost/asio/ip/address_v4.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/buffer.hpp>
-#include "common_endian.h"
+#include <spead2/common_endian.h>
 
 namespace spead2
 {

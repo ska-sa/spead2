@@ -21,7 +21,7 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
-#include "common_features.h"
+#include <spead2/common_features.h>
 #if SPEAD2_USE_RECVMMSG
 # include <sys/socket.h>
 # include <sys/types.h>
@@ -35,11 +35,11 @@
 #include <functional>
 #include <boost/asio.hpp>
 #include <boost/lexical_cast.hpp>
-#include "recv_reader.h"
-#include "recv_udp.h"
-#include "recv_udp_base.h"
-#include "recv_udp_ibv.h"
-#include "common_logging.h"
+#include <spead2/recv_reader.h>
+#include <spead2/recv_udp.h>
+#include <spead2/recv_udp_base.h>
+#include <spead2/recv_udp_ibv.h>
+#include <spead2/common_logging.h>
 
 namespace spead2
 {

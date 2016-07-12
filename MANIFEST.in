@@ -1,4 +1,5 @@
-recursive-include src *.h *.h.in *.cpp Makefile.in Makefile.am
+recursive-include src *.cpp Makefile.in Makefile.am
+recursive-include include *.h *.h.in Makefile.in Makefile.am
 recursive-include spead2 *.py
 exclude src/common_features.h
 include Makefile.am configure.ac

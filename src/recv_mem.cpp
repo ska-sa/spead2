@@ -20,9 +20,9 @@
 
 #include <cstdint>
 #include <cassert>
-#include "recv_reader.h"
-#include "recv_mem.h"
-#include "recv_stream.h"
+#include <spead2/recv_reader.h>
+#include <spead2/recv_mem.h>
+#include <spead2/recv_stream.h>
 
 namespace spead2
 {
