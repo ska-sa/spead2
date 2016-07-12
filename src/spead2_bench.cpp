@@ -545,7 +545,7 @@ public:
         ::emplace_udp_reader(stream, endpoint, opts);
     }
 
-    virtual void emplace_mem_reader(const std::uint8_t *ptr, std::size_t length)
+    virtual void emplace_mem_reader(const std::uint8_t *ptr, std::size_t length) override
     {
         stream.emplace_reader<spead2::recv::mem_reader>(ptr, length);
     }
