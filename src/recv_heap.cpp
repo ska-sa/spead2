@@ -23,12 +23,12 @@
 #include <utility>
 #include <cstring>
 #include <string>
-#include "recv_live_heap.h"
-#include "recv_heap.h"
-#include "recv_stream.h"
-#include "recv_utils.h"
-#include "common_logging.h"
-#include "common_endian.h"
+#include <spead2/recv_live_heap.h>
+#include <spead2/recv_heap.h>
+#include <spead2/recv_stream.h>
+#include <spead2/recv_utils.h>
+#include <spead2/common_logging.h>
+#include <spead2/common_endian.h>
 
 namespace spead2
 {

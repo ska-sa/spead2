@@ -38,8 +38,8 @@
 #include <net/if_arp.h>
 #include <netpacket/packet.h>
 #include <ifaddrs.h>
-#include "common_raw_packet.h"
-#include "common_endian.h"
+#include <spead2/common_raw_packet.h>
+#include <spead2/common_endian.h>
 
 namespace spead2
 {

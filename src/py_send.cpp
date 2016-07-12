@@ -28,14 +28,14 @@
 #include <utility>
 #include <memory>
 #include <unistd.h>
-#include "send_heap.h"
-#include "send_stream.h"
-#include "send_udp.h"
-#include "send_udp_ibv.h"
-#include "send_streambuf.h"
-#include "common_thread_pool.h"
-#include "common_semaphore.h"
-#include "py_common.h"
+#include <spead2/send_heap.h>
+#include <spead2/send_stream.h>
+#include <spead2/send_udp.h>
+#include <spead2/send_udp_ibv.h>
+#include <spead2/send_streambuf.h>
+#include <spead2/common_thread_pool.h>
+#include <spead2/common_semaphore.h>
+#include <spead2/py_common.h>
 
 namespace py = boost::python;
 

@@ -21,7 +21,7 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
-#include "common_features.h"
+#include <spead2/common_features.h>
 #if SPEAD2_USE_IBV
 #include <system_error>
 #include <stdexcept>
@@ -33,12 +33,12 @@
 #include <algorithm>
 #include <boost/asio.hpp>
 #include <unistd.h>
-#include "recv_reader.h"
-#include "recv_stream.h"
-#include "recv_udp_ibv.h"
-#include "common_endian.h"
-#include "common_logging.h"
-#include "common_raw_packet.h"
+#include <spead2/recv_reader.h>
+#include <spead2/recv_stream.h>
+#include <spead2/recv_udp_ibv.h>
+#include <spead2/common_endian.h>
+#include <spead2/common_logging.h>
+#include <spead2/common_raw_packet.h>
 
 namespace spead2
 {

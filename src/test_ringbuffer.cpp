@@ -30,9 +30,9 @@
 #include <cerrno>
 #include <sched.h>
 #include <boost/program_options.hpp>
-#include "common_ringbuffer.h"
-#include "common_semaphore.h"
-#include "recv_heap.h"
+#include <spead2/common_ringbuffer.h>
+#include <spead2/common_semaphore.h>
+#include <spead2/recv_heap.h>
 
 namespace po = boost::program_options;
 

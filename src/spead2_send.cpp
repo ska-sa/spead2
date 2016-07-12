@@ -25,11 +25,11 @@
 #include <cstdint>
 #include <boost/program_options.hpp>
 #include <boost/asio.hpp>
-#include "common_thread_pool.h"
-#include "send_stream.h"
-#include "send_udp.h"
+#include <spead2/common_thread_pool.h>
+#include <spead2/send_stream.h>
+#include <spead2/send_udp.h>
 #if SPEAD2_USE_IBV
-# include "send_udp_ibv.h"
+# include <spead2/send_udp_ibv.h>
 #endif
 
 namespace po = boost::program_options;

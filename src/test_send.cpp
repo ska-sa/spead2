@@ -18,12 +18,12 @@
 #include <utility>
 #include <endian.h>
 #include <boost/asio.hpp>
-#include "common_thread_pool.h"
-#include "common_defines.h"
-#include "common_flavour.h"
-#include "send_heap.h"
-#include "send_udp.h"
-#include "send_stream.h"
+#include <spead2/common_thread_pool.h>
+#include <spead2/common_defines.h>
+#include <spead2/common_flavour.h>
+#include <spead2/send_heap.h>
+#include <spead2/send_udp.h>
+#include <spead2/send_stream.h>
 
 using boost::asio::ip::udp;
 

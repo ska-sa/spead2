@@ -19,7 +19,7 @@
  */
 
 #include <streambuf>
-#include "send_streambuf.h"
+#include <spead2/send_streambuf.h>
 
 namespace spead2
 {

@@ -29,22 +29,22 @@
 #include <boost/program_options.hpp>
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
-#include "common_thread_pool.h"
-#include "common_defines.h"
-#include "common_flavour.h"
-#include "common_memory_pool.h"
-#include "recv_udp.h"
-#include "recv_heap.h"
-#include "recv_live_heap.h"
-#include "recv_ring_stream.h"
-#include "recv_mem.h"
-#include "send_heap.h"
-#include "send_udp.h"
-#include "send_stream.h"
-#include "send_streambuf.h"
+#include <spead2/common_thread_pool.h>
+#include <spead2/common_defines.h>
+#include <spead2/common_flavour.h>
+#include <spead2/common_memory_pool.h>
+#include <spead2/recv_udp.h>
+#include <spead2/recv_heap.h>
+#include <spead2/recv_live_heap.h>
+#include <spead2/recv_ring_stream.h>
+#include <spead2/recv_mem.h>
+#include <spead2/send_heap.h>
+#include <spead2/send_udp.h>
+#include <spead2/send_stream.h>
+#include <spead2/send_streambuf.h>
 #if SPEAD2_USE_IBV
-# include "send_udp_ibv.h"
-# include "recv_udp_ibv.h"
+# include <spead2/send_udp_ibv.h>
+# include <spead2/recv_udp_ibv.h>
 #endif
 
 namespace po = boost::program_options;

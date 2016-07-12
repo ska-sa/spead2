@@ -3,6 +3,9 @@ Changelog
 
 .. rubric:: Development version
 
+- The C++ API installation has been changed to use autoconf and automake. As a
+  result, it is possible to run ``make install`` and get the static library,
+  headers, and tools installed.
 - Add support for sending data using libibverbs API (previously only supported
   for receiving)
 - Add :option:`--memcpy-nt` to :program:`spead2_recv.py` and

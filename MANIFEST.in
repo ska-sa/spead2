@@ -1,5 +1,9 @@
-recursive-include src *.h *.cpp Makefile
+recursive-include src *.cpp Makefile.in Makefile.am
+recursive-include include *.h *.h.in Makefile.in Makefile.am
 recursive-include spead2 *.py
+exclude src/common_features.h
+include Makefile.am configure.ac
+include Makefile.in aclocal.m4 compile configure.ac configure depcomp install-sh missing test-driver
 graft tests
 graft doc
 prune doc/_build

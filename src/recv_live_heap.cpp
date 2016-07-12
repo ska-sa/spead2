@@ -23,11 +23,11 @@
 #include <algorithm>
 #include <utility>
 #include <stdexcept>
-#include "recv_live_heap.h"
-#include "recv_utils.h"
-#include "common_defines.h"
-#include "common_endian.h"
-#include "common_logging.h"
+#include <spead2/recv_live_heap.h>
+#include <spead2/recv_utils.h>
+#include <spead2/common_defines.h>
+#include <spead2/common_endian.h>
+#include <spead2/common_logging.h>
 
 namespace spead2
 {

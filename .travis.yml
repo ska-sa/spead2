@@ -2,10 +2,10 @@ sudo: required
 dist: trusty
 language: generic
 env:
-    - TEST=cxx CXX="g++" NETMAP=0 RECVMMSG=1 EVENTFD=1 IBV=0
-    - TEST=cxx CXX="g++" NETMAP=1 RECVMMSG=0 EVENTFD=0 IBV=1
-    - TEST=cxx CXX="clang++" NETMAP=0 RECVMMSG=1 EVENTFD=1 IBV=0
-    - TEST=cxx CXX="clang++" NETMAP=1 RECVMMSG=0 EVENTFD=0 IBV=1
+    - TEST=cxx CXX="g++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
+    - TEST=cxx CXX="g++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
+    - TEST=cxx CXX="clang++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
+    - TEST=cxx CXX="clang++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
     - TEST=python2 CC="gcc" CXX="g++"
     - TEST=python2 CC="clang" CXX="clang++"
     - TEST=python3 CC="gcc" CXX="g++"

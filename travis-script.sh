@@ -1,17 +1,18 @@
 #!/bin/bash
 set -e -x
 
+autoreconf --install
 if [ "$TEST" = "cxx" ]; then
-    if [ "$NETMAP" = "1" ]; then
+    if [ "$NETMAP" = "yes" ]; then
         export CPATH="$PWD/netmap/sys"
     fi
-    if [ "$CXX" = "clang++" ]; then
-        VARIANT=debug     # Travis' clang setup is broken for -flto
-    else
-        VARIANT=release
-    fi
-    make -j4 -C src CXX="$CXX" AR=ar NETMAP="$NETMAP" RECVMMSG="$RECVMMSG" EVENTFD="$EVENTFD" IBV="$IBV" VARIANT="$VARIANT"
-    make -j4 -C src CXX="$CXX" AR=ar NETMAP="$NETMAP" RECVMMSG="$RECVMMSG" EVENTFD="$EVENTFD" IBV="$IBV" VARIANT="$VARIANT" test
+    AR=ar ./configure \
+        --with-netmap="$NETMAP" \
+        --with-recvmmsg="$RECVMMSG" \
+        --with-eventfd="$EVENTFD" \
+        --with-ibv="$IBV"
+    make -j4
+    make -j4 check
 fi
 
 if [ "$TEST" = "python2" ]; then

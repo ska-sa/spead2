@@ -1,7 +1,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/mpl/list.hpp>
 #include <memory>
-#include "common_memory_allocator.h"
+#include <spead2/common_memory_allocator.h>
 
 namespace spead2
 {

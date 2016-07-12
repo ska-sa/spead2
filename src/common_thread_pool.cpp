@@ -22,9 +22,9 @@
 #include <thread>
 #include <stdexcept>
 #include <system_error>
-#include "common_thread_pool.h"
-#include "common_logging.h"
-#include "common_features.h"
+#include <spead2/common_thread_pool.h>
+#include <spead2/common_logging.h>
+#include <spead2/common_features.h>
 #if SPEAD2_USE_PTHREAD_SETAFFINITY_NP
 # include <sched.h>
 # include <pthread.h>

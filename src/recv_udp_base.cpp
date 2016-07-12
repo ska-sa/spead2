@@ -20,11 +20,11 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "recv_reader.h"
-#include "recv_packet.h"
-#include "recv_stream.h"
-#include "recv_udp_base.h"
-#include "common_logging.h"
+#include <spead2/recv_reader.h>
+#include <spead2/recv_packet.h>
+#include <spead2/recv_stream.h>
+#include <spead2/recv_udp_base.h>
+#include <spead2/common_logging.h>
 
 namespace spead2
 {

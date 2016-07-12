@@ -20,7 +20,7 @@
  * Logging facilities
  */
 
-#include "common_logging.h"
+#include <spead2/common_logging.h>
 #include <iostream>
 #include <cassert>
 #include <system_error>

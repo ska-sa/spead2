@@ -11,6 +11,6 @@ if [ "$TEST" = "python3" ]; then
     sudo -H pip3 install -r requirements.txt
 fi
 
-if [ "$TEST" = "cxx" ] && [ "$NETMAP" = "1" ]; then
+if [ "$TEST" = "cxx" ] && [ "$NETMAP" = "yes" ]; then
     git clone https://github.com/luigirizzo/netmap
 fi

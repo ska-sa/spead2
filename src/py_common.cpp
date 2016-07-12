@@ -20,13 +20,13 @@
 #include <boost/python.hpp>
 #include <boost/system/system_error.hpp>
 #include <memory>
-#include "py_common.h"
-#include "common_ringbuffer.h"
-#include "common_defines.h"
-#include "common_flavour.h"
-#include "common_logging.h"
-#include "common_memory_pool.h"
-#include "common_thread_pool.h"
+#include <spead2/py_common.h>
+#include <spead2/common_ringbuffer.h>
+#include <spead2/common_defines.h>
+#include <spead2/common_flavour.h>
+#include <spead2/common_logging.h>
+#include <spead2/common_memory_pool.h>
+#include <spead2/common_thread_pool.h>
 
 namespace py = boost::python;
 

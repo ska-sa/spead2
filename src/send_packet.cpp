@@ -23,12 +23,12 @@
 #include <cstring>
 #include <stdexcept>
 #include <algorithm>
-#include "send_heap.h"
-#include "send_utils.h"
-#include "send_packet.h"
-#include "common_defines.h"
-#include "common_logging.h"
-#include "common_endian.h"
+#include <spead2/send_heap.h>
+#include <spead2/send_utils.h>
+#include <spead2/send_packet.h>
+#include <spead2/common_defines.h>
+#include <spead2/common_logging.h>
+#include <spead2/common_endian.h>
 
 namespace spead2
 {

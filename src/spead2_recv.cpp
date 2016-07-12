@@ -25,17 +25,17 @@
 #include <boost/program_options.hpp>
 #include <boost/asio.hpp>
 #include <boost/lexical_cast.hpp>
-#include "common_thread_pool.h"
-#include "recv_udp.h"
+#include <spead2/common_thread_pool.h>
+#include <spead2/recv_udp.h>
 #if SPEAD2_USE_NETMAP
-# include "recv_netmap.h"
+# include <spead2/recv_netmap.h>
 #endif
 #if SPEAD2_USE_IBV
-# include "recv_udp_ibv.h"
+# include <spead2/recv_udp_ibv.h>
 #endif
-#include "recv_heap.h"
-#include "recv_live_heap.h"
-#include "recv_ring_stream.h"
+#include <spead2/recv_heap.h>
+#include <spead2/recv_live_heap.h>
+#include <spead2/recv_ring_stream.h>
 
 namespace po = boost::program_options;
 namespace asio = boost::asio;

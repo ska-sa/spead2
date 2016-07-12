@@ -23,15 +23,15 @@
 #include <stdexcept>
 #include <cstdint>
 #include <unistd.h>
-#include "recv_udp.h"
-#include "recv_udp_ibv.h"
-#include "recv_mem.h"
-#include "recv_stream.h"
-#include "recv_ring_stream.h"
-#include "recv_live_heap.h"
-#include "recv_heap.h"
-#include "common_ringbuffer.h"
-#include "py_common.h"
+#include <spead2/recv_udp.h>
+#include <spead2/recv_udp_ibv.h>
+#include <spead2/recv_mem.h>
+#include <spead2/recv_stream.h>
+#include <spead2/recv_ring_stream.h>
+#include <spead2/recv_live_heap.h>
+#include <spead2/recv_heap.h>
+#include <spead2/common_ringbuffer.h>
+#include <spead2/py_common.h>
 
 namespace py = boost::python;
 

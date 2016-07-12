@@ -2,8 +2,8 @@
 #include <utility>
 #include <ostream>
 #include <memory>
-#include "common_memory_allocator.h"
-#include "recv_live_heap.h"
+#include <spead2/common_memory_allocator.h>
+#include <spead2/recv_live_heap.h>
 
 namespace std
 {

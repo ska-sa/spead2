@@ -22,10 +22,10 @@
 #include <utility>
 #include <cassert>
 #include <atomic>
-#include "recv_stream.h"
-#include "recv_live_heap.h"
-#include "common_memcpy.h"
-#include "common_thread_pool.h"
+#include <spead2/recv_stream.h>
+#include <spead2/recv_live_heap.h>
+#include <spead2/common_memcpy.h>
+#include <spead2/common_thread_pool.h>
 
 namespace spead2
 {

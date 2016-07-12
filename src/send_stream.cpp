@@ -20,7 +20,7 @@
 
 #include <cmath>
 #include <stdexcept>
-#include "send_stream.h"
+#include <spead2/send_stream.h>
 
 namespace spead2
 {
