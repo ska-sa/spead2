@@ -5,11 +5,11 @@ Changelog
 
 - Add support for sending data using libibverbs API (previously only supported
   for receiving)
-- Add :option:`--memcpy-nt` to :command:`spead2_recv.py` and
-  :command:`spead2_bench.py`
-- Multicast support in :command:`spead2_bench.py` and :command:`spead2_bench`
-- Changes to the algorithm for :command:`spead2_bench.py` and
-  :command:`spead2_bench`: it now starts by computing the maximum send speed,
+- Add :option:`--memcpy-nt` to :program:`spead2_recv.py` and
+  :program:`spead2_bench.py`
+- Multicast support in :program:`spead2_bench.py` and :program:`spead2_bench`
+- Changes to the algorithm for :program:`spead2_bench.py` and
+  :program:`spead2_bench`: it now starts by computing the maximum send speed,
   and then either reporting that this is the limiting factor, or using it to
   start the binary search for the receive speed. It is also stricter about
   lost heaps.
