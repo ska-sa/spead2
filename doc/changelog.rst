@@ -3,6 +3,7 @@ Changelog
 
 .. rubric:: Development version
 
+- Change the C++ API installation to use autoconf and automake
 - Add support for sending data using libibverbs API (previously only supported
   for receiving)
 - Add :option:`--memcpy-nt` to :program:`spead2_recv.py` and
