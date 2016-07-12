@@ -1,6 +1,6 @@
 AM_CXXFLAGS = -std=c++11
 AM_CPPFLAGS = -I$(top_builddir)/include -I$(top_srcdir)/include
-LIBS = libspead2.a -lboost_system -lpthread
+LDADD = libspead2.a -lboost_system -lpthread
 # We use common_features.h to pass feature settings, not defines or config.h
 DEFS =
 AM_LDFLAGS =
@@ -38,13 +38,13 @@ check_PROGRAMS = spead2_unittest
 TESTS = spead2_unittest
 
 spead2_recv_SOURCES = spead2_recv.cpp
-spead2_recv_LDADD = -lboost_program_options
+spead2_recv_LDADD = -lboost_program_options $(LDADD)
 
 spead2_send_SOURCES = spead2_send.cpp
-spead2_send_LDADD = -lboost_program_options
+spead2_send_LDADD = -lboost_program_options $(LDADD)
 
 spead2_bench_SOURCES = spead2_bench.cpp
-spead2_bench_LDADD = -lboost_program_options
+spead2_bench_LDADD = -lboost_program_options $(LDADD)
 
 test_recv_SOURCES = test_recv.cpp
 
@@ -57,7 +57,7 @@ spead2_unittest_SOURCES = \
 	unittest_memory_pool.cpp \
 	unittest_recv_live_heap.cpp
 spead2_unittest_CPPFLAGS = -DBOOST_TEST_DYN_LINK $(AM_CPPFLAGS)
-spead2_unittest_LDADD = -lboost_unit_test_framework
+spead2_unittest_LDADD = -lboost_unit_test_framework $(LDADD)
 
 libspead2_a_SOURCES = \
 	common_flavour.cpp \
