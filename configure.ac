@@ -35,7 +35,10 @@ SPEAD2_CHECK_HEADER([boost/asio.hpp], [boost_system], [boost::asio::io_service i
 
 ### Optional libraries/features
 
-SPEAD2_ARG_WITH([ibv], [Use libibverbs and librdmacm], [SPEAD2_USE_IBV],
+SPEAD2_ARG_WITH(
+    [ibv],
+    [AS_HELP_STRING([--without-ibv], [Do not use libibverbs and librdmacm, even if detected])],
+    [SPEAD2_USE_IBV],
     [SPEAD2_USE_IBV=1
      SPEAD2_CHECK_LIB(
         [infiniband/verbs.h], [ibverbs], [ibv_create_flow(NULL, NULL)],
@@ -46,7 +49,10 @@ SPEAD2_ARG_WITH([ibv], [Use libibverbs and librdmacm], [SPEAD2_USE_IBV],
     ]
 )
 
-SPEAD2_ARG_WITH([netmap], [Use netmap], [SPEAD2_USE_NETMAP],
+SPEAD2_ARG_WITH(
+    [netmap],
+    [AS_HELP_STRING([--without-netmap], [Do not use netmap, even if detected])],
+    [SPEAD2_USE_NETMAP],
     [AC_LANG_PUSH(C)      # netmap_user.h doesn't do extern "C"
      SPEAD2_CHECK_FEATURE(
         [header_net_netmap_user_h], [netmap],
@@ -58,15 +64,20 @@ SPEAD2_ARG_WITH([netmap], [Use netmap], [SPEAD2_USE_NETMAP],
 )
 
 SPEAD2_ARG_WITH(
-    [recvmmsg], [Use recvmmsg system call], [SPEAD2_USE_RECVMMSG],
+    [recvmmsg],
+    [AS_HELP_STRING([--without-recvmmsg], [Do not use recvmmsg system call])],
+    [SPEAD2_USE_RECVMMSG],
     [AC_CHECK_FUNC([recvmmsg], [SPEAD2_USE_RECVMMSG=1], [])])
 
 SPEAD2_ARG_WITH(
-    [eventfd], [Use eventfd system call for semaphores], [SPEAD2_USE_EVENTFD],
+    [eventfd],
+    [AS_HELP_STRING([--without-eventfd], [Do not use eventfd system call for semaphores])],
+    [SPEAD2_USE_EVENTFD],
     [AC_CHECK_FUNC([eventfd], [SPEAD2_USE_EVENTFD=1], [])])
 
 SPEAD2_ARG_WITH(
-    [pthread_setaffinity_np], [Support setting thread affinity],
+    [pthread_setaffinity_np],
+    [AS_HELP_STRING([--without-pthread_setaffinity_np], [Do not set thread affinity])],
     [SPEAD2_USE_PTHREAD_SETAFFINITY_NP],
     [SPEAD2_CHECK_FEATURE(
         [func_pthread_setaffinity_np],
@@ -79,7 +90,8 @@ SPEAD2_ARG_WITH(
 )
 
 SPEAD2_ARG_WITH(
-    [movntdq], [Use MOVNTDQ instruction for non-temporal copies],
+    [movntdq],
+    [AS_HELP_STRING([--without-movntdq], [Do not use MOVNTDQ instruction for non-temporal copies])],
     [SPEAD2_USE_MOVNTDQ],
     [SPEAD2_CHECK_FEATURE(
         [movntdq], [MOVNTDQ intrinsic], [emmintrin.h], [],
@@ -89,7 +101,8 @@ SPEAD2_ARG_WITH(
 )
 
 SPEAD2_ARG_WITH(
-    [posix-semaphores], [Use POSIX semaphores],
+    [posix-semaphores],
+    [AS_HELP_STRING([--without-posix-semaphores], [Do not POSIX semaphores, even if available])],
     [SPEAD2_USE_POSIX_SEMAPHORES],
     [SPEAD2_CHECK_FEATURE(
         [posix_semaphores], [POSIX semaphores],
