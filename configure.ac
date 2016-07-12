@@ -19,9 +19,8 @@ CXXFLAGS="$save_CXXFLAGS"
 
 save_CXXFLAGS="$CXXFLAGS"
 CXXFLAGS="-flto $CXXFLAGS"
-SPEAD2_CHECK_FEATURE([compiler_lto], [-flto], [], [], [], [HAVE_LTO=1], [HAVE_LTO=0])
+SPEAD2_CHECK_FEATURE([compiler_lto], [-flto], [], [], [], [HAVE_LTO=yes], [HAVE_LTO=no])
 CXXFLAGS="$save_CXXFLAGS"
-AM_CONDITIONAL(HAVE_LTO, [test "x$HAVE_LTO" = x1])
 
 ### Required libraries
 
@@ -118,6 +117,24 @@ SPEAD2_ARG_WITH(
     )]
 )
 
+### Build variants
+
+AC_ARG_ENABLE(
+    [debug-symbols],
+    [AS_HELP_STRING([--enable-debug-symbols], [Build with debug symbols])])
+
+AC_ARG_ENABLE(
+    [debug-log],
+    [AS_HELP_STRING([--enable-debug-log], [Emit debug-level log messages])])
+
+AC_ARG_ENABLE(
+    [optimized],
+    [AS_HELP_STRING([--disable-optimized], [Disable compiler optimizations])])
+
+AM_CONDITIONAL([DEBUG_SYMBOLS], [test "x$enable_debug_symbols" = "xyes"])
+AM_CONDITIONAL([DEBUG_LOG], [test "x$enable_debug_log" = "xyes"])
+AM_CONDITIONAL([OPTIMIZED], [test "x$enable_optimized" != "xno"])
+AM_CONDITIONAL([HAVE_LTO], [test "x$HAVE_LTO" = "xyes"])
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
 
 AC_CONFIG_FILES([Makefile src/Makefile src/common_features.h])

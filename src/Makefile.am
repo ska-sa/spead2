@@ -1,12 +1,30 @@
-AM_CXXFLAGS = -std=c++11 -O3
-AM_LDFLAGS =
-if HAVE_LTO
-AM_CXXFLAGS += -flto
-AM_LDFLAGS += $(AM_CXXFLAGS)
-endif
+AM_CXXFLAGS = -std=c++11
 LIBS = libspead2.a -lboost_system -lpthread
 # We use common_features.h to pass feature settings, not defines or config.h
 DEFS =
+AM_LDFLAGS =
+
+if DEBUG_SYMBOLS
+AM_CXXFLAGS += -g
+else
+AM_LDFLAGS += -s
+endif
+
+if DEBUG_LOG
+DEFS += -DSPEAD2_MAX_LOG_LEVEL=spead2::log_level::debug
+endif
+
+if OPTIMIZED
+AM_CXXFLAGS += -O3
+DEFS += -DNDEBUG
+if HAVE_LTO
+AM_CXXFLAGS += -flto
+AM_LDFLAGS += $(AM_CXXFLAGS) -Wl,--no-as-needed
+endif
+else
+AM_CXXFLAGS += -O0
+DEFS += -DDEBUG
+endif
 
 if SPEAD2_USE_IBV
 LIBS += -lrdmacm -libverbs

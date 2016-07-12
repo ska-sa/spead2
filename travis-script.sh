@@ -6,12 +6,7 @@ if [ "$TEST" = "cxx" ]; then
     if [ "$NETMAP" = "yes" ]; then
         export CPATH="$PWD/netmap/sys"
     fi
-    if [ "$CXX" = "clang++" ]; then
-        VARIANT=debug     # Travis' clang setup is broken for -flto
-    else
-        VARIANT=release
-    fi
-    AR=ar CXX="$CXX" ./configure \
+    AR=ar ./configure \
         --with-netmap="$NETMAP" \
         --with-recvmmsg="$RECVMMSG" \
         --with-eventfd="$EVENTFD" \
