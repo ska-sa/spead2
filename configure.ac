@@ -1,6 +1,7 @@
 AC_INIT([spead2], [0])
 # Suppress the default CXXFLAGS
 : ${CXXFLAGS=""}
+AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_SRCDIR([src/common_logging.cpp])
 AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([foreign])
