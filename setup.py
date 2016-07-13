@@ -51,7 +51,7 @@ class BuildExt(build_ext):
         have_ibv = False
         with open(os.path.join(self.build_temp, 'include', 'spead2', 'common_features.h')) as f:
             for line in f:
-                if line == '#define SPEAD2_USE_IBV 1':
+                if line.strip() == '#define SPEAD2_USE_IBV 1':
                     have_ibv = True
         for extension in self.extensions:
             if have_ibv:
@@ -80,8 +80,6 @@ if not rtd:
         raise RuntimeError('Cannot find Boost.Python library')
 
     libraries = [bp_library, 'boost_system']
-    # TODO: detect this from configure output
-    libraries.extend(['rdmacm', 'ibverbs'])
 
     extensions = [
         Extension(
