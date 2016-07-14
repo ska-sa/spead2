@@ -18,6 +18,17 @@ names, whereas the C++ interface uses lowercase with underscores for
 all names. If that doesn't help, consult the Doxygen-style comments in the
 source code.
 
+The compiler and link flags necessary for compiling and linking against spead2
+can be found with :program:`pkg-config` i.e.,
+
+ - ``pkg-config --cflags spead2`` to get the compiler flags
+ - ``pkg-config --libs --static spead2`` to get the linker flags
+
+Note that when installed with the default setup on a GNU/Linux system, the
+:file:`spead2.pc` file is installed outside :program:`pkg-config`'s default
+search path, and you need to set :envvar:`PKG_CONFIG_PATH` to
+:file:`/usr/local/lib/pkgconfig` first.
+
 .. toctree::
    :maxdepth: 2
 
