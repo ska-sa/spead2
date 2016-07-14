@@ -75,6 +75,12 @@ static po::typed_value<bool> *make_opt(bool &var)
     return po::bool_switch(&var)->default_value(var);
 }
 
+template<typename T>
+static po::typed_value<T> *make_required_opt(T &var)
+{
+    return po::value<T>(&var);
+}
+
 static options parse_args(int argc, const char **argv)
 {
     options opts;
@@ -97,8 +103,8 @@ static options parse_args(int argc, const char **argv)
 #endif
     ;
     hidden.add_options()
-        ("host", make_opt(opts.host), "Destination host")
-        ("port", make_opt(opts.port), "Destination port")
+        ("host", make_required_opt(opts.host), "Destination host")
+        ("port", make_required_opt(opts.port), "Destination port")
     ;
     all.add(desc);
     all.add(hidden);
@@ -120,6 +126,8 @@ static options parse_args(int argc, const char **argv)
             usage(std::cout, desc);
             std::exit(0);
         }
+        if (!vm.count("host") || !vm.count("port"))
+            throw po::error("too few positional options have been specified on the command line");
         return opts;
     }
     catch (po::error &e)

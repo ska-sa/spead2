@@ -170,7 +170,7 @@ static options parse_args(int argc, const char **argv, command_mode mode)
     {
     case command_mode::MASTER:
         positional.add("host", 1);
-        positional.add("port", 2);
+        positional.add("port", 1);
         break;
     case command_mode::SLAVE:
         positional.add("port", 1);
@@ -191,6 +191,11 @@ static options parse_args(int argc, const char **argv, command_mode mode)
         {
             usage(std::cout, desc, mode);
             std::exit(0);
+        }
+        if ((mode == command_mode::MASTER || mode == command_mode::SLAVE)
+            && !vm.count("port"))
+        {
+            throw po::error("too few positional options have been specified on the command line");
         }
         return opts;
     }
