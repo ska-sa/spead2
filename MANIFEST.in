@@ -1,10 +1,7 @@
-recursive-include src *.cpp Makefile.in Makefile.am
-recursive-include include *.h *.h.in Makefile.in Makefile.am
-recursive-include spead2 *.py
+global-include Makefile.in
 exclude src/common_features.h
-include Makefile.am configure.ac
-include Makefile.in aclocal.m4 compile configure.ac configure depcomp install-sh missing test-driver
-graft tests
-graft doc
+exclude .gitignore
+include configure
+graft build-aux
 prune doc/_build
 prune doc/doxygen
