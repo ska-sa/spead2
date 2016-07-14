@@ -32,6 +32,7 @@
 #include <boost/program_options.hpp>
 #include <spead2/common_ringbuffer.h>
 #include <spead2/common_semaphore.h>
+#include <spead2/common_thread_pool.h>
 #include <spead2/recv_heap.h>
 
 namespace po = boost::program_options;
@@ -100,13 +101,7 @@ static void bind_cpu(int cpu)
 {
     if (cpu != -1)
     {
-        cpu_set_t set;
-        CPU_ZERO(&set);
-        CPU_SET(cpu, &set);
-        if (sched_setaffinity(0, sizeof(set), &set) != 0)
-        {
-            std::cerr << "sched_setaffinity failed (" << errno << ")\n";
-        }
+        spead2::thread_pool::set_affinity(cpu);
     }
 }
 
