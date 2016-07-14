@@ -25,6 +25,7 @@ import spead2.send
 import spead2.recv
 import socket
 import struct
+import netifaces
 from decorator import decorator
 from nose.tools import *
 from nose.plugins.skip import SkipTest
@@ -36,6 +37,18 @@ try:
     import spead64_48
 except ImportError:
     spead64_48 = None
+try:
+    from socket import if_nametoindex
+except ImportError:
+    import ctypes
+    import ctypes.util
+    _libc = ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
+    def if_nametoindex(name):
+        ret = _libc.if_nametoindex(name)
+        if ret == 0:
+            raise OSError(ctypes.get_errno(), 'if_nametoindex failed')
+        else:
+            return ret
 
 
 def _assert_items_equal(item1, item2):
@@ -322,11 +335,20 @@ class TestPassthroughUdpMulticast(BaseTestPassthrough):
         return received_item_group
 
 class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
+    @classmethod
+    def get_interface_index(cls):
+        for iface in netifaces.interfaces():
+            addrs = netifaces.ifaddresses(iface).get(netifaces.AF_INET6, [])
+            for addr in addrs:
+                if addr['addr'] != '::1':
+                    return if_nametoindex(iface)
+        raise SkipTest('could not find suitable interface for test')
+
     def transmit_item_group(self, item_group, memcpy, allocator):
         self.check_ipv6()
+        interface_index = self.get_interface_index()
         thread_pool = spead2.ThreadPool(2)
         mcast_group = 'ff14::1234'
-        interface_index = 0
         sender = spead2.send.UdpStream(
                 thread_pool, mcast_group, 8887,
                 spead2.send.StreamConfig(rate=1e8),

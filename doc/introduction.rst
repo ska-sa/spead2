@@ -51,9 +51,9 @@ Installing spead2 for Python
 ----------------------------
 The only Python dependencies are numpy_ and six_, although support for
 asynchronous I/O also requires trollius_. Running the test suite additionally
-requires nose_ and decorator_, and some tests depend on PySPEAD_ (they will be
-skipped if it is not installed). It is also necessary to have the development
-headers for Python, and Boost.Python.
+requires nose_, decorator_ and netifaces_, and some tests depend on PySPEAD_
+(they will be skipped if it is not installed). It is also necessary to have the
+development headers for Python, and Boost.Python.
 
 To install (which will automatically pull in the mandatory dependencies), run::
 
@@ -65,6 +65,7 @@ Other standard methods for installing Python packages should work too.
 .. _six: https://pythonhosted.org/six/
 .. _nose: https://nose.readthedocs.io/en/latest/
 .. _decorator: http://pythonhosted.org/decorator/
+.. _netifaces: https://pypi.python.org/pypi/netifaces
 
 Installing spead2 for C++
 -------------------------

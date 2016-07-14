@@ -1,3 +1,4 @@
+netifaces
 numpy
 nose
 decorator
