@@ -120,4 +120,6 @@ setup(
     install_requires=['numpy>=1.9.2', 'six'],
     tests_require=['netifaces', 'nose', 'decorator', 'trollius'],
     test_suite='nose.collector',
-    packages=['spead2', 'spead2.recv', 'spead2.send'])
+    packages=['spead2', 'spead2.recv', 'spead2.send'],
+    scripts=glob.glob('scripts/*.py')
+)

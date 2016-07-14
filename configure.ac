@@ -139,5 +139,9 @@ AM_CONDITIONAL([OPTIMIZED], [test "x$enable_optimized" != "xno"])
 AM_CONDITIONAL([HAVE_LTO], [test "x$HAVE_LTO" = "xyes"])
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
 
-AC_CONFIG_FILES([Makefile src/Makefile include/Makefile include/spead2/common_features.h])
+AC_CONFIG_FILES([Makefile
+                 src/Makefile
+                 examples/Makefile
+                 include/Makefile
+                 include/spead2/common_features.h])
 AC_OUTPUT
