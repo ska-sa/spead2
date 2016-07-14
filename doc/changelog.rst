@@ -6,6 +6,9 @@ Changelog
 - The C++ API installation has been changed to use autoconf and automake. As a
   result, it is possible to run ``make install`` and get the static library,
   headers, and tools installed.
+- The directory structure has changed slightly. The :filename:`spead2_*` tools
+  are now installed, and the example code is now in the :filename:`examples`
+  directory.
 - Add support for sending data using libibverbs API (previously only supported
   for receiving)
 - Add :option:`--memcpy-nt` to :program:`spead2_recv.py` and
@@ -19,6 +22,7 @@ Changelog
 - Some internal refactoring of code for dealing with raw packets, so that it
   is shared between the netmap and ibv readers.
 - Report function name that failed in semaphore system_error exceptions.
+- Make the unit tests pass on OS X (now tested on travis-ci.org)
 
 .. rubric:: Version 0.10.4
 
