@@ -36,10 +36,16 @@
 #include <sys/socket.h>
 #include <net/ethernet.h>
 #include <net/if_arp.h>
-#include <netpacket/packet.h>
 #include <ifaddrs.h>
 #include <spead2/common_raw_packet.h>
 #include <spead2/common_endian.h>
+
+// TODO: use autoconf to figure out which headers to use
+#ifdef __linux__
+# include <netpacket/packet.h>
+#else
+# include <net/if_dl.h>
+#endif
 
 namespace spead2
 {
@@ -109,6 +115,7 @@ mac_address interface_mac(const boost::asio::ip::address &address)
     // Now find the MAC address for this interface
     for (ifaddrs *cur = ifap; cur; cur = cur->ifa_next)
     {
+#ifdef __linux__
         if (std::strcmp(cur->ifa_name, if_name) == 0
             && cur->ifa_addr && *(sa_family_t *) cur->ifa_addr == AF_PACKET)
         {
@@ -120,6 +127,19 @@ mac_address interface_mac(const boost::asio::ip::address &address)
                 return mac;
             }
         }
+#else
+        if (std::strcmp(cur->ifa_name, if_name) == 0
+            && cur->ifa_addr && *(sa_family_t *) cur->ifa_addr == AF_LINK)
+        {
+            const sockaddr_dl *dl = (sockaddr_dl *) cur->ifa_addr;
+            if (dl->sdl_alen == 6)
+            {
+                mac_address mac;
+                std::memcpy(&mac, LLADDR(dl), 6);
+                return mac;
+            }
+        }
+#endif
     }
     throw std::runtime_error(std::string("no MAC address found for interface ") + if_name);
 }
