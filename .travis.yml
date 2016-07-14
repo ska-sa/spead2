@@ -1,15 +1,47 @@
-sudo: required
-dist: trusty
 language: generic
-env:
-    - TEST=cxx CXX="g++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
-    - TEST=cxx CXX="g++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
-    - TEST=cxx CXX="clang++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
-    - TEST=cxx CXX="clang++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
-    - TEST=python2 CC="gcc" CXX="g++"
-    - TEST=python2 CC="clang" CXX="clang++"
-    - TEST=python3 CC="gcc" CXX="g++"
-    - TEST=python3 CC="clang" CXX="clang++"
+matrix:
+    include:
+        - os: linux
+          sudo: required
+          dist: trusty
+          env: TEST=cxx CXX="g++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
+        - os: linux
+          sudo: required
+          dist: trusty
+          env: TEST=cxx CXX="g++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
+        - os: linux
+          sudo: required
+          dist: trusty
+          env: TEST=cxx CXX="clang++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
+        - os: linux
+          sudo: required
+          dist: trusty
+          env: TEST=cxx CXX="clang++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
+        - os: linux
+          sudo: required
+          dist: trusty
+          env: TEST=python2 CC="gcc" CXX="g++"
+        - os: linux
+          sudo: required
+          dist: trusty
+          env: TEST=python2 CC="clang" CXX="clang++"
+        - os: linux
+          sudo: required
+          dist: trusty
+          env: TEST=python3 CC="gcc" CXX="g++"
+        - os: linux
+          sudo: required
+          dist: trusty
+          env: TEST=python3 CC="clang" CXX="clang++"
+        - os: osx
+          osx_image: xcode7.2
+          env: TEST=cxx CXX="clang++" NETMAP=no RECVMMSG=no EVENTFD=no IBV=no
+        - os: osx
+          osx_image: xcode7.2
+          env: TEST=python2 CC="clang" CXX="clang++"
+        - os: osx
+          osx_image: xcode7.2
+          env: TEST=python3 CC="clang" CXX="clang++"
 addons:
     apt:
         packages:
@@ -26,6 +58,9 @@ addons:
             - python3-pip
             - librdmacm-dev
             - libibverbs-dev
+before_install:
+    - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TEST" == "python2" ]]; then brew update; brew install python; brew reinstall boost --with-python; brew install boost-python; pip install virtualenv; virtualenv venv; source venv/bin/activate; fi
+    - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TEST" == "python3" ]]; then brew update; brew install python3; brew reinstall boost --with-python3; brew install boost-python --with-python3; pyvenv venv; source venv/bin/activate; fi
 install:
     - ./travis-install.sh
 script:
