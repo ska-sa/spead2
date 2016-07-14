@@ -73,16 +73,59 @@ private:
 };
 
 /**
+ * Abstract base class for streams.
+ */
+class stream
+{
+private:
+    boost::asio::io_service &io_service;
+
+protected:
+    typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
+
+    explicit stream(boost::asio::io_service &io_service);
+
+public:
+    /// Retrieve the io_service used for processing the stream
+    boost::asio::io_service &get_io_service() const { return io_service; }
+
+    /**
+     * Send @a h asynchronously, with @a handler called on completion. The
+     * caller must ensure that @a h remains valid (as well as any memory it
+     * points to) until @a handler is called.
+     *
+     * If this function returns @c true, then the heap has been added to the
+     * queue. The completion handlers for such heaps are guaranteed to be
+     * called in order.
+     *
+     * If this function returns @c false, the heap was rejected due to
+     * insufficient space. The handler is called as soon as possible
+     * (from a thread running the io_service), with error code @c
+     * boost::asio::error::would_block.
+     *
+     * @retval  false  If the heap was immediately discarded
+     * @retval  true   If the heap was enqueued
+     */
+    virtual bool async_send_heap(const heap &h, completion_handler handler) = 0;
+
+    /**
+     * Block until all enqueued heaps have been sent. This function is
+     * thread-safe, but can be live-locked if more heaps are added while it is
+     * running.
+     */
+    virtual void flush() = 0;
+
+    virtual ~stream();
+};
+
+/**
  * Stream that sends packets at a maximum rate. It also serialises heaps so
  * that only one heap is being sent at a time. Heaps are placed in a queue, and if
  * the queue becomes too long heaps are discarded.
  */
 template<typename Derived>
-class stream
+class stream_impl : public stream
 {
-protected:
-    typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
-
 private:
     typedef boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock> timer_type;
 
@@ -99,7 +142,6 @@ private:
         }
     };
 
-    boost::asio::io_service &io_service;
     const stream_config config;
     const double seconds_per_byte;
 
@@ -214,17 +256,15 @@ private:
     }
 
 public:
-    stream(
+    stream_impl(
         boost::asio::io_service &io_service,
         const stream_config &config = stream_config()) :
-            io_service(io_service),
+            stream(io_service),
             config(config),
             seconds_per_byte(config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0),
             timer(io_service)
     {
     }
-
-    boost::asio::io_service &get_io_service() const { return io_service; }
 
     /**
      * Send @a h asynchronously, with @a handler called on completion. The
@@ -243,7 +283,7 @@ public:
      * @retval  false  If the heap was immediately discarded
      * @retval  true   If the heap was enqueued
      */
-    bool async_send_heap(const heap &h, completion_handler handler)
+    virtual bool async_send_heap(const heap &h, completion_handler handler) override
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
         if (queue.size() >= config.get_max_heaps())
@@ -268,7 +308,7 @@ public:
         if (empty)
         {
             send_time = timer_type::clock_type::now();
-            io_service.dispatch([this] { send_next_packet(); });
+            get_io_service().dispatch([this] { send_next_packet(); });
         }
         return true;
     }
@@ -278,7 +318,7 @@ public:
      * thread-safe, but can be live-locked if more heaps are added while it is
      * running.
      */
-    void flush()
+    virtual void flush() override
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
         while (!queue.empty())
@@ -287,7 +327,7 @@ public:
         }
     }
 
-    ~stream()
+    ~stream_impl()
     {
         // TODO: add a stop member to abort transmission and use that instead
         flush();

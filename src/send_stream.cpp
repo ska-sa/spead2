@@ -88,5 +88,15 @@ stream_config::stream_config(
     set_max_heaps(max_heaps);
 }
 
+
+stream::stream(boost::asio::io_service &io_service)
+    : io_service(io_service)
+{
+}
+
+stream::~stream()
+{
+}
+
 } // namespace send
 } // namespace spead2

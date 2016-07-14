@@ -230,8 +230,8 @@ static std::string decode_string(const std::string &s)
     return out;
 }
 
-template<typename Stream>
-static std::int64_t send_heaps(Stream &stream, const std::vector<spead2::send::heap> &heaps)
+static std::int64_t send_heaps(spead2::send::stream &stream,
+                               const std::vector<spead2::send::heap> &heaps)
 {
     std::size_t n_heaps = heaps.size();
     std::deque<std::future<std::int64_t>> futures;
@@ -336,24 +336,23 @@ static std::pair<bool, double> measure_connection_once(
         /* Send the heaps */
         auto start = std::chrono::high_resolution_clock::now();
         std::int64_t transferred;
+        std::unique_ptr<spead2::send::stream> stream;
 #if SPEAD2_USE_IBV
         if (opts.send_ibv_if != "")
         {
             boost::asio::ip::address interface_address =
                 boost::asio::ip::address::from_string(opts.send_ibv_if);
-            spead2::send::udp_ibv_stream stream(
+            stream.reset(new spead2::send::udp_ibv_stream(
                 thread_pool.get_io_service(), endpoint, config, interface_address,
-                opts.send_buffer, 1, opts.send_ibv_comp_vector, opts.send_ibv_max_poll);
-            transferred = send_heaps(stream, heaps);
+                opts.send_buffer, 1, opts.send_ibv_comp_vector, opts.send_ibv_max_poll));
         }
         else
 #endif
         {
-            spead2::send::udp_stream stream(
-                thread_pool.get_io_service(), endpoint, config, opts.send_buffer);
-            transferred = send_heaps(stream, heaps);
+            stream.reset(new spead2::send::udp_stream(
+                thread_pool.get_io_service(), endpoint, config, opts.send_buffer));
         }
-
+        transferred = send_heaps(*stream, heaps);
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_duration = end - start;
         double actual_rate = transferred / elapsed_duration.count();

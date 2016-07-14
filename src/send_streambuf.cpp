@@ -30,7 +30,7 @@ streambuf_stream::streambuf_stream(
     boost::asio::io_service &io_service,
     std::streambuf &streambuf,
     const stream_config &config)
-    : stream<streambuf_stream>(io_service, config), streambuf(streambuf)
+    : stream_impl<streambuf_stream>(io_service, config), streambuf(streambuf)
 {
 }
 

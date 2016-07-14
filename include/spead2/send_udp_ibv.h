@@ -48,10 +48,10 @@ namespace send
  * Stream using Infiniband versions for acceleration. Only IPv4 multicast
  * with an explicit source address are supported.
  */
-class udp_ibv_stream : public stream<udp_ibv_stream>
+class udp_ibv_stream : public stream_impl<udp_ibv_stream>
 {
 private:
-    friend class stream<udp_ibv_stream>;
+    friend class stream_impl<udp_ibv_stream>;
 
     struct slot : public boost::noncopyable
     {

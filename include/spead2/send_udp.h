@@ -31,10 +31,10 @@ namespace spead2
 namespace send
 {
 
-class udp_stream : public stream<udp_stream>
+class udp_stream : public stream_impl<udp_stream>
 {
 private:
-    friend class stream<udp_stream>;
+    friend class stream_impl<udp_stream>;
     boost::asio::ip::udp::socket socket;
     boost::asio::ip::udp::endpoint endpoint;
 

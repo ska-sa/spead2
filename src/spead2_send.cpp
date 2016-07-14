@@ -23,6 +23,7 @@
 #include <exception>
 #include <cstdlib>
 #include <cstdint>
+#include <memory>
 #include <boost/program_options.hpp>
 #include <boost/asio.hpp>
 #include <spead2/common_thread_pool.h>
@@ -130,8 +131,7 @@ static options parse_args(int argc, const char **argv)
 }
 
 // Sends a heap, returning a future instead of using a completion handler
-template<typename Stream>
-std::future<std::size_t> async_send_heap(Stream &stream, const spead2::send::heap &heap)
+std::future<std::size_t> async_send_heap(spead2::send::stream &stream, const spead2::send::heap &heap)
 {
     auto promise = std::make_shared<std::promise<std::size_t>>();
     auto handler = [promise] (boost::system::error_code ec, std::size_t bytes_transferred)
@@ -145,8 +145,7 @@ std::future<std::size_t> async_send_heap(Stream &stream, const spead2::send::hea
     return promise->get_future();
 }
 
-template<typename Stream>
-int run(Stream &stream, const options &opts)
+int run(spead2::send::stream &stream, const options &opts)
 {
     typedef std::pair<float, float> item_t;
     std::size_t elements = opts.heap_size / (opts.items * sizeof(item_t));
@@ -229,16 +228,21 @@ int main(int argc, const char **argv)
     auto it = resolver.resolve(query);
     spead2::send::stream_config config(
         opts.packet, opts.rate * 1024 * 1024 * 1024 / 8, opts.burst);
+    std::unique_ptr<spead2::send::stream> stream;
 #if SPEAD2_USE_IBV
     if (opts.ibv_if != "")
     {
         boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(opts.ibv_if);
-        spead2::send::udp_ibv_stream stream(thread_pool.get_io_service(), *it, config,
-                                            interface_address, opts.buffer, 1,
-                                            opts.ibv_comp_vector, opts.ibv_max_poll);
-        return run(stream, opts);
+        stream.reset(new spead2::send::udp_ibv_stream(
+                thread_pool.get_io_service(), *it, config,
+                interface_address, opts.buffer, 1,
+                opts.ibv_comp_vector, opts.ibv_max_poll));
     }
+    else
 #endif
-    spead2::send::udp_stream stream(thread_pool.get_io_service(), *it, config, opts.buffer);
-    return run(stream, opts);
+    {
+        stream.reset(new spead2::send::udp_stream(
+                thread_pool.get_io_service(), *it, config, opts.buffer));
+    }
+    return run(*stream, opts);
 }

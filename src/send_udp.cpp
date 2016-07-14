@@ -118,7 +118,7 @@ udp_stream::udp_stream(
     const boost::asio::ip::udp::endpoint &endpoint,
     const stream_config &config,
     std::size_t buffer_size)
-    : stream<udp_stream>(socket.get_io_service(), config),
+    : stream_impl<udp_stream>(socket.get_io_service(), config),
     socket(std::move(socket)), endpoint(endpoint)
 {
     if (buffer_size != 0)

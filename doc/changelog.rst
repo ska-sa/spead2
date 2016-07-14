@@ -11,6 +11,11 @@ Changelog
   headers have moved to :file:`include/spead2`.
 - Add support for sending data using libibverbs API (previously only supported
   for receiving)
+- Made sending streams polymorphic, with abstract base class
+  :cpp:class:`spead2::send::stream`, to simplify writing generic code that can
+  operate on any type of stream. This will **break** code that depended on the
+  old template class of the same name, which has been renamed to
+  :cpp:class:`spead2::send::stream_impl`.
 - Add :option:`--memcpy-nt` to :program:`spead2_recv.py` and
   :program:`spead2_bench.py`
 - Multicast support in :program:`spead2_bench.py` and :program:`spead2_bench`

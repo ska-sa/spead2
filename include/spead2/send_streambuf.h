@@ -36,10 +36,10 @@ namespace send
  * should not be used for a blocking stream such as a wrapper around TCP,
  * because doing so will block the asio handler thread.
  */
-class streambuf_stream : public stream<streambuf_stream>
+class streambuf_stream : public stream_impl<streambuf_stream>
 {
 private:
-    friend class stream<streambuf_stream>;
+    friend class stream_impl<streambuf_stream>;
     std::streambuf &streambuf;
 
     template<typename Handler>
