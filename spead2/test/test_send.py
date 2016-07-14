@@ -392,7 +392,7 @@ class TestStream(object):
         # A slow stream, so that we can test overflowing the queue
         self.stream = send.BytesStream(
             spead2.ThreadPool(),
-            send.StreamConfig(rate=10e6, max_heaps=2))
+            send.StreamConfig(rate=1e6, max_heaps=2))
         # A large heap
         ig = send.ItemGroup()
         ig.add_item(0x1000, 'test', 'A large item', shape=(256 * 1024,), dtype=np.uint8)
@@ -413,7 +413,7 @@ class TestStream(object):
             self.threads.append(thread)
         # There shouldn't be room now. The sleep is an ugly hack to wait for
         # the threads to enqueue their heaps.
-        time.sleep(0.02)
+        time.sleep(0.05)
         assert_raises(IOError, self.stream.send_heap, self.heap)
 
     def test_send_error(self):
