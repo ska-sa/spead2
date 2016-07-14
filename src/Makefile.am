@@ -7,8 +7,6 @@ AM_LDFLAGS =
 
 if DEBUG_SYMBOLS
 AM_CXXFLAGS += -g
-else
-AM_LDFLAGS += -s
 endif
 
 if DEBUG_LOG
