@@ -6,9 +6,9 @@ Changelog
 - The C++ API installation has been changed to use autoconf and automake. As a
   result, it is possible to run ``make install`` and get the static library,
   headers, and tools installed.
-- The directory structure has changed slightly. The :filename:`spead2_*` tools
-  are now installed, and the example code is now in the :filename:`examples`
-  directory.
+- The directory structure has changed. The :file:`spead2_*` tools are now
+  installed, example code is now in the :file:`examples` directory, and the
+  headers have moved to :file:`include/spead2`.
 - Add support for sending data using libibverbs API (previously only supported
   for receiving)
 - Add :option:`--memcpy-nt` to :program:`spead2_recv.py` and
