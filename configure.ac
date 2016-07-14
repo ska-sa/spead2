@@ -1,4 +1,4 @@
-AC_INIT([spead2], [0])
+AC_INIT([spead2], [0.11.0])
 # Suppress the default CXXFLAGS
 : ${CXXFLAGS=""}
 AC_CONFIG_AUX_DIR([build-aux])
@@ -85,7 +85,7 @@ SPEAD2_ARG_WITH(
         [pthread_setaffinity_np],
         [pthread.h],
         [pthread],
-        [pthread_setaffinity_np(pthread_self(), 0, NULL)],
+        [pthread_setaffinity_np(pthread_self(), 0, (cpu_set_t *) NULL)],
         [SPEAD2_USE_PTHREAD_SETAFFINITY_NP=1], []
     )]
 )
@@ -119,6 +119,11 @@ SPEAD2_ARG_WITH(
     )]
 )
 
+### Determine libraries to link against
+
+LIBS="-lboost_system -lpthread"
+AS_IF([test "x$SPEAD2_USE_IBV" = "x1"], [LIBS="-lrdmacm -libverbs $LIBS"])
+
 ### Build variants
 
 AC_ARG_ENABLE(
@@ -143,5 +148,6 @@ AC_CONFIG_FILES([Makefile
                  src/Makefile
                  examples/Makefile
                  include/Makefile
-                 include/spead2/common_features.h])
+                 include/spead2/common_features.h
+                 spead2.pc])
 AC_OUTPUT
