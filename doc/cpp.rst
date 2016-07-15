@@ -32,6 +32,7 @@ search path, and you need to set :envvar:`PKG_CONFIG_PATH` to
 .. toctree::
    :maxdepth: 2
 
+   cpp-stability
    cpp-asio
    cpp-recv
    cpp-send
