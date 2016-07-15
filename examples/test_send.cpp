@@ -31,7 +31,7 @@ int main()
 {
     spead2::thread_pool tp;
     udp::resolver resolver(tp.get_io_service());
-    udp::resolver::query query("localhost", "8888");
+    udp::resolver::query query("127.0.0.1", "8888");
     auto it = resolver.resolve(query);
     spead2::send::udp_stream stream(tp.get_io_service(), *it, spead2::send::stream_config(9000, 0));
     spead2::flavour f(spead2::maximum_version, 64, 48, spead2::BUG_COMPAT_PYSPEAD_0_5_2);
