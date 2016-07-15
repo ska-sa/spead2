@@ -33,9 +33,10 @@ class _UdpStreamMixin(object):
         self._last_queued_future = None
         super(_UdpStreamMixin, self).__init__(*args, **kwargs)
 
-    @trollius.coroutine
     def async_send_heap(self, heap, loop=None):
-        """Send a heap asynchronously.
+        """Send a heap asynchronously. Note that this is *not* a coroutine:
+        it returns a future. Adding the heap to the queue is done
+        synchronously, to ensure proper ordering.
 
         Parameters
         ----------

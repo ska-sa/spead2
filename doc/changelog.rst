@@ -11,6 +11,9 @@ Changelog
   headers have moved to :file:`include/spead2`.
 - Add support for sending data using libibverbs API (previously only supported
   for receiving)
+- Fix async_send_heap (in Python) to return a future instead of being a
+  coroutine: this fixes a problem with undefined ordering in the trollius
+  example.
 - Made sending streams polymorphic, with abstract base class
   :cpp:class:`spead2::send::stream`, to simplify writing generic code that can
   operate on any type of stream. This will **break** code that depended on the
