@@ -1,4 +1,4 @@
-AC_INIT([spead2], [0.11.0])
+AC_INIT([spead2], m4_esyscmd([cut -d'"' -f2 spead2/_version.py | tr -d '\n']))
 # Suppress the default CXXFLAGS
 : ${CXXFLAGS=""}
 AC_CONFIG_AUX_DIR([build-aux])
