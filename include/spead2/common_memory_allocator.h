@@ -111,7 +111,10 @@ public:
     /**
      * Constructor.
      *
-     * @param flags   Extra flags to pass on to mmap
+     * @param flags        Extra flags to pass on to mmap
+     * @param prefer_huge  If true, allocations will try to use huge pages
+     *                     (if supported by the OS), and fall back to normal
+     *                     pages if that fails.
      */
     explicit mmap_allocator(int flags = 0, bool prefer_huge = false);
 
