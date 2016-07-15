@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 1.0.0
 
 - The C++ API installation has been changed to use autoconf and automake. As a
   result, it is possible to run ``make install`` and get the static library,
