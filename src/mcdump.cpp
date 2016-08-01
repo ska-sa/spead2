@@ -424,9 +424,9 @@ void capture::run()
     if (ret != 0)
         spead2::throw_errno("sigaction failed");
 
-    std::future<void> network_future = std::async(std::launch::async, [this] { network_thread(); });
-    disk_thread();
-    network_future.get();
+    std::future<void> disk_future = std::async(std::launch::async, [this] { disk_thread(); });
+    network_thread();
+    disk_future.get();
     // Restore SIGINT handler
     sigaction(SIGINT, &old_act, &act);
 }
