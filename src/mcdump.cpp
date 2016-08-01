@@ -296,6 +296,7 @@ void capture::network_thread()
         }
         ring.push(std::move(c));
     }
+    ring.stop();
 }
 
 static spead2::ibv_flow_t create_flow(
