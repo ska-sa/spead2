@@ -236,30 +236,38 @@ void capture::add_to_free(chunk &&c)
 
 void capture::disk_thread()
 {
-    std::uint32_t iov_max = sysconf(_SC_IOV_MAX);
-    while (true)
+    try
     {
-        try
+        std::uint32_t iov_max = sysconf(_SC_IOV_MAX);
+        while (true)
         {
-            chunk c = ring.pop();
-            std::uint32_t n_iov = 2 * c.n_records;
-            for (std::uint32_t offset = 0; offset < n_iov; offset += iov_max)
+            try
             {
-                std::uint32_t n = std::min(n_iov - offset, iov_max);
-                ssize_t ret = writev(fd, c.iov.get() + offset, n);
-                if (ret != c.n_bytes)
-                    spead2::throw_errno("writev failed");
+                chunk c = ring.pop();
+                std::uint32_t n_iov = 2 * c.n_records;
+                for (std::uint32_t offset = 0; offset < n_iov; offset += iov_max)
+                {
+                    std::uint32_t n = std::min(n_iov - offset, iov_max);
+                    ssize_t ret = writev(fd, c.iov.get() + offset, n);
+                    if (ret != c.n_bytes)
+                        spead2::throw_errno("writev failed");
+                }
+                add_to_free(std::move(c));
             }
-            add_to_free(std::move(c));
+            catch (spead2::ringbuffer_stopped)
+            {
+                free_ring.stop();
+                int ret = close(fd);
+                if (ret < 0)
+                    spead2::throw_errno("close failed");
+                break;
+            }
         }
-        catch (spead2::ringbuffer_stopped)
-        {
-            free_ring.stop();
-            int ret = close(fd);
-            if (ret < 0)
-                spead2::throw_errno("close failed");
-            return;
-        }
+    }
+    catch (std::exception &e)
+    {
+        stop = true;
+        throw;
     }
 }
 
