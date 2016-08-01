@@ -156,6 +156,7 @@ struct chunk_entry
 struct chunk
 {
     std::uint32_t n_records;
+    std::size_t n_bytes;
     std::unique_ptr<chunk_entry[]> entries;
     std::unique_ptr<iovec[]> iov;
     spead2::memory_pool::pointer storage;
@@ -196,6 +197,7 @@ chunk capture::make_chunk(spead2::memory_allocator &allocator)
 {
     chunk c;
     c.n_records = 0;
+    c.n_bytes = 0;
     c.entries.reset(new chunk_entry[max_records]);
     c.iov.reset(new iovec[2 * max_records]);
     c.storage = allocator.allocate(opts.snaplen * max_records, nullptr);
@@ -221,6 +223,7 @@ chunk capture::make_chunk(spead2::memory_allocator &allocator)
 void capture::add_to_free(chunk &&c)
 {
     c.n_records = 0;
+    c.n_bytes = 0;
     qp.post_recv(&c.entries[0].wr);
     free_ring.push(std::move(c));
 }
@@ -237,8 +240,8 @@ void capture::disk_thread()
             for (std::uint32_t offset = 0; offset < n_iov; offset += iov_max)
             {
                 std::uint32_t n = std::min(n_iov - offset, iov_max);
-                int ret = writev(fd, c.iov.get() + offset, n);
-                if (ret < 0)
+                ssize_t ret = writev(fd, c.iov.get() + offset, n);
+                if (ret != c.n_bytes)
                     spead2::throw_errno("writev failed");
             }
             add_to_free(std::move(c));
@@ -280,6 +283,7 @@ void capture::network_thread()
                     c.entries[idx].record.orig_len = wc[i].byte_len;
                     c.iov[2 * idx + 1].iov_len = wc[i].byte_len;
                     c.n_records++;
+                    c.n_bytes += wc[i].byte_len + sizeof(record_header);
                 }
             }
             expect -= n;
