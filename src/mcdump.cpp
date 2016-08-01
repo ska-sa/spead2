@@ -260,7 +260,15 @@ void capture::disk_thread()
                     if (ret != c.n_bytes)
                         spead2::throw_errno("writev failed");
                 }
-                add_to_free(std::move(c));
+                /* Only post a new receive if the chunk was full. It if was
+                 * not full, then this was the last chunk, and we're about to
+                 * get a stop. Some of the work requests are already in the
+                 * queue, so posting them again is asking for trouble.
+                 */
+                if (c.n_records == max_records)
+                {
+                    add_to_free(std::move(c));
+                }
             }
             catch (spead2::ringbuffer_stopped)
             {
