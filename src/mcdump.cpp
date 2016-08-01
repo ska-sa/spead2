@@ -388,7 +388,7 @@ void capture::run()
         endpoint.address().to_v4(), interface_address));
 
     std::size_t n_chunks = sizes(opts).second;
-    if (std::numeric_limits<std::uint32_t>::max() / max_records >= n_chunks)
+    if (std::numeric_limits<std::uint32_t>::max() / max_records <= n_chunks)
         throw std::runtime_error("Too many buffered packets");
     std::uint32_t n_slots = n_chunks * max_records;
     cm_id = spead2::rdma_cm_id_t(event_channel, nullptr, RDMA_PS_UDP);
@@ -399,9 +399,10 @@ void capture::run()
     qp.modify(IBV_QPS_INIT, cm_id->port_num);
     flow = create_flow(qp, endpoint, cm_id->port_num);
 
-    spead2::mmap_allocator allocator(0, true);
+    std::shared_ptr<spead2::mmap_allocator> allocator =
+        std::make_shared<spead2::mmap_allocator>(0, true);
     for (std::size_t i = 0; i < n_chunks; i++)
-        add_to_free(make_chunk(allocator));
+        add_to_free(make_chunk(*allocator));
     qp.modify(IBV_QPS_RTR);
 
     std::future<void> network_future = std::async(std::launch::async, [this] { network_thread(); });
