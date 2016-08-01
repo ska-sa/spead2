@@ -50,6 +50,8 @@ struct options
     std::string filename;
     int snaplen = 9230;
     std::size_t buffer = 128 * 1024 * 1024;
+    int network_affinity = -1;
+    int disk_affinity = -1;
 };
 
 static void usage(std::ostream &o, const po::options_description &desc)
@@ -83,6 +85,8 @@ static options parse_args(int argc, const char **argv)
         ("interface,i", make_opt_nodefault(opts.interface), "IP address of capture interface")
         ("snaplen,s", make_opt(opts.snaplen), "Maximum frame size to capture")
         ("buffer", make_opt(opts.buffer), "Maximum memory for buffering")
+        ("network-cpu,N", make_opt(opts.network_affinity), "CPU core for network receive thread")
+        ("disk-cpu,D", make_opt(opts.disk_affinity), "CPU core for disk write thread")
         ("help,h", "Show help text")
     ;
 
@@ -238,6 +242,8 @@ void capture::disk_thread()
 {
     try
     {
+        if (opts.disk_affinity >= 0)
+            spead2::thread_pool::set_affinity(opts.disk_affinity);
         std::uint32_t iov_max = sysconf(_SC_IOV_MAX);
         while (true)
         {
@@ -273,6 +279,8 @@ void capture::disk_thread()
 
 void capture::network_thread()
 {
+    if (opts.network_affinity >= 0)
+        spead2::thread_pool::set_affinity(opts.network_affinity);
     std::unique_ptr<ibv_wc[]> wc(new ibv_wc[max_records]);
     while (!stop.load())
     {
