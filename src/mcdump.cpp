@@ -191,6 +191,8 @@ private:
     spead2::ibv_cq_t cq;
     spead2::ibv_flow_t flow;
     std::uint64_t errors = 0;
+    std::uint64_t packets = 0;
+    std::uint64_t bytes = 0;
 
     chunk make_chunk(spead2::memory_allocator &allocator);
     void add_to_free(chunk &&c);
@@ -289,6 +291,7 @@ void capture::network_thread()
         while (!stop.load() && expect > 0)
         {
             int n = cq.poll(expect, wc.get());
+            packets += n;
             for (int i = 0; i < n; i++)
             {
                 if (wc[i].status != IBV_WC_SUCCESS)
@@ -296,6 +299,7 @@ void capture::network_thread()
                     spead2::log_warning("failed WR %1%: %2% (vendor_err: %3%)",
                                         wc[i].wr_id, wc[i].status, wc[i].vendor_err);
                     errors++;
+                    packets--;
                 }
                 else
                 {
@@ -306,6 +310,7 @@ void capture::network_thread()
                     c.iov[2 * idx + 1].iov_len = wc[i].byte_len;
                     c.n_records++;
                     c.n_bytes += wc[i].byte_len + sizeof(record_header);
+                    bytes += wc[i].byte_len;
                 }
             }
             expect -= n;
@@ -445,6 +450,8 @@ void capture::run()
     disk_future.get();
     // Restore SIGINT handler
     sigaction(SIGINT, &old_act, &act);
+    std::cout << "\n\n" << packets << " packets captured (" << bytes << " bytes)\n"
+        << errors << " errors\n";
 }
 
 int main(int argc, const char **argv)
