@@ -38,6 +38,7 @@
 #include <sys/uio.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <signal.h>
 
 namespace po = boost::program_options;
 
@@ -164,6 +165,12 @@ struct chunk
 };
 
 typedef spead2::ringbuffer<chunk> ringbuffer;
+static std::atomic<bool> stop{false};
+
+static void signal_handler(int)
+{
+    stop = true;
+}
 
 class capture
 {
@@ -179,7 +186,6 @@ private:
     spead2::ibv_pd_t pd;
     spead2::ibv_cq_t cq;
     spead2::ibv_flow_t flow;
-    std::atomic<bool> stop{false};
     std::uint64_t errors = 0;
 
     chunk make_chunk(spead2::memory_allocator &allocator);
@@ -410,9 +416,18 @@ void capture::run()
         add_to_free(make_chunk(*allocator));
     qp.modify(IBV_QPS_RTR);
 
+    struct sigaction act = {}, old_act;
+    act.sa_handler = signal_handler;
+    act.sa_flags = SA_RESETHAND | SA_RESTART;
+    int ret = sigaction(SIGINT, &act, &old_act);
+    if (ret != 0)
+        spead2::throw_errno("sigaction failed");
+
     std::future<void> network_future = std::async(std::launch::async, [this] { network_thread(); });
     disk_thread();
     network_future.get();
+    // Restore SIGINT handler
+    sigaction(SIGINT, &old_act, &act);
 }
 
 int main(int argc, const char **argv)
