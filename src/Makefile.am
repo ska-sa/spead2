@@ -16,7 +16,7 @@
 include $(srcdir)/Makefile.inc.am
 
 lib_LIBRARIES = libspead2.a
-bin_PROGRAMS = spead2_recv spead2_send spead2_bench
+bin_PROGRAMS = spead2_recv spead2_send spead2_bench mcdump
 check_PROGRAMS = spead2_unittest
 TESTS = spead2_unittest
 
@@ -28,6 +28,9 @@ spead2_send_LDADD = -lboost_program_options $(LDADD)
 
 spead2_bench_SOURCES = spead2_bench.cpp
 spead2_bench_LDADD = -lboost_program_options $(LDADD)
+
+mcdump_SOURCES = mcdump.cpp
+mcdump_LDADD = -lboost_program_options $(LDADD)
 
 spead2_unittest_SOURCES = \
 	unittest_main.cpp \
