@@ -205,6 +205,7 @@ chunk capture::make_chunk(spead2::memory_allocator &allocator)
     {
         c.entries[i].wr.wr_id = i;
         c.entries[i].wr.next = (i + 1 < max_records) ? &c.entries[i + 1].wr : nullptr;
+        c.entries[i].wr.num_sge = 1;
         c.entries[i].wr.sg_list = &c.entries[i].sg;
         c.entries[i].sg.addr = ptr;
         c.entries[i].sg.length = opts.snaplen;
