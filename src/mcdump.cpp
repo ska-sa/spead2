@@ -35,6 +35,7 @@
 #include <memory>
 #include <utility>
 #include <atomic>
+#include <cstring>
 #include <unistd.h>
 #include <sys/uio.h>
 #include <fcntl.h>
@@ -180,12 +181,71 @@ static void signal_handler(int)
     stop = true;
 }
 
+class writer
+{
+private:
+    int fd = -1;
+    spead2::memory_allocator::pointer buffer;
+    std::size_t buffer_size;
+    std::size_t n_bytes;
+
+public:
+    void open(int fd, std::size_t buffer_size, spead2::memory_allocator &allocator);
+    void close();
+
+    void write(const void *data, std::size_t length);
+    void flush();
+};
+
+void writer::open(int fd, std::size_t buffer_size, spead2::memory_allocator &allocator)
+{
+    assert(this->fd == -1);
+    this->fd = fd;
+    this->buffer_size = buffer_size;
+    n_bytes = 0;
+    buffer = allocator.allocate(buffer_size, nullptr);
+}
+
+void writer::close()
+{
+    flush();
+    if (fd != -1 && ::close(fd) != 0)
+        spead2::throw_errno("close failed");
+}
+
+void writer::write(const void *data, std::size_t length)
+{
+    while (length > 0)
+    {
+        std::size_t n = std::min(length, buffer_size - n_bytes);
+        std::memcpy(buffer.get() + n_bytes, data, n);
+        data = (const std::uint8_t *) data + n;
+        length -= n;
+        n_bytes += n;
+        if (n_bytes == buffer_size)
+            flush();
+    }
+}
+
+void writer::flush()
+{
+    ssize_t ret = ::write(fd, buffer.get(), n_bytes);
+    if (ret != n_bytes)
+    {
+        if (ret < 0)
+            spead2::throw_errno("write failed");
+        else
+            throw std::runtime_error("short write");
+    }
+    n_bytes = 0;
+}
+
 class capture
 {
 private:
     const options opts;
     std::size_t max_records;
-    int fd = -1;
+    writer w;
     ringbuffer ring;
     ringbuffer free_ring;
     spead2::rdma_event_channel_t event_channel;
@@ -250,48 +310,18 @@ void capture::disk_thread()
     {
         if (opts.disk_affinity >= 0)
             spead2::thread_pool::set_affinity(opts.disk_affinity);
-        std::uint32_t iov_max = sysconf(_SC_IOV_MAX);
-#if SPEAD2_USE_SYNC_FILE_RANGE
-        off_t pos = lseek(fd, 0, SEEK_CUR);
-        if (pos == (off_t) -1)
-            spead2::throw_errno("lseek failed");
-        constexpr off_t flush_chunk = 8 * 1024 * 1024;
-        off_t last_flush = 0;
-#endif
+
+        file_header header;
+        header.snaplen = opts.snaplen;
+        w.write(&header, sizeof(header));
         while (true)
         {
             try
             {
                 chunk c = ring.pop();
                 std::uint32_t n_iov = 2 * c.n_records;
-                for (std::uint32_t offset = 0; offset < n_iov; offset += iov_max)
-                {
-                    std::uint32_t n = std::min(n_iov - offset, iov_max);
-                    ssize_t ret = writev(fd, c.iov.get() + offset, n);
-                    if (ret != c.n_bytes)
-                        spead2::throw_errno("writev failed");
-#if SPEAD2_USE_SYNC_FILE_RANGE
-                    pos += c.n_bytes;
-#endif
-                }
-
-#if SPEAD2_USE_SYNC_FILE_RANGE
-                while (opts.sync && pos >= last_flush + flush_chunk)
-                {
-                    int ret = sync_file_range(fd, last_flush, flush_chunk, SYNC_FILE_RANGE_WRITE);
-                    if (ret == -1)
-                        spead2::throw_errno("sync_file_range failed");
-                    if (last_flush > 0)
-                    {
-                        ret = sync_file_range(fd, last_flush - flush_chunk, flush_chunk,
-                                              SYNC_FILE_RANGE_WAIT_BEFORE | SYNC_FILE_RANGE_WRITE | SYNC_FILE_RANGE_WAIT_AFTER);
-                        if (ret == -1)
-                            spead2::throw_errno("sync_file_range failed");
-                        ret = posix_fadvise(fd, last_flush - flush_chunk, flush_chunk, POSIX_FADV_DONTNEED);
-                    }
-                    last_flush += flush_chunk;
-                }
-#endif
+                for (std::uint32_t i = 0; i < n_iov; i++)
+                    w.write(c.iov[i].iov_base, c.iov[i].iov_len);
 
                 /* Only post a new receive if the chunk was full. It if was
                  * not full, then this was the last chunk, and we're about to
@@ -306,9 +336,7 @@ void capture::disk_thread()
             catch (spead2::ringbuffer_stopped)
             {
                 free_ring.stop();
-                int ret = close(fd);
-                if (ret < 0)
-                    spead2::throw_errno("close failed");
+                w.close();
                 break;
             }
         }
@@ -458,13 +486,12 @@ void capture::run()
 {
     using boost::asio::ip::udp;
 
-    fd = open(opts.filename.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    std::shared_ptr<spead2::mmap_allocator> allocator =
+        std::make_shared<spead2::mmap_allocator>(0, true);
+    int fd = open(opts.filename.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if (fd < 0)
         spead2::throw_errno("open failed");
-    file_header header;
-    header.snaplen = opts.snaplen;
-    if (write(fd, &header, sizeof(header)) < sizeof(header))
-        spead2::throw_errno("write failed");
+    w.open(fd, 8 * 1024 * 1024, *allocator);
 
     boost::asio::io_service io_service;
     std::vector<udp::endpoint> endpoints;
@@ -486,8 +513,6 @@ void capture::run()
     for (const udp::endpoint &endpoint : endpoints)
         flows.push_back(create_flow(qp, endpoint, cm_id->port_num));
 
-    std::shared_ptr<spead2::mmap_allocator> allocator =
-        std::make_shared<spead2::mmap_allocator>(0, true);
     for (std::size_t i = 0; i < n_chunks; i++)
         add_to_free(make_chunk(*allocator));
     qp.modify(IBV_QPS_RTR);
