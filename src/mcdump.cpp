@@ -59,7 +59,7 @@ struct options
 
 static void usage(std::ostream &o, const po::options_description &desc)
 {
-    o << "Usage: mcdump [options] -i <iface-addr> <group> <port> <filename>\n";
+    o << "Usage: mcdump [options] -i <iface-addr> <filename> <group>:<port>...\n";
     o << desc;
 }
 
