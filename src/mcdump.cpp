@@ -27,6 +27,7 @@
 #include <spead2/common_logging.h>
 #include <spead2/common_memory_pool.h>
 #include <boost/program_options.hpp>
+#include <boost/lexical_cast.hpp>
 #include <iostream>
 #include <limits>
 #include <string>
@@ -44,8 +45,7 @@ namespace po = boost::program_options;
 
 struct options
 {
-    std::string multicast_group;
-    std::uint16_t port;
+    std::vector<std::string> endpoints;
     std::string interface;
     std::string filename;
     int snaplen = 9230;
@@ -97,17 +97,15 @@ static options parse_args(int argc, const char **argv)
     ;
 
     hidden.add_options()
-        ("group", make_opt_nodefault(opts.multicast_group), "multicast-group to receive")
-        ("port", make_opt_nodefault(opts.port), "UDP port number")
         ("filename", make_opt_nodefault(opts.filename), "output filename")
+        ("endpoint", po::value<std::vector<std::string>>(&opts.endpoints)->composing(), "multicast-group:port")
     ;
     all.add(desc);
     all.add(hidden);
 
     po::positional_options_description positional;
-    positional.add("group", 1);
-    positional.add("port", 1);
     positional.add("filename", 1);
+    positional.add("endpoint", -1);
     try
     {
         po::variables_map vm;
@@ -122,7 +120,7 @@ static options parse_args(int argc, const char **argv)
             usage(std::cout, desc);
             std::exit(0);
         }
-        if (!vm.count("filename"))
+        if (!vm.count("filename") || !vm.count("endpoint"))
             throw po::error("too few positional options have been specified on the command line");
         if (!vm.count("interface"))
             throw po::error("interface IP address (-i) is required");
@@ -195,7 +193,7 @@ private:
     spead2::ibv_qp_t qp;
     spead2::ibv_pd_t pd;
     spead2::ibv_cq_t cq;
-    spead2::ibv_flow_t flow;
+    std::vector<spead2::ibv_flow_t> flows;
     std::uint64_t errors = 0;
     std::uint64_t packets = 0;
     std::uint64_t bytes = 0;
@@ -438,6 +436,24 @@ capture::capture(const options &opts)
 {
 }
 
+static boost::asio::ip::udp::endpoint make_endpoint(const std::string &s)
+{
+    // Use rfind rather than find because IPv6 addresses contain :'s
+    auto pos = s.rfind(':');
+    try
+    {
+        boost::asio::ip::address_v4 addr = boost::asio::ip::address_v4::from_string(s.substr(0, pos));
+        if (!addr.is_multicast())
+            throw std::runtime_error("Address " + s.substr(0, pos) + " is not a multicast address");
+        std::uint16_t port = boost::lexical_cast<std::uint16_t>(s.substr(pos + 1));
+        return boost::asio::ip::udp::endpoint(addr, port);
+    }
+    catch (boost::bad_lexical_cast)
+    {
+        throw std::runtime_error("Invalid port number " + s.substr(pos + 1));
+    }
+}
+
 void capture::run()
 {
     using boost::asio::ip::udp;
@@ -451,17 +467,16 @@ void capture::run()
         spead2::throw_errno("write failed");
 
     boost::asio::io_service io_service;
-    udp::endpoint endpoint(
-        boost::asio::ip::address_v4::from_string(opts.multicast_group),
-        opts.port);
+    std::vector<udp::endpoint> endpoints;
+    for (const std::string &s : opts.endpoints)
+        endpoints.push_back(make_endpoint(s));
     boost::asio::ip::address_v4 interface_address =
         boost::asio::ip::address_v4::from_string(opts.interface);
-    if (!endpoint.address().is_multicast())
-        throw std::runtime_error("Address " + opts.multicast_group + " is not a multicast address");
-    udp::socket join_socket(io_service, endpoint.protocol());
+    udp::socket join_socket(io_service, endpoints[0].protocol());
     join_socket.set_option(boost::asio::socket_base::reuse_address(true));
-    join_socket.set_option(boost::asio::ip::multicast::join_group(
-        endpoint.address().to_v4(), interface_address));
+    for (const udp::endpoint &endpoint : endpoints)
+        join_socket.set_option(boost::asio::ip::multicast::join_group(
+            endpoint.address().to_v4(), interface_address));
 
     std::size_t n_chunks = sizes(opts).second;
     if (std::numeric_limits<std::uint32_t>::max() / max_records <= n_chunks)
@@ -473,7 +488,8 @@ void capture::run()
     pd = spead2::ibv_pd_t(cm_id);
     qp = create_qp(pd, cq, n_slots);
     qp.modify(IBV_QPS_INIT, cm_id->port_num);
-    flow = create_flow(qp, endpoint, cm_id->port_num);
+    for (const udp::endpoint &endpoint : endpoints)
+        flows.push_back(create_flow(qp, endpoint, cm_id->port_num));
 
     std::shared_ptr<spead2::mmap_allocator> allocator =
         std::make_shared<spead2::mmap_allocator>(0, true);
