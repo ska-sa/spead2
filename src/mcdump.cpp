@@ -508,6 +508,7 @@ void capture::run()
             endpoint.address().to_v4(), interface_address));
 
     network_thread();
+    join_socket.close();
     disk_future.get();
     // Restore SIGINT handler
     sigaction(SIGINT, &old_act, &act);
