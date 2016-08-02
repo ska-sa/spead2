@@ -134,12 +134,6 @@ SPEAD2_ARG_WITH(
     )]
 )
 
-SPEAD2_ARG_WITH(
-    [sync-file-range],
-    [AS_HELP_STRING([--without-sync-file-range], [Do not use sync_file_range call in mcdump, even if available])],
-    [SPEAD2_USE_SYNC_FILE_RANGE],
-    [AC_CHECK_FUNC([sync_file_range], [SPEAD2_USE_SYNC_FILE_RANGE=1], [])])
-
 ### Determine libraries to link against
 
 LIBS="-lboost_system -lpthread"

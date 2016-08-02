@@ -55,9 +55,6 @@ struct options
     std::size_t buffer = 128 * 1024 * 1024;
     int network_affinity = -1;
     int disk_affinity = -1;
-#if SPEAD2_USE_SYNC_FILE_RANGE
-    bool sync = false;
-#endif
 };
 
 static void usage(std::ostream &o, const po::options_description &desc)
@@ -93,9 +90,6 @@ static options parse_args(int argc, const char **argv)
         ("buffer", make_opt(opts.buffer), "Maximum memory for buffering")
         ("network-cpu,N", make_opt(opts.network_affinity), "CPU core for network receive thread")
         ("disk-cpu,D", make_opt(opts.disk_affinity), "CPU core for disk write thread")
-#if SPEAD2_USE_SYNC_FILE_RANGE
-        ("sync", make_opt(opts.sync), "Use sync_file_range for better performance on high-speed disks")
-#endif
         ("help,h", "Show help text")
     ;
 

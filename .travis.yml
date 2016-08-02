@@ -4,19 +4,19 @@ matrix:
         - os: linux
           sudo: required
           dist: trusty
-          env: TEST=cxx CXX="g++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no SYNC_FILE_RANGE=yes
+          env: TEST=cxx CXX="g++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
         - os: linux
           sudo: required
           dist: trusty
-          env: TEST=cxx CXX="g++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes SYNC_FILE_RANGE=yes
+          env: TEST=cxx CXX="g++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
         - os: linux
           sudo: required
           dist: trusty
-          env: TEST=cxx CXX="clang++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no SYNC_FILE_RANGE=no
+          env: TEST=cxx CXX="clang++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
         - os: linux
           sudo: required
           dist: trusty
-          env: TEST=cxx CXX="clang++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes SYNC_FILE_RANGE=no
+          env: TEST=cxx CXX="clang++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
         - os: linux
           sudo: required
           dist: trusty
@@ -35,7 +35,7 @@ matrix:
           env: TEST=python3 CC="clang" CXX="clang++"
         - os: osx
           osx_image: xcode7.2
-          env: TEST=cxx CXX="clang++" NETMAP=no RECVMMSG=no EVENTFD=no IBV=no SYNC_FILE_RANGE=no
+          env: TEST=cxx CXX="clang++" NETMAP=no RECVMMSG=no EVENTFD=no IBV=no
         - os: osx
           osx_image: xcode7.2
           env: TEST=python2 CC="clang" CXX="clang++"
