@@ -20,6 +20,7 @@ if [ "$TEST" = "cxx" ]; then
         --with-recvmmsg="$RECVMMSG" \
         --with-eventfd="$EVENTFD" \
         --with-ibv="$IBV" \
+        --with-sync-file-range="$SYNC_FILE_RANGE" \
         --disable-optimized
     make -j4
     make -j4 check

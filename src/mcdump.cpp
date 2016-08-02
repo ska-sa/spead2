@@ -52,6 +52,9 @@ struct options
     std::size_t buffer = 128 * 1024 * 1024;
     int network_affinity = -1;
     int disk_affinity = -1;
+#if SPEAD2_USE_SYNC_FILE_RANGE
+    bool sync = false;
+#endif
 };
 
 static void usage(std::ostream &o, const po::options_description &desc)
@@ -87,6 +90,9 @@ static options parse_args(int argc, const char **argv)
         ("buffer", make_opt(opts.buffer), "Maximum memory for buffering")
         ("network-cpu,N", make_opt(opts.network_affinity), "CPU core for network receive thread")
         ("disk-cpu,D", make_opt(opts.disk_affinity), "CPU core for disk write thread")
+#if SPEAD2_USE_SYNC_FILE_RANGE
+        ("sync", make_opt(opts.sync), "Use sync_file_range for better performance on high-speed disks")
+#endif
         ("help,h", "Show help text")
     ;
 
@@ -247,6 +253,13 @@ void capture::disk_thread()
         if (opts.disk_affinity >= 0)
             spead2::thread_pool::set_affinity(opts.disk_affinity);
         std::uint32_t iov_max = sysconf(_SC_IOV_MAX);
+#if SPEAD2_USE_SYNC_FILE_RANGE
+        off_t pos = lseek(fd, 0, SEEK_CUR);
+        if (pos == (off_t) -1)
+            spead2::throw_errno("lseek failed");
+        constexpr off_t flush_chunk = 8 * 1024 * 1024;
+        off_t last_flush = 0;
+#endif
         while (true)
         {
             try
@@ -259,7 +272,29 @@ void capture::disk_thread()
                     ssize_t ret = writev(fd, c.iov.get() + offset, n);
                     if (ret != c.n_bytes)
                         spead2::throw_errno("writev failed");
+#if SPEAD2_USE_SYNC_FILE_RANGE
+                    pos += c.n_bytes;
+#endif
                 }
+
+#if SPEAD2_USE_SYNC_FILE_RANGE
+                while (opts.sync && pos >= last_flush + flush_chunk)
+                {
+                    int ret = sync_file_range(fd, last_flush, flush_chunk, SYNC_FILE_RANGE_WRITE);
+                    if (ret == -1)
+                        spead2::throw_errno("sync_file_range failed");
+                    if (last_flush > 0)
+                    {
+                        ret = sync_file_range(fd, last_flush - flush_chunk, flush_chunk,
+                                              SYNC_FILE_RANGE_WAIT_BEFORE | SYNC_FILE_RANGE_WRITE | SYNC_FILE_RANGE_WAIT_AFTER);
+                        if (ret == -1)
+                            spead2::throw_errno("sync_file_range failed");
+                        ret = posix_fadvise(fd, last_flush - flush_chunk, flush_chunk, POSIX_FADV_DONTNEED);
+                    }
+                    last_flush += flush_chunk;
+                }
+#endif
+
                 /* Only post a new receive if the chunk was full. It if was
                  * not full, then this was the last chunk, and we're about to
                  * get a stop. Some of the work requests are already in the
