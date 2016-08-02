@@ -560,7 +560,7 @@ void capture::run()
      * can avoid incrementing the dropped packets counter on the NIC.
      */
     join_socket.close();
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
     disk_future.get();
     // Restore SIGINT handler
     sigaction(SIGINT, &old_act, &act);
