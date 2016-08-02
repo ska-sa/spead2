@@ -36,6 +36,8 @@
 #include <utility>
 #include <atomic>
 #include <cstring>
+#include <future>
+#include <thread>
 #include <unistd.h>
 #include <sys/uio.h>
 #include <fcntl.h>
@@ -533,7 +535,12 @@ void capture::run()
             endpoint.address().to_v4(), interface_address));
 
     network_thread();
+    /* Close socket then briefly sleep so that we can unsubscribe from the
+     * switch before we shut down the QP. This makes it more likely that we
+     * can avoid incrementing the dropped packets counter on the NIC.
+     */
     join_socket.close();
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
     disk_future.get();
     // Restore SIGINT handler
     sigaction(SIGINT, &old_act, &act);
