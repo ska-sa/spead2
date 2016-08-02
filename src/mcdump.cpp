@@ -472,11 +472,6 @@ void capture::run()
         endpoints.push_back(make_endpoint(s));
     boost::asio::ip::address_v4 interface_address =
         boost::asio::ip::address_v4::from_string(opts.interface);
-    udp::socket join_socket(io_service, endpoints[0].protocol());
-    join_socket.set_option(boost::asio::socket_base::reuse_address(true));
-    for (const udp::endpoint &endpoint : endpoints)
-        join_socket.set_option(boost::asio::ip::multicast::join_group(
-            endpoint.address().to_v4(), interface_address));
 
     std::size_t n_chunks = sizes(opts).second;
     if (std::numeric_limits<std::uint32_t>::max() / max_records <= n_chunks)
@@ -505,6 +500,13 @@ void capture::run()
         spead2::throw_errno("sigaction failed");
 
     std::future<void> disk_future = std::async(std::launch::async, [this] { disk_thread(); });
+
+    udp::socket join_socket(io_service, endpoints[0].protocol());
+    join_socket.set_option(boost::asio::socket_base::reuse_address(true));
+    for (const udp::endpoint &endpoint : endpoints)
+        join_socket.set_option(boost::asio::ip::multicast::join_group(
+            endpoint.address().to_v4(), interface_address));
+
     network_thread();
     disk_future.get();
     // Restore SIGINT handler
