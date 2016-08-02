@@ -42,6 +42,7 @@
 #include <sys/uio.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <signal.h>
 
 namespace po = boost::program_options;
@@ -55,6 +56,9 @@ struct options
     std::size_t buffer = 128 * 1024 * 1024;
     int network_affinity = -1;
     int disk_affinity = -1;
+#ifdef O_DIRECT
+    bool direct = false;
+#endif
 };
 
 static void usage(std::ostream &o, const po::options_description &desc)
@@ -90,6 +94,9 @@ static options parse_args(int argc, const char **argv)
         ("buffer", make_opt(opts.buffer), "Maximum memory for buffering")
         ("network-cpu,N", make_opt(opts.network_affinity), "CPU core for network receive thread")
         ("disk-cpu,D", make_opt(opts.disk_affinity), "CPU core for disk write thread")
+#ifdef O_DIRECT
+        ("direct-io", make_opt(opts.direct), "Use O_DIRECT I/O (not supported on all filesystems)")
+#endif
         ("help,h", "Show help text")
     ;
 
@@ -184,13 +191,15 @@ private:
     spead2::memory_allocator::pointer buffer;
     std::size_t buffer_size;
     std::size_t n_bytes;
+    off_t total_size;
+
+    void flush();
 
 public:
     void open(int fd, std::size_t buffer_size, spead2::memory_allocator &allocator);
     void close();
 
     void write(const void *data, std::size_t length);
-    void flush();
 };
 
 void writer::open(int fd, std::size_t buffer_size, spead2::memory_allocator &allocator)
@@ -199,14 +208,25 @@ void writer::open(int fd, std::size_t buffer_size, spead2::memory_allocator &all
     this->fd = fd;
     this->buffer_size = buffer_size;
     n_bytes = 0;
+    total_size = 0;
     buffer = allocator.allocate(buffer_size, nullptr);
 }
 
 void writer::close()
 {
-    flush();
-    if (fd != -1 && ::close(fd) != 0)
+    if (fd == -1)
+        return;
+    if (n_bytes > 0)
+    {
+        flush();
+        // flush always writes the entire buffer (possibly necessary for O_DIRECT),
+        // so truncate back to the actual desired size
+        if (ftruncate(fd, total_size) != 0)
+            spead2::throw_errno("ftruncate failed");
+    }
+    if (::close(fd) != 0)
         spead2::throw_errno("close failed");
+    fd = -1;
 }
 
 void writer::write(const void *data, std::size_t length)
@@ -225,8 +245,9 @@ void writer::write(const void *data, std::size_t length)
 
 void writer::flush()
 {
-    ssize_t ret = ::write(fd, buffer.get(), n_bytes);
-    if (ret != n_bytes)
+    total_size += n_bytes;
+    ssize_t ret = ::write(fd, buffer.get(), buffer_size);
+    if (ret != buffer_size)
     {
         if (ret < 0)
             spead2::throw_errno("write failed");
@@ -484,7 +505,12 @@ void capture::run()
 
     std::shared_ptr<spead2::mmap_allocator> allocator =
         std::make_shared<spead2::mmap_allocator>(0, true);
-    int fd = open(opts.filename.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    int fd_flags = O_WRONLY | O_CREAT | O_TRUNC;
+#ifdef O_DIRECT
+    if (opts.direct)
+        fd_flags |= O_DIRECT;
+#endif
+    int fd = open(opts.filename.c_str(), fd_flags, 0666);
     if (fd < 0)
         spead2::throw_errno("open failed");
     w.open(fd, 8 * 1024 * 1024, *allocator);
