@@ -15,6 +15,7 @@ Contents:
    py
    cpp
    perf
+   tools
    changelog
    license
 
