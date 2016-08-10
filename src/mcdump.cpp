@@ -47,6 +47,20 @@
 
 namespace po = boost::program_options;
 
+static const char * const level_names[] =
+{
+    "warning",
+    "info",
+    "debug"
+};
+
+static void log_function(spead2::log_level level, const std::string &msg)
+{
+    unsigned int level_idx = static_cast<unsigned int>(level);
+    assert(level_idx < sizeof(level_names) / sizeof(level_names[0]));
+    std::cerr << level_names[level_idx] << ": " << msg << "\n";
+}
+
 struct options
 {
     std::vector<std::string> endpoints;
@@ -682,6 +696,7 @@ int main(int argc, const char **argv)
 {
     try
     {
+        spead2::set_log_function(log_function);
         options opts = parse_args(argc, argv);
         capture cap(opts);
         cap.run();
