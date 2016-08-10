@@ -176,7 +176,6 @@ struct chunk
     spead2::ibv_mr_t records_mr, storage_mr;
 };
 
-typedef spead2::ringbuffer<chunk> ringbuffer;
 static std::atomic<bool> stop{false};
 
 static void signal_handler(int)
@@ -187,43 +186,73 @@ static void signal_handler(int)
 class writer
 {
 private:
-    int fd = -1;
-    spead2::memory_allocator::pointer buffer;
+    struct buffer
+    {
+        off_t offset; // offset in file
+        spead2::memory_allocator::pointer data;
+        std::size_t length;
+    };
+
+    static constexpr int depth = 4;
+
     std::size_t buffer_size;
-    std::size_t n_bytes;
-    off_t total_size;
+    int fd = -1;
+    spead2::ringbuffer<buffer> ring, free_ring;
+    std::shared_ptr<spead2::memory_allocator> allocator;
+    buffer cur_buffer;
+    off_t total_bytes;
+    std::vector<std::future<void>> writer_threads;
 
     void flush();
+    void writer_thread();
 
 public:
-    void open(int fd, std::size_t buffer_size, spead2::memory_allocator &allocator);
+    writer();
+    void open(int fd, std::size_t buffer_size, int threads,
+              spead2::memory_allocator &allocator);
     void close();
 
     void write(const void *data, std::size_t length);
 };
 
-void writer::open(int fd, std::size_t buffer_size, spead2::memory_allocator &allocator)
+constexpr int writer::depth;
+
+writer::writer() : ring(depth), free_ring(depth) {}
+
+void writer::open(int fd, std::size_t buffer_size, int threads, spead2::memory_allocator &allocator)
 {
     assert(this->fd == -1);
     this->fd = fd;
     this->buffer_size = buffer_size;
-    n_bytes = 0;
-    total_size = 0;
-    buffer = allocator.allocate(buffer_size, nullptr);
+    total_bytes = 0;
+    for (int i = 0; i < depth; i++)
+    {
+        buffer b;
+        b.data = allocator.allocate(buffer_size, nullptr);
+        b.length = 0;
+        b.offset = 0;
+        free_ring.push(std::move(b));
+    }
+    cur_buffer = free_ring.pop();
+    for (int i = 0; i < threads; i++)
+        writer_threads.push_back(std::async(std::launch::async, [this] { writer_thread(); }));
 }
 
 void writer::close()
 {
     if (fd == -1)
         return;
-    if (n_bytes > 0)
-    {
+    if (cur_buffer.length > 0)
         flush();
-        // flush always writes the entire buffer (possibly necessary for O_DIRECT),
-        // so truncate back to the actual desired size
-        if (ftruncate(fd, total_size) != 0)
-            spead2::throw_errno("ftruncate failed");
-    }
+    // Shut down the writer threads
+    ring.stop();
+    for (std::future<void> &future : writer_threads)
+        future.get();
+    writer_threads.clear();
+    // flush always writes the entire buffer (possibly necessary for O_DIRECT),
+    // so truncate back to the actual desired size
+    if (ftruncate(fd, total_bytes) != 0)
+        spead2::throw_errno("ftruncate failed");
     if (::close(fd) != 0)
         spead2::throw_errno("close failed");
     fd = -1;
@@ -233,33 +262,62 @@ void writer::write(const void *data, std::size_t length)
 {
     while (length > 0)
     {
-        std::size_t n = std::min(length, buffer_size - n_bytes);
-        std::memcpy(buffer.get() + n_bytes, data, n);
+        std::size_t n = std::min(length, buffer_size - cur_buffer.length);
+        std::memcpy(cur_buffer.data.get() + cur_buffer.length, data, n);
         data = (const std::uint8_t *) data + n;
         length -= n;
-        n_bytes += n;
-        if (n_bytes == buffer_size)
+        cur_buffer.length += n;
+        if (cur_buffer.length == buffer_size)
             flush();
     }
 }
 
 void writer::flush()
 {
-    total_size += n_bytes;
-    ssize_t ret = ::write(fd, buffer.get(), buffer_size);
-    if (ret != buffer_size)
+    total_bytes += cur_buffer.length;
+    ring.push(std::move(cur_buffer));
+    cur_buffer = free_ring.pop();
+    cur_buffer.offset = total_bytes;
+}
+
+void writer::writer_thread()
+{
+    try
     {
-        if (ret < 0)
-            spead2::throw_errno("write failed");
-        else
-            throw std::runtime_error("short write");
+        while (true)
+        {
+            try
+            {
+                buffer b = ring.pop();
+                ssize_t ret = pwrite(fd, b.data.get(), buffer_size, b.offset);
+                if (ret != buffer_size)
+                {
+                    if (ret < 0)
+                        spead2::throw_errno("write failed");
+                    else
+                        throw std::runtime_error("short write");
+                }
+                b.length = 0;
+                free_ring.push(std::move(b));
+            }
+            catch (spead2::ringbuffer_stopped)
+            {
+                break;
+            }
+        }
     }
-    n_bytes = 0;
+    catch (std::exception &e)
+    {
+        stop = true;
+        throw;
+    }
 }
 
 class capture
 {
 private:
+    typedef spead2::ringbuffer<chunk> ringbuffer;
+
     const options opts;
     std::size_t max_records;
     writer w;
@@ -278,7 +336,7 @@ private:
     chunk make_chunk(spead2::memory_allocator &allocator);
     void add_to_free(chunk &&c);
 
-    void disk_thread();
+    void collect_thread();
     void network_thread();
 
 public:
@@ -321,7 +379,7 @@ void capture::add_to_free(chunk &&c)
     free_ring.push(std::move(c));
 }
 
-void capture::disk_thread()
+void capture::collect_thread()
 {
     try
     {
@@ -518,7 +576,7 @@ void capture::run()
     int fd = open(opts.filename.c_str(), fd_flags, 0666);
     if (fd < 0)
         spead2::throw_errno("open failed");
-    w.open(fd, 8 * 1024 * 1024, *allocator);
+    w.open(fd, 8 * 1024 * 1024, 2, *allocator);
 
     boost::asio::io_service io_service;
     std::vector<udp::endpoint> endpoints;
@@ -551,7 +609,7 @@ void capture::run()
     if (ret != 0)
         spead2::throw_errno("sigaction failed");
 
-    std::future<void> disk_future = std::async(std::launch::async, [this] { disk_thread(); });
+    std::future<void> collect_future = std::async(std::launch::async, [this] { collect_thread(); });
 
     udp::socket join_socket(io_service, endpoints[0].protocol());
     join_socket.set_option(boost::asio::socket_base::reuse_address(true));
@@ -566,7 +624,7 @@ void capture::run()
      */
     join_socket.close();
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    disk_future.get();
+    collect_future.get();
     // Restore SIGINT handler
     sigaction(SIGINT, &old_act, &act);
     std::cout << "\n\n" << packets << " packets captured (" << bytes << " bytes)\n"
