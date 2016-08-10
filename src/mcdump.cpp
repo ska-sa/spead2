@@ -254,14 +254,12 @@ writer::writer(const options &opts, int fd, spead2::memory_allocator &allocator)
 
 writer::~writer()
 {
-    try
-    {
-        close();
-    }
-    catch (std::exception &e)
-    {
-        spead2::log_warning("failed to close file: %1%", e.what());
-    }
+    /* We don't try to close the file. While this violates RAII, it avoids
+     * double-exception problems. We only get here with the file still open in
+     * error cases, in which case it is quite likely that flushing the file
+     * will fail anyway (e.g., because the disk is full); and the process is
+     * about to die anyway.
+     */
 }
 
 void writer::close()
@@ -330,13 +328,21 @@ void writer::writer_thread(int affinity)
             try
             {
                 buffer b = ring.pop();
-                ssize_t ret = pwrite(fd, b.data.get(), buffer_size, b.offset);
-                if (ret != buffer_size)
+                std::uint8_t *ptr = b.data.get();
+                std::size_t remain = buffer_size;
+                off_t offset = b.offset;
+                while (remain > 0)
                 {
+                    ssize_t ret = pwrite(fd, ptr, remain, offset);
                     if (ret < 0)
+                    {
+                        if (errno == EINTR)
+                            continue;
                         spead2::throw_errno("write failed");
-                    else
-                        throw std::runtime_error("short write");
+                    }
+                    ptr += ret;
+                    remain -= ret;
+                    offset += ret;
                 }
                 b.length = 0;
                 free_ring.push(std::move(b));
