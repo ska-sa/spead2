@@ -81,7 +81,7 @@ void log_errno(const char *format)
     }
     else
     {
-        std::system_error exception(err, std::system_category());
+        std::system_error exception(err, std::system_category(), msg);
         throw exception;
     }
 }
