@@ -53,9 +53,11 @@ struct options
     std::string interface;
     std::string filename;
     int snaplen = 9230;
-    std::size_t buffer = 128 * 1024 * 1024;
+    std::size_t net_buffer = 128 * 1024 * 1024;
+    std::size_t disk_buffer = 64 * 1024 * 1024;
     int network_affinity = -1;
-    int disk_affinity = -1;
+    int collect_affinity = -1;
+    std::vector<int> disk_affinity;
 #ifdef O_DIRECT
     bool direct = false;
 #endif
@@ -91,9 +93,11 @@ static options parse_args(int argc, const char **argv)
     desc.add_options()
         ("interface,i", make_opt_nodefault(opts.interface), "IP address of capture interface")
         ("snaplen,s", make_opt(opts.snaplen), "Maximum frame size to capture")
-        ("buffer", make_opt(opts.buffer), "Maximum memory for buffering")
-        ("network-cpu,N", make_opt(opts.network_affinity), "CPU core for network receive thread")
-        ("disk-cpu,D", make_opt(opts.disk_affinity), "CPU core for disk write thread")
+        ("net-buffer", make_opt(opts.net_buffer), "Maximum memory for buffering packets from the network")
+        ("disk-buffer", make_opt(opts.disk_buffer), "Maximum memory for buffering bytes to disk")
+        ("network-cpu,N", make_opt(opts.network_affinity), "CPU core for network receive")
+        ("collect-cpu,C", make_opt(opts.collect_affinity), "CPU core for rearranging data")
+        ("disk-cpu,D", po::value<std::vector<int>>(&opts.disk_affinity)->composing(), "CPU core for disk writing (can be used multiple times)")
 #ifdef O_DIRECT
         ("direct-io", make_opt(opts.direct), "Use O_DIRECT I/O (not supported on all filesystems)")
 #endif
@@ -193,39 +197,41 @@ private:
         std::size_t length;
     };
 
-    static constexpr int depth = 4;
+    static constexpr std::size_t buffer_size = 8 * 1024 * 1024;
 
-    std::size_t buffer_size;
-    int fd = -1;
+    int fd;
+    std::size_t depth;
     spead2::ringbuffer<buffer> ring, free_ring;
-    std::shared_ptr<spead2::memory_allocator> allocator;
     buffer cur_buffer;
-    off_t total_bytes;
+    off_t total_bytes = 0;
     std::vector<std::future<void>> writer_threads;
 
+    static std::size_t compute_depth(const options &opts);
     void flush();
-    void writer_thread();
+    void writer_thread(int affinity);
 
 public:
-    writer();
-    void open(int fd, std::size_t buffer_size, int threads,
-              spead2::memory_allocator &allocator);
+    writer(const options &opts, int fd, spead2::memory_allocator &allocator);
+    ~writer();
     void close();
 
     void write(const void *data, std::size_t length);
 };
 
-constexpr int writer::depth;
+constexpr std::size_t writer::buffer_size;
 
-writer::writer() : ring(depth), free_ring(depth) {}
-
-void writer::open(int fd, std::size_t buffer_size, int threads, spead2::memory_allocator &allocator)
+std::size_t writer::compute_depth(const options &opts)
 {
-    assert(this->fd == -1);
-    this->fd = fd;
-    this->buffer_size = buffer_size;
-    total_bytes = 0;
-    for (int i = 0; i < depth; i++)
+    std::size_t depth = opts.disk_buffer / buffer_size;
+    if (depth == 0)
+        depth = 1;
+    return depth;
+}
+
+writer::writer(const options &opts, int fd, spead2::memory_allocator &allocator)
+    : fd(fd), depth(compute_depth(opts)), ring(depth), free_ring(depth)
+{
+    for (std::size_t i = 0; i < depth; i++)
     {
         buffer b;
         b.data = allocator.allocate(buffer_size, nullptr);
@@ -234,8 +240,28 @@ void writer::open(int fd, std::size_t buffer_size, int threads, spead2::memory_a
         free_ring.push(std::move(b));
     }
     cur_buffer = free_ring.pop();
-    for (int i = 0; i < threads; i++)
-        writer_threads.push_back(std::async(std::launch::async, [this] { writer_thread(); }));
+    if (opts.disk_affinity.empty())
+        writer_threads.push_back(std::async(std::launch::async, [this] { writer_thread(-1); }));
+    else
+    {
+        for (int affinity : opts.disk_affinity)
+        {
+            writer_threads.push_back(std::async(std::launch::async,
+                [this, affinity] { writer_thread(affinity); }));
+        }
+    }
+}
+
+writer::~writer()
+{
+    try
+    {
+        close();
+    }
+    catch (std::exception &e)
+    {
+        spead2::log_warning("failed to close file: %1%", e.what());
+    }
 }
 
 void writer::close()
@@ -249,6 +275,19 @@ void writer::close()
     for (std::future<void> &future : writer_threads)
         future.get();
     writer_threads.clear();
+    // free memory
+    free_ring.stop();
+    while (true)
+    {
+        try
+        {
+            free_ring.pop();
+        }
+        catch (spead2::ringbuffer_stopped)
+        {
+            break;
+        }
+    }
     // flush always writes the entire buffer (possibly necessary for O_DIRECT),
     // so truncate back to the actual desired size
     if (ftruncate(fd, total_bytes) != 0)
@@ -280,10 +319,12 @@ void writer::flush()
     cur_buffer.offset = total_bytes;
 }
 
-void writer::writer_thread()
+void writer::writer_thread(int affinity)
 {
     try
     {
+        if (affinity >= 0)
+            spead2::thread_pool::set_affinity(affinity);
         while (true)
         {
             try
@@ -320,7 +361,7 @@ private:
 
     const options opts;
     std::size_t max_records;
-    writer w;
+    std::unique_ptr<writer> w;
     ringbuffer ring;
     ringbuffer free_ring;
     spead2::rdma_event_channel_t event_channel;
@@ -383,12 +424,12 @@ void capture::collect_thread()
 {
     try
     {
-        if (opts.disk_affinity >= 0)
-            spead2::thread_pool::set_affinity(opts.disk_affinity);
+        if (opts.collect_affinity >= 0)
+            spead2::thread_pool::set_affinity(opts.collect_affinity);
 
         file_header header;
         header.snaplen = opts.snaplen;
-        w.write(&header, sizeof(header));
+        w->write(&header, sizeof(header));
         while (true)
         {
             try
@@ -396,7 +437,7 @@ void capture::collect_thread()
                 chunk c = ring.pop();
                 std::uint32_t n_iov = 2 * c.n_records;
                 for (std::uint32_t i = 0; i < n_iov; i++)
-                    w.write(c.iov[i].iov_base, c.iov[i].iov_len);
+                    w->write(c.iov[i].iov_base, c.iov[i].iov_len);
 
                 /* Only post a new receive if the chunk was full. It if was
                  * not full, then this was the last chunk, and we're about to
@@ -416,7 +457,7 @@ void capture::collect_thread()
             catch (spead2::ringbuffer_stopped)
             {
                 free_ring.stop();
-                w.close();
+                w->close();
                 break;
             }
         }
@@ -531,7 +572,7 @@ static std::pair<std::size_t, std::size_t> sizes(const options &opts)
     if (max_records == 0)
         max_records = 1;
     std::size_t chunk_size = max_records * opts.snaplen;
-    std::size_t n_chunks = opts.buffer / chunk_size;
+    std::size_t n_chunks = opts.net_buffer / chunk_size;
     if (n_chunks == 0)
         n_chunks++;
     return {max_records, n_chunks};
@@ -576,7 +617,7 @@ void capture::run()
     int fd = open(opts.filename.c_str(), fd_flags, 0666);
     if (fd < 0)
         spead2::throw_errno("open failed");
-    w.open(fd, 8 * 1024 * 1024, 2, *allocator);
+    w.reset(new writer(opts, fd, *allocator));
 
     boost::asio::io_service io_service;
     std::vector<udp::endpoint> endpoints;
