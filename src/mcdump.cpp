@@ -344,11 +344,16 @@ void capture::disk_thread()
                  * not full, then this was the last chunk, and we're about to
                  * get a stop. Some of the work requests are already in the
                  * queue, so posting them again is asking for trouble.
+                 *
+                 * If the chunk was not full, we can't just free it, because
+                 * the QP might still be receiving data and writing it to the
+                 * chunk. So we push it back onto the ring without posting a
+                 * new receive, just to keep it live.
                  */
                 if (c.n_records == max_records)
-                {
                     add_to_free(std::move(c));
-                }
+                else
+                    free_ring.push(std::move(c));
             }
             catch (spead2::ringbuffer_stopped)
             {
