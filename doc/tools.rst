@@ -1,6 +1,8 @@
 Other tools
 ===========
 
+.. _mcdump:
+
 mcdump
 ------
 mcdump is a tool similar to tcpdump_, but specialised for high-speed capture of

@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Fix exceptions to include more information about the source of the failure
+- Add :ref:`mcdump` tool
+
 .. rubric:: Version 1.0.0
 
 - The C++ API installation has been changed to use autoconf and automake. As a
