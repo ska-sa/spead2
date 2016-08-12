@@ -46,11 +46,12 @@ shutdown process.
 
 These options are important for performance:
 
-.. option:: -N <cpu>, -D <cpu>
+.. option:: -N <cpu>, -C <cpu>, -D <cpu>
 
-   Set CPU core IDs for the network and disk threads. By default, these are not
-   bound to any particular core. It is recommended that these cores be on the
-   same CPU socket as the NIC.
+   Set CPU core IDs for various threads. The :option:`-D` option can be repeated
+   multiple times to use multiple threads for disk I/O. By default, the threads
+   are not bound to any particular core. It is recommended that these cores be
+   on the same CPU socket as the NIC.
 
 .. option:: --direct-io
 
