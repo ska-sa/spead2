@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 1.0.1
 
 - Fix exceptions to include more information about the source of the failure
 - Add :ref:`mcdump` tool
