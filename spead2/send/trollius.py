@@ -33,7 +33,7 @@ class _UdpStreamMixin(object):
         self._last_queued_future = None
         super(_UdpStreamMixin, self).__init__(*args, **kwargs)
 
-    def async_send_heap(self, heap, loop=None):
+    def async_send_heap(self, heap, cnt=-1, loop=None):
         """Send a heap asynchronously. Note that this is *not* a coroutine:
         it returns a future. Adding the heap to the queue is done
         synchronously, to ensure proper ordering.
@@ -42,6 +42,8 @@ class _UdpStreamMixin(object):
         ----------
         heap : :py:class:`spead2.send.Heap`
             Heap to send
+        cnt : int, optional
+            Heap cnt to send (defaults to auto-incrementing)
         loop : :py:class:`trollius.BaseEventLoop`, optional
             Event loop to use, overriding the constructor.
         """
@@ -59,7 +61,7 @@ class _UdpStreamMixin(object):
             if self._active == 0:
                 self._loop.remove_reader(self.fd)
                 self._last_queued_future = None  # Purely to free the memory
-        queued = super(_UdpStreamMixin, self).async_send_heap(heap, callback)
+        queued = super(_UdpStreamMixin, self).async_send_heap(heap, callback, cnt)
         if self._active == 0:
             self._loop.add_reader(self.fd, self.process_callbacks)
         self._active += 1

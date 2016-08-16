@@ -103,10 +103,18 @@ public:
      * (from a thread running the io_service), with error code @c
      * boost::asio::error::would_block.
      *
+     * By default the heap cnt is chosen automatically, with an incrementing
+     * counter. An explicit value can instead be chosen by passing a
+     * non-negative value for @a cnt. When doing this, it is entirely the
+     * responsibility of the user to avoid collisions, both with other
+     * explicit values and with the automatic counter. This feature is useful
+     * when multiple senders contribute to a single stream and must keep their
+     * heap cnts disjoint, which the automatic assignment would not do.
+     *
      * @retval  false  If the heap was immediately discarded
      * @retval  true   If the heap was enqueued
      */
-    virtual bool async_send_heap(const heap &h, completion_handler handler) = 0;
+    virtual bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt = -1) = 0;
 
     /**
      * Block until all enqueued heaps have been sent. This function is
@@ -266,24 +274,7 @@ public:
     {
     }
 
-    /**
-     * Send @a h asynchronously, with @a handler called on completion. The
-     * caller must ensure that @a h remains valid (as well as any memory it
-     * points to) until @a handler is called.
-     *
-     * If this function returns @c true, then the heap has been added to the
-     * queue. The completion handlers for such heaps are guaranteed to be
-     * called in order.
-     *
-     * If this function returns @c false, the heap was rejected due to
-     * insufficient space. The handler is called as soon as possible
-     * (from a thread running the io_service), with error code @c
-     * boost::asio::error::would_block.
-     *
-     * @retval  false  If the heap was immediately discarded
-     * @retval  true   If the heap was enqueued
-     */
-    virtual bool async_send_heap(const heap &h, completion_handler handler) override
+    virtual bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt = -1) override
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
         if (queue.size() >= config.get_max_heaps())
@@ -293,8 +284,9 @@ public:
             return false;
         }
         bool empty = queue.empty();
-        queue.emplace(h, next_cnt, std::move(handler));
-        next_cnt++;
+        if (cnt < 0)
+            cnt = next_cnt++;
+        queue.emplace(h, cnt, std::move(handler));
         if (empty)
         {
             assert(!gen);

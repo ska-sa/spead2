@@ -122,7 +122,7 @@ public:
     using Base::Base;
 
     /// Sends heap synchronously
-    item_pointer_t send_heap(const heap_wrapper &h)
+    item_pointer_t send_heap(const heap_wrapper &h, s_item_pointer_t cnt = -1)
     {
         /* The semaphore state needs to be in shared_ptr because if we are
          * interrupted and throw an exception, it still needs to exist until
@@ -134,7 +134,7 @@ public:
             state->ec = ec;
             state->bytes_transferred = bytes_transferred;
             state->sem.put();
-        });
+        }, cnt);
         semaphore_get(state->sem);
         if (state->ec)
             throw boost_io_error(state->ec);
@@ -167,7 +167,7 @@ public:
 
     int get_fd() const { return sem.get_fd(); }
 
-    bool async_send_heap(py::object h, py::object callback)
+    bool async_send_heap(py::object h, py::object callback, s_item_pointer_t cnt = -1)
     {
         py::extract<heap_wrapper &> h2(h);
         /* Normally the callback should not refer to this, since it could have
@@ -194,7 +194,7 @@ public:
             }
             if (was_empty)
                 sem.put();
-        });
+        }, cnt);
     }
 
     void process_callbacks()
@@ -489,7 +489,7 @@ template<typename T>
 void sync_stream_register(boost::python::class_<T, boost::noncopyable> &stream_class)
 {
     using namespace boost::python;
-    stream_class.def("send_heap", &T::send_heap, arg("heap"));
+    stream_class.def("send_heap", &T::send_heap, (arg("heap"), arg("cnt") = s_item_pointer_t(-1)));
 }
 
 template<typename T>
@@ -498,7 +498,8 @@ void async_stream_register(boost::python::class_<T, boost::noncopyable> &stream_
     using namespace boost::python;
     stream_class
         .add_property("fd", &T::get_fd)
-        .def("async_send_heap", &T::async_send_heap, arg("heap"))
+        .def("async_send_heap", &T::async_send_heap,
+             (arg("heap"), arg("callback"), arg("cnt") = s_item_pointer_t(-1)))
         .def("flush", &T::flush)
         .def("process_callbacks", &T::process_callbacks);
 }
@@ -570,12 +571,14 @@ void register_module()
     }
 #endif
 
-    class_<bytes_stream, boost::noncopyable>("BytesStream", init<
-                thread_pool_wrapper &, const stream_config &>(
-                    (arg("thread_pool"), arg("config") = stream_config()))[
-                store_handle_postcall<bytes_stream, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-        .def("getvalue", &bytes_stream::getvalue)
-        .def("send_heap", &bytes_stream::send_heap, arg("heap"));
+    {
+        auto stream_class = class_<bytes_stream, boost::noncopyable>(
+            "BytesStream", init<thread_pool_wrapper &, const stream_config &>(
+                (arg("thread_pool"), arg("config") = stream_config()))[
+            store_handle_postcall<bytes_stream, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
+        .def("getvalue", &bytes_stream::getvalue);
+        sync_stream_register(stream_class);
+    }
 }
 
 } // namespace send

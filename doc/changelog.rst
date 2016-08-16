@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Allow heap cnt to be set explicitly by sender
+
 .. rubric:: Version 1.0.1
 
 - Fix exceptions to include more information about the source of the failure
