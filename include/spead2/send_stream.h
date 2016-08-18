@@ -92,7 +92,7 @@ public:
     /**
      * Modify the linear sequence used to generate heap cnts. The next heap
      * will have cnt @a next, and each following cnt will be incremented by
-     * @a step. When using this, it is the users responsibility to ensure
+     * @a step. When using this, it is the user's responsibility to ensure
      * that the generated values remain unique. The initial state is @a next =
      * 1, @a cnt = 1.
      *

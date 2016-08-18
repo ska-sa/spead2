@@ -58,11 +58,27 @@ Blocking send
      not use this socket any further, although it is not necessary to keep
      it alive. This is mainly useful for fine-tuning socket options.
 
-   .. py:method:: send_heap(heap)
+   .. py:method:: send_heap(heap, cnt=-1)
 
       Sends a :py:class:`spead2.send.Heap` to the peer, and wait for
       completion. There is currently no indication of whether it successfully
       arrived.
+
+      If not specified, a heap cnt is chosen automatically (the choice can be
+      modified by calling :py:meth:`set_cnt_sequence`). If a non-negative value
+      is specified for `cnt`, it is used instead. It is the user's
+      responsibility to avoid collisions.
+
+    .. py:method:: set_cnt_sequence(next, step)
+
+       Modify the linear sequence used to generate heap cnts. The next heap
+       will have cnt `next`, and each following cnt will be incremented by
+       `step`. When using this, it is the user's responsibility to ensure
+       that the generated values remain unique. The initial state is `next` =
+       1, `cnt` = 1.
+
+       This is useful when multiple senders will send heaps to the same
+       receiver, and need to keep their heap cnts separate.
 
 .. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config, buffer_size=DEFAULT_BUFFER_SIZE, ttl)
 
