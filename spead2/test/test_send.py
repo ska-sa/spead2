@@ -427,16 +427,29 @@ class TestStream(object):
         assert_raises(IOError, stream.send_heap, self.heap)
 
     def test_send_explicit_cnt(self):
-        """An explicit set heap ID must be respected."""
-        self.stream.send_heap(send.ItemGroup(flavour=self.flavour).get_end(), 0x9876543210ab)
-        expected = b''.join([
-                self.flavour.make_header(6),
-                self.flavour.make_immediate(spead2.HEAP_CNT_ID, 0x9876543210ab),
-                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 1),
-                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
-                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 1),
-                self.flavour.make_immediate(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_STOP),
-                self.flavour.make_address(spead2.NULL_ID, 0),
-                struct.pack('B', 0)
-            ])
+        """An explicit set heap ID must be respected, and not increment the
+        implicit sequence.
+
+        The implicit sequencing is also tested.
+        """
+        ig = send.ItemGroup(flavour=self.flavour)
+        self.stream.send_heap(ig.get_start())
+        self.stream.set_cnt_sequence(0x1111111111, 0x1234512345)
+        self.stream.send_heap(ig.get_start())
+        self.stream.send_heap(ig.get_start(), 0x9876543210ab)
+        self.stream.send_heap(ig.get_start())
+        expected_cnts = [1, 0x1111111111, 0x9876543210ab, 0x2345623456]
+        expected = b''
+        for cnt in expected_cnts:
+            expected = b''.join([
+                    expected,
+                    self.flavour.make_header(6),
+                    self.flavour.make_immediate(spead2.HEAP_CNT_ID, cnt),
+                    self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 1),
+                    self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                    self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 1),
+                    self.flavour.make_immediate(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_START),
+                    self.flavour.make_address(spead2.NULL_ID, 0),
+                    struct.pack('B', 0)
+                ])
         assert_equal(hexlify(expected), hexlify(self.stream.getvalue()))

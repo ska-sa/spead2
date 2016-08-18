@@ -3,7 +3,8 @@ Changelog
 
 .. rubric:: Development version
 
-- Allow heap cnt to be set explicitly by sender
+- Allow heap cnt to be set explicitly by sender, and the automatic heap cnt
+  sequence to be specified as a start value and step.
 
 .. rubric:: Version 1.0.1
 

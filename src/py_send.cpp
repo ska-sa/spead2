@@ -486,9 +486,18 @@ static boost::python::class_<T, boost::noncopyable> udp_ibv_stream_register(cons
 #endif
 
 template<typename T>
+void stream_register(boost::python::class_<T, boost::noncopyable> &stream_class)
+{
+    using namespace boost::python;
+    stream_class.def("set_cnt_sequence", &T::set_cnt_sequence,
+                     (arg("next"), arg("step")));
+}
+
+template<typename T>
 void sync_stream_register(boost::python::class_<T, boost::noncopyable> &stream_class)
 {
     using namespace boost::python;
+    stream_register(stream_class);
     stream_class.def("send_heap", &T::send_heap, (arg("heap"), arg("cnt") = s_item_pointer_t(-1)));
 }
 
@@ -496,6 +505,7 @@ template<typename T>
 void async_stream_register(boost::python::class_<T, boost::noncopyable> &stream_class)
 {
     using namespace boost::python;
+    stream_register(stream_class);
     stream_class
         .add_property("fd", &T::get_fd)
         .def("async_send_heap", &T::async_send_heap,

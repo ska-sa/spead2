@@ -90,6 +90,18 @@ public:
     boost::asio::io_service &get_io_service() const { return io_service; }
 
     /**
+     * Modify the linear sequence used to generate heap cnts. The next heap
+     * will have cnt @a next, and each following cnt will be incremented by
+     * @a step. When using this, it is the users responsibility to ensure
+     * that the generated values remain unique. The initial state is @a next =
+     * 1, @a cnt = 1.
+     *
+     * This is useful when multiple senders will send heaps to the same
+     * receiver, and need to keep their heap cnts separate.
+     */
+    virtual void set_cnt_sequence(item_pointer_t next, item_pointer_t step) = 0;
+
+    /**
      * Send @a h asynchronously, with @a handler called on completion. The
      * caller must ensure that @a h remains valid (as well as any memory it
      * points to) until @a handler is called.
@@ -103,13 +115,13 @@ public:
      * (from a thread running the io_service), with error code @c
      * boost::asio::error::would_block.
      *
-     * By default the heap cnt is chosen automatically, with an incrementing
-     * counter. An explicit value can instead be chosen by passing a
-     * non-negative value for @a cnt. When doing this, it is entirely the
-     * responsibility of the user to avoid collisions, both with other
-     * explicit values and with the automatic counter. This feature is useful
-     * when multiple senders contribute to a single stream and must keep their
-     * heap cnts disjoint, which the automatic assignment would not do.
+     * By default the heap cnt is chosen automatically (see @ref set_cnt_sequence).
+     * An explicit value can instead be chosen by passing a non-negative value
+     * for @a cnt. When doing this, it is entirely the responsibility of the
+     * user to avoid collisions, both with other explicit values and with the
+     * automatic counter. This feature is useful when multiple senders
+     * contribute to a single stream and must keep their heap cnts disjoint,
+     * which the automatic assignment would not do.
      *
      * @retval  false  If the heap was immediately discarded
      * @retval  true   If the heap was enqueued
@@ -168,6 +180,8 @@ private:
     std::size_t rate_bytes = 0;
     /// Heap cnt for the next heap to send
     item_pointer_t next_cnt = 1;
+    /// Increment to next_cnt after each heap
+    item_pointer_t step_cnt = 1;
     std::unique_ptr<packet_generator> gen; // TODO: make this inlinable
     /// Packet undergoing transmission by send_next_packet
     packet current_packet;
@@ -274,6 +288,15 @@ public:
     {
     }
 
+    virtual void set_cnt_sequence(item_pointer_t next, item_pointer_t step) override
+    {
+        if (step == 0)
+            throw std::invalid_argument("step cannot be 0");
+        std::unique_lock<std::mutex> lock(queue_mutex);
+        next_cnt = next;
+        step_cnt = step;
+    }
+
     virtual bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt = -1) override
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
@@ -284,9 +307,15 @@ public:
             return false;
         }
         bool empty = queue.empty();
+        item_pointer_t ucnt; // unsigned, so that copying next_cnt cannot overflow
         if (cnt < 0)
-            cnt = next_cnt++;
-        queue.emplace(h, cnt, std::move(handler));
+        {
+            ucnt = next_cnt;
+            next_cnt += step_cnt;
+        }
+        else
+            ucnt = cnt;
+        queue.emplace(h, ucnt, std::move(handler));
         if (empty)
         {
             assert(!gen);
