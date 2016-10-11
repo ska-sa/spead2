@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Report the item name in exception for "too few elements for shape" errors
+
 .. rubric:: Version 1.1.0
 
 - Allow heap cnt to be set explicitly by sender, and the automatic heap cnt
