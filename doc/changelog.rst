@@ -4,6 +4,10 @@ Changelog
 .. rubric:: Development version
 
 - Report the item name in exception for "too few elements for shape" errors
+- Overhaul of rules for handling item descriptors that change the name or ID
+  of an item. This prevents stale items from hanging around when the sender
+  changes the name of an item but keeps the same ID, which can cause unrelated
+  errors on the receiver if the shape also changes.
 
 .. rubric:: Version 1.1.0
 

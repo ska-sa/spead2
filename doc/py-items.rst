@@ -21,9 +21,6 @@ receiving).
    .. autoinstanceattribute:: version
       :annotation:
 
-Items are collected into sets called *item groups*, which can be indexed by
-either item ID or item name.
-
 .. autoclass:: spead2.ItemGroup
 
    .. automethod:: add_item

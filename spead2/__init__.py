@@ -613,35 +613,71 @@ class Item(Descriptor):
 
 
 class ItemGroup(object):
+    """
+    Items are collected into sets called *item groups*, which can be indexed by
+    either item ID or item name.
+
+    There are some subtleties with respect to re-issued item descriptors. There are
+    two cases:
+
+    1. The item descriptor is identical to a previous seen one. In this case, no
+       action is taken.
+    2. Otherwise, any existing items with the same name or ID (which could be two
+       different items) are dropped, the new item is added, and its value
+       becomes ``None``. The version is set to be higher than version on an item
+       that was removed, so that consumers who only check the version will
+       detect the change.
+    """
+
     def __init__(self):
         self._by_id = {}
         self._by_name = {}
 
+    def _remove_item(self, item):
+        del self._by_id[item.id]
+        del self._by_name[item.name]
+
     def _add_item(self, item):
-        if item.id in self._by_id or item.name in self._by_name:
-            new_version = item.version
-            # Check if this is just the same thing
-            same = False
-            try:
-                old = self._by_id[item.id]
-                new_version = max(new_version, old.version)
-                if (old.name == item.name and
-                    old.description == item.description and
-                    old.shape == item.shape and
-                    old.dtype == item.dtype and
-                    old.order == item.order and
-                    old.format == item.format):
-                    same = True
-            except KeyError:
-                pass   # Means the name was the same but the id is new
-            if not same:
-                _logger.info('Descriptor replacement for ID %#x, name %s', item.id, item.name)
-                # Find a version number that is big enough to not be confused
-                try:
-                    new_version = max(new_version, self._by_name[item.name].version)
-                except KeyError:
-                    pass
-            item.version = new_version
+        try:
+            old = self._by_id[item.id]
+        except KeyError:
+            old = None
+        try:
+            old_by_name = self._by_name[item.name]
+        except KeyError:
+            old_by_name = None
+
+        # Check if this is just the same thing
+        if (old is not None and
+            old.name == item.name and
+            old.description == item.description and
+            old.shape == item.shape and
+            old.dtype == item.dtype and
+            old.order == item.order and
+            old.format == item.format):
+            # Descriptor is the same, so just transfer the value. If the value
+            # is None, then we've only been given a descriptor to add.
+            if item.value is not None:
+                old.value = item.value
+            return
+
+        _logger.info('Descriptor replacement for ID %#x, name %s', item.id, item.name)
+        # Ensure the version number is seen to increment, regardless of
+        # whether accessed by name or ID.
+        new_version = item.version
+        if old is not None:
+            new_version = max(new_version, old.version + 1)
+        if old_by_name is not None:
+            new_version = max(new_version, old_by_name.version + 1)
+        item.version = new_version
+
+        # Remove previous items, under the same name of ID
+        if old is not None:
+            self._remove_item(old)
+        if old_by_name is not None and old_by_name is not old:
+            self._remove_item(old_by_name)
+
+        # Install new item
         self._by_id[item.id] = item
         self._by_name[item.name] = item
 
@@ -649,6 +685,11 @@ class ItemGroup(object):
         """Add a new item to the group. The parameters are used to construct an
         :py:class:`Item`. If `id` is `None`, it will be automatically populated
         with an ID that is not already in use.
+
+        See the class documentation for the behaviour when the name or ID
+        collides with an existing one. In addition, if the item descriptor is
+        identical to an existing one and a value, this value is assigned to
+        the existing item.
         """
         item = Item(*args, **kwargs)
         if item.id is None:

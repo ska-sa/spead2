@@ -167,6 +167,7 @@ class TestItemGroup(object):
     """Tests for :py:class:`spead2.ItemGroup`"""
 
     def test_allocate_id(self):
+        """Automatic allocation of IDs must skip over already-allocated IDs"""
         ig = spead2.ItemGroup()
         ig.add_item(0x1000, 'item 1', 'item 1', (), np.int32)
         ig.add_item(0x1003, 'item 2', 'item 2', (), np.int32)
@@ -176,3 +177,67 @@ class TestItemGroup(object):
         assert_equal('item 3', ig[0x1001].name)
         assert_equal('item 4', ig[0x1002].name)
         assert_equal('item 5', ig[0x1004].name)
+
+    def test_replace_rename(self):
+        """When a new item is added with a known ID but a different name, the
+        old item must cease to exist."""
+        ig = spead2.ItemGroup()
+        ig.add_item(0x1000, 'item 1', 'item 1', (), np.int32)
+        ig.add_item(0x1000, 'renamed', 'renamed', (), np.int32)
+        assert_equal([0x1000], list(ig.ids()))
+        assert_equal(['renamed'], list(ig.keys()))
+
+    def test_replace_clobber_name(self):
+        """When a new item is added that collides with an existing name, that
+        other item is deleted."""
+        ig = spead2.ItemGroup()
+        ig.add_item(0x1000, 'item 1', 'item 1', (), np.int32)
+        ig.add_item(0x1001, 'item 1', 'clobbered', (), np.int32)
+        assert_equal([0x1001], list(ig.ids()))
+        assert_equal(['item 1'], list(ig.keys()))
+        assert_equal('clobbered', ig['item 1'].description)
+        assert_is(ig['item 1'], ig[0x1001])
+
+    def test_replace_reset_value(self):
+        """When a descriptor is replaced with an identical one but a new
+        value, the new value must take effect and the version must be
+        incremented."""
+        ig = spead2.ItemGroup()
+        ig.add_item(0x1000, 'item 1', 'item 1', (), np.int32, value=np.int32(4))
+        ig.add_item(0x1001, 'item 2', 'item 2', (), np.int32, value=np.int32(5))
+        item1 = ig[0x1000]
+        item2 = ig[0x1001]
+        item1_version = item1.version
+        item2_version = item2.version
+        ig.add_item(0x1000, 'item 1', 'item 1', (), np.int32, value=np.int32(6))
+        ig.add_item(0x1001, 'item 2', 'item 2', (), np.int32)
+        assert_is(item1, ig[0x1000])
+        assert_is(item2, ig[0x1001])
+        assert_equal(np.int32(6), item1.value)
+        assert_greater(item1.version, item1_version)
+        assert_equal(np.int32(5), item2.value)
+        assert_equal(item2.version, item2_version)
+
+    def test_replace_change_shape(self):
+        """When a descriptor changes the shape, the old item must be discarded
+        and ``None`` used in its place. The version must be bumped."""
+        ig = spead2.ItemGroup()
+        ig.add_item(0x1000, 'item 1', 'item 1', (), np.int32, value=np.int32(4))
+        item1 = ig[0x1000]
+        item1_version = item1.version
+        ig.add_item(0x1000, 'item 1', 'bigger', (3, 4), np.int32)
+        assert_is_not(item1, ig[0x1000])
+        assert_is_none(ig[0x1000].value)
+        assert_greater(ig[0x1000].version, item1_version)
+
+    def test_replace_clobber_both(self):
+        """Adding a new item that collides with one item on name and another on
+        ID causes both to be dropped."""
+        ig = spead2.ItemGroup()
+        ig.add_item(0x1000, 'item 1', 'item 1', (), np.int32)
+        ig.add_item(0x1001, 'item 2', 'item 2', (), np.int32)
+        ig.add_item(0x1000, 'item 2', 'clobber', (), np.int32)
+        assert_equal([0x1000], list(ig.ids()))
+        assert_equal(['item 2'], list(ig.keys()))
+        assert_is(ig[0x1000], ig['item 2'])
+        assert_equal('clobber', ig[0x1000].description)
