@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 1.1.1
 
 - Report the item name in exception for "too few elements for shape" errors
 - Overhaul of rules for handling item descriptors that change the name or ID
