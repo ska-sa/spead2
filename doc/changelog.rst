@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Only log descriptor replacement if it actually replaces an existing name or
+  ID (regression in 1.1.1).
+
 .. rubric:: Version 1.1.1
 
 - Report the item name in exception for "too few elements for shape" errors

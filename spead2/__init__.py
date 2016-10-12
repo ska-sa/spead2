@@ -661,7 +661,8 @@ class ItemGroup(object):
                 old.value = item.value
             return
 
-        _logger.info('Descriptor replacement for ID %#x, name %s', item.id, item.name)
+        if old is not None or old_by_name is not None:
+            _logger.info('Descriptor replacement for ID %#x, name %s', item.id, item.name)
         # Ensure the version number is seen to increment, regardless of
         # whether accessed by name or ID.
         new_version = item.version
