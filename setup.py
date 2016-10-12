@@ -26,6 +26,10 @@ import re
 import subprocess
 
 
+if not os.path.exists(os.path.join(os.path.dirname(__file__), 'Makefile.in')):
+    raise RuntimeError("Makefile.in not found. You need either download a release from https://pypi.python.org/pypi/spead2 or run ./bootstrap.sh (requires automake)")
+
+
 try:
     import numpy
     numpy_include = numpy.get_include()
