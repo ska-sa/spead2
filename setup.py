@@ -27,10 +27,6 @@ import re
 import subprocess
 
 
-if not os.path.exists(os.path.join(os.path.dirname(__file__), 'configure')):
-    raise SystemExit("configure not found. Either download a release from https://pypi.python.org/pypi/spead2 or run ./bootstrap.sh if not using a release.")
-
-
 try:
     import numpy
     numpy_include = numpy.get_include()
@@ -71,6 +67,11 @@ class BuildExt(build_ext):
 rtd = os.environ.get('READTHEDOCS') == 'True'
 
 if not rtd:
+    if not os.path.exists(os.path.join(os.path.dirname(__file__), 'configure')):
+        raise SystemExit("configure not found. Either download a release " +
+                         "from https://pypi.python.org/pypi/spead2 or run " +
+                         "./bootstrap.sh if not using a release.")
+
     # Different OSes install the Boost.Python library under different names
     bp_library_names = [
         'boost_python-py{0}{1}'.format(sys.version_info.major, sys.version_info.minor),
