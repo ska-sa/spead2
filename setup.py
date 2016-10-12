@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import print_function
 from setuptools import setup, Extension
 from distutils.command.build_ext import build_ext
 import glob
@@ -26,8 +27,8 @@ import re
 import subprocess
 
 
-if not os.path.exists(os.path.join(os.path.dirname(__file__), 'Makefile.in')):
-    raise RuntimeError("Makefile.in not found. You need either download a release from https://pypi.python.org/pypi/spead2 or run ./bootstrap.sh (requires automake)")
+if not os.path.exists(os.path.join(os.path.dirname(__file__), 'configure')):
+    raise SystemExit("configure not found. Either download a release from https://pypi.python.org/pypi/spead2 or run ./bootstrap.sh if not using a release.")
 
 
 try:
