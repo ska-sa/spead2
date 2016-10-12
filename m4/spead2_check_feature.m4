@@ -30,7 +30,7 @@ AC_DEFUN([SPEAD2_CHECK_FEATURE], [
     AS_VAR_PUSHDEF([cv], [spead2_cv_$1])
     AC_CACHE_CHECK([for $2], [cv], [
         spead2_save_LIBS=$LIBS
-        m4_ifval([$4], [LIBS="-l$4 $LIBS"],)
+        m4_ifval([$4], [LIBS="m4_foreach([i], [$4], [[-l]i ])$LIBS"],)
         AC_LINK_IFELSE(
             [AC_LANG_PROGRAM([$8
                               m4_map_args_w([$3], [_SPEAD2_INCLUDE(], [)])], [$5])],

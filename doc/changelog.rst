@@ -5,6 +5,8 @@ Changelog
 
 - Only log descriptor replacement if it actually replaces an existing name or
   ID (regression in 1.1.1).
+- Fix build on ARM where compiling against asio requires linking against
+  pthread.
 
 .. rubric:: Version 1.1.1
 

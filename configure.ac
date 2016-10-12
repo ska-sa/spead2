@@ -46,7 +46,7 @@ SPEAD2_CHECK_LIB([boost/program_options.hpp], [boost_program_options],
                  [], [AC_MSG_ERROR([boost_program_options is required])])
 SPEAD2_CHECK_LIB([boost/system/system_error.hpp], [boost_system], [boost::system::error_code ec],
                  [], [AC_MSG_ERROR([boost_system is required])])
-SPEAD2_CHECK_HEADER([boost/asio.hpp], [boost_system], [boost::asio::io_service io_service],
+SPEAD2_CHECK_HEADER([boost/asio.hpp], [boost_system,pthread], [boost::asio::io_service io_service],
                     [], [AC_MSG_ERROR([boost_asio is required])])
 
 ### Optional libraries/features
