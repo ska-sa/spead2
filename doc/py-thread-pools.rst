@@ -2,9 +2,8 @@ Thread pools
 ------------
 The actual sending and receiving of packets is done by separate C threads.
 Each stream is associated with a *thread pool*, which is a pool of threads
-able to process its packets. For small numbers of streams, one can use a thread
-pool per stream. With large numbers of streams (more than the number of CPUs),
-it may be better to use a single thread pool with a thread per CPU core.
+able to process its packets. See the :ref:`performance guidelines
+<perf-thread-pool>` for advice on how many threads to use.
 
 There is one important consideration for deciding whether streams share a
 thread pool: if a received stream is not being consumed, it may block one of
@@ -31,3 +30,7 @@ pool with only one thread.
 
       Shut down the worker threads. Calling this while there are still open
       streams is not advised. In most cases, garbage collection is sufficient.
+
+   .. py:staticmethod:: set_affinity(core)
+
+      Binds the caller to CPU core `core`.

@@ -78,7 +78,7 @@ will use that interface, overriding :envvar:`IBV_INTERFACE`; in this case,
 It is also possible to specify :envvar:`IBV_COMP_VECTOR` to override the
 completion channel vector from the default.
 
-Note that this environment variable is not currently available for senders.
+Note that this environment variable currently has no effect on senders.
 
 Sending
 -------
