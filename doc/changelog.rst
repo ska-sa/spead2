@@ -1,12 +1,13 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 1.1.2
 
 - Only log descriptor replacement if it actually replaces an existing name or
   ID (regression in 1.1.1).
 - Fix build on ARM where compiling against asio requires linking against
   pthread.
+- Updated and expanded performance tuning guide.
 
 .. rubric:: Version 1.1.1
 
