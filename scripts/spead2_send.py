@@ -96,7 +96,7 @@ def main():
     heap_size = elements * args.items * dtype.itemsize
     if heap_size != args.heap_size:
         logging.warn('Heap size is not an exact multiple: using %d instead of %d',
-                     heap_args, args.heap_size)
+                     heap_size, args.heap_size)
     bug_compat = spead2.BUG_COMPAT_PYSPEAD_0_5_2 if args.pyspead else 0
     item_group = spead2.send.ItemGroup(
         descriptor_frequency=args.descriptors,
