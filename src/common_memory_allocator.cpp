@@ -20,6 +20,11 @@
 
 #include <spead2/common_memory_pool.h>
 
+// Some operating systems only provide MAP_ANON
+#ifndef MAP_ANONYMOUS
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+
 namespace spead2
 {
 
