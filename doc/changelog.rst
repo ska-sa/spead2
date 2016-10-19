@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Fix compilation on OS X 10.9 (fixes #49)
+
 .. rubric:: Version 1.1.2
 
 - Only log descriptor replacement if it actually replaces an existing name or
