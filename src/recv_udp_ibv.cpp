@@ -25,6 +25,7 @@
 #if SPEAD2_USE_IBV
 #include <system_error>
 #include <stdexcept>
+#include <sstream>
 #include <cerrno>
 #include <cstdint>
 #include <cstddef>
@@ -237,16 +238,34 @@ udp_ibv_reader::udp_ibv_reader(
     std::size_t buffer_size,
     int comp_vector,
     int max_poll)
+    : udp_ibv_reader(owner, std::vector<boost::asio::ip::udp::endpoint>{endpoint},
+                     interface_address, max_size, buffer_size, comp_vector, max_poll)
+{
+}
+
+udp_ibv_reader::udp_ibv_reader(
+    stream &owner,
+    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+    const boost::asio::ip::address &interface_address,
+    std::size_t max_size,
+    std::size_t buffer_size,
+    int comp_vector,
+    int max_poll)
     : udp_reader_base(owner),
     max_size(max_size),
     n_slots(std::max(std::size_t(1), buffer_size / (max_size + header_length))),
     max_poll(max_poll),
-    join_socket(owner.get_strand().get_io_service(), endpoint.protocol()),
+    join_socket(owner.get_strand().get_io_service(), boost::asio::ip::udp::v4()),
     comp_channel_wrapper(owner.get_strand().get_io_service()),
     stop_poll(false)
 {
-    if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
-        throw std::invalid_argument("endpoint is not an IPv4 multicast address");
+    for (const auto &endpoint : endpoints)
+        if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
+        {
+            std::ostringstream msg;
+            msg << "endpoint " << endpoint << " is not an IPv4 multicast address";
+            throw std::invalid_argument(msg.str());
+        }
     if (!interface_address.is_v4())
         throw std::invalid_argument("interface address is not an IPv4 address");
     if (max_poll <= 0)
@@ -271,7 +290,8 @@ udp_ibv_reader::udp_ibv_reader(
     pd = ibv_pd_t(cm_id);
     qp = create_qp(pd, send_cq, recv_cq, n_slots);
     qp.modify(IBV_QPS_INIT, cm_id->port_num);
-    flow = create_flow(qp, endpoint, cm_id->port_num);
+    for (const auto &endpoint : endpoints)
+        flows.push_back(create_flow(qp, endpoint, cm_id->port_num));
 
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(buffer_size, nullptr);
@@ -291,8 +311,9 @@ udp_ibv_reader::udp_ibv_reader(
     }
 
     join_socket.set_option(boost::asio::socket_base::reuse_address(true));
-    join_socket.set_option(boost::asio::ip::multicast::join_group(
-        endpoint.address().to_v4(), interface_address.to_v4()));
+    for (const auto &endpoint : endpoints)
+        join_socket.set_option(boost::asio::ip::multicast::join_group(
+            endpoint.address().to_v4(), interface_address.to_v4()));
 
     if (comp_channel)
         recv_cq.req_notify(false);
