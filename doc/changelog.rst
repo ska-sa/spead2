@@ -5,6 +5,8 @@ Changelog
 
 - Fix compilation on OS X 10.9 (fixes #49)
 
+- Improved error messages when passing invalid arguments to mcdump
+
 .. rubric:: Version 1.1.2
 
 - Only log descriptor replacement if it actually replaces an existing name or

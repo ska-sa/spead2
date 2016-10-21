@@ -402,6 +402,7 @@ private:
 
 public:
     capture(const options &opts);
+    ~capture();
     void run();
 };
 
@@ -605,10 +606,21 @@ capture::capture(const options &opts)
 {
 }
 
+capture::~capture()
+{
+    // This is needed (in the error case) to unblock the writer threads so that
+    // shutdown doesn't deadlock.
+    w->close();
+}
+
 static boost::asio::ip::udp::endpoint make_endpoint(const std::string &s)
 {
     // Use rfind rather than find because IPv6 addresses contain :'s
     auto pos = s.rfind(':');
+    if (pos == std::string::npos)
+    {
+        throw std::runtime_error("Endpoint " + s + " is missing a port number");
+    }
     try
     {
         boost::asio::ip::address_v4 addr = boost::asio::ip::address_v4::from_string(s.substr(0, pos));
@@ -643,8 +655,15 @@ void capture::run()
     std::vector<udp::endpoint> endpoints;
     for (const std::string &s : opts.endpoints)
         endpoints.push_back(make_endpoint(s));
-    boost::asio::ip::address_v4 interface_address =
-        boost::asio::ip::address_v4::from_string(opts.interface);
+    boost::asio::ip::address_v4 interface_address;
+    try
+    {   
+        interface_address = boost::asio::ip::address_v4::from_string(opts.interface);
+    }
+    catch (std::exception)
+    {
+        throw std::runtime_error("Invalid interface address " + opts.interface);
+    }
 
     std::size_t n_chunks = sizes(opts).second;
     if (std::numeric_limits<std::uint32_t>::max() / max_records <= n_chunks)
