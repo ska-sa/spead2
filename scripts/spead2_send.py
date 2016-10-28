@@ -72,7 +72,7 @@ def run(item_group, stream, args):
     if args.heaps is None:
         rep = itertools.repeat(False)
     else:
-        rep = itertools.chain(itertools.repeat(False, args.heaps), [True])
+        rep = itertools.chain(itertools.repeat(False, args.heaps), [])
     for is_end in rep:
         if len(tasks) >= 2:
             yield From(trollius.wait([tasks.popleft()]))

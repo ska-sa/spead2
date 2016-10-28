@@ -345,7 +345,7 @@ void ringbuffer<T, DataSemaphore, SpaceSemaphore>::emplace(Args&&... args)
     semaphore_get(space_sem);
     try
     {
-        this->emplace_internal(std::forward<Args...>(args...));
+        this->emplace_internal(std::forward<Args>(args)...);
         data_sem.put();
     }
     catch (ringbuffer_stopped &e)
@@ -364,7 +364,7 @@ void ringbuffer<T, DataSemaphore, SpaceSemaphore>::try_emplace(Args&&... args)
         this->throw_full_or_stopped();
     try
     {
-        this->emplace_internal(std::forward<Args...>(args...));
+        this->emplace_internal(std::forward<Args>(args)...);
         data_sem.put();
     }
     catch (ringbuffer_stopped &e)

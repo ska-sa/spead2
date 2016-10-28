@@ -8,6 +8,10 @@ Changelog
 
 - Fix compilation on OS X 10.9 (fixes #49)
 
+- Fix :cpp:func:`spead2::ringbuffer<T>::emplace` and :cpp:func:`spead2::ringbuffer<T>::try_emplace`
+
+- Improved error messages when passing invalid arguments to mcdump
+
 .. rubric:: Version 1.1.2
 
 - Only log descriptor replacement if it actually replaces an existing name or
