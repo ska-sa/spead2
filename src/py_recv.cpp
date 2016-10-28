@@ -305,7 +305,7 @@ public:
     }
 
 #if SPEAD2_USE_IBV
-    void add_udp_ibv_reader(
+    void add_udp_ibv_reader_single(
         const std::string &multicast_group,
         std::uint16_t port,
         const std::string &interface_address,
@@ -317,6 +317,26 @@ public:
         release_gil gil;
         auto endpoint = make_endpoint(multicast_group, port);
         emplace_reader<udp_ibv_reader>(endpoint, make_address(interface_address),
+                                       max_size, buffer_size, comp_vector, max_poll);
+    }
+
+    void add_udp_ibv_reader_multi(
+        const py::object &endpoints,
+        const std::string &interface_address,
+        std::size_t max_size,
+        std::size_t buffer_size,
+        int comp_vector,
+        int max_poll)
+    {
+        release_gil gil;
+        std::vector<boost::asio::ip::udp::endpoint> endpoints2;
+        for (long i = 0; i < len(endpoints); i++)
+        {
+            std::string multicast_group = py::extract<std::string>(endpoints[i][0]);
+            std::uint16_t port = py::extract<int>(endpoints[i][1]);
+            endpoints2.push_back(make_endpoint(multicast_group, port));
+        }
+        emplace_reader<udp_ibv_reader>(endpoints2, make_address(interface_address),
                                        max_size, buffer_size, comp_vector, max_poll);
     }
 #endif
@@ -404,10 +424,18 @@ void register_module()
               arg("buffer_size") = udp_reader::default_buffer_size,
               arg("interface_index") = (unsigned int) 0))
 #if SPEAD2_USE_IBV
-        .def("add_udp_ibv_reader", &ring_stream_wrapper::add_udp_ibv_reader,
+        .def("add_udp_ibv_reader", &ring_stream_wrapper::add_udp_ibv_reader_single,
              (
               arg("multicast_group"),
               arg("port"),
+              arg("interface_address"),
+              arg("max_size") = udp_ibv_reader::default_max_size,
+              arg("buffer_size") = udp_ibv_reader::default_buffer_size,
+              arg("comp_vector") = 0,
+              arg("max_poll") = udp_ibv_reader::default_max_poll))
+        .def("add_udp_ibv_reader", &ring_stream_wrapper::add_udp_ibv_reader_multi,
+             (
+              arg("endpoints"),
               arg("interface_address"),
               arg("max_size") = udp_ibv_reader::default_max_size,
               arg("buffer_size") = udp_ibv_reader::default_buffer_size,

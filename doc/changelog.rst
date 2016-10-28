@@ -3,6 +3,9 @@ Changelog
 
 .. rubric:: Development version
 
+- Support multiple endpoints for one :cpp:class:`~spead2::recv::udp_ibv_reader`
+  (fixes #48).
+
 - Fix compilation on OS X 10.9 (fixes #49)
 
 - Fix :cpp:func:`spead2::ringbuffer<T>::emplace` and :cpp:func:`spead2::ringbuffer<T>::try_emplace`

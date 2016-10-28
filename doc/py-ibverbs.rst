@@ -36,14 +36,16 @@ For more information, see the `libvma documentation_`.
 Receiving
 ---------
 The ibverbs API can be used programmatically by using an extra method of
-:py:class:`spead2.recv.Stream`:
+:py:class:`spead2.recv.Stream`.
 
-.. py:method:: spead2.recv.Stream.add_udp_ibv_reader(multicast_group, port, interface_address, max_size=DEFAULT_UDP_IBV_MAX_SIZE, buffer_size=DEFAULT_UDP_IBV_BUFFER_SIZE, comp_vector=0, max_poll=DEFAULT_UDP_IBV_MAX_POLL)
+.. py:method:: spead2.recv.Stream.add_udp_ibv_reader(endpoints, interface_address, max_size=DEFAULT_UDP_IBV_MAX_SIZE, buffer_size=DEFAULT_UDP_IBV_BUFFER_SIZE, comp_vector=0, max_poll=DEFAULT_UDP_IBV_MAX_POLL)
 
-      Feed data from a UDP port with multicast (IPv4 only).
+      Feed data from multicast IPv4 traffic. For backwards compatibility, one
+      can also pass a single address and port as two separate arguments in
+      place of `endpoints`.
 
-      :param str multicast_group: Hostname/IP address of the multicast group to subscribe to
-      :param int port: UDP port number
+      :param list endpoints: List of 2-tuples, each containing a
+        hostname/IP address the multicast group and the UDP port number.
       :param str interface_address: Hostname/IP address of the interface which
         will be subscribed
       :param int max_size: Maximum packet size that will be accepted
