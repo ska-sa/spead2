@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 1.1.3
 
 - Support multiple endpoints for one :cpp:class:`~spead2::recv::udp_ibv_reader`
   (fixes #48).
