@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Version 1.2.1
+
+- Disable LTO by default and require the user to opt in, because even if the
+  compiler supports it, linking can still fail (fixes #51).
+
 .. rubric:: Version 1.2.0
 
 - Support multiple endpoints for one :cpp:class:`~spead2::recv::udp_ibv_reader`

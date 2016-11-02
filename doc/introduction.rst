@@ -82,6 +82,16 @@ the source distribution. Optional features are autodetected by default, but can
 be disabled by passing options to :program:`configure` (run ``./configure -h``
 to see a list of options).
 
+One option that may squeeze out a very small amount of extra performance is
+:option:`--enable-lto` to enable link-time optimization. Up to version 1.2.0
+this was enabled by default, but it has been disabled because it often needs
+other compiler or OS-specific configuration to make it work. For GCC, typical
+usage is
+
+.. code-block:: sh
+
+    ./configure --enable-lto AR=gcc-ar RANLIB=gcc-ranlib
+
 The installation will install some benchmark tools, a static library, and the
 header files. At the moment there is no intention to create a shared library,
 because the ABI is not stable.

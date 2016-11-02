@@ -21,7 +21,10 @@ AC_CONFIG_SRCDIR([src/common_logging.cpp])
 AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([foreign])
 AC_PROG_CXX
+AC_CHECK_TOOL(AR, ar, :)
 AC_PROG_RANLIB
+AC_ARG_VAR(AR, [Static library archiver command])
+AC_ARG_VAR(RANLIB, [Generate index to static library])
 AC_LANG(C++)
 
 ### Check for -std=c++11
@@ -30,13 +33,6 @@ save_CXXFLAGS="$CXXFLAGS"
 CXXFLAGS="-std=c++11 $CXXFLAGS"
 SPEAD2_CHECK_FEATURE([compiler_cxx11], [-std=c++11], [unordered_map], [], [std::unordered_map<int, int> m], [],
                      [AC_MSG_ERROR([C++11 support is required])])
-CXXFLAGS="$save_CXXFLAGS"
-
-### Check whether -flto works
-
-save_CXXFLAGS="$CXXFLAGS"
-CXXFLAGS="-flto $CXXFLAGS"
-SPEAD2_CHECK_FEATURE([compiler_lto], [-flto], [], [], [], [HAVE_LTO=yes], [HAVE_LTO=no])
 CXXFLAGS="$save_CXXFLAGS"
 
 ### Required libraries
@@ -153,10 +149,14 @@ AC_ARG_ENABLE(
     [optimized],
     [AS_HELP_STRING([--disable-optimized], [Disable compiler optimizations])])
 
+AC_ARG_ENABLE(
+    [lto],
+    [AS_HELP_STRING([--enable-lto], [Use link-time optimization])])
+
 AM_CONDITIONAL([DEBUG_SYMBOLS], [test "x$enable_debug_symbols" = "xyes"])
 AM_CONDITIONAL([DEBUG_LOG], [test "x$enable_debug_log" = "xyes"])
 AM_CONDITIONAL([OPTIMIZED], [test "x$enable_optimized" != "xno"])
-AM_CONDITIONAL([HAVE_LTO], [test "x$HAVE_LTO" = "xyes"])
+AM_CONDITIONAL([LTO], [test "x$enable_lto" = "xyes"])
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
 
 AC_CONFIG_FILES([Makefile

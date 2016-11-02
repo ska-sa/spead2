@@ -16,7 +16,7 @@ endif
 if OPTIMIZED
 AM_CXXFLAGS += -O3
 DEFS += -DNDEBUG
-if HAVE_LTO
+if LTO
 AM_CXXFLAGS += -flto
 AM_LDFLAGS += $(AM_CXXFLAGS) -Wl,--no-as-needed
 endif
