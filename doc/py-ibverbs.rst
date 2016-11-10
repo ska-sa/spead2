@@ -29,7 +29,7 @@ to work correctly. For ConnectX®-3, add the following to
    options mlx4_core fast_drop=1
    options mlx4_core log_num_mgm_entry_size=-1
 
-For more information, see the `libvma documentation_`.
+For more information, see the `libvma documentation`_.
 
 .. _libvma documentation: https://github.com/Mellanox/libvma
 
