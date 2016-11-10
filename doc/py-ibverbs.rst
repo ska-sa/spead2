@@ -71,13 +71,13 @@ The ibverbs API can be used programmatically by using an extra method of
 Environment variables
 ^^^^^^^^^^^^^^^^^^^^^
 An existing application can be forced to use ibverbs for all multicast IPv4
-readers, by setting the environment variable :envvar:`IBV_INTERFACE` to the IP
+readers, by setting the environment variable :envvar:`SPEAD2_IBV_INTERFACE` to the IP
 address of the interface to receive the packets. Note that calls to
 :py:meth:`spead2.recv.Stream.add_udp_reader` that pass an explicit interface
-will use that interface, overriding :envvar:`IBV_INTERFACE`; in this case,
-:envvar:`IBV_INTERFACE` serves only to enable the override.
+will use that interface, overriding :envvar:`SPEAD2_IBV_INTERFACE`; in this case,
+:envvar:`SPEAD2_IBV_INTERFACE` serves only to enable the override.
 
-It is also possible to specify :envvar:`IBV_COMP_VECTOR` to override the
+It is also possible to specify :envvar:`SPEAD2_IBV_COMP_VECTOR` to override the
 completion channel vector from the default.
 
 Note that this environment variable currently has no effect on senders.
