@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Fix rate limiting causing longer sleeps than necessary (fixes #53).
+
 .. rubric:: Version 1.2.1
 
 - Disable LTO by default and require the user to opt in, because even if the

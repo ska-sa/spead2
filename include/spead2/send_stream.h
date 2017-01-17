@@ -176,7 +176,7 @@ private:
     timer_type::time_point send_time;
     /// Number of bytes sent in the current heap
     item_pointer_t heap_bytes = 0;
-    /// Number of bytes sent since last sleep
+    /// Number of bytes sent since send_time
     std::size_t rate_bytes = 0;
     /// Heap cnt for the next heap to send
     item_pointer_t next_cnt = 1;
@@ -329,6 +329,7 @@ public:
         if (empty)
         {
             send_time = timer_type::clock_type::now();
+            rate_bytes = 0;
             get_io_service().dispatch([this] { send_next_packet(); });
         }
         return true;
