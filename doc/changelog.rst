@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 1.2.2
 
 - Fix rate limiting causing longer sleeps than necessary (fixes #53).
 
