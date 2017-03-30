@@ -20,7 +20,7 @@ than released separately because it reuses a lot of the spead2 code.
 Installation
 ^^^^^^^^^^^^
 The tool is automatically compiled and installed with spead2, provided that
-libiverbs support is detected at configure time.
+libibverbs support is detected at configure time.
 
 It may also be necessary to configure the system to work with ibverbs. See
 :doc:`py-ibverbs` for more information.
