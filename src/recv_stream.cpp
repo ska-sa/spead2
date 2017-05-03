@@ -41,6 +41,8 @@ stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
     max_heaps(max_heaps), bug_compat(bug_compat),
     allocator(std::make_shared<memory_allocator>())
 {
+    if (max_heaps == 0)
+        throw std::invalid_argument("max_heaps cannot be 0");
     for (std::size_t i = 0; i < max_heaps; i++)
         heap_cnts[i] = -1;
 }

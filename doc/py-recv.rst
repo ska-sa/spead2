@@ -49,6 +49,7 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
    :param int ring_heaps: The capacity of the ring buffer between the network
      threads and the consumer. Increasing this may reduce lock contention at
      the cost of more memory usage.
+   :raises ValueError: if `max_heaps` is zero.
 
    .. py:method:: set_memory_allocator(allocator)
 

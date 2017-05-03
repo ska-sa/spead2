@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Prevent constructing a :py:class:`spead2.recv.Stream` with
+  ``max_heaps=0`` (fixes #54).
+
 .. rubric:: Version 1.2.2
 
 - Fix rate limiting causing longer sleeps than necessary (fixes #53).

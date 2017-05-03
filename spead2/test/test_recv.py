@@ -569,6 +569,11 @@ class TestStream(object):
     def __init__(self):
         self.flavour = FLAVOUR
 
+    def test_max_heaps_zero(self):
+        """Constructing a stream with max_heaps=0 raises ValueError"""
+        with assert_raises(ValueError):
+            spead2.recv.Stream(spead2.ThreadPool(), max_heaps=0)
+
     def test_full_stop(self):
         """Must be able to stop even if the consumer is not consuming
         anything."""
