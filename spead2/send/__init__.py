@@ -16,11 +16,11 @@
 """Send SPEAD protocol"""
 
 from __future__ import print_function, division
-import spead2 as _spead2
 import weakref
-from spead2._send import StreamConfig, BytesStream, UdpStream, Heap, PacketGenerator
+import spead2 as _spead2
+from spead2._spead2.send import StreamConfig, BytesStream, UdpStream, Heap, PacketGenerator
 try:
-    from spead2._send import UdpIbvStream
+    from spead2._spead2.send import UdpIbvStream
 except ImportError:
     pass
 

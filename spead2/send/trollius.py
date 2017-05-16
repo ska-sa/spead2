@@ -20,7 +20,7 @@ from __future__ import absolute_import
 import trollius
 from trollius import From, Return
 import spead2.send
-from spead2._send import UdpStreamAsyncio as _UdpStreamAsyncio
+from spead2._spead2.send import UdpStreamAsyncio as _UdpStreamAsyncio
 
 
 class _UdpStreamMixin(object):

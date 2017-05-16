@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -17,12 +17,14 @@
 #ifndef SPEAD2_PY_RECV_H
 #define SPEAD2_PY_RECV_H
 
+#include "pybind11/pybind11.h"
+
 namespace spead2
 {
 namespace recv
 {
 
-void register_module();
+pybind11::module register_module(pybind11::module &parent);
 
 }
 }

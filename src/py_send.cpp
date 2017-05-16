@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -18,10 +18,8 @@
  * @file
  */
 
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#define PY_ARRAY_UNIQUE_SYMBOL spead2_ARRAY_API
-#define NO_IMPORT_ARRAY
-#include <boost/python.hpp>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include <boost/system/system_error.hpp>
 #include <stdexcept>
 #include <mutex>
@@ -37,7 +35,7 @@
 #include <spead2/common_semaphore.h>
 #include <spead2/py_common.h>
 
-namespace py = boost::python;
+namespace py = pybind11;
 
 namespace spead2
 {
@@ -47,7 +45,7 @@ namespace send
 class heap_wrapper : public heap
 {
 private:
-    std::vector<buffer_view> item_buffers;
+    std::vector<py::buffer_info> item_buffers;
 
 public:
     using heap::heap;
@@ -58,17 +56,18 @@ public:
 
 void heap_wrapper::add_item(py::object item)
 {
-    std::int64_t id = py::extract<std::int64_t>(item.attr("id"));
-    py::object buffer = item.attr("to_buffer")();
-    bool allow_immediate = py::extract<bool>(item.attr("allow_immediate")());
-    item_buffers.emplace_back(buffer);
-    const auto &view = item_buffers.back().view;
-    heap::add_item(id, view.buf, view.len, allow_immediate);
+    std::int64_t id = item.attr("id").cast<std::int64_t>();
+    py::buffer buffer = item.attr("to_buffer")().cast<py::buffer>();
+    bool allow_immediate = item.attr("allow_immediate")().cast<bool>();
+    item_buffers.emplace_back(request_buffer_info(buffer, PyBUF_C_CONTIGUOUS));
+    heap::add_item(id, item_buffers.back().ptr,
+                   item_buffers.back().itemsize * item_buffers.back().size,
+                   allow_immediate);
 }
 
 void heap_wrapper::add_descriptor(py::object object)
 {
-    heap::add_descriptor(py::extract<descriptor>(object.attr("to_raw")(heap::get_flavour())));
+    heap::add_descriptor(object.attr("to_raw")(heap::get_flavour()).cast<descriptor>());
 }
 
 flavour heap_wrapper::get_flavour() const
@@ -76,25 +75,21 @@ flavour heap_wrapper::get_flavour() const
     return heap::get_flavour();
 }
 
-class packet_generator_wrapper : public packet_generator
+class packet_generator_wrapper : public object_reference<heap>, public packet_generator
 {
-private:
-    boost::python::handle<> heap_handle;
-    friend void register_module();
-
 public:
     using packet_generator::packet_generator;
 
-    bytestring next();
+    py::bytes next();
 };
 
-bytestring packet_generator_wrapper::next()
+py::bytes packet_generator_wrapper::next()
 {
     packet pkt = next_packet();
     if (pkt.buffers.empty())
-        throw stop_iteration();
-    return bytestring(boost::asio::buffers_begin(pkt.buffers),
-                      boost::asio::buffers_end(pkt.buffers));
+        throw py::stop_iteration();
+    return py::bytes(std::string(boost::asio::buffers_begin(pkt.buffers),
+                                 boost::asio::buffers_end(pkt.buffers)));
 }
 
 template<typename Base>
@@ -149,8 +144,8 @@ class asyncio_stream_wrapper : public Base
 private:
     struct callback_item
     {
-        PyObject *callback;
-        PyObject *h;  // heap: kept here because it can only be freed with the GIL
+        py::handle callback;
+        py::handle h;  // heap: kept here because it can only be freed with the GIL
         boost::system::error_code ec;
         item_pointer_t bytes_transferred;
     };
@@ -169,21 +164,20 @@ public:
 
     bool async_send_heap(py::object h, py::object callback, s_item_pointer_t cnt = -1)
     {
-        py::extract<heap_wrapper &> h2(h);
         /* Normally the callback should not refer to this, since it could have
          * been reaped by the time the callback occurs. We rely on Python to
          * hang on to a reference to self.
          *
          * The callback and heap are passed around by raw reference, because
          * it is not safe to use incref/decref operations without the GIL, and
-         * attempting to use py::object instead of PyObject* tends to cause
+         * attempting to use py::object instead of py::handle tends to cause
          * these operations to occur without it being obvious.
          */
-        PyObject *h_ptr = h.ptr();
-        PyObject *callback_ptr = callback.ptr();
-        Py_INCREF(h_ptr);
-        Py_INCREF(callback_ptr);
-        return Base::async_send_heap(h2(), [this, callback_ptr, h_ptr] (
+        py::handle h_ptr = h.ptr();
+        py::handle callback_ptr = callback.ptr();
+        h_ptr.inc_ref();
+        callback_ptr.inc_ref();
+        return Base::async_send_heap(h.cast<heap_wrapper &>(), [this, callback_ptr, h_ptr] (
             const boost::system::error_code &ec, item_pointer_t bytes_transferred)
         {
             bool was_empty;
@@ -209,18 +203,19 @@ public:
         {
             for (callback_item &item : current_callbacks)
             {
-                Py_DECREF(item.h);
-                item.h = NULL;
-                py::object callback{py::handle<>(item.callback)};
-                item.callback = NULL;
+                item.h.dec_ref();
+                item.h = py::handle();
+                py::object callback = py::reinterpret_steal<py::object>(item.callback);
+                item.callback = py::handle();
                 py::object exc;
                 if (item.ec)
                 {
-                    py::object exc_class(py::handle<>(py::borrowed(PyExc_IOError)));
+                    py::object exc_class = py::reinterpret_borrow<py::object>(PyExc_IOError);
                     exc = exc_class(item.ec.value(), item.ec.message());
                 }
+                else
+                    exc = py::none();
                 callback(exc, item.bytes_transferred);
-                // Ref to callback will be dropped in destructor for item
             }
         }
         catch (std::exception &e)
@@ -231,8 +226,10 @@ public:
              */
             for (const callback_item &item : current_callbacks)
             {
-                Py_XDECREF(item.h);
-                Py_XDECREF(item.callback);
+                if (item.h)
+                    item.h.dec_ref();
+                if (item.callback)
+                    item.callback.dec_ref();
             }
             throw;
         }
@@ -242,8 +239,8 @@ public:
     {
         for (const callback_item &item : callbacks)
         {
-            Py_DECREF(item.h);
-            Py_DECREF(item.callback);
+            item.h.dec_ref();
+            item.callback.dec_ref();
         }
     }
 };
@@ -251,7 +248,7 @@ public:
 static boost::asio::ip::address make_address(
     boost::asio::io_service &io_service, const std::string &hostname)
 {
-    release_gil gil;
+    py::gil_scoped_release gil;
 
     using boost::asio::ip::udp;
     udp::resolver resolver(io_service);
@@ -272,7 +269,7 @@ static boost::asio::ip::udp::socket make_socket(
     using boost::asio::ip::udp;
     if (!socket.is_none())
     {
-        int fd = py::extract<int>(socket.attr("fileno")());
+        int fd = socket.attr("fileno")().cast<int>();
         /* Need to duplicate the FD, since Python still owns the original */
         int fd2 = ::dup(fd);
         if (fd2 == -1)
@@ -290,7 +287,7 @@ static boost::asio::ip::udp::socket make_socket(
 }
 
 template<typename Base>
-class udp_stream_wrapper : public thread_pool_handle_wrapper, public Base
+class udp_stream_wrapper : public object_reference<thread_pool>, public Base
 {
 private:
     /* Intermediate chained constructors that has the hostname and port
@@ -302,9 +299,9 @@ private:
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         std::size_t buffer_size,
-        const py::object &socket)
+        py::object socket)
         : Base(
-            make_socket(pool.get_io_service(), endpoint.protocol(), socket),
+            make_socket(pool.get_io_service(), endpoint.protocol(), std::move(socket)),
             endpoint,
             config, buffer_size)
     {
@@ -339,10 +336,10 @@ public:
         std::uint16_t port,
         const stream_config &config,
         std::size_t buffer_size,
-        const py::object &socket)
+        py::object socket)
         : udp_stream_wrapper(
             pool, make_endpoint(pool.get_io_service(), hostname, port),
-            config, buffer_size, socket)
+            config, buffer_size, std::move(socket))
     {
     }
 
@@ -393,7 +390,7 @@ public:
 
 #if SPEAD2_USE_IBV
 template<typename Base>
-class udp_ibv_stream_wrapper : public thread_pool_handle_wrapper, public Base
+class udp_ibv_stream_wrapper : public object_reference<thread_pool>, public Base
 {
 public:
     udp_ibv_stream_wrapper(
@@ -416,7 +413,7 @@ public:
 };
 #endif
 
-class bytes_stream : private std::stringbuf, public thread_pool_handle_wrapper, public stream_wrapper<streambuf_stream>
+class bytes_stream : public object_reference<thread_pool>, private std::stringbuf, public stream_wrapper<streambuf_stream>
 {
 public:
     bytes_stream(thread_pool &pool, const stream_config &config = stream_config())
@@ -424,120 +421,119 @@ public:
     {
     }
 
-    bytestring getvalue() const
+    py::bytes getvalue() const
     {
         return str();
     }
 };
 
 template<typename T>
-static boost::python::class_<T, boost::noncopyable> udp_stream_register(const char *name)
+static spead2::class_<T> udp_stream_register(py::module &m, const char *name)
 {
-    using namespace boost::python;
-    return class_<T, boost::noncopyable>(name, init<
-            thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, const py::object &>(
-                (arg("thread_pool"), arg("hostname"), arg("port"),
-                 arg("config") = stream_config(),
-                 arg("buffer_size") = T::default_buffer_size,
-                 arg("socket") = py::object()))[
-            store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-        .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int>(
-                (arg("thread_pool"), arg("multicast_group"), arg("port"),
-                 arg("config") = stream_config(),
-                 arg("buffer_size") = T::default_buffer_size,
-                 arg("ttl")))[
-            store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-        .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, std::string>(
-                (arg("thread_pool"), arg("multicast_group"), arg("port"),
-                 arg("config") = stream_config(),
-                 arg("buffer_size") = T::default_buffer_size,
-                 arg("ttl"),
-                 arg("interface_address")))[
-            store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-        .def(init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, unsigned int>(
-                (arg("thread_pool"), arg("multicast_group"), arg("port"),
-                 arg("config") = stream_config(),
-                 arg("buffer_size") = T::default_buffer_size,
-                 arg("ttl"),
-                 arg("interface_index")))[
-            store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-        .def_readonly("DEFAULT_BUFFER_SIZE", T::default_buffer_size);
+    using namespace pybind11::literals;
+
+    return spead2::class_<T>(m, name)
+        .def(py::init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, py::object>(),
+             "thread_pool"_a, "hostname"_a, "port"_a,
+             "config"_a = stream_config(),
+             "buffer_size"_a = T::default_buffer_size,
+             "socket"_a = py::none(),
+             keep_reference<T, thread_pool, 1, 2>())
+        .def(py::init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int>(),
+             "thread_pool"_a, "hostname"_a, "port"_a,
+             "config"_a = stream_config(),
+             "buffer_size"_a = T::default_buffer_size,
+             "ttl"_a,
+             keep_reference<T, thread_pool, 1, 2>())
+        .def(py::init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, std::string>(),
+             "thread_pool"_a, "multicast_group"_a, "port"_a,
+             "config"_a = stream_config(),
+             "buffer_size"_a = T::default_buffer_size,
+             "ttl"_a,
+             "interface_address"_a,
+             keep_reference<T, thread_pool, 1, 2>())
+        .def(py::init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, unsigned int>(),
+             "thread_pool"_a, "multicast_group"_a, "port"_a,
+             "config"_a = stream_config(),
+             "buffer_size"_a = T::default_buffer_size,
+             "ttl"_a,
+             "interface_index"_a,
+             keep_reference<T, thread_pool, 1, 2>())
+        .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size);
 }
 
 #if SPEAD2_USE_IBV
 template<typename T>
-static boost::python::class_<T, boost::noncopyable> udp_ibv_stream_register(const char *name)
+static spead2::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
 {
-    using namespace boost::python;
-    return class_<T, boost::noncopyable>(
-        name,
-        init<thread_pool_wrapper &, std::string, int, const stream_config &, std::string, std::size_t, int, int, int>(
-            (arg("thread_pool"), arg("multicast_group"), arg("port"),
-             arg("config") = stream_config(),
-             arg("interface_address"),
-             arg("buffer_size") = T::default_buffer_size,
-             arg("ttl") = 1,
-             arg("comp_vector") = 0,
-             arg("max_poll") = T::default_max_poll))[
-            store_handle_postcall<T, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-        .def_readonly("DEFAULT_BUFFER_SIZE", T::default_buffer_size)
-        .def_readonly("DEFAULT_MAX_POLL", T::default_max_poll);
+    using namespace pybind11::literals;
+
+    return spead2::class_<T>(m, name)
+        .def(py::init<thread_pool_wrapper &, std::string, int, const stream_config &, std::string, std::size_t, int, int, int>(),
+             "thread_pool"_a, "multicast_group"_a, "port"_a,
+             "config"_a = stream_config(),
+             "interface_address"_a,
+             "buffer_size"_a = T::default_buffer_size,
+             "ttl"_a = 1,
+             "comp_vector"_a = 0,
+             "max_poll"_a = T::default_max_poll,
+             keep_reference<T, thread_pool, 1, 2>())
+        .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size)
+        .def_readonly_static("DEFAULT_MAX_POLL", &T::default_max_poll);
 }
 #endif
 
 template<typename T>
-void stream_register(boost::python::class_<T, boost::noncopyable> &stream_class)
+static void stream_register(spead2::class_<T> &stream_class)
 {
-    using namespace boost::python;
+    using namespace pybind11::literals;
     stream_class.def("set_cnt_sequence", &T::set_cnt_sequence,
-                     (arg("next"), arg("step")));
+                     "next"_a, "step"_a);
 }
 
 template<typename T>
-void sync_stream_register(boost::python::class_<T, boost::noncopyable> &stream_class)
+static void sync_stream_register(spead2::class_<T> &stream_class)
 {
-    using namespace boost::python;
+    using namespace pybind11::literals;
     stream_register(stream_class);
-    stream_class.def("send_heap", &T::send_heap, (arg("heap"), arg("cnt") = s_item_pointer_t(-1)));
+    stream_class.def("send_heap", &T::send_heap,
+                     "heap"_a, "cnt"_a = s_item_pointer_t(-1));
 }
 
 template<typename T>
-void async_stream_register(boost::python::class_<T, boost::noncopyable> &stream_class)
+static void async_stream_register(spead2::class_<T> &stream_class)
 {
-    using namespace boost::python;
+    using namespace pybind11::literals;
     stream_register(stream_class);
     stream_class
-        .add_property("fd", &T::get_fd)
+        .def_property_readonly("fd", &T::get_fd)
         .def("async_send_heap", &T::async_send_heap,
-             (arg("heap"), arg("callback"), arg("cnt") = s_item_pointer_t(-1)))
+             "heap"_a, "callback"_a, "cnt"_a = s_item_pointer_t(-1))
         .def("flush", &T::flush)
         .def("process_callbacks", &T::process_callbacks);
 }
 
 /// Register the send module with Boost.Python
-void register_module()
+py::module register_module(py::module &parent)
 {
-    using namespace boost::python;
+    using namespace pybind11::literals;
     using namespace spead2::send;
 
-    // Create the module, and set it as the current boost::python scope so that
-    // classes we define are added to this module rather than the root.
-    py::object module(py::handle<>(py::borrowed(PyImport_AddModule("spead2._send"))));
-    py::scope scope = module;
+    py::module m = parent.def_submodule("send");
 
-    class_<heap_wrapper, boost::noncopyable>("Heap", init<flavour>(
-            (arg("flavour") = flavour())))
-        .add_property("flavour", &heap_wrapper::get_flavour)
-        .def("add_item", &heap_wrapper::add_item, arg("item"))
-        .def("add_descriptor", &heap_wrapper::add_descriptor,
-             (arg("descriptor")))
+    spead2::class_<heap_wrapper>(m, "Heap")
+        .def(py::init<flavour>(), "flavour"_a = flavour())
+        .def_property_readonly("flavour", &heap_wrapper::get_flavour)
+        .def("add_item", &heap_wrapper::add_item, "item"_a)
+        .def("add_descriptor", &heap_wrapper::add_descriptor, "descriptor"_a)
         .def("add_start", &heap_wrapper::add_start)
         .def("add_end", &heap_wrapper::add_end);
 
-    class_<packet_generator_wrapper, boost::noncopyable>("PacketGenerator", init<heap_wrapper &, item_pointer_t, std::size_t>(
-            (arg("heap"), arg("cnt"), arg("max_packet_size")))[
-            store_handle_postcall<packet_generator_wrapper, packet_generator_wrapper, &packet_generator_wrapper::heap_handle, 1, 2>()])
-        .def("__iter__", objects::identity_function())
+    spead2::class_<packet_generator_wrapper>(m, "PacketGenerator")
+        .def(py::init<heap_wrapper &, item_pointer_t, std::size_t>(),
+             "heap"_a, "cnt"_a, "max_packet_size"_a,
+             keep_reference<packet_generator_wrapper, heap, 1, 2>())
+        .def("__iter__", [](py::object self) { return self; })
         .def(
 #if PY_MAJOR_VERSION >= 3
               // Python 3 uses __next__ for the iterator protocol
@@ -547,48 +543,51 @@ void register_module()
 #endif
               , &packet_generator_wrapper::next);
 
-    class_<stream_config>("StreamConfig", init<
-            std::size_t, double, std::size_t, std::size_t>(
-                (arg("max_packet_size") = stream_config::default_max_packet_size,
-                 arg("rate") = 0.0,
-                 arg("burst_size") = stream_config::default_burst_size,
-                 arg("max_heaps") = stream_config::default_max_heaps)))
-        .add_property("max_packet_size", &stream_config::get_max_packet_size, &stream_config::set_max_packet_size)
-        .add_property("rate", &stream_config::get_rate, &stream_config::set_rate)
-        .add_property("burst_size", &stream_config::get_burst_size, &stream_config::set_burst_size)
-        .add_property("max_heaps", &stream_config::get_max_heaps, &stream_config::set_max_heaps)
-        .def_readonly("DEFAULT_MAX_PACKET_SIZE", stream_config::default_max_packet_size)
-        .def_readonly("DEFAULT_MAX_HEAPS", stream_config::default_max_heaps)
-        .def_readonly("DEFAULT_BURST_SIZE", stream_config::default_burst_size);
+    spead2::class_<stream_config>(m, "StreamConfig")
+        .def(py::init<std::size_t, double, std::size_t, std::size_t>(),
+             "max_packet_size"_a = stream_config::default_max_packet_size,
+             "rate"_a = 0.0,
+             "burst_size"_a = stream_config::default_burst_size,
+             "max_heaps"_a = stream_config::default_max_heaps)
+        .def_property("max_packet_size", &stream_config::get_max_packet_size, &stream_config::set_max_packet_size)
+        .def_property("rate", &stream_config::get_rate, &stream_config::set_rate)
+        .def_property("burst_size", &stream_config::get_burst_size, &stream_config::set_burst_size)
+        .def_property("max_heaps", &stream_config::get_max_heaps, &stream_config::set_max_heaps)
+        .def_readonly_static("DEFAULT_MAX_PACKET_SIZE", &stream_config::default_max_packet_size)
+        .def_readonly_static("DEFAULT_MAX_HEAPS", &stream_config::default_max_heaps)
+        .def_readonly_static("DEFAULT_BURST_SIZE", &stream_config::default_burst_size);
 
     {
-        auto stream_class = udp_stream_register<udp_stream_wrapper<stream_wrapper<udp_stream>>>("UdpStream");
+        auto stream_class = udp_stream_register<udp_stream_wrapper<stream_wrapper<udp_stream>>>(m, "UdpStream");
         sync_stream_register(stream_class);
     }
     {
-        auto stream_class = udp_stream_register<udp_stream_wrapper<asyncio_stream_wrapper<udp_stream>>>("UdpStreamAsyncio");
+        auto stream_class = udp_stream_register<udp_stream_wrapper<asyncio_stream_wrapper<udp_stream>>>(m, "UdpStreamAsyncio");
         async_stream_register(stream_class);
     }
 
 #if SPEAD2_USE_IBV
     {
-        auto stream_class = udp_ibv_stream_register<udp_ibv_stream_wrapper<stream_wrapper<udp_ibv_stream>>>("UdpIbvStream");
+        auto stream_class = udp_ibv_stream_register<udp_ibv_stream_wrapper<stream_wrapper<udp_ibv_stream>>>(m, "UdpIbvStream");
         sync_stream_register(stream_class);
     }
     {
-        auto stream_class = udp_ibv_stream_register<udp_ibv_stream_wrapper<asyncio_stream_wrapper<udp_ibv_stream>>>("UdpIbvStreamAsyncio");
+        auto stream_class = udp_ibv_stream_register<udp_ibv_stream_wrapper<asyncio_stream_wrapper<udp_ibv_stream>>>(m, "UdpIbvStreamAsyncio");
         async_stream_register(stream_class);
     }
 #endif
 
     {
-        auto stream_class = class_<bytes_stream, boost::noncopyable>(
-            "BytesStream", init<thread_pool_wrapper &, const stream_config &>(
-                (arg("thread_pool"), arg("config") = stream_config()))[
-            store_handle_postcall<bytes_stream, thread_pool_handle_wrapper, &thread_pool_handle_wrapper::thread_pool_handle, 1, 2>()])
-        .def("getvalue", &bytes_stream::getvalue);
+        spead2::class_<bytes_stream> stream_class(m, "BytesStream");
+        stream_class
+            .def(py::init<thread_pool_wrapper &, const stream_config &>(),
+                 "thread_pool"_a, "config"_a = stream_config(),
+                 keep_reference<bytes_stream, thread_pool, 1, 2>())
+            .def("getvalue", &bytes_stream::getvalue);
         sync_stream_register(stream_class);
     }
+
+    return m;
 }
 
 } // namespace send

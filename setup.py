@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2017 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -72,20 +72,7 @@ if not rtd:
                          "from https://pypi.python.org/pypi/spead2 or run " +
                          "./bootstrap.sh if not using a release.")
 
-    # Different OSes install the Boost.Python library under different names
-    bp_library_names = [
-        'boost_python-py{0}{1}'.format(sys.version_info.major, sys.version_info.minor),
-        'boost_python{0}'.format(sys.version_info.major),
-        'boost_python',
-        'boost_python-mt']
-    for name in bp_library_names:
-        if ctypes.util.find_library(name):
-            bp_library = name
-            break
-    else:
-        raise RuntimeError('Cannot find Boost.Python library')
-
-    libraries = [bp_library, 'boost_system']
+    libraries = ['boost_system']
 
     extensions = [
         Extension(
@@ -96,7 +83,7 @@ if not rtd:
                      glob.glob('src/py_*.cpp')),
             depends=glob.glob('include/spead2/*.h'),
             language='c++',
-            include_dirs=['include', numpy_include],
+            include_dirs=['include', '3rdparty/pybind11/include', numpy_include],
             extra_compile_args=['-std=c++11', '-g0'],
             libraries=libraries)
     ]
