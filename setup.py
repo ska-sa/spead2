@@ -94,7 +94,7 @@ if not rtd:
                      glob.glob('src/recv_*.cpp') +
                      glob.glob('src/send_*.cpp') +
                      glob.glob('src/py_*.cpp')),
-            depends=glob.glob('src/*.h'),
+            depends=glob.glob('include/spead2/*.h'),
             language='c++',
             include_dirs=['include', numpy_include],
             extra_compile_args=['-std=c++11', '-g0'],
