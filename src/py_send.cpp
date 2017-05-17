@@ -282,7 +282,7 @@ template<typename Base>
 class udp_stream_wrapper : public Base
 {
 private:
-    /* Intermediate chained constructors that has the hostname and port
+    /* Intermediate chained constructors that have the hostname and port
      * converted to an endpoint, so that it can be used in turn to
      * construct the asio socket.
      */
