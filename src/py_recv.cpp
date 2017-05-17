@@ -113,9 +113,7 @@ public:
  * on completion of code scheduled through the thread pool must drop the GIL
  * first.
  */
-class ring_stream_wrapper : public object_reference<thread_pool>,
-                            public object_reference<memory_allocator>,
-                            public ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore> >
+class ring_stream_wrapper : public ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore> >
 {
 private:
     boost::asio::ip::address make_address(const std::string &hostname)
@@ -323,28 +321,18 @@ py::module register_module(py::module &parent)
         .def_readonly("immediate_value", &item_wrapper::immediate_value)
         .def_buffer([](item_wrapper &item) { return item.get_value(); });
     spead2::class_<ring_stream_wrapper>(m, "Stream")
-        .def(py::init<thread_pool_wrapper &, bug_compat_mask, std::size_t, std::size_t>(),
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, bug_compat_mask, std::size_t, std::size_t>(),
              "thread_pool"_a, "bug_compat"_a = 0,
              "max_heaps"_a = ring_stream_wrapper::default_max_heaps,
-             "ring_heaps"_a = ring_stream_wrapper::default_ring_heaps,
-             keep_reference<ring_stream_wrapper, thread_pool, 1, 2>())
+             "ring_heaps"_a = ring_stream_wrapper::default_ring_heaps)
         .def("__iter__", [](py::object self) { return self; })
-        .def(
-#if PY_MAJOR_VERSION >= 3
-              // Python 3 uses __next__ for the iterator protocol
-              "__next__"
-#else
-              "next"
-#endif
-            , &ring_stream_wrapper::next)
+        .def("__next__", &ring_stream_wrapper::next)
         .def("get", &ring_stream_wrapper::get)
         .def("get_nowait", &ring_stream_wrapper::get_nowait)
         .def("set_memory_allocator", &ring_stream_wrapper::set_memory_allocator,
-             "allocator"_a,
-             keep_reference<ring_stream_wrapper, memory_allocator, 1, 2>())
+             "allocator"_a)
         .def("set_memory_pool", &ring_stream_wrapper::set_memory_pool,
-             "pool"_a,
-             keep_reference<ring_stream_wrapper, memory_allocator, 1, 2>())
+             "pool"_a)
         .def("set_memcpy", &ring_stream_wrapper::set_memcpy, "id"_a)
         .def("add_buffer_reader", &ring_stream_wrapper::add_buffer_reader, "buffer"_a)
         .def("add_udp_reader", &ring_stream_wrapper::add_udp_reader,

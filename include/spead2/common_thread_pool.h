@@ -72,6 +72,42 @@ public:
     static void set_affinity(int core);
 };
 
+/**
+ * A helper class that holds a reference to a @c boost::asio::io_service, and
+ * optionally a shared_ptr to a thread_pool. It is normally not explicitly
+ * constructed, but other classes that need an io_service take it as the first
+ * argument and store it so that they can accept any of @c io_service, @c
+ * thread_pool or @c std::shared_ptr<thread_pool>, and in the last case they
+ * hold on to the reference.
+ */
+class io_service_ref
+{
+private:
+    std::shared_ptr<thread_pool> thread_pool_holder;
+    boost::asio::io_service &io_service;
+
+    static void check_non_null(thread_pool *ptr);
+
+public:
+    // Converting constructors
+    io_service_ref(boost::asio::io_service &);
+    io_service_ref(thread_pool &);
+    template<typename T, typename SFINAE = typename std::enable_if<std::is_convertible<T *, thread_pool *>::value>::type>
+    io_service_ref(std::shared_ptr<T>);
+
+    boost::asio::io_service &operator*() const;
+    boost::asio::io_service *operator->() const;
+    std::shared_ptr<thread_pool> get_shared_thread_pool() const &;
+    std::shared_ptr<thread_pool> &&get_shared_thread_pool() &&;
+};
+
+template<typename T, typename SFINAE>
+io_service_ref::io_service_ref(std::shared_ptr<T> tpool)
+    : thread_pool_holder((check_non_null(tpool.get()), std::move(tpool))),
+    io_service(thread_pool_holder->get_io_service())
+{
+}
+
 } // namespace spead2
 
 #endif // SPEAD2_COMMON_THREAD_POOL_H

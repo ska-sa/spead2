@@ -37,9 +37,11 @@
 #include <spead2/send_packet.h>
 #include <spead2/common_logging.h>
 #include <spead2/common_defines.h>
+#include <spead2/common_thread_pool.h>
 
 namespace spead2
 {
+
 namespace send
 {
 
@@ -78,16 +80,16 @@ private:
 class stream
 {
 private:
-    boost::asio::io_service &io_service;
+    io_service_ref io_service;
 
 protected:
     typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
 
-    explicit stream(boost::asio::io_service &io_service);
+    explicit stream(io_service_ref io_service);
 
 public:
     /// Retrieve the io_service used for processing the stream
-    boost::asio::io_service &get_io_service() const { return io_service; }
+    boost::asio::io_service &get_io_service() const { return *io_service; }
 
     /**
      * Modify the linear sequence used to generate heap cnts. The next heap
@@ -279,12 +281,12 @@ private:
 
 public:
     stream_impl(
-        boost::asio::io_service &io_service,
+        io_service_ref io_service,
         const stream_config &config = stream_config()) :
-            stream(io_service),
+            stream(std::move(io_service)),
             config(config),
             seconds_per_byte(config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0),
-            timer(io_service)
+            timer(get_io_service())
     {
     }
 

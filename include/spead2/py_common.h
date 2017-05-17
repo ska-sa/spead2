@@ -38,55 +38,6 @@
 namespace spead2
 {
 
-/**
- * Holds a reference to a Python object so that it won't be destroyed. The
- * templating is done for use with the keep_reference policy. It is
- * recommended that the tag is set to the C++ type of the object being
- * referenced, but this is not required.
- */
-template<typename Tag>
-struct object_reference
-{
-    pybind11::object object;
-};
-
-/**
- * Call policy similar to py::keep_alive that stores a reference to the
- * patient inside the nurse. The nurse must be of type T, and T must be
- * derived from object_reference<Tag>. Unlike py::keep_alive, it is done
- * as a postcall, even if neither nurse or patient is 0.
- *
- * This is mainly to work around pybind/pybind11#856, but is also useful when
- * the reference can be mutated and the old referenced value should no longer
- * be stored.
- */
-template<typename T, typename Tag, size_t Nurse, size_t Patient>
-struct keep_reference {};
-
-namespace detail
-{
-
-template<typename T, typename Tag>
-inline void keep_reference_impl(
-    size_t nurse_idx, size_t patient_idx,
-    pybind11::detail::function_call &call, pybind11::handle ret)
-{
-    static_assert(std::is_base_of<object_reference<Tag>, T>::value,
-                  "T must derive from object_reference<Tag>");
-
-    if (nurse_idx > call.args.size())
-        pybind11::pybind11_fail("Nurse index out of range");
-    if (patient_idx > call.args.size())
-        pybind11::pybind11_fail("Patient index out of range");
-    pybind11::handle nurse_handle = nurse_idx == 0 ? ret : call.args[nurse_idx - 1];
-    pybind11::handle patient_handle = patient_idx == 0 ? ret : call.args[patient_idx - 1];
-    T &nurse = nurse_handle.cast<T &>();
-    object_reference<Tag> &ref = static_cast<object_reference<Tag> &>(nurse);
-    ref.object = pybind11::reinterpret_borrow<pybind11::object>(patient_handle);
-}
-
-} // namespace detail
-
 /// Wrapper for generating Python IOError from a boost error code
 class boost_io_error : public boost::system::system_error
 {
@@ -122,16 +73,6 @@ public:
 
     ~thread_pool_wrapper();
     void stop();
-};
-
-/**
- * Wrapper around @ref memory_pool that holds a Python handle to the
- * underlying thread pool, if any.
- */
-class memory_pool_wrapper : public object_reference<thread_pool>, public memory_pool
-{
-public:
-    using memory_pool::memory_pool;
 };
 
 /**
@@ -295,22 +236,5 @@ public:
 };
 
 } // namespace spead2
-
-namespace pybind11
-{
-namespace detail
-{
-
-template<typename T, typename Tag, size_t Nurse, size_t Patient>
-struct process_attribute<spead2::keep_reference<T, Tag, Nurse, Patient>> : public process_attribute_default<spead2::keep_reference<T, Tag, Nurse, Patient>>
-{
-    static void postcall(function_call &call, handle ret)
-    {
-        spead2::detail::keep_reference_impl<T, Tag>(Nurse, Patient, call, ret);
-    }
-};
-
-} // namespace detail
-} // namespace pybind11
 
 #endif // SPEAD2_PY_COMMON_H

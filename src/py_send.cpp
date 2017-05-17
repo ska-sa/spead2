@@ -75,17 +75,9 @@ flavour heap_wrapper::get_flavour() const
     return heap::get_flavour();
 }
 
-class packet_generator_wrapper : public object_reference<heap>, public packet_generator
+py::bytes packet_generator_next(packet_generator &gen)
 {
-public:
-    using packet_generator::packet_generator;
-
-    py::bytes next();
-};
-
-py::bytes packet_generator_wrapper::next()
-{
-    packet pkt = next_packet();
+    packet pkt = gen.next_packet();
     if (pkt.buffers.empty())
         throw py::stop_iteration();
     return py::bytes(std::string(boost::asio::buffers_begin(pkt.buffers),
@@ -287,7 +279,7 @@ static boost::asio::ip::udp::socket make_socket(
 }
 
 template<typename Base>
-class udp_stream_wrapper : public object_reference<thread_pool>, public Base
+class udp_stream_wrapper : public Base
 {
 private:
     /* Intermediate chained constructors that has the hostname and port
@@ -295,69 +287,70 @@ private:
      * construct the asio socket.
      */
     udp_stream_wrapper(
-        thread_pool &pool,
+        std::shared_ptr<thread_pool> pool,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         std::size_t buffer_size,
         py::object socket)
         : Base(
-            make_socket(pool.get_io_service(), endpoint.protocol(), std::move(socket)),
+            std::move(pool),
+            make_socket(pool->get_io_service(), endpoint.protocol(), std::move(socket)),
             endpoint,
             config, buffer_size)
     {
     }
 
     udp_stream_wrapper(
-        thread_pool &pool,
+        std::shared_ptr<thread_pool> pool,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl)
-        : Base(pool.get_io_service(), endpoint, config, buffer_size, ttl)
+        : Base(std::move(pool), endpoint, config, buffer_size, ttl)
     {
     }
 
     template<typename T>
     udp_stream_wrapper(
-        thread_pool &pool,
+        std::shared_ptr<thread_pool> pool,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl,
         const T &interface)
-        : Base(pool.get_io_service(), endpoint, config, buffer_size, ttl, interface)
+        : Base(std::move(pool), endpoint, config, buffer_size, ttl, interface)
     {
     }
 
 public:
     udp_stream_wrapper(
-        thread_pool &pool,
+        std::shared_ptr<thread_pool> pool,
         const std::string &hostname,
         std::uint16_t port,
         const stream_config &config,
         std::size_t buffer_size,
         py::object socket)
         : udp_stream_wrapper(
-            pool, make_endpoint(pool.get_io_service(), hostname, port),
+            std::move(pool), make_endpoint(pool->get_io_service(), hostname, port),
             config, buffer_size, std::move(socket))
     {
     }
 
     udp_stream_wrapper(
-        thread_pool &pool,
+        std::shared_ptr<thread_pool> pool,
         const std::string &multicast_group,
         std::uint16_t port,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl)
         : udp_stream_wrapper(
-            pool, make_endpoint(pool.get_io_service(), multicast_group, port),
+            std::move(pool), make_endpoint(pool->get_io_service(), multicast_group, port),
             config, buffer_size, ttl)
     {
     }
 
     udp_stream_wrapper(
-        thread_pool &pool,
+        std::shared_ptr<thread_pool> pool,
         const std::string &multicast_group,
         std::uint16_t port,
         const stream_config &config,
@@ -365,16 +358,16 @@ public:
         int ttl,
         const std::string &interface_address)
         : udp_stream_wrapper(
-            pool, make_endpoint(pool.get_io_service(), multicast_group, port),
+            std::move(pool), make_endpoint(pool->get_io_service(), multicast_group, port),
             config, buffer_size, ttl,
             interface_address.empty() ?
                 boost::asio::ip::address_v4::any() :
-                make_address(pool.get_io_service(), interface_address))
+                make_address(pool->get_io_service(), interface_address))
     {
     }
 
     udp_stream_wrapper(
-        thread_pool &pool,
+        std::shared_ptr<thread_pool> pool,
         const std::string &multicast_group,
         std::uint16_t port,
         const stream_config &config,
@@ -382,7 +375,7 @@ public:
         int ttl,
         unsigned int interface_index)
         : udp_stream_wrapper(
-            pool, make_endpoint(pool.get_io_service(), multicast_group, port),
+            std::move(pool), make_endpoint(pool->get_io_service(), multicast_group, port),
             config, buffer_size, ttl, interface_index)
     {
     }
@@ -390,11 +383,11 @@ public:
 
 #if SPEAD2_USE_IBV
 template<typename Base>
-class udp_ibv_stream_wrapper : public object_reference<thread_pool>, public Base
+class udp_ibv_stream_wrapper : public Base
 {
 public:
     udp_ibv_stream_wrapper(
-        thread_pool &pool,
+        std::shared_ptr<thread_pool> pool,
         const std::string &multicast_group,
         std::uint16_t port,
         const stream_config &config,
@@ -403,21 +396,21 @@ public:
         int ttl,
         int comp_vector,
         int max_poll)
-        : Base(pool.get_io_service(),
-               make_endpoint(pool.get_io_service(), multicast_group, port),
+        : Base(std::move(pool),
+               make_endpoint(pool->get_io_service(), multicast_group, port),
                config,
-               make_address(pool.get_io_service(), interface_address),
+               make_address(pool->get_io_service(), interface_address),
                buffer_size, ttl, comp_vector, max_poll)
     {
     }
 };
 #endif
 
-class bytes_stream : public object_reference<thread_pool>, private std::stringbuf, public stream_wrapper<streambuf_stream>
+class bytes_stream : private std::stringbuf, public stream_wrapper<streambuf_stream>
 {
 public:
-    bytes_stream(thread_pool &pool, const stream_config &config = stream_config())
-        : stream_wrapper<streambuf_stream>(pool.get_io_service(), *this, config)
+    bytes_stream(std::shared_ptr<thread_pool> pool, const stream_config &config = stream_config())
+        : stream_wrapper<streambuf_stream>(std::move(pool), *this, config)
     {
     }
 
@@ -433,32 +426,28 @@ static spead2::class_<T> udp_stream_register(py::module &m, const char *name)
     using namespace pybind11::literals;
 
     return spead2::class_<T>(m, name)
-        .def(py::init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, py::object>(),
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, int, const stream_config &, std::size_t, py::object>(),
              "thread_pool"_a, "hostname"_a, "port"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
-             "socket"_a = py::none(),
-             keep_reference<T, thread_pool, 1, 2>())
-        .def(py::init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int>(),
+             "socket"_a = py::none())
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, int, const stream_config &, std::size_t, int>(),
              "thread_pool"_a, "hostname"_a, "port"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
-             "ttl"_a,
-             keep_reference<T, thread_pool, 1, 2>())
-        .def(py::init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, std::string>(),
+             "ttl"_a)
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, int, const stream_config &, std::size_t, int, std::string>(),
              "thread_pool"_a, "multicast_group"_a, "port"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
              "ttl"_a,
-             "interface_address"_a,
-             keep_reference<T, thread_pool, 1, 2>())
-        .def(py::init<thread_pool_wrapper &, std::string, int, const stream_config &, std::size_t, int, unsigned int>(),
+             "interface_address"_a)
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, int, const stream_config &, std::size_t, int, unsigned int>(),
              "thread_pool"_a, "multicast_group"_a, "port"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
              "ttl"_a,
-             "interface_index"_a,
-             keep_reference<T, thread_pool, 1, 2>())
+             "interface_index"_a)
         .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size);
 }
 
@@ -469,15 +458,14 @@ static spead2::class_<T> udp_ibv_stream_register(py::module &m, const char *name
     using namespace pybind11::literals;
 
     return spead2::class_<T>(m, name)
-        .def(py::init<thread_pool_wrapper &, std::string, int, const stream_config &, std::string, std::size_t, int, int, int>(),
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, int, const stream_config &, std::string, std::size_t, int, int, int>(),
              "thread_pool"_a, "multicast_group"_a, "port"_a,
              "config"_a = stream_config(),
              "interface_address"_a,
              "buffer_size"_a = T::default_buffer_size,
              "ttl"_a = 1,
              "comp_vector"_a = 0,
-             "max_poll"_a = T::default_max_poll,
-             keep_reference<T, thread_pool, 1, 2>())
+             "max_poll"_a = T::default_max_poll)
         .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size)
         .def_readonly_static("DEFAULT_MAX_POLL", &T::default_max_poll);
 }
@@ -529,19 +517,14 @@ py::module register_module(py::module &parent)
         .def("add_start", &heap_wrapper::add_start)
         .def("add_end", &heap_wrapper::add_end);
 
-    spead2::class_<packet_generator_wrapper>(m, "PacketGenerator")
+    // keep_alive is safe to use here in spite of pybind/pybind11#856, because
+    // the destructor of packet_generator doesn't reference the heap.
+    spead2::class_<packet_generator>(m, "PacketGenerator")
         .def(py::init<heap_wrapper &, item_pointer_t, std::size_t>(),
              "heap"_a, "cnt"_a, "max_packet_size"_a,
-             keep_reference<packet_generator_wrapper, heap, 1, 2>())
+             py::keep_alive<1, 2>())
         .def("__iter__", [](py::object self) { return self; })
-        .def(
-#if PY_MAJOR_VERSION >= 3
-              // Python 3 uses __next__ for the iterator protocol
-              "__next__"
-#else
-              "next"
-#endif
-              , &packet_generator_wrapper::next);
+        .def("__next__", &packet_generator_next);
 
     spead2::class_<stream_config>(m, "StreamConfig")
         .def(py::init<std::size_t, double, std::size_t, std::size_t>(),
@@ -580,9 +563,8 @@ py::module register_module(py::module &parent)
     {
         spead2::class_<bytes_stream> stream_class(m, "BytesStream");
         stream_class
-            .def(py::init<thread_pool_wrapper &, const stream_config &>(),
-                 "thread_pool"_a, "config"_a = stream_config(),
-                 keep_reference<bytes_stream, thread_pool, 1, 2>())
+            .def(py::init<std::shared_ptr<thread_pool_wrapper>, const stream_config &>(),
+                 "thread_pool"_a, "config"_a = stream_config())
             .def("getvalue", &bytes_stream::getvalue);
         sync_stream_register(stream_class);
     }

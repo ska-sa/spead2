@@ -163,15 +163,14 @@ py::module register_module()
         m, "MmapAllocator")
         .def(py::init<int>(), "flags"_a=0);
 
-    spead2::class_<memory_pool_wrapper, memory_allocator, std::shared_ptr<memory_pool_wrapper>>(
+    spead2::class_<memory_pool, memory_allocator, std::shared_ptr<memory_pool>>(
         m, "MemoryPool")
         .def(py::init<std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(),
              "lower"_a, "upper"_a, "max_free"_a, "initial"_a, py::arg_v("allocator", nullptr, "None"))
-        .def(py::init<thread_pool_wrapper &, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(),
-             "thread_pool"_a, "lower"_a, "upper"_a, "max_free"_a, "initial"_a, "low_water"_a, "allocator"_a,
-             keep_reference<memory_pool_wrapper, thread_pool, 1, 2>());
+        .def(py::init<std::shared_ptr<thread_pool>, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(),
+             "thread_pool"_a, "lower"_a, "upper"_a, "max_free"_a, "initial"_a, "low_water"_a, "allocator"_a);
 
-    spead2::class_<thread_pool_wrapper>(m, "ThreadPool")
+    spead2::class_<thread_pool_wrapper, std::shared_ptr<thread_pool_wrapper>>(m, "ThreadPool")
         .def(py::init<int>(), "threads"_a = 1)
         .def(py::init<int, const std::vector<int> &>(), "threads"_a, "affinity"_a)
         .def_static("set_affinity", &thread_pool_wrapper::set_affinity)

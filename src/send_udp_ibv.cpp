@@ -156,7 +156,7 @@ void udp_ibv_stream::async_send_packet(const packet &pkt, completion_handler &&h
 }
 
 udp_ibv_stream::udp_ibv_stream(
-    boost::asio::io_service &io_service,
+    io_service_ref io_service,
     const boost::asio::ip::udp::endpoint &endpoint,
     const stream_config &config,
     const boost::asio::ip::address &interface_address,
@@ -164,12 +164,12 @@ udp_ibv_stream::udp_ibv_stream(
     int ttl,
     int comp_vector,
     int max_poll)
-    : stream_impl<udp_ibv_stream>(io_service, config),
+    : stream_impl<udp_ibv_stream>(std::move(io_service), config),
     n_slots(std::max(std::size_t(1), buffer_size / (config.get_max_packet_size() + header_length))),
     max_poll(max_poll),
-    socket(io_service, endpoint.protocol()),
+    socket(get_io_service(), endpoint.protocol()),
     cm_id(event_channel, nullptr, RDMA_PS_UDP),
-    comp_channel_wrapper(io_service)
+    comp_channel_wrapper(get_io_service())
 {
     if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
         throw std::invalid_argument("endpoint is not an IPv4 multicast address");
@@ -187,7 +187,7 @@ udp_ibv_stream::udp_ibv_stream(
     if (comp_vector >= 0)
     {
         comp_channel = ibv_comp_channel_t(cm_id);
-        comp_channel_wrapper = comp_channel.wrap(io_service);
+        comp_channel_wrapper = comp_channel.wrap(get_io_service());
         send_cq = ibv_cq_t(cm_id, n_slots, nullptr,
                            comp_channel, comp_vector % cm_id->verbs->num_comp_vectors);
     }
