@@ -287,70 +287,70 @@ private:
      * construct the asio socket.
      */
     udp_stream_wrapper(
-        std::shared_ptr<thread_pool> pool,
+        io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         std::size_t buffer_size,
         py::object socket)
         : Base(
-            std::move(pool),
-            make_socket(pool->get_io_service(), endpoint.protocol(), std::move(socket)),
+            std::move(io_service),
+            make_socket(*io_service, endpoint.protocol(), std::move(socket)),
             endpoint,
             config, buffer_size)
     {
     }
 
     udp_stream_wrapper(
-        std::shared_ptr<thread_pool> pool,
+        io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl)
-        : Base(std::move(pool), endpoint, config, buffer_size, ttl)
+        : Base(std::move(io_service), endpoint, config, buffer_size, ttl)
     {
     }
 
     template<typename T>
     udp_stream_wrapper(
-        std::shared_ptr<thread_pool> pool,
+        io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl,
         const T &interface)
-        : Base(std::move(pool), endpoint, config, buffer_size, ttl, interface)
+        : Base(std::move(io_service), endpoint, config, buffer_size, ttl, interface)
     {
     }
 
 public:
     udp_stream_wrapper(
-        std::shared_ptr<thread_pool> pool,
+        io_service_ref io_service,
         const std::string &hostname,
         std::uint16_t port,
         const stream_config &config,
         std::size_t buffer_size,
         py::object socket)
         : udp_stream_wrapper(
-            std::move(pool), make_endpoint(pool->get_io_service(), hostname, port),
+            std::move(io_service), make_endpoint(*io_service, hostname, port),
             config, buffer_size, std::move(socket))
     {
     }
 
     udp_stream_wrapper(
-        std::shared_ptr<thread_pool> pool,
+        io_service_ref io_service,
         const std::string &multicast_group,
         std::uint16_t port,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl)
         : udp_stream_wrapper(
-            std::move(pool), make_endpoint(pool->get_io_service(), multicast_group, port),
+            std::move(io_service), make_endpoint(*io_service, multicast_group, port),
             config, buffer_size, ttl)
     {
     }
 
     udp_stream_wrapper(
-        std::shared_ptr<thread_pool> pool,
+        io_service_ref io_service,
         const std::string &multicast_group,
         std::uint16_t port,
         const stream_config &config,
@@ -358,16 +358,16 @@ public:
         int ttl,
         const std::string &interface_address)
         : udp_stream_wrapper(
-            std::move(pool), make_endpoint(pool->get_io_service(), multicast_group, port),
+            std::move(io_service), make_endpoint(*io_service, multicast_group, port),
             config, buffer_size, ttl,
             interface_address.empty() ?
                 boost::asio::ip::address_v4::any() :
-                make_address(pool->get_io_service(), interface_address))
+                make_address(*io_service, interface_address))
     {
     }
 
     udp_stream_wrapper(
-        std::shared_ptr<thread_pool> pool,
+        io_service_ref io_service,
         const std::string &multicast_group,
         std::uint16_t port,
         const stream_config &config,
@@ -375,7 +375,7 @@ public:
         int ttl,
         unsigned int interface_index)
         : udp_stream_wrapper(
-            std::move(pool), make_endpoint(pool->get_io_service(), multicast_group, port),
+            std::move(io_service), make_endpoint(*io_service, multicast_group, port),
             config, buffer_size, ttl, interface_index)
     {
     }
