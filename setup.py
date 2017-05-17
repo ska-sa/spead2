@@ -84,7 +84,7 @@ if not rtd:
             depends=glob.glob('include/spead2/*.h'),
             language='c++',
             include_dirs=['include', '3rdparty/pybind11/include', numpy_include],
-            extra_compile_args=['-std=c++11', '-g0'],
+            extra_compile_args=['-std=c++11', '-g0', '-fvisibility=hidden'],
             libraries=libraries)
     ]
 else:
