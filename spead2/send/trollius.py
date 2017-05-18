@@ -102,7 +102,7 @@ class UdpStream( _UdpStreamMixin, _UdpStreamAsyncio):
         super(UdpStream, self).__init__(*args, **kwargs)
 
 try:
-    from spead2._send import UdpIbvStreamAsyncio as _UdpIbvStreamAsyncio
+    from spead2._spead2.send import UdpIbvStreamAsyncio as _UdpIbvStreamAsyncio
 
     class UdpIbvStream(_UdpStreamMixin, _UdpIbvStreamAsyncio):
         """Like :class:`UdpStream`, but using the Infiniband Verbs API.
