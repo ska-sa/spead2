@@ -70,24 +70,6 @@ public:
 };
 
 /**
- * Return heap items as a Python list.
- */
-static py::list heap_get_items(const heap &h)
-{
-    std::vector<item> base = h.get_items();
-    py::list out;
-    py::object self = py::cast(&h);
-    for (const item &it : base)
-    {
-        // Filter out descriptors here. The base class can't do so, because
-        // the descriptors are retrieved from the items.
-        if (it.id != DESCRIPTOR_ID)
-            out.append(item_wrapper(it, self));
-    }
-    return out;
-}
-
-/**
  * Extends mem_reader to obtain data using the Python buffer protocol.
  * It steals the provided buffer view; it is not passed by rvalue reference
  * because it cannot be perfectly forwarded.
@@ -310,11 +292,24 @@ py::module register_module(py::module &parent)
     py::module m = parent.def_submodule("recv");
 
     spead2::class_<heap>(m, "Heap")
-        .def_property_readonly("cnt", &heap::get_cnt)
-        .def_property_readonly("flavour", &heap::get_flavour)
-        .def("get_items", &heap_get_items)
-        .def("get_descriptors", &heap::get_descriptors)
-        .def("is_start_of_stream", &heap::is_start_of_stream);
+        .def_property_readonly("cnt", SPEAD2_PTMF(heap, get_cnt))
+        .def_property_readonly("flavour", SPEAD2_PTMF(heap, get_flavour))
+        .def("get_items", [](const heap &h) -> py::list
+        {
+            std::vector<item> base = h.get_items();
+            py::list out;
+            py::object self = py::cast(&h);
+            for (const item &it : base)
+            {
+                // Filter out descriptors here. The base class can't do so, because
+                // the descriptors are retrieved from the items.
+                if (it.id != DESCRIPTOR_ID)
+                    out.append(item_wrapper(it, self));
+            }
+            return out;
+        })
+        .def("get_descriptors", SPEAD2_PTMF(heap, get_descriptors))
+        .def("is_start_of_stream", SPEAD2_PTMF(heap, is_start_of_stream));
     spead2::class_<item_wrapper>(m, "RawItem", py::buffer_protocol())
         .def_readonly("id", &item_wrapper::id)
         .def_readonly("is_immediate", &item_wrapper::is_immediate)
@@ -326,35 +321,35 @@ py::module register_module(py::module &parent)
              "max_heaps"_a = ring_stream_wrapper::default_max_heaps,
              "ring_heaps"_a = ring_stream_wrapper::default_ring_heaps)
         .def("__iter__", [](py::object self) { return self; })
-        .def("__next__", &ring_stream_wrapper::next)
-        .def("get", &ring_stream_wrapper::get)
-        .def("get_nowait", &ring_stream_wrapper::get_nowait)
-        .def("set_memory_allocator", &ring_stream_wrapper::set_memory_allocator,
+        .def("__next__", SPEAD2_PTMF(ring_stream_wrapper, next))
+        .def("get", SPEAD2_PTMF(ring_stream_wrapper, get))
+        .def("get_nowait", SPEAD2_PTMF(ring_stream_wrapper, get_nowait))
+        .def("set_memory_allocator", SPEAD2_PTMF(ring_stream_wrapper, set_memory_allocator),
              "allocator"_a)
-        .def("set_memory_pool", &ring_stream_wrapper::set_memory_pool,
+        .def("set_memory_pool", SPEAD2_PTMF(ring_stream_wrapper, set_memory_pool),
              "pool"_a)
-        .def("set_memcpy", &ring_stream_wrapper::set_memcpy, "id"_a)
-        .def("add_buffer_reader", &ring_stream_wrapper::add_buffer_reader, "buffer"_a)
-        .def("add_udp_reader", &ring_stream_wrapper::add_udp_reader,
+        .def("set_memcpy", SPEAD2_PTMF(ring_stream_wrapper, set_memcpy), "id"_a)
+        .def("add_buffer_reader", SPEAD2_PTMF(ring_stream_wrapper, add_buffer_reader), "buffer"_a)
+        .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader),
               "port"_a,
               "max_size"_a = udp_reader::default_max_size,
               "buffer_size"_a = udp_reader::default_buffer_size,
               "bind_hostname"_a = std::string(),
               "socket"_a = py::none())
-        .def("add_udp_reader", &ring_stream_wrapper::add_udp_reader_multicast_v4,
+        .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_multicast_v4),
               "multicast_group"_a,
               "port"_a,
               "max_size"_a = udp_reader::default_max_size,
               "buffer_size"_a = udp_reader::default_buffer_size,
               "interface_address"_a = "0.0.0.0")
-        .def("add_udp_reader", &ring_stream_wrapper::add_udp_reader_multicast_v6,
+        .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_multicast_v6),
               "multicast_group"_a,
               "port"_a,
               "max_size"_a = udp_reader::default_max_size,
               "buffer_size"_a = udp_reader::default_buffer_size,
               "interface_index"_a = (unsigned int) 0)
 #if SPEAD2_USE_IBV
-        .def("add_udp_ibv_reader", &ring_stream_wrapper::add_udp_ibv_reader_single,
+        .def("add_udp_ibv_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_ibv_reader_single),
               "multicast_group"_a,
               "port"_a,
               "interface_address"_a,
@@ -362,7 +357,7 @@ py::module register_module(py::module &parent)
               "buffer_size"_a = udp_ibv_reader::default_buffer_size,
               "comp_vector"_a = 0,
               "max_poll"_a = udp_ibv_reader::default_max_poll)
-        .def("add_udp_ibv_reader", &ring_stream_wrapper::add_udp_ibv_reader_multi,
+        .def("add_udp_ibv_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_ibv_reader_multi),
               "endpoints"_a,
               "interface_address"_a,
               "max_size"_a = udp_ibv_reader::default_max_size,
@@ -370,8 +365,8 @@ py::module register_module(py::module &parent)
               "comp_vector"_a = 0,
               "max_poll"_a = udp_ibv_reader::default_max_poll)
 #endif
-        .def("stop", &ring_stream_wrapper::stop)
-        .def_property_readonly("fd", &ring_stream_wrapper::get_fd)
+        .def("stop", SPEAD2_PTMF(ring_stream_wrapper, stop))
+        .def_property_readonly("fd", SPEAD2_PTMF(ring_stream_wrapper, get_fd))
 #if SPEAD2_USE_IBV
         .def_readonly_static("DEFAULT_UDP_IBV_MAX_SIZE", &udp_ibv_reader::default_max_size)
         .def_readonly_static("DEFAULT_UDP_IBV_BUFFER_SIZE", &udp_ibv_reader::default_buffer_size)

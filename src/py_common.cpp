@@ -50,38 +50,6 @@ static void translate_exception_boost_io_error(std::exception_ptr p)
     }
 }
 
-static py::list descriptor_get_shape(const descriptor &d)
-{
-    py::list out;
-    for (const auto &size : d.shape)
-    {
-        if (size >= 0)
-            out.append(size);
-        else
-            out.append(py::none());
-    }
-    return out;
-}
-
-static void descriptor_set_shape(descriptor &d, py::sequence shape)
-{
-    std::vector<std::int64_t> out;
-    out.reserve(len(shape));
-    for (std::size_t i = 0; i < len(shape); i++)
-    {
-        py::object value = shape[i];
-        if (value.is_none())
-            out.push_back(-1);
-        else
-        {
-            std::int64_t v = value.cast<std::int64_t>();
-            // TODO: verify range (particularly, >= 0)
-            out.push_back(v);
-        }
-    }
-    d.shape = std::move(out);
-}
-
 thread_pool_wrapper::~thread_pool_wrapper()
 {
     stop();
@@ -151,10 +119,10 @@ py::module register_module()
         .def(py::init<>())
         .def(py::self == py::self)
         .def(py::self != py::self)
-        .def_property_readonly("version", &flavour::get_version)
-        .def_property_readonly("item_pointer_bits", &flavour::get_item_pointer_bits)
-        .def_property_readonly("heap_address_bits", &flavour::get_heap_address_bits)
-        .def_property_readonly("bug_compat", &flavour::get_bug_compat);
+        .def_property_readonly("version", SPEAD2_PTMF(flavour, get_version))
+        .def_property_readonly("item_pointer_bits", SPEAD2_PTMF(flavour, get_item_pointer_bits))
+        .def_property_readonly("heap_address_bits", SPEAD2_PTMF(flavour, get_heap_address_bits))
+        .def_property_readonly("bug_compat", SPEAD2_PTMF(flavour, get_bug_compat));
 
     spead2::class_<memory_allocator, std::shared_ptr<memory_allocator>>(m, "MemoryAllocator")
         .def(py::init<>());
@@ -174,14 +142,42 @@ py::module register_module()
         .def(py::init<int>(), "threads"_a = 1)
         .def(py::init<int, const std::vector<int> &>(), "threads"_a, "affinity"_a)
         .def_static("set_affinity", &thread_pool_wrapper::set_affinity)
-        .def("stop", &thread_pool_wrapper::stop);
+        .def("stop", SPEAD2_PTMF(thread_pool_wrapper, stop));
 
     spead2::class_<descriptor>(m, "RawDescriptor")
         .def(py::init<>())
         .def_readwrite("id", &descriptor::id)
         .def_property("name", bytes_getter(&descriptor::name), bytes_setter(&descriptor::name))
         .def_property("description", bytes_getter(&descriptor::description), bytes_setter(&descriptor::description))
-        .def_property("shape", &descriptor_get_shape, &descriptor_set_shape)
+        .def_property("shape", [](const descriptor &d) -> py::list
+        {
+            py::list out;
+            for (const auto &size : d.shape)
+            {
+                if (size >= 0)
+                    out.append(size);
+                else
+                    out.append(py::none());
+            }
+            return out;
+        }, [](descriptor &d, py::sequence shape)
+        {
+            std::vector<std::int64_t> out;
+            out.reserve(len(shape));
+            for (std::size_t i = 0; i < len(shape); i++)
+            {
+                py::object value = shape[i];
+                if (value.is_none())
+                    out.push_back(-1);
+                else
+                {
+                    std::int64_t v = value.cast<std::int64_t>();
+                    // TODO: verify range (particularly, >= 0)
+                    out.push_back(v);
+                }
+            }
+            d.shape = std::move(out);
+        })
         .def_readwrite("format", &descriptor::format)
         .def_property("numpy_header", bytes_getter(&descriptor::numpy_header), bytes_setter(&descriptor::numpy_header))
     ;

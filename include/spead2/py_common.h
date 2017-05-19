@@ -235,6 +235,59 @@ public:
     }
 };
 
+namespace detail
+{
+
+/* Some magic for defining the SPEAD2_PTMF macro, which wraps a pointer to
+ * member function into a stateless class which avoids using a run-time
+ * function pointer.
+ *
+ * The type T and the Class template parameter are separated because if T
+ * derives from Class and a member function foo is defined in Class, then the
+ * type of &T::foo is actually <code>Return (Class::*)(Args...)</code> rather
+ * than <code>Return (T::*)(Args...)</code>.
+ */
+template<typename T, typename Return, typename Class, typename... Args>
+struct PTMFWrapperGen
+{
+    template<Return (Class::*Ptr)(Args...)>
+    struct PTMFWrapper
+    {
+        typedef Return result_type;
+        Return operator()(T &obj, Args... args) const
+        {
+            return (obj.*Ptr)(std::forward<Args>(args)...);
+        }
+    };
+
+    template<Return (Class::*Ptr)(Args...) const>
+    struct PTMFWrapperConst
+    {
+        typedef Return result_type;
+        Return operator()(const T &obj, Args... args) const
+        {
+            return (obj.*Ptr)(std::forward<Args>(args)...);
+        }
+    };
+
+    template<Return (Class::*Ptr)(Args...)>
+    static constexpr PTMFWrapper<Ptr> make_wrapper() noexcept { return PTMFWrapper<Ptr>(); }
+
+    template<Return (Class::*Ptr)(Args...) const>
+    static constexpr PTMFWrapperConst<Ptr> make_wrapper() noexcept { return PTMFWrapperConst<Ptr>(); }
+};
+
+// This function is never defined, and is only used as a helper for decltype
+template<typename T, typename Return, typename Class, typename... Args>
+PTMFWrapperGen<T, Return, Class, Args...> ptmf_wrapper_type(Return (Class::*ptmf)(Args...));
+template<typename T, typename Return, typename Class, typename... Args>
+PTMFWrapperGen<T, Return, Class, Args...> ptmf_wrapper_type(Return (Class::*ptmf)(Args...) const);
+
+#define SPEAD2_PTMF(Class, Func) \
+    (decltype(::spead2::detail::ptmf_wrapper_type<Class>(&Class::Func))::template make_wrapper<&Class::Func>())
+
+} // namespace detail
+
 } // namespace spead2
 
 #endif // SPEAD2_PY_COMMON_H
