@@ -27,10 +27,10 @@ namespace send
 {
 
 streambuf_stream::streambuf_stream(
-    boost::asio::io_service &io_service,
+    io_service_ref io_service,
     std::streambuf &streambuf,
     const stream_config &config)
-    : stream_impl<streambuf_stream>(io_service, config), streambuf(streambuf)
+    : stream_impl<streambuf_stream>(std::move(io_service), config), streambuf(streambuf)
 {
 }
 

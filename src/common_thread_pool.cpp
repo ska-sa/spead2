@@ -108,4 +108,41 @@ thread_pool::~thread_pool()
     stop();
 }
 
+
+io_service_ref::io_service_ref(boost::asio::io_service &io_service)
+    : io_service(io_service)
+{
+}
+
+io_service_ref::io_service_ref(thread_pool &tpool)
+    : io_service(tpool.get_io_service())
+{
+}
+
+void io_service_ref::check_non_null(thread_pool *ptr)
+{
+    if (ptr == nullptr)
+        throw std::invalid_argument("io_service_ref cannot be constructed from a null thread pool");
+}
+
+boost::asio::io_service &io_service_ref::operator*() const
+{
+    return io_service;
+}
+
+boost::asio::io_service *io_service_ref::operator->() const
+{
+    return &io_service;
+}
+
+std::shared_ptr<thread_pool> io_service_ref::get_shared_thread_pool() const &
+{
+    return thread_pool_holder;
+}
+
+std::shared_ptr<thread_pool> &&io_service_ref::get_shared_thread_pool() &&
+{
+    return std::move(thread_pool_holder);
+}
+
 } // namespace spead2

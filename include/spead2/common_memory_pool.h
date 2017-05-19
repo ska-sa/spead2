@@ -1,4 +1,4 @@
-/* Copyright 2015, 2016 SKA South Africa
+/* Copyright 2015-2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -27,6 +27,7 @@
 #include <stack>
 #include <memory>
 #include <boost/asio.hpp>
+#include <boost/optional.hpp>
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_memory_allocator.h>
 
@@ -51,7 +52,7 @@ namespace spead2
 class memory_pool : public memory_allocator
 {
 private:
-    boost::asio::io_service *io_service;
+    boost::optional<io_service_ref> io_service;
     const std::size_t lower, upper, max_free, initial, low_water;
     const std::shared_ptr<memory_allocator> base_allocator;
     std::mutex mutex;
@@ -65,16 +66,14 @@ private:
     static void refill(std::size_t upper, std::shared_ptr<memory_allocator> allocator,
                        std::weak_ptr<memory_pool> self_weak);
 
-    memory_pool(boost::asio::io_service *io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water,
+    memory_pool(boost::optional<io_service_ref> io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water,
                 std::shared_ptr<memory_allocator> allocator);
 
 public:
     memory_pool();
     memory_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
                 std::shared_ptr<memory_allocator> allocator = nullptr);
-    memory_pool(boost::asio::io_service &io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water,
-                std::shared_ptr<memory_allocator> allocator = nullptr);
-    memory_pool(thread_pool &tpool, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water,
+    memory_pool(io_service_ref io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water,
                 std::shared_ptr<memory_allocator> allocator = nullptr);
     virtual pointer allocate(std::size_t size, void *hint) override;
 };

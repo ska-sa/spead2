@@ -175,13 +175,10 @@ void stream_base::stop_received()
 }
 
 
-stream::stream(boost::asio::io_service &io_service, bug_compat_mask bug_compat, std::size_t max_heaps)
-    : stream_base(bug_compat, max_heaps), strand(io_service)
-{
-}
-
-stream::stream(thread_pool &thread_pool, bug_compat_mask bug_compat, std::size_t max_heaps)
-    : stream(thread_pool.get_io_service(), bug_compat, max_heaps)
+stream::stream(io_service_ref io_service, bug_compat_mask bug_compat, std::size_t max_heaps)
+    : stream_base(bug_compat, max_heaps),
+    thread_pool_holder(std::move(io_service).get_shared_thread_pool()),
+    strand(*io_service)
 {
 }
 

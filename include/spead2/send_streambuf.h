@@ -59,7 +59,7 @@ private:
 public:
     /// Constructor
     streambuf_stream(
-        boost::asio::io_service &io_service,
+        io_service_ref io_service,
         std::streambuf &streambuf,
         const stream_config &config = stream_config());
 };

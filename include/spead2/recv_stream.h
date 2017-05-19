@@ -40,6 +40,7 @@ namespace spead2
 {
 
 class thread_pool;
+class io_service_ref;
 
 namespace recv
 {
@@ -195,6 +196,9 @@ class stream : protected stream_base
 private:
     friend class reader;
 
+    /// Holder that just ensures that the thread pool doesn't vanish
+    std::shared_ptr<thread_pool> thread_pool_holder;
+
     /**
      * Serialization of access.
      */
@@ -266,8 +270,7 @@ public:
 
     boost::asio::io_service::strand &get_strand() { return strand; }
 
-    explicit stream(boost::asio::io_service &service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
-    explicit stream(thread_pool &pool, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
+    explicit stream(io_service_ref io_service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
     virtual ~stream() override;
 
     /**

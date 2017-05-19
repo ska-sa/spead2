@@ -157,7 +157,7 @@ public:
      * @throws std::invalid_argument if @a interface_address is not an IPv4 address
      */
     udp_ibv_stream(
-        boost::asio::io_service &io_service,
+        io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         const boost::asio::ip::address &interface_address,

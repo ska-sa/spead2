@@ -406,7 +406,7 @@ class TestDecode(object):
         assert_equal(12345, items[0].immediate_value)
         assert_equal(0x5000, items[1].id)
         assert_false(items[1].is_immediate)
-        assert_equal(payload, bytearray(items[1].value))
+        assert_equal(payload, bytearray(items[1]))
 
     def test_is_start_of_stream(self):
         packet = self.flavour.make_packet_heap(
@@ -538,7 +538,7 @@ class TestDecode(object):
         assert_equal(1, len(heaps))
         raw_items = heaps[0].get_items()
         assert_equal(1, len(raw_items))
-        assert_equal(payload1 + payload2, raw_items[0].value)
+        assert_equal(payload1 + payload2, bytearray(raw_items[0]))
 
     def test_bad_offset(self):
         """Heap with out-of-range offset should be dropped"""
@@ -609,7 +609,7 @@ class TestStream(object):
 class TestUdpStream(object):
     def test_out_of_range_udp_port(self):
         receiver = spead2.recv.Stream(spead2.ThreadPool())
-        assert_raises(OverflowError, receiver.add_udp_reader, 100000)
+        assert_raises(TypeError, receiver.add_udp_reader, 100000)
 
     def test_illegal_udp_port(self):
         receiver = spead2.recv.Stream(spead2.ThreadPool())

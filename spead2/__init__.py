@@ -482,7 +482,7 @@ class Item(Descriptor):
                 gen.send((raw, length))
 
     def set_from_raw(self, raw_item):
-        raw_value = raw_item.value
+        raw_value = _np.array(raw_item, _np.uint8, copy=False)
         if self._fastpath == _FASTPATH_NUMPY:
             max_elements = raw_value.shape[0] // self._internal_dtype.itemsize
             shape = self.dynamic_shape(max_elements)
@@ -494,9 +494,9 @@ class Item(Descriptor):
             if raw_item.is_immediate:
                 # Immediates get head padding instead of tail padding
                 # For some reason, np.frombuffer doesn't work on memoryview, but np.array does
-                array1d = _np.array(raw_value, copy=False)[-size_bytes:]
+                array1d = raw_value[-size_bytes:]
             else:
-                array1d = _np.array(raw_value, copy=False)[:size_bytes]
+                array1d = raw_value[:size_bytes]
             array1d = array1d.view(dtype=self._internal_dtype)
             # Force to native endian
             array1d = array1d.astype(self._internal_dtype.newbyteorder('='), casting='equiv', copy=False)

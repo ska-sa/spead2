@@ -89,8 +89,8 @@ stream_config::stream_config(
 }
 
 
-stream::stream(boost::asio::io_service &io_service)
-    : io_service(io_service)
+stream::stream(io_service_ref io_service)
+    : io_service(std::move(io_service))
 {
 }
 

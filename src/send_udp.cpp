@@ -28,11 +28,12 @@ namespace send
 constexpr std::size_t udp_stream::default_buffer_size;
 
 udp_stream::udp_stream(
-    boost::asio::io_service &io_service,
+    io_service_ref io_service,
     const boost::asio::ip::udp::endpoint &endpoint,
     const stream_config &config,
     std::size_t buffer_size)
-    : udp_stream(boost::asio::ip::udp::socket(io_service, endpoint.protocol()),
+    : udp_stream(std::move(io_service),
+                 boost::asio::ip::udp::socket(*io_service, endpoint.protocol()),
                  endpoint, config, buffer_size)
 {
 }
@@ -79,36 +80,26 @@ static boost::asio::ip::udp::socket make_multicast_v6_socket(
 }
 
 udp_stream::udp_stream(
-    boost::asio::io_service &io_service,
+    io_service_ref io_service,
     const boost::asio::ip::udp::endpoint &endpoint,
     const stream_config &config,
     std::size_t buffer_size,
     int ttl)
-    : udp_stream(make_multicast_socket(io_service, endpoint, ttl),
+    : udp_stream(std::move(io_service),
+                 make_multicast_socket(*io_service, endpoint, ttl),
                  endpoint, config, buffer_size)
 {
 }
 
 udp_stream::udp_stream(
-    boost::asio::io_service &io_service,
+    io_service_ref io_service,
     const boost::asio::ip::udp::endpoint &endpoint,
     const stream_config &config,
     std::size_t buffer_size,
     int ttl,
     const boost::asio::ip::address &interface_address)
-    : udp_stream(make_multicast_v4_socket(io_service, endpoint, ttl, interface_address),
-                 endpoint, config, buffer_size)
-{
-}
-
-udp_stream::udp_stream(
-    boost::asio::io_service &io_service,
-    const boost::asio::ip::udp::endpoint &endpoint,
-    const stream_config &config,
-    std::size_t buffer_size,
-    int ttl,
-    unsigned int interface_index)
-    : udp_stream(make_multicast_v6_socket(io_service, endpoint, ttl, interface_index),
+    : udp_stream(std::move(io_service),
+                 make_multicast_v4_socket(*io_service, endpoint, ttl, interface_address),
                  endpoint, config, buffer_size)
 {
 }
@@ -118,9 +109,34 @@ udp_stream::udp_stream(
     const boost::asio::ip::udp::endpoint &endpoint,
     const stream_config &config,
     std::size_t buffer_size)
-    : stream_impl<udp_stream>(socket.get_io_service(), config),
+    : udp_stream(socket.get_io_service(), std::move(socket), endpoint, config, buffer_size)
+{
+}
+
+udp_stream::udp_stream(
+    io_service_ref io_service,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    const stream_config &config,
+    std::size_t buffer_size,
+    int ttl,
+    unsigned int interface_index)
+    : udp_stream(std::move(io_service),
+                 make_multicast_v6_socket(*io_service, endpoint, ttl, interface_index),
+                 endpoint, config, buffer_size)
+{
+}
+
+udp_stream::udp_stream(
+    io_service_ref io_service,
+    boost::asio::ip::udp::socket &&socket,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    const stream_config &config,
+    std::size_t buffer_size)
+    : stream_impl<udp_stream>(std::move(io_service), config),
     socket(std::move(socket)), endpoint(endpoint)
 {
+    if (&get_io_service() != &this->socket.get_io_service())
+        throw std::invalid_argument("I/O service does not match the socket's I/O service");
     if (buffer_size != 0)
     {
         boost::asio::socket_base::send_buffer_size option(buffer_size);

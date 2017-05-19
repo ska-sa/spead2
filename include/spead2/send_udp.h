@@ -50,7 +50,7 @@ public:
 
     /// Constructor
     udp_stream(
-        boost::asio::io_service &io_service,
+        io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size);
@@ -60,6 +60,18 @@ public:
      * not bound.
      */
     udp_stream(
+        boost::asio::ip::udp::socket &&socket,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        const stream_config &config = stream_config(),
+        std::size_t buffer_size = default_buffer_size);
+
+    /**
+     * Constructor using an existing socket and an explicit io_service or
+     * thread pool. The socket must be open but not bound, and the io_service
+     * must match the socket's.
+     */
+    udp_stream(
+        io_service_ref io_service,
         boost::asio::ip::udp::socket &&socket,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config = stream_config(),
@@ -77,7 +89,7 @@ public:
      * @throws std::invalid_argument if @a endpoint is not a multicast address
      */
     udp_stream(
-        boost::asio::io_service &io_service,
+        io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         std::size_t buffer_size,
@@ -98,7 +110,7 @@ public:
      * @throws std::invalid_argument if @a interface_address is not an IPv4 address
      */
     udp_stream(
-        boost::asio::io_service &io_service,
+        io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         std::size_t buffer_size,
@@ -121,7 +133,7 @@ public:
      * @see if_nametoindex(3)
      */
     udp_stream(
-        boost::asio::io_service &io_service,
+        io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         std::size_t buffer_size,

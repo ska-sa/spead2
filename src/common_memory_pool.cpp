@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -29,48 +29,39 @@ namespace spead2
 {
 
 memory_pool::memory_pool()
-    : memory_pool(nullptr, 0, 0, 0, 0, 0, nullptr)
+    : memory_pool(boost::none, 0, 0, 0, 0, 0, nullptr)
 {
 }
 
 memory_pool::memory_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
                          std::shared_ptr<memory_allocator> allocator)
-    : memory_pool(nullptr, lower, upper, max_free, initial, 0, std::move(allocator))
+    : memory_pool(boost::none, lower, upper, max_free, initial, 0, std::move(allocator))
 {
 }
 
 memory_pool::memory_pool(
-    boost::asio::io_service &io_service,
+    io_service_ref io_service,
     std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
     std::size_t low_water,
     std::shared_ptr<memory_allocator> allocator)
-    : memory_pool(&io_service, lower, upper, max_free, initial, low_water, std::move(allocator))
+    : memory_pool(boost::optional<io_service_ref>(std::move(io_service)),
+                  lower, upper, max_free, initial, low_water, std::move(allocator))
 {
 }
 
 memory_pool::memory_pool(
-    thread_pool &tpool,
+    boost::optional<io_service_ref> io_service,
     std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
     std::size_t low_water,
     std::shared_ptr<memory_allocator> allocator)
-    : memory_pool(&tpool.get_io_service(), lower, upper, max_free, initial, low_water,
-                  std::move(allocator))
-{
-}
-
-memory_pool::memory_pool(
-    boost::asio::io_service *io_service,
-    std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
-    std::size_t low_water,
-    std::shared_ptr<memory_allocator> allocator)
-    : io_service(io_service), lower(lower), upper(upper), max_free(max_free),
+    : io_service(std::move(io_service)), lower(lower), upper(upper), max_free(max_free),
     initial(initial), low_water(low_water),
     base_allocator(allocator ? move(allocator) : std::make_shared<memory_allocator>())
 {
     assert(lower <= upper);
     assert(initial <= max_free);
     assert(low_water <= initial);
-    assert(low_water == 0 || io_service != nullptr);
+    assert(low_water == 0 || io_service);
     for (std::size_t i = 0; i < initial; i++)
         pool.emplace(base_allocator->allocate(upper, nullptr));
 }
@@ -150,7 +141,7 @@ memory_pool::pointer memory_pool::allocate(std::size_t size, void *hint)
                 // C++ (or at least GCC) won't let me capture the members by value directly
                 const std::size_t upper = this->upper;
                 std::shared_ptr<memory_allocator> allocator = base_allocator;
-                io_service->post([upper, allocator, weak] {
+                (*io_service)->post([upper, allocator, weak] {
                     refill(upper, allocator, std::move(weak));
                 });
             }
