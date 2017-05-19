@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 1.3.0
 
 - Rewrite the Python wrapping using pybind11. This should not cause any
   compatibility problems, unless you're using the :file:`spead2/py_*.h`
