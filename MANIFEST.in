@@ -2,7 +2,7 @@ global-include Makefile.in
 exclude src/common_features.h
 exclude .gitignore
 include configure
-include 3rdparty
+graft 3rdparty
 graft build-aux
 prune doc/_build
 prune doc/doxygen
