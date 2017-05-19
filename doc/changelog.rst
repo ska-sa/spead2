@@ -3,13 +3,13 @@ Changelog
 
 .. rubric:: Development version
 
-- Prevent constructing a :py:class:`spead2.recv.Stream` with
-  ``max_heaps=0`` (fixes #54).
-- Allow passing :cpp:class:`std::shared_ptr<thread_pool>` to constructors that
-  take a thread pool, with the constructed object holding a reference.
 - Rewrite the Python wrapping using pybind11. This should not cause any
   compatibility problems, unless you're using the :file:`spead2/py_*.h`
   headers.
+- Allow passing :cpp:class:`std::shared_ptr<thread_pool>` to constructors that
+  take a thread pool, with the constructed object holding a reference.
+- Prevent constructing a :py:class:`spead2.recv.Stream` with
+  ``max_heaps=0`` (fixes #54).
 
 .. rubric:: Version 1.2.2
 
