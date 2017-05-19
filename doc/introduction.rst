@@ -20,11 +20,11 @@ PySPEAD_ implementation, spead2:
 
 Preparation
 -----------
-spead2 requires a modern C++ compiler supporting C++11 (currently only GCC 4.8
-and Clang 3.4 have been tried) as well as Boost (including compiled libraries).
-The Python bindings have additional dependencies — see below. At the moment
-only GNU/Linux has been tested but other POSIX-like systems should work too (OS
-X is tested occasionally).
+spead2 requires a modern C++ compiler supporting C++11 (GCC 4.8+ or Clang 3.5+)
+as well as Boost (including compiled libraries). The Python bindings have
+additional dependencies — see below. At the moment only GNU/Linux and OS X get
+tested but other POSIX-like systems should work too. There are no plans to
+support Windows.
 
 There is optional support for netmap_ and ibverbs_ for higher performance. If
 the libraries (including development headers) libraries are installed, they
@@ -53,7 +53,7 @@ The only Python dependencies are numpy_ and six_, although support for
 asynchronous I/O also requires trollius_. Running the test suite additionally
 requires nose_, decorator_ and netifaces_, and some tests depend on PySPEAD_
 (they will be skipped if it is not installed). It is also necessary to have the
-development headers for Python, and Boost.Python.
+development headers for Python.
 
 To install (which will automatically pull in the mandatory dependencies), run::
 
