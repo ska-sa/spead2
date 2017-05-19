@@ -27,13 +27,6 @@ import re
 import subprocess
 
 
-try:
-    import numpy
-    numpy_include = numpy.get_include()
-except ImportError:
-    numpy_include = None
-
-
 def find_version():
     # Cannot simply import it, since that tries to import spead2 as well, which
     # isn't built yet.
@@ -83,7 +76,7 @@ if not rtd:
                      glob.glob('src/py_*.cpp')),
             depends=glob.glob('include/spead2/*.h'),
             language='c++',
-            include_dirs=['include', '3rdparty/pybind11/include', numpy_include],
+            include_dirs=['include', '3rdparty/pybind11/include'],
             extra_compile_args=['-std=c++11', '-g0', '-fvisibility=hidden'],
             libraries=libraries)
     ]
@@ -109,7 +102,6 @@ setup(
     ext_package='spead2',
     ext_modules=extensions,
     cmdclass={'build_ext': BuildExt},
-    setup_requires=['numpy'],
     install_requires=['numpy>=1.9.2', 'six'],
     tests_require=['netifaces', 'nose', 'decorator', 'trollius'],
     test_suite='nose.collector',
