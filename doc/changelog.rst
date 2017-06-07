@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Version 1.3.1
+
+- Fix multi-endpoint form of
+  :py:meth:`spead2.recv.Stream.add_udp_ibv_reader`.
+
 .. rubric:: Version 1.3.0
 
 - Rewrite the Python wrapping using pybind11. This should not cause any

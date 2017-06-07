@@ -254,16 +254,16 @@ public:
         int comp_vector,
         int max_poll)
     {
-        py::gil_scoped_release gil;
         // TODO: could this conversion be done by a custom caster?
         std::vector<boost::asio::ip::udp::endpoint> endpoints2;
         for (size_t i = 0; i < len(endpoints); i++)
         {
             py::sequence endpoint = endpoints[i].cast<py::sequence>();
             std::string multicast_group = endpoint[0].cast<std::string>();
-            std::uint16_t port = endpoint[1].cast<int>();
+            std::uint16_t port = endpoint[1].cast<std::uint16_t>();
             endpoints2.push_back(make_endpoint(multicast_group, port));
         }
+        py::gil_scoped_release gil;
         emplace_reader<udp_ibv_reader>(endpoints2, make_address(interface_address),
                                        max_size, buffer_size, comp_vector, max_poll);
     }
