@@ -56,8 +56,8 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
       Set or change the memory allocator for a stream. See
       :ref:`py-memory-allocators` for details.
 
-      :param pool: New memory allocator
-      :type pool: :py:class:`spead2.MemoryAllocator`
+      :param allocator: New memory allocator
+      :type allocator: :py:class:`spead2.MemoryAllocator`
 
    .. py:method:: set_memcpy(id)
 
