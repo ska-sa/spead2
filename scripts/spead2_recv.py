@@ -28,6 +28,7 @@ import spead2.recv
 import spead2.recv.trollius
 import logging
 import argparse
+import signal
 import trollius
 from trollius import From
 
@@ -69,37 +70,39 @@ def get_args():
 
 @trollius.coroutine
 def run_stream(stream, name, args):
-    item_group = spead2.ItemGroup()
-    num_heaps = 0
-    while True:
-        try:
-            if num_heaps == args.max_heaps:
-                stream.stop()
-                break
-            heap = yield From(stream.get())
-            print("Received heap {} on stream {}".format(heap.cnt, name))
-            num_heaps += 1
+    try:
+        item_group = spead2.ItemGroup()
+        num_heaps = 0
+        while True:
             try:
-                if args.descriptors:
-                    for raw_descriptor in heap.get_descriptors():
-                        descriptor = spead2.Descriptor.from_raw(raw_descriptor, heap.flavour)
-                        print('''\
-Descriptor for {0.name} ({0.id:#x})
-  description: {0.description}
-  format:      {0.format}
-  dtype:       {0.dtype}
-  shape:       {0.shape}'''.format(descriptor))
-                changed = item_group.update(heap)
-                for (key, item) in changed.items():
-                    if args.values:
-                        print(key, '=', item.value)
-                    else:
-                        print(key)
-            except ValueError as e:
-                print("Error raised processing heap: {}".format(e))
-        except spead2.Stopped:
-            print("Shutting down stream {} after {} heaps".format(name, num_heaps))
-            break
+                if num_heaps == args.max_heaps:
+                    break
+                heap = yield From(stream.get())
+                print("Received heap {} on stream {}".format(heap.cnt, name))
+                num_heaps += 1
+                try:
+                    if args.descriptors:
+                        for raw_descriptor in heap.get_descriptors():
+                            descriptor = spead2.Descriptor.from_raw(raw_descriptor, heap.flavour)
+                            print('''\
+    Descriptor for {0.name} ({0.id:#x})
+      description: {0.description}
+      format:      {0.format}
+      dtype:       {0.dtype}
+      shape:       {0.shape}'''.format(descriptor))
+                    changed = item_group.update(heap)
+                    for (key, item) in changed.items():
+                        if args.values:
+                            print(key, '=', item.value)
+                        else:
+                            print(key)
+                except ValueError as e:
+                    print("Error raised processing heap: {}".format(e))
+            except spead2.Stopped:
+                print("Shutting down stream {} after {} heaps".format(name, num_heaps))
+                break
+    finally:
+        stream.stop()
 
 
 def main():
@@ -146,12 +149,14 @@ def main():
         coros = [make_coro(args.source)]
     else:
         coros = [make_coro([source]) for source in args.source]
-    tasks = [trollius.async(x) for x in coros]
-    task = trollius.wait(tasks, return_when=trollius.FIRST_EXCEPTION)
-    trollius.get_event_loop().run_until_complete(task)
-    # Trigger any recorded exception
-    for t in tasks:
-        t.result()
+    main_task = trollius.ensure_future(trollius.gather(*coros))
+    loop = trollius.get_event_loop()
+    loop.add_signal_handler(signal.SIGINT, main_task.cancel)
+    try:
+        loop.run_until_complete(main_task)
+    except trollius.CancelledError:
+        pass
+    loop.close()
 
 
 if __name__ == '__main__':

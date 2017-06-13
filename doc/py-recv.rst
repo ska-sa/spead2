@@ -38,6 +38,14 @@ transports to it with :py:meth:`~spead2.recv.Stream.add_buffer_reader` and
 :py:meth:`~spead2.recv.Stream.add_udp_reader`. Then either iterate over it,
 or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
+.. warning::
+
+    It is important to call :py:meth:`~spead2.recv.Stream.stop` when you are
+    done with a stream. In some cases, failing to do so can lead to a segfault
+    when the Python interpreter shuts down, because the C++ thread that
+    listens for data will still be running and will have its data removed from
+    under it.
+
 .. py:class:: spead2.recv.Stream(thread_pool, bug_compat=0, max_heaps=4, ring_heaps=4)
 
    :param thread_pool: Thread pool handling the I/O

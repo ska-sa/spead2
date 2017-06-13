@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Fix segfault in shutdown for :file:`spead2_recv.py` (fixes #56).
+
 .. rubric:: Version 1.3.1
 
 - Fix multi-endpoint form of
