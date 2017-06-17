@@ -98,6 +98,8 @@ public:
 class ring_stream_wrapper : public ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore> >
 {
 private:
+    exit_stopper stopper{[this] { stop(); }};
+
     boost::asio::ip::address make_address(const std::string &hostname)
     {
         if (hostname.empty())
@@ -117,7 +119,12 @@ private:
     }
 
 public:
-    using ring_stream::ring_stream;
+    // Can't use using ring_stream::ring_stream because exit_stopper is not
+    // default-constructible.
+    template<typename ...Args>
+    explicit ring_stream_wrapper(Args&&... args)
+        : ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore>>(
+            std::forward<Args>(args)...) {}
 
     heap next()
     {
@@ -271,6 +278,7 @@ public:
 
     void stop()
     {
+        stopper.reset();
         py::gil_scoped_release gil;
         ring_stream::stop();
     }

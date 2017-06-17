@@ -23,6 +23,8 @@
 #include <pybind11/operators.h>
 #include <boost/system/system_error.hpp>
 #include <memory>
+#include <list>
+#include <functional>
 #include <spead2/py_common.h>
 #include <spead2/common_ringbuffer.h>
 #include <spead2/common_defines.h>
@@ -35,6 +37,33 @@ namespace py = pybind11;
 
 namespace spead2
 {
+
+namespace detail
+{
+
+static std::list<std::function<void()>> stop_entries;
+
+static void run_exit_stoppers()
+{
+    while (!stop_entries.empty())
+        stop_entries.front()();
+}
+
+} // namespace detail
+
+exit_stopper::exit_stopper(std::function<void()> callback)
+    : entry(detail::stop_entries.insert(detail::stop_entries.begin(), std::move(callback)))
+{
+}
+
+void exit_stopper::reset()
+{
+    if (entry != detail::stop_entries.end())
+    {
+        detail::stop_entries.erase(entry);
+        entry = detail::stop_entries.end();
+    }
+}
 
 static void translate_exception_boost_io_error(std::exception_ptr p)
 {
@@ -57,6 +86,7 @@ thread_pool_wrapper::~thread_pool_wrapper()
 
 void thread_pool_wrapper::stop()
 {
+    stopper.reset();
     py::gil_scoped_release gil;
     thread_pool::stop();
 }
@@ -185,6 +215,9 @@ py::module register_module()
     py::object logging_module = py::module::import("logging");
     py::object logger = logging_module.attr("getLogger")("spead2");
     set_log_function(log_function_python(logger));
+
+    py::capsule cleanup(detail::run_exit_stoppers);
+    m.add_object("_cleanup", cleanup);
 
     return m;
 }

@@ -26,8 +26,10 @@
 #include <boost/system/system_error.hpp>
 #include <cassert>
 #include <mutex>
+#include <list>
 #include <stdexcept>
 #include <type_traits>
+#include <functional>
 #include <spead2/common_memory_allocator.h>
 #include <spead2/common_memory_pool.h>
 #include <spead2/common_thread_pool.h>
@@ -64,12 +66,40 @@ static inline pybind11::cpp_function bytes_setter(std::string T::*ptr)
 }
 
 /**
+ * Helper to ensure that an asynchronous class is stopped when the module is
+ * unloaded. A class that launches work asynchronously should contain one of
+ * these as a member. It is initialised with a function object that stops the
+ * work of the class. The stop function must in turn call @ref reset.
+ */
+class exit_stopper
+{
+private:
+    std::list<std::function<void()>>::iterator entry;
+
+public:
+    explicit exit_stopper(std::function<void()> callback);
+
+    /// Deregister the callback
+    void reset();
+
+    ~exit_stopper() { reset(); }
+};
+
+/**
  * Wrapper around @ref thread_pool that drops the GIL during blocking operations.
  */
 class thread_pool_wrapper : public thread_pool
 {
+private:
+    exit_stopper stopper{[this] { stop(); }};
 public:
-    using thread_pool::thread_pool;
+    /* Simply using thread_pool::thread_pool doesn't work because the default
+     * constructor is deleted as stopper is not default-constructible, even
+     * though it doesn't actually need to be.
+     */
+    template<typename ...Args>
+    explicit thread_pool_wrapper(Args&&... args)
+        : thread_pool(std::forward<Args>(args)...) {}
 
     ~thread_pool_wrapper();
     void stop();
