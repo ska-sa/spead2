@@ -365,13 +365,13 @@ class Item(Descriptor):
         """
         have_bits = 0
         bits = 0
-        byte_source = iter(bytearray(raw_value))
+        byte_source = iter(raw_value)
         result = 0
         while True:
             need_bits = yield result
             while have_bits < need_bits:
                 try:
-                    bits = (bits << 8) | next(byte_source)
+                    bits = (bits << 8) | int(next(byte_source))
                     have_bits += 8
                 except StopIteration:
                     return

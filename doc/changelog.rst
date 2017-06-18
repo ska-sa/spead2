@@ -4,6 +4,8 @@ Changelog
 .. rubric:: Development version
 
 - Fix segfault in shutdown for :file:`spead2_recv.py` (fixes #56).
+- Fix for :py:exc:`TypeError` in Python 3.6 when reading fields that aren't
+  aligned to byte boundaries.
 
 .. rubric:: Version 1.3.1
 
