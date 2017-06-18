@@ -1,0 +1,6 @@
+netifaces
+numpy
+nose
+decorator
+six
+trollius
