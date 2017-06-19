@@ -35,6 +35,7 @@ if rtd:
     sys.modules.update((mod_name, unittest.mock.Mock()) for mod_name in MOCK_MODULES)
     # Mocking certain classes causes subclasses not to be documented properly
     sys.modules['spead2._spead2.send'].UdpStreamAsyncio = object
+    sys.modules['spead2._spead2.send'].UdpIbvStreamAsyncio = object
 
 # -- General configuration ------------------------------------------------
 
