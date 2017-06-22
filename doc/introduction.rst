@@ -20,15 +20,9 @@ PySPEAD_ implementation, spead2:
 
 Preparation
 -----------
-spead2 requires a modern C++ compiler supporting C++11 (GCC 4.8+ or Clang 3.5+)
-as well as Boost (including compiled libraries). The Python bindings have
-additional dependencies — see below. At the moment only GNU/Linux and OS X get
-tested but other POSIX-like systems should work too. There are no plans to
-support Windows.
-
 There is optional support for netmap_ and ibverbs_ for higher performance. If
-the libraries (including development headers) libraries are installed, they
-will automatically be detected and used.
+the libraries (including development headers) are installed, they will be
+detected automatically and support for them will be included.
 
 .. _netmap: https://github.com/luigirizzo/netmap
 .. _ibverbs: https://www.openfabrics.org/downloads/libibverbs/README.html
@@ -55,11 +49,9 @@ requires nose_, decorator_ and netifaces_, and some tests depend on PySPEAD_
 (they will be skipped if it is not installed). It is also necessary to have the
 development headers for Python.
 
-To install (which will automatically pull in the mandatory dependencies), run::
-
-    ./setup.py install
-
-Other standard methods for installing Python packages should work too.
+There are two ways to install spead2 for Python: compiling from source and
+installing a binary wheel. The binary wheels are experimental and only
+recommended if installing from source is not an option.
 
 .. _numpy: http://www.numpy.org
 .. _six: https://pythonhosted.org/six/
@@ -67,8 +59,39 @@ Other standard methods for installing Python packages should work too.
 .. _decorator: http://pythonhosted.org/decorator/
 .. _netifaces: https://pypi.python.org/pypi/netifaces
 
+Python install from source
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+Installing from source requires a modern C++ compiler supporting C++11 (GCC
+4.8+ or Clang 3.5+) as well as Boost (including compiled libraries). At the
+moment only GNU/Linux and OS X get tested but other POSIX-like systems should
+work too. There are no plans to support Windows.
+
+Installation works with standard Python installation methods. For example, to
+install the latest version from PyPI, run::
+
+    pip install spead2
+
+Installing a binary wheel
+^^^^^^^^^^^^^^^^^^^^^^^^^
+As from version 1.3.2, binary wheels for x86-64 Linux systems are placed on the
+Github `release page`_. They are still experimental, lack the optional features,
+and may be slower than installs from source because they are compiled with an
+old compiler. They are mainly intended for systems where it is not practical
+to install a new enough C++ compiler or Boost. For this reason, they are
+currently *not* provided through PyPI.
+
+.. _release page: https://github.com/ska-sa/spead2/releases
+
+After downloading the appropriate wheel for your Python version, install it
+with :samp:`pip install {filename}`.
+
 Installing spead2 for C++
 -------------------------
+spead2 requires a modern C++ compiler supporting C++11 (GCC 4.8+ or Clang 3.5+)
+as well as Boost (including compiled libraries). At the moment only GNU/Linux
+and OS X get tested but other POSIX-like systems should work too. There are no
+plans to support Windows.
+
 The C++ API uses the standard autoconf installation flow i.e.:
 
 .. code-block:: sh
