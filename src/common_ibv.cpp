@@ -1,4 +1,4 @@
-/* Copyright 2016 SKA South Africa
+/* Copyright 2016, 2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -114,6 +114,31 @@ ibv_cq_t::ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context)
     reset(cq);
 }
 
+#if SPEAD2_USE_IBV_EXP
+ibv_cq_t::ibv_cq_t(
+    const rdma_cm_id_t &cm_id, int cqe, void *context,
+    const ibv_comp_channel_t &comp_channel, int comp_vector,
+    ibv_exp_cq_init_attr *attr)
+{
+    errno = 0;
+    ibv_cq *cq = ibv_exp_create_cq(cm_id->verbs, cqe, context, comp_channel.get(), comp_vector, attr);
+    if (!cq)
+        throw_errno("ibv_create_cq failed");
+    reset(cq);
+}
+
+ibv_cq_t::ibv_cq_t(
+    const rdma_cm_id_t &cm_id, int cqe, void *context,
+    ibv_exp_cq_init_attr *attr)
+{
+    errno = 0;
+    ibv_cq *cq = ibv_exp_create_cq(cm_id->verbs, cqe, context, nullptr, 0, attr);
+    if (!cq)
+        throw_errno("ibv_create_cq failed");
+    reset(cq);
+}
+#endif // SPEAD2_USE_IBV_EXP
+
 void ibv_cq_t::req_notify(bool solicited_only)
 {
     assert(get());
@@ -130,6 +155,17 @@ int ibv_cq_t::poll(int num_entries, ibv_wc *wc)
         throw_errno("ibv_poll_cq failed");
     return received;
 }
+
+#if SPEAD2_USE_IBV_EXP
+int ibv_cq_t::poll(int num_entries, ibv_exp_wc *wc)
+{
+    assert(get());
+    int received = ibv_exp_poll_cq(get(), num_entries, wc, sizeof(wc[0]));
+    if (received < 0)
+        throw_errno("ibv_exp_poll_cq failed");
+    return received;
+}
+#endif
 
 void ibv_cq_t::ack_events(unsigned int nevents)
 {

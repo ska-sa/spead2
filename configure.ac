@@ -62,6 +62,17 @@ SPEAD2_ARG_WITH(
 )
 
 SPEAD2_ARG_WITH(
+    [ibv_exp],
+    [AS_HELP_STRING([--without-ibv-exp], [Do not use verbs_exp.h, even if detected])],
+    [SPEAD2_USE_IBV_EXP],
+    [SPEAD2_USE_IBV_EXP=1
+     SPEAD2_CHECK_HEADER(
+        [infiniband/verbs_exp.h], [ibverbs], [ibv_exp_create_cq(NULL, 0, NULL, NULL, 0, NULL)],
+        [], [SPEAD2_USE_IBV_EXP=0])
+    ]
+)
+
+SPEAD2_ARG_WITH(
     [netmap],
     [AS_HELP_STRING([--without-netmap], [Do not use netmap, even if detected])],
     [SPEAD2_USE_NETMAP],
@@ -158,6 +169,7 @@ AM_CONDITIONAL([DEBUG_LOG], [test "x$enable_debug_log" = "xyes"])
 AM_CONDITIONAL([OPTIMIZED], [test "x$enable_optimized" != "xno"])
 AM_CONDITIONAL([LTO], [test "x$enable_lto" = "xyes"])
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
+AM_CONDITIONAL([SPEAD2_USE_IBV_EP], [test "x$SPEAD2_USE_IBV_EXP" = "x1"])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile

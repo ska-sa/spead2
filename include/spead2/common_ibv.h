@@ -1,4 +1,4 @@
-/* Copyright 2016 SKA South Africa
+/* Copyright 2016, 2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -31,6 +31,10 @@
 #include <boost/asio.hpp>
 
 #if SPEAD2_USE_IBV
+
+#if SPEAD2_USE_IBV_EXP
+# include <infiniband/verbs_exp.h>
+#endif
 
 namespace spead2
 {
@@ -139,10 +143,21 @@ public:
     ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context);
     ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context,
              const ibv_comp_channel_t &comp_channel, int comp_vector);
+#if SPEAD2_USE_IBV_EXP
+    ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context,
+             ibv_exp_cq_init_attr *attr);
+    ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context,
+             const ibv_comp_channel_t &comp_channel, int comp_vector,
+             ibv_exp_cq_init_attr *attr);
+#endif
 
     void req_notify(bool solicited_only);
     int poll(int num_entries, ibv_wc *wc);
     void ack_events(unsigned int nevents);
+
+#if SPEAD2_USE_IBV_EXP
+    int poll(int num_entries, ibv_exp_wc *wc);
+#endif
 };
 
 class ibv_pd_t : public std::unique_ptr<ibv_pd, detail::ibv_pd_deleter>

@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add support for packet timestamping in mcdump.
+
 .. rubric:: Version 1.3.2
 
 - Fix segfault in shutdown for :file:`spead2_recv.py` (fixes #56).

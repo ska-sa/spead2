@@ -1,4 +1,4 @@
-/* Copyright 2016 SKA South Africa
+/* Copyright 2016, 2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -172,7 +172,7 @@ struct file_header
 struct record_header
 {
     std::uint32_t ts_sec = 0;
-    std::uint32_t ts_usec = 0;
+    std::uint32_t ts_nsec = 0;
     std::uint32_t incl_len;
     std::uint32_t orig_len;
 };
@@ -394,6 +394,14 @@ private:
     std::uint64_t packets = 0;
     std::uint64_t bytes = 0;
 
+#if SPEAD2_USE_IBV_EXP
+    bool timestamp_support = false;
+    // To convert HW timestamps to nanoseconds
+    double hca_ns_per_clock = 0.0;
+    std::uint64_t timestamp_subtract = 0; // initial HW timestamp in ticks
+    std::uint64_t timestamp_add = 0;      // initial system timestamp in ns
+#endif
+
     chunk make_chunk(spead2::memory_allocator &allocator);
     void add_to_free(chunk &&c);
 
@@ -494,7 +502,11 @@ void capture::network_thread()
 {
     if (opts.network_affinity >= 0)
         spead2::thread_pool::set_affinity(opts.network_affinity);
+#if SPEAD2_USE_IBV_EXP
+    std::unique_ptr<ibv_exp_wc[]> wc(new ibv_exp_wc[max_records]);
+#else
     std::unique_ptr<ibv_wc[]> wc(new ibv_wc[max_records]);
+#endif
     while (!stop.load())
     {
         chunk c = free_ring.pop();
@@ -516,8 +528,24 @@ void capture::network_thread()
                 {
                     std::size_t idx = wc[i].wr_id;
                     assert(idx == c.n_records);
-                    c.entries[idx].record.incl_len = wc[i].byte_len;
-                    c.entries[idx].record.orig_len = wc[i].byte_len;
+                    record_header &record = c.entries[idx].record;
+                    record.incl_len = wc[i].byte_len;
+                    record.orig_len = wc[i].byte_len;
+#if SPEAD2_USE_IBV_EXP
+                    if (timestamp_support && (wc[i].exp_wc_flags & IBV_EXP_WC_WITH_TIMESTAMP))
+                    {
+                        std::uint64_t ticks = wc[i].timestamp - timestamp_subtract;
+                        std::uint64_t ns = std::uint64_t(ticks * hca_ns_per_clock);
+                        ns += timestamp_add;
+                        record.ts_sec = ns / 1000000000;
+                        record.ts_nsec = ns % 1000000000;
+                    }
+                    else
+                    {
+                        record.ts_sec = 0;
+                        record.ts_nsec = 0;
+                    }
+#endif
                     c.iov[2 * idx + 1].iov_len = wc[i].byte_len;
                     c.n_records++;
                     c.n_bytes += wc[i].byte_len + sizeof(record_header);
@@ -657,7 +685,7 @@ void capture::run()
         endpoints.push_back(make_endpoint(s));
     boost::asio::ip::address_v4 interface_address;
     try
-    {   
+    {
         interface_address = boost::asio::ip::address_v4::from_string(opts.interface);
     }
     catch (std::exception)
@@ -671,7 +699,48 @@ void capture::run()
     std::uint32_t n_slots = n_chunks * max_records;
     cm_id = spead2::rdma_cm_id_t(event_channel, nullptr, RDMA_PS_UDP);
     cm_id.bind_addr(interface_address);
+#if SPEAD2_USE_IBV_EXP
+    timestamp_support = true;
+    // Get tick rate of the HW timestamp counter
+    {
+        ibv_exp_device_attr device_attr = {};
+        device_attr.comp_mask = IBV_EXP_DEVICE_ATTR_WITH_HCA_CORE_CLOCK;
+        int ret = ibv_exp_query_device(cm_id->verbs, &device_attr);
+        if (ret == 0 && (device_attr.comp_mask & IBV_EXP_DEVICE_ATTR_WITH_HCA_CORE_CLOCK))
+            hca_ns_per_clock = 1e3 / device_attr.hca_core_clock;  // hca_core_clock is in MHz
+        else
+        {
+            spead2::log_warning("could not query hca_core_clock: timestamps disabled");
+            timestamp_support = false;
+        }
+    }
+    // Get current value of HW timestamp counter, to subtract
+    if (timestamp_support)
+    {
+        ibv_exp_values values = {};
+        values.comp_mask = IBV_EXP_VALUES_HW_CLOCK;
+        int ret = ibv_exp_query_values(cm_id->verbs, IBV_EXP_VALUES_HW_CLOCK, &values);
+        if (ret == 0 && (values.comp_mask & IBV_EXP_VALUES_HW_CLOCK))
+        {
+            timestamp_subtract = values.hwclock;
+            timespec now;
+            clock_gettime(CLOCK_REALTIME, &now);
+            timestamp_add = now.tv_sec * std::uint64_t(1000000000) + now.tv_nsec;
+        }
+        else
+        {
+            spead2::log_warning("could not query current HW time: timestamps disabled");
+            timestamp_support = false;
+        }
+    }
+
+    ibv_exp_cq_init_attr cq_attr = {};
+    cq_attr.flags = IBV_EXP_CQ_TIMESTAMP;
+    cq_attr.comp_mask = IBV_EXP_CQ_INIT_ATTR_FLAGS;
+    cq = spead2::ibv_cq_t(cm_id, n_slots, nullptr, &cq_attr);
+#else
     cq = spead2::ibv_cq_t(cm_id, n_slots, nullptr);
+#endif
     pd = spead2::ibv_pd_t(cm_id);
     qp = create_qp(pd, cq, n_slots);
     qp.modify(IBV_QPS_INIT, cm_id->port_num);
