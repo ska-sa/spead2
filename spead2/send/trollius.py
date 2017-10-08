@@ -23,62 +23,67 @@ import spead2.send
 from spead2._spead2.send import UdpStreamAsyncio as _UdpStreamAsyncio
 
 
-class _UdpStreamMixin(object):
-    """Mixin class used to define :class:`UdpStream` and :class:`UdpIbvStream`."""
-    def __init__(self, *args, **kwargs):
-        self._loop = kwargs.pop('loop', None)
-        if self._loop is None:
-            self._loop = trollius.get_event_loop()
-        self._active = 0
-        self._last_queued_future = None
-        super(_UdpStreamMixin, self).__init__(*args, **kwargs)
+def _wrap_class(name, base_class):
+    class Wrapped(base_class):
+        def __init__(self, *args, **kwargs):
+            self._loop = kwargs.pop('loop', None)
+            super(Wrapped, self).__init__(*args, **kwargs)
+            if self._loop is None:
+                self._loop = trollius.get_event_loop()
+            self._active = 0
+            self._last_queued_future = None
 
-    def async_send_heap(self, heap, cnt=-1, loop=None):
-        """Send a heap asynchronously. Note that this is *not* a coroutine:
-        it returns a future. Adding the heap to the queue is done
-        synchronously, to ensure proper ordering.
+        def async_send_heap(self, heap, cnt=-1, loop=None):
+            """Send a heap asynchronously. Note that this is *not* a coroutine:
+            it returns a future. Adding the heap to the queue is done
+            synchronously, to ensure proper ordering.
 
-        Parameters
-        ----------
-        heap : :py:class:`spead2.send.Heap`
-            Heap to send
-        cnt : int, optional
-            Heap cnt to send (defaults to auto-incrementing)
-        loop : :py:class:`trollius.BaseEventLoop`, optional
-            Event loop to use, overriding the constructor.
-        """
+            Parameters
+            ----------
+            heap : :py:class:`spead2.send.Heap`
+                Heap to send
+            cnt : int, optional
+                Heap cnt to send (defaults to auto-incrementing)
+            loop : :py:class:`trollius.BaseEventLoop`, optional
+                Event loop to use, overriding the constructor.
+            """
 
-        if loop is None:
-            loop = self._loop
-        future = trollius.Future(loop=self._loop)
+            if loop is None:
+                loop = self._loop
+            future = trollius.Future(loop=self._loop)
 
-        def callback(exc, bytes_transferred):
-            if exc is not None:
-                future.set_exception(exc)
-            else:
-                future.set_result(bytes_transferred)
-            self._active -= 1
+            def callback(exc, bytes_transferred):
+                if exc is not None:
+                    future.set_exception(exc)
+                else:
+                    future.set_result(bytes_transferred)
+                self._active -= 1
+                if self._active == 0:
+                    self._loop.remove_reader(self.fd)
+                    self._last_queued_future = None  # Purely to free the memory
+            queued = super(Wrapped, self).async_send_heap(heap, callback, cnt)
             if self._active == 0:
-                self._loop.remove_reader(self.fd)
-                self._last_queued_future = None  # Purely to free the memory
-        queued = super(_UdpStreamMixin, self).async_send_heap(heap, callback, cnt)
-        if self._active == 0:
-            self._loop.add_reader(self.fd, self.process_callbacks)
-        self._active += 1
-        if queued:
-            self._last_queued_future = future
-        return future
+                self._loop.add_reader(self.fd, self.process_callbacks)
+            self._active += 1
+            if queued:
+                self._last_queued_future = future
+            return future
 
-    @trollius.coroutine
-    def async_flush(self):
-        """Asynchronously wait for all enqueued heaps to be sent. Note that
-        this only waits for heaps passed to :meth:`async_send_heap` prior to
-        this call, not ones added while waiting."""
-        future = self._last_queued_future
-        if future is not None:
-            yield From(trollius.wait([future]))
+        @trollius.coroutine
+        def async_flush(self):
+            """Asynchronously wait for all enqueued heaps to be sent. Note that
+            this only waits for heaps passed to :meth:`async_send_heap` prior to
+            this call, not ones added while waiting."""
+            future = self._last_queued_future
+            if future is not None:
+                yield From(trollius.wait([future]))
 
-class UdpStream( _UdpStreamMixin, _UdpStreamAsyncio):
+    Wrapped.__name__ = name
+    return Wrapped
+
+
+UdpStream = _wrap_class('UdpStream', _UdpStreamAsyncio)
+UdpStream.__doc__ = \
     """SPEAD over UDP with asynchronous sends. The other constructors
     defined for :py:class:`spead2.send.UdpStream` are also applicable here.
 
@@ -98,13 +103,12 @@ class UdpStream( _UdpStreamMixin, _UdpStreamAsyncio):
     loop : :py:class:`trollius.BaseEventLoop`, optional
         Event loop to use (defaults to ``trollius.get_event_loop()``)
     """
-    def __init__(self, *args, **kwargs):
-        super(UdpStream, self).__init__(*args, **kwargs)
 
 try:
     from spead2._spead2.send import UdpIbvStreamAsyncio as _UdpIbvStreamAsyncio
 
-    class UdpIbvStream(_UdpStreamMixin, _UdpIbvStreamAsyncio):
+    UdpIbvStream = _wrap_class('UdpIbvStream', _UdpIbvStreamAsyncio)
+    UdpIbvStream.__doc__ = \
         """Like :class:`UdpStream`, but using the Infiniband Verbs API.
 
         Parameters
@@ -142,8 +146,6 @@ try:
         loop : :py:class:`trollius.BaseEventLoop`, optional
             Event loop to use (defaults to ``trollius.get_event_loop()``)
         """
-        def __init__(self, *args, **kwargs):
-            super(UdpIbvStream, self).__init__(*args, **kwargs)
 
 except ImportError:
-    pass   # C
+    pass
