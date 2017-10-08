@@ -102,12 +102,11 @@ py::buffer_info request_buffer_info(py::buffer &buffer, int extra_flags)
     return info;
 }
 
-py::module register_module()
+void register_module(py::module m)
 {
     using namespace spead2;
     using namespace pybind11::literals;
 
-    py::module m("spead2._spead2");
     py::register_exception<ringbuffer_stopped>(m, "Stopped");
     py::register_exception<ringbuffer_empty>(m, "Empty");
     py::register_exception_translator(translate_exception_boost_io_error);
@@ -218,8 +217,6 @@ py::module register_module()
 
     py::capsule cleanup(detail::run_exit_stoppers);
     m.add_object("_cleanup", cleanup);
-
-    return m;
 }
 
 } // namespace spead2

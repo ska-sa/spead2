@@ -161,7 +161,7 @@ public:
 // Like pybind11::buffer::request, but allows extra flags to be passed
 pybind11::buffer_info request_buffer_info(pybind11::buffer &buffer, int extra_flags);
 
-pybind11::module register_module();
+void register_module(pybind11::module m);
 
 namespace detail
 {

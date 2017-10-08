@@ -21,10 +21,9 @@
 
 namespace py = pybind11;
 
-PYBIND11_PLUGIN(_spead2)
+PYBIND11_MODULE(_spead2, m)
 {
-    py::module m = spead2::register_module();
+    spead2::register_module(m);
     spead2::recv::register_module(m);
     spead2::send::register_module(m);
-    return m.ptr();
 }
