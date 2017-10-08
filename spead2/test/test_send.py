@@ -22,6 +22,7 @@ import numpy as np
 import weakref
 import threading
 import time
+import gc
 from nose.tools import *
 
 
@@ -135,6 +136,9 @@ class TestEncode(object):
         packets = list(send.PacketGenerator(heap, 0x123456, 1472))
         assert_is_not_none(weak())
         del heap
+        # pypy needs multiple gc passes to wind it all up
+        for i in range(10):
+            gc.collect()
         assert_is_none(weak())
 
     def make_descriptor_numpy(self, id, name, description, shape, dtype_str, fortran_order):
