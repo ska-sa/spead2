@@ -4,6 +4,8 @@ Changelog
 .. rubric:: Development version
 
 - Add support for packet timestamping in mcdump.
+- Upgrade to pybind11 2.2.1 internally.
+- Some fixes for PyPy support.
 
 .. rubric:: Version 1.3.2
 
