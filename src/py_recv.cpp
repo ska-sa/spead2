@@ -299,7 +299,7 @@ py::module register_module(py::module &parent)
     // classes we define are added to this module rather than the root.
     py::module m = parent.def_submodule("recv");
 
-    spead2::class_<heap>(m, "Heap")
+    py::class_<heap>(m, "Heap")
         .def_property_readonly("cnt", SPEAD2_PTMF(heap, get_cnt))
         .def_property_readonly("flavour", SPEAD2_PTMF(heap, get_flavour))
         .def("get_items", [](const heap &h) -> py::list
@@ -318,12 +318,12 @@ py::module register_module(py::module &parent)
         })
         .def("get_descriptors", SPEAD2_PTMF(heap, get_descriptors))
         .def("is_start_of_stream", SPEAD2_PTMF(heap, is_start_of_stream));
-    spead2::class_<item_wrapper>(m, "RawItem", py::buffer_protocol())
+    py::class_<item_wrapper>(m, "RawItem", py::buffer_protocol())
         .def_readonly("id", &item_wrapper::id)
         .def_readonly("is_immediate", &item_wrapper::is_immediate)
         .def_readonly("immediate_value", &item_wrapper::immediate_value)
         .def_buffer([](item_wrapper &item) { return item.get_value(); });
-    spead2::class_<ring_stream_wrapper>(m, "Stream")
+    py::class_<ring_stream_wrapper>(m, "Stream")
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, bug_compat_mask, std::size_t, std::size_t>(),
              "thread_pool"_a, "bug_compat"_a = 0,
              "max_heaps"_a = ring_stream_wrapper::default_max_heaps,
