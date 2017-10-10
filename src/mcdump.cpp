@@ -706,8 +706,16 @@ void capture::run()
         ibv_exp_device_attr device_attr = {};
         device_attr.comp_mask = IBV_EXP_DEVICE_ATTR_WITH_HCA_CORE_CLOCK;
         int ret = ibv_exp_query_device(cm_id->verbs, &device_attr);
+        /* There is some confusion about the units of hca_core_clock. Mellanox
+         * documentation indicates it is in MHz
+         * (http://www.mellanox.com/related-docs/prod_software/Mellanox_OFED_Linux_User_Manual_v4.1.pdf)
+         * but their implementation in OFED 4.1 returns kHz. We work in kHz but if
+         * if the value is suspiciously small (< 10 MHz) we assume the units were MHz.
+         */
+        if (device_attr.hca_core_clock < 10000)
+            device_attr.hca_core_clock *= 1000;
         if (ret == 0 && (device_attr.comp_mask & IBV_EXP_DEVICE_ATTR_WITH_HCA_CORE_CLOCK))
-            hca_ns_per_clock = 1e3 / device_attr.hca_core_clock;  // hca_core_clock is in MHz
+            hca_ns_per_clock = 1e6 / device_attr.hca_core_clock;
         else
         {
             spead2::log_warning("could not query hca_core_clock: timestamps disabled");
