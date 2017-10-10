@@ -47,7 +47,6 @@ struct options
     bool pyspead = false;
     bool joint = false;
     std::size_t packet = spead2::recv::udp_reader::default_max_size;
-    std::string bind = "0.0.0.0";
     std::size_t buffer = spead2::recv::udp_reader::default_buffer_size;
     int threads = 1;
     std::size_t heaps = spead2::recv::stream::default_max_heaps;
@@ -101,7 +100,6 @@ static options parse_args(int argc, const char **argv)
         ("pyspead", make_opt(opts.pyspead), "Be bug-compatible with PySPEAD")
         ("joint", make_opt(opts.joint), "Treat all sources as a single stream")
         ("packet", make_opt(opts.packet), "Maximum packet size to use for UDP")
-        ("bind", make_opt(opts.bind), "Bind socket to this hostname")
         ("buffer", make_opt(opts.buffer), "Socket buffer size")
         ("threads", make_opt(opts.threads), "Number of worker threads")
         ("heaps", make_opt(opts.heaps), "Maximum number of in-flight heaps")
@@ -278,10 +276,23 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
     }
     if (opts.memcpy_nt)
         stream->set_memcpy(spead2::MEMCPY_NONTEMPORAL);
+#if SPEAD2_USE_IBV
+    std::vector<udp::endpoint> ibv_endpoints;
+#endif
     for (It i = first_source; i != last_source; ++i)
     {
+        std::string host = "";
+        std::string port;
+        auto colon = i->rfind(':');
+        if (colon != std::string::npos)
+        {
+            host = i->substr(0, colon);
+            port = i->substr(colon + 1);
+        }
+        else
+            port = *i;
         udp::resolver resolver(thread_pool.get_io_service());
-        udp::resolver::query query(opts.bind, *i);
+        udp::resolver::query query(host, port);
         udp::endpoint endpoint = *resolver.resolve(query);
 #if SPEAD2_USE_NETMAP
         if (opts.netmap_if != "")
@@ -294,10 +305,7 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
 #if SPEAD2_USE_IBV
         if (opts.ibv_if != "")
         {
-            boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(opts.ibv_if);
-            stream->emplace_reader<spead2::recv::udp_ibv_reader>(
-                endpoint, interface_address, opts.packet, opts.buffer,
-                opts.ibv_comp_vector, opts.ibv_max_poll);
+            ibv_endpoints.push_back(endpoint);
         }
         else
 #endif
@@ -305,6 +313,15 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
             stream->emplace_reader<spead2::recv::udp_reader>(endpoint, opts.packet, opts.buffer);
         }
     }
+#if SPEAD2_USE_IBV
+    if (!ibv_endpoints.empty())
+    {
+        boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(opts.ibv_if);
+        stream->emplace_reader<spead2::recv::udp_ibv_reader>(
+            ibv_endpoints, interface_address, opts.packet, opts.buffer,
+            opts.ibv_comp_vector, opts.ibv_max_poll);
+    }
+#endif
     return stream;
 }
 

@@ -4,6 +4,9 @@ Changelog
 .. rubric:: Development version
 
 - Add support for packet timestamping in mcdump.
+- Remove `--bind` option to :file:`spead2_recv.py` and :file:`spead2_recv`.
+  Instead, use :samp:`{host}:{port}` as the source. This allows subscribing to
+  multiple multicast groups.
 - Upgrade to pybind11 2.2.1 internally.
 - Some fixes for PyPy support.
 

@@ -35,7 +35,7 @@ from trollius import From
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('source', nargs='+', help='Sources (filenames and port numbers')
+    parser.add_argument('source', nargs='+', help='Sources (filename, host:port or port')
 
     group = parser.add_argument_group('Output options')
     group.add_argument('--log', metavar='LEVEL', default='INFO', help='Log level [%(default)s]')
@@ -47,7 +47,6 @@ def get_args():
     group.add_argument('--pyspead', action='store_true', help='Be bug-compatible with PySPEAD')
     group.add_argument('--joint', action='store_true', help='Treat all sources as a single stream')
     group.add_argument('--packet', type=int, default=spead2.recv.Stream.DEFAULT_UDP_MAX_SIZE, help='Maximum packet size to accept for UDP [%(default)s]')
-    group.add_argument('--bind', default='', help='Bind socket to this hostname or multicast group')
 
     group = parser.add_argument_group('Performance options')
     group.add_argument('--buffer', type=int, default=spead2.recv.Stream.DEFAULT_UDP_BUFFER_SIZE, help='Socket buffer size [%(default)s]')
@@ -113,21 +112,29 @@ def main():
             stream.set_memory_allocator(memory_pool)
         if args.memcpy_nt:
             stream.set_memcpy(spead2.MEMCPY_NONTEMPORAL)
+        ibv_endpoints = []
         for source in sources:
             try:
-                port = int(source)
+                if ':' in source:
+                    host, port = source.rsplit(':', 1)
+                    port = int(port)
+                else:
+                    host = None
+                    port = int(source)
             except ValueError:
                 with open(source, 'rb') as f:
                     text = f.read()
                 stream.add_buffer_reader(text)
             else:
                 if 'ibv' in args and args.ibv is not None:
-                    if not args.bind:
-                        raise ValueError('--bind is required to be a multicast group when using --ibv')
-                    stream.add_udp_ibv_reader(args.bind, port, args.ibv, args.packet,
-                                              args.buffer, args.ibv_vector, args.ibv_max_poll)
+                    if host is None:
+                        raise ValueError('a multicast group is required when using --ibv')
+                    ibv_endpoints.append((host, port))
                 else:
-                    stream.add_udp_reader(port, args.packet, args.buffer, args.bind)
+                    stream.add_udp_reader(port, args.packet, args.buffer, host)
+        if ibv_endpoints:
+            stream.add_udp_ibv_reader(ibv_endpoints, args.ibv, args.packet,
+                                      args.buffer, args.ibv_vector, args.ibv_max_poll)
         return stream
 
     def make_coro(sources):
