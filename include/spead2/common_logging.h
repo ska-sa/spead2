@@ -56,7 +56,11 @@ static inline void apply_format(boost::format &format, T0&& arg0, Ts&&... args)
 
 } // namespace detail
 
-void set_log_function(std::function<void(log_level, const std::string &)>);
+/**
+ * Set the callback used to display log messages, and return the old value.
+ */
+std::function<void(log_level, const std::string &)>
+set_log_function(std::function<void(log_level, const std::string &)>);
 
 /**
  * Log a plain string at a given log level. Do not append a final newline to @a msg.

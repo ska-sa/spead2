@@ -55,10 +55,11 @@ private:
     boost::optional<io_service_ref> io_service;
     const std::size_t lower, upper, max_free, initial, low_water;
     const std::shared_ptr<memory_allocator> base_allocator;
-    std::mutex mutex;
+    mutable std::mutex mutex;
     /// Free pool; these pointers are owned by the base allocator
     std::stack<pointer> pool;
     bool refilling = false;
+    bool warn_on_empty = true;
 
     virtual void free(std::uint8_t *ptr, void *user) override;
     // Makes ourself the owner
@@ -75,6 +76,8 @@ public:
                 std::shared_ptr<memory_allocator> allocator = nullptr);
     memory_pool(io_service_ref io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water,
                 std::shared_ptr<memory_allocator> allocator = nullptr);
+    bool get_warn_on_empty() const;
+    void set_warn_on_empty(bool warn);
     virtual pointer allocate(std::size_t size, void *hint) override;
 };
 

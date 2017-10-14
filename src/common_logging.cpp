@@ -45,9 +45,12 @@ static void default_log_function(log_level level, const std::string &msg)
 
 static std::function<void(log_level, const std::string &)> log_function = default_log_function;
 
-void set_log_function(std::function<void(log_level, const std::string &)> f)
+std::function<void(log_level, const std::string &)>
+set_log_function(std::function<void(log_level, const std::string &)> f)
 {
+    auto old = log_function;
     log_function = f;
+    return old;
 }
 
 namespace detail

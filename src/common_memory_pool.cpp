@@ -150,8 +150,13 @@ memory_pool::pointer memory_pool::allocate(std::size_t size, void *hint)
         }
         else
         {
+            // Copy the flag while the lock is held, to safely issue the
+            // warning after it is released.
+            bool warn = warn_on_empty;
             lock.unlock();
             ptr = convert(base_allocator->allocate(upper, nullptr));
+            if (warn)
+                log_warning("memory pool is empty when allocating %d bytes", size);
             log_debug("allocating %d bytes which will be added to the pool", size);
         }
     }
@@ -161,6 +166,18 @@ memory_pool::pointer memory_pool::allocate(std::size_t size, void *hint)
         ptr = base_allocator->allocate(size, nullptr);
     }
     return ptr;
+}
+
+void memory_pool::set_warn_on_empty(bool warn)
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    warn_on_empty = warn;
+}
+
+bool memory_pool::get_warn_on_empty() const
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    return warn_on_empty;
 }
 
 } // namespace spead2

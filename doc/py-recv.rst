@@ -227,3 +227,8 @@ being captured and stored indefinitely rather than processed and released.
      background task will be started and allocate new memory until `initial`
      buffers are available.
    :param MemoryAllocator allocator: Underlying memory allocator
+
+   .. py:attribute:: warn_on_error
+
+      Whether to issue a warning if the memory pool becomes empty and needs to
+      allocate new memory on request. It defaults to true.

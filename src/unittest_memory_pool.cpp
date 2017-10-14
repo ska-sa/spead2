@@ -1,8 +1,12 @@
 #include <boost/test/unit_test.hpp>
 #include <vector>
+#include <string>
+#include <map>
+#include <functional>
 #include <memory>
 #include <spead2/common_memory_pool.h>
 #include <spead2/common_thread_pool.h>
+#include <spead2/common_logging.h>
 
 namespace spead2
 {
@@ -19,6 +23,7 @@ BOOST_AUTO_TEST_CASE(memory_pool_refill)
     spead2::thread_pool tpool;
     std::shared_ptr<spead2::memory_pool> pool = std::make_shared<spead2::memory_pool>(
         tpool, 1024 * 1024, 2 * 1024 * 1024, 8, 4, 2);
+    pool->set_warn_on_empty(false);
     std::vector<spead2::memory_pool::pointer> pointers;
     for (int i = 0; i < 100; i++)
         pointers.push_back(pool->allocate(1024 * 1024, nullptr));
@@ -54,6 +59,30 @@ private:
     }
 };
 
+// Overrides the logger for a test to record all log messages
+class logger_fixture
+{
+private:
+    std::function<void(spead2::log_level, const std::string &)> old_logger;
+
+public:
+    std::map<log_level, std::vector<std::string>> messages;
+
+    logger_fixture()
+    {
+        auto logger = [this] (spead2::log_level level, const std::string &msg)
+        {
+            messages[level].push_back(msg);
+        };
+        old_logger = spead2::set_log_function(logger);
+    }
+
+    ~logger_fixture()
+    {
+        spead2::set_log_function(old_logger);
+    }
+};
+
 // Check that the user pointer is passed through to the underlying allocator,
 // and generally interacts with the underlying allocator correctly
 BOOST_AUTO_TEST_CASE(memory_pool_pass_user)
@@ -62,6 +91,7 @@ BOOST_AUTO_TEST_CASE(memory_pool_pass_user)
     std::shared_ptr<mock_allocator> allocator = std::make_shared<mock_allocator>();
     std::shared_ptr<spead2::memory_pool> pool = std::make_shared<spead2::memory_pool>(
         1024, 2048, 2, 1, allocator);
+    pool->set_warn_on_empty(false);
 
     // Pooled allocation, comes from the pre-allocated slot
     pointer p1 = pool->allocate(1536, nullptr);
@@ -103,6 +133,26 @@ BOOST_AUTO_TEST_CASE(memory_pool_pass_user)
     BOOST_CHECK_EQUAL(allocator->records[6].ptr, allocator->records[1].ptr);
     BOOST_CHECK_EQUAL(allocator->records[7].allocate, false);
     BOOST_CHECK_EQUAL(allocator->records[7].ptr, allocator->records[4].ptr);
+}
+
+// Check that a warning is issued when the memory pool becomes empty, if and
+// only if the warning is enabled.
+BOOST_FIXTURE_TEST_CASE(memory_pool_warn_on_error, logger_fixture)
+{
+    auto pool = std::make_shared<spead2::memory_pool>(1024, 2048, 1, 1);
+    BOOST_CHECK_EQUAL(pool->get_warn_on_empty(), true);
+    auto ptr1 = pool->allocate(1024, nullptr);
+    // Wasn't empty, should be no messages
+    BOOST_CHECK_EQUAL(messages[spead2::log_level::warning].size(), 0);
+    auto ptr2 = pool->allocate(1024, nullptr);
+    // Now was empty, should be a warning
+    BOOST_CHECK_EQUAL(messages[spead2::log_level::warning].size(), 1);
+
+    pool->set_warn_on_empty(false);
+    BOOST_CHECK_EQUAL(pool->get_warn_on_empty(), false);
+    auto ptr3 = pool->allocate(1024, nullptr);
+    // Empty again, but should be no new warning
+    BOOST_CHECK_EQUAL(messages[spead2::log_level::warning].size(), 1);
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // memory_pool
