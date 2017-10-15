@@ -41,12 +41,17 @@ namespace spead2
 namespace detail
 {
 
+static std::function<void(log_level, const std::string &)> orig_logger;
+static std::unique_ptr<log_function_python> our_logger;
 static std::list<std::function<void()>> stop_entries;
 
 static void run_exit_stoppers()
 {
     while (!stop_entries.empty())
         stop_entries.front()();
+    // Destroy the log function object, which will stop its thread.
+    set_log_function(orig_logger);
+    our_logger.reset();
 }
 
 } // namespace detail
@@ -100,6 +105,61 @@ py::buffer_info request_buffer_info(py::buffer &buffer, int extra_flags)
     py::buffer_info info(view.get());
     view.release();
     return info;
+}
+
+void log_function_python::run()
+{
+    constexpr int N = 3;
+    static const char *const level_methods[N] =
+    {
+        "warning",
+        "info",
+        "debug"
+    };
+    // Obtain the bound method for each log level
+    py::object funcs[N];
+    {
+        pybind11::gil_scoped_acquire gil;
+        for (int i = 0; i < N; i++)
+            funcs[i] = logger.attr(level_methods[i]);
+    }
+    try
+    {
+        while (true)
+        {
+            auto msg = ring.pop();
+            pybind11::gil_scoped_acquire gil;
+            /* If there are multiple messages queued, consume them while
+             * the GIL is held, rather than dropping and regaining the
+             * GIL; but limit it, so that we don't starve other threads
+             * of the GIL.
+             */
+            try
+            {
+                for (int pass = 0; pass < 1024; pass++)
+                {
+                    if (pass > 0)
+                        msg = ring.try_pop();
+                    unsigned int level_idx = static_cast<unsigned int>(msg.first);
+                    assert(level_idx < N);
+                    funcs[level_idx]("%s", msg.second);
+                }
+            }
+            catch (ringbuffer_empty)
+            {
+            }
+        }
+    }
+    catch (ringbuffer_stopped)
+    {
+    }
+}
+
+void log_function_python::stop()
+{
+    ring.stop();
+    if (thread.joinable())
+        thread.join();
 }
 
 void register_module(py::module m)
@@ -215,7 +275,8 @@ void register_module(py::module m)
 
     py::object logging_module = py::module::import("logging");
     py::object logger = logging_module.attr("getLogger")("spead2");
-    set_log_function(log_function_python(logger));
+    detail::our_logger.reset(new log_function_python(logger));
+    detail::orig_logger = set_log_function(std::ref(*detail::our_logger));
 
     py::capsule cleanup(detail::run_exit_stoppers);
     m.add_object("_cleanup", cleanup);

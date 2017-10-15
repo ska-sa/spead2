@@ -34,6 +34,7 @@
 #include <spead2/common_memory_pool.h>
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_logging.h>
+#include <spead2/common_ringbuffer.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -134,28 +135,37 @@ int semaphore_gil<Semaphore>::get()
     return result;
 }
 
+/**
+ * Logger function object that passes log messages to Python. To avoid blocking
+ * the caller while waiting for the GIL, it passes the log messages through a
+ * ring buffer to a dedicated thread.
+ */
 class log_function_python
 {
 private:
     pybind11::object logger;
+    ringbuffer<std::pair<log_level, std::string>> ring;
+    std::thread thread;
+
+    void run();
+
 public:
     log_function_python() = default;
-    explicit log_function_python(pybind11::object logger) : logger(std::move(logger)) {}
+    explicit log_function_python(pybind11::object logger, std::size_t ring_size = 1024) :
+        logger(std::move(logger)),
+        ring(ring_size),
+        thread([this] () { run(); })
+    {
+    }
+
+    ~log_function_python() { stop(); }
 
     void operator()(log_level level, const std::string &msg)
     {
-        pybind11::gil_scoped_acquire gil;
-
-        static const char *const level_methods[] =
-        {
-            "warning",
-            "info",
-            "debug"
-        };
-        unsigned int level_idx = static_cast<unsigned int>(level);
-        assert(level_idx < sizeof(level_methods) / sizeof(level_methods[0]));
-        logger.attr(level_methods[level_idx])("%s", msg);
+        ring.emplace(level, msg);
     }
+
+    void stop();
 };
 
 // Like pybind11::buffer::request, but allows extra flags to be passed

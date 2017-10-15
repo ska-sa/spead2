@@ -13,6 +13,8 @@ Changelog
 - Return the previous logging function from :cpp:func:`spead2::set_log_function`.
 - Fix spead2_send.py to send a stop heap when using :option:`--heaps`. It was
   acccidentally broken in 1.2.0.
+- Make Python logging from C++ code asynchronous, to avoid blocking the thread pool
+  on the GIL.
 
 .. rubric:: Version 1.3.2
 
