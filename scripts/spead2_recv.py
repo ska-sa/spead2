@@ -119,7 +119,7 @@ def main():
                     host, port = source.rsplit(':', 1)
                     port = int(port)
                 else:
-                    host = None
+                    host = ''
                     port = int(source)
             except ValueError:
                 with open(source, 'rb') as f:
