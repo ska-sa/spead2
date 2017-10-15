@@ -11,6 +11,8 @@ Changelog
 - Some fixes for PyPy support.
 - Add :py:attr:`.MemoryPool.warn_on_error` control.
 - Return the previous logging function from :cpp:func:`spead2::set_log_function`.
+- Fix spead2_send.py to send a stop heap when using :option:`--heaps`. It was
+  acccidentally broken in 1.2.0.
 
 .. rubric:: Version 1.3.2
 
