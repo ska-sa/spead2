@@ -26,6 +26,7 @@
 #include <boost/system/system_error.hpp>
 #include <cassert>
 #include <mutex>
+#include <atomic>
 #include <list>
 #include <stdexcept>
 #include <type_traits>
@@ -144,6 +145,7 @@ class log_function_python
 {
 private:
     pybind11::object logger;
+    std::atomic<bool> overflowed;
     ringbuffer<std::pair<log_level, std::string>> ring;
     std::thread thread;
 
@@ -153,6 +155,7 @@ public:
     log_function_python() = default;
     explicit log_function_python(pybind11::object logger, std::size_t ring_size = 1024) :
         logger(std::move(logger)),
+        overflowed(false),
         ring(ring_size),
         thread([this] () { run(); })
     {
@@ -160,11 +163,7 @@ public:
 
     ~log_function_python() { stop(); }
 
-    void operator()(log_level level, const std::string &msg)
-    {
-        ring.emplace(level, msg);
-    }
-
+    void operator()(log_level level, const std::string &msg);
     void stop();
 };
 

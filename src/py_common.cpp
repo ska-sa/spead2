@@ -148,10 +148,32 @@ void log_function_python::run()
             catch (ringbuffer_empty)
             {
             }
+            if (overflowed.exchange(false))
+                funcs[0]("Log ringbuffer was full - some log messages were dropped");
         }
     }
     catch (ringbuffer_stopped)
     {
+    }
+    // Could possibly report the overflowed flag here again - but this may be
+    // deep into interpreter shutdown and it might not be safe to log.
+}
+
+void log_function_python::operator()(log_level level, const std::string &msg)
+{
+    /* A blocking push can potentially lead to deadlock: the consumer may be
+     * blocked waiting for the GIL, and possibly we may be holding the GIL.
+     * If there is so much logging that the consumer can't keep up, we
+     * probably want to throttle the log messages anyway, so we just set a
+     * flag.
+     */
+    try
+    {
+        ring.try_emplace(level, msg);
+    }
+    catch (ringbuffer_full)
+    {
+        overflowed = true;
     }
 }
 
