@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -85,8 +85,21 @@ void stream_base::set_memcpy(memcpy_function_id id)
     }
 }
 
+void stream_base::batch_size(std::size_t size)
+{
+    std::lock_guard<std::mutex> stats_lock(stats_mutex);
+    if (size > stats.max_batch)
+        stats.max_batch = size;
+}
+
 bool stream_base::add_packet(const packet_header &packet)
 {
+    /* Instead of locking the mutex separately for each stats field update,
+     * we track the values we'll add and do it all at the end.
+     */
+    int complete_heaps = 0;
+    int incomplete_heaps_evicted = 0;
+
     assert(!stopped);
     // Look for matching heap. For large heaps, this will in most
     // cases be in the head position.
@@ -118,6 +131,7 @@ bool stream_base::add_packet(const packet_header &packet)
             h = reinterpret_cast<live_heap *>(&heap_storage[head]);
             if (heap_cnts[head] != -1)
             {
+                incomplete_heaps_evicted++;
                 heap_ready(std::move(*h));
                 h->~live_heap();
             }
@@ -141,7 +155,10 @@ bool stream_base::add_packet(const packet_header &packet)
         if (h->is_complete())
         {
             if (!end_of_stream)
+            {
+                complete_heaps++;
                 heap_ready(std::move(*h));
+            }
             heap_cnts[position] = -1;
             h->~live_heap();
         }
@@ -149,11 +166,17 @@ bool stream_base::add_packet(const packet_header &packet)
 
     if (end_of_stream)
         stop_received();
+
+    std::lock_guard<std::mutex> stats_lock(stats_mutex);
+    stats.packets++;
+    stats.heaps += complete_heaps + incomplete_heaps_evicted;
+    stats.incomplete_heaps_evicted += incomplete_heaps_evicted;
     return result;
 }
 
 void stream_base::flush()
 {
+    std::size_t n_flushed = 0;
     for (std::size_t i = 0; i < max_heaps; i++)
     {
         if (++head == max_heaps)
@@ -161,11 +184,14 @@ void stream_base::flush()
         if (heap_cnts[head] != -1)
         {
             live_heap *h = reinterpret_cast<live_heap *>(&heap_storage[head]);
+            n_flushed++;
             heap_ready(std::move(*h));
             h->~live_heap();
             heap_cnts[head] = -1;
         }
     }
+    std::lock_guard<std::mutex> stats_lock(stats_mutex);
+    stats.incomplete_heaps_flushed += n_flushed;
 }
 
 void stream_base::stop_received()
@@ -180,6 +206,17 @@ stream::stream(io_service_ref io_service, bug_compat_mask bug_compat, std::size_
     thread_pool_holder(std::move(io_service).get_shared_thread_pool()),
     strand(*io_service)
 {
+}
+
+stream_stats stream::get_stats() const
+{
+    std::lock_guard<std::mutex> stats_lock(stats_mutex);
+    stream_stats ret = stats;
+    // It's cheaper to fix this up here than make non-batched reader update
+    // max_batch on every packet
+    if (ret.packets > 0 && ret.max_batch == 0)
+        ret.max_batch = 1;
+    return ret;
 }
 
 void stream::stop_received()

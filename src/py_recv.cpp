@@ -323,6 +323,13 @@ py::module register_module(py::module &parent)
         .def_readonly("is_immediate", &item_wrapper::is_immediate)
         .def_readonly("immediate_value", &item_wrapper::immediate_value)
         .def_buffer([](item_wrapper &item) { return item.get_value(); });
+    py::class_<stream_stats>(m, "StreamStats")
+        .def_readwrite("heaps", &stream_stats::heaps)
+        .def_readwrite("incomplete_heaps_evicted", &stream_stats::incomplete_heaps_evicted)
+        .def_readwrite("incomplete_heaps_flushed", &stream_stats::incomplete_heaps_flushed)
+        .def_readwrite("packets", &stream_stats::packets)
+        .def_readwrite("worker_blocked", &stream_stats::worker_blocked)
+        .def_readwrite("max_batch", &stream_stats::max_batch);
     py::class_<ring_stream_wrapper>(m, "Stream")
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, bug_compat_mask, std::size_t, std::size_t>(),
              "thread_pool"_a, "bug_compat"_a = 0,
@@ -375,6 +382,7 @@ py::module register_module(py::module &parent)
 #endif
         .def("stop", SPEAD2_PTMF(ring_stream_wrapper, stop))
         .def_property_readonly("fd", SPEAD2_PTMF(ring_stream_wrapper, get_fd))
+        .def_property_readonly("stats", SPEAD2_PTMF(ring_stream_wrapper, get_stats))
 #if SPEAD2_USE_IBV
         .def_readonly_static("DEFAULT_UDP_IBV_MAX_SIZE", &udp_ibv_reader::default_max_size)
         .def_readonly_static("DEFAULT_UDP_IBV_BUFFER_SIZE", &udp_ibv_reader::default_buffer_size)

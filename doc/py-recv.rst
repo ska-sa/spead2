@@ -141,11 +141,15 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
       possible to restart a stream once it has been stopped; instead, create a
       new stream.
 
-   .. py:attribute: fd
+   .. py:attribute:: fd
 
       The read end of a pipe to which a byte is written when a heap is
       received. **Do not read from this pipe.** It is used for integration
       with asynchronous I/O frameworks (see below).
+
+   .. py:attribute:: stats
+
+      Statistics_ about the stream.
 
 Asynchronous receive
 ^^^^^^^^^^^^^^^^^^^^
@@ -232,3 +236,55 @@ being captured and stored indefinitely rather than processed and released.
 
       Whether to issue a warning if the memory pool becomes empty and needs to
       allocate new memory on request. It defaults to true.
+
+.. Statistics:
+
+Statistics
+^^^^^^^^^^
+The :py:attr:`~spead2.recv.Stream.stats` property of a stream contains
+statistics about the stream. Note that while the fields below are expected to
+be stable, their exact interpretation in edge cases is subject to change as the
+implementation evolves. It is intended for instrumentation, rather than for
+driving application logic.
+
+Each time the property is accessed, an internally consistent view of the
+statistics is returned. However, it is not synchronised with other aspects of
+the stream. For example, it's theoretically possible to retrieve 5 heaps from
+the stream iterator, then find that :py:attr:`.StreamStats.heaps` is (briefly)
+4.
+
+.. py:class:: spead2.recv.StreamStats
+
+   .. py:attribute:: heaps
+
+   Total number of heaps put into the stream. This includes incomplete heaps,
+   and complete heaps that were received but did not make it into the
+   ringbuffer before :py:meth:`~spead2.recv.Stream.stop` was called. It
+   excludes the heap that contained the stop item.
+
+   .. py:attribute:: incomplete_heaps_evicted
+
+   Number of incomplete heaps that were evicted from the buffer to make room
+   for new data.
+
+   .. py:attribute:: incomplete_heaps_flushed
+
+   Number of incomplete heaps that were still in the buffer when the stream
+   stopped.
+
+   .. py:attribute:: packets
+
+   Total number of packets received, including the one containing the stop
+   item.
+
+   .. py:attribute:: worker_blocked
+
+   Number of times a worker thread was blocked because the ringbuffer was full.
+   If this is non-zero, it indicates that the stream is not being read fast
+   enough, or that the `ring_heaps` constructor parameter needs to be
+   increased to buffer sudden bursts.
+
+   .. py:attribute:: max_batch
+
+   Maximum number of packets received as a unit. This is only applicable to
+   readers that support fetching a batch of packets from the source.

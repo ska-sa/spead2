@@ -16,6 +16,7 @@ Changelog
   acccidentally broken in 1.2.0.
 - Make Python logging from C++ code asynchronous, to avoid blocking the thread pool
   on the GIL.
+- Add statistics to streams
 
 .. rubric:: Version 1.3.2
 

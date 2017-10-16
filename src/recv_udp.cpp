@@ -224,6 +224,8 @@ void udp_reader::packet_handler(
             int received = recvmmsg(socket2.native_handle(), msgvec.data(), msgvec.size(),
                                     MSG_DONTWAIT, nullptr);
             log_debug("recvmmsg returned %1%", received);
+            if (received > 0)
+                get_stream_base().batch_size(received);
             if (received == -1 && errno != EAGAIN && errno != EWOULDBLOCK)
             {
                 std::error_code code(errno, std::system_category());

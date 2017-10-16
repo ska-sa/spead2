@@ -156,6 +156,7 @@ int udp_ibv_reader::poll_once()
         }
         qp.post_recv(&slots[index].wr);
     }
+    get_stream_base().batch_size(received);
     return received;
 }
 

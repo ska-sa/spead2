@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright, 2017 2015 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -22,6 +22,7 @@
 #define SPEAD2_RECV_STREAM_H
 
 #include <cstddef>
+#include <cstdint>
 #include <deque>
 #include <memory>
 #include <utility>
@@ -46,6 +47,37 @@ namespace recv
 {
 
 struct packet_header;
+
+/**
+ * Statistics about a stream. Not all fields are relevant for all stream types.
+ */
+struct stream_stats
+{
+    /// Total number of heaps passed to @ref stream_base::heap_ready
+    std::uint64_t heaps = 0;
+    /**
+     * Number of incomplete heaps that were evicted from the buffer to make
+     * room for new data.
+     */
+    std::uint64_t incomplete_heaps_evicted = 0;
+    /**
+     * Number of incomplete heaps that were emitted by @ref stream::flush.
+     * These are typically heaps that were in-flight when the stream stopped.
+     */
+    std::uint64_t incomplete_heaps_flushed = 0;
+    /// Number of packets received
+    std::uint64_t packets = 0;
+    /**
+     * Number of times a worker thread was blocked because the ringbuffer was
+     * full. Only applicable to @ref ring_stream.
+     */
+    std::uint64_t worker_blocked = 0;
+    /**
+     * Maximum number of packets received as a unit. This is only applicable
+     * to readers that support fetching a batch of packets from the source.
+     */
+    std::size_t max_batch = 0;
+};
 
 /**
  * Encapsulation of a SPEAD stream. Packets are fed in through @ref add_packet.
@@ -122,6 +154,10 @@ private:
      */
     virtual void heap_ready(live_heap &&) {}
 
+protected:
+    mutable std::mutex stats_mutex;
+    stream_stats stats;
+
 public:
     static constexpr std::size_t default_max_heaps = 4;
 
@@ -151,6 +187,9 @@ public:
 
     /// Set builtin memcpy function to use for copying payload
     void set_memcpy(memcpy_function_id id);
+
+    /// Report a batch size, for updating the statistics
+    void batch_size(std::size_t size);
 
     /**
      * Add a packet that was received, and which has been examined by @a
@@ -287,6 +326,8 @@ public:
                 std::mem_fn(&stream::emplace_reader_callback<T, Args&&...>),
                 this, std::forward<Args>(args)...));
     }
+
+    stream_stats get_stats() const;
 
     /**
      * Stop the stream and block until all the readers have wound up. After

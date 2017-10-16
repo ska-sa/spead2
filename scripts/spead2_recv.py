@@ -99,6 +99,10 @@ def run_stream(stream, name, args):
                     print("Error raised processing heap: {}".format(e))
             except spead2.Stopped:
                 print("Shutting down stream {} after {} heaps".format(name, num_heaps))
+                stats = stream.stats
+                for key in dir(stats):
+                    if not key.startswith('_'):
+                        print("{}: {}".format(key, getattr(stats, key)))
                 break
     finally:
         stream.stop()

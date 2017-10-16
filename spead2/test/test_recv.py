@@ -1,4 +1,4 @@
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2017 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -20,6 +20,7 @@ import spead2.send as send
 import struct
 import numpy as np
 import six
+import time
 from nose.tools import *
 from .test_common import assert_equal_typed
 
@@ -586,9 +587,25 @@ class TestStream(object):
         gen = send.HeapGenerator(ig)
         for i in range(10):
             sender.send_heap(gen.get_heap(data='all'))
-        receiver = spead2.recv.Stream(thread_pool)
+        receiver = spead2.recv.Stream(thread_pool, ring_heaps=4)
         receiver.add_buffer_reader(sender.getvalue())
-        receiver.stop()
+        # Wait for the ring buffer to block
+        while receiver.stats.worker_blocked == 0:
+            time.sleep(0.0)
+        stats = receiver.stats
+        assert_equal(4, stats.heaps)
+        assert_equal(4, stats.packets)
+        assert_equal(0, stats.incomplete_heaps_evicted)
+        assert_equal(0, stats.incomplete_heaps_flushed)
+        assert_equal(1, stats.worker_blocked)
+
+        receiver.stop()            # This unblocks all remaining heaps
+        stats = receiver.stats
+        assert_equal(10, stats.heaps)
+        assert_equal(10, stats.packets)
+        assert_equal(0, stats.incomplete_heaps_evicted)
+        assert_equal(0, stats.incomplete_heaps_flushed)
+        assert_equal(1, stats.worker_blocked)
 
     def test_no_stop_heap(self):
         """A heap containing a stop is not passed to the ring"""
@@ -605,6 +622,13 @@ class TestStream(object):
         receiver.add_buffer_reader(sender.getvalue())
         heaps = list(receiver)
         assert_equal(1, len(heaps))
+
+        stats = receiver.stats
+        assert_equal(1, stats.heaps)
+        assert_equal(2, stats.packets)
+        assert_equal(0, stats.incomplete_heaps_evicted)
+        assert_equal(0, stats.incomplete_heaps_flushed)
+        assert_equal(0, stats.worker_blocked)
 
 class TestUdpStream(object):
     def test_out_of_range_udp_port(self):
