@@ -142,7 +142,18 @@ void ring_stream<Ringbuffer>::heap_ready(live_heap &&h)
     {
         try
         {
-            ready_heaps.push(std::move(h));
+            try
+            {
+                ready_heaps.try_push(std::move(h));
+            }
+            catch (ringbuffer_full &e)
+            {
+                log_warning("worker thread blocked by full ringbuffer on heap %d",
+                            h.get_cnt());
+                ready_heaps.push(std::move(h));
+                log_debug("worker thread unblocked, heap %d pushed", h.get_cnt());
+            }
+
         }
         catch (ringbuffer_stopped &e)
         {

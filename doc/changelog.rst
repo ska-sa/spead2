@@ -10,6 +10,7 @@ Changelog
 - Upgrade to pybind11 2.2.1 internally.
 - Some fixes for PyPy support.
 - Add :py:attr:`.MemoryPool.warn_on_error` control.
+- Add warning when a stream ringbuffer is full.
 - Return the previous logging function from :cpp:func:`spead2::set_log_function`.
 - Fix spead2_send.py to send a stop heap when using :option:`--heaps`. It was
   acccidentally broken in 1.2.0.
