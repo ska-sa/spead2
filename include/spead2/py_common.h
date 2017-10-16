@@ -144,6 +144,7 @@ int semaphore_gil<Semaphore>::get()
 class log_function_python
 {
 private:
+    exit_stopper stopper{[this] { stop(); }};
     pybind11::object logger;
     std::atomic<bool> overflowed;
     ringbuffer<std::pair<log_level, std::string>> ring;

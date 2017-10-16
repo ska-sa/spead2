@@ -49,7 +49,7 @@ static void run_exit_stoppers()
 {
     while (!stop_entries.empty())
         stop_entries.front()();
-    // Destroy the log function object, which will stop its thread.
+    // Clear up our custom logger
     set_log_function(orig_logger);
     our_logger.reset();
 }
@@ -109,6 +109,7 @@ py::buffer_info request_buffer_info(py::buffer &buffer, int extra_flags)
 
 void log_function_python::run()
 {
+    pybind11::gil_scoped_acquire gil;
     constexpr int N = 3;
     static const char *const level_methods[N] =
     {
@@ -119,16 +120,33 @@ void log_function_python::run()
     // Obtain the bound method for each log level
     py::object funcs[N];
     {
-        pybind11::gil_scoped_acquire gil;
         for (int i = 0; i < N; i++)
             funcs[i] = logger.attr(level_methods[i]);
     }
+    auto log_msg = [&funcs] (log_level level, const std::string &msg)
+    {
+        try
+        {
+            unsigned int level_idx = static_cast<unsigned int>(level);
+            assert(level_idx < N);
+            funcs[level_idx]("%s", msg);
+        }
+        catch (py::error_already_set &e)
+        {
+            // This can happen during interpreter shutdown, because the modules
+            // needed for the logging have already been unloaded.
+        }
+    };
+
     try
     {
         while (true)
         {
-            auto msg = ring.pop();
-            pybind11::gil_scoped_acquire gil;
+            std::pair<log_level, std::string> msg;
+            {
+                py::gil_scoped_release release_gil;
+                msg = ring.pop();
+            }
             /* If there are multiple messages queued, consume them while
              * the GIL is held, rather than dropping and regaining the
              * GIL; but limit it, so that we don't starve other threads
@@ -140,20 +158,23 @@ void log_function_python::run()
                 {
                     if (pass > 0)
                         msg = ring.try_pop();
-                    unsigned int level_idx = static_cast<unsigned int>(msg.first);
-                    assert(level_idx < N);
-                    funcs[level_idx]("%s", msg.second);
+                    log_msg(msg.first, msg.second);
                 }
             }
             catch (ringbuffer_empty)
             {
             }
             if (overflowed.exchange(false))
-                funcs[0]("Log ringbuffer was full - some log messages were dropped");
+                log_msg(log_level::warning,
+                        "Log ringbuffer was full - some log messages were dropped");
         }
     }
     catch (ringbuffer_stopped)
     {
+    }
+    catch (std::exception &e)
+    {
+        std::cerr << "Logger thread crashed with exception " << e.what() << '\n';
     }
     // Could possibly report the overflowed flag here again - but this may be
     // deep into interpreter shutdown and it might not be safe to log.
@@ -179,6 +200,8 @@ void log_function_python::operator()(log_level level, const std::string &msg)
 
 void log_function_python::stop()
 {
+    stopper.reset();
+    py::gil_scoped_release gil;
     ring.stop();
     if (thread.joinable())
         thread.join();
