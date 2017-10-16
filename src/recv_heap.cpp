@@ -49,9 +49,9 @@ static inline item_pointer_t load_bytes_be(const std::uint8_t *ptr, int len)
     return betoh<item_pointer_t>(out);
 }
 
-heap::heap(live_heap &&h)
+void heap_base::load(live_heap &&h, bool keep_addressed)
 {
-    assert(h.is_contiguous());
+    assert(h.is_contiguous() || !keep_addressed);
     log_debug("freezing heap with ID %d, %d item pointers, %d bytes payload",
               h.get_cnt(), h.pointers.size(), h.min_length);
     /* The length of addressed items is measured from the item to the
@@ -85,7 +85,7 @@ heap::heap(live_heap &&h)
     if (n_immediates > 0)
         immediate_payload.reset(new uint8_t[immediate_size * n_immediates]);
     uint8_t *next_immediate = immediate_payload.get();
-    items.reserve(h.pointers.size());
+    items.reserve(keep_addressed ? h.pointers.size() : n_immediates);
 
     for (std::size_t i = 0; i < h.pointers.size(); i++)
     {
@@ -111,6 +111,8 @@ heap::heap(live_heap &&h)
         }
         else
         {
+            if (!keep_addressed)
+                continue;
             s_item_pointer_t start = decoder.get_address(pointer);
             s_item_pointer_t end;
             if (i + 1 < h.pointers.size()
@@ -134,6 +136,25 @@ heap::heap(live_heap &&h)
     cnt = h.cnt;
     flavour_ = flavour(maximum_version, 8 * sizeof(item_pointer_t),
                        h.heap_address_bits, h.bug_compat);
+}
+
+bool heap_base::is_start_of_stream() const
+{
+    for (const item &item : items)
+        if (item.id == STREAM_CTRL_ID)
+        {
+            item_pointer_t value = load_bytes_be(item.ptr, item.length);
+            if (value == CTRL_STREAM_START)
+                return true;
+        }
+    return false;
+}
+
+
+heap::heap(live_heap &&h)
+{
+    assert(h.is_contiguous());
+    load(std::move(h), true);
     payload = std::move(h.payload);
     // Reset h so that it still satisfies its invariants
     h = live_heap(0, h.bug_compat, h.allocator);
@@ -141,10 +162,11 @@ heap::heap(live_heap &&h)
 
 descriptor heap::to_descriptor() const
 {
-    const std::size_t immediate_size = flavour_.get_heap_address_bits() / 8;
+    const std::size_t immediate_size = get_flavour().get_heap_address_bits() / 8;
     const std::size_t id_size = sizeof(item_pointer_t) - immediate_size;
+    bug_compat_mask bug_compat = get_flavour().get_bug_compat();
     descriptor out;
-    for (const item &item : items)
+    for (const item &item : get_items())
     {
         switch (item.id)
         {
@@ -162,7 +184,7 @@ descriptor heap::to_descriptor() const
                 break;
             case DESCRIPTOR_FORMAT_ID:
                 {
-                    int field_size = (flavour_.get_bug_compat() & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 4 : 1 + id_size;
+                    int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 4 : 1 + id_size;
                     for (std::size_t i = 0; i + field_size <= item.length; i += field_size)
                     {
                         char type = item.ptr[i];
@@ -173,10 +195,10 @@ descriptor heap::to_descriptor() const
                 }
             case DESCRIPTOR_SHAPE_ID:
                 {
-                    int field_size = (flavour_.get_bug_compat() & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 8 : 1 + immediate_size;
+                    int field_size = (bug_compat & BUG_COMPAT_DESCRIPTOR_WIDTHS) ? 8 : 1 + immediate_size;
                     for (std::size_t i = 0; i + field_size <= item.length; i += field_size)
                     {
-                        int mask = (flavour_.get_bug_compat() & BUG_COMPAT_SHAPE_BIT_1) ? 2 : 1;
+                        int mask = (bug_compat & BUG_COMPAT_SHAPE_BIT_1) ? 2 : 1;
                         bool variable = (item.ptr[i] & mask);
                         std::int64_t size = variable ? -1 : load_bytes_be(item.ptr + i + 1, field_size - 1);
                         out.shape.push_back(size);
@@ -229,8 +251,8 @@ void descriptor_stream::heap_ready(live_heap &&h)
 
 std::vector<descriptor> heap::get_descriptors() const
 {
-    descriptor_stream s(flavour_.get_bug_compat(), 1);
-    for (const item &item : items)
+    descriptor_stream s(get_flavour().get_bug_compat(), 1);
+    for (const item &item : get_items())
     {
         if (item.id == DESCRIPTOR_ID)
         {
@@ -242,16 +264,21 @@ std::vector<descriptor> heap::get_descriptors() const
     return s.descriptors;
 }
 
-bool heap::is_start_of_stream() const
+
+incomplete_heap::incomplete_heap(live_heap &&h)
+    : heap_length(h.heap_length), received_length(h.received_length)
 {
-    for (const item &item : items)
-        if (item.id == STREAM_CTRL_ID)
-        {
-            item_pointer_t value = load_bytes_be(item.ptr, item.length);
-            if (value == CTRL_STREAM_START)
-                return true;
-        }
-    return false;
+    load(std::move(h), false);
+    payload_ranges = std::move(h.payload_ranges);
+    // Reset h so that it still satisfies its invariants
+    h = live_heap(0, h.bug_compat, h.allocator);
+}
+
+std::vector<std::pair<s_item_pointer_t, s_item_pointer_t>>
+incomplete_heap::get_payload_ranges() const
+{
+    return std::vector<std::pair<s_item_pointer_t, s_item_pointer_t>>(
+        payload_ranges.begin(), payload_ranges.end());
 }
 
 } // namespace recv

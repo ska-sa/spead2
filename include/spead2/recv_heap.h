@@ -54,29 +54,27 @@ struct item
 };
 
 /**
- * Received heap that has been finalised.
+ * Base class for @ref heap and @ref incomplete_heap
  */
-class heap
+class heap_base
 {
 private:
     s_item_pointer_t cnt;       ///< Heap ID
     flavour flavour_;           ///< Flavour
     /**
-     * Extracted items. The pointers in the items point into either @ref
-     * payload or @ref immediate_payload.
+     * Extracted items. Immediate items have pointers pointing into @ref
+     * immediate_payload. Addressed items have storage allocated in the
+     * subclass (@ref heap) or are omitted (@ref incomplete_heap).
      */
     std::vector<item> items;
-    /// Heap payload
-    memory_allocator::pointer payload;
     /// Storage for immediate values
     std::unique_ptr<std::uint8_t[]> immediate_payload;
 
+protected:
+    /// Create the structures from a live heap, destroying it in the process.
+    void load(live_heap &&h, bool keep_addressed);
+
 public:
-    /**
-     * Freeze a heap, which must satisfy live_heap::is_contiguous. The original
-     * heap is destroyed.
-     */
-    explicit heap(live_heap &&h);
     /// Get heap ID
     s_item_pointer_t get_cnt() const { return cnt; }
     /// Get protocol flavour used
@@ -86,6 +84,29 @@ public:
      * excludes any items with ID <= 4.
      */
     const std::vector<item> &get_items() const { return items; }
+
+    /**
+     * Convenience function to check whether any of the items is
+     * a @c CTRL_STREAM_START.
+     */
+    bool is_start_of_stream() const;
+};
+
+/**
+ * Received heap that has been finalised.
+ */
+class heap : public heap_base
+{
+private:
+    /// Heap payload
+    memory_allocator::pointer payload;
+
+public:
+    /**
+     * Freeze a heap, which must satisfy live_heap::is_contiguous. The original
+     * heap is destroyed.
+     */
+    explicit heap(live_heap &&h);
 
     /**
      * Extract descriptor fields from the heap. Any missing fields are
@@ -105,12 +126,46 @@ public:
 
     /// Extract and decode descriptors from this heap
     std::vector<descriptor> get_descriptors() const;
+};
+
+/**
+ * Received heap that has been finalised, but which is missing data.
+ *
+ * The payload and any items that refer to the payload are discarded.
+ */
+class incomplete_heap : public heap_base
+{
+private:
+    /**
+     * Contiguous ranges of the payload that were received.
+     *
+     * @see @ref live_heap::payload_ranges.
+     */
+    std::map<s_item_pointer_t, s_item_pointer_t> payload_ranges;
+
+    /// Heap payload length encoded in packets (-1 for unknown)
+    s_item_pointer_t heap_length;
+    /// Number of bytes of payload received
+    s_item_pointer_t received_length;
+
+public:
+    /**
+     * Freeze a heap. The original heap is destroyed.
+     */
+    explicit incomplete_heap(live_heap &&h);
+
+    /// Heap payload length encoded in packets (-1 for unknown)
+    s_item_pointer_t get_heap_length() const { return heap_length; }
+    /// Number of bytes of payload received
+    s_item_pointer_t get_received_length() const { return received_length; }
 
     /**
-     * Convenience function to check whether any of the items is
-     * a @c CTRL_STREAM_START.
+     * Return a list of contiguous ranges of payload that were received. This
+     * is intended for special cases where a custom memory allocator was used
+     * to channel the payload into a caller-managed area, so that the caller
+     * knows which parts of that area have been filled in.
      */
-    bool is_start_of_stream() const;
+    std::vector<std::pair<s_item_pointer_t, s_item_pointer_t>> get_payload_ranges() const;
 };
 
 } // namespace recv

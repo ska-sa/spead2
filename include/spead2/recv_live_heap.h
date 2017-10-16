@@ -57,13 +57,16 @@ class heap;
  *   all the payload corresponding to it. No more packets are expected.
  * - contiguous: the payload we have received is a contiguous range from 0 up
  *   to some amount, and cover all items described in the item pointers.
+ * - incomplete: not contiguous
  * A complete heap is also contiguous, but not necessarily the other way
  * around. Only contiguous heaps can be frozen.
  */
 class live_heap
 {
 private:
+    friend class heap_base;
     friend class heap;
+    friend class incomplete_heap;
     friend struct ::spead2::unittest::recv::live_heap::payload_ranges;
 
     /// Heap ID encoded in packets
