@@ -161,6 +161,9 @@ public:
 
     ~log_function_python() { stop(); }
 
+    // Directly log a message (GIL must be held)
+    void log(log_level level, const std::string &msg) const;
+    // Callback for the spead2 logging framework
     void operator()(log_level level, const std::string &msg);
     void stop();
 };

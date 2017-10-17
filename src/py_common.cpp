@@ -127,28 +127,13 @@ log_function_python::log_function_python(
 
 void log_function_python::run()
 {
-    auto log_msg = [this] (log_level level, const std::string &msg)
-    {
-        try
-        {
-            unsigned int level_idx = static_cast<unsigned int>(level);
-            assert(level_idx < num_levels);
-            log_methods[level_idx]("%s", msg);
-        }
-        catch (py::error_already_set &e)
-        {
-            // This can happen during interpreter shutdown, because the modules
-            // needed for the logging have already been unloaded.
-        }
-    };
-
     try
     {
         while (true)
         {
             auto msg = ring.pop();
             py::gil_scoped_acquire gil;
-            log_msg(msg.first, msg.second);
+            log(msg.first, msg.second);
             /* If there are multiple messages queued, consume them while
              * the GIL is held, rather than dropping and regaining the
              * GIL; but limit it, so that we don't starve other threads
@@ -157,14 +142,14 @@ void log_function_python::run()
             try
             {
                 for (int pass = 1; pass < 1024; pass++)
-                    log_msg(msg.first, msg.second);
+                    log(msg.first, msg.second);
             }
             catch (ringbuffer_empty)
             {
             }
             if (overflowed.exchange(false))
-                log_msg(log_level::warning,
-                        "Log ringbuffer was full - some log messages were dropped");
+                log(log_level::warning,
+                    "Log ringbuffer was full - some log messages were dropped");
         }
     }
     catch (ringbuffer_stopped)
@@ -175,6 +160,21 @@ void log_function_python::run()
     catch (std::exception &e)
     {
         std::cerr << "Logger thread crashed with exception " << e.what() << '\n';
+    }
+}
+
+void log_function_python::log(log_level level, const std::string &msg) const
+{
+    try
+    {
+        unsigned int level_idx = static_cast<unsigned int>(level);
+        assert(level_idx < num_levels);
+        log_methods[level_idx]("%s", msg);
+    }
+    catch (py::error_already_set &e)
+    {
+        // This can happen during interpreter shutdown, because the modules
+        // needed for the logging have already been unloaded.
     }
 }
 
