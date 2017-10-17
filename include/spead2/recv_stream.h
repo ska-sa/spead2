@@ -327,6 +327,9 @@ public:
                 this, std::forward<Args>(args)...));
     }
 
+    /**
+     * Return statistics about the stream. See the Python documentation.
+     */
     stream_stats get_stats() const;
 
     /**

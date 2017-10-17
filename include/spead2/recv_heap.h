@@ -152,6 +152,7 @@ public:
     /**
      * Freeze a heap. The original heap is destroyed.
      *
+     * @param h             The heap to freeze.
      * @param keep_payload  If true, transfer the payload memory allocation from
      *                      the live heap to this object. If false, discard it.
      * @param keep_payload_ranges If true, store information that allows @ref

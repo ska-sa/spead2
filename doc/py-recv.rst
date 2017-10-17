@@ -38,7 +38,7 @@ transports to it with :py:meth:`~spead2.recv.Stream.add_buffer_reader` and
 :py:meth:`~spead2.recv.Stream.add_udp_reader`. Then either iterate over it,
 or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
-.. py:class:: spead2.recv.Stream(thread_pool, bug_compat=0, max_heaps=4, ring_heaps=4)
+.. py:class:: spead2.recv.Stream(thread_pool, bug_compat=0, max_heaps=4, ring_heaps=4, contiguous_only=True, incomplete_keep_payload_ranges=False)
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
@@ -49,6 +49,12 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
    :param int ring_heaps: The capacity of the ring buffer between the network
      threads and the consumer. Increasing this may reduce lock contention at
      the cost of more memory usage.
+   :param bool contiguous_only: If set to ``False``, incomplete heaps will be
+     included in the stream as instances of :py:class:`.IncompleteHeap`. By default
+     they are discarded and a warning is printed.
+   :param bool incomplete_keep_payload_ranges: If set to ``True``, it is
+     possible to retrieve information about which parts of the payload arrived
+     in incomplete heaps, using :py:meth:`.IncompleteHeap.payload_ranges`.
    :raises ValueError: if `max_heaps` is zero.
 
    .. py:method:: set_memory_allocator(allocator)
@@ -238,6 +244,46 @@ being captured and stored indefinitely rather than processed and released.
       allocate new memory on request. It defaults to true.
 
 .. Statistics:
+
+Incomplete Heaps
+^^^^^^^^^^^^^^^^
+By default, an incomplete heap (one for which some but not all of the packets
+were received) are simply dropped and a warning is printed. Advanced users
+might need finer control, such as recording metrics about the number of these
+heaps. To do so, set `contiguous_only` to ``False`` when constructing the
+stream. The stream will then yield instances of :py:class:`IncompleteHeap`.
+
+.. py:class:: IncompleteHeap
+
+.. py:class:: spead2.recv.Heap
+
+   .. py:attribute:: cnt
+
+      Heap identifier (read-only)
+
+   .. py:attribute:: flavour
+
+      SPEAD flavour used to encode the heap (see :ref:`py-flavour`)
+
+   .. py:attribute:: heap_length
+
+      The expected number of bytes of payload (-1 if unknown)
+
+   .. py:attribute:: received_length
+
+      The number of bytes of payload that were actually received
+
+   .. py:attribute:: payload_ranges
+
+      A list of pairs of heap offsets. Each pair is a range of bytes that was
+      received. This is only non-empty if `incomplete_keep_payload_ranges` was
+      passed to the stream constructor; otherwise the information is dropped
+      to save memory.
+
+   .. py:function:: is_start_of_stream()
+
+      Returns true if the packet contains a stream start control item.
+
 
 Statistics
 ^^^^^^^^^^

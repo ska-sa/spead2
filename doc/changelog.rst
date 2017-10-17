@@ -3,20 +3,22 @@ Changelog
 
 .. rubric:: Development version
 
-- Add support for packet timestamping in mcdump.
 - Remove :option:`--bind` option to :program:`spead2_recv.py` and :program:`spead2_recv`.
   Instead, use :samp:`{host}:{port}` as the source. This allows subscribing to
   multiple multicast groups.
-- Upgrade to pybind11 2.2.1 internally.
-- Some fixes for PyPy support.
+- Improved access to information about incomplete heaps
+  (:py:class:`spead2.recv.IncompleteHeap` type).
 - Add :py:attr:`.MemoryPool.warn_on_error` control.
 - Add warning when a stream ringbuffer is full.
-- Return the previous logging function from :cpp:func:`spead2::set_log_function`.
+- Add statistics to streams.
 - Fix spead2_send.py to send a stop heap when using :option:`--heaps`. It was
   acccidentally broken in 1.2.0.
+- Add support for packet timestamping in mcdump.
+- Return the previous logging function from :cpp:func:`spead2::set_log_function`.
 - Make Python logging from C++ code asynchronous, to avoid blocking the thread pool
   on the GIL.
-- Add statistics to streams
+- Upgrade to pybind11 2.2.1 internally.
+- Some fixes for PyPy support.
 
 .. rubric:: Version 1.3.2
 

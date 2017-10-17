@@ -59,7 +59,8 @@ class heap;
  *   to some amount, and cover all items described in the item pointers.
  * - incomplete: not contiguous
  * A complete heap is also contiguous, but not necessarily the other way
- * around. Only contiguous heaps can be frozen.
+ * around. Only contiguous heaps can be frozen to @ref heap, and only
+ * incomplete heaps can be frozen to @ref incomplete_heap.
  */
 class live_heap
 {

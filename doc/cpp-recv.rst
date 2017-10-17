@@ -3,16 +3,21 @@ Receiving
 
 Heaps
 -----
-Unlike the Python bindings, the C++ bindings expose two heap types: *live heaps*
+Unlike the Python bindings, the C++ bindings expose three heap types: *live heaps*
 (:cpp:class:`spead2::recv::live_heap`) are used for heaps being constructed,
 and may be missing data; *frozen heaps* (:cpp:class:`spead2::recv::heap`)
-always have all their data. Frozen heaps can be move-constructed from live
+always have all their data; and
+*incomplete heaps* (:cpp:class:`spead2::recv::incomplete_heap`) are frozen
+heaps that are missing data. Frozen heaps can be move-constructed from live
 heaps, which will typically be done in the callback.
 
 .. doxygenclass:: spead2::recv::live_heap
    :members: is_complete,is_contiguous,is_end_of_stream,get_cnt,get_bug_compat
 
 .. doxygenclass:: spead2::recv::heap
+   :members:
+
+.. doxygenclass:: spead2::recv::incomplete_heap
    :members:
 
 .. doxygenstruct:: spead2::recv::item
@@ -31,7 +36,10 @@ to avoid data loss when using UDP. To use this interface, subclass
 optionally override :cpp:func:`stop_received`.
 
 .. doxygenclass:: spead2::recv::stream
-   :members: emplace_reader, stop, stop_received, flush, heap_ready
+   :members: emplace_reader, stop, stop_received, flush, heap_ready, get_stats
+
+.. doxygenstruct:: spead2::recv::stream_stats
+   :members:
 
 A potentially more convenient interface is
 :cpp:class:`spead2::recv::ring_stream\<Ringbuffer>`, which places received
@@ -42,6 +50,7 @@ use :cpp:func:`select`-like functions to wait for data, you can use
 :cpp:class:`spead2::ringbuffer\<spead2::recv::live_heap, spead2::semaphore_fd, spead2::semaphore>`.
 
 .. doxygenclass:: spead2::recv::ring_stream
+   :members: ring_stream, pop, try_pop, pop_live, try_pop_live
 
 Readers
 -------
