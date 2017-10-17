@@ -360,6 +360,9 @@ template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 template<typename... Args>
 void ringbuffer<T, DataSemaphore, SpaceSemaphore>::try_emplace(Args&&... args)
 {
+    /* TODO: try_get needs to be modified to distinguish between interrupted
+     * system calls and zero semaphore (EAGAIN vs EINTR).
+     */
     if (space_sem.try_get() == -1)
         this->throw_full_or_stopped();
     try
