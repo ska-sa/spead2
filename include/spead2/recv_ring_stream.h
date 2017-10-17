@@ -95,6 +95,15 @@ public:
     heap pop();
 
     /**
+     * Wait until a heap is available and return it; or until the stream is
+     * stopped.
+     *
+     * @throw ringbuffer_stopped if @ref stop has been called and
+     * there are no more heaps.
+     */
+    live_heap pop_live();
+
+    /**
      * Like @ref pop, but if no contiguous heap is available,
      * throws @ref spead2::ringbuffer_empty.
      *
@@ -104,6 +113,17 @@ public:
      * there are no more contiguous heaps.
      */
     heap try_pop();
+
+    /**
+     * Like @ref pop_live, but if no heap is available,
+     * throws @ref spead2::ringbuffer_empty.
+     *
+     * @throw ringbuffer_empty if there is no heap available, but the
+     * stream has not been stopped
+     * @throw ringbuffer_stopped if @ref stop has been called and
+     * there are no more heaps.
+     */
+    live_heap try_pop_live();
 
     virtual void stop_received() override;
 
@@ -184,6 +204,12 @@ heap ring_stream<Ringbuffer>::pop()
 }
 
 template<typename Ringbuffer>
+live_heap ring_stream<Ringbuffer>::pop_live()
+{
+    return ready_heaps.pop();
+}
+
+template<typename Ringbuffer>
 heap ring_stream<Ringbuffer>::try_pop()
 {
     while (true)
@@ -194,6 +220,12 @@ heap ring_stream<Ringbuffer>::try_pop()
         else
             log_info("received incomplete heap %d", h.get_cnt());
     }
+}
+
+template<typename Ringbuffer>
+live_heap ring_stream<Ringbuffer>::try_pop_live()
+{
+    return ready_heaps.try_pop();
 }
 
 template<typename Ringbuffer>

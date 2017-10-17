@@ -62,9 +62,8 @@ private:
     s_item_pointer_t cnt;       ///< Heap ID
     flavour flavour_;           ///< Flavour
     /**
-     * Extracted items. Immediate items have pointers pointing into @ref
-     * immediate_payload. Addressed items have storage allocated in the
-     * subclass (@ref heap) or are omitted (@ref incomplete_heap).
+     * Extracted items. The pointers in the items point into either @ref
+     * payload or @ref immediate_payload.
      */
     std::vector<item> items;
     /// Storage for immediate values
@@ -72,7 +71,12 @@ private:
 
 protected:
     /// Create the structures from a live heap, destroying it in the process.
-    void load(live_heap &&h, bool keep_addressed);
+    void load(live_heap &&h, bool keep_addressed, bool keep_payload);
+    /**
+     * Heap payload. For an incomplete heap, this might or might not be set,
+     * depending on constructor parameters.
+     */
+    memory_allocator::pointer payload;
 
 public:
     /// Get heap ID
@@ -97,10 +101,6 @@ public:
  */
 class heap : public heap_base
 {
-private:
-    /// Heap payload
-    memory_allocator::pointer payload;
-
 public:
     /**
      * Freeze a heap, which must satisfy live_heap::is_contiguous. The original
@@ -151,8 +151,13 @@ private:
 public:
     /**
      * Freeze a heap. The original heap is destroyed.
+     *
+     * @param keep_payload  If true, transfer the payload memory allocation from
+     *                      the live heap to this object. If false, discard it.
+     * @param keep_payload_ranges If true, store information that allows @ref
+     *                      get_payload_ranges to work.
      */
-    explicit incomplete_heap(live_heap &&h);
+    incomplete_heap(live_heap &&h, bool keep_payload, bool keep_payload_ranges);
 
     /// Heap payload length encoded in packets (-1 for unknown)
     s_item_pointer_t get_heap_length() const { return heap_length; }
@@ -160,10 +165,19 @@ public:
     s_item_pointer_t get_received_length() const { return received_length; }
 
     /**
+     * Get the payload pointer. This will return an empty pointer unless
+     * @a keep_payload was set in the constructor.
+     */
+    const memory_allocator::pointer &get_payload() const { return payload; }
+
+    /**
      * Return a list of contiguous ranges of payload that were received. This
      * is intended for special cases where a custom memory allocator was used
      * to channel the payload into a caller-managed area, so that the caller
      * knows which parts of that area have been filled in.
+     *
+     * If @a keep_payload_ranges was @c false in the constructor, returns an
+     * empty list.
      */
     std::vector<std::pair<s_item_pointer_t, s_item_pointer_t>> get_payload_ranges() const;
 };

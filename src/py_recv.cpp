@@ -98,6 +98,7 @@ public:
 class ring_stream_wrapper : public ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore> >
 {
 private:
+    bool incomplete_keep_payload_ranges;
     exit_stopper stopper{[this] { stop(); }};
 
     boost::asio::ip::address make_address(const std::string &hostname)
@@ -118,15 +119,29 @@ private:
         return boost::asio::ip::udp::endpoint(make_address(hostname), port);
     }
 
-public:
-    // Can't use using ring_stream::ring_stream because exit_stopper is not
-    // default-constructible.
-    template<typename ...Args>
-    explicit ring_stream_wrapper(Args&&... args)
-        : ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore>>(
-            std::forward<Args>(args)...) {}
+    py::object to_object(live_heap &&h)
+    {
+        if (h.is_contiguous())
+            return py::cast(heap(std::move(h)), py::return_value_policy::move);
+        else
+            return py::cast(incomplete_heap(std::move(h), false, incomplete_keep_payload_ranges),
+                            py::return_value_policy::move);
+    }
 
-    heap next()
+public:
+    ring_stream_wrapper(
+        io_service_ref io_service,
+        bug_compat_mask bug_compat = 0,
+        std::size_t max_heaps = default_max_heaps,
+        std::size_t ring_heaps = default_ring_heaps,
+        bool contiguous_only = true,
+        bool incomplete_keep_payload_ranges = false)
+        : ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore>>(
+            std::move(io_service), bug_compat, max_heaps, ring_heaps, contiguous_only),
+        incomplete_keep_payload_ranges(incomplete_keep_payload_ranges)
+    {}
+
+    py::object next()
     {
         try
         {
@@ -138,14 +153,14 @@ public:
         }
     }
 
-    heap get()
+    py::object get()
     {
-        return ring_stream::pop();
+        return to_object(ring_stream::pop_live());
     }
 
-    heap get_nowait()
+    py::object get_nowait()
     {
-        return try_pop();
+        return to_object(try_pop_live());
     }
 
     int get_fd() const
@@ -299,14 +314,14 @@ py::module register_module(py::module &parent)
     // classes we define are added to this module rather than the root.
     py::module m = parent.def_submodule("recv");
 
-    py::class_<heap>(m, "Heap")
-        .def_property_readonly("cnt", SPEAD2_PTMF(heap, get_cnt))
-        .def_property_readonly("flavour", SPEAD2_PTMF(heap, get_flavour))
-        .def("get_items", [](const heap &h) -> py::list
+    py::class_<heap_base>(m, "HeapBase")
+        .def_property_readonly("cnt", SPEAD2_PTMF(heap_base, get_cnt))
+        .def_property_readonly("flavour", SPEAD2_PTMF(heap_base, get_flavour))
+        .def("get_items", [](py::object &self) -> py::list
         {
+            const heap_base &h = self.cast<const heap_base &>();
             std::vector<item> base = h.get_items();
             py::list out;
-            py::object self = py::cast(&h);
             for (const item &it : base)
             {
                 // Filter out descriptors here. The base class can't do so, because
@@ -316,8 +331,13 @@ py::module register_module(py::module &parent)
             }
             return out;
         })
-        .def("get_descriptors", SPEAD2_PTMF(heap, get_descriptors))
-        .def("is_start_of_stream", SPEAD2_PTMF(heap, is_start_of_stream));
+        .def("is_start_of_stream", SPEAD2_PTMF(heap_base, is_start_of_stream));
+    py::class_<heap, heap_base>(m, "Heap")
+        .def("get_descriptors", SPEAD2_PTMF(heap, get_descriptors));
+    py::class_<incomplete_heap, heap_base>(m, "IncompleteHeap")
+        .def_property_readonly("heap_length", SPEAD2_PTMF(incomplete_heap, get_heap_length))
+        .def_property_readonly("received_length", SPEAD2_PTMF(incomplete_heap, get_received_length))
+        .def_property_readonly("payload_ranges", SPEAD2_PTMF(incomplete_heap, get_payload_ranges));
     py::class_<item_wrapper>(m, "RawItem", py::buffer_protocol())
         .def_readonly("id", &item_wrapper::id)
         .def_readonly("is_immediate", &item_wrapper::is_immediate)
@@ -331,10 +351,13 @@ py::module register_module(py::module &parent)
         .def_readwrite("worker_blocked", &stream_stats::worker_blocked)
         .def_readwrite("max_batch", &stream_stats::max_batch);
     py::class_<ring_stream_wrapper>(m, "Stream")
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, bug_compat_mask, std::size_t, std::size_t>(),
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, bug_compat_mask,
+                      std::size_t, std::size_t, bool, bool>(),
              "thread_pool"_a, "bug_compat"_a = 0,
              "max_heaps"_a = ring_stream_wrapper::default_max_heaps,
-             "ring_heaps"_a = ring_stream_wrapper::default_ring_heaps)
+             "ring_heaps"_a = ring_stream_wrapper::default_ring_heaps,
+             "contiguous_only"_a = true,
+             "incomplete_keep_payload_ranges"_a = false)
         .def("__iter__", [](py::object self) { return self; })
         .def("__next__", SPEAD2_PTMF(ring_stream_wrapper, next))
         .def("get", SPEAD2_PTMF(ring_stream_wrapper, get))

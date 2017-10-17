@@ -180,11 +180,13 @@ class TestDecode(object):
     def __init__(self):
         self.flavour = FLAVOUR
 
-    def data_to_heaps(self, data):
+    def data_to_heaps(self, data, **kwargs):
         """Take some data and pass it through the receiver to obtain a set of heaps.
+
+        Keyword arguments are passed to the receiver constructor.
         """
         thread_pool = spead2.ThreadPool()
-        stream = recv.Stream(thread_pool, self.flavour.bug_compat)
+        stream = recv.Stream(thread_pool, self.flavour.bug_compat, **kwargs)
         stream.add_buffer_reader(data)
         return list(stream)
 
@@ -408,6 +410,35 @@ class TestDecode(object):
         assert_equal(0x5000, items[1].id)
         assert_false(items[1].is_immediate)
         assert_equal(payload, bytearray(items[1]))
+
+    def test_incomplete_heaps(self):
+        payload = bytearray(64)
+        payload[:] = range(64)
+        packets = [
+            self.flavour.make_packet([
+                Item(spead2.HEAP_CNT_ID, 1, True),
+                Item(spead2.PAYLOAD_OFFSET_ID, 5, True),
+                Item(spead2.PAYLOAD_LENGTH_ID, 7, True),
+                Item(spead2.HEAP_LENGTH_ID, 96, True),
+                Item(0x1600, 12345, True),
+                Item(0x5000, 0, False, offset=0)], payload[5 : 12]),
+            self.flavour.make_packet([
+                Item(spead2.HEAP_CNT_ID, 1, True),
+                Item(spead2.PAYLOAD_OFFSET_ID, 32, True),
+                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
+                Item(spead2.HEAP_LENGTH_ID, 96, True)], payload[32 : 64])
+        ]
+        heaps = self.data_to_heaps(b''.join(packets),
+                                   contiguous_only=False,
+                                   incomplete_keep_payload_ranges=True)
+        assert_equal(1, len(heaps))
+        assert_is_instance(heaps[0], recv.IncompleteHeap)
+        items = heaps[0].get_items()
+        assert_equal(1, len(items))   # Addressed item must be excluded
+        assert_equal(0x1600, items[0].id)
+        assert_equal(96, heaps[0].heap_length)
+        assert_equal(39, heaps[0].received_length)
+        assert_equal([(5, 12), (32, 64)], heaps[0].payload_ranges)
 
     def test_is_start_of_stream(self):
         packet = self.flavour.make_packet_heap(

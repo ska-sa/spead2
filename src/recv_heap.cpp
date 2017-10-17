@@ -49,7 +49,7 @@ static inline item_pointer_t load_bytes_be(const std::uint8_t *ptr, int len)
     return betoh<item_pointer_t>(out);
 }
 
-void heap_base::load(live_heap &&h, bool keep_addressed)
+void heap_base::load(live_heap &&h, bool keep_addressed, bool keep_payload)
 {
     assert(h.is_contiguous() || !keep_addressed);
     log_debug("freezing heap with ID %d, %d item pointers, %d bytes payload",
@@ -136,6 +136,8 @@ void heap_base::load(live_heap &&h, bool keep_addressed)
     cnt = h.cnt;
     flavour_ = flavour(maximum_version, 8 * sizeof(item_pointer_t),
                        h.heap_address_bits, h.bug_compat);
+    if (keep_payload)
+        payload = std::move(h.payload);
 }
 
 bool heap_base::is_start_of_stream() const
@@ -154,8 +156,7 @@ bool heap_base::is_start_of_stream() const
 heap::heap(live_heap &&h)
 {
     assert(h.is_contiguous());
-    load(std::move(h), true);
-    payload = std::move(h.payload);
+    load(std::move(h), true, true);
     // Reset h so that it still satisfies its invariants
     h = live_heap(0, h.bug_compat, h.allocator);
 }
@@ -265,11 +266,12 @@ std::vector<descriptor> heap::get_descriptors() const
 }
 
 
-incomplete_heap::incomplete_heap(live_heap &&h)
+incomplete_heap::incomplete_heap(live_heap &&h, bool keep_payload, bool keep_payload_ranges)
     : heap_length(h.heap_length), received_length(h.received_length)
 {
-    load(std::move(h), false);
-    payload_ranges = std::move(h.payload_ranges);
+    load(std::move(h), false, keep_payload);
+    if (keep_payload_ranges)
+        payload_ranges = std::move(h.payload_ranges);
     // Reset h so that it still satisfies its invariants
     h = live_heap(0, h.bug_compat, h.allocator);
 }
