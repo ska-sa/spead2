@@ -142,7 +142,10 @@ void log_function_python::run()
             try
             {
                 for (int pass = 1; pass < 1024; pass++)
+                {
+                    msg = ring.try_pop();
                     log(msg.first, msg.second);
+                }
             }
             catch (ringbuffer_empty)
             {
