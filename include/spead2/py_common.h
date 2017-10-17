@@ -144,8 +144,11 @@ int semaphore_gil<Semaphore>::get()
 class log_function_python
 {
 private:
+    static constexpr unsigned int num_levels = 3;
+    static const char *const level_methods[num_levels];
+
     exit_stopper stopper{[this] { stop(); }};
-    pybind11::object logger;
+    pybind11::object log_methods[num_levels];
     std::atomic<bool> overflowed;
     ringbuffer<std::pair<log_level, std::string>> ring;
     std::thread thread;
@@ -154,13 +157,7 @@ private:
 
 public:
     log_function_python() = default;
-    explicit log_function_python(pybind11::object logger, std::size_t ring_size = 1024) :
-        logger(std::move(logger)),
-        overflowed(false),
-        ring(ring_size),
-        thread([this] () { run(); })
-    {
-    }
+    explicit log_function_python(pybind11::object logger, std::size_t ring_size = 1024);
 
     ~log_function_python() { stop(); }
 
