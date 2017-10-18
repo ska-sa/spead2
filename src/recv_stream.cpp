@@ -191,6 +191,7 @@ void stream_base::flush()
         }
     }
     std::lock_guard<std::mutex> stats_lock(stats_mutex);
+    stats.heaps += n_flushed;
     stats.incomplete_heaps_flushed += n_flushed;
 }
 
