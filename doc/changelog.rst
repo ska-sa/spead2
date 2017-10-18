@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 1.4.0
 
 - Remove :option:`--bind` option to :program:`spead2_recv.py` and :program:`spead2_recv`.
   Instead, use :samp:`{host}:{port}` as the source. This allows subscribing to
