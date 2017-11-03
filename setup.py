@@ -90,8 +90,10 @@ setup(
     version=find_version(),
     description='High-performance SPEAD implementation',
     url='https://github.com/ska-sa/spead2',
+    license='LGPLv3+',
     classifiers = [
         'Development Status :: 5 - Production/Stable',
+        'Framework :: AsyncIO',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)',
         'Operating System :: POSIX',
