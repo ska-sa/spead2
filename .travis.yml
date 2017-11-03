@@ -1,38 +1,41 @@
 language: generic
+cache:
+    - ccache
+    - pip
 matrix:
     include:
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=cxx CXX="g++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
+          env: TEST=cxx CXX="ccache g++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=cxx CXX="g++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
+          env: TEST=cxx CXX="ccache g++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=cxx CXX="clang++-3.5" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
+          env: TEST=cxx CXX="ccache clang++-3.5" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=cxx CXX="clang++-3.5" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
+          env: TEST=cxx CXX="ccache clang++-3.5" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=python2 CC="gcc" CXX="g++"
+          env: TEST=python2 CC="ccache gcc" CXX="g++"
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=python2 CC="clang-3.5" CXX="clang++-3.5"
+          env: TEST=python2 CC="ccache clang-3.5" CXX="clang++-3.5"
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=python3 CC="gcc" CXX="g++"
+          env: TEST=python3 CC="ccache gcc" CXX="g++"
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=python3 CC="clang-3.5" CXX="clang++-3.5"
+          env: TEST=python3 CC="ccache clang-3.5" CXX="clang++-3.5"
         - os: osx
           osx_image: xcode7.3
           env: TEST=cxx CXX="clang++" NETMAP=no RECVMMSG=no EVENTFD=no IBV=no
