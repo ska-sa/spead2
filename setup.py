@@ -91,7 +91,7 @@ setup(
     description='High-performance SPEAD implementation',
     url='https://github.com/ska-sa/spead2',
     classifiers = [
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)',
         'Operating System :: POSIX',
