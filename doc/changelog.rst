@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Support for asyncio in Python 3. For each trollius module there is now an
+  equivalent asyncio module. The installed utilities use asyncio on Python
+  3.4+.
+
 .. rubric:: Version 1.4.0
 
 - Remove :option:`--bind` option to :program:`spead2_recv.py` and :program:`spead2_recv`.

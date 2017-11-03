@@ -16,7 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import print_function
-from setuptools import setup, Extension
+from setuptools import setup, find_packages, Extension
 from distutils.command.build_ext import build_ext
 import glob
 import sys
@@ -102,9 +102,9 @@ setup(
     ext_package='spead2',
     ext_modules=extensions,
     cmdclass={'build_ext': BuildExt},
-    install_requires=['numpy>=1.9.2', 'six'],
+    install_requires=['numpy>=1.9.2', 'six', 'trollius; python_version<"3.4"'],
     tests_require=['netifaces', 'nose', 'decorator', 'trollius'],
     test_suite='nose.collector',
-    packages=['spead2', 'spead2.recv', 'spead2.send', 'spead2.test'],
+    packages=find_packages(),
     scripts=glob.glob('scripts/*.py')
 )

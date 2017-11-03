@@ -13,9 +13,7 @@ Makefile.in
 /config.sub
 /configure
 /spead2.pc
-/spead2/recv/asyncio.py
-/spead2/send/asyncio.py
-/spead2/test/test_send_asyncio.py
+*asyncio.py
 /wheelhouse
 .deps
 *.pyc
