@@ -26,8 +26,8 @@ if [ "$TEST" = "cxx" ]; then
 fi
 
 if [[ "$TEST" == "python2" || "$TEST" == "python3" ]]; then
-    # The -e is necessary to make nosetests work, because otherwise it tries to find the
-    # .so in the current directory instead of the install directory.
-    $PIP install -v -e .
-    nosetests -v
+    $PIP install -v .
+    # Avoid running nosetests from installation directory, to avoid picking up
+    # things from the local tree that aren't installed.
+    (cd / && nosetests -v spead2)
 fi
