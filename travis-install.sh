@@ -2,19 +2,20 @@
 set -e -x
 
 if [[ "$TEST" == "python3" ]]; then
-    PIP=pip3
+    PY="python3"
 else
-    PIP=pip
+    PY="python2"
 fi
+PIP_INSTALL="$PY -m pip install"
 if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then
-    PIP="sudo -H $PIP"
+    PIP_INSTALL="$PIP_INSTALL --user"
 fi
 
 if [[ "$TEST" == "python2" || "$TEST" == "python3" ]]; then
-    $PIP install -U pip setuptools wheel
-    $PIP install -r requirements.txt
+    $PIP_INSTALL -U pip setuptools wheel
+    $PIP_INSTALL -r requirements.txt
     if [[ "$TEST" == "python2" ]]; then
-        $PIP install "git+https://github.com/ska-sa/PySPEAD#egg=spead"
+        $PIP_INSTALL "git+https://github.com/ska-sa/PySPEAD#egg=spead"
     fi
 fi
 

@@ -1,16 +1,20 @@
 #!/bin/bash
 set -e -x
 
+BOOTSTRAP_ARGS=""
 if [[ "$TEST" == "python3" ]]; then
-    PIP=pip3
+    PY="python3"
+elif [[ "$TEST" == "python2" ]]; then
+    PY="python2"
 else
-    PIP=pip
+    BOOTSTRAP_ARGS="--no-python"
 fi
+PIP_INSTALL="$PY -m pip install"
 if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then
-    PIP="sudo -H env CC=$CC $PIP"
+    PIP_INSTALL="$PIP_INSTALL --user"
 fi
 
-autoreconf --install
+./bootstrap.sh $BOOTSTRAP_ARGS
 if [ "$TEST" = "cxx" ]; then
     if [ "$NETMAP" = "yes" ]; then
         export CPATH="$PWD/netmap/sys"
@@ -26,7 +30,7 @@ if [ "$TEST" = "cxx" ]; then
 fi
 
 if [[ "$TEST" == "python2" || "$TEST" == "python3" ]]; then
-    $PIP install -v .
+    $PIP_INSTALL -v .
     # Avoid running nosetests from installation directory, to avoid picking up
     # things from the local tree that aren't installed.
     (cd / && nosetests -v spead2)

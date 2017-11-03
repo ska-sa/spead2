@@ -2,35 +2,35 @@ language: generic
 matrix:
     include:
         - os: linux
-          sudo: required
+          sudo: false
           dist: trusty
           env: TEST=cxx CXX="g++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
         - os: linux
-          sudo: required
+          sudo: false
           dist: trusty
           env: TEST=cxx CXX="g++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
         - os: linux
-          sudo: required
+          sudo: false
           dist: trusty
           env: TEST=cxx CXX="clang++-3.5" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
         - os: linux
-          sudo: required
+          sudo: false
           dist: trusty
           env: TEST=cxx CXX="clang++-3.5" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
         - os: linux
-          sudo: required
+          sudo: false
           dist: trusty
           env: TEST=python2 CC="gcc" CXX="g++"
         - os: linux
-          sudo: required
+          sudo: false
           dist: trusty
           env: TEST=python2 CC="clang-3.5" CXX="clang++-3.5"
         - os: linux
-          sudo: required
+          sudo: false
           dist: trusty
           env: TEST=python3 CC="gcc" CXX="g++"
         - os: linux
-          sudo: required
+          sudo: false
           dist: trusty
           env: TEST=python3 CC="clang-3.5" CXX="clang++-3.5"
         - os: osx

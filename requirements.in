@@ -4,3 +4,4 @@ nose
 decorator
 six
 trollius
+trollius-fixers
