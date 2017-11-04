@@ -45,7 +45,6 @@ class BuildPy(build_py):
         modules = build_py.find_package_modules(self, package, package_dir)
         if sys.version_info < (3, 4):
             modules = [m for m in modules if not m[1].endswith('asyncio')]
-        print(modules)
         return modules
 
 
