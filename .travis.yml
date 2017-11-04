@@ -1,7 +1,9 @@
 language: generic
 cache:
-    - ccache
-    - pip
+    ccache: true
+    pip: true
+    directories:
+        - $HOME/.ccache
 matrix:
     include:
         - os: linux
