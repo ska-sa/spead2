@@ -17,7 +17,10 @@ if [ "x$1" != "x--no-python" ]; then
         # trollius2asyncio doesn't rewrite internally references e.g
         # spead2.send.trollius to spead2.send.asyncio. This is a bit hacky but
         # easier than providing custom fixers and trying to bootstrap them.
-        sed -i 's/trollius/asyncio/g' "$trg"
+        # Also we can't use -i because GNU sed and OS X sed have mutually
+        # incompatible interpretations.
+        sed 's/trollius/asyncio/g' "$trg" > "$trg.tmp"
+        mv "$trg.tmp" "$trg"
     done
 fi
 autoreconf --install
