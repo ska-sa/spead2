@@ -71,6 +71,57 @@ before_install:
     - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TEST" == "python2" ]]; then brew update; brew install python; brew reinstall boost --with-python; brew install boost-python; pip install virtualenv; virtualenv venv; source venv/bin/activate; fi
     - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TEST" == "python3" ]]; then brew update; brew install python3; brew reinstall boost --with-python3; brew install boost-python --with-python3; pyvenv venv; source venv/bin/activate; fi
 install:
-    - ./travis-install.sh
+- |
+    set -e
+    PYPY_VERSION=5.9.0
+    if [[ "$TEST" == pypy* ]]; then
+        curl -fSL https://bitbucket.org/pypy/pypy/downloads/${TEST}-v${PYPY_VERSION}-linux64.tar.bz2 | tar -jx
+        PY="$PWD/$TEST-v${PYPY_VERSION}-linux64/bin/pypy"
+        if [ "$TEST" = "pypy3" ]; then
+            PY="${PY}3"     # binary is pypy for pypy2 but pypy3 for pypy3
+        fi
+        $PY -m ensurepip --user
+    elif [[ "$TEST" == python* ]]; then
+        PY="$TEST"
+    fi
+
+    if [[ "$TEST" == py* ]]; then
+        PIP_INSTALL="$PY -m pip install"
+        if [[ "$TRAVIS_OS_NAME" != osx ]]; then
+            PIP_INSTALL="$PIP_INSTALL --user"
+        fi
+        $PIP_INSTALL -U pip setuptools wheel
+        $PIP_INSTALL -r requirements.txt
+        if [[ "$TEST" == "python2" ]]; then
+            $PIP_INSTALL "git+https://github.com/ska-sa/PySPEAD#egg=spead"
+        fi
+    fi
+
+    if [ "$NETMAP" = "yes" ]; then
+        git clone https://github.com/luigirizzo/netmap
+        export CPATH="$PWD/netmap/sys"
+    fi
+    set +e
 script:
-    - ./travis-script.sh
+- |
+    set -e
+    if [ "$TEST" = "cxx" ]; then
+        ./bootstrap.sh --no-python
+        ./configure \
+            --with-netmap="$NETMAP" \
+            --with-recvmmsg="$RECVMMSG" \
+            --with-eventfd="$EVENTFD" \
+            --with-ibv="$IBV" \
+            --disable-optimized
+        make -j4
+        make -j4 check
+    fi
+    if [[ "$TEST" == py* ]]; then
+        ./bootstrap.sh
+        $PIP_INSTALL -v .
+        # Avoid running nosetests from installation directory, to avoid picking up
+        # things from the local tree that aren't installed.
+        cd /
+        nosetests -v spead2
+    fi
+    set +e
