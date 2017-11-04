@@ -2,15 +2,17 @@
 set -e -x
 
 BOOTSTRAP_ARGS=""
-if [[ "$TEST" == "python3" ]]; then
-    PY="python3"
-elif [[ "$TEST" == "python2" ]]; then
-    PY="python2"
+PYPY_VERSION=5.9.0
+if [[ "$TEST" == pypy* ]]; then
+    PY="$PWD/$TEST-v${PYPY_VERSION}-linux64/bin/pypy"
+elif [[ "$TEST" == python* ]]; then
+    PY="$TEST"
 else
     BOOTSTRAP_ARGS="--no-python"
 fi
+
 PIP_INSTALL="$PY -m pip install"
-if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then
+if [[ "$TRAVIS_OS_NAME" != osx ]]; then
     PIP_INSTALL="$PIP_INSTALL --user"
 fi
 
@@ -29,7 +31,7 @@ if [ "$TEST" = "cxx" ]; then
     make -j4 check
 fi
 
-if [[ "$TEST" == "python2" || "$TEST" == "python3" ]]; then
+if [[ "$TEST" == py* ]]; then
     $PIP_INSTALL -v .
     # Avoid running nosetests from installation directory, to avoid picking up
     # things from the local tree that aren't installed.

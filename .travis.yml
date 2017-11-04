@@ -38,6 +38,10 @@ matrix:
           sudo: false
           dist: trusty
           env: TEST=python3 CC="ccache clang-3.5" CXX="clang++-3.5"
+        - os: linux
+          sudo: false
+          dist: trusty
+          env: TEST=pypy2 CC="ccache gcc" CXX="g++"
         - os: osx
           osx_image: xcode7.3
           env: TEST=cxx CXX="clang++" NETMAP=no RECVMMSG=no EVENTFD=no IBV=no
