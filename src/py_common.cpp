@@ -251,6 +251,9 @@ void register_module(py::module m)
     EXPORT_ENUM(MEMCPY_NONTEMPORAL);
 #undef EXPORT_ENUM
 
+    m.def("log_info", [](const std::string &msg) { log_info("%s", msg); },
+        R"doc(Log a message at INFO level (for testing only)doc");
+
     py::class_<flavour>(m, "Flavour")
         .def(py::init<int, int, int, bug_compat_mask>(),
              "version"_a, "item_pointer_bits"_a,
@@ -329,8 +332,7 @@ void register_module(py::module m)
     detail::orig_logger = set_log_function(std::ref(*detail::our_logger));
 
     py::module atexit_mod = py::module::import("atexit");
-    atexit_mod.attr("register")(
-        py::cpp_function(detail::run_exit_stoppers));
+    atexit_mod.attr("register")(py::cpp_function(detail::run_exit_stoppers));
 }
 
 } // namespace spead2

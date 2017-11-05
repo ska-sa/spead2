@@ -123,5 +123,9 @@ script:
         # things from the local tree that aren't installed.
         cd /
         nosetests -v spead2
+        for test in test_logging_shutdown test_running_thread_pool test_running_stream; do
+            echo "Running shutdown test $test"
+            $PY -c "import spead2.test.shutdown; spead2.test.shutdown.$test()"
+        done
     fi
     set +e
