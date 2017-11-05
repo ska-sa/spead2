@@ -41,9 +41,9 @@ namespace spead2
 namespace detail
 {
 
+static std::list<std::function<void()>> stop_entries;
 static std::function<void(log_level, const std::string &)> orig_logger;
 static std::unique_ptr<log_function_python> our_logger;
-static std::list<std::function<void()>> stop_entries;
 
 static void run_exit_stoppers()
 {
@@ -328,8 +328,9 @@ void register_module(py::module m)
     detail::our_logger.reset(new log_function_python(logger));
     detail::orig_logger = set_log_function(std::ref(*detail::our_logger));
 
-    py::capsule cleanup(detail::run_exit_stoppers);
-    m.add_object("_cleanup", cleanup);
+    py::module atexit_mod = py::module::import("atexit");
+    atexit_mod.attr("register")(
+        py::cpp_function(detail::run_exit_stoppers));
 }
 
 } // namespace spead2
