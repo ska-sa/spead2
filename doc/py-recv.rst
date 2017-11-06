@@ -172,11 +172,14 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
 Asynchronous receive
 ^^^^^^^^^^^^^^^^^^^^
-Asynchronous I/O is supported through trollius_, which is a Python 2 backport
-of the Python 3 :py:mod:`asyncio` module. It can be combined with other
-asynchronous I/O frameworks like twisted_.
+Asynchronous I/O is supported through Python 3's :py:mod:`asyncio` module, as
+well as through trollius_ (a Python 2 backport). It can be combined with other
+asynchronous I/O frameworks like twisted_ and Tornado_.
 
-.. py:class:: spead2.recv.trollius.Stream(\*args, \*\*kwargs, loop=None)
+The documentation below is for the :py:mod:`asyncio` interface; replace all
+instances of ``asyncio`` with ``trollius`` if you're using trollius.
+
+.. py:class:: spead2.recv.asyncio.Stream(\*args, \*\*kwargs, loop=None)
 
    See :py:class:`spead2.recv.Stream` (the base class) for other constructor
    arguments.
@@ -192,10 +195,11 @@ asynchronous I/O frameworks like twisted_.
       to have multiple in-flight calls, which will be satisfied in the order
       they were made.
 
-      :param loop: Trollius event loop to use, overriding constructor.
+      :param loop: asyncio event loop to use, overriding constructor.
 
 .. _trollius: http://trollius.readthedocs.io/
 .. _twisted: https://twistedmatrix.com/trac/
+.. _tornado: http://www.tornadoweb.org/en/stable/
 
 .. _py-memory-allocators:
 

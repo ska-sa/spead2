@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Improved documentation of asyncio support.
+
 .. rubric:: Version 1.5.0
 
 - Support for asyncio in Python 3. For each trollius module there is now an

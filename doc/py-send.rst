@@ -151,7 +151,8 @@ Blocking send
 Asynchronous send
 ^^^^^^^^^^^^^^^^^
 
-As for asynchronous receives, asynchronous sends are managed by trollius_. A
+As for asynchronous receives, asynchronous sends are managed by asyncio_ or
+trollius_. A
 stream can buffer up multiple heaps for asynchronous send, up to the limit
 specified by `max_heaps` in the :py:class:`~spead2.send.StreamConfig`. If this
 limit is exceeded, heaps will be dropped, and the returned future has an
@@ -160,12 +161,13 @@ low-level error in sending the heap (for example, if the packet size exceeds
 the MTU).
 
 .. _trollius: http://trollius.readthedocs.io/
+.. _asyncio: https://docs.python.org/3/library/asyncio.html
 
-.. autoclass:: spead2.send.trollius.UdpStream(thread_pool, hostname, port, config, buffer_size=524288, socket=None, loop=None)
+.. autoclass:: spead2.send.asyncio.UdpStream(thread_pool, hostname, port, config, buffer_size=524288, socket=None, loop=None)
 
-   .. automethod:: spead2.send.trollius.UdpStream.async_send_heap
+   .. automethod:: spead2.send.asyncio.UdpStream.async_send_heap
    .. py:method:: flush
 
       Block until all enqueued heaps have been sent (or dropped).
 
-   .. automethod:: spead2.send.trollius.UdpStream.async_flush
+   .. automethod:: spead2.send.asyncio.UdpStream.async_flush

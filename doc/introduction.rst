@@ -12,11 +12,12 @@ PySPEAD_ implementation, spead2:
 - cleanly supports several SPEAD flavours (e.g. 64-40 and 64-48) in one
   module, with the receiver adapting to the flavour used by the sender;
 - supports Python 3;
-- supports asynchronous operation, using trollius_.
+- supports asynchronous operation, using trollius_ or asyncio_.
 
 .. _SPEAD: https://casper.berkeley.edu/wiki/SPEAD
 .. _PySPEAD: https://github.com/ska-sa/PySPEAD/
 .. _trollius: http://trollius.readthedocs.io/
+.. _asyncio: https://docs.python.org/3/library/asyncio.html
 
 Preparation
 -----------
@@ -43,11 +44,12 @@ need to be stored in :file:`/etc/sysctl.conf` or :file:`/etc/sysctl.d`.
 
 Installing spead2 for Python
 ----------------------------
-The only Python dependencies are numpy_ and six_, although support for
-asynchronous I/O also requires trollius_. Running the test suite additionally
-requires nose_, decorator_ and netifaces_, and some tests depend on PySPEAD_
-(they will be skipped if it is not installed). It is also necessary to have the
-development headers for Python.
+The only Python dependencies are numpy_ and six_, and trollius_ on Python
+versions below 3.4 (for 3.4+, trollius can still be used, and is needed to run
+the test suite). Running the test
+suite additionally requires nose_, decorator_ and netifaces_, and some tests
+depend on PySPEAD_ (they will be skipped if it is not installed). It is also
+necessary to have the development headers for Python.
 
 There are two ways to install spead2 for Python: compiling from source and
 installing a binary wheel. The binary wheels are experimental and only

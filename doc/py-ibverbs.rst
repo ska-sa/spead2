@@ -86,8 +86,10 @@ Sending
 -------
 Sending is done by using the class :py:class:`spead2.send.UdpIbvStream` instead
 of :py:class:`spead2.send.UdpStream`. It has a different constructor, but the
-same methods. There is also a :py:class:`spead2.send.trollius.UdpIbvStream` class,
-analogous to :py:class:`spead2.send.trollius.UdpStream`.
+same methods. There are also :py:class:`spead2.send.asyncio.UdpIbvStream` and
+:py:class:`spead2.send.trollius.UdpIbvStream` classes, analogous to
+:py:class:`spead2.send.asyncio.UdpStream` and
+:py:class:`spead2.send.trollius.UdpStream`.
 
 .. py:class:: spead2.send.UdpIbvStream(thread_pool, multicast_group, port, config, interface_address, buffer_size, ttl=1, comp_vector=0, max_poll=DEFAULT_MAX_POLL)
 
