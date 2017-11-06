@@ -6,6 +6,9 @@ Changelog
 - Support for asyncio in Python 3. For each trollius module there is now an
   equivalent asyncio module. The installed utilities use asyncio on Python
   3.4+.
+- Switch shutdown code to use atexit instead of a capsule destructor, to
+  support PyPy.
+- Test PyPy support with Travis.
 
 .. rubric:: Version 1.4.0
 
