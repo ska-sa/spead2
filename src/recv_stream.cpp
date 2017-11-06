@@ -85,6 +85,16 @@ void stream_base::set_memcpy(memcpy_function_id id)
     }
 }
 
+void stream_base::set_stop_on_stop_item(bool stop)
+{
+    stop_on_stop_item = stop;
+}
+
+bool stream_base::get_stop_on_stop_item() const
+{
+    return stop_on_stop_item.load();
+}
+
 void stream_base::batch_size(std::size_t size)
 {
     std::lock_guard<std::mutex> stats_lock(stats_mutex);
@@ -151,7 +161,7 @@ bool stream_base::add_packet(const packet_header &packet)
     if (h->add_packet(packet))
     {
         result = true;
-        end_of_stream = h->is_end_of_stream();
+        end_of_stream = stop_on_stop_item.load() && h->is_end_of_stream();
         if (h->is_complete())
         {
             if (!end_of_stream)

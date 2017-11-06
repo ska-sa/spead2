@@ -24,6 +24,10 @@ normally passed to :py:meth:`spead2.ItemGroup.update`.
 
       Returns true if the packet contains a stream start control item.
 
+   .. py:function:: is_end_of_stream()
+
+      Returns true if the packet contains a stream stop control item.
+
 .. note:: Malformed packets (such as an unsupported SPEAD version, or
   inconsistent heap lengths) are dropped, with a log message. However,
   errors in interpreting a fully assembled heap (such as invalid/unsupported
@@ -157,6 +161,15 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
       Statistics_ about the stream.
 
+   .. py:attribute:: stop_on_stop_item
+
+      By default, a heap containing a stream control stop item will terminate
+      the stream (and that heap is discarded). In some cases it is useful to
+      keep the stream object alive and ready to receive a following stream.
+      Setting this attribute to ``False`` will disable this special
+      treatment. Such heaps can then be detected with
+      :meth:`~spead2.recv.Heap.is_end_of_stream`.
+
 Asynchronous receive
 ^^^^^^^^^^^^^^^^^^^^
 Asynchronous I/O is supported through trollius_, which is a Python 2 backport
@@ -253,9 +266,7 @@ might need finer control, such as recording metrics about the number of these
 heaps. To do so, set `contiguous_only` to ``False`` when constructing the
 stream. The stream will then yield instances of :py:class:`IncompleteHeap`.
 
-.. py:class:: IncompleteHeap
-
-.. py:class:: spead2.recv.Heap
+.. py:class:: spead2.recv.IncompleteHeap
 
    .. py:attribute:: cnt
 
@@ -283,6 +294,10 @@ stream. The stream will then yield instances of :py:class:`IncompleteHeap`.
    .. py:function:: is_start_of_stream()
 
       Returns true if the packet contains a stream start control item.
+
+   .. py:function:: is_end_of_stream()
+
+      Returns true if the packet contains a stream stop control item.
 
 
 Statistics

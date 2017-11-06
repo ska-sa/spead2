@@ -140,16 +140,26 @@ void heap_base::load(live_heap &&h, bool keep_addressed, bool keep_payload)
         payload = std::move(h.payload);
 }
 
-bool heap_base::is_start_of_stream() const
+bool heap_base::is_ctrl_item(ctrl_mode value) const
 {
     for (const item &item : items)
         if (item.id == STREAM_CTRL_ID)
         {
-            item_pointer_t value = load_bytes_be(item.ptr, item.length);
-            if (value == CTRL_STREAM_START)
+            item_pointer_t item_value = load_bytes_be(item.ptr, item.length);
+            if (item_value == value)
                 return true;
         }
     return false;
+}
+
+bool heap_base::is_start_of_stream() const
+{
+    return is_ctrl_item(CTRL_STREAM_START);
+}
+
+bool heap_base::is_end_of_stream() const
+{
+    return is_ctrl_item(CTRL_STREAM_STOP);
 }
 
 

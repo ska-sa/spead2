@@ -128,13 +128,13 @@ private:
 
     /// Maximum number of live heaps permitted.
     std::size_t max_heaps;
-    /// @ref stop_received has been called, either externally or by stream control
-    bool stopped = false;
     /// Protocol bugs to be compatible with
     bug_compat_mask bug_compat;
 
     /// Function used to copy heap payloads
     std::atomic<memcpy_function> memcpy{std::memcpy};
+    /// Whether to stop when a stream control stop item is received
+    std::atomic<bool> stop_on_stop_item{true};
 
     /// Mutex protecting @ref allocator
     std::mutex allocator_mutex;
@@ -147,6 +147,9 @@ private:
      * is illegal because shared_ptr is not a POD type.
      */
     std::shared_ptr<memory_allocator> allocator;
+
+    /// @ref stop_received has been called, either externally or by stream control
+    std::atomic<bool> stopped{false};
 
     /**
      * Callback called when a heap is being ejected from the live list.
@@ -188,6 +191,12 @@ public:
     /// Set builtin memcpy function to use for copying payload
     void set_memcpy(memcpy_function_id id);
 
+    /// Set whether to stop the stream when a stop item is received
+    void set_stop_on_stop_item(bool stop);
+
+    /// Get whether to stop the stream when a stop item is received
+    bool get_stop_on_stop_item() const;
+
     /// Report a batch size, for updating the statistics
     void batch_size(std::size_t size);
 
@@ -210,8 +219,7 @@ public:
      */
     virtual void stop_received();
 
-    // TODO: not thread-safe: needs to query via the strand
-    bool is_stopped() const { return stopped; }
+    bool is_stopped() const { return stopped.load(); }
 
     bug_compat_mask get_bug_compat() const { return bug_compat; }
 
@@ -306,6 +314,8 @@ public:
     using stream_base::set_memory_pool;
     using stream_base::set_memory_allocator;
     using stream_base::set_memcpy;
+    using stream_base::set_stop_on_stop_item;
+    using stream_base::get_stop_on_stop_item;
 
     boost::asio::io_service::strand &get_strand() { return strand; }
 

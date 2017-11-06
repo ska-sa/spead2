@@ -331,7 +331,8 @@ py::module register_module(py::module &parent)
             }
             return out;
         })
-        .def("is_start_of_stream", SPEAD2_PTMF(heap_base, is_start_of_stream));
+        .def("is_start_of_stream", SPEAD2_PTMF(heap_base, is_start_of_stream))
+        .def("is_end_of_stream", SPEAD2_PTMF(heap_base, is_end_of_stream));
     py::class_<heap, heap_base>(m, "Heap")
         .def("get_descriptors", SPEAD2_PTMF(heap, get_descriptors));
     py::class_<incomplete_heap, heap_base>(m, "IncompleteHeap")
@@ -367,6 +368,17 @@ py::module register_module(py::module &parent)
         .def("set_memory_pool", SPEAD2_PTMF(ring_stream_wrapper, set_memory_pool),
              "pool"_a)
         .def("set_memcpy", SPEAD2_PTMF(ring_stream_wrapper, set_memcpy), "id"_a)
+        .def_property("stop_on_stop_item",
+                      /* SPEAD2_PTMF doesn't work here because the functions
+                       * are defined in stream_base, which is a private base
+                       * class, and only made accessible via "using".
+                       */
+                      [](const ring_stream_wrapper &self) {
+                          return self.get_stop_on_stop_item();
+                      },
+                      [](ring_stream_wrapper &self, bool stop) {
+                          self.set_stop_on_stop_item(stop);
+                      })
         .def("add_buffer_reader", SPEAD2_PTMF(ring_stream_wrapper, add_buffer_reader), "buffer"_a)
         .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader),
               "port"_a,

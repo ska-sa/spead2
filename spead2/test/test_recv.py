@@ -186,7 +186,10 @@ class TestDecode(object):
         Keyword arguments are passed to the receiver constructor.
         """
         thread_pool = spead2.ThreadPool()
+        stop_on_stop_item = kwargs.pop('stop_on_stop_item', None)
         stream = recv.Stream(thread_pool, self.flavour.bug_compat, **kwargs)
+        if stop_on_stop_item is not None:
+            stream.stop_on_stop_item = stop_on_stop_item
         stream.add_buffer_reader(data)
         return list(stream)
 
@@ -452,6 +455,32 @@ class TestDecode(object):
             [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_DESCRIPTOR_REISSUE, immediate=True)])
         heaps = self.data_to_heaps(packet)
         assert_false(heaps[0].is_start_of_stream())
+
+    def test_is_end_of_stream(self):
+        packet = self.flavour.make_packet_heap(
+            1,
+            [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_STOP, immediate=True)])
+        heaps = self.data_to_heaps(packet, stop_on_stop_item=False)
+        assert_true(heaps[0].is_end_of_stream())
+        assert_false(heaps[0].is_start_of_stream())
+
+    def test_no_stop_on_stop_item(self):
+        packet1 = self.flavour.make_packet_heap(
+            1,
+            [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_STOP, immediate=True)])
+        packet2 = self.flavour.make_packet_heap(
+            2,
+            [
+                self.flavour.make_plain_descriptor(
+                    0x1234, 'test_string', 'a byte string', [('c', 8)], [None]),
+                Item(0x1234, 'Hello world'.encode('ascii'))
+            ])
+        heaps = self.data_to_heaps(packet1 + packet2, stop_on_stop_item=False)
+        assert_equal(2, len(heaps))
+        ig = spead2.ItemGroup()
+        ig.update(heaps[0])
+        ig.update(heaps[1])
+        assert_equal_typed('Hello world', ig['test_string'].value)
 
     def test_size_mismatch(self):
         packet = self.flavour.make_packet_heap(

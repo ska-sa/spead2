@@ -91,9 +91,21 @@ public:
 
     /**
      * Convenience function to check whether any of the items is
+     * a @c STREAM_CTRL_ID item with value @a value.
+     */
+    bool is_ctrl_item(ctrl_mode value) const;
+
+    /**
+     * Convenience function to check whether any of the items is
      * a @c CTRL_STREAM_START.
      */
     bool is_start_of_stream() const;
+
+    /**
+     * Convenience function to check whether any of the items is
+     * a @c CTRL_STREAM_STOP.
+     */
+    bool is_end_of_stream() const;
 };
 
 /**
