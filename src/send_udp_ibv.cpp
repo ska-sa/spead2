@@ -230,6 +230,7 @@ udp_ibv_stream::udp_ibv_stream(
         udp.source_port(socket.local_endpoint().port());
         udp.destination_port(endpoint.port());
         udp.length(config.get_max_packet_size() + udp_packet::min_size);
+        udp.checksum(0);
         available.push_back(&slots[i]);
     }
 }

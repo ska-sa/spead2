@@ -3,6 +3,8 @@ Changelog
 
 .. rubric:: Development version
 
+- Explicitly set UDP checksum to 0 in IBV sender, instead of leaving
+  arbitrary values.
 - Improved documentation of asyncio support.
 
 .. rubric:: Version 1.5.0
