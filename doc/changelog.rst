@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 1.5.1
 
 - Explicitly set UDP checksum to 0 in IBV sender, instead of leaving
   arbitrary values.
