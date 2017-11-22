@@ -55,6 +55,7 @@ def get_args():
     group.add_argument('--threads', type=int, default=1, help='Number of worker threads [%(default)s]')
     group.add_argument('--burst', metavar='BYTES', type=int, default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE, help='Burst size [%(default)s]')
     group.add_argument('--rate', metavar='Gb/s', type=float, default=0, help='Transmission rate bound [no limit]')
+    group.add_argument('--ttl', type=int, help='TTL for multicast target [1]')
     group.add_argument('--affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
     if hasattr(spead2.send, 'UdpIbvStream'):
         group.add_argument('--ibv', type=str, metavar='ADDRESS', help='Use ibverbs with this interface address [no]')
@@ -116,8 +117,13 @@ def main():
     if 'ibv' in args and args.ibv is not None:
         stream = spead2.send.trollius.UdpIbvStream(
             thread_pool, args.host, args.port, config, args.ibv,
-            args.buffer, args.ibv_vector, args.ibv_max_poll)
+            args.buffer, args.ttl or 1, args.ibv_vector, args.ibv_max_poll)
+    elif args.ttl is not None:
+        stream = spead2.send.trollius.UdpStream(
+            thread_pool, args.host, args.port, config, args.buffer, ttl=args.ttl)
     else:
+        # This is handled as a separate case, because passing TTL is only
+        # valid for multicast addresses.
         stream = spead2.send.trollius.UdpStream(
             thread_pool, args.host, args.port, config, args.buffer)
 

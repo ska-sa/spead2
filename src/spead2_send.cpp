@@ -49,6 +49,7 @@ struct options
     std::size_t burst = spead2::send::stream_config::default_burst_size;
     int threads = 1;
     double rate = 0.0;
+    int ttl = 1;
 #if SPEAD2_USE_IBV
     std::string ibv_if;
     int ibv_comp_vector = 0;
@@ -96,6 +97,7 @@ static options parse_args(int argc, const char **argv)
         ("burst", make_opt(opts.burst), "Burst size")
         ("threads", make_opt(opts.threads), "Number of worker threads")
         ("rate", make_opt(opts.rate), "Transmission rate bound (Gb/s)")
+        ("ttl", make_opt(opts.ttl), "TTL for multicast target")
 #if SPEAD2_USE_IBV
         ("ibv", make_opt(opts.ibv_if), "Interface address for ibverbs")
         ("ibv-vector", make_opt(opts.ibv_comp_vector), "Interrupt vector (-1 for polled)")
@@ -243,14 +245,19 @@ int main(int argc, const char **argv)
         boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(opts.ibv_if);
         stream.reset(new spead2::send::udp_ibv_stream(
                 thread_pool.get_io_service(), *it, config,
-                interface_address, opts.buffer, 1,
+                interface_address, opts.buffer, opts.ttl,
                 opts.ibv_comp_vector, opts.ibv_max_poll));
     }
     else
 #endif
     {
-        stream.reset(new spead2::send::udp_stream(
-                thread_pool.get_io_service(), *it, config, opts.buffer));
+        udp::endpoint endpoint = *it;
+        if (endpoint.address().is_multicast())
+            stream.reset(new spead2::send::udp_stream(
+                    thread_pool.get_io_service(), endpoint, config, opts.buffer, opts.ttl));
+        else
+            stream.reset(new spead2::send::udp_stream(
+                    thread_pool.get_io_service(), endpoint, config, opts.buffer));
     }
     return run(*stream, opts);
 }
