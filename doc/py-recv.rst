@@ -255,7 +255,7 @@ being captured and stored indefinitely rather than processed and released.
      buffers are available.
    :param MemoryAllocator allocator: Underlying memory allocator
 
-   .. py:attribute:: warn_on_error
+   .. py:attribute:: warn_on_empty
 
       Whether to issue a warning if the memory pool becomes empty and needs to
       allocate new memory on request. It defaults to true.

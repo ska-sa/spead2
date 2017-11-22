@@ -26,7 +26,7 @@ Changelog
   multiple multicast groups.
 - Improved access to information about incomplete heaps
   (:py:class:`spead2.recv.IncompleteHeap` type).
-- Add :py:attr:`.MemoryPool.warn_on_error` control.
+- Add :py:attr:`.MemoryPool.warn_on_empty` control.
 - Add warning when a stream ringbuffer is full.
 - Add statistics to streams.
 - Fix spead2_send.py to send a stop heap when using :option:`--heaps`. It was

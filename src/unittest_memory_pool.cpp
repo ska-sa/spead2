@@ -137,7 +137,7 @@ BOOST_AUTO_TEST_CASE(memory_pool_pass_user)
 
 // Check that a warning is issued when the memory pool becomes empty, if and
 // only if the warning is enabled.
-BOOST_FIXTURE_TEST_CASE(memory_pool_warn_on_error, logger_fixture)
+BOOST_FIXTURE_TEST_CASE(memory_pool_warn_on_empty, logger_fixture)
 {
     auto pool = std::make_shared<spead2::memory_pool>(1024, 2048, 1, 1);
     BOOST_CHECK_EQUAL(pool->get_warn_on_empty(), true);
