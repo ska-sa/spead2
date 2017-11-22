@@ -3,11 +3,14 @@ Changelog
 
 .. rubric:: Development version
 
+- Report statistics when :program:`spead2_recv.py` is stopped by SIGINT.
+- Add --ttl option to :program:`spead2_send.py` and :program:`spead2_send`.
+
+.. rubric:: Version 1.5.1
+
 - Explicitly set UDP checksum to 0 in IBV sender, instead of leaving
   arbitrary values.
 - Improved documentation of asyncio support.
-- Report statistics when :program:`spead2_recv.py` is stopped by SIGINT.
-- Add --ttl option to :program:`spead2_send.py` and :program:`spead2_send`.
 
 .. rubric:: Version 1.5.0
 
