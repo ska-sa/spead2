@@ -6,6 +6,7 @@ Changelog
 - Explicitly set UDP checksum to 0 in IBV sender, instead of leaving
   arbitrary values.
 - Improved documentation of asyncio support.
+- Report statistics when spead2_recv.py is stopped by SIGINT.
 
 .. rubric:: Version 1.5.0
 

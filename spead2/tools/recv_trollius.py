@@ -95,7 +95,7 @@ def run_stream(stream, name, args):
                             print(key)
                 except ValueError as e:
                     print("Error raised processing heap: {}".format(e))
-            except spead2.Stopped:
+            except (spead2.Stopped, trollius.CancelledError):
                 print("Shutting down stream {} after {} heaps".format(name, num_heaps))
                 stats = stream.stats
                 for key in dir(stats):
