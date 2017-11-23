@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 1.5.2
 
 - Report statistics when :program:`spead2_recv.py` is stopped by SIGINT.
 - Add --ttl option to :program:`spead2_send.py` and :program:`spead2_send`.
