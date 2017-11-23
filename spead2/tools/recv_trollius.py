@@ -141,7 +141,11 @@ def main():
 
     def make_coro(sources):
         stream = make_stream(sources)
-        return run_stream(stream, sources[0], args)
+        return run_stream(stream, sources[0], args), stream
+
+    def stop_streams():
+        for stream in streams:
+            stream.stop()
 
     args = get_args()
     logging.basicConfig(level=getattr(logging, args.log.upper()))
@@ -155,12 +159,13 @@ def main():
     if args.mem_pool:
         memory_pool = spead2.MemoryPool(args.mem_lower, args.mem_upper, args.mem_max_free, args.mem_initial)
     if args.joint:
-        coros = [make_coro(args.source)]
+        coros_and_streams = [make_coro(args.source)]
     else:
-        coros = [make_coro([source]) for source in args.source]
+        coros_and_streams = [make_coro([source]) for source in args.source]
+    coros, streams = zip(*coros_and_streams)
     main_task = trollius.async(trollius.gather(*coros))
     loop = trollius.get_event_loop()
-    loop.add_signal_handler(signal.SIGINT, main_task.cancel)
+    loop.add_signal_handler(signal.SIGINT, stop_streams)
     try:
         loop.run_until_complete(main_task)
     except trollius.CancelledError:
