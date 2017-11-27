@@ -30,6 +30,7 @@ namespace send
 constexpr std::size_t stream_config::default_max_packet_size;
 constexpr std::size_t stream_config::default_max_heaps;
 constexpr std::size_t stream_config::default_burst_size;
+constexpr double stream_config::default_burst_rate_ratio;
 
 void stream_config::set_max_packet_size(std::size_t max_packet_size)
 {

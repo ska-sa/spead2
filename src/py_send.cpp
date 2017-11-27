@@ -552,7 +552,8 @@ py::module register_module(py::module &parent)
                                SPEAD2_PTMF(stream_config, get_burst_rate))
         .def_readonly_static("DEFAULT_MAX_PACKET_SIZE", &stream_config::default_max_packet_size)
         .def_readonly_static("DEFAULT_MAX_HEAPS", &stream_config::default_max_heaps)
-        .def_readonly_static("DEFAULT_BURST_SIZE", &stream_config::default_burst_size);
+        .def_readonly_static("DEFAULT_BURST_SIZE", &stream_config::default_burst_size)
+        .def_readonly_static("DEFAULT_BURST_RATE_RATIO", &stream_config::default_burst_rate_ratio);
 
     {
         auto stream_class = udp_stream_register<udp_stream_wrapper<stream_wrapper<udp_stream>>>(m, "UdpStream");
