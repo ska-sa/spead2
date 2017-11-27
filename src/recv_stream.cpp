@@ -174,13 +174,15 @@ bool stream_base::add_packet(const packet_header &packet)
         }
     }
 
+    {
+        std::lock_guard<std::mutex> stats_lock(stats_mutex);
+        stats.packets++;
+        stats.heaps += complete_heaps + incomplete_heaps_evicted;
+        stats.incomplete_heaps_evicted += incomplete_heaps_evicted;
+    }
+
     if (end_of_stream)
         stop_received();
-
-    std::lock_guard<std::mutex> stats_lock(stats_mutex);
-    stats.packets++;
-    stats.heaps += complete_heaps + incomplete_heaps_evicted;
-    stats.incomplete_heaps_evicted += incomplete_heaps_evicted;
     return result;
 }
 

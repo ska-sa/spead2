@@ -1,4 +1,4 @@
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2017 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -23,6 +23,7 @@ import spead2.send.trollius
 import numpy as np
 import logging
 import sys
+import time
 import itertools
 import argparse
 import trollius
@@ -55,6 +56,7 @@ def get_args():
     group.add_argument('--threads', type=int, default=1, help='Number of worker threads [%(default)s]')
     group.add_argument('--burst', metavar='BYTES', type=int, default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE, help='Burst size [%(default)s]')
     group.add_argument('--rate', metavar='Gb/s', type=float, default=0, help='Transmission rate bound [no limit]')
+    group.add_argument('--burst-rate-ratio', metavar='RATIO', type=float, default=spead2.send.StreamConfig.DEFAULT_BURST_RATE_RATIO, help='Hard rate limit, relative to --rate [%(default)s]')
     group.add_argument('--ttl', type=int, help='TTL for multicast target [1]')
     group.add_argument('--affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
     if hasattr(spead2.send, 'UdpIbvStream'):
@@ -67,6 +69,10 @@ def get_args():
 
 @trollius.coroutine
 def run(item_group, stream, args):
+    n_bytes = 0
+    n_errors = 0
+    last_error = None
+    start_time = time.time()
     tasks = collections.deque()
     if args.heaps is None:
         rep = itertools.repeat(False)
@@ -74,7 +80,11 @@ def run(item_group, stream, args):
         rep = itertools.chain(itertools.repeat(False, args.heaps), [True])
     for is_end in rep:
         if len(tasks) >= 2:
-            yield From(trollius.wait([tasks.popleft()]))
+            try:
+                n_bytes += yield From(tasks.popleft())
+            except Exception as error:
+                n_errors += 1
+                last_error = error
         if is_end:
             task = trollius.async(stream.async_send_heap(item_group.get_end()))
         else:
@@ -83,7 +93,16 @@ def run(item_group, stream, args):
             task = trollius.async(stream.async_send_heap(item_group.get_heap()))
         tasks.append(task)
     while len(tasks) > 0:
-        yield From(trollius.wait([tasks.popleft()]))
+        try:
+            n_bytes += yield From(tasks.popleft())
+        except Exception as error:
+            n_errors += 1
+            last_error = error
+    elapsed = time.time() - start_time
+    if last_error is not None:
+        logging.warn('%d errors, last one: %s', n_errors, last_error)
+    print('Sent {} bytes in {:.6f}s, {:.6f} Gb/s'.format(
+        n_bytes, elapsed, n_bytes * 8 / elapsed / 1e9))
 
 
 def main():
@@ -113,7 +132,8 @@ def main():
     config = spead2.send.StreamConfig(
         max_packet_size=args.packet,
         burst_size=args.burst,
-        rate=args.rate * 1024**3 / 8)
+        rate=args.rate * 10**9 / 8,
+        burst_rate_ratio=args.burst_rate_ratio)
     if 'ibv' in args and args.ibv is not None:
         stream = spead2.send.trollius.UdpIbvStream(
             thread_pool, args.host, args.port, config, args.ibv,

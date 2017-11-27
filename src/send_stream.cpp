@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -30,6 +30,7 @@ namespace send
 constexpr std::size_t stream_config::default_max_packet_size;
 constexpr std::size_t stream_config::default_max_heaps;
 constexpr std::size_t stream_config::default_burst_size;
+constexpr double stream_config::default_burst_rate_ratio;
 
 void stream_config::set_max_packet_size(std::size_t max_packet_size)
 {
@@ -76,16 +77,35 @@ std::size_t stream_config::get_burst_size() const
     return burst_size;
 }
 
+void stream_config::set_burst_rate_ratio(double burst_rate_ratio)
+{
+    if (burst_rate_ratio < 1.0 || !std::isfinite(burst_rate_ratio))
+        throw std::invalid_argument("burst rate ratio must be at least 1.0 and finite");
+    this->burst_rate_ratio = burst_rate_ratio;
+}
+
+double stream_config::get_burst_rate_ratio() const
+{
+    return burst_rate_ratio;
+}
+
+double stream_config::get_burst_rate() const
+{
+    return rate * burst_rate_ratio;
+}
+
 stream_config::stream_config(
     std::size_t max_packet_size,
     double rate,
     std::size_t burst_size,
-    std::size_t max_heaps)
+    std::size_t max_heaps,
+    double burst_rate_ratio)
 {
     set_max_packet_size(max_packet_size);
     set_rate(rate);
     set_burst_size(burst_size);
     set_max_heaps(max_heaps);
+    set_burst_rate_ratio(burst_rate_ratio);
 }
 
 

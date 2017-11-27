@@ -1,4 +1,4 @@
-/* Copyright 2016 SKA South Africa
+/* Copyright 2016, 2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -47,6 +47,7 @@ struct options
     std::size_t packet = spead2::send::stream_config::default_max_packet_size;
     std::size_t buffer = spead2::send::udp_stream::default_buffer_size;
     std::size_t burst = spead2::send::stream_config::default_burst_size;
+    double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
     int threads = 1;
     double rate = 0.0;
     int ttl = 1;
@@ -95,6 +96,7 @@ static options parse_args(int argc, const char **argv)
         ("packet", make_opt(opts.packet), "Maximum packet size to send")
         ("buffer", make_opt(opts.buffer), "Socket buffer size")
         ("burst", make_opt(opts.burst), "Burst size")
+        ("burst-rate-ratio", make_opt(opts.burst_rate_ratio), "Hard rate limit, relative to --rate")
         ("threads", make_opt(opts.threads), "Number of worker threads")
         ("rate", make_opt(opts.rate), "Transmission rate bound (Gb/s)")
         ("ttl", make_opt(opts.ttl), "TTL for multicast target")
@@ -191,11 +193,13 @@ int run(spead2::send::stream &stream, const options &opts)
     std::deque<std::future<std::size_t>> futures;
     std::deque<spead2::send::heap> heaps;
     std::uint64_t sent = 0;
+    std::uint64_t sent_bytes = 0;
+    auto start_time = std::chrono::high_resolution_clock::now();
     while (opts.heaps < 0 || sent <= std::uint64_t(opts.heaps))
     {
         if (futures.size() >= 2)
         {
-            futures.front().get();
+            sent_bytes += futures.front().get();
             futures.pop_front();
             heaps.pop_front();
         }
@@ -221,10 +225,16 @@ int run(spead2::send::stream &stream, const options &opts)
     }
     while (futures.size() > 0)
     {
-        futures.front().get();
+        sent_bytes += futures.front().get();
         futures.pop_front();
         heaps.pop_front();
     }
+    auto stop_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = stop_time - start_time;
+    double elapsed_s = elapsed.count();
+    std::cout
+        << "Sent " << sent_bytes << " bytes in " << elapsed_s << " seconds, "
+        << sent_bytes * 8.0e-9 / elapsed_s << " Gb/s\n";
     return 0;
 }
 
@@ -237,7 +247,8 @@ int main(int argc, const char **argv)
     udp::resolver::query query(opts.host, opts.port);
     auto it = resolver.resolve(query);
     spead2::send::stream_config config(
-        opts.packet, opts.rate * 1024 * 1024 * 1024 / 8, opts.burst);
+        opts.packet, opts.rate * 1000 * 1000 * 1000 / 8, opts.burst,
+        spead2::send::stream_config::default_max_heaps, opts.burst_rate_ratio);
     std::unique_ptr<spead2::send::stream> stream;
 #if SPEAD2_USE_IBV
     if (opts.ibv_if != "")

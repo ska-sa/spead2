@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -61,6 +61,7 @@ struct options
     std::size_t send_buffer = spead2::send::udp_stream::default_buffer_size;
     std::size_t recv_buffer = spead2::recv::udp_reader::default_buffer_size;
     std::size_t burst_size = spead2::send::stream_config::default_burst_size;
+    double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
     std::size_t heaps = spead2::recv::stream_base::default_max_heaps;
     std::size_t ring_heaps = spead2::recv::ring_stream_base::default_ring_heaps;
     std::size_t mem_max_free = 12;
@@ -142,6 +143,7 @@ static options parse_args(int argc, const char **argv, command_mode mode)
             ("send-buffer", make_opt(opts.send_buffer), "Socket buffer size (sender)")
             ("recv-buffer", make_opt(opts.recv_buffer), "Socket buffer size (receiver)")
             ("burst", make_opt(opts.burst_size), "Send burst size")
+            ("burst-rate-ratio", make_opt(opts.burst_rate_ratio), "Hard rate limit, relative to the nominal rate")
             ("multicast", make_opt(opts.multicast), "Multicast group to use, instead of unicast")
 #if SPEAD2_USE_IBV
             ("send-ibv", make_opt(opts.send_ibv_if), "Interface address for ibverbs (sender)")
@@ -303,6 +305,7 @@ static std::pair<bool, double> measure_connection_once(
             << opts.heap_address_bits << ' '
             << opts.recv_buffer << ' '
             << opts.burst_size << ' '
+            << opts.burst_rate_ratio << ' '
             << opts.heaps << ' '
             << opts.ring_heaps << ' '
             << opts.mem_max_free << ' '
@@ -326,7 +329,7 @@ static std::pair<bool, double> measure_connection_once(
          * the same payload, this should not cause excessive memory use.
          */
         spead2::send::stream_config config(
-            opts.packet_size, rate, opts.burst_size, num_heaps + 1);
+            opts.packet_size, rate, opts.burst_size, num_heaps + 1, opts.burst_rate_ratio);
 
         /* Build the heaps */
         std::vector<spead2::send::heap> heaps;
@@ -652,6 +655,7 @@ static void main_slave(int argc, const char **argv)
                     >> opts.heap_address_bits
                     >> opts.recv_buffer
                     >> opts.burst_size
+                    >> opts.burst_rate_ratio
                     >> opts.heaps
                     >> opts.ring_heaps
                     >> opts.mem_max_free

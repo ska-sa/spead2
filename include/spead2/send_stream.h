@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -51,6 +51,7 @@ public:
     static constexpr std::size_t default_max_packet_size = 1472;
     static constexpr std::size_t default_max_heaps = 4;
     static constexpr std::size_t default_burst_size = 65536;
+    static constexpr double default_burst_rate_ratio = 1.05;
 
     void set_max_packet_size(std::size_t max_packet_size);
     std::size_t get_max_packet_size() const;
@@ -60,18 +61,25 @@ public:
     std::size_t get_burst_size() const;
     void set_max_heaps(std::size_t max_heaps);
     std::size_t get_max_heaps() const;
+    void set_burst_rate_ratio(double burst_rate_ratio);
+    double get_burst_rate_ratio() const;
+
+    /// Get product of rate and burst_rate_ratio
+    double get_burst_rate() const;
 
     explicit stream_config(
         std::size_t max_packet_size = default_max_packet_size,
         double rate = 0.0,
         std::size_t burst_size = default_burst_size,
-        std::size_t max_heaps = default_max_heaps);
+        std::size_t max_heaps = default_max_heaps,
+        double burst_rate_ratio = default_burst_rate_ratio);
 
 private:
     std::size_t max_packet_size = default_max_packet_size;
     double rate = 0.0;
     std::size_t burst_size = default_burst_size;
     std::size_t max_heaps = default_max_heaps;
+    double burst_rate_ratio = default_burst_rate_ratio;
 };
 
 /**
@@ -165,7 +173,7 @@ private:
     };
 
     const stream_config config;
-    const double seconds_per_byte;
+    const double seconds_per_byte_burst, seconds_per_byte;
 
     /**
      * Protects access to @a queue. All other members are either const or are
@@ -175,11 +183,14 @@ private:
     std::mutex queue_mutex;
     std::queue<queue_item> queue;
     timer_type timer;
+    // Time at which next burst should be sent, considering the burst rate
+    timer_type::time_point send_time_burst;
+    // Time at which next burst should be sent, considering the average rate
     timer_type::time_point send_time;
     /// Number of bytes sent in the current heap
     item_pointer_t heap_bytes = 0;
-    /// Number of bytes sent since send_time
-    std::size_t rate_bytes = 0;
+    /// Number of bytes sent since send_time and sent_time_burst were updated
+    std::uint64_t rate_bytes = 0;
     /// Heap cnt for the next heap to send
     item_pointer_t next_cnt = 1;
     /// Increment to next_cnt after each heap
@@ -256,21 +267,27 @@ private:
                         heap_bytes += bytes_transferred;
                         if (rate_bytes >= config.get_burst_size())
                         {
-                            std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
-                            send_time += std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
-                            rate_bytes = 0;
                             auto now = timer_type::clock_type::now();
-                            if (now < send_time)
+                            std::chrono::duration<double> wait_burst(rate_bytes * seconds_per_byte_burst);
+                            std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
+                            send_time_burst += std::chrono::duration_cast<timer_type::clock_type::duration>(wait_burst);
+                            send_time += std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
+                            /* send_time_burst needs to reflect the time the burst
+                             * was actually sent (as well as we can estimate it), even if
+                             * sent_time or now is later.
+                             */
+                            auto target_time = max(send_time_burst, send_time);
+                            send_time_burst = max(now, target_time);
+                            rate_bytes = 0;
+                            if (now < target_time)
                             {
                                 sleeping = true;
-                                timer.expires_at(send_time);
+                                timer.expires_at(target_time);
                                 timer.async_wait([this] (const boost::system::error_code &error)
                                 {
                                     send_next_packet(error);
                                 });
                             }
-                            // If we're behind schedule, we still keep send_time in the past,
-                            // which will help with catching up if we oversleep
                         }
                         if (!sleeping)
                             send_next_packet();
@@ -285,6 +302,7 @@ public:
         const stream_config &config = stream_config()) :
             stream(std::move(io_service)),
             config(config),
+            seconds_per_byte_burst(config.get_burst_rate() > 0.0 ? 1.0 / config.get_burst_rate() : 0.0),
             seconds_per_byte(config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0),
             timer(get_io_service())
     {
@@ -330,7 +348,7 @@ public:
          */
         if (empty)
         {
-            send_time = timer_type::clock_type::now();
+            send_time = send_time_burst = timer_type::clock_type::now();
             rate_bytes = 0;
             get_io_service().dispatch([this] { send_next_packet(); });
         }

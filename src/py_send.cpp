@@ -527,11 +527,12 @@ py::module register_module(py::module &parent)
         .def("__next__", &packet_generator_next);
 
     py::class_<stream_config>(m, "StreamConfig")
-        .def(py::init<std::size_t, double, std::size_t, std::size_t>(),
+        .def(py::init<std::size_t, double, std::size_t, std::size_t, double>(),
              "max_packet_size"_a = stream_config::default_max_packet_size,
              "rate"_a = 0.0,
              "burst_size"_a = stream_config::default_burst_size,
-             "max_heaps"_a = stream_config::default_max_heaps)
+             "max_heaps"_a = stream_config::default_max_heaps,
+             "burst_rate_ratio"_a = stream_config::default_burst_rate_ratio)
         .def_property("max_packet_size",
                       SPEAD2_PTMF(stream_config, get_max_packet_size),
                       SPEAD2_PTMF(stream_config, set_max_packet_size))
@@ -544,9 +545,15 @@ py::module register_module(py::module &parent)
         .def_property("max_heaps",
                       SPEAD2_PTMF(stream_config, get_max_heaps),
                       SPEAD2_PTMF(stream_config, set_max_heaps))
+        .def_property("burst_rate_ratio",
+                      SPEAD2_PTMF(stream_config, get_burst_rate_ratio),
+                      SPEAD2_PTMF(stream_config, set_burst_rate_ratio))
+        .def_property_readonly("burst_rate",
+                               SPEAD2_PTMF(stream_config, get_burst_rate))
         .def_readonly_static("DEFAULT_MAX_PACKET_SIZE", &stream_config::default_max_packet_size)
         .def_readonly_static("DEFAULT_MAX_HEAPS", &stream_config::default_max_heaps)
-        .def_readonly_static("DEFAULT_BURST_SIZE", &stream_config::default_burst_size);
+        .def_readonly_static("DEFAULT_BURST_SIZE", &stream_config::default_burst_size)
+        .def_readonly_static("DEFAULT_BURST_RATE_RATIO", &stream_config::default_burst_rate_ratio);
 
     {
         auto stream_class = udp_stream_register<udp_stream_wrapper<stream_wrapper<udp_stream>>>(m, "UdpStream");
