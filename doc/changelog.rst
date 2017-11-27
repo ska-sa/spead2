@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 1.6.0
 
 - Change :program:`spead2_send.py` and :program:`spead2_send` to interpret
   the :option:`--rate` option as Gb/s and not Gib/s.
