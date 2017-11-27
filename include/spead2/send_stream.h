@@ -269,8 +269,14 @@ private:
                                     send_next_packet(error);
                                 });
                             }
-                            // If we're behind schedule, we still keep send_time in the past,
-                            // which will help with catching up if we oversleep
+                            else
+                            {
+                                /* We've fallen behind. Trying to catch up
+                                 * could cause us to oversubscribe a link,
+                                 * leading to dropped packets.
+                                 */
+                                send_time = now;
+                            }
                         }
                         if (!sleeping)
                             send_next_packet();
