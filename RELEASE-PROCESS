@@ -1,3 +1,4 @@
+- Run ./bootstrap.sh
 - Update version number in ChangeLog
 - Update version number in spead2/_version.py
 - Check that Travis successfully tested the release
