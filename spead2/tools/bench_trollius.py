@@ -182,7 +182,8 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
         max_packet_size=args.packet,
         burst_size=args.burst,
         rate=rate,
-        max_heaps=num_heaps + 1)
+        max_heaps=num_heaps + 1,
+        burst_rate_ratio=args.burst_rate_ratio)
     host = args.host
     if args.multicast is not None:
         host = args.multicast
@@ -282,6 +283,7 @@ def main():
     group.add_argument('--send-affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
     group.add_argument('--send-buffer', metavar='BYTES', type=int, default=spead2.send.trollius.UdpStream.DEFAULT_BUFFER_SIZE, help='Socket buffer size [%(default)s]')
     group.add_argument('--burst', metavar='BYTES', type=int, default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE, help='Send burst size [%(default)s]')
+    group.add_argument('--burst-rate-ratio', metavar='RATIO', type=float, default=spead2.send.StreamConfig.DEFAULT_BURST_RATE_RATIO, help='Hard rate limit, relative to nominal rate [%(default)s]')
     if hasattr(spead2.send, 'UdpIbvStream'):
         group.add_argument('--send-ibv', type=str, metavar='ADDRESS', help='Use ibverbs with this interface address [no]')
         group.add_argument('--send-ibv-vector', type=int, default=0, metavar='N', help='Completion vector, or -1 to use polling [%(default)s]')
