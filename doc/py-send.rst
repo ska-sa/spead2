@@ -10,10 +10,10 @@ each, rather than a generic `Stream` class. Because there is common
 configuration between the stream classes, configuration is encapsulated in a
 :py:class:`spead2.send.StreamConfig`.
 
-.. py:class:: spead2.send.StreamConfig(max_packet_size=1472, rate=0.0, burst_size=65536, max_heaps=4)
+.. py:class:: spead2.send.StreamConfig(max_packet_size=1472, rate=0.0, burst_size=65536, max_heaps=4, burst_rate_ratio=1.05)
 
    :param int max_packet_size: Heaps will be split into packets of at most this size.
-   :param double rate: Maximum transmission rate, in bytes per second, or 0
+   :param double rate: Target transmission rate, in bytes per second, or 0
      to send as fast as possible.
    :param int burst_size: Bursts of up to this size will be sent as fast as
      possible. Setting this too large (larger than available buffer sizes)
@@ -21,6 +21,10 @@ configuration between the stream classes, configuration is encapsulated in a
      causing more sleeps than necessary.
    :param int max_heaps: For asynchronous transmits, the maximum number of
      heaps that can be in-flight.
+   :param float burst_rate_ratio: If packet sending falls below the target
+     transmission rate, the rate will be increased until the average rate
+     has caught up. This value specifies the "catch-up" rate, as a ratio to the
+     target rate.
 
    The constructor arguments are also instance attributes.
 

@@ -4,9 +4,14 @@ Changelog
 .. rubric:: Development version
 
 - Change :program:`spead2_send.py` and :program:`spead2_send` to interpret
-  the :opt:`--rate` option as Gb/s and not Gib/s.
+  the :option:`--rate` option as Gb/s and not Gib/s.
+- Change send rate limiting to bound that rate at which we catch up if we fall
+  behind. This is controlled by a new attribute of
+  :class:`~spead2.send.StreamConfig`.
 - Add report at end of :program:`spead2_send.py` and :program:`spead2_send`
   on the actual number of bytes sent and achieved rate.
+- Fix a race condition where the stream statistics might only be updated after
+  the stream ended (which lead to unit test failures in some cases).
 
 .. rubric:: Version 1.5.2
 
