@@ -1,6 +1,13 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Change :program:`spead2_send.py` and :program:`spead2_send` to interpret
+  the :opt:`--rate` option as Gb/s and not Gib/s.
+- Add report at end of :program:`spead2_send.py` and :program:`spead2_send`
+  on the actual number of bytes sent and achieved rate.
+
 .. rubric:: Version 1.5.2
 
 - Report statistics when :program:`spead2_recv.py` is stopped by SIGINT.
