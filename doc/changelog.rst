@@ -5,7 +5,7 @@ Changelog
 
 - Change :program:`spead2_send.py` and :program:`spead2_send` to interpret
   the :option:`--rate` option as Gb/s and not Gib/s.
-- Change send rate limiting to bound that rate at which we catch up if we fall
+- Change send rate limiting to bound the rate at which we catch up if we fall
   behind. This is controlled by a new attribute of
   :class:`~spead2.send.StreamConfig`.
 - Add report at end of :program:`spead2_send.py` and :program:`spead2_send`
