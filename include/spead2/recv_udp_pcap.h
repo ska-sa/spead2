@@ -36,6 +36,9 @@ namespace spead2
 namespace recv
 {
 
+/**
+ * Reader class that feeds data from a pcap file to a stream.
+ */
 class udp_pcap_file_reader : public udp_reader_base
 {
 private:
@@ -44,6 +47,14 @@ private:
     void run();
 
 public:
+    /**
+     * Constructor
+     *
+     * @param owner Owning stream
+     * @param filename Filename of the capture file
+     *
+     * @throws std::runtime_error if @a filename could not read
+     */
     udp_pcap_file_reader(stream &owner, const std::string &filename);
     virtual ~udp_pcap_file_reader();
 

@@ -21,12 +21,14 @@ PySPEAD_ implementation, spead2:
 
 Preparation
 -----------
-There is optional support for netmap_ and ibverbs_ for higher performance. If
-the libraries (including development headers) are installed, they will be
-detected automatically and support for them will be included.
+There is optional support for netmap_ and ibverbs_ for higher performance, and
+pcap_ for reading from previously captured packet dumps. If the libraries
+(including development headers) are installed, they will be detected
+automatically and support for them will be included.
 
 .. _netmap: https://github.com/luigirizzo/netmap
 .. _ibverbs: https://www.openfabrics.org/downloads/libibverbs/README.html
+.. _pcap: http://www.tcpdump.org/
 
 If you are installing spead2 from a git checkout, it is first necessary to run
 ``./bootstrap.sh`` to prepare the configure script and related files. When

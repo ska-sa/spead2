@@ -38,9 +38,10 @@ normally passed to :py:meth:`spead2.ItemGroup.update`.
 Blocking receive
 ^^^^^^^^^^^^^^^^
 To do blocking receive, create a :py:class:`spead2.recv.Stream`, and add
-transports to it with :py:meth:`~spead2.recv.Stream.add_buffer_reader` and
-:py:meth:`~spead2.recv.Stream.add_udp_reader`. Then either iterate over it,
-or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
+transports to it with :py:meth:`~spead2.recv.Stream.add_buffer_reader`,
+:py:meth:`~spead2.recv.Stream.add_udp_reader` or
+:py:meth:`~spead2.recv.Stream.add_udp_pcap_file_reader`. Then either iterate over
+it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
 .. py:class:: spead2.recv.Stream(thread_pool, bug_compat=0, max_heaps=4, ring_heaps=4, contiguous_only=True, incomplete_keep_payload_ranges=False)
 
@@ -130,6 +131,12 @@ or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
         will be logged, but there will not be an error.
       :param str interface_index: Index of the interface which will be
         subscribed, or 0 to let the OS decide.
+
+   .. py:method:: add_pcap_file_reader(filename)
+
+      Feed data from a pcap file (for example, captured with :program:`tcpdump`
+      or :ref:`mcdump`). This is only available if libpcap development files
+      were found at compile time.
 
    .. py:method:: get()
 

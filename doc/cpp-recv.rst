@@ -63,6 +63,9 @@ Reader classes are constructed inside a stream by calling
 .. doxygenclass:: spead2::recv::mem_reader
    :members: mem_reader
 
+.. doxygenclass:: spead2::recv::udp_pcap_file_reader
+   :members: udp_pcap_file_reader
+
 Memory allocators
 -----------------
 In addition to the memory allocators described in :ref:`py-memory-allocators`,
