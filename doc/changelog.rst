@@ -3,7 +3,8 @@ Changelog
 
 .. rubric:: Version 1.7.0
 
-- Support for pcap files.
+- Support for pcap files. Files passed to :program:`spead2_recv.py` are now
+  assumed to be pcap files, rather than raw concatenated packets.
 - Only log warnings about the ringbuffer being full if at least one stream
   reader is lossy (indicated by a new virtual member function in
   :cpp:class:`spead2::recv::Reader`).

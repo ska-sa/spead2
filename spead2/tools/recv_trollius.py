@@ -1,4 +1,4 @@
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2017 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -33,7 +33,7 @@ from trollius import From
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('source', nargs='+', help='Sources (filename, host:port or port')
+    parser.add_argument('source', nargs='+', help='Sources (filename, host:port or port)')
 
     group = parser.add_argument_group('Output options')
     group.add_argument('--log', metavar='LEVEL', default='INFO', help='Log level [%(default)s]')
