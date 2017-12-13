@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 1.7.0
 
 - Support for pcap files.
 - Only log warnings about the ringbuffer being full if at least one stream
