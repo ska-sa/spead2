@@ -132,7 +132,7 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
       :param str interface_index: Index of the interface which will be
         subscribed, or 0 to let the OS decide.
 
-   .. py:method:: add_pcap_file_reader(filename)
+   .. py:method:: add_udp_pcap_file_reader(filename)
 
       Feed data from a pcap file (for example, captured with :program:`tcpdump`
       or :ref:`mcdump`). This is only available if libpcap development files
