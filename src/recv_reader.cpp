@@ -31,6 +31,11 @@ void reader::stopped()
     stopped_promise.set_value();
 }
 
+bool reader::lossy() const
+{
+    return true;
+}
+
 boost::asio::io_service &reader::get_io_service()
 {
     return owner.get_strand().get_io_service();

@@ -168,11 +168,13 @@ void ring_stream<Ringbuffer>::heap_ready(live_heap &&h)
             }
             catch (ringbuffer_full &e)
             {
-                log_warning("worker thread blocked by full ringbuffer on heap %d",
-                            h.get_cnt());
+                if (lossy)
+                    log_warning("worker thread blocked by full ringbuffer on heap %d",
+                                h.get_cnt());
                 stats.worker_blocked++;
                 ready_heaps.push(std::move(h));
-                log_debug("worker thread unblocked, heap %d pushed", h.get_cnt());
+                if (lossy)
+                    log_debug("worker thread unblocked, heap %d pushed", h.get_cnt());
             }
 
         }
@@ -248,7 +250,7 @@ void ring_stream<Ringbuffer>::stop()
 {
     /* Make sure the ringbuffer is stopped *before* the base implementation
      * takes the strand. Without this, a heap_ready call could be blocking the
-     * strand, waiting for space in the ring buffer. This will call the
+     * strand, waiting for space in the ring buffer. This will cause the
      * heap_ready call to abort, allowing the strand to be accessed for the
      * rest of the shutdown.
      */

@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -31,5 +31,6 @@
 #define SPEAD2_USE_MOVNTDQ @SPEAD2_USE_MOVNTDQ@
 #define SPEAD2_USE_POSIX_SEMAPHORES @SPEAD2_USE_POSIX_SEMAPHORES@
 #define SPEAD2_USE_NETMAP @SPEAD2_USE_NETMAP@
+#define SPEAD2_USE_PCAP @SPEAD2_USE_PCAP@
 
 #endif // SPEAD2_COMMON_FEATURES_H

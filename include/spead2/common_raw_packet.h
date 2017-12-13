@@ -185,6 +185,20 @@ public:
 
 #undef SPEAD2_DECLARE_FIELD
 
+class packet_type_error : public std::runtime_error
+{
+public:
+    using std::runtime_error::runtime_error;
+};
+
+/**
+ * Inspect an ethernet frame to extract the UDP4 payload, with sanity checks.
+ *
+ * @throws length_error if any length fields are invalid
+ * @throws packet_type_error if there are other problems e.g. it is not an IPv4 packet
+ */
+packet_buffer udp_from_ethernet(void *ptr, size_t size);
+
 } // namespace spead2
 
 #endif // SPEAD2_COMMON_RAW_PACKET_H

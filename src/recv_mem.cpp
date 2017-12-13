@@ -43,5 +43,10 @@ mem_reader::mem_reader(
     });
 }
 
+bool mem_reader::lossy() const
+{
+    return false;
+}
+
 } // namespace recv
 } // namespace spead2

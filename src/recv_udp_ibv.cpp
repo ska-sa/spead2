@@ -128,26 +128,14 @@ int udp_ibv_reader::poll_once()
             // Sanity checks
             try
             {
-                ethernet_frame eth(const_cast<void *>(ptr), len);
-                if (eth.ethertype() != ipv4_packet::ethertype)
-                    log_warning("Frame has wrong ethernet type (VLAN tagging?), discarding");
-                else
-                {
-                    ipv4_packet ipv4 = eth.payload_ipv4();
-                    if (ipv4.version() != 4)
-                        log_warning("Frame is not IPv4, discarding");
-                    else if (ipv4.is_fragment())
-                        log_warning("IP datagram is fragmented, discarding");
-                    else if (ipv4.protocol() != udp_packet::protocol)
-                        log_warning("Packet is not UDP, discarding");
-                    else
-                    {
-                        packet_buffer payload = ipv4.payload_udp().payload();
-                        bool stopped = process_one_packet(payload.data(), payload.size(), max_size);
-                        if (stopped)
-                            return -2;
-                    }
-                }
+                packet_buffer payload = udp_from_ethernet(const_cast<void *>(ptr), len);
+                bool stopped = process_one_packet(payload.data(), payload.size(), max_size);
+                if (stopped)
+                    return -2;
+            }
+            catch (packet_type_error &e)
+            {
+                log_warning(e.what());
             }
             catch (std::length_error &e)
             {

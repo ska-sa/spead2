@@ -263,8 +263,12 @@ private:
     {
         if (!is_stopped())
         {
-            readers.reserve(readers.size() + 1);
+            // Guarantee space before constructing the reader
+            readers.emplace_back(nullptr);
+            readers.pop_back();
             std::unique_ptr<reader> ptr(reader_factory<T>::make_reader(*this, std::forward<Args>(args)...));
+            if (ptr->lossy())
+                lossy = true;
             readers.push_back(std::move(ptr));
         }
     }
@@ -304,6 +308,9 @@ protected:
         });
         return future.get();
     }
+
+    /// True if any lossy reader has been added (only access with strand held)
+    bool lossy;
 
     /// Actual implementation of @ref stop
     void stop_impl();

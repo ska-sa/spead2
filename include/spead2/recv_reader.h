@@ -78,6 +78,13 @@ public:
     virtual void stop() = 0;
 
     /**
+     * Whether the reader risks losing data if it is not given a chance to
+     * run (true by default). This is used to control whether a warning
+     * should be given when the consumer is applying back-pressure.
+     */
+    virtual bool lossy() const;
+
+    /**
      * Block until @ref stopped has been called by the last completion
      * handler. This function is called outside the strand.
      */

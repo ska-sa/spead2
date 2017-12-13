@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2016-2017 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -18,44 +18,41 @@
  * @file
  */
 
-#ifndef SPEAD2_RECV_MEM_H
-#define SPEAD2_RECV_MEM_H
+#ifndef SPEAD2_RECV_UDP_PCAP
+#define SPEAD2_RECV_UDP_PCAP
+
+#include <spead2/common_features.h>
+#if SPEAD2_USE_PCAP
 
 #include <cstdint>
+#include <string>
+#include <pcap/pcap.h>
 #include <spead2/recv_reader.h>
+#include <spead2/recv_udp_base.h>
+#include <spead2/recv_stream.h>
 
 namespace spead2
 {
 namespace recv
 {
 
-class reader;
-
-/**
- * Reader class that feeds data from a memory buffer to a stream. The caller
- * must ensure that the underlying memory buffer is not destroyed before
- * this class.
- *
- * @note For simple cases, use @ref mem_to_stream instead. This class is
- * only necessary if one wants to plug in to a @ref stream.
- */
-class mem_reader : public reader
+class udp_pcap_file_reader : public udp_reader_base
 {
 private:
-    /// Start of data
-    const std::uint8_t *ptr;
-    /// Length of data
-    std::size_t length;
+    pcap_t *handle;
+
+    void run();
 
 public:
-    mem_reader(stream &owner,
-               const std::uint8_t *ptr, std::size_t length);
+    udp_pcap_file_reader(stream &owner, const std::string &filename);
+    virtual ~udp_pcap_file_reader();
 
-    virtual void stop() override {}
+    virtual void stop() override;
     virtual bool lossy() const override;
 };
 
 } // namespace recv
 } // namespace spead2
 
-#endif // SPEAD2_RECV_MEM_H
+#endif // SPEAD2_USE_PCAP
+#endif // SPEAD2_RECV_UDP_PCAP

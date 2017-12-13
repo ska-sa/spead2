@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <spead2/recv_udp.h>
 #include <spead2/recv_udp_ibv.h>
+#include <spead2/recv_udp_pcap.h>
 #include <spead2/recv_mem.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_ring_stream.h>
@@ -291,6 +292,14 @@ public:
     }
 #endif
 
+#if SPEAD2_USE_PCAP
+    void add_udp_pcap_file_reader(const std::string &filename)
+    {
+        py::gil_scoped_release gil;
+        emplace_reader<udp_pcap_file_reader>(filename);
+    }
+#endif
+
     void stop()
     {
         stopper.reset();
@@ -414,6 +423,10 @@ py::module register_module(py::module &parent)
               "buffer_size"_a = udp_ibv_reader::default_buffer_size,
               "comp_vector"_a = 0,
               "max_poll"_a = udp_ibv_reader::default_max_poll)
+#endif
+#if SPEAD2_USE_PCAP
+        .def("add_udp_pcap_file_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_pcap_file_reader),
+             "filename"_a)
 #endif
         .def("stop", SPEAD2_PTMF(ring_stream_wrapper, stop))
         .def_property_readonly("fd", SPEAD2_PTMF(ring_stream_wrapper, get_fd))

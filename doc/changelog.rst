@@ -1,6 +1,13 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Support for pcap files.
+- Only log warnings about the ringbuffer being full if at least one stream
+  reader is lossy (indicated by a new virtual member function in
+  :cpp:class:`spead2::recv::Reader`).
+
 .. rubric:: Version 1.6.0
 
 - Change :program:`spead2_send.py` and :program:`spead2_send` to interpret

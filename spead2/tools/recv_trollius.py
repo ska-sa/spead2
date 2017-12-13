@@ -124,9 +124,10 @@ def main():
                     host = ''
                     port = int(source)
             except ValueError:
-                with open(source, 'rb') as f:
-                    text = f.read()
-                stream.add_buffer_reader(text)
+                try:
+                    stream.add_udp_pcap_file_reader(source)
+                except AttributeError:
+                    raise RuntimeError('spead2 was compiled without pcap support')
             else:
                 if 'ibv' in args and args.ibv is not None:
                     if host is None:

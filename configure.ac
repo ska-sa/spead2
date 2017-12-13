@@ -1,4 +1,4 @@
-# Copyright 2016 SKA South Africa
+# Copyright 2016, 2017 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -73,6 +73,18 @@ SPEAD2_ARG_WITH(
 )
 
 SPEAD2_ARG_WITH(
+    [pcap],
+    [AS_HELP_STRING([--without-pcap], [Do not use pcap, even if detected])],
+    [SPEAD2_USE_PCAP],
+    [SPEAD2_USE_PCAP=1
+     SPEAD2_CHECK_HEADER(
+        [pcap/pcap.h], [pcap], [pcap_open_offline(NULL, NULL)],
+        [], [SPEAD2_USE_PCAP=0])
+    ]
+)
+
+
+SPEAD2_ARG_WITH(
     [netmap],
     [AS_HELP_STRING([--without-netmap], [Do not use netmap, even if detected])],
     [SPEAD2_USE_NETMAP],
@@ -145,6 +157,7 @@ SPEAD2_ARG_WITH(
 
 LIBS="-lboost_system -lpthread"
 AS_IF([test "x$SPEAD2_USE_IBV" = "x1"], [LIBS="-lrdmacm -libverbs $LIBS"])
+AS_IF([test "x$SPEAD2_USE_PCAP" = "x1"], [LIBS="-lpcap $LIBS"])
 
 ### Build variants
 
@@ -169,7 +182,8 @@ AM_CONDITIONAL([DEBUG_LOG], [test "x$enable_debug_log" = "xyes"])
 AM_CONDITIONAL([OPTIMIZED], [test "x$enable_optimized" != "xno"])
 AM_CONDITIONAL([LTO], [test "x$enable_lto" = "xyes"])
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
-AM_CONDITIONAL([SPEAD2_USE_IBV_EP], [test "x$SPEAD2_USE_IBV_EXP" = "x1"])
+AM_CONDITIONAL([SPEAD2_USE_IBV_EXP], [test "x$SPEAD2_USE_IBV_EXP" = "x1"])
+AM_CONDITIONAL([SPEAD2_USE_PCAP], [test "x$SPEAD2_USE_PCAP" = "x1"])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile

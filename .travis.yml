@@ -9,19 +9,19 @@ matrix:
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=cxx CXX="ccache g++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
+          env: TEST=cxx CXX="ccache g++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no PCAP=yes
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=cxx CXX="ccache g++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
+          env: TEST=cxx CXX="ccache g++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes PCAP=no
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=cxx CXX="ccache clang++-3.5" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no
+          env: TEST=cxx CXX="ccache clang++-3.5" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no PCAP=yes
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=cxx CXX="ccache clang++-3.5" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes
+          env: TEST=cxx CXX="ccache clang++-3.5" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes PCAP=no
         - os: linux
           sudo: false
           dist: trusty
@@ -61,6 +61,7 @@ addons:
             - libboost-python1.55-dev
             - libboost-test1.55-dev
             - libboost-program-options1.55-dev
+            - libpcap-dev
             - python-dev
             - python3-dev
             - python-pip
@@ -112,6 +113,7 @@ script:
             --with-recvmmsg="$RECVMMSG" \
             --with-eventfd="$EVENTFD" \
             --with-ibv="$IBV" \
+            --with-pcap="$PCAP" \
             --disable-optimized
         make -j4
         make -j4 check

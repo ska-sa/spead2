@@ -258,4 +258,23 @@ ipv4_packet ethernet_frame::payload_ipv4() const
     return ipv4_packet(data() + min_size, size() - min_size);
 }
 
+packet_buffer udp_from_ethernet(void *ptr, size_t size)
+{
+    ethernet_frame eth(ptr, size);
+    if (eth.ethertype() != ipv4_packet::ethertype)
+        throw packet_type_error("Frame has wrong ethernet type (VLAN tagging?), discarding");
+    else
+    {
+        ipv4_packet ipv4 = eth.payload_ipv4();
+        if (ipv4.version() != 4)
+            throw packet_type_error("Frame is not IPv4, discarding");
+        else if (ipv4.is_fragment())
+            throw packet_type_error("IP datagram is fragmented, discarding");
+        else if (ipv4.protocol() != udp_packet::protocol)
+            throw packet_type_error("Packet is not UDP, discarding");
+        else
+            return ipv4.payload_udp().payload();
+    }
+}
+
 } // namespace spead2

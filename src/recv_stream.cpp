@@ -217,7 +217,7 @@ void stream_base::stop_received()
 stream::stream(io_service_ref io_service, bug_compat_mask bug_compat, std::size_t max_heaps)
     : stream_base(bug_compat, max_heaps),
     thread_pool_holder(std::move(io_service).get_shared_thread_pool()),
-    strand(*io_service)
+    strand(*io_service), lossy(false)
 {
 }
 
