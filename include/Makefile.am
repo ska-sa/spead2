@@ -40,6 +40,7 @@ nobase_include_HEADERS = \
 	spead2/recv_udp_base.h \
 	spead2/recv_udp.h \
 	spead2/recv_udp_ibv.h \
+	spead2/recv_udp_pcap.h \
 	spead2/recv_utils.h \
 	spead2/send_heap.h \
 	spead2/send_packet.h \
