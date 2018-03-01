@@ -1,4 +1,5 @@
 global-include Makefile.in
+global-include *asyncio.py
 exclude src/common_features.h
 exclude .gitignore
 include configure
