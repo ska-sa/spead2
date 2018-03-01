@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Version 1.7.1
+
+There are no code changes, but this release fixes a packaging error in 1.7.0
+that prevented the asyncio integration from being included.
+
 .. rubric:: Version 1.7.0
 
 - Support for pcap files. Files passed to :program:`spead2_recv.py` are now
