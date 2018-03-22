@@ -29,6 +29,7 @@
 #include <spead2/common_thread_pool.h>
 #include <spead2/send_stream.h>
 #include <spead2/send_udp.h>
+#include <spead2/send_tcp.h>
 #if SPEAD2_USE_IBV
 # include <spead2/send_udp_ibv.h>
 #endif
@@ -36,6 +37,7 @@
 namespace po = boost::program_options;
 namespace asio = boost::asio;
 using boost::asio::ip::udp;
+using boost::asio::ip::tcp;
 
 struct options
 {
@@ -43,6 +45,7 @@ struct options
     std::size_t items = 1;
     std::int64_t heaps = -1;
     bool pyspead = false;
+    bool use_tcp = false;
     int addr_bits = 40;
     std::size_t packet = spead2::send::stream_config::default_max_packet_size;
     std::size_t buffer = spead2::send::udp_stream::default_buffer_size;
@@ -93,6 +96,7 @@ static options parse_args(int argc, const char **argv)
         ("heaps", make_opt(opts.heaps), "Number of data heaps to send (-1=infinite)")
         ("pyspead", make_opt(opts.pyspead), "Be bug-compatible with PySPEAD")
         ("addr-bits", make_opt(opts.addr_bits), "Heap address bits")
+        ("tcp", make_opt(opts.use_tcp), "Use TCP instead than UDP")
         ("packet", make_opt(opts.packet), "Maximum packet size to send")
         ("buffer", make_opt(opts.buffer), "Socket buffer size")
         ("burst", make_opt(opts.burst), "Burst size")
@@ -243,9 +247,6 @@ int main(int argc, const char **argv)
     options opts = parse_args(argc, argv);
 
     spead2::thread_pool thread_pool(opts.threads);
-    udp::resolver resolver(thread_pool.get_io_service());
-    udp::resolver::query query(opts.host, opts.port);
-    auto it = resolver.resolve(query);
     spead2::send::stream_config config(
         opts.packet, opts.rate * 1000 * 1000 * 1000 / 8, opts.burst,
         spead2::send::stream_config::default_max_heaps, opts.burst_rate_ratio);
@@ -262,13 +263,25 @@ int main(int argc, const char **argv)
     else
 #endif
     {
-        udp::endpoint endpoint = *it;
-        if (endpoint.address().is_multicast())
-            stream.reset(new spead2::send::udp_stream(
-                    thread_pool.get_io_service(), endpoint, config, opts.buffer, opts.ttl));
-        else
-            stream.reset(new spead2::send::udp_stream(
-                    thread_pool.get_io_service(), endpoint, config, opts.buffer));
+        if (opts.use_tcp) {
+            auto &io_service = thread_pool.get_io_service();
+            tcp::resolver resolver(io_service);
+            tcp::resolver::query query(opts.host, opts.port);
+            tcp::endpoint endpoint = *resolver.resolve(query);
+            stream.reset(new spead2::send::tcp_stream(
+                        thread_pool.get_io_service(), endpoint, config, opts.buffer));
+        }
+        else {
+            udp::resolver resolver(thread_pool.get_io_service());
+            udp::resolver::query query(opts.host, opts.port);
+            udp::endpoint endpoint = *resolver.resolve(query);
+            if (endpoint.address().is_multicast())
+                stream.reset(new spead2::send::udp_stream(
+                        thread_pool.get_io_service(), endpoint, config, opts.buffer, opts.ttl));
+            else
+                stream.reset(new spead2::send::udp_stream(
+                        thread_pool.get_io_service(), endpoint, config, opts.buffer));
+        }
     }
     return run(*stream, opts);
 }
