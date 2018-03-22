@@ -70,5 +70,6 @@ libspead2_a_SOURCES = \
 	send_packet.cpp \
 	send_streambuf.cpp \
 	send_stream.cpp \
+	send_tcp.cpp \
 	send_udp.cpp \
 	send_udp_ibv.cpp
