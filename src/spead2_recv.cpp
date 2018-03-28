@@ -27,6 +27,7 @@
 #include <boost/lexical_cast.hpp>
 #include <spead2/common_thread_pool.h>
 #include <spead2/recv_udp.h>
+#include <spead2/recv_tcp.h>
 #if SPEAD2_USE_NETMAP
 # include <spead2/recv_netmap.h>
 #endif
@@ -46,6 +47,7 @@ struct options
     bool descriptors = false;
     bool pyspead = false;
     bool joint = false;
+    bool tcp = false;
     std::size_t packet = spead2::recv::udp_reader::default_max_size;
     std::size_t buffer = spead2::recv::udp_reader::default_buffer_size;
     int threads = 1;
@@ -99,6 +101,7 @@ static options parse_args(int argc, const char **argv)
         ("descriptors", make_opt(opts.descriptors), "Show descriptors")
         ("pyspead", make_opt(opts.pyspead), "Be bug-compatible with PySPEAD")
         ("joint", make_opt(opts.joint), "Treat all sources as a single stream")
+        ("tcp", make_opt(opts.tcp), "Receive data over TCP instead of UDP")
         ("packet", make_opt(opts.packet), "Maximum packet size to use for UDP")
         ("buffer", make_opt(opts.buffer), "Socket buffer size")
         ("threads", make_opt(opts.threads), "Number of worker threads")
@@ -260,6 +263,7 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
     It first_source, It last_source)
 {
     using asio::ip::udp;
+    using asio::ip::tcp;
 
     std::unique_ptr<spead2::recv::stream> stream;
     spead2::bug_compat_mask bug_compat = opts.pyspead ? spead2::BUG_COMPAT_PYSPEAD_0_5_2 : 0;
@@ -291,11 +295,20 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
         }
         else
             port = *i;
+
+        if (opts.tcp) {
+            tcp::resolver resolver(thread_pool.get_io_service());
+            tcp::resolver::query query(host, port, tcp::resolver::query::address_configured);
+            tcp::endpoint endpoint = *resolver.resolve(query);
+            stream->emplace_reader<spead2::recv::tcp_reader>(endpoint, opts.packet, opts.buffer);
+            continue;
+        }
+
         udp::resolver resolver(thread_pool.get_io_service());
         udp::resolver::query query(host, port);
         udp::endpoint endpoint = *resolver.resolve(query);
 #if SPEAD2_USE_NETMAP
-        if (opts.netmap_if != "")
+        else if (opts.netmap_if != "")
         {
             stream->emplace_reader<spead2::recv::netmap_udp_reader>(
                 opts.netmap_if, endpoint.port());
@@ -337,9 +350,9 @@ int main(int argc, const char **argv)
     }
     else
     {
-        if (opts.sources.size() > 1 && opts.ring)
+        if (opts.sources.size() > 1 && (opts.ring or opts.tcp))
         {
-            std::cerr << "Multiple streams cannot be used with --ring\n";
+            std::cerr << "Multiple streams cannot be used with --ring or --tcp\n";
             std::exit(2);
         }
         for (auto it = opts.sources.begin(); it != opts.sources.end(); ++it)
