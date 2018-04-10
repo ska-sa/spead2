@@ -19,6 +19,17 @@
  *
  * Utility program to dump raw multicast packets, using ibverbs. It works with
  * any multicast UDP data, not just SPEAD.
+ *
+ * The design is based on three threads:
+ * 1. A network thread that handles the ibverbs interface, removing packets
+ *    from the completion queue and passing them (in batches) to the collector
+ *    thread. It is also responsible for periodically reporting rates.
+ * 2. A collector thread that receives batches of packets and copies them
+ *    into new page-aligned buffers.
+ * 3. A disk thread that writes page-aligned buffers to disk (if requested,
+ *    using O_DIRECT).
+ *
+ * If no filename is given, the latter two threads are disabled.
  */
 
 #include <spead2/common_ibv.h>
@@ -28,6 +39,8 @@
 #include <spead2/common_memory_pool.h>
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/format.hpp>
+#include <chrono>
 #include <iostream>
 #include <limits>
 #include <string>
@@ -46,6 +59,8 @@
 #include <signal.h>
 
 namespace po = boost::program_options;
+
+typedef std::chrono::high_resolution_clock::time_point time_point;
 
 static const char * const level_names[] =
 {
@@ -80,6 +95,7 @@ struct options
 static void usage(std::ostream &o, const po::options_description &desc)
 {
     o << "Usage: mcdump [options] -i <iface-addr> <filename> <group>:<port>...\n";
+    o << "Use - as filename to skip the write and just count.\n";
     o << desc;
 }
 
@@ -393,6 +409,11 @@ private:
     std::uint64_t errors = 0;
     std::uint64_t packets = 0;
     std::uint64_t bytes = 0;
+    time_point start_time;
+    time_point last_report;
+    std::uint64_t last_errors = 0;
+    std::uint64_t last_packets = 0;
+    std::uint64_t last_bytes = 0;
 
 #if SPEAD2_USE_IBV_EXP
     bool timestamp_support = false;
@@ -404,6 +425,8 @@ private:
 
     chunk make_chunk(spead2::memory_allocator &allocator);
     void add_to_free(chunk &&c);
+    void chunk_done(chunk &&c);
+    void report_rates(time_point now);
 
     void collect_thread();
     void network_thread();
@@ -449,6 +472,24 @@ void capture::add_to_free(chunk &&c)
     free_ring.push(std::move(c));
 }
 
+void capture::chunk_done(chunk &&c)
+{
+    /* Only post a new receive if the chunk was full. If it was
+     * not full, then this was the last chunk, and we're about to
+     * get a stop. Some of the work requests are already in the
+     * queue, so posting them again is asking for trouble.
+     *
+     * If the chunk was not full, we can't just free it, because
+     * the QP might still be receiving data and writing it to the
+     * chunk. So we push it back onto the ring without posting a
+     * new receive, just to keep it live.
+     */
+    if (c.n_records == max_records)
+        add_to_free(std::move(c));
+    else
+        free_ring.push(std::move(c));
+}
+
 void capture::collect_thread()
 {
     try
@@ -468,20 +509,7 @@ void capture::collect_thread()
                 for (std::uint32_t i = 0; i < n_iov; i++)
                     w->write(c.iov[i].iov_base, c.iov[i].iov_len);
 
-                /* Only post a new receive if the chunk was full. It if was
-                 * not full, then this was the last chunk, and we're about to
-                 * get a stop. Some of the work requests are already in the
-                 * queue, so posting them again is asking for trouble.
-                 *
-                 * If the chunk was not full, we can't just free it, because
-                 * the QP might still be receiving data and writing it to the
-                 * chunk. So we push it back onto the ring without posting a
-                 * new receive, just to keep it live.
-                 */
-                if (c.n_records == max_records)
-                    add_to_free(std::move(c));
-                else
-                    free_ring.push(std::move(c));
+                chunk_done(std::move(c));
             }
             catch (spead2::ringbuffer_stopped)
             {
@@ -498,15 +526,37 @@ void capture::collect_thread()
     }
 }
 
+void capture::report_rates(time_point now)
+{
+    boost::format formatter("B: %|-14| P: %|-12| MB/s: %|-10.0f| kP/s: %|-10.0f|\n");
+    std::chrono::duration<double> elapsed = now - last_report;
+    double byte_rate = (bytes - last_bytes) / elapsed.count();
+    double packet_rate = (packets - last_packets) / elapsed.count();
+    formatter % bytes % packets % (byte_rate / 1e6) % (packet_rate / 1e3);
+    std::cout << formatter;
+    last_bytes = bytes;
+    last_packets = packets;
+    last_errors = errors;
+    last_report = now;
+}
+
 void capture::network_thread()
 {
+    // Number of polls + packets between checking the time. Fetching the
+    // time is expensive, so we don't want to do it too often.
+    constexpr int GET_TIME_RATE = 10000;
+
     if (opts.network_affinity >= 0)
         spead2::thread_pool::set_affinity(opts.network_affinity);
+    start_time = std::chrono::high_resolution_clock::now();
+    last_report = start_time;
+    bool has_file = opts.filename != "-";
 #if SPEAD2_USE_IBV_EXP
     std::unique_ptr<ibv_exp_wc[]> wc(new ibv_exp_wc[max_records]);
 #else
     std::unique_ptr<ibv_wc[]> wc(new ibv_wc[max_records]);
 #endif
+    int until_get_time = GET_TIME_RATE;
     while (!stop.load())
     {
         chunk c = free_ring.pop();
@@ -553,8 +603,19 @@ void capture::network_thread()
                 }
             }
             expect -= n;
+            until_get_time -= n + 1;
+            if (until_get_time <= 0)
+            {
+                until_get_time = GET_TIME_RATE;
+                time_point now = std::chrono::high_resolution_clock::now();
+                if (now - last_report >= std::chrono::seconds(1))
+                    report_rates(now);
+            }
         }
-        ring.push(std::move(c));
+        if (has_file)
+            ring.push(std::move(c));
+        else
+            chunk_done(std::move(c));
     }
     ring.stop();
 }
@@ -638,7 +699,8 @@ capture::~capture()
 {
     // This is needed (in the error case) to unblock the writer threads so that
     // shutdown doesn't deadlock.
-    w->close();
+    if (w)
+        w->close();
 }
 
 static boost::asio::ip::udp::endpoint make_endpoint(const std::string &s)
@@ -669,15 +731,19 @@ void capture::run()
 
     std::shared_ptr<spead2::mmap_allocator> allocator =
         std::make_shared<spead2::mmap_allocator>(0, true);
-    int fd_flags = O_WRONLY | O_CREAT | O_TRUNC;
+    bool has_file = opts.filename != "-";
+    if (has_file)
+    {
+        int fd_flags = O_WRONLY | O_CREAT | O_TRUNC;
 #ifdef O_DIRECT
-    if (opts.direct)
-        fd_flags |= O_DIRECT;
+        if (opts.direct)
+            fd_flags |= O_DIRECT;
 #endif
-    int fd = open(opts.filename.c_str(), fd_flags, 0666);
-    if (fd < 0)
-        spead2::throw_errno("open failed");
-    w.reset(new writer(opts, fd, *allocator));
+        int fd = open(opts.filename.c_str(), fd_flags, 0666);
+        if (fd < 0)
+            spead2::throw_errno("open failed");
+        w.reset(new writer(opts, fd, *allocator));
+    }
 
     boost::asio::io_service io_service;
     std::vector<udp::endpoint> endpoints;
@@ -766,7 +832,9 @@ void capture::run()
     if (ret != 0)
         spead2::throw_errno("sigaction failed");
 
-    std::future<void> collect_future = std::async(std::launch::async, [this] { collect_thread(); });
+    std::future<void> collect_future;
+    if (has_file)
+        collect_future = std::async(std::launch::async, [this] { collect_thread(); });
 
     udp::socket join_socket(io_service, endpoints[0].protocol());
     join_socket.set_option(boost::asio::socket_base::reuse_address(true));
@@ -781,10 +849,14 @@ void capture::run()
      */
     join_socket.close();
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    collect_future.get();
+    if (has_file)
+        collect_future.get();
     // Restore SIGINT handler
     sigaction(SIGINT, &old_act, &act);
-    std::cout << "\n\n" << packets << " packets captured (" << bytes << " bytes)\n"
+    time_point now = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = now - start_time;
+    std::cout << "\n\n" << packets << " packets captured (" << bytes << " bytes) in "
+        << elapsed.count() << "s\n"
         << errors << " errors\n";
 }
 
