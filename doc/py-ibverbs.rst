@@ -33,6 +33,15 @@ For more information, see the `libvma documentation`_.
 
 .. _libvma documentation: https://github.com/Mellanox/libvma
 
+.. note::
+
+   Setting ``log_num_mgm_entry_size`` to -7 instead of -1 will activate faster
+   static device-managed flow steering. This has some limitations (refer to the
+   manual_ for details), but can improve performance when capturing a large
+   number of multicast groups.
+
+   .. _manual: http://www.mellanox.com/related-docs/prod_software/Mellanox_EN_for_Linux_User_Manual_v4_3.pdf
+
 Receiving
 ---------
 The ibverbs API can be used programmatically by using an extra method of
