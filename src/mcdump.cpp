@@ -87,6 +87,8 @@ struct options
     int network_affinity = -1;
     int collect_affinity = -1;
     std::vector<int> disk_affinity;
+    bool quiet = false;
+    std::uint64_t count = std::numeric_limits<std::uint64_t>::max();
 #ifdef O_DIRECT
     bool direct = false;
 #endif
@@ -128,6 +130,8 @@ static options parse_args(int argc, const char **argv)
         ("network-cpu,N", make_opt(opts.network_affinity), "CPU core for network receive")
         ("collect-cpu,C", make_opt(opts.collect_affinity), "CPU core for rearranging data")
         ("disk-cpu,D", po::value<std::vector<int>>(&opts.disk_affinity)->composing(), "CPU core for disk writing (can be used multiple times)")
+        ("quiet,q", make_opt(opts.quiet), "Do not report counts and rates while running")
+        ("count,c", make_opt(opts.count), "Stop after this many packets")
 #ifdef O_DIRECT
         ("direct-io", make_opt(opts.direct), "Use O_DIRECT I/O (not supported on all filesystems)")
 #endif
@@ -557,10 +561,13 @@ void capture::network_thread()
     std::unique_ptr<ibv_wc[]> wc(new ibv_wc[max_records]);
 #endif
     int until_get_time = GET_TIME_RATE;
-    while (!stop.load())
+    std::uint64_t remaining_count = opts.count;
+    while (!stop.load() && remaining_count > 0)
     {
         chunk c = free_ring.pop();
         int expect = max_records;
+        if (remaining_count < max_records)
+            expect = remaining_count;
         while (!stop.load() && expect > 0)
         {
             int n = cq.poll(expect, wc.get());
@@ -607,10 +614,15 @@ void capture::network_thread()
             if (until_get_time <= 0)
             {
                 until_get_time = GET_TIME_RATE;
-                time_point now = std::chrono::high_resolution_clock::now();
-                if (now - last_report >= std::chrono::seconds(1))
-                    report_rates(now);
+                if (!opts.quiet)
+                {
+                    time_point now = std::chrono::high_resolution_clock::now();
+                    if (now - last_report >= std::chrono::seconds(1))
+                        report_rates(now);
+                }
             }
+            if (remaining_count != std::numeric_limits<std::uint64_t>::max())
+                remaining_count -= n;
         }
         if (has_file)
             ring.push(std::move(c));

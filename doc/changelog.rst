@@ -5,6 +5,7 @@ Changelog
 
 - Add progress reports to mcdump
 - Add ability to pass ``-`` as filename to mcdump to skip file writing.
+- Add :option:`--count` option to mcdump
 
 .. rubric:: Version 1.7.1
 

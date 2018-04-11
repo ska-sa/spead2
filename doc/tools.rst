@@ -65,6 +65,11 @@ These options are important for performance:
    filesystems support it, and it can also reduce performance when capturing
    a small enough amount of data that it will fit into RAM.
 
+.. option:: --count <count>
+
+   Stop after <count> packets have been received. Without this option, mcdump
+   will run until SIGINT (Ctrl-C) is received.
+
 Limitations
 ^^^^^^^^^^^
 
