@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add progress reports to mcdump
+- Add ability to pass ``-`` as filename to mcdump to skip file writing.
+
 .. rubric:: Version 1.7.1
 
 There are no code changes, but this release fixes a packaging error in 1.7.0
