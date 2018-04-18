@@ -64,6 +64,7 @@ libspead2_a_SOURCES = \
 	recv_stream.cpp \
 	recv_udp_base.cpp \
 	recv_udp.cpp \
+	recv_tcp.cpp \
 	recv_udp_ibv.cpp \
 	recv_udp_pcap.cpp \
 	send_heap.cpp \
