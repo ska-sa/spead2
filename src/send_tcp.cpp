@@ -35,20 +35,22 @@ constexpr std::size_t tcp_stream::default_buffer_size;
 tcp_stream::tcp_stream(
     io_service_ref io_service,
     const boost::asio::ip::tcp::endpoint &endpoint,
+    const boost::asio::ip::tcp::endpoint &local_endpoint,
     const stream_config &config,
     std::size_t buffer_size)
     : tcp_stream(std::move(io_service),
                  boost::asio::ip::tcp::socket(*io_service, endpoint.protocol()),
-                 endpoint, config, buffer_size)
+                 endpoint, local_endpoint, config, buffer_size)
 {
 }
 
 tcp_stream::tcp_stream(
     boost::asio::ip::tcp::socket &&socket,
     const boost::asio::ip::tcp::endpoint &endpoint,
+    const boost::asio::ip::tcp::endpoint &local_endpoint,
     const stream_config &config,
     std::size_t buffer_size)
-    : tcp_stream(socket.get_io_service(), std::move(socket), endpoint, config, buffer_size)
+    : tcp_stream(socket.get_io_service(), std::move(socket), endpoint, local_endpoint, config, buffer_size)
 {
 }
 
@@ -56,13 +58,17 @@ tcp_stream::tcp_stream(
     io_service_ref io_service,
     boost::asio::ip::tcp::socket &&socket,
     const boost::asio::ip::tcp::endpoint &endpoint,
+    const boost::asio::ip::tcp::endpoint &local_endpoint,
     const stream_config &config,
     std::size_t buffer_size)
     : stream_impl<tcp_stream>(std::move(io_service), config),
     socket(std::move(socket)), endpoint(endpoint),
     packet_size(0), size_buffer(boost::asio::const_buffer(&packet_size, sizeof(packet_size)))
 {
-    if (!socket.is_open()) {
+    if (!socket.is_open())
+    {
+        if (!local_endpoint.address().is_unspecified())
+            this->socket.bind(local_endpoint);
         this->socket.connect(endpoint);
     }
     if (&get_io_service() != &this->socket.get_io_service())

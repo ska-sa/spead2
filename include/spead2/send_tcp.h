@@ -64,6 +64,7 @@ public:
     tcp_stream(
         io_service_ref io_service,
         const boost::asio::ip::tcp::endpoint &endpoint,
+        const boost::asio::ip::tcp::endpoint &local_endpoint = boost::asio::ip::tcp::endpoint(),
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size);
 
@@ -74,6 +75,7 @@ public:
     tcp_stream(
         boost::asio::ip::tcp::socket &&socket,
         const boost::asio::ip::tcp::endpoint &endpoint,
+        const boost::asio::ip::tcp::endpoint &local_endpoint = boost::asio::ip::tcp::endpoint(),
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size);
 
@@ -86,6 +88,7 @@ public:
         io_service_ref io_service,
         boost::asio::ip::tcp::socket &&socket,
         const boost::asio::ip::tcp::endpoint &endpoint,
+        const boost::asio::ip::tcp::endpoint &local_endpoint = boost::asio::ip::tcp::endpoint(),
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size);
 
