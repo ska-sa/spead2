@@ -341,7 +341,7 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
         udp::resolver::query query(host, port);
         udp::endpoint endpoint = *resolver.resolve(query);
 #if SPEAD2_USE_NETMAP
-        else if (opts.netmap_if != "")
+        if (opts.netmap_if != "")
         {
             stream->emplace_reader<spead2::recv::netmap_udp_reader>(
                 opts.netmap_if, endpoint.port());
