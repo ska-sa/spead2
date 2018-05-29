@@ -296,7 +296,8 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
         else
             port = *i;
 
-        if (opts.tcp) {
+        if (opts.tcp)
+        {
             tcp::resolver resolver(thread_pool.get_io_service());
             tcp::resolver::query query(host, port, tcp::resolver::query::address_configured);
             tcp::endpoint endpoint = *resolver.resolve(query);

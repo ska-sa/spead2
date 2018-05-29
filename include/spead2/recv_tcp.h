@@ -48,7 +48,7 @@ private:
     boost::asio::ip::tcp::acceptor acceptor;
     /// TCP peer socket (i.e., the one connected to the remote end)
     boost::asio::ip::tcp::socket peer;
-    /// Maximum packet size we will accept. Needed mostly for the underlying packet unserialization logic
+    /// Maximum packet size we will accept. Needed mostly for the underlying packet deserialization logic
     std::size_t max_size;
     /// Buffer for asynchronous receive
     std::unique_ptr<std::uint8_t[]> buffer;
@@ -73,36 +73,28 @@ private:
         const boost::system::error_code &error,
         std::size_t bytes_transferred);
 
-    /// Processes the content of the buffer
-    /// Retruns true if more reading needs to be enqueued
+    /// Processes the content of the buffer, returns true if more reading needs to be enqueued
     bool process_buffer(const std::size_t bytes_recv);
 
-    /// Parses the size of the next packet to read from the stream
-    /// Retruns false if the contents of the current stream are not enough
-    bool parse_pkt_size(std::size_t &bytes_avail);
+    /// Parses the size of the next packet to read from the stream, returns false if the contents of the current stream are not enough
+    bool parse_packet_size(std::size_t &bytes_avail);
 
-    /// Parses the next packet out of the stream
-    /// Retruns false if the contents of the current stream are not enough
+    /// Parses the next packet out of the stream, returns false if the contents of the current stream are not enough
     bool parse_packet(std::size_t &bytes_avail);
 
-    /// Prepares buffers for further data reception. It is called after all data
-    /// from the two buffers has been properly parsed and passed down
+    /// Prepares buffers for further data reception
     void finish_buffer_processing(
-            const std::size_t bytes_recv,
-            const std::size_t bytes_avail);
+        const std::size_t bytes_recv,
+        const std::size_t bytes_avail);
 
 public:
     /// Socket receive buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 8 * 1024 * 1024;
-    /// Number of packets to receive in one go, if recvmmsg support is present
-    static constexpr std::size_t mmsg_count = 64;
+    /// Number of packets to hold on each buffer for asynchronous receive
+    static constexpr std::size_t pkts_per_buffer = 64;
 
     /**
      * Constructor.
-     *
-     * If @a endpoint is a multicast address, then this constructor will
-     * subscribe to the multicast group, and also set @c SO_REUSEADDR so that
-     * multiple sockets can be subscribed to the multicast group.
      *
      * @param owner        Owning stream
      * @param endpoint     Address on which to listen

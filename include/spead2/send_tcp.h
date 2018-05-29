@@ -57,7 +57,7 @@ private:
     }
 
 public:
-    /// Socket receive buffer size, if none is explicitly passed to the constructor
+    /// Socket send buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 512 * 1024;
 
     /// Constructor
