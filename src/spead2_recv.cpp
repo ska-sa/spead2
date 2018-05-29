@@ -309,29 +309,31 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
             tcp::resolver::query query(host, port, tcp::resolver::query::address_configured);
             tcp::endpoint endpoint = *resolver.resolve(query);
             stream->emplace_reader<spead2::recv::tcp_reader>(endpoint, opts.packet, opts.buffer);
-            continue;
-        }
-
-        udp::resolver resolver(thread_pool.get_io_service());
-        udp::resolver::query query(host, port);
-        udp::endpoint endpoint = *resolver.resolve(query);
-#if SPEAD2_USE_NETMAP
-        if (opts.netmap_if != "")
-        {
-            stream->emplace_reader<spead2::recv::netmap_udp_reader>(
-                opts.netmap_if, endpoint.port());
         }
         else
+        {
+
+            udp::resolver resolver(thread_pool.get_io_service());
+            udp::resolver::query query(host, port);
+            udp::endpoint endpoint = *resolver.resolve(query);
+#if SPEAD2_USE_NETMAP
+            if (opts.netmap_if != "")
+            {
+                stream->emplace_reader<spead2::recv::netmap_udp_reader>(
+                    opts.netmap_if, endpoint.port());
+            }
+            else
 #endif
 #if SPEAD2_USE_IBV
-        if (opts.ibv_if != "")
-        {
-            ibv_endpoints.push_back(endpoint);
-        }
-        else
+            if (opts.ibv_if != "")
+            {
+                ibv_endpoints.push_back(endpoint);
+            }
+            else
 #endif
-        {
-            stream->emplace_reader<spead2::recv::udp_reader>(endpoint, opts.packet, opts.buffer);
+            {
+                stream->emplace_reader<spead2::recv::udp_reader>(endpoint, opts.packet, opts.buffer);
+            }
         }
     }
 #if SPEAD2_USE_IBV
@@ -358,9 +360,9 @@ int main(int argc, const char **argv)
     }
     else
     {
-        if (opts.sources.size() > 1 && (opts.ring or opts.tcp))
+        if (opts.sources.size() > 1 && opts.ring)
         {
-            std::cerr << "Multiple streams cannot be used with --ring or --tcp\n";
+            std::cerr << "Multiple streams cannot be used with --ring\n";
             std::exit(2);
         }
         for (auto it = opts.sources.begin(); it != opts.sources.end(); ++it)
