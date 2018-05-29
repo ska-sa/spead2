@@ -62,6 +62,8 @@ private:
     std::uint64_t pkt_size = 0;
     /// Buffer size to set on peer
     std::size_t buffer_size;
+    /// Buffer used for assembling packets from two different sets of bytes
+    std::unique_ptr<std::uint8_t[]> tmp;
 
     /// Start an asynchronous receive
     void enqueue_receive();

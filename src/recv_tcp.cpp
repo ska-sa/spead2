@@ -53,11 +53,13 @@ tcp_reader::tcp_reader(
     max_size(max_size),
     buffer(new std::uint8_t[max_size * pkts_per_buffer]),
     buffer2(new std::uint8_t[max_size * pkts_per_buffer]),
-    buffer_size(buffer_size)
+    buffer_size(buffer_size),
+    tmp(new std::uint8_t[max_size])
 {
     assert(&this->acceptor.get_io_service() == &get_io_service());
     this->acceptor.async_accept(peer,
-        std::bind(&tcp_reader::accept_handler, this, std::placeholders::_1));
+        get_stream().get_strand().wrap(
+            std::bind(&tcp_reader::accept_handler, this, std::placeholders::_1)));
 }
 
 tcp_reader::tcp_reader(
@@ -84,7 +86,7 @@ void tcp_reader::packet_handler(
         else
             read_more = process_buffer(bytes_transferred);
     }
-    else if (error != boost::asio::error::operation_aborted)
+    else if (error != boost::asio::error::operation_aborted && error != boost::asio::error::eof)
         log_warning("Error in TCP receiver: %1%", error.message());
 
     if (read_more)
@@ -112,7 +114,7 @@ bool tcp_reader::parse_packet(std::size_t &bytes_avail)
     }
     else if (buffer2_bytes_avail > 0)
     {
-        std::uint8_t buf[max_size];
+        auto buf = tmp.get();
         std::memcpy(buf, buffer2.get() + buffer_offset, buffer2_bytes_avail);
         std::memcpy(buf + buffer2_bytes_avail, buffer.get(), pkt_size - buffer2_bytes_avail);
         stopped = process_one_packet(buf, pkt_size, max_size);
@@ -130,15 +132,11 @@ bool tcp_reader::parse_packet(std::size_t &bytes_avail)
     return stopped;
 }
 
-#ifdef SPEAD2_LOG_RECV_TCP
 #define LOG_STEP(x) \
     log_debug(x ". bytes_recv = %1%, buffer2_bytes_avail = %2%, bytes_avail = %3%, " \
         "buffer_offset = %4%, pkt_size = %5%, max_size = %6%", \
         bytes_recv, buffer2_bytes_avail, bytes_avail, buffer_offset, \
         pkt_size, max_size)
-#else
-#define LOG_STEP(x)
-#endif
 
 void tcp_reader::finish_buffer_processing(const std::size_t bytes_recv, const std::size_t bytes_avail)
 {
@@ -153,7 +151,7 @@ void tcp_reader::finish_buffer_processing(const std::size_t bytes_recv, const st
     {
         // we are not doing this optimally, but it's not happening that often
         LOG_STEP("Couldn't process any received data, accumulating it into buffer");
-        std::uint8_t buf[max_size];
+        auto buf = tmp.get();
         std::memcpy(buf, buffer2.get() + buffer_offset, buffer2_bytes_avail);
         std::memcpy(buf + buffer2_bytes_avail, buffer.get(), bytes_recv);
         std::memcpy(buffer.get(), buf, bytes_recv + buffer2_bytes_avail);
@@ -247,13 +245,18 @@ bool tcp_reader::parse_packet_size(std::size_t &bytes_avail)
 
 void tcp_reader::accept_handler(const boost::system::error_code &error)
 {
+    acceptor.close();
     if (!error)
     {
         set_socket_buffer_size(peer, buffer_size);
         enqueue_receive();
     }
     else
-        log_warning("Error in TCP accept: %1%", error.message());
+    {
+        if (error != boost::asio::error::operation_aborted)
+            log_warning("Error in TCP accept: %1%", error.message());
+        stopped();
+    }
 }
 
 void tcp_reader::enqueue_receive()
@@ -273,7 +276,10 @@ void tcp_reader::stop()
      * Don't put any logging here: it could be running in a shutdown
      * path where it is no longer safe to do so.
      */
-    acceptor.close();
+    if (peer.is_open())
+        peer.close();
+    if (acceptor.is_open())
+        acceptor.close();
 }
 
 bool tcp_reader::lossy() const
