@@ -60,7 +60,6 @@ struct options
     std::size_t mem_initial = 8;
     bool ring = false;
     bool memcpy_nt = false;
-    bool check = false;
 #if SPEAD2_USE_NETMAP
     std::string netmap_if;
 #endif
@@ -115,7 +114,6 @@ static options parse_args(int argc, const char **argv)
         ("mem-initial", make_opt(opts.mem_initial), "Initial free memory buffers")
         ("ring", make_opt(opts.ring), "Use ringbuffer instead of callbacks")
         ("memcpy-nt", make_opt(opts.memcpy_nt), "Use non-temporal memcpy")
-        ("check", make_opt(opts.check), "Check that values in first item are correct")
 #if SPEAD2_USE_NETMAP
         ("netmap", make_opt(opts.netmap_if), "Netmap interface")
 #endif
@@ -168,6 +166,8 @@ static options parse_args(int argc, const char **argv)
 
 void show_heap(const spead2::recv::heap &fheap, const options &opts)
 {
+    if (opts.quiet)
+        return;
     time_point now = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = now - start;
     std::cout << std::showbase;
@@ -217,36 +217,6 @@ void show_heap(const spead2::recv::heap &fheap, const options &opts)
     std::cout << std::noshowbase;
 }
 
-void check_heap(const spead2::recv::heap &fheap, const options &opts)
-{
-    for (const auto &item : fheap.get_items())
-    {
-        // We only check the first item, don't care about the rest
-        if (item.id != 0x1000)
-            continue;
-
-        // This should be full of zeroes, let's check
-        typedef std::pair<float, float> item_t;
-        const item_t *values = reinterpret_cast<const item_t *>(item.ptr);
-        bool wrong = false;
-        for (std::size_t i = 0; i < item.length / sizeof(item_t) && !wrong; i++)
-        {
-            if (values[i] != item_t{0, 0})
-            {
-                std::cerr << "Values received, but they are wrong: << " << values[i].first << " / " << values[i].second;
-                wrong = true;
-            }
-        }
-
-        if (wrong)
-            std::cerr << "Wrong values found in item 0x1000\n";
-        else if (!opts.quiet)
-            std::cout << "All values in item 0x1000 seem correct\n";
-
-        break;
-    }
-}
-
 class callback_stream : public spead2::recv::stream
 {
 private:
@@ -258,10 +228,7 @@ private:
         if (heap.is_contiguous())
         {
             spead2::recv::heap frozen(std::move(heap));
-            if (!opts.quiet)
-                show_heap(frozen, opts);
-            if (opts.check)
-                check_heap(frozen, opts);
+            show_heap(frozen, opts);
             n_complete++;
         }
         else
