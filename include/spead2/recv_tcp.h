@@ -109,26 +109,30 @@ public:
         std::size_t max_size = default_max_size,
         std::size_t buffer_size = default_buffer_size);
 
+    /**
+     * Constructor using an existing acceptor object. This allows acceptor objects
+     * to be created and fine-tuned by users before handing them over. The
+     * acceptor object must be already bound.
+     *
+     * @param owner        Owning stream
+     * @param acceptor     Acceptor object, must be bound
+     * @param max_size     Maximum packet size that will be accepted.
+     * @param buffer_size  Requested socket buffer size. Note that the
+     *                     operating system might not allow a buffer size
+     *                     as big as the default.
+     */
+    tcp_reader(
+        stream &owner,
+        boost::asio::ip::tcp::acceptor &&acceptor,
+        std::size_t max_size = default_max_size,
+        std::size_t buffer_size = default_buffer_size);
+
     virtual void stop() override;
 
     virtual bool lossy() const override {
         return false;
     }
 
-};
-
-/**
- * Factory overload to allow tcp_reader to be dynamically substituted with
- * udp_ibv_reader based on environment variables.
- */
-template<>
-struct reader_factory<tcp_reader>
-{
-    static std::unique_ptr<reader> make_reader(
-        stream &owner,
-        const boost::asio::ip::tcp::endpoint &endpoint,
-        std::size_t max_size = tcp_reader::default_max_size,
-        std::size_t buffer_size = tcp_reader::default_buffer_size);
 };
 
 } // namespace recv

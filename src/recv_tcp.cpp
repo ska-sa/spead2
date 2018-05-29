@@ -44,11 +44,11 @@ constexpr std::size_t tcp_reader::default_buffer_size;
 
 tcp_reader::tcp_reader(
     stream &owner,
-    const boost::asio::ip::tcp::endpoint &endpoint,
+    boost::asio::ip::tcp::acceptor &&acceptor,
     std::size_t max_size,
     std::size_t buffer_size)
-    : udp_reader_base(owner), acceptor(owner.get_strand().get_io_service(), endpoint),
-    peer(acceptor.get_io_service()),
+    : udp_reader_base(owner), acceptor(std::move(acceptor)),
+    peer(this->acceptor.get_io_service()),
     max_size(max_size),
     buffer(new std::uint8_t[max_size * pkts_per_buffer]),
     buffer2(new std::uint8_t[max_size * pkts_per_buffer])
@@ -59,7 +59,7 @@ tcp_reader::tcp_reader(
     {
         boost::asio::socket_base::receive_buffer_size option(buffer_size);
         boost::system::error_code ec;
-        acceptor.set_option(option, ec);
+        this->acceptor.set_option(option, ec);
         if (ec)
         {
             log_warning("request for buffer size %s failed (%s): refer to documentation for details on increasing buffer size",
@@ -69,7 +69,7 @@ tcp_reader::tcp_reader(
         {
             // Linux silently clips to the maximum allowed size
             boost::asio::socket_base::receive_buffer_size actual;
-            acceptor.get_option(actual);
+            this->acceptor.get_option(actual);
             if (std::size_t(actual.value()) < buffer_size)
             {
                 log_warning("requested buffer size %d but only received %d: refer to documentation for details on increasing buffer size",
@@ -78,8 +78,20 @@ tcp_reader::tcp_reader(
         }
     }
 
-    acceptor.async_accept(this->peer,
+    this->acceptor.async_accept(peer,
         std::bind(&tcp_reader::accept_handler, this, std::placeholders::_1));
+}
+
+tcp_reader::tcp_reader(
+    stream &owner,
+    const boost::asio::ip::tcp::endpoint &endpoint,
+    std::size_t max_size,
+    std::size_t buffer_size)
+    : tcp_reader(
+          owner,
+          boost::asio::ip::tcp::acceptor(owner.get_strand().get_io_service(), endpoint),
+          max_size, buffer_size)
+{
 }
 
 void tcp_reader::packet_handler(
@@ -283,16 +295,6 @@ void tcp_reader::stop()
     acceptor.close();
 }
 
-/////////////////////////////////////////////////////////////////////////////
-
-std::unique_ptr<reader> reader_factory<tcp_reader>::make_reader(
-    stream &owner,
-    const boost::asio::ip::tcp::endpoint &endpoint,
-    std::size_t max_size,
-    std::size_t buffer_size)
-{
-    return std::unique_ptr<reader>(new tcp_reader(owner, endpoint, max_size, buffer_size));
-}
 
 } // namespace recv
 } // namespace spead2
