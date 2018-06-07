@@ -129,9 +129,7 @@ public:
 
     virtual void stop() override;
 
-    virtual bool lossy() const override {
-        return false;
-    }
+    virtual bool lossy() const override;
 
 };
 

@@ -295,6 +295,10 @@ void tcp_reader::stop()
     acceptor.close();
 }
 
+bool tcp_reader::lossy() const
+{
+    return false;
+}
 
 } // namespace recv
 } // namespace spead2
