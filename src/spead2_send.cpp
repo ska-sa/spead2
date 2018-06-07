@@ -46,7 +46,7 @@ struct options
     std::int64_t heaps = -1;
     bool pyspead = false;
     bool tcp = false;
-    std::string tcp_local;
+    std::string bind;
     int addr_bits = 40;
     std::size_t packet = spead2::send::stream_config::default_max_packet_size;
     std::size_t buffer = 0;
@@ -98,7 +98,7 @@ static options parse_args(int argc, const char **argv)
         ("pyspead", make_opt(opts.pyspead), "Be bug-compatible with PySPEAD")
         ("addr-bits", make_opt(opts.addr_bits), "Heap address bits")
         ("tcp", make_opt(opts.tcp), "Use TCP instead than UDP")
-        ("tcp-local", make_opt(opts.tcp_local), "Local address to bind TCP sockets to (none by default)")
+        ("bind", make_opt(opts.bind), "Local address to bind sockets to")
         ("packet", make_opt(opts.packet), "Maximum packet size to send")
         ("buffer", make_opt(opts.buffer), "Socket buffer size")
         ("burst", make_opt(opts.burst), "Burst size")
@@ -273,8 +273,8 @@ int main(int argc, const char **argv)
     if (opts.tcp) {
         tcp::endpoint endpoint = get_endpoint<tcp>(io_service, opts);
         tcp::endpoint local_endpoint;
-        if (!opts.tcp_local.empty())
-            local_endpoint = tcp::endpoint(boost::asio::ip::address::from_string(opts.tcp_local), 0);
+        if (!opts.bind.empty())
+            local_endpoint = tcp::endpoint(boost::asio::ip::address::from_string(opts.bind), 0);
         stream.reset(new spead2::send::tcp_stream(
                     io_service, endpoint, local_endpoint, config, opts.buffer));
     }
