@@ -251,6 +251,15 @@ int run(spead2::send::stream &stream, const options &opts)
     return 0;
 }
 
+template <typename Proto>
+boost::asio::ip::basic_endpoint<Proto> get_endpoint(boost::asio::io_service &io_service, const options &opts)
+{
+    typedef boost::asio::ip::basic_resolver<Proto> resolver_type;
+    resolver_type resolver(io_service);
+    typename resolver_type::query query(opts.host, opts.port);
+    return *resolver.resolve(query);
+}
+
 int main(int argc, const char **argv)
 {
     options opts = parse_args(argc, argv);
@@ -260,40 +269,36 @@ int main(int argc, const char **argv)
         opts.packet, opts.rate * 1000 * 1000 * 1000 / 8, opts.burst,
         spead2::send::stream_config::default_max_heaps, opts.burst_rate_ratio);
     std::unique_ptr<spead2::send::stream> stream;
-#if SPEAD2_USE_IBV
-    if (opts.ibv_if != "")
-    {
-        boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(opts.ibv_if);
-        stream.reset(new spead2::send::udp_ibv_stream(
-                thread_pool.get_io_service(), *it, config,
-                interface_address, opts.buffer, opts.ttl,
-                opts.ibv_comp_vector, opts.ibv_max_poll));
+    auto &io_service = thread_pool.get_io_service();
+    if (opts.tcp) {
+        tcp::endpoint endpoint = get_endpoint<tcp>(io_service, opts);
+        tcp::endpoint local_endpoint;
+        if (!opts.tcp_local.empty())
+            local_endpoint = tcp::endpoint(boost::asio::ip::address::from_string(opts.tcp_local), 0);
+        stream.reset(new spead2::send::tcp_stream(
+                    io_service, endpoint, local_endpoint, config, opts.buffer));
     }
     else
-#endif
     {
-        if (opts.tcp) {
-            auto &io_service = thread_pool.get_io_service();
-            tcp::resolver resolver(io_service);
-            tcp::resolver::query query(opts.host, opts.port);
-            tcp::endpoint endpoint = *resolver.resolve(query);
-
-            tcp::endpoint local_endpoint;
-            if (!opts.tcp_local.empty())
-                local_endpoint = tcp::endpoint(boost::asio::ip::address::from_string(opts.tcp_local), 0);
-            stream.reset(new spead2::send::tcp_stream(
-                        thread_pool.get_io_service(), endpoint, local_endpoint, config, opts.buffer));
+        udp::endpoint endpoint = get_endpoint<udp>(io_service, opts);
+#if SPEAD2_USE_IBV
+        if (opts.ibv_if != "")
+        {
+            boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(opts.ibv_if);
+            stream.reset(new spead2::send::udp_ibv_stream(
+                    io_service, endpoint, config,
+                    interface_address, opts.buffer, opts.ttl,
+                    opts.ibv_comp_vector, opts.ibv_max_poll));
         }
-        else {
-            udp::resolver resolver(thread_pool.get_io_service());
-            udp::resolver::query query(opts.host, opts.port);
-            udp::endpoint endpoint = *resolver.resolve(query);
+        else
+#endif
+        {
             if (endpoint.address().is_multicast())
                 stream.reset(new spead2::send::udp_stream(
-                        thread_pool.get_io_service(), endpoint, config, opts.buffer, opts.ttl));
+                        io_service, endpoint, config, opts.buffer, opts.ttl));
             else
                 stream.reset(new spead2::send::udp_stream(
-                        thread_pool.get_io_service(), endpoint, config, opts.buffer));
+                        io_service, endpoint, config, opts.buffer));
         }
     }
     return run(*stream, opts);
