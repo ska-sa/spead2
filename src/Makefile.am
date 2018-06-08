@@ -53,6 +53,7 @@ libspead2_a_SOURCES = \
 	common_memory_pool.cpp \
 	common_raw_packet.cpp \
 	common_semaphore.cpp \
+	common_socket.cpp \
 	common_thread_pool.cpp \
 	recv_heap.cpp \
 	recv_live_heap.cpp \

@@ -40,6 +40,7 @@
 #include <spead2/recv_udp_base.h>
 #include <spead2/recv_udp_ibv.h>
 #include <spead2/common_logging.h>
+#include <spead2/common_socket.h>
 
 namespace spead2
 {
@@ -98,28 +99,7 @@ udp_reader::udp_reader(
     }
 #endif
 
-    if (buffer_size != 0)
-    {
-        boost::asio::socket_base::receive_buffer_size option(buffer_size);
-        boost::system::error_code ec;
-        this->socket.set_option(option, ec);
-        if (ec)
-        {
-            log_warning("request for buffer size %s failed (%s): refer to documentation for details on increasing buffer size",
-                        buffer_size, ec.message());
-        }
-        else
-        {
-            // Linux silently clips to the maximum allowed size
-            boost::asio::socket_base::receive_buffer_size actual;
-            this->socket.get_option(actual);
-            if (std::size_t(actual.value()) < buffer_size)
-            {
-                log_warning("requested buffer size %d but only received %d: refer to documentation for details on increasing buffer size",
-                            buffer_size, actual.value());
-            }
-        }
-    }
+    set_socket_buffer_size(this->socket, buffer_size);
     this->socket.bind(endpoint);
 #if SPEAD2_USE_RECVMMSG
     socket2 = duplicate_socket(this->socket);
