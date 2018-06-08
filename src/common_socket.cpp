@@ -55,7 +55,6 @@ void set_socket_buffer_size(SocketType &socket, std::size_t buffer_size)
     }
 }
 
-template void set_socket_buffer_size<boost::asio::ip::tcp::acceptor>(boost::asio::ip::tcp::acceptor &acceptor, std::size_t buffer_size);
 template void set_socket_buffer_size<boost::asio::ip::tcp::socket>(boost::asio::ip::tcp::socket &socket, std::size_t buffer_size);
 template void set_socket_buffer_size<boost::asio::ip::udp::socket>(boost::asio::ip::udp::socket &socket, std::size_t buffer_size);
 

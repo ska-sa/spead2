@@ -60,6 +60,8 @@ private:
     std::size_t buffer2_bytes_avail = 0;
     /// Size of the current packet being parsed. 0 means no packet is being parsed
     std::uint64_t pkt_size = 0;
+    /// Buffer size to set on peer
+    std::size_t buffer_size;
 
     /// Start an asynchronous receive
     void enqueue_receive();

@@ -52,10 +52,10 @@ tcp_reader::tcp_reader(
     peer(this->acceptor.get_io_service()),
     max_size(max_size),
     buffer(new std::uint8_t[max_size * pkts_per_buffer]),
-    buffer2(new std::uint8_t[max_size * pkts_per_buffer])
+    buffer2(new std::uint8_t[max_size * pkts_per_buffer]),
+    buffer_size(buffer_size)
 {
     assert(&this->acceptor.get_io_service() == &get_io_service());
-    set_socket_buffer_size(this->acceptor, buffer_size);
     this->acceptor.async_accept(peer,
         std::bind(&tcp_reader::accept_handler, this, std::placeholders::_1));
 }
@@ -248,7 +248,10 @@ bool tcp_reader::parse_packet_size(std::size_t &bytes_avail)
 void tcp_reader::accept_handler(const boost::system::error_code &error)
 {
     if (!error)
+    {
+        set_socket_buffer_size(peer, buffer_size);
         enqueue_receive();
+    }
     else
         log_warning("Error in TCP accept: %1%", error.message());
 }
