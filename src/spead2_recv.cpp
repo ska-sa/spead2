@@ -49,7 +49,7 @@ struct options
     bool joint = false;
     bool tcp = false;
     std::size_t packet = spead2::recv::udp_reader::default_max_size;
-    std::size_t buffer = spead2::recv::udp_reader::default_buffer_size;
+    std::size_t buffer = 0;
     int threads = 1;
     std::size_t heaps = spead2::recv::stream::default_max_heaps;
     std::size_t ring_heaps = spead2::recv::ring_stream_base::default_ring_heaps;
@@ -148,6 +148,13 @@ static options parse_args(int argc, const char **argv)
         if (!vm.count("source"))
             throw po::error("At least one port is required");
         opts.sources = vm["source"].as<std::vector<std::string>>();
+        if (opts.buffer == 0)
+        {
+            if (opts.tcp)
+                opts.buffer = spead2::recv::tcp_reader::default_buffer_size;
+            else
+                opts.buffer = spead2::recv::udp_reader::default_buffer_size;
+        }
 #if SPEAD2_USE_NETMAP
         if (opts.sources.size() > 1 && opts.netmap_if != "")
         {

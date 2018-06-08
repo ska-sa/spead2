@@ -49,7 +49,7 @@ struct options
     std::string tcp_local;
     int addr_bits = 40;
     std::size_t packet = spead2::send::stream_config::default_max_packet_size;
-    std::size_t buffer = spead2::send::udp_stream::default_buffer_size;
+    std::size_t buffer = 0;
     std::size_t burst = spead2::send::stream_config::default_burst_size;
     double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
     int threads = 1;
@@ -138,6 +138,13 @@ static options parse_args(int argc, const char **argv)
         }
         if (!vm.count("host") || !vm.count("port"))
             throw po::error("too few positional options have been specified on the command line");
+        if (opts.buffer == 0)
+        {
+            if (opts.tcp)
+                opts.buffer = spead2::send::tcp_stream::default_buffer_size;
+            else
+                opts.buffer = spead2::send::udp_stream::default_buffer_size;
+        }
         return opts;
     }
     catch (po::error &e)
