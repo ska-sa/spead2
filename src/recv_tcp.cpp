@@ -52,9 +52,9 @@ tcp_reader::tcp_reader(
     peer(this->acceptor.get_io_service()),
     max_size(max_size),
     buffer(new std::uint8_t[max_size * pkts_per_buffer]),
-    buffer2(new std::uint8_t[max_size * pkts_per_buffer]),
     buffer_size(buffer_size),
-    tmp(new std::uint8_t[max_size])
+    head(buffer.get()),
+    tail(buffer.get())
 {
     assert(&this->acceptor.get_io_service() == &get_io_service());
     this->acceptor.async_accept(peer,
@@ -98,148 +98,60 @@ void tcp_reader::packet_handler(
     }
 }
 
-bool tcp_reader::parse_packet(std::size_t &bytes_avail)
+bool tcp_reader::parse_packet()
 {
-    bool stopped = false;
-
-    /* The packet can be fully in the previous buffer,
-     * scattered through the previous and current buffer,
-     * or fully in the current buffer
-     */
-    if (buffer2_bytes_avail >= pkt_size)
-    {
-        stopped = process_one_packet(buffer2.get() + buffer_offset, pkt_size, max_size);
-        buffer2_bytes_avail -= pkt_size;
-        buffer_offset += pkt_size;
-    }
-    else if (buffer2_bytes_avail > 0)
-    {
-        auto buf = tmp.get();
-        std::memcpy(buf, buffer2.get() + buffer_offset, buffer2_bytes_avail);
-        std::memcpy(buf + buffer2_bytes_avail, buffer.get(), pkt_size - buffer2_bytes_avail);
-        stopped = process_one_packet(buf, pkt_size, max_size);
-        buffer_offset = pkt_size - buffer2_bytes_avail;
-        buffer2_bytes_avail = 0;
-    }
-    else
-    {
-        stopped = process_one_packet(buffer.get() + buffer_offset, pkt_size, max_size);
-        buffer_offset += pkt_size;
-    }
-
-    bytes_avail -= pkt_size;
-    pkt_size = 0;
-    return stopped;
+    assert(tail - head >= pkt_size);
+    // Modify private fields first, in case process_one_packet throws
+    auto head = this->head;
+    auto pkt_size = this->pkt_size;
+    this->head += pkt_size;
+    this->pkt_size = 0;
+    return process_one_packet(head, pkt_size, max_size);
 }
 
 #define LOG_STEP(x) \
-    log_debug(x ". bytes_recv = %1%, buffer2_bytes_avail = %2%, bytes_avail = %3%, " \
-        "buffer_offset = %4%, pkt_size = %5%, max_size = %6%", \
-        bytes_recv, buffer2_bytes_avail, bytes_avail, buffer_offset, \
-        pkt_size, max_size)
-
-void tcp_reader::finish_buffer_processing(const std::size_t bytes_recv, const std::size_t bytes_avail)
-{
-    /* If there are still bytes available in buffer2 it means that
-     * we couldn't consume a single byte of this->buffer, and therefore the
-     * offset refers to this->buffer2. If that's the case then we need to concatenate
-     * the contents of the two buffers onto the current buffer (doesn't matter
-     * exactly where, but we put it in position 0), and adjust the necessary bits
-     * of information
-     */
-    if (buffer2_bytes_avail > 0)
-    {
-        // we are not doing this optimally, but it's not happening that often
-        LOG_STEP("Couldn't process any received data, accumulating it into buffer");
-        auto buf = tmp.get();
-        std::memcpy(buf, buffer2.get() + buffer_offset, buffer2_bytes_avail);
-        std::memcpy(buf + buffer2_bytes_avail, buffer.get(), bytes_recv);
-        std::memcpy(buffer.get(), buf, bytes_recv + buffer2_bytes_avail);
-        buffer2_bytes_avail = bytes_avail;
-        buffer_offset = 0;
-    }
-    else
-        buffer2_bytes_avail = bytes_recv - buffer_offset;
-
-    /* Swap buffers and prepare for the next round
-     * After this swapping buffer2 *might* contain readable data, and
-     * buffer is ready to be rewritten
-     */
-    std::swap(buffer, buffer2);
-    if (buffer2_bytes_avail == 0)
-        buffer_offset = 0;
-
-}
+    log_debug(x ". bytes_recv = %1%, buffer = %2$#x, head = %3$#x, tail = %4$#x, " \
+        "(tail-head) = %5%, pkt_size = %6%, max_size = %7%", \
+        bytes_recv, std::ptrdiff_t(buffer.get()), std::ptrdiff_t(head), std::ptrdiff_t(tail), (tail - head), pkt_size, max_size)
 
 bool tcp_reader::process_buffer(const std::size_t bytes_recv)
 {
-    auto bytes_avail = bytes_recv + buffer2_bytes_avail;
+    tail += bytes_recv;
     LOG_STEP("Starting to process buffer");
 
     // No packet is being parsed at the moment, read the next packet size
     if (pkt_size == 0)
     {
         LOG_STEP("Reading next packet size");
-
         // This is *highly* unlikely to happen, but it could I guess
-        if (!parse_packet_size(bytes_avail))
-        {
-            finish_buffer_processing(bytes_recv, bytes_avail);
+        if (!parse_packet_size())
             return true;
-        }
     }
 
-    while (bytes_avail >= pkt_size)
+    LOG_STEP("Starting to read packets now");
+    while (std::size_t(tail - head) >= pkt_size)
     {
         LOG_STEP("Trying to read packet");
-        if (parse_packet(bytes_avail))
+        if (parse_packet())
         {
             // we don't enqueue any more reads, as the stream actually finished
             LOG_STEP("Stream finished");
             return false;
         }
-
-        if (!parse_packet_size(bytes_avail))
+        if (!parse_packet_size())
             break;
     }
 
     LOG_STEP("Done with buffer processing");
-    finish_buffer_processing(bytes_recv, bytes_avail);
     return true;
 }
 
-bool tcp_reader::parse_packet_size(std::size_t &bytes_avail)
+bool tcp_reader::parse_packet_size()
 {
-    /* The 8 bytes we need can be fully in the previous buffer,
-     * scattered through the previous and current buffer,
-     * or fully in the current buffer
-     */
-    if (buffer2_bytes_avail >= 8)
-    {
-        pkt_size = load_be<std::uint64_t>(buffer2.get() + buffer_offset);
-        buffer2_bytes_avail -= 8;
-        buffer_offset += 8;
-        bytes_avail -= 8;
-    }
-    else if (buffer2_bytes_avail > 0)
-    {
-        std::uint8_t s[8];
-        std::memcpy(s, buffer2.get() + buffer_offset, buffer2_bytes_avail);
-        std::memcpy(s + buffer2_bytes_avail, buffer.get(), 8 - buffer2_bytes_avail);
-        pkt_size = load_be<std::uint64_t>(s);
-        buffer_offset = 8 - buffer2_bytes_avail;
-        buffer2_bytes_avail = 0;
-        bytes_avail -= 8;
-    }
-    else if (bytes_avail >= 8)
-    {
-        pkt_size = load_be<std::uint64_t>(buffer.get() + buffer_offset);
-        buffer_offset += 8;
-        bytes_avail -= 8;
-    }
-    else
+    if (tail - head < 8)
         return false;
-
+    pkt_size = load_be<std::uint64_t>(head);
+    head += 8;
     return true;
 }
 
@@ -262,8 +174,23 @@ void tcp_reader::accept_handler(const boost::system::error_code &error)
 void tcp_reader::enqueue_receive()
 {
     using namespace std::placeholders;
+
+    auto buf = buffer.get();
+    auto bufsize = max_size * pkts_per_buffer;
+    assert(tail >= head);
+    assert(tail >= buf);
+
+    // Make room for the incoming data
+    if ((tail - buf) > bufsize / 2)
+    {
+        auto len = tail - head;
+        std::memmove(buf, head, std::size_t(len));
+        head = buf;
+        tail = head + len;
+    }
+
     peer.async_receive(
-        boost::asio::buffer(buffer.get(), max_size * pkts_per_buffer),
+        boost::asio::buffer(tail, bufsize - (tail - buf)),
         get_stream().get_strand().wrap(
             std::bind(&tcp_reader::packet_handler,
                 this, _1, _2)));

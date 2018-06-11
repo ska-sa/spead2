@@ -50,20 +50,16 @@ private:
     boost::asio::ip::tcp::socket peer;
     /// Maximum packet size we will accept. Needed mostly for the underlying packet deserialization logic
     std::size_t max_size;
-    /// Buffer for asynchronous receive
+    /// Buffer for packet data reception
     std::unique_ptr<std::uint8_t[]> buffer;
-    /// The double-buffering for the above buffer
-    std::unique_ptr<std::uint8_t[]> buffer2;
-    /// Offset at which we are currently reading data, either in buffer or buffer2
-    std::size_t buffer_offset = 0;
-    /// Bytes on buffer2 which still contain received data and need to be read
-    std::size_t buffer2_bytes_avail = 0;
+    /// The head of the buffer, data is available from this point up to the tail
+    std::uint8_t *head;
+    /// The tail of the buffer, after this there is no more data
+    std::uint8_t *tail;
     /// Size of the current packet being parsed. 0 means no packet is being parsed
     std::uint64_t pkt_size = 0;
     /// Buffer size to set on peer
     std::size_t buffer_size;
-    /// Buffer used for assembling packets from two different sets of bytes
-    std::unique_ptr<std::uint8_t[]> tmp;
 
     /// Start an asynchronous receive
     void enqueue_receive();
@@ -81,15 +77,10 @@ private:
     bool process_buffer(const std::size_t bytes_recv);
 
     /// Parses the size of the next packet to read from the stream, returns false if the contents of the current stream are not enough
-    bool parse_packet_size(std::size_t &bytes_avail);
+    bool parse_packet_size();
 
     /// Parses the next packet out of the stream, returns false if the contents of the current stream are not enough
-    bool parse_packet(std::size_t &bytes_avail);
-
-    /// Prepares buffers for further data reception
-    void finish_buffer_processing(
-        const std::size_t bytes_recv,
-        const std::size_t bytes_avail);
+    bool parse_packet();
 
 public:
     /// Socket receive buffer size, if none is explicitly passed to the constructor
