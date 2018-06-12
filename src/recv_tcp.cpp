@@ -248,7 +248,7 @@ void tcp_reader::accept_handler(const boost::system::error_code &error)
     acceptor.close();
     if (!error)
     {
-        set_socket_buffer_size(peer, buffer_size);
+        set_socket_recv_buffer_size(peer, buffer_size);
         enqueue_receive();
     }
     else

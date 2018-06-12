@@ -74,7 +74,7 @@ tcp_stream::tcp_stream(
     }
     if (&get_io_service() != &this->socket.get_io_service())
         throw std::invalid_argument("I/O service does not match the socket's I/O service");
-    set_socket_buffer_size(this->socket, buffer_size);
+    set_socket_send_buffer_size(this->socket, buffer_size);
 }
 
 } // namespace send

@@ -29,12 +29,12 @@
 namespace spead2
 {
 
-template <typename SocketType>
-void set_socket_buffer_size(SocketType &socket, std::size_t buffer_size)
+template <typename SocketType, typename BufferSizeOption>
+static void set_socket_buffer_size(SocketType &socket, std::size_t buffer_size)
 {
     if (buffer_size == 0)
         return;
-    boost::asio::socket_base::send_buffer_size option(buffer_size);
+    BufferSizeOption option(buffer_size);
     boost::system::error_code ec;
     socket.set_option(option, ec);
     if (ec)
@@ -45,7 +45,7 @@ void set_socket_buffer_size(SocketType &socket, std::size_t buffer_size)
     else
     {
         // Linux silently clips to the maximum allowed size
-        boost::asio::socket_base::send_buffer_size actual;
+        BufferSizeOption actual;
         socket.get_option(actual);
         if (std::size_t(actual.value()) < buffer_size)
         {
@@ -55,7 +55,21 @@ void set_socket_buffer_size(SocketType &socket, std::size_t buffer_size)
     }
 }
 
-template void set_socket_buffer_size<boost::asio::ip::tcp::socket>(boost::asio::ip::tcp::socket &socket, std::size_t buffer_size);
-template void set_socket_buffer_size<boost::asio::ip::udp::socket>(boost::asio::ip::udp::socket &socket, std::size_t buffer_size);
+template <typename SocketType>
+void set_socket_send_buffer_size(SocketType &socket, std::size_t buffer_size)
+{
+    set_socket_buffer_size<SocketType, boost::asio::socket_base::send_buffer_size>(socket, buffer_size);
+}
+
+template <typename SocketType>
+void set_socket_recv_buffer_size(SocketType &socket, std::size_t buffer_size)
+{
+    set_socket_buffer_size<SocketType, boost::asio::socket_base::receive_buffer_size>(socket, buffer_size);
+}
+
+template void set_socket_send_buffer_size<boost::asio::ip::tcp::socket>(boost::asio::ip::tcp::socket &socket, std::size_t buffer_size);
+template void set_socket_send_buffer_size<boost::asio::ip::udp::socket>(boost::asio::ip::udp::socket &socket, std::size_t buffer_size);
+template void set_socket_recv_buffer_size<boost::asio::ip::tcp::socket>(boost::asio::ip::tcp::socket &socket, std::size_t buffer_size);
+template void set_socket_recv_buffer_size<boost::asio::ip::udp::socket>(boost::asio::ip::udp::socket &socket, std::size_t buffer_size);
 
 } // namespace spead2

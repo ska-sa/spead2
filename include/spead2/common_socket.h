@@ -32,16 +32,24 @@ namespace spead2
 {
 
 /**
- * Tries to sets the socket's buffer size option, warns if it cannot be done
+ * Tries to sets the socket's send buffer size option, warns if it cannot be done.
+ * If @p buffer_size is zero the socket is left unchanged.
  *
- * @param socket The socket on which the buffer size will be set
+ * @param socket The socket on which the send buffer size will be set
  * @param buffer_size The buffer size
  */
 template <typename SocketType>
-void set_socket_buffer_size(SocketType &socket, std::size_t buffer_size);
+void set_socket_send_buffer_size(SocketType &socket, std::size_t buffer_size);
 
-extern template void set_socket_buffer_size<boost::asio::ip::tcp::socket>(boost::asio::ip::tcp::socket &socket, std::size_t buffer_size);
-extern template void set_socket_buffer_size<boost::asio::ip::udp::socket>(boost::asio::ip::udp::socket &socket, std::size_t buffer_size);
+/**
+ * Tries to sets the socket's receive buffer size option, warns if it cannot be done.
+ * If @p buffer_size is zero the socket is left unchanged.
+ *
+ * @param socket The socket on which the receive buffer size will be set
+ * @param buffer_size The buffer size
+ */
+template <typename SocketType>
+void set_socket_recv_buffer_size(SocketType &socket, std::size_t buffer_size);
 
 }  // namespace spead2
 

@@ -19,6 +19,7 @@
 #include <boost/asio.hpp>
 #include <spead2/send_udp.h>
 #include <spead2/common_defines.h>
+#include <spead2/common_socket.h>
 
 namespace spead2
 {
@@ -137,28 +138,7 @@ udp_stream::udp_stream(
 {
     if (&get_io_service() != &this->socket.get_io_service())
         throw std::invalid_argument("I/O service does not match the socket's I/O service");
-    if (buffer_size != 0)
-    {
-        boost::asio::socket_base::send_buffer_size option(buffer_size);
-        boost::system::error_code ec;
-        this->socket.set_option(option, ec);
-        if (ec)
-        {
-            log_warning("request for socket buffer size %s failed (%s): refer to documentation for details on increasing buffer size",
-                        buffer_size, ec.message());
-        }
-        else
-        {
-            // Linux silently clips to the maximum allowed size
-            boost::asio::socket_base::send_buffer_size actual;
-            this->socket.get_option(actual);
-            if (std::size_t(actual.value()) < buffer_size)
-            {
-                log_warning("requested socket buffer size %d but only received %d: refer to documentation for details on increasing buffer size",
-                            buffer_size, actual.value());
-            }
-        }
-    }
+    set_socket_send_buffer_size(this->socket, buffer_size);
 }
 
 } // namespace send

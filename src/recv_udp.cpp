@@ -99,7 +99,7 @@ udp_reader::udp_reader(
     }
 #endif
 
-    set_socket_buffer_size(this->socket, buffer_size);
+    set_socket_recv_buffer_size(this->socket, buffer_size);
     this->socket.bind(endpoint);
 #if SPEAD2_USE_RECVMMSG
     socket2 = duplicate_socket(this->socket);
