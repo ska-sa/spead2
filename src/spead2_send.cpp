@@ -138,6 +138,8 @@ static options parse_args(int argc, const char **argv)
         }
         if (!vm.count("host") || !vm.count("port"))
             throw po::error("too few positional options have been specified on the command line");
+        if (!opts.bind.empty() && !opts.tcp)
+            throw po::error("--bind not yet supported by UDP");
         if (opts.buffer == 0)
         {
             if (opts.tcp)
