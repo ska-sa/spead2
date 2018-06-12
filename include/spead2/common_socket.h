@@ -32,8 +32,8 @@ namespace spead2
 {
 
 /**
- * Tries to sets the socket's send buffer size option, warns if it cannot be done.
- * If @p buffer_size is zero the socket is left unchanged.
+ * Tries to set the socket's send buffer size option and warns if it cannot be done.
+ * If @a buffer_size is zero the socket is left unchanged.
  *
  * @param socket The socket on which the send buffer size will be set
  * @param buffer_size The buffer size
@@ -42,8 +42,8 @@ template <typename SocketType>
 void set_socket_send_buffer_size(SocketType &socket, std::size_t buffer_size);
 
 /**
- * Tries to sets the socket's receive buffer size option, warns if it cannot be done.
- * If @p buffer_size is zero the socket is left unchanged.
+ * Tries to set the socket's receive buffer size option and warns if it cannot be done.
+ * If @a buffer_size is zero the socket is left unchanged.
  *
  * @param socket The socket on which the receive buffer size will be set
  * @param buffer_size The buffer size
