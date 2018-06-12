@@ -49,7 +49,7 @@ struct options
     std::string bind;
     int addr_bits = 40;
     std::size_t packet = spead2::send::stream_config::default_max_packet_size;
-    std::size_t buffer = 0;
+    std::size_t buffer;
     std::size_t burst = spead2::send::stream_config::default_burst_size;
     double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
     int threads = 1;
@@ -82,7 +82,7 @@ static po::typed_value<bool> *make_opt(bool &var)
 }
 
 template<typename T>
-static po::typed_value<T> *make_required_opt(T &var)
+static po::typed_value<T> *make_opt_no_default(T &var)
 {
     return po::value<T>(&var);
 }
@@ -100,7 +100,7 @@ static options parse_args(int argc, const char **argv)
         ("tcp", make_opt(opts.tcp), "Use TCP instead than UDP")
         ("bind", make_opt(opts.bind), "Local address to bind sockets to")
         ("packet", make_opt(opts.packet), "Maximum packet size to send")
-        ("buffer", make_opt(opts.buffer), "Socket buffer size")
+        ("buffer", make_opt_no_default(opts.buffer), "Socket buffer size")
         ("burst", make_opt(opts.burst), "Burst size")
         ("burst-rate-ratio", make_opt(opts.burst_rate_ratio), "Hard rate limit, relative to --rate")
         ("threads", make_opt(opts.threads), "Number of worker threads")
@@ -113,8 +113,8 @@ static options parse_args(int argc, const char **argv)
 #endif
     ;
     hidden.add_options()
-        ("host", make_required_opt(opts.host), "Destination host")
-        ("port", make_required_opt(opts.port), "Destination port")
+        ("host", make_opt_no_default(opts.host), "Destination host")
+        ("port", make_opt_no_default(opts.port), "Destination port")
     ;
     all.add(desc);
     all.add(hidden);
@@ -140,7 +140,7 @@ static options parse_args(int argc, const char **argv)
             throw po::error("too few positional options have been specified on the command line");
         if (!opts.bind.empty() && !opts.tcp)
             throw po::error("--bind not yet supported by UDP");
-        if (opts.buffer == 0)
+        if (!vm.count("buffer"))
         {
             if (opts.tcp)
                 opts.buffer = spead2::send::tcp_stream::default_buffer_size;

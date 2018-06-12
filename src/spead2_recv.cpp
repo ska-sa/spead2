@@ -49,7 +49,7 @@ struct options
     bool joint = false;
     bool tcp = false;
     std::size_t packet = spead2::recv::udp_reader::default_max_size;
-    std::size_t buffer = 0;
+    std::size_t buffer;
     int threads = 1;
     std::size_t heaps = spead2::recv::stream::default_max_heaps;
     std::size_t ring_heaps = spead2::recv::ring_stream_base::default_ring_heaps;
@@ -92,6 +92,12 @@ static po::typed_value<bool> *make_opt(bool &var)
     return po::bool_switch(&var)->default_value(var);
 }
 
+template<typename T>
+static po::typed_value<T> *make_opt_no_default(T &var)
+{
+    return po::value<T>(&var);
+}
+
 static options parse_args(int argc, const char **argv)
 {
     options opts;
@@ -103,7 +109,7 @@ static options parse_args(int argc, const char **argv)
         ("joint", make_opt(opts.joint), "Treat all sources as a single stream")
         ("tcp", make_opt(opts.tcp), "Receive data over TCP instead of UDP")
         ("packet", make_opt(opts.packet), "Maximum packet size to use for UDP")
-        ("buffer", make_opt(opts.buffer), "Socket buffer size")
+        ("buffer", make_opt_no_default(opts.buffer), "Socket buffer size")
         ("threads", make_opt(opts.threads), "Number of worker threads")
         ("heaps", make_opt(opts.heaps), "Maximum number of in-flight heaps")
         ("ring-heaps", make_opt(opts.ring_heaps), "Ring buffer capacity in heaps")
@@ -148,7 +154,7 @@ static options parse_args(int argc, const char **argv)
         if (!vm.count("source"))
             throw po::error("At least one port is required");
         opts.sources = vm["source"].as<std::vector<std::string>>();
-        if (opts.buffer == 0)
+        if (!vm.count("buffer"))
         {
             if (opts.tcp)
                 opts.buffer = spead2::recv::tcp_reader::default_buffer_size;
