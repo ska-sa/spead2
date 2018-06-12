@@ -28,7 +28,8 @@
 
 #include <boost/asio.hpp>
 
-namespace spead2 {
+namespace spead2
+{
 
 /**
  * Tries to sets the socket's buffer size option, warns if it cannot be done
