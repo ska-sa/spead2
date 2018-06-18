@@ -109,40 +109,23 @@ bool tcp_reader::parse_packet()
     return process_one_packet(head, pkt_size, max_size);
 }
 
-#define LOG_STEP(x) \
-    log_debug(x ". bytes_recv = %1%, buffer = %2$#x, head = %3$#x, tail = %4$#x, " \
-        "(tail-head) = %5%, pkt_size = %6%, max_size = %7%", \
-        bytes_recv, std::ptrdiff_t(buffer.get()), std::ptrdiff_t(head), std::ptrdiff_t(tail), (tail - head), pkt_size, max_size)
-
 bool tcp_reader::process_buffer(const std::size_t bytes_recv)
 {
     tail += bytes_recv;
-    LOG_STEP("Starting to process buffer");
 
     // No packet is being parsed at the moment, read the next packet size
     if (pkt_size == 0)
-    {
-        LOG_STEP("Reading next packet size");
-        // This is *highly* unlikely to happen, but it could I guess
         if (!parse_packet_size())
             return true;
-    }
 
-    LOG_STEP("Starting to read packets now");
     while (std::size_t(tail - head) >= pkt_size)
     {
-        LOG_STEP("Trying to read packet");
         if (parse_packet())
-        {
-            // we don't enqueue any more reads, as the stream actually finished
-            LOG_STEP("Stream finished");
             return false;
-        }
         if (!parse_packet_size())
             break;
     }
 
-    LOG_STEP("Done with buffer processing");
     return true;
 }
 
