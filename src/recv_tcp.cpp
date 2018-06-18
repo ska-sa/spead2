@@ -94,7 +94,7 @@ void tcp_reader::packet_handler(
     else
     {
         peer.close();
-        this->stopped();
+        stopped();
     }
 }
 
