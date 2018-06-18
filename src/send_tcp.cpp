@@ -66,14 +66,14 @@ tcp_stream::tcp_stream(
     socket(std::move(socket)), endpoint(endpoint),
     packet_size(0), size_buffer(boost::asio::const_buffer(&packet_size, sizeof(packet_size)))
 {
+    if (&get_io_service() != &this->socket.get_io_service())
+        throw std::invalid_argument("I/O service does not match the socket's I/O service");
     if (!socket.is_open())
     {
         if (!local_endpoint.address().is_unspecified())
             this->socket.bind(local_endpoint);
         this->socket.connect(endpoint);
     }
-    if (&get_io_service() != &this->socket.get_io_service())
-        throw std::invalid_argument("I/O service does not match the socket's I/O service");
     set_socket_send_buffer_size(this->socket, buffer_size);
 }
 
