@@ -185,10 +185,10 @@ void tcp_reader::enqueue_receive()
     assert(tail >= buf);
 
     // Make room for the incoming data
-    if ((tail - buf) > bufsize / 2)
+    if ((head - buf) > bufsize / 2)
     {
         auto len = tail - head;
-        std::memmove(buf, head, std::size_t(len));
+        std::memcpy(buf, head, std::size_t(len));
         head = buf;
         tail = head + len;
     }
