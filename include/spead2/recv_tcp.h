@@ -60,6 +60,8 @@ private:
     std::uint64_t pkt_size = 0;
     /// Buffer size to set on peer
     std::size_t buffer_size;
+    /// Number of bytes that need to be skipped (used when pkt_size > max_size)
+    std::size_t to_skip = 0;
 
     /// Start an asynchronous receive
     void enqueue_receive();
@@ -76,11 +78,14 @@ private:
     /// Processes the content of the buffer, returns true if more reading needs to be enqueued
     bool process_buffer(const std::size_t bytes_recv);
 
-    /// Parses the size of the next packet to read from the stream, returns false if the contents of the current stream are not enough
+    /// Parses the size of the next packet to read from the stream, returns true if more data needs to be read to parse the packet size correctly
     bool parse_packet_size();
 
     /// Parses the next packet out of the stream, returns false if the contents of the current stream are not enough
     bool parse_packet();
+
+    /// Ignores bytes from the stream according to @a to_skip, returns true if more data needs to be read and skipped
+    bool skip_bytes();
 
 public:
     /// Socket receive buffer size, if none is explicitly passed to the constructor

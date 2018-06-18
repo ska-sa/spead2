@@ -100,6 +100,7 @@ void tcp_reader::packet_handler(
 
 bool tcp_reader::parse_packet()
 {
+    assert(pkt_size > 0);
     assert(tail - head >= pkt_size);
     // Modify private fields first, in case process_one_packet throws
     auto head = this->head;
@@ -112,30 +113,50 @@ bool tcp_reader::parse_packet()
 bool tcp_reader::process_buffer(const std::size_t bytes_recv)
 {
     tail += bytes_recv;
-
-    // No packet is being parsed at the moment, read the next packet size
-    if (pkt_size == 0)
-        if (!parse_packet_size())
-            return true;
-
-    while (std::size_t(tail - head) >= pkt_size)
+    while (tail > head)
     {
+        if (parse_packet_size())
+            return true;
+        if (skip_bytes())
+            return true;
+        if (pkt_size == 0)
+            continue;
+        if (std::size_t(tail - head) < pkt_size)
+            return true;
         if (parse_packet())
             return false;
-        if (!parse_packet_size())
-            break;
     }
-
     return true;
 }
 
 bool tcp_reader::parse_packet_size()
 {
-    if (tail - head < 8)
+    if (pkt_size > 0)
         return false;
+    if (tail - head < 8)
+        return true;
     pkt_size = load_be<std::uint64_t>(head);
     head += 8;
-    return true;
+    if (pkt_size > max_size)
+    {
+        log_info("dropping packet due to truncation");
+        to_skip = pkt_size;
+    }
+    return false;
+}
+
+bool tcp_reader::skip_bytes()
+{
+    if (to_skip == 0)
+        return false;
+    if (tail == head)
+        return true;
+    auto diff = std::min(std::size_t(tail - head), to_skip);
+    head += diff;
+    to_skip -= diff;
+    if (to_skip == 0)
+        pkt_size = 0;
+    return to_skip > 0;
 }
 
 void tcp_reader::accept_handler(const boost::system::error_code &error)
