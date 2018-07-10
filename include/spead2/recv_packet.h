@@ -57,6 +57,16 @@ struct packet_header
 };
 
 /**
+ * Reads the size of the packet.
+ *
+ * @param  data   Start of packet
+ * @param  length Size of data pointed to by @a data
+ * @returns Actual packet size on success, 0 when size cannot be determined due
+ * to truncation, and -1 on error due to malformed packet header.
+ */
+s_item_pointer_t get_packet_size(const uint8_t *data, std::size_t length);
+
+/**
  * Split out the header fields for the packet.
  *
  * @param[out] out     Packet header with pointers to data (undefined on failure)

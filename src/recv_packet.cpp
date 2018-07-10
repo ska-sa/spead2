@@ -45,6 +45,58 @@ static inline T extract_bits(T value, int first, int cnt)
     return (value >> first) & ((T(1) << cnt) - 1);
 }
 
+static
+bool decode_spead_header(const uint8_t *data, int &heap_address_bits, int &n_items)
+{
+    std::uint64_t header = load_be<std::uint64_t>(data);
+    if (extract_bits(header, 48, 16) != magic_version)
+    {
+        log_info("packet rejected because magic or version did not match");
+        return false;
+    }
+    int item_id_bits = extract_bits(header, 40, 8) * 8;
+    heap_address_bits = extract_bits(header, 32, 8) * 8;
+    if (item_id_bits == 0 || heap_address_bits == 0)
+    {
+        log_info("packet rejected because flavour is invalid");
+        return false;
+    }
+    if (item_id_bits + heap_address_bits != 8 * sizeof(item_pointer_t))
+    {
+        log_info("packet rejected because flavour is not SPEAD-64-*");
+        return false;
+    }
+
+    n_items = extract_bits(header, 0, 16);
+    return true;
+}
+
+s_item_pointer_t get_packet_size(const uint8_t *data, std::size_t length)
+{
+    if (length < 8)
+        return 0;
+    int heap_address_bits, n_items;
+    if (!decode_spead_header(data, heap_address_bits, n_items))
+        return -1;
+    if (std::size_t(n_items) * sizeof(item_pointer_t) + 8 > length)
+        return 0;
+
+    pointer_decoder decoder(heap_address_bits);
+    s_item_pointer_t payload_length = -1;
+    for (int i = 0; i < n_items; i++)
+    {
+        item_pointer_t pointer = load_be<item_pointer_t>(data + 8 + i * sizeof(item_pointer_t));
+        if (decoder.is_immediate(pointer) && decoder.get_id(pointer) == PAYLOAD_LENGTH_ID)
+        {
+            payload_length = decoder.get_immediate(pointer);
+            break;
+        }
+    }
+    if (payload_length == -1)
+        return -1;
+    return payload_length + n_items * sizeof(item_pointer_t) + 8;
+}
+
 std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t max_size)
 {
     if (max_size < 8)
@@ -52,26 +104,9 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
         log_info("packet rejected because too small (%d bytes)", max_size);
         return 0;
     }
-    std::uint64_t header = load_be<std::uint64_t>(data);
-    if (extract_bits(header, 48, 16) != magic_version)
-    {
-        log_info("packet rejected because magic or version did not match");
+    int heap_address_bits;
+    if (!decode_spead_header(data, out.heap_address_bits, out.n_items))
         return 0;
-    }
-    int item_id_bits = extract_bits(header, 40, 8) * 8;
-    int heap_address_bits = extract_bits(header, 32, 8) * 8;
-    if (item_id_bits == 0 || heap_address_bits == 0)
-    {
-        log_info("packet rejected because flavour is invalid");
-        return 0;
-    }
-    if (item_id_bits + heap_address_bits != 8 * sizeof(item_pointer_t))
-    {
-        log_info("packet rejected because flavour is not SPEAD-64-*");
-        return 0;
-    }
-
-    out.n_items = extract_bits(header, 0, 16);
     if (std::size_t(out.n_items) * sizeof(item_pointer_t) + 8 > max_size)
     {
         log_info("packet rejected because the items overflow the packet");
@@ -84,7 +119,7 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
     out.payload_offset = -1;
     out.payload_length = -1;
     // Look for special items
-    pointer_decoder decoder(heap_address_bits);
+    pointer_decoder decoder(out.heap_address_bits);
     int first_regular = out.n_items;
     for (int i = 0; i < out.n_items; i++)
     {
@@ -140,7 +175,6 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
     out.pointers = data + 8 + first_regular * sizeof(item_pointer_t);
     out.n_items -= first_regular;
     out.payload = out.pointers + out.n_items * sizeof(item_pointer_t);
-    out.heap_address_bits = heap_address_bits;
     return size;
 }
 
