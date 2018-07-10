@@ -48,7 +48,7 @@ tcp_reader::tcp_reader(
     boost::asio::ip::tcp::acceptor &&acceptor,
     std::size_t max_size,
     std::size_t buffer_size)
-    : udp_reader_base(owner), acceptor(std::move(acceptor)),
+    : reader(owner), acceptor(std::move(acceptor)),
     peer(this->acceptor.get_io_service()),
     max_size(max_size),
     buffer(new std::uint8_t[max_size * pkts_per_buffer]),
@@ -107,7 +107,19 @@ bool tcp_reader::parse_packet()
     auto pkt_size = this->pkt_size;
     this->head += pkt_size;
     this->pkt_size = 0;
-    return process_one_packet(head, pkt_size, max_size);
+
+    packet_header packet;
+    std::size_t size = decode_packet(packet, head, pkt_size);
+    if (size == pkt_size)
+    {
+        get_stream_base().add_packet(packet);
+        if (get_stream_base().is_stopped())
+        {
+            log_debug("TCP reader: end of stream detected");
+            return true;
+        }
+    }
+    return false;
 }
 
 bool tcp_reader::process_buffer(const std::size_t bytes_recv)

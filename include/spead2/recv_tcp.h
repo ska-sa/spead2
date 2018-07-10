@@ -41,7 +41,7 @@ namespace recv
 /**
  * Asynchronous stream reader that receives packets over TCP.
  */
-class tcp_reader : public udp_reader_base
+class tcp_reader : public reader
 {
 private:
     /// The acceptor object
@@ -88,6 +88,8 @@ private:
     bool skip_bytes();
 
 public:
+    /// Maximum packet size, if none is explicitly passed to the constructor
+    static constexpr std::size_t default_max_size = 9200;
     /// Socket receive buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 8 * 1024 * 1024;
     /// Number of packets to hold on each buffer for asynchronous receive
