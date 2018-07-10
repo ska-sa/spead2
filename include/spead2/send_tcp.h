@@ -39,21 +39,11 @@ private:
     friend class stream_impl<tcp_stream>;
     boost::asio::ip::tcp::socket socket;
     boost::asio::ip::tcp::endpoint endpoint;
-    std::uint64_t packet_size;
-    boost::asio::const_buffers_1 size_buffer;
 
     template<typename Handler>
     void async_send_packet(const packet &pkt, Handler &&handler)
     {
-        packet_size = htobe(std::uint64_t(boost::asio::buffer_size(pkt.buffers)));
-        boost::asio::async_write(socket, size_buffer, [this, &pkt, handler] (const boost::system::error_code &ec, std::size_t bytes_transferred)
-        {
-            if (ec) {
-                // not sure what to do really...
-                return;
-            }
-            boost::asio::async_write(socket, pkt.buffers, std::move(handler));
-        });
+        boost::asio::async_write(socket, pkt.buffers, std::move(handler));
     }
 
 public:

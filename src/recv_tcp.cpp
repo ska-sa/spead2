@@ -145,10 +145,19 @@ bool tcp_reader::parse_packet_size()
 {
     if (pkt_size > 0)
         return false;
-    if (tail - head < 8)
+    auto s_pkt_size = get_packet_size(head, tail - head);
+    if (s_pkt_size == -1)
+    {
+        /* We only skip the first 8 bytes (i.e., the SPEAD header) hoping that
+         * a new packet will appear later with a correct header later.
+         */
+        log_info("discarding packet due to invalid header");
+        head += 8;
+        return false;
+    }
+    else if (s_pkt_size == 0)
         return true;
-    pkt_size = load_be<std::uint64_t>(head);
-    head += 8;
+    pkt_size = std::size_t(s_pkt_size);
     if (pkt_size > max_size)
     {
         log_info("dropping packet due to truncation");

@@ -63,8 +63,7 @@ tcp_stream::tcp_stream(
     const stream_config &config,
     std::size_t buffer_size)
     : stream_impl<tcp_stream>(std::move(io_service), config),
-    socket(std::move(socket)), endpoint(endpoint),
-    packet_size(0), size_buffer(boost::asio::const_buffer(&packet_size, sizeof(packet_size)))
+    socket(std::move(socket)), endpoint(endpoint)
 {
     if (&get_io_service() != &this->socket.get_io_service())
         throw std::invalid_argument("I/O service does not match the socket's I/O service");
