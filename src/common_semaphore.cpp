@@ -370,4 +370,14 @@ int semaphore_eventfd::get_fd() const
 
 #endif // SPEAD2_USE_EVENTFD
 
+boost::asio::posix::stream_descriptor wrap_fd(boost::asio::io_service &io_service, int fd)
+{
+    int fd2 = dup(fd);
+    if (fd2 < 0)
+        throw_errno("dup failed");
+    boost::asio::posix::stream_descriptor wrapper(io_service, fd2);
+    wrapper.native_non_blocking(true);
+    return wrapper;
+}
+
 } // namespace spead2

@@ -55,7 +55,7 @@ static boost::asio::ip::udp::socket duplicate_socket(
     int fd = socket.native_handle();
     int fd2 = dup(fd);
     if (fd2 < 0)
-        throw std::system_error(errno, std::system_category());
+        throw_errno("dup failed");
     try
     {
         boost::asio::ip::udp::socket socket2(

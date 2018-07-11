@@ -55,6 +55,7 @@ libspead2_a_SOURCES = \
 	common_semaphore.cpp \
 	common_thread_pool.cpp \
 	recv_heap.cpp \
+	recv_inproc.cpp \
 	recv_live_heap.cpp \
 	recv_mem.cpp \
 	recv_netmap.cpp \
@@ -67,6 +68,7 @@ libspead2_a_SOURCES = \
 	recv_udp_ibv.cpp \
 	recv_udp_pcap.cpp \
 	send_heap.cpp \
+	send_inproc.cpp \
 	send_packet.cpp \
 	send_streambuf.cpp \
 	send_stream.cpp \
