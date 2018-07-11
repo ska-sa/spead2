@@ -27,7 +27,7 @@
 #include <boost/asio.hpp>
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_ringbuffer.h>
-#include <spead2/common_semaphore.h>
+#include <spead2/common_inproc.h>
 #include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
 
@@ -40,7 +40,7 @@ namespace detail
 {
 
 /// Create a copy of a packet that owns all its own data
-packet copy_packet(const packet &in);
+inproc_queue::packet copy_packet(const packet &in);
 
 } // namespace detail
 
@@ -55,10 +55,10 @@ private:
         auto callback = [&](const boost::system::error_code &ec,
                             std::size_t bytes_transferred)
         {
-            packet dup = detail::copy_packet(pkt);
+            inproc_queue::packet dup = detail::copy_packet(pkt);
             try
             {
-                queue->try_push(std::move(dup));
+                queue->buffer.try_push(std::move(dup));
             }
             catch (ringbuffer_full)
             {
@@ -74,14 +74,14 @@ private:
         space_sem_wrapper.async_read_some(boost::asio::null_buffers(), callback);
     }
 
-    std::shared_ptr<ringbuffer<packet, semaphore_fd, semaphore_fd>> queue;
+    std::shared_ptr<inproc_queue> queue;
     boost::asio::posix::stream_descriptor space_sem_wrapper;
 
 public:
     /// Constructor
     inproc_stream(
         io_service_ref io_service,
-        std::shared_ptr<ringbuffer<packet, semaphore_fd, semaphore_fd>> queue,
+        std::shared_ptr<inproc_queue> queue,
         const stream_config &config = stream_config());
 };
 

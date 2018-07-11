@@ -23,11 +23,9 @@
 
 #include <memory>
 #include <boost/asio.hpp>
-#include <spead2/common_ringbuffer.h>
-#include <spead2/common_semaphore.h>
+#include <spead2/common_inproc.h>
 #include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
-#include <spead2/send_packet.h>
 
 namespace spead2
 {
@@ -40,17 +38,17 @@ namespace recv
 class inproc_reader : public reader
 {
 private:
-    std::shared_ptr<ringbuffer<spead2::send::packet, semaphore_fd, semaphore_fd>> queue;
+    std::shared_ptr<inproc_queue> queue;
     boost::asio::posix::stream_descriptor data_sem_wrapper;
 
-    void process_one_packet(const spead2::send::packet &packet);
+    void process_one_packet(const inproc_queue::packet &packet);
     void packet_handler(const boost::system::error_code &error, std::size_t bytes_received);
     void enqueue();
 
 public:
     inproc_reader(
         stream &owner,
-        std::shared_ptr<ringbuffer<spead2::send::packet, semaphore_fd, semaphore_fd>> queue);
+        std::shared_ptr<inproc_queue> queue);
 
     virtual void stop() override;
     virtual bool lossy() const override;

@@ -21,9 +21,8 @@
 #include <cstddef>
 #include <memory>
 #include <functional>
-#include <spead2/common_semaphore.h>
+#include <spead2/common_inproc.h>
 #include <spead2/common_logging.h>
-#include <spead2/send_packet.h>
 #include <spead2/recv_inproc.h>
 #include <spead2/recv_reader.h>
 
@@ -34,29 +33,26 @@ namespace recv
 
 inproc_reader::inproc_reader(
     stream &owner,
-    std::shared_ptr<ringbuffer<spead2::send::packet, semaphore_fd, semaphore_fd>> queue)
+    std::shared_ptr<inproc_queue> queue)
     : reader(owner),
     queue(std::move(queue)),
-    data_sem_wrapper(wrap_fd(get_io_service(), this->queue->get_data_sem().get_fd()))
+    data_sem_wrapper(wrap_fd(get_io_service(),
+                             this->queue->buffer.get_data_sem().get_fd()))
 {
     enqueue();
 }
 
-void inproc_reader::process_one_packet(const spead2::send::packet &packet)
+void inproc_reader::process_one_packet(const inproc_queue::packet &packet)
 {
-    // The sender always sends the packet as a single piece
-    assert(packet.buffers.size() == 1);
     packet_header header;
-    auto data = boost::asio::buffer_cast<const std::uint8_t *>(packet.buffers[0]);
-    std::size_t length = boost::asio::buffer_size(packet.buffers[0]);
-    std::size_t size = decode_packet(header, data, length);
-    if (size == length)
+    std::size_t size = decode_packet(header, packet.data.get(), packet.size);
+    if (size == packet.size)
     {
         get_stream_base().add_packet(header);
     }
     else if (size != 0)
     {
-        log_info("discarding packet due to size mismatch (%1% != %2%)", size, length);
+        log_info("discarding packet due to size mismatch (%1% != %2%)", size, packet.size);
     }
 }
 
@@ -72,7 +68,7 @@ void inproc_reader::packet_handler(
     {
         try
         {
-            spead2::send::packet packet = queue->try_pop();
+            inproc_queue::packet packet = queue->buffer.try_pop();
             process_one_packet(packet);
         }
         catch (ringbuffer_stopped)

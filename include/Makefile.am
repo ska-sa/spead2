@@ -20,6 +20,7 @@ nobase_include_HEADERS = \
 	spead2/common_features.h \
 	spead2/common_flavour.h \
 	spead2/common_ibv.h \
+	spead2/common_inproc.h \
 	spead2/common_logging.h \
 	spead2/common_memcpy.h \
 	spead2/common_memory_allocator.h \
@@ -30,6 +31,7 @@ nobase_include_HEADERS = \
 	spead2/common_thread_pool.h \
 	spead2/portable_endian.h \
 	spead2/recv_heap.h \
+	spead2/recv_inproc.h \
 	spead2/recv_live_heap.h \
 	spead2/recv_mem.h \
 	spead2/recv_netmap.h \
@@ -43,6 +45,7 @@ nobase_include_HEADERS = \
 	spead2/recv_udp_pcap.h \
 	spead2/recv_utils.h \
 	spead2/send_heap.h \
+	spead2/send_inproc.h \
 	spead2/send_packet.h \
 	spead2/send_streambuf.h \
 	spead2/send_stream.h \
