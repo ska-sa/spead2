@@ -21,6 +21,7 @@ import trollius
 from trollius import From, Return
 import spead2.send
 from spead2._spead2.send import UdpStreamAsyncio as _UdpStreamAsyncio
+from spead2._spead2.send import InprocStreamAsyncio as _InprocStreamAsyncio
 
 
 def _wrap_class(name, base_class):
@@ -102,6 +103,27 @@ UdpStream.__doc__ = \
         to OS limits.
     loop : :py:class:`trollius.BaseEventLoop`, optional
         Event loop to use (defaults to ``trollius.get_event_loop()``)
+    """
+
+InprocStream = _wrap_class('InprocStream', _InprocStreamAsyncio)
+InprocStream.__doc__ = \
+    """SPEAD over reliable in-process transport.
+
+    .. note::
+
+        Data may still be lost if the maximum number of in-flight heaps (set
+        in the stream config) is exceeded. Either set this value to more
+        heaps than will ever be sent (which will use unbounded memory) or be
+        sure to block on the futures returned before exceeding the capacity.
+
+    Parameters
+    ----------
+    thread_pool : :py:class:`spead2.ThreadPool`
+        Thread pool handling the I/O
+    queue : :py:class:`spead2.InprocQueue`
+        Queue holding the data in flight
+    config : :py:class:`spead2.send.StreamConfig`
+        Stream configuration
     """
 
 try:

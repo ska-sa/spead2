@@ -16,7 +16,7 @@
 import spead2._spead2
 from spead2._spead2 import (
     Flavour, ThreadPool, Stopped, Empty, Stopped,
-    MemoryAllocator, MmapAllocator, MemoryPool,
+    MemoryAllocator, MmapAllocator, MemoryPool, InprocQueue,
     BUG_COMPAT_DESCRIPTOR_WIDTHS,
     BUG_COMPAT_SHAPE_BIT_1,
     BUG_COMPAT_SWAP_ENDIAN,

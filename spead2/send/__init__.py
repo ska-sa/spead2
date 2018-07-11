@@ -18,7 +18,8 @@
 from __future__ import print_function, division
 import weakref
 import spead2 as _spead2
-from spead2._spead2.send import StreamConfig, BytesStream, UdpStream, Heap, PacketGenerator
+from spead2._spead2.send import (StreamConfig, Heap, PacketGenerator,
+                                 BytesStream, UdpStream, InprocStream)
 try:
     from spead2._spead2.send import UdpIbvStream
 except ImportError:

@@ -31,6 +31,7 @@
 #include <spead2/send_udp.h>
 #include <spead2/send_udp_ibv.h>
 #include <spead2/send_streambuf.h>
+#include <spead2/send_inproc.h>
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_semaphore.h>
 #include <spead2/py_common.h>
@@ -472,6 +473,15 @@ static py::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
 #endif
 
 template<typename T>
+static py::class_<T> inproc_stream_register(py::module &m, const char *name)
+{
+    using namespace pybind11::literals;
+    return py::class_<T>(m, name)
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::shared_ptr<inproc_queue>, const stream_config &>(),
+             "thread_pool"_a, "queue"_a, "config"_a = stream_config());
+}
+
+template<typename T>
 static void stream_register(py::class_<T> &stream_class)
 {
     using namespace pybind11::literals;
@@ -582,6 +592,15 @@ py::module register_module(py::module &parent)
                  "thread_pool"_a, "config"_a = stream_config())
             .def("getvalue", SPEAD2_PTMF(bytes_stream, getvalue));
         sync_stream_register(stream_class);
+    }
+
+    {
+        auto stream_class = inproc_stream_register<stream_wrapper<inproc_stream>>(m, "InprocStream");
+        sync_stream_register(stream_class);
+    }
+    {
+        auto stream_class = inproc_stream_register<asyncio_stream_wrapper<inproc_stream>>(m, "InprocStreamAsyncio");
+        async_stream_register(stream_class);
     }
 
     return m;
