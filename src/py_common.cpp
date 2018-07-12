@@ -290,7 +290,7 @@ void register_module(py::module m)
         .def("stop", SPEAD2_PTMF(thread_pool_wrapper, stop));
 
     py::class_<inproc_queue, std::shared_ptr<inproc_queue>>(m, "InprocQueue")
-        .def(py::init<std::size_t>(), "capacity"_a);
+        .def(py::init<>());
 
     py::class_<descriptor>(m, "RawDescriptor")
         .def(py::init<>())

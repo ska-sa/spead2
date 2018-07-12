@@ -19,9 +19,7 @@
 #include <memory>
 #include <boost/asio.hpp>
 #include <spead2/common_thread_pool.h>
-#include <spead2/common_ringbuffer.h>
 #include <spead2/common_inproc.h>
-#include <spead2/common_logging.h>
 #include <spead2/send_packet.h>
 #include <spead2/send_inproc.h>
 
@@ -51,8 +49,7 @@ inproc_stream::inproc_stream(
     std::shared_ptr<inproc_queue> queue,
     const stream_config &config)
     : stream_impl<inproc_stream>(std::move(io_service), config),
-    queue(std::move(queue)),
-    space_sem_wrapper(wrap_fd(get_io_service(), this->queue->buffer.get_space_sem().get_fd()))
+    queue(std::move(queue))
 {
 }
 

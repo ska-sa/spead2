@@ -18,18 +18,13 @@
  * @file
  */
 
-#include <spead2/common_ringbuffer.h>
+#include <spead2/common_unbounded_queue.h>
 #include <spead2/common_semaphore.h>
 #include <spead2/common_inproc.h>
 
 namespace spead2
 {
 
-template class ringbuffer<inproc_queue::packet, semaphore_fd, semaphore_fd>;
-
-inproc_queue::inproc_queue(std::size_t capacity)
-    : buffer(capacity)
-{
-}
+template class unbounded_queue<inproc_queue::packet, semaphore_fd>;
 
 } // namespace spead2

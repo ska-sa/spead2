@@ -29,6 +29,7 @@ nobase_include_HEADERS = \
 	spead2/common_ringbuffer.h \
 	spead2/common_semaphore.h \
 	spead2/common_thread_pool.h \
+	spead2/common_unbounded_queue.h \
 	spead2/portable_endian.h \
 	spead2/recv_heap.h \
 	spead2/recv_inproc.h \

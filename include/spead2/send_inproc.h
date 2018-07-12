@@ -52,37 +52,13 @@ private:
     template<typename Handler>
     void async_send_packet(const packet &pkt, Handler &&handler)
     {
-        auto callback = [this, &pkt, handler](const boost::system::error_code &ec,
-                                              std::size_t bytes_transferred)
-        {
-            if (!ec)
-            {
-                inproc_queue::packet dup = detail::copy_packet(pkt);
-                try
-                {
-                    queue->buffer.try_push(std::move(dup));
-                }
-                catch (ringbuffer_full)
-                {
-                    // Another thread in the thundering herd beat us
-                    // Schedule to try again.
-                    async_send_packet(pkt, std::move(handler));
-                    return;
-                }
-                std::size_t size = boost::asio::buffer_size(pkt.buffers);
-                handler(boost::system::error_code(), size);
-            }
-            else
-            {
-                handler(ec, 0);
-            }
-        };
-
-        space_sem_wrapper.async_read_some(boost::asio::null_buffers(), callback);
+        inproc_queue::packet dup = detail::copy_packet(pkt);
+        std::size_t size = dup.size;
+        queue->buffer.push(std::move(dup));
+        get_io_service().post(std::bind(handler, boost::system::error_code(), size));
     }
 
     std::shared_ptr<inproc_queue> queue;
-    boost::asio::posix::stream_descriptor space_sem_wrapper;
 
 public:
     /// Constructor

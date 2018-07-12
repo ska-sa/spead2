@@ -20,7 +20,7 @@
 #include <memory>
 #include <cstdint>
 #include <cstddef>
-#include <spead2/common_ringbuffer.h>
+#include <spead2/common_unbounded_queue.h>
 #include <spead2/common_semaphore.h>
 
 namespace spead2
@@ -42,12 +42,10 @@ public:
         std::size_t size;
     };
 
-    ringbuffer<packet, semaphore_fd, semaphore_fd> buffer;
-
-    explicit inproc_queue(std::size_t capacity);
+    unbounded_queue<packet, semaphore_fd> buffer;
 };
 
-extern template class ringbuffer<inproc_queue::packet, semaphore_fd, semaphore_fd>;
+extern template class unbounded_queue<inproc_queue::packet, semaphore_fd>;
 
 } // namespace spead2
 
