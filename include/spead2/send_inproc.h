@@ -55,20 +55,27 @@ private:
         auto callback = [this, &pkt, handler](const boost::system::error_code &ec,
                                               std::size_t bytes_transferred)
         {
-            inproc_queue::packet dup = detail::copy_packet(pkt);
-            try
+            if (!ec)
             {
-                queue->buffer.try_push(std::move(dup));
+                inproc_queue::packet dup = detail::copy_packet(pkt);
+                try
+                {
+                    queue->buffer.try_push(std::move(dup));
+                }
+                catch (ringbuffer_full)
+                {
+                    // Another thread in the thundering herd beat us
+                    // Schedule to try again.
+                    async_send_packet(pkt, std::move(handler));
+                    return;
+                }
+                std::size_t size = boost::asio::buffer_size(pkt.buffers);
+                handler(boost::system::error_code(), size);
             }
-            catch (ringbuffer_full)
+            else
             {
-                // Another thread in the thundering herd beat us
-                // Schedule to try again.
-                async_send_packet(pkt, std::move(handler));
-                return;
+                handler(ec, 0);
             }
-            std::size_t size = boost::asio::buffer_size(pkt.buffers);
-            handler(boost::system::error_code(), size);
         };
 
         space_sem_wrapper.async_read_some(boost::asio::null_buffers(), callback);
