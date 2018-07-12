@@ -29,7 +29,7 @@ the master end.
 import sys
 
 
-if sys.version_info >= (3, 4, 4):
+if sys.version_info >= (3, 4):
     from spead2.tools import bench_asyncio
     bench_asyncio.main()
 else:

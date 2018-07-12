@@ -25,7 +25,7 @@ necessary, to allow multiple code-paths to be exercised.
 import sys
 
 
-if sys.version_info >= (3, 4, 4):
+if sys.version_info >= (3, 4):
     from spead2.tools import recv_asyncio
     recv_asyncio.main()
 else:
