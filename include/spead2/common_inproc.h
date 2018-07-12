@@ -44,7 +44,7 @@ public:
 
     ringbuffer<packet, semaphore_fd, semaphore_fd> buffer;
 
-    inproc_queue(std::size_t capacity = 1);
+    explicit inproc_queue(std::size_t capacity);
 };
 
 extern template class ringbuffer<inproc_queue::packet, semaphore_fd, semaphore_fd>;

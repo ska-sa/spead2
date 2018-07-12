@@ -390,7 +390,8 @@ class TestPassthroughMem(BaseTestPassthrough):
 class TestPassthroughInproc(BaseTestPassthrough):
     def transmit_item_group(self, item_group, memcpy, allocator):
         thread_pool = spead2.ThreadPool(1)
-        queue = spead2.InprocQueue()
+        # Capacity needs to be enough to hold all the packets
+        queue = spead2.InprocQueue(1024)
         sender = spead2.send.InprocStream(thread_pool, queue)
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
@@ -400,7 +401,7 @@ class TestPassthroughInproc(BaseTestPassthrough):
         if allocator is not None:
             receiver.set_memory_allocator(allocator)
         receiver.add_inproc_reader(queue)
-        receiver_item_group = spead2.ItemGroup()
+        received_item_group = spead2.ItemGroup()
         for heap in receiver:
             received_item_group.update(heap)
         return received_item_group
