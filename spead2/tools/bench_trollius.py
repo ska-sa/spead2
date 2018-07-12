@@ -108,7 +108,7 @@ class SlaveConnection(object):
                         stream.add_udp_reader(args.port, args.packet, args.recv_buffer, bind_hostname)
                     thread_pool = None
                     memory_pool = None
-                    stream_task = trollius.async(self.run_stream(stream))
+                    stream_task = trollius.ensure_future(self.run_stream(stream))
                     self._write('ready\n')
                 elif command['cmd'] == 'stop':
                     if stream_task is None:
@@ -157,7 +157,7 @@ def send_stream(item_group, stream, num_heaps):
             heap = item_group.get_end()
         else:
             heap = item_group.get_heap(data='all')
-        task = trollius.async(stream.async_send_heap(heap))
+        task = trollius.ensure_future(stream.async_send_heap(heap))
         tasks.append(task)
     for task in tasks:
         transferred += yield From(task)
@@ -311,6 +311,6 @@ def main():
         task = run_master(args)
     else:
         task = run_slave(args)
-    task = trollius.async(task)
+    task = trollius.ensure_future(task)
     trollius.get_event_loop().run_until_complete(task)
     task.result()

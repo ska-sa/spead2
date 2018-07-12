@@ -21,7 +21,7 @@ demonstrates the API."""
 import sys
 
 
-if sys.version_info >= (3, 4):
+if sys.version_info >= (3, 4, 4):
     from spead2.tools import send_asyncio
     send_asyncio.main()
 else:

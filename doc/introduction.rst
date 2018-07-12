@@ -47,7 +47,7 @@ need to be stored in :file:`/etc/sysctl.conf` or :file:`/etc/sysctl.d`.
 Installing spead2 for Python
 ----------------------------
 The only Python dependencies are numpy_ and six_, and trollius_ on Python
-versions below 3.4 (for 3.4+, trollius can still be used, and is needed to run
+versions below 3.4.4 (for 3.4.4+, trollius can still be used, and is needed to run
 the test suite). Running the test
 suite additionally requires nose_, decorator_ and netifaces_, and some tests
 depend on PySPEAD_ (they will be skipped if it is not installed). It is also

@@ -120,7 +120,7 @@ setup(
     ext_package='spead2',
     ext_modules=extensions,
     cmdclass={'build_ext': BuildExt, 'build_py': BuildPy},
-    install_requires=['numpy>=1.9.2', 'six', 'trollius; python_version<"3.4"'],
+    install_requires=['numpy>=1.9.2', 'six', 'trollius; python_version<"3.4.4"'],
     tests_require=['netifaces', 'nose', 'decorator', 'trollius'],
     test_suite='nose.collector',
     packages=find_packages(),
