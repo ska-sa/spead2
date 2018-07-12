@@ -138,6 +138,10 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
       or :ref:`mcdump`). This is only available if libpcap development files
       were found at compile time.
 
+   .. py:method:: add_inproc_reader(queue)
+
+      Feed data from an in-process queue. Refer to :doc:`py-inproc` for details.
+
    .. py:method:: get()
 
       Returns the next heap, blocking if necessary. If the stream has been

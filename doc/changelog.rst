@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add :doc:`py-inproc`
+
 .. rubric:: Version 1.7.2
 
 - Add progress reports to mcdump

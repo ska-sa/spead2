@@ -27,6 +27,7 @@
 #include <spead2/recv_udp_ibv.h>
 #include <spead2/recv_udp_pcap.h>
 #include <spead2/recv_mem.h>
+#include <spead2/recv_inproc.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_ring_stream.h>
 #include <spead2/recv_live_heap.h>
@@ -300,6 +301,12 @@ public:
     }
 #endif
 
+    void add_inproc_reader(std::shared_ptr<inproc_queue> queue)
+    {
+        py::gil_scoped_release gil;
+        emplace_reader<inproc_reader>(queue);
+    }
+
     void stop()
     {
         stopper.reset();
@@ -428,6 +435,7 @@ py::module register_module(py::module &parent)
         .def("add_udp_pcap_file_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_pcap_file_reader),
              "filename"_a)
 #endif
+        .def("add_inproc_reader", SPEAD2_PTMF(ring_stream_wrapper, add_inproc_reader))
         .def("stop", SPEAD2_PTMF(ring_stream_wrapper, stop))
         .def_property_readonly("fd", SPEAD2_PTMF(ring_stream_wrapper, get_fd))
         .def_property_readonly("stats", SPEAD2_PTMF(ring_stream_wrapper, get_stats))

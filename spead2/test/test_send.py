@@ -457,3 +457,15 @@ class TestStream(object):
                     struct.pack('B', 0)
                 ])
         assert_equal(hexlify(expected), hexlify(self.stream.getvalue()))
+
+
+class TestInprocStream(object):
+    def setup(self):
+        self.flavour = Flavour(4, 64, 48, 0)
+        self.queue = spead2.InprocQueue()
+        self.stream = send.InprocStream(spead2.ThreadPool(), self.queue)
+
+    def test_stopped_queue(self):
+        self.queue.stop()
+        ig = spead2.send.ItemGroup()
+        assert_raises(IOError, self.stream.send_heap, ig.get_end())

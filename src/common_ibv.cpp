@@ -27,6 +27,7 @@
 #include <boost/asio.hpp>
 #include <spead2/common_logging.h>
 #include <spead2/common_ibv.h>
+#include <spead2/common_semaphore.h>
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
 
@@ -77,12 +78,7 @@ boost::asio::posix::stream_descriptor ibv_comp_channel_t::wrap(
     boost::asio::io_service &io_service) const
 {
     assert(get());
-    int fd = dup(get()->fd);
-    if (fd < 0)
-        throw_errno("dup failed");
-    boost::asio::posix::stream_descriptor descriptor(io_service, fd);
-    descriptor.native_non_blocking(true);
-    return descriptor;
+    return wrap_fd(io_service, get()->fd);
 }
 
 void ibv_comp_channel_t::get_event(ibv_cq **cq, void **context)

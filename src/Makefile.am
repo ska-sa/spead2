@@ -48,6 +48,7 @@ spead2_unittest_LDADD = -lboost_unit_test_framework $(LDADD)
 libspead2_a_SOURCES = \
 	common_flavour.cpp \
 	common_ibv.cpp \
+	common_inproc.cpp \
 	common_logging.cpp \
 	common_memcpy.cpp \
 	common_memory_allocator.cpp \
@@ -56,6 +57,7 @@ libspead2_a_SOURCES = \
 	common_semaphore.cpp \
 	common_thread_pool.cpp \
 	recv_heap.cpp \
+	recv_inproc.cpp \
 	recv_live_heap.cpp \
 	recv_mem.cpp \
 	recv_netmap.cpp \
@@ -68,6 +70,7 @@ libspead2_a_SOURCES = \
 	recv_udp_ibv.cpp \
 	recv_udp_pcap.cpp \
 	send_heap.cpp \
+	send_inproc.cpp \
 	send_packet.cpp \
 	send_streambuf.cpp \
 	send_stream.cpp \

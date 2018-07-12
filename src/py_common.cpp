@@ -32,6 +32,7 @@
 #include <spead2/common_logging.h>
 #include <spead2/common_memory_pool.h>
 #include <spead2/common_thread_pool.h>
+#include <spead2/common_inproc.h>
 
 namespace py = pybind11;
 
@@ -287,6 +288,10 @@ void register_module(py::module m)
         .def(py::init<int, const std::vector<int> &>(), "threads"_a, "affinity"_a)
         .def_static("set_affinity", &thread_pool_wrapper::set_affinity)
         .def("stop", SPEAD2_PTMF(thread_pool_wrapper, stop));
+
+    py::class_<inproc_queue, std::shared_ptr<inproc_queue>>(m, "InprocQueue")
+        .def(py::init<>())
+        .def("stop", SPEAD2_PTMF(inproc_queue, stop));
 
     py::class_<descriptor>(m, "RawDescriptor")
         .def(py::init<>())
