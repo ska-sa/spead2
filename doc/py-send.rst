@@ -152,6 +152,8 @@ Blocking send
       :rtype: :py:class:`bytes`
 
 
+.. _asynchronous-send:
+
 Asynchronous send
 ^^^^^^^^^^^^^^^^^
 

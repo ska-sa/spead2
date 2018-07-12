@@ -36,6 +36,7 @@ search path, and you need to set :envvar:`PKG_CONFIG_PATH` to
    cpp-asio
    cpp-recv
    cpp-send
+   cpp-inproc
    cpp-logging
    cpp-ibverbs
    cpp-netmap

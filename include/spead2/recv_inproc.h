@@ -33,7 +33,7 @@ namespace recv
 {
 
 /**
- * Stream reader that receives packets from an internal ringbuffer.
+ * Stream reader that receives packets from a @ref inproc_queue.
  */
 class inproc_reader : public reader
 {
@@ -46,6 +46,7 @@ private:
     void enqueue();
 
 public:
+    /// Constructor.
     inproc_reader(
         stream &owner,
         std::shared_ptr<inproc_queue> queue);
