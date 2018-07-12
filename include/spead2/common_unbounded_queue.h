@@ -38,8 +38,9 @@ namespace spead2
  *
  * This behaves similarly to @ref ringbuffer, but it uses an unbounded queue
  * rather than a circular buffer, so pushes never block. It is less efficient
- * than a ringbuffer, and mainly intended for testing. It also does not have
- * the concept of stopping.
+ * than a ringbuffer, and mainly intended for testing.
+ *
+ * Refer to the documentation on @ref ringbuffer for details of the design.
  */
 template<typename T, typename DataSemaphore = semaphore>
 class unbounded_queue
@@ -47,7 +48,14 @@ class unbounded_queue
 private:
     semaphore_fd data_sem;
     std::mutex mutex;
+    bool stopped = false;
     std::queue<T> data;
+
+    /**
+     * Pop an item. The caller is responsible for semaphores and mutexes,
+     * and there must be data available.
+     */
+    T pop_internal();
 
 public:
     /**
@@ -55,6 +63,7 @@ public:
      * original value is undefined.
      *
      * @param value    Value to move
+     * @throw ringbuffer_stopped if @ref stop is called first
      */
     void push(T &&value);
 
@@ -83,6 +92,14 @@ public:
      */
     T pop();
 
+    /**
+     * Indicate that no more items will be produced. This does not immediately
+     * stop consumers if there are still items in the queue; instead,
+     * consumers will continue to retrieve remaining items, and will only be
+     * signalled once the queue has drained.
+     */
+    void stop();
+
     /// Get access to the data semaphore
     const DataSemaphore &get_data_sem() const { return data_sem; }
 };
@@ -91,6 +108,8 @@ template<typename T, typename DataSemaphore>
 void unbounded_queue<T, DataSemaphore>::push(T &&value)
 {
     std::lock_guard<std::mutex> lock(mutex);
+    if (stopped)
+        throw ringbuffer_stopped();
     data.push(std::move(value));
     data_sem.put();
 }
@@ -100,8 +119,18 @@ template<typename... Args>
 void unbounded_queue<T, DataSemaphore>::emplace(Args&&... args)
 {
     std::lock_guard<std::mutex> lock(mutex);
+    if (stopped)
+        throw ringbuffer_stopped();
     data.emplace(std::forward<Args>(args)...);
     data_sem.put();
+}
+
+template<typename T, typename DataSemaphore>
+T unbounded_queue<T, DataSemaphore>::pop_internal()
+{
+    T result = std::move(data.front());
+    data.pop();
+    return result;
 }
 
 template<typename T, typename DataSemaphore>
@@ -113,14 +142,22 @@ T unbounded_queue<T, DataSemaphore>::try_pop()
         std::lock_guard<std::mutex> lock(mutex);
         if (status == 0)
         {
-            // If we got the semaphore, there had better be data
-            assert(!data.empty());
-            T ans = std::move(data.front());
-            data.pop();
-            return ans;
+            if (data.empty())
+            {
+                assert(stopped);  // only other reason we could have the got the semaphore
+                data_sem.put();   // we didn't actually consume anything
+                throw ringbuffer_stopped();
+            }
+            else
+                return pop_internal();
         }
         else if (data.empty())
-            throw ringbuffer_empty();
+        {
+            if (stopped)
+                throw ringbuffer_stopped();
+            else
+                throw ringbuffer_empty();
+        }
         /* We get here if data_sem.try_get was interrupted by a system call but
          * there is still data. Go around and try again.
          */
@@ -132,10 +169,25 @@ T unbounded_queue<T, DataSemaphore>::pop()
 {
     semaphore_get(data_sem);
     std::lock_guard<std::mutex> lock(mutex);
-    assert(!data.empty());
-    T ans = std::move(data.front());
-    data.pop();
-    return ans;
+    if (data.empty())
+    {
+        assert(stopped);
+        data_sem.put();   // we didn't actually consume anything
+        throw ringbuffer_stopped();
+    }
+    else
+        return pop_internal();
+}
+
+template<typename T, typename DataSemaphore>
+void unbounded_queue<T, DataSemaphore>::stop()
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    if (!stopped)
+    {
+        stopped = true;
+        data_sem.put();  // wakes up waiters
+    }
 }
 
 } // namespace spead2

@@ -29,9 +29,9 @@ namespace spead2
 /**
  * Queue for packets being passed within the process.
  *
- * While the members are public, this is only to allow the send and receive
- * code (and unit tests) to access the data. Users are advised to treat this
- * class as opaque.
+ * While the data members are public, this is only to allow the send and
+ * receive code (and unit tests) to access the data. Users are advised to treat
+ * the data members as opaque.
  */
 class inproc_queue
 {
@@ -43,6 +43,12 @@ public:
     };
 
     unbounded_queue<packet, semaphore_fd> buffer;
+
+    /**
+     * Indicate end-of-stream to receivers. It is an error to add any more
+     * packets after this.
+     */
+    void stop();
 };
 
 extern template class unbounded_queue<inproc_queue::packet, semaphore_fd>;

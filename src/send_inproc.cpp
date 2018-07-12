@@ -53,5 +53,10 @@ inproc_stream::inproc_stream(
 {
 }
 
+std::shared_ptr<inproc_queue> inproc_stream::get_queue() const
+{
+    return queue;
+}
+
 } // namespace send
 } // namespace spead2

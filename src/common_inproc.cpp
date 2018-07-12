@@ -27,4 +27,9 @@ namespace spead2
 
 template class unbounded_queue<inproc_queue::packet, semaphore_fd>;
 
+void inproc_queue::stop()
+{
+    buffer.stop();
+}
+
 } // namespace spead2

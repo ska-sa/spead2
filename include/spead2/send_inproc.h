@@ -66,6 +66,9 @@ public:
         io_service_ref io_service,
         std::shared_ptr<inproc_queue> queue,
         const stream_config &config = stream_config());
+
+    /// Get the underlying storage queue
+    std::shared_ptr<inproc_queue> get_queue() const;
 };
 
 } // namespace send
