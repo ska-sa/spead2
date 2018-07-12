@@ -57,6 +57,7 @@ tcp_reader::tcp_reader(
     tail(buffer.get())
 {
     assert(&this->acceptor.get_io_service() == &get_io_service());
+    set_socket_recv_buffer_size(this->acceptor, buffer_size);
     this->acceptor.async_accept(peer,
         get_stream().get_strand().wrap(
             std::bind(&tcp_reader::accept_handler, this, std::placeholders::_1)));
@@ -184,10 +185,7 @@ void tcp_reader::accept_handler(const boost::system::error_code &error)
 {
     acceptor.close();
     if (!error)
-    {
-        set_socket_recv_buffer_size(peer, buffer_size);
         enqueue_receive();
-    }
     else
     {
         if (error != boost::asio::error::operation_aborted)
