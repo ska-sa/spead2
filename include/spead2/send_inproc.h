@@ -52,8 +52,8 @@ private:
     template<typename Handler>
     void async_send_packet(const packet &pkt, Handler &&handler)
     {
-        auto callback = [&](const boost::system::error_code &ec,
-                            std::size_t bytes_transferred)
+        auto callback = [this, &pkt, handler](const boost::system::error_code &ec,
+                                              std::size_t bytes_transferred)
         {
             inproc_queue::packet dup = detail::copy_packet(pkt);
             try
