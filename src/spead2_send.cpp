@@ -277,8 +277,17 @@ int main(int argc, const char **argv)
         tcp::endpoint local_endpoint;
         if (!opts.bind.empty())
             local_endpoint = tcp::endpoint(boost::asio::ip::address::from_string(opts.bind), 0);
+
+        auto promise = std::make_shared<std::promise<void>>();
+        auto connect_handler = [promise](boost::system::error_code e) {
+            if (e)
+                promise->set_exception(std::make_exception_ptr(boost::system::system_error(e)));
+            else
+                promise->set_value();
+        };
         stream.reset(new spead2::send::tcp_stream(
-                    io_service, endpoint, local_endpoint, config, opts.buffer));
+                    io_service, connect_handler, endpoint, local_endpoint, config, opts.buffer));
+        promise->get_future().get();
     }
     else
     {
