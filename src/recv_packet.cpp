@@ -104,7 +104,6 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
         log_info("packet rejected because too small (%d bytes)", max_size);
         return 0;
     }
-    int heap_address_bits;
     if (!decode_spead_header(data, out.heap_address_bits, out.n_items))
         return 0;
     if (std::size_t(out.n_items) * sizeof(item_pointer_t) + 8 > max_size)
