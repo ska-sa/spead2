@@ -202,10 +202,10 @@ void tcp_reader::enqueue_receive()
     auto buf = buffer.get();
     auto bufsize = max_size * pkts_per_buffer;
     assert(tail >= head);
-    assert(tail >= buf);
+    assert(head >= buf);
 
     // Make room for the incoming data
-    if ((head - buf) > bufsize / 2)
+    if (std::size_t(head - buf) > bufsize / 2)
     {
         auto len = tail - head;
         std::memcpy(buf, head, std::size_t(len));
