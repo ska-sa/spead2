@@ -53,9 +53,9 @@ tcp_reader::tcp_reader(
     peer(this->acceptor.get_io_service()),
     max_size(max_size),
     buffer(new std::uint8_t[max_size * pkts_per_buffer]),
-    buffer_size(buffer_size),
     head(buffer.get()),
-    tail(buffer.get())
+    tail(buffer.get()),
+    buffer_size(buffer_size)
 {
     assert(&this->acceptor.get_io_service() == &get_io_service());
     set_socket_recv_buffer_size(this->acceptor, buffer_size);
