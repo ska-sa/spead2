@@ -38,14 +38,16 @@ def find_version():
     return globals_['__version__']
 
 
-# Avoid installing the asyncio modules on Python < 3.4 or trollius on Python >= 3.7
+# Restrict installed modules to those appropriate to the Python version
 class BuildPy(build_py):
     def find_package_modules(self, package, package_dir):
         # distutils uses old-style classes, so no super
         modules = build_py.find_package_modules(self, package, package_dir)
         if sys.version_info < (3, 4):
             modules = [m for m in modules if not m[1].endswith('asyncio')]
-        elif sys.version_info >= (3, 7):
+        if sys.version_info < (3, 5):
+            modules = [m for m in modules if not m[1].endswith('py35')]
+        if sys.version_info >= (3, 7):
             modules = [m for m in modules if not m[1].endswith('trollius')]
         return modules
 

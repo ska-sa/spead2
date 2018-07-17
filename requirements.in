@@ -1,3 +1,4 @@
+asynctest; python_version>='3.5'
 netifaces
 numpy
 nose
