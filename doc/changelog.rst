@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: Version 1.8.0
 
 - Add :doc:`py-inproc`
 - Fix unit testing on Python 3.7
