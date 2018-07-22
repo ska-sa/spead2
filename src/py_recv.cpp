@@ -201,20 +201,7 @@ public:
         const std::string &bind_hostname = "",
         const py::object &socket = py::none())
     {
-        int fd2 = -1;
-        if (!socket.is_none())
-        {
-            int fd = socket.attr("fileno")().cast<int>();
-            /* Python still owns this FD and will close it, so we have to duplicate
-             * it for ourselves.
-             */
-            fd2 = ::dup(fd);
-            if (fd2 == -1)
-            {
-                PyErr_SetFromErrno(PyExc_OSError);
-                throw py::error_already_set();
-            }
-        }
+        int fd2 = dup_socket(socket);
 
         py::gil_scoped_release gil;
         auto endpoint = make_endpoint(bind_hostname, port);

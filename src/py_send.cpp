@@ -260,16 +260,9 @@ static boost::asio::ip::udp::socket make_socket(
     const py::object &socket)
 {
     using boost::asio::ip::udp;
-    if (!socket.is_none())
+    int fd2 = dup_socket(socket);
+    if (fd2 != -1)
     {
-        int fd = socket.attr("fileno")().cast<int>();
-        /* Need to duplicate the FD, since Python still owns the original */
-        int fd2 = ::dup(fd);
-        if (fd2 == -1)
-        {
-            PyErr_SetFromErrno(PyExc_OSError);
-            throw py::error_already_set();
-        }
         /* TODO: will this leak the FD if the constructor fails? Can the
          * constructor fail or is it just setting an FD in an object?
          */

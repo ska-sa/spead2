@@ -85,6 +85,20 @@ static void translate_exception_boost_io_error(std::exception_ptr p)
     }
 }
 
+int dup_socket(py::object socket)
+{
+    if (socket.is_none())
+        return -1;
+    int fd = socket.attr("fileno")().cast<int>();
+    int fd2 = ::dup(fd);
+    if (fd2 == -1)
+    {
+        PyErr_SetFromErrno(PyExc_OSError);
+        throw py::error_already_set();
+    }
+    return fd2;
+}
+
 thread_pool_wrapper::~thread_pool_wrapper()
 {
     stop();

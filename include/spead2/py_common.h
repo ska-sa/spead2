@@ -68,6 +68,13 @@ static inline pybind11::cpp_function bytes_setter(std::string T::*ptr)
 }
 
 /**
+ * Create a new file handle for a Python socket.
+ *
+ * @retval -1 if @a socket is None
+ */
+int dup_socket(pybind11::object socket);
+
+/**
  * Helper to ensure that an asynchronous class is stopped when the module is
  * unloaded. A class that launches work asynchronously should contain one of
  * these as a member. It is initialised with a function object that stops the
