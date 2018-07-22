@@ -33,6 +33,7 @@
 #if SPEAD2_USE_POSIX_SEMAPHORES
 # include <semaphore.h>
 #endif
+#include <boost/asio.hpp>
 
 namespace spead2
 {
@@ -140,6 +141,8 @@ public:
     int get_fd() const;
 };
 
+/// Duplicate a file descriptor and wrap it in boost::asio
+boost::asio::posix::stream_descriptor wrap_fd(boost::asio::io_service &io_service, int fd);
 
 /////////////////////////////////////////////////////////////////////////////
 

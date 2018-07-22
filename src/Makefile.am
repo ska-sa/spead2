@@ -40,13 +40,15 @@ spead2_unittest_SOURCES = \
 	unittest_memcpy.cpp \
 	unittest_memory_allocator.cpp \
 	unittest_memory_pool.cpp \
-	unittest_recv_live_heap.cpp
+	unittest_recv_live_heap.cpp \
+	unittest_send_heap.cpp
 spead2_unittest_CPPFLAGS = -DBOOST_TEST_DYN_LINK $(AM_CPPFLAGS)
 spead2_unittest_LDADD = -lboost_unit_test_framework $(LDADD)
 
 libspead2_a_SOURCES = \
 	common_flavour.cpp \
 	common_ibv.cpp \
+	common_inproc.cpp \
 	common_logging.cpp \
 	common_memcpy.cpp \
 	common_memory_allocator.cpp \
@@ -56,6 +58,7 @@ libspead2_a_SOURCES = \
 	common_socket.cpp \
 	common_thread_pool.cpp \
 	recv_heap.cpp \
+	recv_inproc.cpp \
 	recv_live_heap.cpp \
 	recv_mem.cpp \
 	recv_netmap.cpp \
@@ -69,6 +72,7 @@ libspead2_a_SOURCES = \
 	recv_udp_ibv.cpp \
 	recv_udp_pcap.cpp \
 	send_heap.cpp \
+	send_inproc.cpp \
 	send_packet.cpp \
 	send_streambuf.cpp \
 	send_stream.cpp \

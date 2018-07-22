@@ -1,6 +1,14 @@
 Changelog
 =========
 
+.. rubric:: Version 1.8.0
+
+- Add :doc:`py-inproc`
+- Fix unit testing on Python 3.7
+- Add :cpp:func:`spead2::send::heap::get_item`
+- Support asynchronous iterator protocol for
+  :py:class:`spead2.recv.asyncio.Stream` (in Python 3.5+).
+
 .. rubric:: Version 1.7.2
 
 - Add progress reports to mcdump

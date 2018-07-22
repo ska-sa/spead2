@@ -21,6 +21,11 @@ if [ "x$1" != "x--no-python" ]; then
         # incompatible interpretations.
         sed 's/trollius/asyncio/g' "$trg" > "$trg.tmp"
         mv "$trg.tmp" "$trg"
+        cat >> "$trg" <<EOF
+# Monkey-patch asyncio.ensure_future for Python < 3.4.4.
+if not hasattr(asyncio, 'ensure_future'):
+    asyncio.ensure_future = getattr(asyncio, 'async')
+EOF
     done
 fi
 autoreconf --install

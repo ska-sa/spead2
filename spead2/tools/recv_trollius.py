@@ -164,7 +164,7 @@ def main():
     else:
         coros_and_streams = [make_coro([source]) for source in args.source]
     coros, streams = zip(*coros_and_streams)
-    main_task = trollius.async(trollius.gather(*coros))
+    main_task = trollius.ensure_future(trollius.gather(*coros))
     loop = trollius.get_event_loop()
     loop.add_signal_handler(signal.SIGINT, stop_streams)
     try:

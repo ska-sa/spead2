@@ -17,5 +17,6 @@ with the C++ backend.
    py-thread-pools
    py-recv
    py-send
+   py-inproc
    py-logging
    py-ibverbs

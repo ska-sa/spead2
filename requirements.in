@@ -1,7 +1,8 @@
+asynctest; python_version>='3.5'
 netifaces
 numpy
 nose
 decorator
 six
-trollius
+trollius; python_version<'3.7'
 trollius-fixers

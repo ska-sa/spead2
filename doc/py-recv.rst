@@ -138,6 +138,10 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
       or :ref:`mcdump`). This is only available if libpcap development files
       were found at compile time.
 
+   .. py:method:: add_inproc_reader(queue)
+
+      Feed data from an in-process queue. Refer to :doc:`py-inproc` for details.
+
    .. py:method:: get()
 
       Returns the next heap, blocking if necessary. If the stream has been
@@ -191,8 +195,8 @@ instances of ``asyncio`` with ``trollius`` if you're using trollius.
    See :py:class:`spead2.recv.Stream` (the base class) for other constructor
    arguments.
 
-   :param loop: Default Trollius event loop for async operations. If not
-     specified, uses the default Trollius event loop. Do not call
+   :param loop: Default asyncio event loop for async operations. If not
+     specified, uses the default asyncio event loop. Do not call
      `get_nowait` from the base class.
 
    .. py:method:: get(loop=None)
@@ -207,6 +211,9 @@ instances of ``asyncio`` with ``trollius`` if you're using trollius.
 .. _trollius: http://trollius.readthedocs.io/
 .. _twisted: https://twistedmatrix.com/trac/
 .. _tornado: http://www.tornadoweb.org/en/stable/
+
+When using Python 3.5 or higher, the stream is also asynchronously iterable,
+i.e., can be used in an ``async for`` loop to iterate over the heaps.
 
 .. _py-memory-allocators:
 

@@ -136,6 +136,9 @@ private:
     std::vector<std::unique_ptr<std::uint8_t[]> > storage;
 
 public:
+    /// Opaque handle type for retrieving previously added items.
+    typedef std::vector<item>::size_type item_handle;
+
     /**
      * Constructor.
      *
@@ -152,11 +155,42 @@ public:
 
     /**
      * Construct a new item.
+     *
+     * @return A handle that can be passed to @ref get_item to update the item
      */
     template<typename... Args>
-    void add_item(s_item_pointer_t id, Args&&... args)
+    item_handle add_item(s_item_pointer_t id, Args&&... args)
     {
+        item_handle handle = items.size();
         items.emplace_back(id, std::forward<Args>(args)...);
+        return handle;
+    }
+
+    /**
+     * Get a reference to a previously added item.
+     *
+     * The retrieved item reference may be modified to update the heap in
+     * place. Behaviour is undefined if @a handle is not a handle previously
+     * returned by @ref add_item.
+     *
+     * @param handle   Item handle previously returned from @ref add_item
+     */
+    item &get_item(item_handle handle)
+    {
+        return items[handle];
+    }
+
+    /**
+     * Get a reference to a previously added item.
+     *
+     * Behaviour is undefined if @a handle is not a handle previously returned
+     * by @ref add_item.
+     *
+     * @param handle   Item handle previously returned from @ref add_item
+     */
+    const item &get_item(item_handle handle) const
+    {
+        return items[handle];
     }
 
     /**

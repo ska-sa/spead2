@@ -86,11 +86,11 @@ def run(item_group, stream, args):
                 n_errors += 1
                 last_error = error
         if is_end:
-            task = trollius.async(stream.async_send_heap(item_group.get_end()))
+            task = trollius.ensure_future(stream.async_send_heap(item_group.get_end()))
         else:
             for item in item_group.values():
                 item.version += 1
-            task = trollius.async(stream.async_send_heap(item_group.get_heap()))
+            task = trollius.ensure_future(stream.async_send_heap(item_group.get_heap()))
         tasks.append(task)
     while len(tasks) > 0:
         try:

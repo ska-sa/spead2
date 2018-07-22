@@ -38,13 +38,17 @@ def find_version():
     return globals_['__version__']
 
 
-# Avoid installing the asyncio modules on Python < 3.4
+# Restrict installed modules to those appropriate to the Python version
 class BuildPy(build_py):
     def find_package_modules(self, package, package_dir):
         # distutils uses old-style classes, so no super
         modules = build_py.find_package_modules(self, package, package_dir)
         if sys.version_info < (3, 4):
             modules = [m for m in modules if not m[1].endswith('asyncio')]
+        if sys.version_info < (3, 5):
+            modules = [m for m in modules if not m[1].endswith('py35')]
+        if sys.version_info >= (3, 7):
+            modules = [m for m in modules if not m[1].endswith('trollius')]
         return modules
 
 
@@ -121,7 +125,7 @@ setup(
     ext_modules=extensions,
     cmdclass={'build_ext': BuildExt, 'build_py': BuildPy},
     install_requires=['numpy>=1.9.2', 'six', 'trollius; python_version<"3.4"'],
-    tests_require=['netifaces', 'nose', 'decorator', 'trollius'],
+    tests_require=['netifaces', 'nose', 'decorator', 'trollius; python_version<"3.7"'],
     test_suite='nose.collector',
     packages=find_packages(),
     scripts=glob.glob('scripts/*.py')

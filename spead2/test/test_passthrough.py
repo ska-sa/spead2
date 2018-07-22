@@ -238,7 +238,7 @@ class TestPassthroughUdp(BaseTestPassthrough):
         thread_pool = spead2.ThreadPool(2)
         sender = spead2.send.UdpStream(
                 thread_pool, "localhost", 8888,
-                spead2.send.StreamConfig(rate=1e8),
+                spead2.send.StreamConfig(rate=1e7),
                 buffer_size=0)
         receiver = spead2.recv.Stream(thread_pool)
         receiver.set_memcpy(memcpy)
@@ -273,7 +273,7 @@ class TestPassthroughUdp6(BaseTestPassthrough):
         thread_pool = spead2.ThreadPool(2)
         sender = spead2.send.UdpStream(
                 thread_pool, "::1", 8888,
-                spead2.send.StreamConfig(rate=1e8),
+                spead2.send.StreamConfig(rate=1e7),
                 buffer_size=0)
         receiver = spead2.recv.Stream(thread_pool)
         receiver.set_memcpy(memcpy)
@@ -296,7 +296,7 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthrough):
         recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sender = spead2.send.UdpStream(
                 thread_pool, "127.0.0.1", 8888,
-                spead2.send.StreamConfig(rate=1e8),
+                spead2.send.StreamConfig(rate=1e7),
                 buffer_size=0, socket=send_sock)
         receiver = spead2.recv.Stream(thread_pool)
         receiver.set_memcpy(memcpy)
@@ -321,7 +321,7 @@ class TestPassthroughUdpMulticast(BaseTestPassthrough):
         interface_address = '127.0.0.1'
         sender = spead2.send.UdpStream(
                 thread_pool, mcast_group, 8887,
-                spead2.send.StreamConfig(rate=1e8),
+                spead2.send.StreamConfig(rate=1e7),
                 buffer_size=0, ttl=1, interface_address=interface_address)
         receiver = spead2.recv.Stream(thread_pool)
         receiver.set_memcpy(memcpy)
@@ -353,7 +353,7 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
         mcast_group = 'ff14::1234'
         sender = spead2.send.UdpStream(
                 thread_pool, mcast_group, 8887,
-                spead2.send.StreamConfig(rate=1e8),
+                spead2.send.StreamConfig(rate=1e7),
                 buffer_size=0, ttl=0, interface_index=interface_index)
         receiver = spead2.recv.Stream(thread_pool)
         receiver.set_memcpy(memcpy)
@@ -381,6 +381,25 @@ class TestPassthroughMem(BaseTestPassthrough):
         if allocator is not None:
             receiver.set_memory_allocator(allocator)
         receiver.add_buffer_reader(sender.getvalue())
+        received_item_group = spead2.ItemGroup()
+        for heap in receiver:
+            received_item_group.update(heap)
+        return received_item_group
+
+
+class TestPassthroughInproc(BaseTestPassthrough):
+    def transmit_item_group(self, item_group, memcpy, allocator):
+        thread_pool = spead2.ThreadPool(1)
+        queue = spead2.InprocQueue()
+        sender = spead2.send.InprocStream(thread_pool, queue)
+        gen = spead2.send.HeapGenerator(item_group)
+        sender.send_heap(gen.get_heap())
+        sender.send_heap(gen.get_end())
+        receiver = spead2.recv.Stream(thread_pool)
+        receiver.set_memcpy(memcpy)
+        if allocator is not None:
+            receiver.set_memory_allocator(allocator)
+        receiver.add_inproc_reader(queue)
         received_item_group = spead2.ItemGroup()
         for heap in receiver:
             received_item_group.update(heap)

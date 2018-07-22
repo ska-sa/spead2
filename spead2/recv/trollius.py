@@ -1,4 +1,4 @@
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2018 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -17,10 +17,30 @@
 Integration between spead2.recv and trollius
 """
 from __future__ import absolute_import
+import collections
+import functools
+import sys
+
 import trollius
 from trollius import From, Return
-import collections
+
 import spead2.recv
+
+
+# Decorator from official Python documentation to have compatibility with
+# both 3.5.0/1 (which expected __aiter__ to return an awaitable) and 3.5.2+
+# (which expects it to return an async iterator), and modified to use legal
+# Python 2 syntax.
+if sys.version_info < (3, 5, 2):
+    def _aiter_compat(func):
+        @functools.wraps(func)
+        @trollius.coroutine
+        def wrapper(self):
+            raise Return(func(self))
+        return wrapper
+else:
+    def _aiter_compat(func):
+        return func
 
 
 class Stream(spead2.recv.Stream):
@@ -103,3 +123,18 @@ class Stream(spead2.recv.Stream):
         self._start_listening()
         heap = yield From(waiter)
         raise Return(heap)
+
+    # Asynchronous iterator support for Python 3.5+. It's not supported with
+    # trollius, but after passing through trollius2asyncio it becomes useful.
+    @_aiter_compat
+    def __aiter__(self):
+        return self
+
+    @trollius.coroutine
+    def __anext__(self):
+        try:
+            heap = yield From(self.get())
+        except spead2.Stopped:
+            raise StopAsyncIteration
+        else:
+            raise Return(heap)
