@@ -23,9 +23,11 @@
 #include <stdexcept>
 #include <cstdint>
 #include <unistd.h>
+#include <sys/socket.h>
 #include <spead2/recv_udp.h>
 #include <spead2/recv_udp_ibv.h>
 #include <spead2/recv_udp_pcap.h>
+#include <spead2/recv_tcp.h>
 #include <spead2/recv_mem.h>
 #include <spead2/recv_inproc.h>
 #include <spead2/recv_stream.h>
@@ -116,9 +118,14 @@ private:
         }
     }
 
-    boost::asio::ip::udp::endpoint make_endpoint(const std::string &hostname, std::uint16_t port)
+    boost::asio::ip::udp::endpoint make_udp_endpoint(const std::string &hostname, std::uint16_t port)
     {
         return boost::asio::ip::udp::endpoint(make_address(hostname), port);
+    }
+
+    boost::asio::ip::tcp::endpoint make_tcp_endpoint(const std::string &hostname, std::uint16_t port)
+    {
+        return boost::asio::ip::tcp::endpoint(make_address(hostname), port);
     }
 
     py::object to_object(live_heap &&h)
@@ -204,7 +211,7 @@ public:
         int fd2 = dup_socket(socket);
 
         py::gil_scoped_release gil;
-        auto endpoint = make_endpoint(bind_hostname, port);
+        auto endpoint = make_udp_endpoint(bind_hostname, port);
         if (fd2 == -1)
         {
             emplace_reader<udp_reader>(endpoint, max_size, buffer_size);
@@ -225,7 +232,7 @@ public:
         const std::string &interface_address)
     {
         py::gil_scoped_release gil;
-        auto endpoint = make_endpoint(multicast_group, port);
+        auto endpoint = make_udp_endpoint(multicast_group, port);
         emplace_reader<udp_reader>(endpoint, max_size, buffer_size, make_address(interface_address));
     }
 
@@ -237,8 +244,59 @@ public:
         unsigned int interface_index)
     {
         py::gil_scoped_release gil;
-        auto endpoint = make_endpoint(multicast_group, port);
+        auto endpoint = make_udp_endpoint(multicast_group, port);
         emplace_reader<udp_reader>(endpoint, max_size, buffer_size, interface_index);
+    }
+
+    void add_tcp_reader(
+        std::uint16_t port,
+        std::size_t max_size = tcp_reader::default_max_size,
+        std::size_t buffer_size = tcp_reader::default_buffer_size,
+        const std::string &bind_hostname = "",
+        const py::object &acceptor = py::none())
+    {
+        if (!acceptor.is_none() && bind_hostname != "")
+            throw std::invalid_argument("cannot specify both bind_hostname and acceptor");
+        int fd2 = dup_socket(acceptor);
+
+        /* Get the address family of the socket to use in constructing the
+         * boost socket wrapper.
+         */
+        auto protocol = boost::asio::ip::tcp::v4();
+        if (fd2 != -1)
+        {
+            sockaddr_storage addr;
+            socklen_t addrlen;
+            int ret = getsockname(fd2, (sockaddr *) &addr, &addrlen);
+            if (ret == -1)
+            {
+                PyErr_SetFromErrno(PyExc_OSError);
+                close(fd2);
+                throw py::error_already_set();
+            }
+            if (addr.ss_family == AF_INET)
+                protocol = boost::asio::ip::tcp::v4();
+            else if (addr.ss_family == AF_INET6)
+                protocol = boost::asio::ip::tcp::v6();
+            else
+            {
+                close(fd2);
+                throw std::invalid_argument("socket must be bound to IPv4 or IPv6 address");
+            }
+        }
+
+        py::gil_scoped_release gil;
+        if (fd2 == -1)
+        {
+            auto endpoint = make_tcp_endpoint(bind_hostname, port);
+            emplace_reader<tcp_reader>(endpoint, max_size, buffer_size);
+        }
+        else
+        {
+            boost::asio::ip::tcp::acceptor asio_socket(
+                get_strand().get_io_service(), protocol, fd2);
+            emplace_reader<tcp_reader>(std::move(asio_socket), max_size, buffer_size);
+        }
     }
 
 #if SPEAD2_USE_IBV
@@ -252,7 +310,7 @@ public:
         int max_poll)
     {
         py::gil_scoped_release gil;
-        auto endpoint = make_endpoint(multicast_group, port);
+        auto endpoint = make_udp_endpoint(multicast_group, port);
         emplace_reader<udp_ibv_reader>(endpoint, make_address(interface_address),
                                        max_size, buffer_size, comp_vector, max_poll);
     }
@@ -272,7 +330,7 @@ public:
             py::sequence endpoint = endpoints[i].cast<py::sequence>();
             std::string multicast_group = endpoint[0].cast<std::string>();
             std::uint16_t port = endpoint[1].cast<std::uint16_t>();
-            endpoints2.push_back(make_endpoint(multicast_group, port));
+            endpoints2.push_back(make_udp_endpoint(multicast_group, port));
         }
         py::gil_scoped_release gil;
         emplace_reader<udp_ibv_reader>(endpoints2, make_address(interface_address),
@@ -401,6 +459,12 @@ py::module register_module(py::module &parent)
               "max_size"_a = udp_reader::default_max_size,
               "buffer_size"_a = udp_reader::default_buffer_size,
               "interface_index"_a = (unsigned int) 0)
+        .def("add_tcp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_tcp_reader),
+             "port"_a,
+             "max_size"_a = tcp_reader::default_max_size,
+             "buffer_size"_a = tcp_reader::default_buffer_size,
+             "bind_hostname"_a = std::string(),
+             "acceptor"_a = py::none())
 #if SPEAD2_USE_IBV
         .def("add_udp_ibv_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_ibv_reader_single),
               "multicast_group"_a,
@@ -434,7 +498,9 @@ py::module register_module(py::module &parent)
         .def_readonly_static("DEFAULT_MAX_HEAPS", &ring_stream_wrapper::default_max_heaps)
         .def_readonly_static("DEFAULT_RING_HEAPS", &ring_stream_wrapper::default_ring_heaps)
         .def_readonly_static("DEFAULT_UDP_MAX_SIZE", &udp_reader::default_max_size)
-        .def_readonly_static("DEFAULT_UDP_BUFFER_SIZE", &udp_reader::default_buffer_size);
+        .def_readonly_static("DEFAULT_UDP_BUFFER_SIZE", &udp_reader::default_buffer_size)
+        .def_readonly_static("DEFAULT_TCP_MAX_SIZE", &tcp_reader::default_max_size)
+        .def_readonly_static("DEFAULT_TCP_BUFFER_SIZE", &tcp_reader::default_buffer_size);
 
     return m;
 }
