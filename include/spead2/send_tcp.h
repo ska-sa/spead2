@@ -52,7 +52,7 @@ public:
     static constexpr std::size_t default_buffer_size = 512 * 1024;
 
     /// Constructor
-    template <typename ConnectHandler>
+    template<typename ConnectHandler>
     tcp_stream(
         io_service_ref io_service,
         ConnectHandler &&connect_handler,
@@ -71,7 +71,7 @@ public:
      * Constructor using an existing socket. The socket must be open but
      * not bound.
      */
-    template <typename ConnectHandler>
+    template<typename ConnectHandler>
     tcp_stream(
         boost::asio::ip::tcp::socket &&socket,
         ConnectHandler &&connect_handler,
@@ -91,7 +91,7 @@ public:
      * thread pool. The socket must be open but not bound, and the io_service
      * must match the socket's.
      */
-    template <typename ConnectHandler>
+    template<typename ConnectHandler>
     tcp_stream(
         io_service_ref io_service,
         boost::asio::ip::tcp::socket &&socket,

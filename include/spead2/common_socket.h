@@ -38,7 +38,7 @@ namespace spead2
  * @param socket The socket on which the send buffer size will be set
  * @param buffer_size The buffer size
  */
-template <typename SocketType>
+template<typename SocketType>
 void set_socket_send_buffer_size(SocketType &socket, std::size_t buffer_size);
 
 /**
@@ -48,7 +48,7 @@ void set_socket_send_buffer_size(SocketType &socket, std::size_t buffer_size);
  * @param socket The socket on which the receive buffer size will be set
  * @param buffer_size The buffer size
  */
-template <typename SocketType>
+template<typename SocketType>
 void set_socket_recv_buffer_size(SocketType &socket, std::size_t buffer_size);
 
 }  // namespace spead2

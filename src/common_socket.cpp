@@ -29,7 +29,7 @@
 namespace spead2
 {
 
-template <typename SocketType, typename BufferSizeOption>
+template<typename SocketType, typename BufferSizeOption>
 static void set_socket_buffer_size(SocketType &socket, std::size_t buffer_size)
 {
     if (buffer_size == 0)
@@ -55,13 +55,13 @@ static void set_socket_buffer_size(SocketType &socket, std::size_t buffer_size)
     }
 }
 
-template <typename SocketType>
+template<typename SocketType>
 void set_socket_send_buffer_size(SocketType &socket, std::size_t buffer_size)
 {
     set_socket_buffer_size<SocketType, boost::asio::socket_base::send_buffer_size>(socket, buffer_size);
 }
 
-template <typename SocketType>
+template<typename SocketType>
 void set_socket_recv_buffer_size(SocketType &socket, std::size_t buffer_size)
 {
     set_socket_buffer_size<SocketType, boost::asio::socket_base::receive_buffer_size>(socket, buffer_size);
