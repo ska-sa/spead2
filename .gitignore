@@ -18,3 +18,7 @@ Makefile.in
 .deps
 *.pyc
 *.o
+/include/spead2/common_features.h
+/examples/test_recv
+/examples/test_ringbuffer
+/examples/test_send
