@@ -19,6 +19,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <stdexcept>
 #include <spead2/send_tcp.h>
 
 namespace spead2
@@ -44,11 +45,14 @@ void prepare_socket(
 constexpr std::size_t tcp_stream::default_buffer_size;
 
 tcp_stream::tcp_stream(
+    io_service_ref io_service,
     boost::asio::ip::tcp::socket &&socket,
     const stream_config &config)
-    : stream_impl(socket.get_io_service(), config),
+    : stream_impl(io_service, config),
       socket(std::move(socket))
 {
+    if (&get_io_service() != &this->socket.get_io_service())
+        throw std::invalid_argument("I/O service does not match the socket's I/O service");
 }
 
 } // namespace send

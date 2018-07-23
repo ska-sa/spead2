@@ -23,7 +23,6 @@
 #define SPEAD2_SEND_TCP_H
 
 #include <boost/asio.hpp>
-#include <stdexcept>
 #include <utility>
 #include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
@@ -84,6 +83,7 @@ private:
 
     /// Constructor taking a properly configured socket
     tcp_stream(
+        io_service_ref io_service,
         boost::asio::ip::tcp::socket &&socket,
         const stream_config &config);
 
@@ -110,6 +110,7 @@ public:
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size)
         : tcp_stream(
+              io_service,
               detail::make_socket(io_service, remote_endpoint, local_endpoint,
                   buffer_size, [this, connect_handler](boost::system::error_code e) {
                       if (!e)
@@ -133,6 +134,32 @@ public:
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size)
         : tcp_stream(
+              socket.get_io_service(),
+              detail::use_socket(std::move(socket), remote_endpoint, local_endpoint,
+                  buffer_size,  [this, connect_handler](boost::system::error_code e) {
+                      if (!e)
+                          connected.store(true);
+                      connect_handler(e);
+                  }),
+              config)
+    {
+    }
+
+    /**
+     * Constructor using an existing socket. The socket must be open but not
+     * connected (or bound, if a local endpoint is given).
+     */
+    template<typename ConnectHandler>
+    tcp_stream(
+        io_service_ref io_service,
+        boost::asio::ip::tcp::socket &&socket,
+        ConnectHandler &&connect_handler,
+        const boost::asio::ip::tcp::endpoint &remote_endpoint,
+        const boost::asio::ip::tcp::endpoint &local_endpoint = boost::asio::ip::tcp::endpoint(),
+        const stream_config &config = stream_config(),
+        std::size_t buffer_size = default_buffer_size)
+        : tcp_stream(
+              io_service,
               detail::use_socket(std::move(socket), remote_endpoint, local_endpoint,
                   buffer_size,  [this, connect_handler](boost::system::error_code e) {
                       if (!e)
