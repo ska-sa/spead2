@@ -227,24 +227,17 @@ class BaseTestPassthrough(object):
         self._test_item_group(ig)
 
     def transmit_item_group(self, item_group, memcpy, allocator):
-        """Transmit `item_group` over the chosen transport, and return the
-        item group received at the other end.
+        """Transmit `item_group` over the chosen transport,
+        and return the item group received at the other end. Subclasses
+        should override this.
         """
-        raise NotImplementedError()
-
-
-class TestPassthroughUdp(BaseTestPassthrough):
-    def transmit_item_group(self, item_group, memcpy, allocator):
         thread_pool = spead2.ThreadPool(2)
-        sender = spead2.send.UdpStream(
-                thread_pool, "localhost", 8888,
-                spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0)
         receiver = spead2.recv.Stream(thread_pool)
         receiver.set_memcpy(memcpy)
         if allocator is not None:
             receiver.set_memory_allocator(allocator)
-        receiver.add_udp_reader(8888, bind_hostname="localhost")
+        self.prepare_receiver(receiver)
+        sender = self.prepare_sender(thread_pool)
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
         sender.send_heap(gen.get_end())
@@ -253,13 +246,21 @@ class TestPassthroughUdp(BaseTestPassthrough):
             received_item_group.update(heap)
         return received_item_group
 
+    def prepare_receiver(self, receiver):
+        """Generate a receiver to use in the test"""
+        raise NotImplementedError()
 
-class TestPassthroughUdp6(BaseTestPassthrough):
+    def prepare_sender(self, thread_pool):
+        """Generate a sender to use in the test"""
+        raise NotImplementedError()
+
+
+class BaseTestPassthroughIPv6(BaseTestPassthrough):
     @classmethod
     def check_ipv6(cls):
         if not socket.has_ipv6:
             raise SkipTest('platform does not support IPv6')
-        # Travis' Trusty image fails to bind to a multicast
+        # Travis' Trusty image fails to bind to an IPv6 address
         sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         try:
             sock.bind(("::1", 8888))
@@ -270,73 +271,78 @@ class TestPassthroughUdp6(BaseTestPassthrough):
 
     def transmit_item_group(self, item_group, memcpy, allocator):
         self.check_ipv6()
-        thread_pool = spead2.ThreadPool(2)
-        sender = spead2.send.UdpStream(
-                thread_pool, "::1", 8888,
-                spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0)
-        receiver = spead2.recv.Stream(thread_pool)
-        receiver.set_memcpy(memcpy)
-        if allocator is not None:
-            receiver.set_memory_allocator(allocator)
+        return super(BaseTestPassthroughIPv6, self).transmit_item_group(item_group, memcpy, allocator)
+
+
+class TestPassthroughUdp(BaseTestPassthrough):
+    def prepare_receiver(self, receiver):
+        receiver.add_udp_reader(8888, bind_hostname="localhost")
+
+    def prepare_sender(self, thread_pool):
+        return spead2.send.UdpStream(
+            thread_pool, "localhost", 8888,
+            spead2.send.StreamConfig(rate=1e7),
+            buffer_size=0)
+
+
+class TestPassthroughUdp6(BaseTestPassthroughIPv6):
+    @classmethod
+    def check_ipv6(cls):
+        if not socket.has_ipv6:
+            raise SkipTest('platform does not support IPv6')
+        # Travis' Trusty image fails to bind to an IPv6 address
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+        try:
+            sock.bind(("::1", 8888))
+        except IOError:
+            raise SkipTest('platform cannot bind IPv6 localhost address')
+        finally:
+            sock.close()
+
+    def prepare_receiver(self, receiver):
         receiver.add_udp_reader(8888, bind_hostname="::1")
-        gen = spead2.send.HeapGenerator(item_group)
-        sender.send_heap(gen.get_heap())
-        sender.send_heap(gen.get_end())
-        received_item_group = spead2.ItemGroup()
-        for heap in receiver:
-            received_item_group.update(heap)
-        return received_item_group
+
+    def prepare_sender(self, thread_pool):
+        return spead2.send.UdpStream(
+            thread_pool, "::1", 8888,
+            spead2.send.StreamConfig(rate=1e7),
+            buffer_size=0)
 
 
 class TestPassthroughUdpCustomSocket(BaseTestPassthrough):
-    def transmit_item_group(self, item_group, memcpy, allocator):
-        thread_pool = spead2.ThreadPool(2)
-        send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    def prepare_receiver(self, receiver):
         recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sender = spead2.send.UdpStream(
-                thread_pool, "127.0.0.1", 8888,
-                spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0, socket=send_sock)
-        receiver = spead2.recv.Stream(thread_pool)
-        receiver.set_memcpy(memcpy)
-        if allocator is not None:
-            receiver.set_memory_allocator(allocator)
         receiver.add_udp_reader(8888, bind_hostname="127.0.0.1", socket=recv_sock)
-        send_sock.close()
-        recv_sock.close()
-        gen = spead2.send.HeapGenerator(item_group)
-        sender.send_heap(gen.get_heap())
-        sender.send_heap(gen.get_end())
-        received_item_group = spead2.ItemGroup()
-        for heap in receiver:
-            received_item_group.update(heap)
-        return received_item_group
+        recv_sock.close()   # spead2 duplicates the socket
+
+    def prepare_sender(self, thread_pool):
+        send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sender = spead2.send.UdpStream(
+            thread_pool, "127.0.0.1", 8888,
+            spead2.send.StreamConfig(rate=1e7),
+            buffer_size=0, socket=send_sock)
+        send_sock.close()   # spead2 duplicates the socket
+        return sender
 
 
 class TestPassthroughUdpMulticast(BaseTestPassthrough):
-    def transmit_item_group(self, item_group, memcpy, allocator):
-        thread_pool = spead2.ThreadPool(2)
-        mcast_group = '239.255.88.88'
-        interface_address = '127.0.0.1'
-        sender = spead2.send.UdpStream(
-                thread_pool, mcast_group, 8887,
-                spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0, ttl=1, interface_address=interface_address)
-        receiver = spead2.recv.Stream(thread_pool)
-        receiver.set_memcpy(memcpy)
-        if allocator is not None:
-            receiver.set_memory_allocator(allocator)
-        receiver.add_udp_reader(mcast_group, 8887, interface_address=interface_address)
-        gen = spead2.send.HeapGenerator(item_group)
-        sender.send_heap(gen.get_heap())
-        sender.send_heap(gen.get_end())
-        received_item_group = spead2.ItemGroup()
-        for heap in receiver:
-            received_item_group.update(heap)
-        return received_item_group
+    MCAST_GROUP = '239.255.88.88'
+    INTERFACE_ADDRESS = '127.0.0.1'
+
+    def prepare_receiver(self, receiver):
+        receiver.add_udp_reader(
+            self.MCAST_GROUP, 8887, interface_address=self.INTERFACE_ADDRESS)
+
+    def prepare_sender(self, thread_pool):
+        return spead2.send.UdpStream(
+            thread_pool, self.MCAST_GROUP, 8887,
+            spead2.send.StreamConfig(rate=1e7),
+            buffer_size=0, ttl=1, interface_address=self.INTERFACE_ADDRESS)
+
 
 class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
+    MCAST_GROUP = 'ff14::1234'
+
     @classmethod
     def get_interface_index(cls):
         for iface in netifaces.interfaces():
@@ -346,45 +352,32 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
                     return if_nametoindex(iface)
         raise SkipTest('could not find suitable interface for test')
 
-    def transmit_item_group(self, item_group, memcpy, allocator):
-        self.check_ipv6()
+    def prepare_receiver(self, receiver):
         interface_index = self.get_interface_index()
-        thread_pool = spead2.ThreadPool(2)
-        mcast_group = 'ff14::1234'
-        sender = spead2.send.UdpStream(
-                thread_pool, mcast_group, 8887,
+        receiver.add_udp_reader(self.MCAST_GROUP, 8887, interface_index=interface_index)
+
+    def prepare_sender(self, thread_pool):
+        interface_index = self.get_interface_index()
+        return spead2.send.UdpStream(
+                thread_pool, self.MCAST_GROUP, 8887,
                 spead2.send.StreamConfig(rate=1e7),
                 buffer_size=0, ttl=0, interface_index=interface_index)
-        receiver = spead2.recv.Stream(thread_pool)
-        receiver.set_memcpy(memcpy)
-        if allocator is not None:
-            receiver.set_memory_allocator(allocator)
-        receiver.add_udp_reader(mcast_group, 8887, interface_index=interface_index)
-        gen = spead2.send.HeapGenerator(item_group)
-        sender.send_heap(gen.get_heap())
-        sender.send_heap(gen.get_end())
-        received_item_group = spead2.ItemGroup()
-        for heap in receiver:
-            received_item_group.update(heap)
-        return received_item_group
 
 
 class TestPassthroughTcp(BaseTestPassthrough):
-    def transmit_item_group(self, item_group, memcpy, allocator):
-        thread_pool = spead2.ThreadPool(1)
-        receiver = spead2.recv.Stream(thread_pool)
-        receiver.set_memcpy(memcpy)
-        if allocator is not None:
-            receiver.set_memory_allocator(allocator)
+    def prepare_receiver(self, receiver):
         receiver.add_tcp_reader(8887, bind_hostname="127.0.0.1")
-        sender = spead2.send.TcpStream(thread_pool, "127.0.0.1", 8887)
-        gen = spead2.send.HeapGenerator(item_group)
-        sender.send_heap(gen.get_heap())
-        sender.send_heap(gen.get_end())
-        received_item_group = spead2.ItemGroup()
-        for heap in receiver:
-            received_item_group.update(heap)
-        return received_item_group
+
+    def prepare_sender(self, thread_pool):
+        return spead2.send.TcpStream(thread_pool, "127.0.0.1", 8887)
+
+
+class TestPassthroughTcp6(BaseTestPassthroughIPv6):
+    def prepare_receiver(self, receiver):
+        receiver.add_tcp_reader(8887, bind_hostname="::1")
+
+    def prepare_sender(self, thread_pool):
+        return spead2.send.TcpStream(thread_pool, "::1", 8887)
 
 
 class TestPassthroughMem(BaseTestPassthrough):
@@ -406,22 +399,17 @@ class TestPassthroughMem(BaseTestPassthrough):
 
 
 class TestPassthroughInproc(BaseTestPassthrough):
+    def prepare_receiver(self, receiver):
+        receiver.add_inproc_reader(self._queue)
+
+    def prepare_sender(self, thread_pool):
+        return spead2.send.InprocStream(thread_pool, self._queue)
+
     def transmit_item_group(self, item_group, memcpy, allocator):
-        thread_pool = spead2.ThreadPool(1)
-        queue = spead2.InprocQueue()
-        sender = spead2.send.InprocStream(thread_pool, queue)
-        gen = spead2.send.HeapGenerator(item_group)
-        sender.send_heap(gen.get_heap())
-        sender.send_heap(gen.get_end())
-        receiver = spead2.recv.Stream(thread_pool)
-        receiver.set_memcpy(memcpy)
-        if allocator is not None:
-            receiver.set_memory_allocator(allocator)
-        receiver.add_inproc_reader(queue)
-        received_item_group = spead2.ItemGroup()
-        for heap in receiver:
-            received_item_group.update(heap)
-        return received_item_group
+        self._queue = spead2.InprocQueue()
+        ret = super(TestPassthroughInproc, self).transmit_item_group(item_group, memcpy, allocator)
+        self._queue.stop()
+        return ret
 
 
 class TestAllocators(BaseTestPassthrough):
