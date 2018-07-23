@@ -30,6 +30,7 @@
 #include <spead2/send_stream.h>
 #include <spead2/send_udp.h>
 #include <spead2/send_udp_ibv.h>
+#include <spead2/send_tcp.h>
 #include <spead2/send_streambuf.h>
 #include <spead2/send_inproc.h>
 #include <spead2/common_thread_pool.h>
@@ -42,6 +43,11 @@ namespace spead2
 {
 namespace send
 {
+
+template<typename... Args>
+class argument_pack
+{
+};
 
 class heap_wrapper : public heap
 {
@@ -241,6 +247,8 @@ public:
 static boost::asio::ip::address make_address(
     boost::asio::io_service &io_service, const std::string &hostname)
 {
+    if (hostname == "")
+        return boost::asio::ip::address_v4::any();
     py::gil_scoped_release gil;
 
     using boost::asio::ip::udp;
@@ -249,27 +257,28 @@ static boost::asio::ip::address make_address(
     return resolver.resolve(query)->endpoint().address();
 }
 
-static boost::asio::ip::udp::endpoint make_endpoint(
+template<typename Protocol>
+static typename Protocol::endpoint make_endpoint(
     boost::asio::io_service &io_service, const std::string &hostname, std::uint16_t port)
 {
-    return boost::asio::ip::udp::endpoint(make_address(io_service, hostname), port);
+    return typename Protocol::endpoint(make_address(io_service, hostname), port);
 }
 
-static boost::asio::ip::udp::socket make_socket(
-    boost::asio::io_service &io_service, const boost::asio::ip::udp &protocol,
+template<typename Protocol>
+static typename Protocol::socket make_socket(
+    boost::asio::io_service &io_service, const Protocol &protocol,
     const py::object &socket)
 {
-    using boost::asio::ip::udp;
     int fd2 = dup_socket(socket);
     if (fd2 != -1)
     {
         /* TODO: will this leak the FD if the constructor fails? Can the
          * constructor fail or is it just setting an FD in an object?
          */
-        return boost::asio::ip::udp::socket(io_service, protocol, fd2);
+        return typename Protocol::socket(io_service, protocol, fd2);
     }
     else
-        return boost::asio::ip::udp::socket(io_service, protocol);
+        return typename Protocol::socket(io_service, protocol);
 }
 
 template<typename Base>
@@ -288,7 +297,7 @@ private:
         py::object socket)
         : Base(
             std::move(io_service),
-            make_socket(*io_service, endpoint.protocol(), std::move(socket)),
+            make_socket<boost::asio::ip::udp>(*io_service, endpoint.protocol(), std::move(socket)),
             endpoint,
             config, buffer_size)
     {
@@ -325,7 +334,8 @@ public:
         std::size_t buffer_size,
         py::object socket)
         : udp_stream_wrapper(
-            std::move(io_service), make_endpoint(*io_service, hostname, port),
+            std::move(io_service),
+            make_endpoint<boost::asio::ip::udp>(*io_service, hostname, port),
             config, buffer_size, std::move(socket))
     {
     }
@@ -338,7 +348,8 @@ public:
         std::size_t buffer_size,
         int ttl)
         : udp_stream_wrapper(
-            std::move(io_service), make_endpoint(*io_service, multicast_group, port),
+            std::move(io_service),
+            make_endpoint<boost::asio::ip::udp>(*io_service, multicast_group, port),
             config, buffer_size, ttl)
     {
     }
@@ -352,7 +363,8 @@ public:
         int ttl,
         const std::string &interface_address)
         : udp_stream_wrapper(
-            std::move(io_service), make_endpoint(*io_service, multicast_group, port),
+            std::move(io_service),
+            make_endpoint<boost::asio::ip::udp>(*io_service, multicast_group, port),
             config, buffer_size, ttl,
             interface_address.empty() ?
                 boost::asio::ip::address_v4::any() :
@@ -369,7 +381,8 @@ public:
         int ttl,
         unsigned int interface_index)
         : udp_stream_wrapper(
-            std::move(io_service), make_endpoint(*io_service, multicast_group, port),
+            std::move(io_service),
+            make_endpoint<boost::asio::ip::udp>(*io_service, multicast_group, port),
             config, buffer_size, ttl, interface_index)
     {
     }
@@ -391,7 +404,7 @@ public:
         int comp_vector,
         int max_poll)
         : Base(std::move(pool),
-               make_endpoint(pool->get_io_service(), multicast_group, port),
+               make_endpoint<boost::asio::ip::udp>(pool->get_io_service(), multicast_group, port),
                config,
                make_address(pool->get_io_service(), interface_address),
                buffer_size, ttl, comp_vector, max_poll)
@@ -464,6 +477,93 @@ static py::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
         .def_readonly_static("DEFAULT_MAX_POLL", &T::default_max_poll);
 }
 #endif
+
+template<typename Base>
+class tcp_stream_wrapper : public Base
+{
+public:
+    /* All wrapping constructors take connect_handler as first argument, to
+     * faciliate the meta-programming used by registration code.
+     */
+    template<typename ConnectHandler>
+    tcp_stream_wrapper(
+        ConnectHandler&& connect_handler,
+        io_service_ref io_service,
+        const std::string &hostname, std::uint16_t port,
+        const std::string &bind_hostname, std::uint16_t bind_port,
+        const stream_config &config,
+        std::size_t buffer_size)
+        : Base(std::move(io_service), connect_handler,
+               make_endpoint<boost::asio::ip::tcp>(*io_service, hostname, port),
+               make_endpoint<boost::asio::ip::tcp>(*io_service, bind_hostname, bind_port),
+               config, buffer_size)
+    {
+    }
+};
+
+/* This is a different design than the other registration functions, because
+ * the TCP sync and async classes are constructed very differently (because of
+ * the handling around connecting). The callback is called (several times) with
+ * a function object that generates the unique_ptr<T> plus additional arguments
+ * to pass to py::class_::def.
+ */
+template<typename T, typename Callback>
+static void tcp_stream_register(py::class_<T> &class_, const Callback &callback)
+{
+    using namespace pybind11::literals;
+
+    callback(
+        class_,
+        argument_pack<std::shared_ptr<thread_pool_wrapper>,
+                      const std::string &, std::uint16_t,
+                      const std::string &, std::uint16_t,
+                      const stream_config &, std::size_t>(),
+        "thread_pool"_a, "hostname"_a, "port"_a,
+        "bind_hostname"_a = "", "bind_port"_a = 0,
+        "config"_a = stream_config(),
+        "buffer_size"_a = T::default_buffer_size);
+}
+
+// Function object passed to tcp_stream_register to register the synchronous class
+class tcp_stream_register_sync
+{
+private:
+    typedef tcp_stream_wrapper<stream_wrapper<tcp_stream>> stream_type;
+
+    struct connect_state
+    {
+        semaphore_gil<semaphore> sem;
+        boost::system::error_code ec;
+    };
+
+    /* Note: this member is always explicitly templated, rather than inferring its
+     * arguments, which is why it doesn't take Args&&...
+     */
+    template<typename... Args>
+    static std::unique_ptr<stream_type> construct(Args... args)
+    {
+        std::shared_ptr<connect_state> state = std::make_shared<connect_state>();
+        auto connect_handler = [state](boost::system::error_code ec)
+        {
+            state->ec = ec;
+            state->sem.put();
+        };
+        std::unique_ptr<stream_type> stream{new stream_type(connect_handler, std::forward<Args>(args)...)};
+        state->sem.get();
+        if (state->ec)
+            boost_io_error(state->ec);
+        return stream;
+    }
+
+public:
+    template<typename... Args, typename... Extra>
+    void operator()(py::class_<stream_type> class_, const argument_pack<Args...> &signature,
+                    Extra&&... extra) const
+    {
+        class_.def(py::init(&tcp_stream_register_sync::construct<Args...>),
+                   std::forward<Extra>(extra)...);
+    }
+};
 
 template<typename T>
 static py::class_<T> inproc_stream_register(py::module &m, const char *name)
@@ -578,6 +678,12 @@ py::module register_module(py::module &parent)
         async_stream_register(stream_class);
     }
 #endif
+
+    {
+        py::class_<stream_wrapper<tcp_stream>> stream_class(m, "TcpStream");
+        tcp_stream_register(stream_class, tcp_stream_register_sync());
+        sync_stream_register(stream_class);
+    }
 
     {
         py::class_<bytes_stream> stream_class(m, "BytesStream");

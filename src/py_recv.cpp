@@ -118,14 +118,10 @@ private:
         }
     }
 
-    boost::asio::ip::udp::endpoint make_udp_endpoint(const std::string &hostname, std::uint16_t port)
+    template<typename Protocol>
+    typename Protocol::endpoint make_endpoint(const std::string &hostname, std::uint16_t port)
     {
-        return boost::asio::ip::udp::endpoint(make_address(hostname), port);
-    }
-
-    boost::asio::ip::tcp::endpoint make_tcp_endpoint(const std::string &hostname, std::uint16_t port)
-    {
-        return boost::asio::ip::tcp::endpoint(make_address(hostname), port);
+        return typename Protocol::endpoint(make_address(hostname), port);
     }
 
     py::object to_object(live_heap &&h)
@@ -211,7 +207,7 @@ public:
         int fd2 = dup_socket(socket);
 
         py::gil_scoped_release gil;
-        auto endpoint = make_udp_endpoint(bind_hostname, port);
+        auto endpoint = make_endpoint<boost::asio::ip::udp>(bind_hostname, port);
         if (fd2 == -1)
         {
             emplace_reader<udp_reader>(endpoint, max_size, buffer_size);
@@ -232,7 +228,7 @@ public:
         const std::string &interface_address)
     {
         py::gil_scoped_release gil;
-        auto endpoint = make_udp_endpoint(multicast_group, port);
+        auto endpoint = make_endpoint<boost::asio::ip::udp>(multicast_group, port);
         emplace_reader<udp_reader>(endpoint, max_size, buffer_size, make_address(interface_address));
     }
 
@@ -244,7 +240,7 @@ public:
         unsigned int interface_index)
     {
         py::gil_scoped_release gil;
-        auto endpoint = make_udp_endpoint(multicast_group, port);
+        auto endpoint = make_endpoint<boost::asio::ip::udp>(multicast_group, port);
         emplace_reader<udp_reader>(endpoint, max_size, buffer_size, interface_index);
     }
 
@@ -288,7 +284,7 @@ public:
         py::gil_scoped_release gil;
         if (fd2 == -1)
         {
-            auto endpoint = make_tcp_endpoint(bind_hostname, port);
+            auto endpoint = make_endpoint<boost::asio::ip::tcp>(bind_hostname, port);
             emplace_reader<tcp_reader>(endpoint, max_size, buffer_size);
         }
         else
@@ -310,7 +306,7 @@ public:
         int max_poll)
     {
         py::gil_scoped_release gil;
-        auto endpoint = make_udp_endpoint(multicast_group, port);
+        auto endpoint = make_endpoint<boost::asio::ip::udp>(multicast_group, port);
         emplace_reader<udp_ibv_reader>(endpoint, make_address(interface_address),
                                        max_size, buffer_size, comp_vector, max_poll);
     }
@@ -330,7 +326,7 @@ public:
             py::sequence endpoint = endpoints[i].cast<py::sequence>();
             std::string multicast_group = endpoint[0].cast<std::string>();
             std::uint16_t port = endpoint[1].cast<std::uint16_t>();
-            endpoints2.push_back(make_udp_endpoint(multicast_group, port));
+            endpoints2.push_back(make_endpoint<boost::asio::ip::udp>(multicast_group, port));
         }
         py::gil_scoped_release gil;
         emplace_reader<udp_ibv_reader>(endpoints2, make_address(interface_address),

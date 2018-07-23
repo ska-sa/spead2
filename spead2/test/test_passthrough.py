@@ -369,6 +369,24 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
         return received_item_group
 
 
+class TestPassthroughTcp(BaseTestPassthrough):
+    def transmit_item_group(self, item_group, memcpy, allocator):
+        thread_pool = spead2.ThreadPool(1)
+        receiver = spead2.recv.Stream(thread_pool)
+        receiver.set_memcpy(memcpy)
+        if allocator is not None:
+            receiver.set_memory_allocator(allocator)
+        receiver.add_tcp_reader(8887, bind_hostname="127.0.0.1")
+        sender = spead2.send.TcpStream(thread_pool, "127.0.0.1", 8887)
+        gen = spead2.send.HeapGenerator(item_group)
+        sender.send_heap(gen.get_heap())
+        sender.send_heap(gen.get_end())
+        received_item_group = spead2.ItemGroup()
+        for heap in receiver:
+            received_item_group.update(heap)
+        return received_item_group
+
+
 class TestPassthroughMem(BaseTestPassthrough):
     def transmit_item_group(self, item_group, memcpy, allocator):
         thread_pool = spead2.ThreadPool(2)
