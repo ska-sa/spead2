@@ -127,14 +127,12 @@ class TcpStream(_TcpStreamBase):
         if loop is None:
             loop = trollius.get_event_loop()
         future = trollius.Future(loop=loop)
-        def callback(args):
+        def callback(arg):
             if not future.done():
-                if isinstance(args, tuple):
-                    # It's arguments to IOError
-                    exc = IOError(*stream)
-                    loop.call_soon_threadsafe(future.set_exception, exc)
+                if isinstance(arg, Exception):
+                    loop.call_soon_threadsafe(future.set_exception, arg)
                 else:
-                    loop.call_soon_threadsafe(future.set_result, None)
+                    loop.call_soon_threadsafe(future.set_result, arg)
 
         stream = cls(callback, *args, **kwargs)
         yield From(future)

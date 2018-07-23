@@ -70,3 +70,13 @@ class TestUdpStream(object):
             spead2.send.StreamConfig(max_packet_size=100000), buffer_size=0)
         future = stream.async_send_heap(self.heap)
         trollius.get_event_loop().run_until_complete(self._test_send_error(future))
+
+
+class TestTcpStream(object):
+    def _test_connect_failed(self):
+        thread_pool = spead2.ThreadPool()
+        with assert_raises(IOError) as cm:
+            yield From(spead2.send.trollius.TcpStream.connect(thread_pool, '127.0.0.1', 8887))
+
+    def test_connect_failed(self):
+        trollius.get_event_loop().run_until_complete(self._test_connect_failed())

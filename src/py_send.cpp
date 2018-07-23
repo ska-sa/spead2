@@ -91,6 +91,17 @@ py::bytes packet_generator_next(packet_generator &gen)
                                  boost::asio::buffers_end(pkt.buffers)));
 }
 
+static py::object make_io_error(boost::system::error_code ec)
+{
+    if (ec)
+    {
+        py::object exc_class = py::reinterpret_borrow<py::object>(PyExc_IOError);
+        return exc_class(ec.value(), ec.message());
+    }
+    else
+        return py::none();
+}
+
 template<typename Base>
 class stream_wrapper : public Base
 {
@@ -206,15 +217,7 @@ public:
                 item.h = py::handle();
                 py::object callback = py::reinterpret_steal<py::object>(item.callback);
                 item.callback = py::handle();
-                py::object exc;
-                if (item.ec)
-                {
-                    py::object exc_class = py::reinterpret_borrow<py::object>(PyExc_IOError);
-                    exc = exc_class(item.ec.value(), item.ec.message());
-                }
-                else
-                    exc = py::none();
-                callback(exc, item.bytes_transferred);
+                callback(make_io_error(item.ec), item.bytes_transferred);
             }
         }
         catch (std::exception &e)
@@ -554,7 +557,7 @@ private:
         std::unique_ptr<stream_type> stream{new stream_type(connect_handler, std::forward<Args>(args)...)};
         state->sem.get();
         if (state->ec)
-            boost_io_error(state->ec);
+            throw boost_io_error(state->ec);
         return stream;
     }
 
@@ -589,13 +592,7 @@ private:
         {
             py::gil_scoped_acquire gil;
             py::object callback = py::reinterpret_steal<py::object>(state->callback);
-            if (ec)
-            {
-                py::tuple error = py::make_tuple(ec.value(), ec.message());
-                callback(error);
-            }
-            else
-                callback(py::none());
+            callback(make_io_error(ec));
         };
         std::unique_ptr<stream_type> stream{
             new stream_type(connect_handler, std::forward<Args>(args)...)};

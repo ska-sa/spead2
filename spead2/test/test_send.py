@@ -459,6 +459,12 @@ class TestStream(object):
         assert_equal(hexlify(expected), hexlify(self.stream.getvalue()))
 
 
+class TestTcpStream(object):
+    def test_failed_connect(self):
+        with assert_raises(IOError):
+            send.TcpStream(spead2.ThreadPool(), '127.0.0.1', 8887)
+
+
 class TestInprocStream(object):
     def setup(self):
         self.flavour = Flavour(4, 64, 48, 0)
