@@ -507,38 +507,41 @@ public:
  * a function object that generates the unique_ptr<T> plus additional arguments
  * to pass to py::class_::def.
  */
-template<typename T, typename Callback>
-static void tcp_stream_register(py::class_<T> &class_, const Callback &callback)
+template<typename Registrar>
+static py::class_<typename Registrar::stream_type> tcp_stream_register(py::module &m, const char *name)
 {
     using namespace pybind11::literals;
 
-    callback(
+    typedef typename Registrar::stream_type T;
+    py::class_<T> class_(m, name);
+    Registrar::template apply<
+            std::shared_ptr<thread_pool_wrapper>,
+            const std::string &, std::uint16_t,
+            const std::string &, std::uint16_t,
+            const stream_config &, std::size_t>(
         class_,
-        argument_pack<std::shared_ptr<thread_pool_wrapper>,
-                      const std::string &, std::uint16_t,
-                      const std::string &, std::uint16_t,
-                      const stream_config &, std::size_t>(),
         "thread_pool"_a, "hostname"_a, "port"_a,
         "bind_hostname"_a = "", "bind_port"_a = 0,
         "config"_a = stream_config(),
         "buffer_size"_a = T::default_buffer_size);
+    return class_;
 }
 
 // Function object passed to tcp_stream_register to register the synchronous class
 class tcp_stream_register_sync
 {
 private:
-    typedef tcp_stream_wrapper<stream_wrapper<tcp_stream>> stream_type;
-
     struct connect_state
     {
         semaphore_gil<semaphore> sem;
         boost::system::error_code ec;
     };
 
-    /* Note: this member is always explicitly templated, rather than inferring its
-     * arguments, which is why it doesn't take Args&&...
-     */
+public:
+    typedef tcp_stream_wrapper<stream_wrapper<tcp_stream>> stream_type;
+
+private:
+    /* Template args are explicit, hence no Args&&... */
     template<typename... Args>
     static std::unique_ptr<stream_type> construct(Args... args)
     {
@@ -557,11 +560,61 @@ private:
 
 public:
     template<typename... Args, typename... Extra>
-    void operator()(py::class_<stream_type> class_, const argument_pack<Args...> &signature,
-                    Extra&&... extra) const
+    static void apply(py::class_<stream_type> &class_, Extra&&... extra)
     {
         class_.def(py::init(&tcp_stream_register_sync::construct<Args...>),
                    std::forward<Extra>(extra)...);
+    }
+};
+
+// Function object passed to tcp_stream_register to register the asynchronous class
+class tcp_stream_register_async
+{
+private:
+    struct connect_state
+    {
+        py::handle callback;
+    };
+
+public:
+    typedef tcp_stream_wrapper<asyncio_stream_wrapper<tcp_stream>> stream_type;
+
+private:
+    /* Template args are explicit, hence no Args&&... */
+    template<typename... Args>
+    static std::unique_ptr<stream_type> construct(py::object callback, Args... args)
+    {
+        std::shared_ptr<connect_state> state = std::make_shared<connect_state>();
+        auto connect_handler = [state](boost::system::error_code ec)
+        {
+            py::gil_scoped_acquire gil;
+            py::object callback = py::reinterpret_steal<py::object>(state->callback);
+            if (ec)
+            {
+                py::tuple error = py::make_tuple(ec.value(), ec.message());
+                callback(error);
+            }
+            else
+                callback(py::none());
+        };
+        std::unique_ptr<stream_type> stream{
+            new stream_type(connect_handler, std::forward<Args>(args)...)};
+        /* The state takes over the references. These are dealt with using
+         * py::handle rather than py::object to avoid manipulating refcounts
+         * without the GIL. Note that while the connect_handler could occur
+         * immediately, the GIL serialises access to state.
+         */
+        state->callback = callback.release();
+        return stream;
+    }
+
+public:
+    template<typename... Args, typename... Extra>
+    static void apply(py::class_<stream_type> &class_, Extra&&... extra)
+    {
+        using namespace pybind11::literals;
+        class_.def(py::init(&tcp_stream_register_async::construct<Args...>),
+                   "callback"_a, std::forward<Extra>(extra)...);
     }
 };
 
@@ -680,9 +733,12 @@ py::module register_module(py::module &parent)
 #endif
 
     {
-        py::class_<stream_wrapper<tcp_stream>> stream_class(m, "TcpStream");
-        tcp_stream_register(stream_class, tcp_stream_register_sync());
+        auto stream_class = tcp_stream_register<tcp_stream_register_sync>(m, "TcpStream");
         sync_stream_register(stream_class);
+    }
+    {
+        auto stream_class = tcp_stream_register<tcp_stream_register_async>(m, "TcpStreamAsyncio");
+        async_stream_register(stream_class);
     }
 
     {

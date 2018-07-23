@@ -21,6 +21,7 @@ import trollius
 from trollius import From, Return
 import spead2.send
 from spead2._spead2.send import UdpStreamAsyncio as _UdpStreamAsyncio
+from spead2._spead2.send import TcpStreamAsyncio as _TcpStreamAsyncio
 from spead2._spead2.send import InprocStreamAsyncio as _InprocStreamAsyncio
 
 
@@ -104,6 +105,41 @@ UdpStream.__doc__ = \
     loop : :py:class:`trollius.BaseEventLoop`, optional
         Event loop to use (defaults to ``trollius.get_event_loop()``)
     """
+
+_TcpStreamBase = _wrap_class('TcpStream', _TcpStreamAsyncio)
+class TcpStream(_TcpStreamBase):
+    """SPEAD over TCP with asynchronous connect and sends.
+
+    Do not construct this class directly: the constructors are an
+    implementation detail. Use :py:meth:`connect` to asynchronously
+    connect to a receiver.
+    """
+
+    @classmethod
+    @trollius.coroutine
+    def connect(cls, *args, **kwargs):
+        """Open a connection.
+
+        The arguments are the same as for the constructor of
+        :py:class:`spead2.send.TcpStream`.
+        """
+        loop = kwargs.get('loop')
+        if loop is None:
+            loop = trollius.get_event_loop()
+        future = trollius.Future(loop=loop)
+        def callback(args):
+            if not future.done():
+                if isinstance(args, tuple):
+                    # It's arguments to IOError
+                    exc = IOError(*stream)
+                    loop.call_soon_threadsafe(future.set_exception, exc)
+                else:
+                    loop.call_soon_threadsafe(future.set_result, None)
+
+        stream = cls(callback, *args, **kwargs)
+        yield From(future)
+        raise Return(stream)
+
 
 InprocStream = _wrap_class('InprocStream', _InprocStreamAsyncio)
 InprocStream.__doc__ = \
