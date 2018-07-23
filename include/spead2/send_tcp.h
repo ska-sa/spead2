@@ -23,6 +23,7 @@
 #define SPEAD2_SEND_TCP_H
 
 #include <boost/asio.hpp>
+#include <stdexcept>
 #include <utility>
 #include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
