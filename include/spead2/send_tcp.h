@@ -35,12 +35,55 @@ namespace spead2
 namespace send
 {
 
+namespace detail
+{
+using boost::asio::ip::tcp;
+
+void prepare_socket(
+    tcp::socket &socket,
+    const tcp::endpoint &local_endpoint,
+    std::size_t buffer_size);
+
+template<typename ConnectHandler>
+tcp::socket make_socket(
+    const io_service_ref &io_service,
+    const tcp::endpoint &remote_endpoint,
+    const tcp::endpoint &local_endpoint,
+    std::size_t buffer_size,
+    ConnectHandler &&connect_handler)
+{
+    tcp::socket socket(*io_service, remote_endpoint.protocol());
+    prepare_socket(socket, local_endpoint, buffer_size);
+    socket.async_connect(remote_endpoint, connect_handler);
+    return socket;
+}
+
+template<typename ConnectHandler>
+tcp::socket use_socket(
+    tcp::socket &&socket,
+    const tcp::endpoint &remote_endpoint,
+    const tcp::endpoint &local_endpoint,
+    std::size_t buffer_size,
+    ConnectHandler &&connect_handler)
+{
+    prepare_socket(socket, local_endpoint, buffer_size);
+    socket.async_connect(remote_endpoint, connect_handler);
+    return socket;
+}
+}
+
 class tcp_stream : public stream_impl<tcp_stream>
 {
 private:
     friend class stream_impl<tcp_stream>;
+
+    /// The underlying TCP socket
     boost::asio::ip::tcp::socket socket;
-    boost::asio::ip::tcp::endpoint endpoint;
+
+    /// Constructor taking a properly configured socket
+    tcp_stream(
+        boost::asio::ip::tcp::socket &&socket,
+        const stream_config &config);
 
     template<typename Handler>
     void async_send_packet(const packet &pkt, Handler &&handler)
@@ -57,64 +100,35 @@ public:
     tcp_stream(
         io_service_ref io_service,
         ConnectHandler &&connect_handler,
-        const boost::asio::ip::tcp::endpoint &endpoint,
+        const boost::asio::ip::tcp::endpoint &remote_endpoint,
         const boost::asio::ip::tcp::endpoint &local_endpoint = boost::asio::ip::tcp::endpoint(),
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size)
-        : tcp_stream(std::move(io_service),
-                     boost::asio::ip::tcp::socket(*io_service, endpoint.protocol()),
-                     std::forward<ConnectHandler>(connect_handler),
-                     endpoint, local_endpoint, config, buffer_size)
+        : tcp_stream(
+              detail::make_socket(io_service, remote_endpoint, local_endpoint,
+                  buffer_size, std::forward<ConnectHandler>(connect_handler)),
+              config)
     {
     }
 
     /**
-     * Constructor using an existing socket. The socket must be open but
-     * not bound.
+     * Constructor using an existing socket. The socket must be open but not
+     * connected (or bound, if a local endpoint is given).
      */
     template<typename ConnectHandler>
     tcp_stream(
         boost::asio::ip::tcp::socket &&socket,
         ConnectHandler &&connect_handler,
-        const boost::asio::ip::tcp::endpoint &endpoint,
+        const boost::asio::ip::tcp::endpoint &remote_endpoint,
         const boost::asio::ip::tcp::endpoint &local_endpoint = boost::asio::ip::tcp::endpoint(),
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size)
-        : tcp_stream(socket.get_io_service(), std::move(socket),
-                     std::forward<ConnectHandler>(connect_handler),
-                     endpoint, local_endpoint, config, buffer_size)
+        : tcp_stream(
+              detail::use_socket(std::move(socket), remote_endpoint, local_endpoint,
+                  buffer_size, std::forward<ConnectHandler>(connect_handler)),
+              config)
     {
     }
-
-
-    /**
-     * Constructor using an existing socket and an explicit io_service or
-     * thread pool. The socket must be open but not bound, and the io_service
-     * must match the socket's.
-     */
-    template<typename ConnectHandler>
-    tcp_stream(
-        io_service_ref io_service,
-        boost::asio::ip::tcp::socket &&socket,
-        ConnectHandler &&connect_handler,
-        const boost::asio::ip::tcp::endpoint &endpoint,
-        const boost::asio::ip::tcp::endpoint &local_endpoint = boost::asio::ip::tcp::endpoint(),
-        const stream_config &config = stream_config(),
-        std::size_t buffer_size = default_buffer_size)
-        : stream_impl<tcp_stream>(std::move(io_service), config),
-          socket(std::move(socket)), endpoint(endpoint)
-    {
-        if (&get_io_service() != &this->socket.get_io_service())
-            throw std::invalid_argument("I/O service does not match the socket's I/O service");
-        set_socket_send_buffer_size(this->socket, buffer_size);
-        if (!socket.is_open())
-        {
-            if (!local_endpoint.address().is_unspecified())
-                this->socket.bind(local_endpoint);
-            this->socket.async_connect(endpoint, connect_handler);
-        }
-    }
-
 
 };
 

@@ -26,7 +26,30 @@ namespace spead2
 namespace send
 {
 
+namespace detail
+{
+using boost::asio::ip::tcp;
+
+void prepare_socket(
+    tcp::socket &socket,
+    const tcp::endpoint &local_endpoint,
+    std::size_t buffer_size)
+{
+    if (!local_endpoint.address().is_unspecified())
+        socket.bind(local_endpoint);
+    set_socket_send_buffer_size(socket, buffer_size);
+}
+}
+
 constexpr std::size_t tcp_stream::default_buffer_size;
+
+tcp_stream::tcp_stream(
+    boost::asio::ip::tcp::socket &&socket,
+    const stream_config &config)
+    : stream_impl(socket.get_io_service(), config),
+      socket(std::move(socket))
+{
+}
 
 } // namespace send
 } // namespace spead2
