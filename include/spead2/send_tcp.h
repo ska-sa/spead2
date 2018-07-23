@@ -79,6 +79,8 @@ private:
 
     /// The underlying TCP socket
     boost::asio::ip::tcp::socket socket;
+    /// Whether the underlying socket is already connected or not
+    std::atomic<bool> connected{false};
 
     /// Constructor taking a properly configured socket
     tcp_stream(
@@ -88,7 +90,10 @@ private:
     template<typename Handler>
     void async_send_packet(const packet &pkt, Handler &&handler)
     {
-        boost::asio::async_write(socket, pkt.buffers, std::move(handler));
+        if (!connected.load())
+            handler(boost::asio::error::not_connected, 0);
+        else
+            boost::asio::async_write(socket, pkt.buffers, std::move(handler));
     }
 
 public:
@@ -106,7 +111,11 @@ public:
         std::size_t buffer_size = default_buffer_size)
         : tcp_stream(
               detail::make_socket(io_service, remote_endpoint, local_endpoint,
-                  buffer_size, std::forward<ConnectHandler>(connect_handler)),
+                  buffer_size, [this, connect_handler](boost::system::error_code e) {
+                      if (!e)
+                          connected.store(true);
+                      connect_handler(e);
+                  }),
               config)
     {
     }
@@ -125,7 +134,11 @@ public:
         std::size_t buffer_size = default_buffer_size)
         : tcp_stream(
               detail::use_socket(std::move(socket), remote_endpoint, local_endpoint,
-                  buffer_size, std::forward<ConnectHandler>(connect_handler)),
+                  buffer_size,  [this, connect_handler](boost::system::error_code e) {
+                      if (!e)
+                          connected.store(true);
+                      connect_handler(e);
+                  }),
               config)
     {
     }
