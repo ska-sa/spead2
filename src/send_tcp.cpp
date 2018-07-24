@@ -46,8 +46,8 @@ constexpr std::size_t tcp_stream::default_buffer_size;
 
 tcp_stream::tcp_stream(
     io_service_ref io_service,
-    boost::asio::ip::tcp::socket &&socket,
-    const stream_config &config)
+    const stream_config &config,
+    boost::asio::ip::tcp::socket &&socket)
     : stream_impl(io_service, config),
       socket(std::move(socket))
 {
