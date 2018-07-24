@@ -21,6 +21,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <boost/system/system_error.hpp>
+#include <boost/optional.hpp>
 #include <stdexcept>
 #include <mutex>
 #include <utility>
@@ -270,16 +271,10 @@ static typename Protocol::endpoint make_endpoint(
 template<typename Protocol>
 static typename Protocol::socket make_socket(
     boost::asio::io_service &io_service, const Protocol &protocol,
-    const py::object &socket)
+    const boost::optional<socket_wrapper<typename Protocol::socket>> &socket)
 {
-    int fd2 = dup_socket(socket);
-    if (fd2 != -1)
-    {
-        /* TODO: will this leak the FD if the constructor fails? Can the
-         * constructor fail or is it just setting an FD in an object?
-         */
-        return typename Protocol::socket(io_service, protocol, fd2);
-    }
+    if (socket)
+        return socket->copy(io_service);
     else
         return typename Protocol::socket(io_service, protocol);
 }
@@ -297,13 +292,15 @@ private:
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         std::size_t buffer_size,
-        py::object socket)
+        const boost::optional<socket_wrapper<boost::asio::ip::udp::socket>> &socket)
         : Base(
             std::move(io_service),
-            make_socket<boost::asio::ip::udp>(*io_service, endpoint.protocol(), std::move(socket)),
+            make_socket(*io_service, endpoint.protocol(), socket),
             endpoint,
             config, buffer_size)
     {
+        if (socket)
+            deprecation_warning("UdpStream constructor with both endpoint and socket is deprecated");
     }
 
     udp_stream_wrapper(
@@ -335,11 +332,11 @@ public:
         std::uint16_t port,
         const stream_config &config,
         std::size_t buffer_size,
-        py::object socket)
+        const boost::optional<socket_wrapper<boost::asio::ip::udp::socket>> &socket)
         : udp_stream_wrapper(
             std::move(io_service),
             make_endpoint<boost::asio::ip::udp>(*io_service, hostname, port),
-            config, buffer_size, std::move(socket))
+            config, buffer_size, socket)
     {
     }
 
@@ -389,6 +386,14 @@ public:
             config, buffer_size, ttl, interface_index)
     {
     }
+
+    udp_stream_wrapper(
+        io_service_ref io_service,
+        const socket_wrapper<boost::asio::ip::udp::socket> &socket,
+        const stream_config &config)
+        : Base(std::move(io_service), socket.copy(*io_service), config)
+    {
+    }
 };
 
 #if SPEAD2_USE_IBV
@@ -436,7 +441,7 @@ static py::class_<T> udp_stream_register(py::module &m, const char *name)
     using namespace pybind11::literals;
 
     return py::class_<T>(m, name)
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, py::object>(),
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, const boost::optional<socket_wrapper<boost::asio::ip::udp::socket>> &>(),
              "thread_pool"_a, "hostname"_a, "port"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
@@ -458,6 +463,9 @@ static py::class_<T> udp_stream_register(py::module &m, const char *name)
              "buffer_size"_a = T::default_buffer_size,
              "ttl"_a,
              "interface_index"_a)
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, const socket_wrapper<boost::asio::ip::udp::socket> &, const stream_config &>(),
+             "thread_pool"_a, "socket"_a,
+             "config"_a = stream_config())
         .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size);
 }
 

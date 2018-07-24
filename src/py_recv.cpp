@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <boost/optional.hpp>
 #include <spead2/recv_udp.h>
 #include <spead2/recv_udp_ibv.h>
 #include <spead2/recv_udp_pcap.h>
@@ -199,25 +200,34 @@ public:
 
     void add_udp_reader(
         std::uint16_t port,
-        std::size_t max_size = udp_reader::default_max_size,
-        std::size_t buffer_size = udp_reader::default_buffer_size,
-        const std::string &bind_hostname = "",
-        const py::object &socket = py::none())
+        std::size_t max_size,
+        std::size_t buffer_size,
+        const std::string &bind_hostname,
+        const boost::optional<socket_wrapper<boost::asio::ip::udp::socket>> &socket)
     {
-        int fd2 = dup_socket(socket);
-
-        py::gil_scoped_release gil;
-        auto endpoint = make_endpoint<boost::asio::ip::udp>(bind_hostname, port);
-        if (fd2 == -1)
+        if (!socket)
         {
+            py::gil_scoped_release gil;
+            auto endpoint = make_endpoint<boost::asio::ip::udp>(bind_hostname, port);
             emplace_reader<udp_reader>(endpoint, max_size, buffer_size);
         }
         else
         {
-            boost::asio::ip::udp::socket asio_socket(
-                get_strand().get_io_service(), endpoint.protocol(), fd2);
+            deprecation_warning("passing unbound socket plus port is deprecated");
+            auto asio_socket = socket->copy(get_strand().get_io_service());
+            py::gil_scoped_release gil;
+            auto endpoint = make_endpoint<boost::asio::ip::udp>(bind_hostname, port);
             emplace_reader<udp_reader>(std::move(asio_socket), endpoint, max_size, buffer_size);
         }
+    }
+
+    void add_udp_reader_socket(
+        const socket_wrapper<boost::asio::ip::udp::socket> &socket,
+        std::size_t max_size = udp_reader::default_max_size)
+    {
+        auto asio_socket = socket.copy(get_strand().get_io_service());
+        py::gil_scoped_release gil;
+        emplace_reader<udp_reader>(std::move(asio_socket), max_size);
     }
 
     void add_udp_reader_multicast_v4(
@@ -246,53 +256,22 @@ public:
 
     void add_tcp_reader(
         std::uint16_t port,
-        std::size_t max_size = tcp_reader::default_max_size,
-        std::size_t buffer_size = tcp_reader::default_buffer_size,
-        const std::string &bind_hostname = "",
-        const py::object &acceptor = py::none())
+        std::size_t max_size,
+        std::size_t buffer_size,
+        const std::string &bind_hostname)
     {
-        if (!acceptor.is_none() && bind_hostname != "")
-            throw std::invalid_argument("cannot specify both bind_hostname and acceptor");
-        int fd2 = dup_socket(acceptor);
-
-        /* Get the address family of the socket to use in constructing the
-         * boost socket wrapper.
-         */
-        auto protocol = boost::asio::ip::tcp::v4();
-        if (fd2 != -1)
-        {
-            sockaddr_storage addr;
-            socklen_t addrlen;
-            int ret = getsockname(fd2, (sockaddr *) &addr, &addrlen);
-            if (ret == -1)
-            {
-                PyErr_SetFromErrno(PyExc_OSError);
-                close(fd2);
-                throw py::error_already_set();
-            }
-            if (addr.ss_family == AF_INET)
-                protocol = boost::asio::ip::tcp::v4();
-            else if (addr.ss_family == AF_INET6)
-                protocol = boost::asio::ip::tcp::v6();
-            else
-            {
-                close(fd2);
-                throw std::invalid_argument("socket must be bound to IPv4 or IPv6 address");
-            }
-        }
-
         py::gil_scoped_release gil;
-        if (fd2 == -1)
-        {
-            auto endpoint = make_endpoint<boost::asio::ip::tcp>(bind_hostname, port);
-            emplace_reader<tcp_reader>(endpoint, max_size, buffer_size);
-        }
-        else
-        {
-            boost::asio::ip::tcp::acceptor asio_socket(
-                get_strand().get_io_service(), protocol, fd2);
-            emplace_reader<tcp_reader>(std::move(asio_socket), max_size, buffer_size);
-        }
+        auto endpoint = make_endpoint<boost::asio::ip::tcp>(bind_hostname, port);
+        emplace_reader<tcp_reader>(endpoint, max_size, buffer_size);
+    }
+
+    void add_tcp_reader_socket(
+        const socket_wrapper<boost::asio::ip::tcp::acceptor> &acceptor,
+        std::size_t max_size)
+    {
+        auto asio_socket = acceptor.copy(get_strand().get_io_service());
+        py::gil_scoped_release gil;
+        emplace_reader<tcp_reader>(std::move(asio_socket), max_size);
     }
 
 #if SPEAD2_USE_IBV
@@ -443,6 +422,9 @@ py::module register_module(py::module &parent)
               "buffer_size"_a = udp_reader::default_buffer_size,
               "bind_hostname"_a = std::string(),
               "socket"_a = py::none())
+        .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_socket),
+              "socket"_a,
+              "max_size"_a = udp_reader::default_max_size)
         .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_multicast_v4),
               "multicast_group"_a,
               "port"_a,
@@ -459,8 +441,10 @@ py::module register_module(py::module &parent)
              "port"_a,
              "max_size"_a = tcp_reader::default_max_size,
              "buffer_size"_a = tcp_reader::default_buffer_size,
-             "bind_hostname"_a = std::string(),
-             "acceptor"_a = py::none())
+             "bind_hostname"_a = std::string())
+        .def("add_tcp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_tcp_reader_socket),
+             "acceptor"_a,
+             "max_size"_a = tcp_reader::default_max_size)
 #if SPEAD2_USE_IBV
         .def("add_udp_ibv_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_ibv_reader_single),
               "multicast_group"_a,

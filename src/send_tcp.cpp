@@ -47,12 +47,29 @@ constexpr std::size_t tcp_stream::default_buffer_size;
 tcp_stream::tcp_stream(
     io_service_ref io_service,
     boost::asio::ip::tcp::socket &&socket,
-    const stream_config &config)
+    const stream_config &config,
+    bool already_connected)
     : stream_impl(io_service, config),
-      socket(std::move(socket))
+    socket(std::move(socket)),
+    connected(already_connected)
 {
     if (&get_io_service() != &this->socket.get_io_service())
         throw std::invalid_argument("I/O service does not match the socket's I/O service");
+}
+
+tcp_stream::tcp_stream(
+    boost::asio::ip::tcp::socket &&socket,
+    const stream_config &config)
+    : tcp_stream(socket.get_io_service(), std::move(socket), config, true)
+{
+}
+
+tcp_stream::tcp_stream(
+    io_service_ref io_service,
+    boost::asio::ip::tcp::socket &&socket,
+    const stream_config &config)
+    : tcp_stream(std::move(io_service), std::move(socket), config, true)
+{
 }
 
 } // namespace send

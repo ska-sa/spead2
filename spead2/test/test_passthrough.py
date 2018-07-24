@@ -286,19 +286,6 @@ class TestPassthroughUdp(BaseTestPassthrough):
 
 
 class TestPassthroughUdp6(BaseTestPassthroughIPv6):
-    @classmethod
-    def check_ipv6(cls):
-        if not socket.has_ipv6:
-            raise SkipTest('platform does not support IPv6')
-        # Travis' Trusty image fails to bind to an IPv6 address
-        sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-        try:
-            sock.bind(("::1", 8888))
-        except IOError:
-            raise SkipTest('platform cannot bind IPv6 localhost address')
-        finally:
-            sock.close()
-
     def prepare_receiver(self, receiver):
         receiver.add_udp_reader(8888, bind_hostname="::1")
 
@@ -312,15 +299,16 @@ class TestPassthroughUdp6(BaseTestPassthroughIPv6):
 class TestPassthroughUdpCustomSocket(BaseTestPassthrough):
     def prepare_receiver(self, receiver):
         recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        receiver.add_udp_reader(8888, bind_hostname="127.0.0.1", socket=recv_sock)
+        recv_sock.bind(("127.0.0.1", 8888))
+        receiver.add_udp_reader(socket=recv_sock)
         recv_sock.close()   # spead2 duplicates the socket
 
     def prepare_sender(self, thread_pool):
         send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        send_sock.connect(("127.0.0.1", 8888))
         sender = spead2.send.UdpStream(
-            thread_pool, "127.0.0.1", 8888,
-            spead2.send.StreamConfig(rate=1e7),
-            buffer_size=0, socket=send_sock)
+            thread_pool, send_sock,
+            spead2.send.StreamConfig(rate=1e7))
         send_sock.close()   # spead2 duplicates the socket
         return sender
 

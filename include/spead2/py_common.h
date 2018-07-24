@@ -23,6 +23,8 @@
 
 #include <memory>
 #include <utility>
+#include <boost/asio.hpp>
+#include <boost/optional.hpp>
 #include <boost/system/system_error.hpp>
 #include <cassert>
 #include <mutex>
@@ -68,11 +70,44 @@ static inline pybind11::cpp_function bytes_setter(std::string T::*ptr)
 }
 
 /**
- * Create a new file handle for a Python socket.
- *
- * @retval -1 if @a socket is None
+ * Wrapper for passing sockets from Python to C++. It extracts the file
+ * descriptor and checks that it is of the correct type and protocol, and
+ * provides a factory to create the Boost.Asio variant.
  */
-int dup_socket(pybind11::object socket);
+template<typename SocketType>
+class socket_wrapper
+{
+private:
+    typename SocketType::protocol_type protocol;
+    int fd;
+
+public:
+    socket_wrapper() : protocol(SocketType::protocol_type::v4()), fd(-1) {}
+    socket_wrapper(typename SocketType::protocol_type protocol, int fd)
+        : protocol(protocol), fd(fd) {}
+
+    SocketType copy(boost::asio::io_service &io_service) const
+    {
+        int fd2 = ::dup(fd);
+        if (fd2 == -1)
+        {
+            PyErr_SetFromErrno(PyExc_OSError);
+            throw pybind11::error_already_set();
+        }
+        return SocketType(io_service, protocol, fd2);
+    }
+};
+
+extern template class socket_wrapper<boost::asio::ip::udp::socket>;
+extern template class socket_wrapper<boost::asio::ip::tcp::socket>;
+extern template class socket_wrapper<boost::asio::ip::tcp::acceptor>;
+
+/**
+ * Issue a Python deprecation.
+ *
+ * Note that this might throw, due to the interface of PyErr_WarnEx.
+ */
+void deprecation_warning(const char *msg);
 
 /**
  * Helper to ensure that an asynchronous class is stopped when the module is
@@ -263,4 +298,58 @@ PTMFWrapperGen<T, Return, Class, Args...> ptmf_wrapper_type(Return (Class::*ptmf
 
 } // namespace spead2
 
+namespace pybind11
+{
+namespace detail
+{
+
+template<typename SocketType>
+struct type_caster<spead2::socket_wrapper<SocketType>>
+{
+public:
+    PYBIND11_TYPE_CASTER(spead2::socket_wrapper<SocketType>, _("socket.socket"));
+
+    bool load(handle src, bool)
+    {
+        int fd = -1;
+        try
+        {
+            fd = src.attr("fileno")().cast<int>();
+        }
+        catch (std::exception)
+        {
+            return false;
+        }
+
+        // Determine whether this is IPv4 or IPv6
+        sockaddr_storage addr;
+        socklen_t addrlen = sizeof(addr);
+        int ret = getsockname(fd, (sockaddr *) &addr, &addrlen);
+        if (ret == -1)
+            return false;
+        if (addr.ss_family != AF_INET && addr.ss_family != AF_INET6)
+            return false;
+        auto protocol = (addr.ss_family == AF_INET) ?
+            SocketType::protocol_type::v4() : SocketType::protocol_type::v6();
+
+        // Check that the protocol (e.g. TCP or UDP) matches
+        int type;
+        socklen_t optlen = sizeof(type);
+        ret = getsockopt(fd, SOL_SOCKET, SO_TYPE, &type, &optlen);
+        if (ret == -1)
+            return false;
+        if (type != protocol.type())
+            return false;
+
+        value = spead2::socket_wrapper<SocketType>(protocol, fd);
+        return true;
+    }
+};
+
+// From pybind11 documentation
+template<typename T>
+struct type_caster<boost::optional<T>> : optional_caster<boost::optional<T>> {};
+
+} // namespace detail
+} // namespace pybind11
 #endif // SPEAD2_PY_COMMON_H

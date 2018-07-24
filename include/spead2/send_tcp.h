@@ -56,19 +56,6 @@ boost::asio::ip::tcp::socket make_socket(
     return socket;
 }
 
-template<typename ConnectHandler>
-boost::asio::ip::tcp::socket use_socket(
-    boost::asio::ip::tcp::socket &&socket,
-    const boost::asio::ip::tcp::endpoint &remote_endpoint,
-    const boost::asio::ip::tcp::endpoint &local_endpoint,
-    std::size_t buffer_size,
-    ConnectHandler &&connect_handler)
-{
-    prepare_socket(socket, local_endpoint, buffer_size);
-    socket.async_connect(remote_endpoint, connect_handler);
-    return std::move(socket);
-}
-
 } // namespace detail
 
 class tcp_stream : public stream_impl<tcp_stream>
@@ -85,7 +72,8 @@ private:
     tcp_stream(
         io_service_ref io_service,
         boost::asio::ip::tcp::socket &&socket,
-        const stream_config &config);
+        const stream_config &config,
+        bool already_connected);
 
     template<typename Handler>
     void async_send_packet(const packet &pkt, Handler &&handler)
@@ -112,67 +100,30 @@ public:
         : tcp_stream(
             io_service,
             detail::make_socket(io_service, remote_endpoint, local_endpoint, buffer_size,
-              [this, connect_handler] (boost::system::error_code e)
-              {
-                  if (!e)
-                      connected.store(true);
-                  connect_handler(e);
-              }),
-            config)
+                [this, connect_handler] (boost::system::error_code ec)
+                {
+                    if (!ec)
+                        connected.store(true);
+                    connect_handler(ec);
+                }),
+            config, false)
     {
     }
 
     /**
-     * Constructor using an existing socket. The socket must be open but not
-     * connected (or bound, if a local endpoint is given).
+     * Constructor using an existing socket. The socket must be connected.
      */
-    template<typename ConnectHandler>
     tcp_stream(
         boost::asio::ip::tcp::socket &&socket,
-        ConnectHandler &&connect_handler,
-        const boost::asio::ip::tcp::endpoint &remote_endpoint,
-        const boost::asio::ip::tcp::endpoint &local_endpoint = boost::asio::ip::tcp::endpoint(),
-        const stream_config &config = stream_config(),
-        std::size_t buffer_size = default_buffer_size)
-        : tcp_stream(
-            socket.get_io_service(),
-            detail::use_socket(std::move(socket), remote_endpoint, local_endpoint, buffer_size,
-              [this, connect_handler] (boost::system::error_code e)
-              {
-                  if (!e)
-                      connected.store(true);
-                  connect_handler(e);
-              }),
-            config)
-    {
-    }
+        const stream_config &config = stream_config());
 
     /**
-     * Constructor using an existing socket. The socket must be open but not
-     * connected (or bound, if a local endpoint is given).
+     * Constructor using an existing socket. The socket must be connected.
      */
-    template<typename ConnectHandler>
     tcp_stream(
         io_service_ref io_service,
         boost::asio::ip::tcp::socket &&socket,
-        ConnectHandler &&connect_handler,
-        const boost::asio::ip::tcp::endpoint &remote_endpoint,
-        const boost::asio::ip::tcp::endpoint &local_endpoint = boost::asio::ip::tcp::endpoint(),
-        const stream_config &config = stream_config(),
-        std::size_t buffer_size = default_buffer_size)
-        : tcp_stream(
-            io_service,
-            detail::use_socket(std::move(socket), remote_endpoint, local_endpoint, buffer_size,
-              [this, connect_handler] (boost::system::error_code e)
-              {
-                  if (!e)
-                      connected.store(true);
-                  connect_handler(e);
-              }),
-            config)
-    {
-    }
-
+        const stream_config &config = stream_config());
 };
 
 } // namespace send

@@ -58,6 +58,8 @@ public:
     /**
      * Constructor using an existing socket. The socket must be open but
      * not bound.
+     *
+     * @deprecated Use the overload without @a endpoint or @a buffer_size.
      */
     udp_stream(
         boost::asio::ip::udp::socket &&socket,
@@ -66,9 +68,19 @@ public:
         std::size_t buffer_size = default_buffer_size);
 
     /**
+     * Constructor using an existing socket. The socket must be open and
+     * connected to the target endpoint.
+     */
+    udp_stream(
+        boost::asio::ip::udp::socket &&socket,
+        const stream_config &config = stream_config());
+
+    /**
      * Constructor using an existing socket and an explicit io_service or
      * thread pool. The socket must be open but not bound, and the io_service
      * must match the socket's.
+     *
+     * @deprecated Use the overload without @a endpoint or @a buffer_size.
      */
     udp_stream(
         io_service_ref io_service,
@@ -76,6 +88,16 @@ public:
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size);
+
+    /**
+     * Constructor using an existing socket and an explicit io_service or
+     * thread pool. The socket must be open and connected to the target endpoint,
+     * and the io_service must match the socket's.
+     */
+    udp_stream(
+        io_service_ref io_service,
+        boost::asio::ip::udp::socket &&socket,
+        const stream_config &config = stream_config());
 
     /**
      * Constructor with multicast hop count.

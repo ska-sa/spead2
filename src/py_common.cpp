@@ -85,18 +85,14 @@ static void translate_exception_boost_io_error(std::exception_ptr p)
     }
 }
 
-int dup_socket(py::object socket)
+template class socket_wrapper<boost::asio::ip::udp::socket>;
+template class socket_wrapper<boost::asio::ip::tcp::socket>;
+template class socket_wrapper<boost::asio::ip::tcp::acceptor>;
+
+void deprecation_warning(const char *msg)
 {
-    if (socket.is_none())
-        return -1;
-    int fd = socket.attr("fileno")().cast<int>();
-    int fd2 = ::dup(fd);
-    if (fd2 == -1)
-    {
-        PyErr_SetFromErrno(PyExc_OSError);
+    if (PyErr_WarnEx(PyExc_DeprecationWarning, msg, 1) == -1)
         throw py::error_already_set();
-    }
-    return fd2;
 }
 
 thread_pool_wrapper::~thread_pool_wrapper()
