@@ -67,7 +67,7 @@ tcp::socket use_socket(
 {
     prepare_socket(socket, local_endpoint, buffer_size);
     socket.async_connect(remote_endpoint, connect_handler);
-    return socket;
+    return std::move(socket);
 }
 }
 
