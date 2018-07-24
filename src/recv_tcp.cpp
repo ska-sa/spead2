@@ -147,6 +147,11 @@ bool tcp_reader::parse_packet_size()
 {
     if (pkt_size > 0)
         return false;
+
+    /* get_packet_size returns the parsed packet size, if it could be determined,
+     * 0 if there is no enough data to determine the packet size, -1 if there is
+     * an error while parsing the packet header.
+     */
     auto s_pkt_size = get_packet_size(head, tail - head);
     if (s_pkt_size == -1)
     {

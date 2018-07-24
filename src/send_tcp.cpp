@@ -29,18 +29,18 @@ namespace send
 
 namespace detail
 {
-using boost::asio::ip::tcp;
 
 void prepare_socket(
-    tcp::socket &socket,
-    const tcp::endpoint &local_endpoint,
+    boost::asio::ip::tcp::socket &socket,
+    const boost::asio::ip::tcp::endpoint &local_endpoint,
     std::size_t buffer_size)
 {
     if (!local_endpoint.address().is_unspecified())
         socket.bind(local_endpoint);
     set_socket_send_buffer_size(socket, buffer_size);
 }
-}
+
+} // namespace detail
 
 constexpr std::size_t tcp_stream::default_buffer_size;
 
