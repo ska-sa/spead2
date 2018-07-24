@@ -98,7 +98,7 @@ private:
 
 public:
     /// Socket send buffer size, if none is explicitly passed to the constructor
-    static constexpr std::size_t default_buffer_size = 512 * 1024;
+    static constexpr std::size_t default_buffer_size = 208 * 1024;
 
     /// Constructor
     template<typename ConnectHandler>
