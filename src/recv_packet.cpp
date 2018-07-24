@@ -45,8 +45,7 @@ static inline T extract_bits(T value, int first, int cnt)
     return (value >> first) & ((T(1) << cnt) - 1);
 }
 
-static
-bool decode_spead_header(const uint8_t *data, int &heap_address_bits, int &n_items)
+static bool decode_header(const uint8_t *data, int &heap_address_bits, int &n_items)
 {
     std::uint64_t header = load_be<std::uint64_t>(data);
     if (extract_bits(header, 48, 16) != magic_version)
@@ -76,7 +75,7 @@ s_item_pointer_t get_packet_size(const uint8_t *data, std::size_t length)
     if (length < 8)
         return 0;
     int heap_address_bits, n_items;
-    if (!decode_spead_header(data, heap_address_bits, n_items))
+    if (!decode_header(data, heap_address_bits, n_items))
         return -1;
     if (std::size_t(n_items) * sizeof(item_pointer_t) + 8 > length)
         return 0;
@@ -104,7 +103,7 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
         log_info("packet rejected because too small (%d bytes)", max_size);
         return 0;
     }
-    if (!decode_spead_header(data, out.heap_address_bits, out.n_items))
+    if (!decode_header(data, out.heap_address_bits, out.n_items))
         return 0;
     if (std::size_t(out.n_items) * sizeof(item_pointer_t) + 8 > max_size)
     {

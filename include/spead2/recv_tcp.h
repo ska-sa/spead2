@@ -62,6 +62,8 @@ private:
     std::size_t buffer_size;
     /// Number of bytes that need to be skipped (used when pkt_size > max_size)
     std::size_t to_skip = 0;
+    /// Number of packets to hold on each buffer for asynchronous receive
+    static constexpr std::size_t pkts_per_buffer = 64;
 
     /// Start an asynchronous receive
     void enqueue_receive();
@@ -89,11 +91,9 @@ private:
 
 public:
     /// Maximum packet size, if none is explicitly passed to the constructor
-    static constexpr std::size_t default_max_size = 9200;
+    static constexpr std::size_t default_max_size = 65536;
     /// Socket receive buffer size, if none is explicitly passed to the constructor
-    static constexpr std::size_t default_buffer_size = 8 * 1024 * 1024;
-    /// Number of packets to hold on each buffer for asynchronous receive
-    static constexpr std::size_t pkts_per_buffer = 64;
+    static constexpr std::size_t default_buffer_size = 208 * 1024;
 
     /**
      * Constructor.

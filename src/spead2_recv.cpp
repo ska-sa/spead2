@@ -48,7 +48,7 @@ struct options
     bool pyspead = false;
     bool joint = false;
     bool tcp = false;
-    std::size_t packet = spead2::recv::udp_reader::default_max_size;
+    std::size_t packet;
     std::size_t buffer;
     int threads = 1;
     std::size_t heaps = spead2::recv::stream::default_max_heaps;
@@ -108,7 +108,7 @@ static options parse_args(int argc, const char **argv)
         ("pyspead", make_opt(opts.pyspead), "Be bug-compatible with PySPEAD")
         ("joint", make_opt(opts.joint), "Treat all sources as a single stream")
         ("tcp", make_opt(opts.tcp), "Receive data over TCP instead of UDP")
-        ("packet", make_opt(opts.packet), "Maximum packet size to use for UDP")
+        ("packet", make_opt_no_default(opts.packet), "Maximum packet size to use")
         ("buffer", make_opt_no_default(opts.buffer), "Socket buffer size")
         ("threads", make_opt(opts.threads), "Number of worker threads")
         ("heaps", make_opt(opts.heaps), "Maximum number of in-flight heaps")
@@ -154,6 +154,13 @@ static options parse_args(int argc, const char **argv)
         if (!vm.count("source"))
             throw po::error("At least one port is required");
         opts.sources = vm["source"].as<std::vector<std::string>>();
+        if (!vm.count("packet"))
+        {
+            if (opts.tcp)
+                opts.packet = spead2::recv::tcp_reader::default_max_size;
+            else
+                opts.packet = spead2::recv::udp_reader::default_max_size;
+        }
         if (!vm.count("buffer"))
         {
             if (opts.tcp)

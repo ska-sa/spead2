@@ -279,7 +279,7 @@ int main(int argc, const char **argv)
             local_endpoint = tcp::endpoint(boost::asio::ip::address::from_string(opts.bind), 0);
 
         auto promise = std::promise<void>();
-        auto connect_handler = [&promise](boost::system::error_code e) {
+        auto connect_handler = [&promise] (boost::system::error_code e) {
             if (e)
                 promise.set_exception(std::make_exception_ptr(boost::system::system_error(e)));
             else

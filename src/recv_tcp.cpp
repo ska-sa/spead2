@@ -41,6 +41,7 @@ namespace spead2
 namespace recv
 {
 
+constexpr std::size_t tcp_reader::pkts_per_buffer;
 constexpr std::size_t tcp_reader::default_max_size;
 constexpr std::size_t tcp_reader::default_buffer_size;
 
@@ -147,7 +148,13 @@ bool tcp_reader::parse_packet_size()
 {
     if (pkt_size > 0)
         return false;
-    auto s_pkt_size = get_packet_size(head, tail - head);
+
+    /* get_packet_size returns the parsed packet size, if it could be determined,
+     * 0 if there is no enough data to determine the packet size, -1 if there is
+     * an error while parsing the packet header.
+     */
+    std::size_t bufsize = tail - head;
+    auto s_pkt_size = get_packet_size(head, bufsize);
     if (s_pkt_size == -1)
     {
         /* We only skip the first 8 bytes (i.e., the SPEAD header) hoping that
@@ -158,7 +165,19 @@ bool tcp_reader::parse_packet_size()
         return false;
     }
     else if (s_pkt_size == 0)
+    {
+        if (bufsize == max_size * pkts_per_buffer)
+        {
+            /* Discard the whole buffer hoping that a proper packet will appear
+             * later with a supported length
+             */
+            log_info("discarding whole buffer due to unsupported packet length");
+            head = tail;
+            return false;
+        }
         return true;
+    }
+
     pkt_size = std::size_t(s_pkt_size);
     if (pkt_size > max_size)
     {
