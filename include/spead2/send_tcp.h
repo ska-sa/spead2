@@ -84,8 +84,8 @@ private:
     /// Constructor taking a properly configured socket
     tcp_stream(
         io_service_ref io_service,
-        const stream_config &config,
-        boost::asio::ip::tcp::socket &&socket);
+        boost::asio::ip::tcp::socket &&socket,
+        const stream_config &config);
 
     template<typename Handler>
     void async_send_packet(const packet &pkt, Handler &&handler)
@@ -110,13 +110,14 @@ public:
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size)
         : tcp_stream(
-            io_service, config,
+            io_service,
             detail::make_socket(io_service, remote_endpoint, local_endpoint, buffer_size,
               [this, connect_handler] (boost::system::error_code e) {
                   if (!e)
                       connected.store(true);
                   connect_handler(e);
-              }))
+              }),
+            config)
     {
     }
 
@@ -133,13 +134,14 @@ public:
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size)
         : tcp_stream(
-            socket.get_io_service(), config,
+            socket.get_io_service(),
             detail::use_socket(std::move(socket), remote_endpoint, local_endpoint, buffer_size,
               [this, connect_handler] (boost::system::error_code e) {
                   if (!e)
                       connected.store(true);
                   connect_handler(e);
-              }))
+              }),
+            config)
     {
     }
 
@@ -157,13 +159,14 @@ public:
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size)
         : tcp_stream(
-            io_service, config,
+            io_service,
             detail::use_socket(std::move(socket), remote_endpoint, local_endpoint, buffer_size,
               [this, connect_handler] (boost::system::error_code e) {
                   if (!e)
                       connected.store(true);
                   connect_handler(e);
-              }))
+              }),
+            config)
     {
     }
 
