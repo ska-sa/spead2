@@ -306,9 +306,8 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthrough):
 
     def prepare_sender(self, thread_pool):
         send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        send_sock.connect(("127.0.0.1", self._port))
         sender = spead2.send.UdpStream(
-            thread_pool, send_sock,
+            thread_pool, send_sock, "127.0.0.1", self._port,
             spead2.send.StreamConfig(rate=1e7))
         send_sock.close()   # spead2 duplicates the socket
         return sender

@@ -142,8 +142,9 @@ udp_stream::udp_stream(
 
 udp_stream::udp_stream(
     boost::asio::ip::udp::socket &&socket,
+    const boost::asio::ip::udp::endpoint &endpoint,
     const stream_config &config)
-    : udp_stream(socket.get_io_service(), std::move(socket), config)
+    : udp_stream(socket.get_io_service(), std::move(socket), endpoint, config)
 {
 }
 
@@ -164,14 +165,10 @@ udp_stream::udp_stream(
 udp_stream::udp_stream(
     io_service_ref io_service,
     boost::asio::ip::udp::socket &&socket,
+    const boost::asio::ip::udp::endpoint &endpoint,
     const stream_config &config)
-    : stream_impl<udp_stream>(std::move(io_service), config),
-    socket(std::move(socket)), endpoint(this->socket.remote_endpoint())
+    : udp_stream(io_service, std::move(socket), endpoint, config, 0)
 {
-    if (endpoint.address().is_unspecified())
-        throw std::invalid_argument("Socket is not connected");
-    if (&get_io_service() != &this->socket.get_io_service())
-        throw std::invalid_argument("I/O service does not match the socket's I/O service");
 }
 
 } // namespace send
