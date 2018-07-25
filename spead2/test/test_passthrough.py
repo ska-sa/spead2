@@ -299,13 +299,14 @@ class TestPassthroughUdp6(BaseTestPassthroughIPv6):
 class TestPassthroughUdpCustomSocket(BaseTestPassthrough):
     def prepare_receiver(self, receiver):
         recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        recv_sock.bind(("127.0.0.1", 8888))
+        recv_sock.bind(("127.0.0.1", 0))
+        self._port = recv_sock.getsockname()[1]
         receiver.add_udp_reader(socket=recv_sock)
         recv_sock.close()   # spead2 duplicates the socket
 
     def prepare_sender(self, thread_pool):
         send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        send_sock.connect(("127.0.0.1", 8888))
+        send_sock.connect(("127.0.0.1", self._port))
         sender = spead2.send.UdpStream(
             thread_pool, send_sock,
             spead2.send.StreamConfig(rate=1e7))
@@ -363,14 +364,14 @@ class TestPassthroughTcp(BaseTestPassthrough):
 class TestPassthroughTcpCustomSocket(BaseTestPassthrough):
     def prepare_receiver(self, receiver):
         sock = socket.socket()
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(("127.0.0.1", 8887))
+        sock.bind(("127.0.0.1", 0))
+        self._port = sock.getsockname()[1]
         sock.listen(1)
         receiver.add_tcp_reader(sock)
 
     def prepare_sender(self, thread_pool):
         sock = socket.socket()
-        sock.connect(("127.0.0.1", 8887))
+        sock.connect(("127.0.0.1", self._port))
         return spead2.send.TcpStream(thread_pool, sock)
 
 
