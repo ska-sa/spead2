@@ -360,6 +360,20 @@ class TestPassthroughTcp(BaseTestPassthrough):
         return spead2.send.TcpStream(thread_pool, "127.0.0.1", 8887)
 
 
+class TestPassthroughTcpCustomSocket(BaseTestPassthrough):
+    def prepare_receiver(self, receiver):
+        sock = socket.socket()
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("127.0.0.1", 8887))
+        sock.listen(1)
+        receiver.add_tcp_reader(sock)
+
+    def prepare_sender(self, thread_pool):
+        sock = socket.socket()
+        sock.connect(("127.0.0.1", 8887))
+        return spead2.send.TcpStream(thread_pool, sock)
+
+
 class TestPassthroughTcp6(BaseTestPassthroughIPv6):
     def prepare_receiver(self, receiver):
         receiver.add_tcp_reader(8887, bind_hostname="::1")
