@@ -325,7 +325,6 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
         }
         else
         {
-
             udp::resolver resolver(thread_pool.get_io_service());
             udp::resolver::query query(host, port);
             udp::endpoint endpoint = *resolver.resolve(query);
