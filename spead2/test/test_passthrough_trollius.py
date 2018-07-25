@@ -15,6 +15,7 @@
 
 """Tests that data can be passed through the various async transports"""
 from __future__ import division, print_function, absolute_import
+import socket
 
 import trollius
 from trollius import From, Return
@@ -55,7 +56,7 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
                 break
             else:
                 received_item_group.update(heap)
-        return received_item_group
+        raise Return(received_item_group)
 
 
 class TestPassthroughUdp(BaseTestPassthroughAsync):
@@ -71,6 +72,25 @@ class TestPassthroughUdp(BaseTestPassthroughAsync):
             buffer_size=0, loop=self.loop)
 
 
+class TestPassthroughUdpCustomSocket(BaseTestPassthroughAsync):
+    @trollius.coroutine
+    def prepare_receiver(self, receiver):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.bind(('localhost', 8888))
+        receiver.add_udp_reader(sock)
+        sock.close()
+
+    @trollius.coroutine
+    def prepare_sender(self, thread_pool):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        sock.connect(('localhost', 8888))
+        stream = spead2.send.trollius.UdpStream(
+            thread_pool, sock, spead2.send.StreamConfig(rate=1e7),
+            loop=self.loop)
+        sock.close()
+        return stream
+
+
 class TestPassthroughTcp(BaseTestPassthroughAsync):
     @trollius.coroutine
     def prepare_receiver(self, receiver):
@@ -80,6 +100,28 @@ class TestPassthroughTcp(BaseTestPassthroughAsync):
     def prepare_sender(self, thread_pool):
         sender = yield From(spead2.send.trollius.TcpStream.connect(
             thread_pool, "127.0.0.1", 8888, loop=self.loop))
+        raise Return(sender)
+
+
+class TestPassthroughTcpCustomSocket(BaseTestPassthroughAsync):
+    @trollius.coroutine
+    def prepare_receiver(self, receiver):
+        sock = socket.socket()
+        # Prevent second iteration of the test from failing
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', 8888))
+        sock.listen(1)
+        receiver.add_tcp_reader(sock)
+        sock.close()
+
+    @trollius.coroutine
+    def prepare_sender(self, thread_pool):
+        sock = socket.socket()
+        sock.setblocking(0)
+        yield From(self.loop.sock_connect(sock, ('127.0.0.1', 8888)))
+        sender = spead2.send.trollius.TcpStream(
+            thread_pool, sock, loop=self.loop)
+        sock.close()
         raise Return(sender)
 
 

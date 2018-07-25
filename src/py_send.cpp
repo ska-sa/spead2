@@ -493,8 +493,9 @@ template<typename Base>
 class tcp_stream_wrapper : public Base
 {
 public:
-    /* All wrapping constructors take connect_handler as first argument, to
-     * faciliate the meta-programming used by registration code.
+    /* All wrapping constructors that use a connect_handler take it as the
+     * first argument, to faciliate the meta-programming used by registration
+     * code.
      */
     template<typename ConnectHandler>
     tcp_stream_wrapper(
@@ -508,6 +509,14 @@ public:
                make_endpoint<boost::asio::ip::tcp>(*io_service, hostname, port),
                make_endpoint<boost::asio::ip::tcp>(*io_service, bind_hostname, bind_port),
                config, buffer_size)
+    {
+    }
+
+    tcp_stream_wrapper(
+        io_service_ref io_service,
+        const socket_wrapper<boost::asio::ip::tcp::socket> &socket,
+        const stream_config &config)
+        : Base(std::move(io_service), socket.copy(*io_service), config)
     {
     }
 };
@@ -525,6 +534,11 @@ static py::class_<typename Registrar::stream_type> tcp_stream_register(py::modul
 
     typedef typename Registrar::stream_type T;
     py::class_<T> class_(m, name);
+    class_
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>,
+                      const socket_wrapper<boost::asio::ip::tcp::socket> &,
+                      const stream_config &>(),
+             "thread_pool"_a, "socket"_a, "config"_a = stream_config());
     Registrar::template apply<
             std::shared_ptr<thread_pool_wrapper>,
             const std::string &, std::uint16_t,

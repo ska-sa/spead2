@@ -110,9 +110,18 @@ _TcpStreamBase = _wrap_class('TcpStream', _TcpStreamAsyncio)
 class TcpStream(_TcpStreamBase):
     """SPEAD over TCP with asynchronous connect and sends.
 
-    Do not construct this class directly: the constructors are an
-    implementation detail. Use :py:meth:`connect` to asynchronously
-    connect to a receiver.
+    Most users will use :py:meth:`connect` to asynchronously create a stream.
+    The constructor should only be used if you wish to provide your own socket
+    and take care of connecting yourself.
+
+    Parameters
+    ----------
+    thread_pool : :py:class:`spead2.ThreadPool`
+        Thread pool handling the I/O
+    socket : :py:class:`socket.socket`
+        TCP/IP Socket that is already connected to the remote end
+    config : :py:class:`spead2.send.StreamConfig`
+        Stream configuration
     """
 
     @classmethod
