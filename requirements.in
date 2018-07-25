@@ -2,6 +2,7 @@ asynctest; python_version>='3.5'
 netifaces
 numpy
 nose
+nose-ignore-docstring
 decorator
 six
 trollius; python_version<'3.7'
