@@ -48,6 +48,7 @@ struct options
     bool pyspead = false;
     bool joint = false;
     bool tcp = false;
+    std::string bind;
     std::size_t packet;
     std::size_t buffer;
     int threads = 1;
@@ -61,10 +62,10 @@ struct options
     bool ring = false;
     bool memcpy_nt = false;
 #if SPEAD2_USE_NETMAP
-    std::string netmap_if;
+    bool netmap = false;
 #endif
 #if SPEAD2_USE_IBV
-    std::string ibv_if;
+    bool ibv = false;
     int ibv_comp_vector = 0;
     int ibv_max_poll = spead2::recv::udp_ibv_reader::default_max_poll;
 #endif
@@ -108,6 +109,7 @@ static options parse_args(int argc, const char **argv)
         ("pyspead", make_opt(opts.pyspead), "Be bug-compatible with PySPEAD")
         ("joint", make_opt(opts.joint), "Treat all sources as a single stream")
         ("tcp", make_opt(opts.tcp), "Receive data over TCP instead of UDP")
+        ("bind", make_opt(opts.bind), "Interface address for multicast")
         ("packet", make_opt_no_default(opts.packet), "Maximum packet size to use")
         ("buffer", make_opt_no_default(opts.buffer), "Socket buffer size")
         ("threads", make_opt(opts.threads), "Number of worker threads")
@@ -121,10 +123,10 @@ static options parse_args(int argc, const char **argv)
         ("ring", make_opt(opts.ring), "Use ringbuffer instead of callbacks")
         ("memcpy-nt", make_opt(opts.memcpy_nt), "Use non-temporal memcpy")
 #if SPEAD2_USE_NETMAP
-        ("netmap", make_opt(opts.netmap_if), "Netmap interface")
+        ("netmap", make_opt(opts.netmap), "Use netmap")
 #endif
 #if SPEAD2_USE_IBV
-        ("ibv", make_opt(opts.ibv_if), "Interface address for ibverbs")
+        ("ibv", make_opt(opts.ibv), "Use ibverbs")
         ("ibv-vector", make_opt(opts.ibv_comp_vector), "Interrupt vector (-1 for polled)")
         ("ibv-max-poll", make_opt(opts.ibv_max_poll), "Maximum number of times to poll in a row")
 #endif
@@ -168,11 +170,17 @@ static options parse_args(int argc, const char **argv)
             else
                 opts.buffer = spead2::recv::udp_reader::default_buffer_size;
         }
+#if SPEAD2_USE_IBV
+        if (opts.ibv && opts.bind.empty())
+            throw po::error("--ibv requires --bind");
+#endif
 #if SPEAD2_USE_NETMAP
-        if (opts.sources.size() > 1 && opts.netmap_if != "")
-        {
+        if (opts.sources.size() > 1 && opts.netmap)
             throw po::error("--netmap cannot be used with multiple sources");
-        }
+#endif
+#if SPEAD2_USE_IBV && SPEAD2_USE_NETMAP
+        if (opts.ibv && opts.netmap)
+            throw po::error("--ibv and --netmap are mutually exclusive");
 #endif
         return opts;
     }
@@ -329,21 +337,31 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
             udp::resolver::query query(host, port);
             udp::endpoint endpoint = *resolver.resolve(query);
 #if SPEAD2_USE_NETMAP
-            if (opts.netmap_if != "")
+            if (opts.netmap)
             {
                 stream->emplace_reader<spead2::recv::netmap_udp_reader>(
-                    opts.netmap_if, endpoint.port());
+                    opts.bind, endpoint.port());
             }
             else
 #endif
 #if SPEAD2_USE_IBV
-            if (opts.ibv_if != "")
+            if (opts.ibv)
             {
                 ibv_endpoints.push_back(endpoint);
             }
             else
 #endif
+            if (endpoint.address().is_multicast() && endpoint.address().is_v4()
+                && !opts.bind.empty())
             {
+                stream->emplace_reader<spead2::recv::udp_reader>(
+                    endpoint, opts.packet, opts.buffer,
+                    boost::asio::ip::address_v4::from_string(opts.bind));
+            }
+            else
+            {
+                if (!opts.bind.empty())
+                    std::cerr << "--bind is only applicable to IPv4 multicast, ignoring\n";
                 stream->emplace_reader<spead2::recv::udp_reader>(endpoint, opts.packet, opts.buffer);
             }
         }
@@ -351,7 +369,7 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
 #if SPEAD2_USE_IBV
     if (!ibv_endpoints.empty())
     {
-        boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(opts.ibv_if);
+        boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(opts.bind);
         stream->emplace_reader<spead2::recv::udp_ibv_reader>(
             ibv_endpoints, interface_address, opts.packet, opts.buffer,
             opts.ibv_comp_vector, opts.ibv_max_poll);
