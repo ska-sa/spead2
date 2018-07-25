@@ -173,14 +173,18 @@ static options parse_args(int argc, const char **argv)
 #if SPEAD2_USE_IBV
         if (opts.ibv && opts.bind.empty())
             throw po::error("--ibv requires --bind");
+        if (opts.tcp && opts.ibv)
+            throw po::error("--ibv and --tcp are incompatible");
 #endif
 #if SPEAD2_USE_NETMAP
         if (opts.sources.size() > 1 && opts.netmap)
             throw po::error("--netmap cannot be used with multiple sources");
+        if (opts.tcp && opts.netmap)
+            throw po::error("--netmap and --tcp are incompatible");
 #endif
 #if SPEAD2_USE_IBV && SPEAD2_USE_NETMAP
         if (opts.ibv && opts.netmap)
-            throw po::error("--ibv and --netmap are mutually exclusive");
+            throw po::error("--ibv and --netmap are incompatible");
 #endif
         return opts;
     }

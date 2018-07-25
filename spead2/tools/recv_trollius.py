@@ -1,4 +1,4 @@
-# Copyright 2015, 2017 SKA South Africa
+# Copyright 2015, 2017-2018 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -42,12 +42,14 @@ def get_args():
     group.add_argument('--max-heaps', type=int, help='Stop receiving after this many heaps')
 
     group = parser.add_argument_group('Protocol options')
+    group.add_argument('--tcp', action='store_true', help='Receive data over TCP instead of UDP')
+    group.add_argument('--bind', type=str, default='', help='Interface address for multicast')
     group.add_argument('--pyspead', action='store_true', help='Be bug-compatible with PySPEAD')
     group.add_argument('--joint', action='store_true', help='Treat all sources as a single stream')
     group.add_argument('--packet', type=int, default=spead2.recv.Stream.DEFAULT_UDP_MAX_SIZE, help='Maximum packet size to accept for UDP [%(default)s]')
 
     group = parser.add_argument_group('Performance options')
-    group.add_argument('--buffer', type=int, default=spead2.recv.Stream.DEFAULT_UDP_BUFFER_SIZE, help='Socket buffer size [%(default)s]')
+    group.add_argument('--buffer', type=int, help='Socket buffer size')
     group.add_argument('--threads', type=int, default=1, help='Number of worker threads [%(default)s]')
     group.add_argument('--heaps', type=int, default=spead2.recv.Stream.DEFAULT_MAX_HEAPS, help='Maximum number of in-flight heaps [%(default)s]')
     group.add_argument('--ring-heaps', type=int, default=spead2.recv.Stream.DEFAULT_RING_HEAPS, help='Ring buffer capacity in heaps [%(default)s]')
@@ -59,10 +61,21 @@ def get_args():
     group.add_argument('--memcpy-nt', action='store_true', help='Use non-temporal memcpy')
     group.add_argument('--affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
     if hasattr(spead2.recv.Stream, 'add_udp_ibv_reader'):
-        group.add_argument('--ibv', type=str, metavar='ADDRESS', help='Use ibverbs with this interface address [no]')
+        group.add_argument('--ibv', action='store_true', help='Use ibverbs [no]')
         group.add_argument('--ibv-vector', type=int, default=0, metavar='N', help='Completion vector, or -1 to use polling [%(default)s]')
         group.add_argument('--ibv-max-poll', type=int, default=spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL, help='Maximum number of times to poll in a row [%(default)s]')
-    return parser.parse_args()
+
+    args = parser.parse_args()
+    if args.ibv and not args.bind:
+        parser.error('--ibv requires --bind')
+    if args.tcp and args.ibv:
+        parser.error('--ibv and --tcp are incompatible')
+    if args.buffer is None:
+        if args.tcp:
+            args.buffer = spead2.recv.trollius.Stream.DEFAULT_TCP_BUFFER_SIZE
+        else:
+            args.buffer = spead2.recv.trollius.Stream.DEFAULT_UDP_BUFFER_SIZE
+    return args
 
 
 @trollius.coroutine
@@ -129,14 +142,18 @@ def main():
                 except AttributeError:
                     raise RuntimeError('spead2 was compiled without pcap support')
             else:
-                if 'ibv' in args and args.ibv is not None:
+                if args.tcp:
+                    stream.add_tcp_reader(port, args.packet, args.buffer, host)
+                elif 'ibv' in args and args.ibv:
                     if host is None:
                         raise ValueError('a multicast group is required when using --ibv')
                     ibv_endpoints.append((host, port))
+                elif args.bind and host:
+                    stream.add_udp_reader(host, port, args.packet, args.buffer, args.bind)
                 else:
                     stream.add_udp_reader(port, args.packet, args.buffer, host)
         if ibv_endpoints:
-            stream.add_udp_ibv_reader(ibv_endpoints, args.ibv, args.packet,
+            stream.add_udp_ibv_reader(ibv_endpoints, args.bind, args.packet,
                                       args.buffer, args.ibv_vector, args.ibv_max_poll)
         return stream
 

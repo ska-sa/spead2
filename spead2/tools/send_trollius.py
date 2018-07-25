@@ -46,13 +46,15 @@ def get_args():
     group.add_argument('--log', metavar='LEVEL', default='INFO', help='Log level [%(default)s]')
 
     group = parser.add_argument_group('Protocol options')
+    group.add_argument('--tcp', action='store_true', help='Use TCP instead of UDP')
+    group.add_argument('--bind', type=str, default='', help='Local address to bind sockets to')
     group.add_argument('--pyspead', action='store_true', help='Be bug-compatible with PySPEAD')
     group.add_argument('--addr-bits', type=int, default=40, help='Heap address bits [%(default)s]')
     group.add_argument('--packet', type=int, default=spead2.send.StreamConfig.DEFAULT_MAX_PACKET_SIZE, help='Maximum packet size to send [%(default)s]')
     group.add_argument('--descriptors', type=int, help='Description issue frequency [only at start]')
 
     group = parser.add_argument_group('Performance options')
-    group.add_argument('--buffer', type=int, default=spead2.send.trollius.UdpStream.DEFAULT_BUFFER_SIZE, help='Socket buffer size  [%(default)s]')
+    group.add_argument('--buffer', type=int, help='Socket buffer size')
     group.add_argument('--threads', type=int, default=1, help='Number of worker threads [%(default)s]')
     group.add_argument('--burst', metavar='BYTES', type=int, default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE, help='Burst size [%(default)s]')
     group.add_argument('--rate', metavar='Gb/s', type=float, default=0, help='Transmission rate bound [no limit]')
@@ -60,11 +62,21 @@ def get_args():
     group.add_argument('--ttl', type=int, help='TTL for multicast target [1]')
     group.add_argument('--affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
     if hasattr(spead2.send, 'UdpIbvStream'):
-        group.add_argument('--ibv', type=str, metavar='ADDRESS', help='Use ibverbs with this interface address [no]')
+        group.add_argument('--ibv', action='store_true', help='Use ibverbs [no]')
         group.add_argument('--ibv-vector', type=int, default=0, metavar='N', help='Completion vector, or -1 to use polling [%(default)s]')
         group.add_argument('--ibv-max-poll', type=int, default=spead2.send.UdpIbvStream.DEFAULT_MAX_POLL, help='Maximum number of times to poll in a row [%(default)s]')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.ibv and not args.bind:
+        parser.error('--ibv requires --bind')
+    if args.tcp and args.ibv:
+        parser.error('--ibv and --tcp are incompatible')
+    if args.buffer is None:
+        if args.tcp:
+            args.buffer = spead2.send.trollius.TcpStream.DEFAULT_BUFFER_SIZE
+        else:
+            args.buffer = spead2.send.trollius.UdpStream.DEFAULT_BUFFER_SIZE
+    return args
 
 
 @trollius.coroutine
@@ -105,7 +117,8 @@ def run(item_group, stream, args):
         n_bytes, elapsed, n_bytes * 8 / elapsed / 1e9))
 
 
-def main():
+@trollius.coroutine
+def async_main():
     args = get_args()
     logging.basicConfig(level=getattr(logging, args.log.upper()))
 
@@ -134,20 +147,27 @@ def main():
         burst_size=args.burst,
         rate=args.rate * 10**9 / 8,
         burst_rate_ratio=args.burst_rate_ratio)
-    if 'ibv' in args and args.ibv is not None:
+    if args.tcp:
+        stream = yield From(spead2.send.trollius.TcpStream.connect(
+            thread_pool, args.host, args.port, config, args.buffer, args.bind))
+    elif 'ibv' in args and args.ibv:
         stream = spead2.send.trollius.UdpIbvStream(
-            thread_pool, args.host, args.port, config, args.ibv,
+            thread_pool, args.host, args.port, config, args.bind,
             args.buffer, args.ttl or 1, args.ibv_vector, args.ibv_max_poll)
-    elif args.ttl is not None:
-        stream = spead2.send.trollius.UdpStream(
-            thread_pool, args.host, args.port, config, args.buffer, ttl=args.ttl)
     else:
-        # This is handled as a separate case, because passing TTL is only
-        # valid for multicast addresses.
+        kwargs = {}
+        if args.ttl is not None:
+            kwargs['ttl'] = args.ttl
+        if args.bind:
+            kwargs['interface_address'] = args.bind
         stream = spead2.send.trollius.UdpStream(
-            thread_pool, args.host, args.port, config, args.buffer)
+            thread_pool, args.host, args.port, config, args.buffer, **kwargs)
 
+    yield From(run(item_group, stream, args))
+
+
+def main():
     try:
-        trollius.get_event_loop().run_until_complete(run(item_group, stream, args))
+        trollius.get_event_loop().run_until_complete(async_main())
     except KeyboardInterrupt:
         sys.exit(1)

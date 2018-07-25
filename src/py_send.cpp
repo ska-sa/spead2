@@ -535,7 +535,8 @@ static py::class_<typename Registrar::stream_type> tcp_stream_register(py::modul
         .def(py::init<std::shared_ptr<thread_pool_wrapper>,
                       const socket_wrapper<boost::asio::ip::tcp::socket> &,
                       const stream_config &>(),
-             "thread_pool"_a, "socket"_a, "config"_a = stream_config());
+             "thread_pool"_a, "socket"_a, "config"_a = stream_config())
+        .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size);
     Registrar::template apply<
             std::shared_ptr<thread_pool_wrapper>,
             const std::string &, std::uint16_t,
