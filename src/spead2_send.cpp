@@ -56,7 +56,7 @@ struct options
     double rate = 0.0;
     int ttl = 1;
 #if SPEAD2_USE_IBV
-    std::string ibv_if;
+    bool ibv = false;
     int ibv_comp_vector = 0;
     int ibv_max_poll = spead2::send::udp_ibv_stream::default_max_poll;
 #endif
@@ -107,7 +107,7 @@ static options parse_args(int argc, const char **argv)
         ("rate", make_opt(opts.rate), "Transmission rate bound (Gb/s)")
         ("ttl", make_opt(opts.ttl), "TTL for multicast target")
 #if SPEAD2_USE_IBV
-        ("ibv", make_opt(opts.ibv_if), "Interface address for ibverbs")
+        ("ibv", make_opt(opts.ibv), "Use ibverbs")
         ("ibv-vector", make_opt(opts.ibv_comp_vector), "Interrupt vector (-1 for polled)")
         ("ibv-max-poll", make_opt(opts.ibv_max_poll), "Maximum number of times to poll in a row")
 #endif
@@ -138,8 +138,6 @@ static options parse_args(int argc, const char **argv)
         }
         if (!vm.count("host") || !vm.count("port"))
             throw po::error("too few positional options have been specified on the command line");
-        if (!opts.bind.empty() && !opts.tcp)
-            throw po::error("--bind not yet supported by UDP");
         if (!vm.count("buffer"))
         {
             if (opts.tcp)
@@ -147,6 +145,10 @@ static options parse_args(int argc, const char **argv)
             else
                 opts.buffer = spead2::send::udp_stream::default_buffer_size;
         }
+#if SPEAD2_USE_IBV
+        if (opts.ibv && opts.bind.empty())
+            throw po::error("--ibv requires --bind");
+#endif
         return opts;
     }
     catch (po::error &e)
@@ -272,12 +274,12 @@ int main(int argc, const char **argv)
         spead2::send::stream_config::default_max_heaps, opts.burst_rate_ratio);
     std::unique_ptr<spead2::send::stream> stream;
     auto &io_service = thread_pool.get_io_service();
+    boost::asio::ip::address interface_address;
+    if (!opts.bind.empty())
+        interface_address = boost::asio::ip::address::from_string(opts.bind);
+
     if (opts.tcp) {
         tcp::endpoint endpoint = get_endpoint<tcp>(io_service, opts);
-        tcp::endpoint local_endpoint;
-        if (!opts.bind.empty())
-            local_endpoint = tcp::endpoint(boost::asio::ip::address::from_string(opts.bind), 0);
-
         auto promise = std::promise<void>();
         auto connect_handler = [&promise] (boost::system::error_code e) {
             if (e)
@@ -286,16 +288,15 @@ int main(int argc, const char **argv)
                 promise.set_value();
         };
         stream.reset(new spead2::send::tcp_stream(
-                    io_service, connect_handler, endpoint, local_endpoint, config, opts.buffer));
+                    io_service, connect_handler, endpoint, config, opts.buffer, interface_address));
         promise.get_future().get();
     }
     else
     {
         udp::endpoint endpoint = get_endpoint<udp>(io_service, opts);
 #if SPEAD2_USE_IBV
-        if (opts.ibv_if != "")
+        if (opts.ibv)
         {
-            boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(opts.ibv_if);
             stream.reset(new spead2::send::udp_ibv_stream(
                     io_service, endpoint, config,
                     interface_address, opts.buffer, opts.ttl,
@@ -305,11 +306,25 @@ int main(int argc, const char **argv)
 #endif
         {
             if (endpoint.address().is_multicast())
-                stream.reset(new spead2::send::udp_stream(
-                        io_service, endpoint, config, opts.buffer, opts.ttl));
+            {
+                if (endpoint.address().is_v4())
+                    stream.reset(new spead2::send::udp_stream(
+                            io_service, endpoint, config, opts.buffer,
+                            opts.ttl, interface_address));
+                else
+                {
+                    if (!opts.bind.empty())
+                        std::cerr << "--bind is not yet supported for IPv6 multicast, ignoring\n";
+                    stream.reset(new spead2::send::udp_stream(
+                            io_service, endpoint, config, opts.buffer,
+                            opts.ttl));
+                }
+            }
             else
+            {
                 stream.reset(new spead2::send::udp_stream(
-                        io_service, endpoint, config, opts.buffer));
+                        io_service, endpoint, config, opts.buffer, interface_address));
+            }
         }
     }
     return run(*stream, opts);

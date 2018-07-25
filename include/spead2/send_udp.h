@@ -53,7 +53,8 @@ public:
         io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config = stream_config(),
-        std::size_t buffer_size = default_buffer_size);
+        std::size_t buffer_size = default_buffer_size,
+        const boost::asio::ip::address &interface_address = boost::asio::ip::address());
 
     /**
      * Constructor using an existing socket. The socket must be open but

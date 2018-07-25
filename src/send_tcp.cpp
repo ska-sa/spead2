@@ -32,11 +32,11 @@ namespace detail
 
 void prepare_socket(
     boost::asio::ip::tcp::socket &socket,
-    const boost::asio::ip::tcp::endpoint &local_endpoint,
-    std::size_t buffer_size)
+    std::size_t buffer_size,
+    const boost::asio::ip::address &interface_address)
 {
-    if (!local_endpoint.address().is_unspecified())
-        socket.bind(local_endpoint);
+    if (!interface_address.is_unspecified())
+        socket.bind(boost::asio::ip::tcp::endpoint(interface_address, 0));
     set_socket_send_buffer_size(socket, buffer_size);
 }
 

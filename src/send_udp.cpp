@@ -28,13 +28,25 @@ namespace send
 
 constexpr std::size_t udp_stream::default_buffer_size;
 
+static boost::asio::ip::udp::socket make_socket(
+    boost::asio::io_service &io_service,
+    const boost::asio::ip::udp &protocol,
+    const boost::asio::ip::address &interface_address)
+{
+    boost::asio::ip::udp::socket socket(io_service, protocol);
+    if (!interface_address.is_unspecified())
+        socket.bind(boost::asio::ip::udp::endpoint(interface_address, 0));
+    return socket;
+}
+
 udp_stream::udp_stream(
     io_service_ref io_service,
     const boost::asio::ip::udp::endpoint &endpoint,
     const stream_config &config,
-    std::size_t buffer_size)
+    std::size_t buffer_size,
+    const boost::asio::ip::address &interface_address)
     : udp_stream(std::move(io_service),
-                 boost::asio::ip::udp::socket(*io_service, endpoint.protocol()),
+                 make_socket(*io_service, endpoint.protocol(), interface_address),
                  endpoint, config, buffer_size)
 {
 }
@@ -59,11 +71,12 @@ static boost::asio::ip::udp::socket make_multicast_v4_socket(
 {
     if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
         throw std::invalid_argument("endpoint is not an IPv4 multicast address");
-    if (!interface_address.is_v4())
+    if (!interface_address.is_unspecified() && !interface_address.is_v4())
         throw std::invalid_argument("interface address is not an IPv4 address");
     boost::asio::ip::udp::socket socket(io_service, endpoint.protocol());
     socket.set_option(boost::asio::ip::multicast::hops(ttl));
-    socket.set_option(boost::asio::ip::multicast::outbound_interface(interface_address.to_v4()));
+    if (!interface_address.is_unspecified())
+        socket.set_option(boost::asio::ip::multicast::outbound_interface(interface_address.to_v4()));
     return socket;
 }
 

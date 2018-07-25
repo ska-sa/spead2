@@ -39,20 +39,20 @@ namespace detail
 
 void prepare_socket(
     boost::asio::ip::tcp::socket &socket,
-    const boost::asio::ip::tcp::endpoint &local_endpoint,
-    std::size_t buffer_size);
+    std::size_t buffer_size,
+    const boost::asio::ip::address &interface_address);
 
 template<typename ConnectHandler>
 boost::asio::ip::tcp::socket make_socket(
     const io_service_ref &io_service,
-    const boost::asio::ip::tcp::endpoint &remote_endpoint,
-    const boost::asio::ip::tcp::endpoint &local_endpoint,
+    const boost::asio::ip::tcp::endpoint &endpoint,
     std::size_t buffer_size,
+    const boost::asio::ip::address &interface_address,
     ConnectHandler &&connect_handler)
 {
-    boost::asio::ip::tcp::socket socket(*io_service, remote_endpoint.protocol());
-    prepare_socket(socket, local_endpoint, buffer_size);
-    socket.async_connect(remote_endpoint, connect_handler);
+    boost::asio::ip::tcp::socket socket(*io_service, endpoint.protocol());
+    prepare_socket(socket, buffer_size, interface_address);
+    socket.async_connect(endpoint, connect_handler);
     return socket;
 }
 
@@ -93,13 +93,13 @@ public:
     tcp_stream(
         io_service_ref io_service,
         ConnectHandler &&connect_handler,
-        const boost::asio::ip::tcp::endpoint &remote_endpoint,
-        const boost::asio::ip::tcp::endpoint &local_endpoint = boost::asio::ip::tcp::endpoint(),
+        const boost::asio::ip::tcp::endpoint &endpoint,
         const stream_config &config = stream_config(),
-        std::size_t buffer_size = default_buffer_size)
+        std::size_t buffer_size = default_buffer_size,
+        const boost::asio::ip::address &interface_address = boost::asio::ip::address())
         : tcp_stream(
             io_service,
-            detail::make_socket(io_service, remote_endpoint, local_endpoint, buffer_size,
+            detail::make_socket(io_service, endpoint, buffer_size, interface_address,
                 [this, connect_handler] (boost::system::error_code ec)
                 {
                     if (!ec)

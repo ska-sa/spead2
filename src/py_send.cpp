@@ -252,7 +252,7 @@ static boost::asio::ip::address make_address(
     boost::asio::io_service &io_service, const std::string &hostname)
 {
     if (hostname == "")
-        return boost::asio::ip::address_v4::any();
+        return boost::asio::ip::address();
     py::gil_scoped_release gil;
 
     using boost::asio::ip::udp;
@@ -303,28 +303,6 @@ private:
             deprecation_warning("UdpStream constructor with both endpoint and socket is deprecated");
     }
 
-    udp_stream_wrapper(
-        io_service_ref io_service,
-        const boost::asio::ip::udp::endpoint &endpoint,
-        const stream_config &config,
-        std::size_t buffer_size,
-        int ttl)
-        : Base(std::move(io_service), endpoint, config, buffer_size, ttl)
-    {
-    }
-
-    template<typename T>
-    udp_stream_wrapper(
-        io_service_ref io_service,
-        const boost::asio::ip::udp::endpoint &endpoint,
-        const stream_config &config,
-        std::size_t buffer_size,
-        int ttl,
-        const T &interface)
-        : Base(std::move(io_service), endpoint, config, buffer_size, ttl, interface)
-    {
-    }
-
 public:
     udp_stream_wrapper(
         io_service_ref io_service,
@@ -342,12 +320,27 @@ public:
 
     udp_stream_wrapper(
         io_service_ref io_service,
+        const std::string &hostname,
+        std::uint16_t port,
+        const stream_config &config,
+        std::size_t buffer_size,
+        const std::string &interface_address)
+        : Base(
+            std::move(io_service),
+            make_endpoint<boost::asio::ip::udp>(*io_service, hostname, port),
+            config, buffer_size,
+            make_address(*io_service, interface_address))
+    {
+    }
+
+    udp_stream_wrapper(
+        io_service_ref io_service,
         const std::string &multicast_group,
         std::uint16_t port,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl)
-        : udp_stream_wrapper(
+        : Base(
             std::move(io_service),
             make_endpoint<boost::asio::ip::udp>(*io_service, multicast_group, port),
             config, buffer_size, ttl)
@@ -362,12 +355,12 @@ public:
         std::size_t buffer_size,
         int ttl,
         const std::string &interface_address)
-        : udp_stream_wrapper(
+        : Base(
             std::move(io_service),
             make_endpoint<boost::asio::ip::udp>(*io_service, multicast_group, port),
             config, buffer_size, ttl,
             interface_address.empty() ?
-                boost::asio::ip::address_v4::any() :
+                boost::asio::ip::address() :
                 make_address(*io_service, interface_address))
     {
     }
@@ -380,7 +373,7 @@ public:
         std::size_t buffer_size,
         int ttl,
         unsigned int interface_index)
-        : udp_stream_wrapper(
+        : Base(
             std::move(io_service),
             make_endpoint<boost::asio::ip::udp>(*io_service, multicast_group, port),
             config, buffer_size, ttl, interface_index)
@@ -446,12 +439,17 @@ static py::class_<T> udp_stream_register(py::module &m, const char *name)
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
              "socket"_a = py::none())
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, const std::string &>(),
+             "thread_pool"_a, "hostname"_a, "port"_a,
+             "config"_a = stream_config(),
+             "buffer_size"_a = T::default_buffer_size,
+             "interface_address"_a = std::string())
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, int>(),
              "thread_pool"_a, "hostname"_a, "port"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
              "ttl"_a)
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, int, std::string>(),
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, int, std::string &>(),
              "thread_pool"_a, "multicast_group"_a, "port"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
@@ -502,13 +500,12 @@ public:
         ConnectHandler&& connect_handler,
         io_service_ref io_service,
         const std::string &hostname, std::uint16_t port,
-        const std::string &bind_hostname, std::uint16_t bind_port,
         const stream_config &config,
-        std::size_t buffer_size)
+        std::size_t buffer_size,
+        const std::string &interface_address)
         : Base(std::move(io_service), connect_handler,
                make_endpoint<boost::asio::ip::tcp>(*io_service, hostname, port),
-               make_endpoint<boost::asio::ip::tcp>(*io_service, bind_hostname, bind_port),
-               config, buffer_size)
+               config, buffer_size, make_address(*io_service, interface_address))
     {
     }
 
@@ -542,13 +539,12 @@ static py::class_<typename Registrar::stream_type> tcp_stream_register(py::modul
     Registrar::template apply<
             std::shared_ptr<thread_pool_wrapper>,
             const std::string &, std::uint16_t,
-            const std::string &, std::uint16_t,
-            const stream_config &, std::size_t>(
+            const stream_config &, std::size_t, const std::string &>(
         class_,
         "thread_pool"_a, "hostname"_a, "port"_a,
-        "bind_hostname"_a = "", "bind_port"_a = 0,
         "config"_a = stream_config(),
-        "buffer_size"_a = T::default_buffer_size);
+        "buffer_size"_a = T::default_buffer_size,
+        "interface_address"_a = "");
     return class_;
 }
 
