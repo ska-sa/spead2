@@ -76,6 +76,8 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughAsync):
     @trollius.coroutine
     def prepare_receiver(self, receiver):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        # Prevent second iteration of the test from failing
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(('localhost', 8888))
         receiver.add_udp_reader(sock)
         sock.close()
