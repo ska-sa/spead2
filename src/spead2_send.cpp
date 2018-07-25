@@ -30,6 +30,7 @@
 #include <spead2/send_stream.h>
 #include <spead2/send_udp.h>
 #include <spead2/send_tcp.h>
+#include <spead2/common_features.h>
 #if SPEAD2_USE_IBV
 # include <spead2/send_udp_ibv.h>
 #endif
