@@ -37,24 +37,11 @@ namespace send
 namespace detail
 {
 
-void prepare_socket(
-    boost::asio::ip::tcp::socket &socket,
-    std::size_t buffer_size,
-    const boost::asio::ip::address &interface_address);
-
-template<typename ConnectHandler>
 boost::asio::ip::tcp::socket make_socket(
     const io_service_ref &io_service,
     const boost::asio::ip::tcp::endpoint &endpoint,
     std::size_t buffer_size,
-    const boost::asio::ip::address &interface_address,
-    ConnectHandler &&connect_handler)
-{
-    boost::asio::ip::tcp::socket socket(*io_service, endpoint.protocol());
-    prepare_socket(socket, buffer_size, interface_address);
-    socket.async_connect(endpoint, connect_handler);
-    return socket;
-}
+    const boost::asio::ip::address &interface_address);
 
 } // namespace detail
 
@@ -67,13 +54,6 @@ private:
     boost::asio::ip::tcp::socket socket;
     /// Whether the underlying socket is already connected or not
     std::atomic<bool> connected{false};
-
-    /// Constructor taking a properly configured socket
-    tcp_stream(
-        io_service_ref io_service,
-        boost::asio::ip::tcp::socket &&socket,
-        const stream_config &config,
-        bool already_connected);
 
     template<typename Handler>
     void async_send_packet(const packet &pkt, Handler &&handler)
@@ -88,7 +68,22 @@ public:
     /// Socket send buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 208 * 1024;
 
-    /// Constructor
+    /**
+     * Constructor. A callback is provided to indicate when the connection is
+     * established.
+     *
+     * @warning The callback may be called before the constructor returns. The
+     * implementation of the callback needs to be prepared to handle this case.
+     *
+     * @param io_service   I/O service for sending data
+     * @param connect_handler  Callback when connection is established. It is called
+     *                     with a @c boost::system::error_code to indicate whether
+     *                     connection was successful.
+     * @param endpoint     Destination host and port
+     * @param config       Stream configuration
+     * @param buffer_size  Socket buffer size (0 for OS default)
+     * @param interface_address   Address of the outgoing interface
+     */
     template<typename ConnectHandler>
     tcp_stream(
         io_service_ref io_service,
@@ -97,17 +92,16 @@ public:
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size,
         const boost::asio::ip::address &interface_address = boost::asio::ip::address())
-        : tcp_stream(
-            io_service,
-            detail::make_socket(io_service, endpoint, buffer_size, interface_address,
-                [this, connect_handler] (boost::system::error_code ec)
-                {
-                    if (!ec)
-                        connected.store(true);
-                    connect_handler(ec);
-                }),
-            config, false)
+        : stream_impl(std::move(io_service), config),
+        socket(detail::make_socket(get_io_service(), endpoint, buffer_size, interface_address))
     {
+        socket.async_connect(endpoint,
+            [this, connect_handler] (boost::system::error_code ec)
+            {
+                if (!ec)
+                    connected.store(true);
+                connect_handler(ec);
+            });
     }
 
     /**

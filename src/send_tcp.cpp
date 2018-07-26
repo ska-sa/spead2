@@ -30,14 +30,17 @@ namespace send
 namespace detail
 {
 
-void prepare_socket(
-    boost::asio::ip::tcp::socket &socket,
+boost::asio::ip::tcp::socket make_socket(
+    const io_service_ref &io_service,
+    const boost::asio::ip::tcp::endpoint &endpoint,
     std::size_t buffer_size,
     const boost::asio::ip::address &interface_address)
 {
+    boost::asio::ip::tcp::socket socket(*io_service, endpoint.protocol());
     if (!interface_address.is_unspecified())
         socket.bind(boost::asio::ip::tcp::endpoint(interface_address, 0));
     set_socket_send_buffer_size(socket, buffer_size);
+    return socket;
 }
 
 } // namespace detail
@@ -47,11 +50,10 @@ constexpr std::size_t tcp_stream::default_buffer_size;
 tcp_stream::tcp_stream(
     io_service_ref io_service,
     boost::asio::ip::tcp::socket &&socket,
-    const stream_config &config,
-    bool already_connected)
-    : stream_impl(io_service, config),
+    const stream_config &config)
+    : stream_impl(std::move(io_service), config),
     socket(std::move(socket)),
-    connected(already_connected)
+    connected(true)
 {
     if (&get_io_service() != &this->socket.get_io_service())
         throw std::invalid_argument("I/O service does not match the socket's I/O service");
@@ -60,15 +62,7 @@ tcp_stream::tcp_stream(
 tcp_stream::tcp_stream(
     boost::asio::ip::tcp::socket &&socket,
     const stream_config &config)
-    : tcp_stream(socket.get_io_service(), std::move(socket), config, true)
-{
-}
-
-tcp_stream::tcp_stream(
-    io_service_ref io_service,
-    boost::asio::ip::tcp::socket &&socket,
-    const stream_config &config)
-    : tcp_stream(std::move(io_service), std::move(socket), config, true)
+    : tcp_stream(socket.get_io_service(), std::move(socket), config)
 {
 }
 
