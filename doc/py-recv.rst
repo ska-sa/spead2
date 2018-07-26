@@ -39,7 +39,8 @@ Blocking receive
 ^^^^^^^^^^^^^^^^
 To do blocking receive, create a :py:class:`spead2.recv.Stream`, and add
 transports to it with :py:meth:`~spead2.recv.Stream.add_buffer_reader`,
-:py:meth:`~spead2.recv.Stream.add_udp_reader` or
+:py:meth:`~spead2.recv.Stream.add_udp_reader`,
+:py:meth:`~spead2.recv.Stream.add_tcp_reader` or
 :py:meth:`~spead2.recv.Stream.add_udp_pcap_file_reader`. Then either iterate over
 it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
@@ -106,6 +107,9 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
         it alive. This is mainly useful for fine-tuning socket options such
         as multicast subscriptions.
 
+        .. deprecated:: 1.9
+           Use the overload that doesn't take a `buffer_size` or `bind_hostname`.
+
    .. py:method:: add_udp_reader(multicast_group, port, max_size=DEFAULT_UDP_MAX_SIZE, buffer_size=DEFAULT_UDP_BUFFER_SIZE, interface_address)
 
       Feed data from a UDP port with multicast (IPv4 only).
@@ -131,6 +135,30 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
         will be logged, but there will not be an error.
       :param str interface_index: Index of the interface which will be
         subscribed, or 0 to let the OS decide.
+
+   .. py:method:: add_tcp_reader(port, max_size=DEFAULT_TCP_MAX_SIZE, buffer_size=DEFAULT_TCP_BUFFER_SIZE, bind_hostname='')
+
+      Receive data over TCP/IP. This will listen for a single incoming
+      connection, after which no new connections will be accepted. When the
+      connection is closed, the stream is stopped.
+
+      :param int port: TCP port number
+      :param int max_size: Largest packet size that will be accepted.
+      :param int buffer_size: Kernel socket buffer size. If this is 0, the OS
+        default is used. If a buffer this large cannot be allocated, a warning
+        will be logged, but there will not be an error.
+      :param str bind_hostname: If specified, the socket will be bound to the
+        first IP address found by resolving the given hostname.
+
+   .. py:method:: add_tcp_reader(acceptor, max_size=DEFAULT_TCP_MAX_SIZE)
+
+      Receive data over TCP/IP. This is similar to the previous overload, but
+      takes a user-provided socket, which must already be listening for
+      connections. It duplicates the acceptor socket, so the original can be
+      closed immediately.
+
+      :param socket.socket acceptor: Listening socket
+      :param int max_size: Largest packet size that will be accepted.
 
    .. py:method:: add_udp_pcap_file_reader(filename)
 

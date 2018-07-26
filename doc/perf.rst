@@ -19,7 +19,7 @@ The first thing to do is to increase the maximum socket buffer sizes. See
 :doc:`introduction` for details.
 
 The kernel firewall can affect performance, particularly if
-small packets are not being used (in this context, anything that isn't a jumbo
+small packets are being used (in this context, anything that isn't a jumbo
 frame is considered "small"). If possible, remove all firewall rules and
 unload the kernel modules (those prefixed with ``ipt`` or ``nf``). In
 particular, simply having the ``nf_conntrack`` module loaded can reduce
@@ -68,6 +68,11 @@ stream starts and the system must ramp up performance in response.
 .. [#pstate2] https://www.phoronix.com/scan.php?page=article&item=linux-47-schedutil
 .. [#pstate3] https://www.phoronix.com/scan.php?page=news_item&px=Linux-4.4-CPUFreq-P-State-Gov
 
+The above all applies to UDP. For TCP, dropped packets are not a concern, and
+overly large buffers may actually be counter-productive as they do not fit in
+cache and lead to buffer-bloat. The simplest way to improve performance is to
+increase the packet size in the sender.
+
 Protocol design
 ---------------
 If you are designing a new SPEAD-based protocol, you have an opportunity to
@@ -90,7 +95,7 @@ Packet size
 ^^^^^^^^^^^
 Packet size is not strictly part of the protocol, but also has a large impact
 on performance. For 10Gb/s or faster streams, jumbo frames are highly
-recommended, although with the kernel bypass techniques described below), this
+recommended, although with the kernel bypass techniques described below, this
 is far less of an issue.
 
 When using spead2 on the send side, the default packet size is 1472 bytes,
@@ -102,6 +107,9 @@ MTU of 9200, use a packet size of 9172.
 
 .. [#] The UDP and IP header together add 28 bytes, bringing the IP packet to
    the conventional MTU of 1500 bytes.
+
+When using TCP/IP, the packet size can be much larger (e.g. 65536) as it no
+longer corresponds to IP packets.
 
 Alignment
 ^^^^^^^^^

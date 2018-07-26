@@ -56,7 +56,7 @@ Sending
 .. autoclass:: spead2.send.asyncio.InprocStream(thread_pool, queue, config)
 
    An asynchronous version of :py:class:`spead2.send.InprocStream`. Refer to
-   asynchronous-send_ for general details about asynchronous transport.
+   :ref:`asynchronous-send` for general details about asynchronous transport.
 
    .. automethod:: spead2.send.asyncio.InprocStream.async_send_heap
    .. py:method:: flush

@@ -1,6 +1,17 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add support for TCP/IP.
+- Constructors that take an existing socket now expect the user to set all
+  socket options. The old versions that take a socket buffer size are
+  deprecated. Note that the behaviour of :cpp:class:`spead2::send::udp_stream`
+  with a socket has **changed**: if no buffer size is given, it is left at the
+  OS default, rather than applying the spead2 default.
+- Add :option:`--bind` option to :program:`spead2_send` and :program:`spead2_recv`
+  to control the interface used.
+
 .. rubric:: Version 1.8.0
 
 - Add :doc:`py-inproc`

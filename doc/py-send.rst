@@ -1,5 +1,5 @@
 Sending
--------
+=======
 Unlike for receiving, each stream object can only use a single transport.
 There is currently no support for collective operations where multiple
 producers cooperate to construct a heap between them. It is still possible to
@@ -42,25 +42,13 @@ is paired with one heap generator, a convenience class
    .. automethod:: spead2.send.HeapGenerator.get_end
 
 Blocking send
-^^^^^^^^^^^^^
+-------------
 
-.. py:class:: spead2.send.UdpStream(thread_pool, hostname, port, config, buffer_size=DEFAULT_BUFFER_SIZE, socket=None)
+There are multiple stream classes, corresponding to different transports, and
+some of the classes have several variants of the constructor. They all
+implement the following interface, although this base class does not actually exist:
 
-   Stream using UDP. Note that since UDP is an unreliable protocol, there is
-   no guarantee that packets arrive.
-
-   :param thread_pool: Thread pool handling the I/O
-   :type thread_pool: :py:class:`spead2.ThreadPool`
-   :param str hostname: Peer hostname
-   :param int port: Peer port
-   :param config: Stream configuration
-   :type config: :py:class:`spead2.send.StreamConfig`
-   :param int buffer_size: Socket buffer size. A warning is logged if this
-     size cannot be set due to OS limits.
-   :param socket.socket socket: If specified, this socket is used rather
-     than a new one. The socket must be open but unbound. The caller must
-     not use this socket any further, although it is not necessary to keep
-     it alive. This is mainly useful for fine-tuning socket options.
+.. py:class:: spead2.send.AbstractStream()
 
    .. py:method:: send_heap(heap, cnt=-1)
 
@@ -84,10 +72,28 @@ Blocking send
       This is useful when multiple senders will send heaps to the same
       receiver, and need to keep their heap cnts separate.
 
-.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config, buffer_size=DEFAULT_BUFFER_SIZE, ttl)
+UDP
+^^^
+
+Note that since UDP is an unreliable protocol, there is no guarantee that packets arrive.
+
+.. py:class:: spead2.send.UdpStream(thread_pool, hostname, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, interface_address='')
+
+   :param thread_pool: Thread pool handling the I/O
+   :type thread_pool: :py:class:`spead2.ThreadPool`
+   :param str hostname: Peer hostname
+   :param int port: Peer port
+   :param config: Stream configuration
+   :type config: :py:class:`spead2.send.StreamConfig`
+   :param int buffer_size: Socket buffer size. A warning is logged if this
+     size cannot be set due to OS limits.
+   :param str interface_address: Hostname/IP address of the interface on which
+     to send the data
+
+.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, ttl)
 
    Stream using UDP, with multicast TTL. Note that the regular constructor will
-   also work with UDP, but does not give any control over the TTL.
+   also work with multicast, but does not give any control over the TTL.
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
@@ -99,7 +105,7 @@ Blocking send
      size cannot be set due to OS limits.
    :param int ttl: Multicast TTL
 
-.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config, buffer_size=524288, ttl, interface_address)
+.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config=spead2.send.StreamConfig(), buffer_size=524288, ttl, interface_address)
 
    Stream using UDP, with multicast TTL and interface address (IPv4 only).
 
@@ -115,7 +121,7 @@ Blocking send
    :param str interface_address: Hostname/IP address of the interface on which
      to send the data
 
-.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config, buffer_size=524288, ttl, interface_index)
+.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, ttl, interface_index)
 
    Stream using UDP, with multicast TTL and interface index (IPv6 only).
 
@@ -131,7 +137,79 @@ Blocking send
    :param str interface_index: Index of the interface on which to send the
      data
 
-.. py:class:: spead2.send.BytesStream(thread_pool, config)
+.. py:class:: spead2.send.UdpStream(thread_pool, socket, hostname, port, config=spead2.send.StreamConfig())
+
+   Stream using UDP, with a pre-existing socket. The socket is duplicated by
+   the stream, so the original can be closed immediately to free up a file
+   descriptor. The caller is responsible for setting any socket options. The
+   socket must not be connected.
+
+   :param thread_pool: Thread pool handling the I/O
+   :type thread_pool: :py:class:`spead2.ThreadPool`
+   :param socket.socket socket: UDP socket
+   :param str hostname: Peer hostname
+   :param int port: Peer port
+   :param config: Stream configuration
+   :type config: :py:class:`spead2.send.StreamConfig`
+
+.. py:class:: spead2.send.UdpStream(thread_pool, hostname, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, socket)
+
+   :param thread_pool: Thread pool handling the I/O
+   :type thread_pool: :py:class:`spead2.ThreadPool`
+   :param str hostname: Peer hostname
+   :param int port: Peer port
+   :param config: Stream configuration
+   :type config: :py:class:`spead2.send.StreamConfig`
+   :param int buffer_size: Socket buffer size. A warning is logged if this
+     size cannot be set due to OS limits.
+   :param socket.socket socket: This socket is used rather
+     than a new one. The socket must not be connected. The caller must
+     not use this socket any further, although it is not necessary to keep
+     it alive. This is mainly useful for fine-tuning socket options.
+
+   .. deprecated:: 1.9
+      Use the overload that does not take `buffer_size`.
+
+TCP
+^^^
+
+TCP/IP is a reliable protocol, so heap delivery is guaranteed. However, if
+multiple threads all call :py:meth:`~spead2.send.AbstractStream.send_heap` at
+the same time, they can exceed the configured `max_heaps` and heaps will be dropped.
+
+Because spead2 was originally designed for UDP, the default packet size in
+:py:class:`~.StreamConfig` is quite small. Performance can be improved by
+increasing it (but be sure the receiver is configured to handle larger packets).
+
+.. py:class:: spead2.send.TcpStream(thread_pool, hostname, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, interface_address='')
+
+   :param thread_pool: Thread pool handling the I/O
+   :type thread_pool: :py:class:`spead2.ThreadPool`
+   :param str hostname: Peer hostname
+   :param int port: Peer port
+   :param config: Stream configuration
+   :type config: :py:class:`spead2.send.StreamConfig`
+   :param int buffer_size: Socket buffer size. A warning is logged if this
+     size cannot be set due to OS limits.
+   :param str interface_address: Hostname/IP address of the interface on which
+     to send the data
+
+.. py:class:: spead2.send.TcpStream(thread_pool, socket, config=spead2.send.StreamConfig())
+
+   Stream using an existing socket. The socket must already be connected to the
+   peer, and the user is responsible for setting any desired socket options. The socket
+   is duplicated, so it can be closed to save resources.
+
+   :param thread_pool: Thread pool handling the I/O
+   :type thread_pool: :py:class:`spead2.ThreadPool`
+   :param socket.socket socket: TCP socket
+   :param config: Stream configuration
+   :type config: :py:class:`spead2.send.StreamConfig`
+
+Raw bytes
+^^^^^^^^^
+
+.. py:class:: spead2.send.BytesStream(thread_pool, config=spead2.send.StreamConfig())
 
    Stream that collects packets in memory and makes the concatenated stream
    available.
@@ -141,21 +219,20 @@ Blocking send
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
 
-   .. py:method:: send_heap(heap)
-
-      Appends a :py:class:`spead2.send.Heap` to the memory buffer.
-
    .. py:method:: getvalue()
 
       Return a copy of the memory buffer.
 
       :rtype: :py:class:`bytes`
 
+In-process transport
+^^^^^^^^^^^^^^^^^^^^
+Refer to the separate :doc:`documentation <py-inproc>`.
 
 .. _asynchronous-send:
 
 Asynchronous send
-^^^^^^^^^^^^^^^^^
+-----------------
 
 As for asynchronous receives, asynchronous sends are managed by asyncio_ or
 trollius_. A
@@ -169,11 +246,39 @@ the MTU).
 .. _trollius: http://trollius.readthedocs.io/
 .. _asyncio: https://docs.python.org/3/library/asyncio.html
 
-.. autoclass:: spead2.send.asyncio.UdpStream(thread_pool, hostname, port, config, buffer_size=524288, socket=None, loop=None)
+The classes existing in the :py:mod:`spead2.send.asyncio` and
+:py:mod:`spead2.send.trollius` modules, and mostly implement the same
+constructors as the synchronous classes. They implement the following abstract
+interface (the class does not actually exist):
 
-   .. automethod:: spead2.send.asyncio.UdpStream.async_send_heap
+.. class:: spead2.send.asyncio.AbstractStream()
+
+   .. py:method:: async_send_heap(heap, cnt=-1, loop=None)
+
+      Send a heap asynchronously. Note that this is *not* a coroutine:
+      it returns a future. Adding the heap to the queue is done
+      synchronously, to ensure proper ordering.
+
+      :param heap: Heap to send
+      :type heap: :py:class:`spead2.send.Heap`
+      :param int cnt: Heap cnt to send (defaults to auto-incrementing)
+      :param loop: Event loop to use, overriding the constructor
+      :type loop: :py:class:`asyncio.AbstractEventLoop`
+
    .. py:method:: flush
 
       Block until all enqueued heaps have been sent (or dropped).
 
-   .. automethod:: spead2.send.asyncio.UdpStream.async_flush
+   .. py:method:: async_flush
+
+      Asynchronously wait for all enqueued heaps to be sent. Note that
+      this only waits for heaps passed to :meth:`async_send_heap` prior to
+      this call, not ones added while waiting.
+
+TCP
+^^^
+
+For TCP, construction is slightly different: except when providing a custom
+socket, one uses a coroutine to connect:
+
+.. automethod:: spead2.send.asyncio.TcpStream.connect
