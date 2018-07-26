@@ -76,8 +76,7 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughAsync):
     @trollius.coroutine
     def prepare_receiver(self, receiver):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        # Prevent second iteration of the test from failing
-        sock.bind(('localhost', 0))
+        sock.bind(('127.0.0.1', 0))
         self._port = sock.getsockname()[1]
         receiver.add_udp_reader(sock)
         sock.close()
@@ -86,7 +85,7 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughAsync):
     def prepare_sender(self, thread_pool):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         stream = spead2.send.trollius.UdpStream(
-            thread_pool, sock, 'localhost', self._port,
+            thread_pool, sock, '127.0.0.1', self._port,
             spead2.send.StreamConfig(rate=1e7), loop=self.loop)
         sock.close()
         return stream
