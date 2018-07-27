@@ -89,6 +89,23 @@ private:
     /// Ignores bytes from the stream according to @a to_skip, returns true if more data needs to be read and skipped
     bool skip_bytes();
 
+    /**
+     * Base constructor, used by the other constructors.
+     *
+     * @param owner        Owning stream
+     * @param acceptor     Acceptor object, must be bound
+     * @param max_size     Maximum packet size that will be accepted.
+     * @param buffer_size  Requested socket buffer size. Note that the
+     *                     operating system might not allow a buffer size
+     *                     as big as the default.
+     */
+    tcp_reader(
+        stream &owner,
+        boost::asio::ip::tcp::acceptor &&acceptor,
+        std::size_t max_size,
+        std::size_t buffer_size);
+
+
 public:
     /// Maximum packet size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_max_size = 65536;
@@ -119,15 +136,11 @@ public:
      * @param owner        Owning stream
      * @param acceptor     Acceptor object, must be bound
      * @param max_size     Maximum packet size that will be accepted.
-     * @param buffer_size  Requested socket buffer size. Note that the
-     *                     operating system might not allow a buffer size
-     *                     as big as the default.
      */
     tcp_reader(
         stream &owner,
         boost::asio::ip::tcp::acceptor &&acceptor,
-        std::size_t max_size = default_max_size,
-        std::size_t buffer_size = default_buffer_size);
+        std::size_t max_size = default_max_size);
 
     virtual void stop() override;
 

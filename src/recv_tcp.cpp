@@ -77,6 +77,14 @@ tcp_reader::tcp_reader(
 {
 }
 
+tcp_reader::tcp_reader(
+    stream &owner,
+    boost::asio::ip::tcp::acceptor &&acceptor,
+    std::size_t max_size)
+    : tcp_reader(owner, std::move(acceptor), max_size, 0)
+{
+}
+
 void tcp_reader::packet_handler(
     const boost::system::error_code &error,
     std::size_t bytes_transferred)
