@@ -1,5 +1,43 @@
-Other tools
-===========
+Command-line tools
+==================
+
+.. _spead2_bench:
+
+spead2_bench
+------------
+A benchmarking tool is provided to estimate the maximum throughput for UDP.
+There are two versions: one implemented in Python (:program:`spead2_bench.py`)
+and one in C++ (:program:`spead2_bench`), which are installed by the
+corresponding installers. The examples show the Python version, but the C++
+version functions very similarly. However, they cannot be mixed: use the same
+version on each end of the connection.
+
+On the receiver, pick a port number (which must be free for both TCP and UDP)
+and run
+
+.. code-block:: sh
+
+   spead2_bench.py slave <port>
+
+Then, on the sender, run
+
+.. code-block:: sh
+
+   spead2_bench.py master [options] <host> <port>
+
+where *host* is the hostname of the receiver. This script will run tests at a
+variety of speeds to determine the maximum speed at which the connection seems
+reliable most of the time. This speed is right at the edge of stability: for a
+totally reliable setup, you should use a lower speed.
+
+spead2_send/spead2_recv
+-----------------------
+There are also separate :program:`spead2_send` and :program:`spead2_recv` (and
+Python equivalents) programs. The former generates a stream of meaningless
+data, while the latter consumes an existing stream and reports the heaps and
+items that it finds. Apart from being useful for debugging a stream,
+:program:`spead2_recv` has a similar plethora of command-line options for
+tuning that allow for exploration.
 
 .. _mcdump:
 

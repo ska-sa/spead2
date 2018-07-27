@@ -3,14 +3,19 @@ Changelog
 
 .. rubric:: Development version
 
-- Add support for TCP/IP.
+- Add support for TCP/IP (contributed by Rodrigo Tobar).
+- Changed command-line options for
+  :program:`spead2_send`/:program:`spead2_recv`: :option:`--ibv` and
+  :option:`--netmap` are now boolean flags, and the interface address is set
+  with :option:`--bind`.
+- Added option to specify interface address for
+  :cpp:class:`spead2::send::udp_stream` even when not using the multicast
+  constructors.
 - Constructors that take an existing socket now expect the user to set all
   socket options. The old versions that take a socket buffer size are
   deprecated. Note that the behaviour of :cpp:class:`spead2::send::udp_stream`
   with a socket has **changed**: if no buffer size is given, it is left at the
   OS default, rather than applying the spead2 default.
-- Add :option:`--bind` option to :program:`spead2_send` and :program:`spead2_recv`
-  to control the interface used.
 - Fix a bug causing undefined behaviour if a send class is destroyed while
   there is still data in flight.
 

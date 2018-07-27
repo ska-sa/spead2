@@ -58,13 +58,6 @@ Sending
    An asynchronous version of :py:class:`spead2.send.InprocStream`. Refer to
    :ref:`asynchronous-send` for general details about asynchronous transport.
 
-   .. automethod:: spead2.send.asyncio.InprocStream.async_send_heap
-   .. py:method:: flush
-
-      Block until all enqueued heaps have been sent (or dropped).
-
-   .. automethod:: spead2.send.asyncio.InprocStream.async_flush
-
 Receiving
 ^^^^^^^^^
 
