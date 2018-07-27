@@ -34,5 +34,10 @@ streambuf_stream::streambuf_stream(
 {
 }
 
+streambuf_stream::~streambuf_stream()
+{
+    flush();
+}
+
 } // namespace send
 } // namespace spead2

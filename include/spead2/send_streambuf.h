@@ -62,6 +62,8 @@ public:
         io_service_ref io_service,
         std::streambuf &streambuf,
         const stream_config &config = stream_config());
+
+    virtual ~streambuf_stream();
 };
 
 } // namespace send

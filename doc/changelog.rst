@@ -11,6 +11,8 @@ Changelog
   OS default, rather than applying the spead2 default.
 - Add :option:`--bind` option to :program:`spead2_send` and :program:`spead2_recv`
   to control the interface used.
+- Fix a bug causing undefined behaviour if a send class is destroyed while
+  there is still data in flight.
 
 .. rubric:: Version 1.8.0
 

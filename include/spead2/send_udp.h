@@ -164,6 +164,8 @@ public:
         std::size_t buffer_size,
         int ttl,
         unsigned int interface_index);
+
+    virtual ~udp_stream();
 };
 
 } // namespace send

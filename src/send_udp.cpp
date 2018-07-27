@@ -171,5 +171,10 @@ udp_stream::udp_stream(
 {
 }
 
+udp_stream::~udp_stream()
+{
+    flush();
+}
+
 } // namespace send
 } // namespace spead2

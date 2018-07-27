@@ -118,6 +118,8 @@ public:
         io_service_ref io_service,
         boost::asio::ip::tcp::socket &&socket,
         const stream_config &config = stream_config());
+
+    virtual ~tcp_stream();
 };
 
 } // namespace send

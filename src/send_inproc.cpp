@@ -53,6 +53,11 @@ inproc_stream::inproc_stream(
 {
 }
 
+inproc_stream::~inproc_stream()
+{
+    flush();
+}
+
 std::shared_ptr<inproc_queue> inproc_stream::get_queue() const
 {
     return queue;

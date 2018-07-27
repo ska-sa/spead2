@@ -368,12 +368,6 @@ public:
             heap_empty.wait(lock);
         }
     }
-
-    ~stream_impl()
-    {
-        // TODO: add a stop member to abort transmission and use that instead
-        flush();
-    }
 };
 
 } // namespace send

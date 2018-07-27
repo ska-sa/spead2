@@ -66,5 +66,10 @@ tcp_stream::tcp_stream(
 {
 }
 
+tcp_stream::~tcp_stream()
+{
+    flush();
+}
+
 } // namespace send
 } // namespace spead2

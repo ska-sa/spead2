@@ -76,6 +76,8 @@ public:
 
     /// Get the underlying storage queue
     std::shared_ptr<inproc_queue> get_queue() const;
+
+    virtual ~inproc_stream();
 };
 
 } // namespace send

@@ -166,7 +166,7 @@ public:
         int comp_vector = 0,
         int max_poll = default_max_poll);
 
-    ~udp_ibv_stream();
+    virtual ~udp_ibv_stream();
 };
 
 } // namespace send
