@@ -26,5 +26,11 @@ All stream types are derived from :cpp:class:`spead2::send::stream` using the
 .. doxygenclass:: spead2::send::udp_stream
    :members: udp_stream
 
+.. doxygenclass:: spead2::send::tcp_stream
+   :members: tcp_stream
+
+.. doxygenclass:: spead2::send::inproc_stream
+   :members: inproc_stream
+
 .. doxygenclass:: spead2::send::streambuf_stream
    :members: streambuf_stream

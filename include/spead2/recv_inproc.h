@@ -33,7 +33,7 @@ namespace recv
 {
 
 /**
- * Stream reader that receives packets from a @ref inproc_queue.
+ * Stream reader that receives packets from an @ref inproc_queue.
  */
 class inproc_reader : public reader
 {

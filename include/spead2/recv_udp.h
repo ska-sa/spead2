@@ -182,6 +182,11 @@ public:
      * multicast subscriptions) to be fine-tuned by the caller. The socket
      * must already be bound to the desired endpoint. There is no special
      * handling of multicast subscriptions or socket buffer sizes here.
+     *
+     * @param owner        Owning stream
+     * @param socket       Existing socket which will be taken over. It must
+     *                     use the same I/O service as @a owner.
+     * @param max_size     Maximum packet size that will be accepted.
      */
     udp_reader(
         stream &owner,

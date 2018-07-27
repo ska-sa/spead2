@@ -60,6 +60,12 @@ Reader classes are constructed inside a stream by calling
 .. doxygenclass:: spead2::recv::udp_reader
    :members: udp_reader
 
+.. doxygenclass:: spead2::recv::tcp_reader
+   :members: tcp_reader
+
+.. doxygenclass:: spead2::recv::inproc_reader
+   :members: inproc_reader
+
 .. doxygenclass:: spead2::recv::mem_reader
    :members: mem_reader
 
