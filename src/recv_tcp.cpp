@@ -97,7 +97,12 @@ void tcp_reader::packet_handler(
         else
             read_more = process_buffer(bytes_transferred);
     }
-    else if (error != boost::asio::error::operation_aborted && error != boost::asio::error::eof)
+    else if (error == boost::asio::error::eof)
+    {
+        get_stream_base().stop_received();
+        read_more = false;
+    }
+    else if (error != boost::asio::error::operation_aborted)
         log_warning("Error in TCP receiver: %1%", error.message());
 
     if (read_more)
