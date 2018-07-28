@@ -45,11 +45,6 @@ namespace spead2
 namespace send
 {
 
-template<typename... Args>
-class argument_pack
-{
-};
-
 class heap_wrapper : public heap
 {
 private:
