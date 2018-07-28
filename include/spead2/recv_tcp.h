@@ -58,8 +58,6 @@ private:
     std::uint8_t *tail;
     /// Size of the current packet being parsed. 0 means no packet is being parsed
     std::size_t pkt_size = 0;
-    /// Buffer size to set on peer
-    std::size_t buffer_size;
     /// Number of bytes that need to be skipped (used when pkt_size > max_size)
     std::size_t to_skip = 0;
     /// Number of packets to hold on each buffer for asynchronous receive
