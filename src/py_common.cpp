@@ -263,7 +263,7 @@ void register_module(py::module m)
 #undef EXPORT_ENUM
 
     m.def("log_info", [](const std::string &msg) { log_info("%s", msg); },
-        R"doc(Log a message at INFO level (for testing only)doc");
+          "Log a message at INFO level (for testing only)");
 
     py::class_<flavour>(m, "Flavour")
         .def(py::init<int, int, int, bug_compat_mask>(),
