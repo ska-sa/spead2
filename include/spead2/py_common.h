@@ -312,6 +312,9 @@ public:
     bool load(handle src, bool)
     {
         int fd = -1;
+        // Workaround for https://github.com/pybind/pybind11/issues/1473
+        if (!hasattr(src, "fileno"))
+            return false;
         try
         {
             fd = src.attr("fileno")().cast<int>();
