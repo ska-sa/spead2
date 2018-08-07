@@ -615,15 +615,6 @@ class TestDecode(object):
         assert_equal(0, len(heaps))
 
 
-class TestUdpReader(object):
-    def test_bad_port(self):
-        """Binding an illegal port should throw an exception"""
-        tp = spead2.ThreadPool()
-        stream = spead2.recv.Stream(tp)
-        with assert_raises(RuntimeError):
-            stream.add_udp_reader(123)
-
-
 class TestStream(object):
     """Tests for the stream API"""
 
@@ -690,7 +681,8 @@ class TestStream(object):
         assert_equal(0, stats.incomplete_heaps_flushed)
         assert_equal(0, stats.worker_blocked)
 
-class TestUdpStream(object):
+
+class TestUdpReader(object):
     def test_out_of_range_udp_port(self):
         receiver = spead2.recv.Stream(spead2.ThreadPool())
         assert_raises(TypeError, receiver.add_udp_reader, 100000)
