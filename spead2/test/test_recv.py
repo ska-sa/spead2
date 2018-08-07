@@ -14,14 +14,18 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import division, print_function
+import socket
+import struct
+import time
+
+import numpy as np
+import six
+from nose.tools import *
+
 import spead2
 import spead2.recv as recv
 import spead2.send as send
-import struct
-import numpy as np
-import six
-import time
-from nose.tools import *
+
 from .test_common import assert_equal_typed
 
 
@@ -223,7 +227,7 @@ class TestDecode(object):
                 Item(0x1234, struct.pack('>i', -123456789))
             ])
         item = self.data_to_item(packet, 0x1234)
-        assert isinstance(item.value, np.int32)
+        assert_is_instance(item.value, np.int32)
         assert_equal(-123456789, item.value)
 
     def test_scalar_int_immediate(self):
@@ -690,3 +694,104 @@ class TestUdpReader(object):
     def test_illegal_udp_port(self):
         receiver = spead2.recv.Stream(spead2.ThreadPool())
         assert_raises(RuntimeError, receiver.add_udp_reader, 22)
+
+
+class TestTcpReader(object):
+    def setup(self):
+        self.receiver = spead2.recv.Stream(spead2.ThreadPool())
+        recv_sock = socket.socket()
+        recv_sock.bind(("127.0.0.1", 0))
+        recv_sock.listen(1)
+        port = recv_sock.getsockname()[1]
+        self.receiver.add_tcp_reader(acceptor=recv_sock)
+        recv_sock.close()
+
+        self.send_sock = socket.socket()
+        self.send_sock.connect(("127.0.0.1", port))
+
+    def teardown(self):
+        self.close()
+
+    def close(self):
+        if self.send_sock is not None:
+            self.send_sock.close()
+            self.send_sock = None
+
+    def data_to_heaps(self, data):
+        """Take some data and pass it through the receiver to obtain a set of heaps.
+
+        The send socket is closed.
+        """
+        self.send_sock.send(data)
+        self.close()
+        return list(self.receiver)
+
+    def data_to_ig(self, data):
+        """Take some data and pass it through the receiver to obtain a single heap,
+        from which the items are extracted.
+        """
+        heaps = self.data_to_heaps(data)
+        assert_equal(1, len(heaps))
+        ig = spead2.ItemGroup()
+        ig.update(heaps[0])
+        for name, item in ig.items():
+            assert_equal_typed(name, item.name)
+        return ig
+
+    def data_to_item(self, data, expected_id):
+        """Take some data and pass it through the receiver to obtain a single heap,
+        with a single item, which is returned.
+        """
+        ig = self.data_to_ig(data)
+        assert_equal(1, len(ig))
+        assert_in(expected_id, ig)
+        return ig[expected_id]
+
+    def simple_packet(self):
+        return FLAVOUR.make_packet_heap(
+            1,
+            [
+                FLAVOUR.make_plain_descriptor(
+                    0x1234, 'test_scalar_int', 'a scalar integer', [('u', 32)], []),
+                Item(0x1234, 0x12345678, True)
+            ])
+
+    def test_bad_header(self):
+        """A nonsense header followed by a normal packet"""
+        data = b'deadbeef' + self.simple_packet()
+        item = self.data_to_item(data, 0x1234)
+        assert_is_instance(item.value, np.uint32)
+        assert_equal(0x12345678, item.value)
+
+    def test_packet_too_big(self):
+        """A packet that is too large (should be rejected) followed by a normal packet"""
+        zeros = np.zeros(100000, np.uint8)
+        packet1 = FLAVOUR.make_packet_heap(
+            1,
+            [
+                FLAVOUR.make_numpy_descriptor_from(
+                    0x2345, 'test_big_array', 'over-sized packet', zeros),
+                Item(0x2345, zeros.data)
+            ])
+        data = packet1 + self.simple_packet()
+        item = self.data_to_item(data, 0x1234)
+        assert_is_instance(item.value, np.uint32)
+        assert_equal(0x12345678, item.value)
+
+    def test_partial_header(self):
+        """Connection closed partway through a header"""
+        packet = self.simple_packet()
+        heaps = self.data_to_heaps(packet[:6])
+        assert_equal([], heaps)
+
+    def test_partial_packet(self):
+        """Connection closed partway through item descriptors"""
+        packet = self.simple_packet()
+        heaps = self.data_to_heaps(packet[:45])
+        assert_equal([], heaps)
+
+    def test_partial_payload(self):
+        """Connection closed partway through item payload"""
+        packet = self.simple_packet()
+        heaps = self.data_to_heaps(packet[:-1])
+        assert_equal([], heaps)
