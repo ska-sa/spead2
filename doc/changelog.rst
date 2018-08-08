@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 1.9.0
 
 - Add support for TCP/IP (contributed by Rodrigo Tobar).
 - Changed command-line options for
