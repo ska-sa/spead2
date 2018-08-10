@@ -87,8 +87,8 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
      size cannot be set due to OS limits.
-   :param str interface_address: Hostname/IP address of the interface on which
-     to send the data
+   :param str interface_address: Source hostname/IP address (see tips about
+     :ref:`routing`).
 
 .. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, ttl)
 
@@ -191,8 +191,8 @@ increasing it (but be sure the receiver is configured to handle larger packets).
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
      size cannot be set due to OS limits.
-   :param str interface_address: Hostname/IP address of the interface on which
-     to send the data
+   :param str interface_address: Source hostname/IP address (see tips about
+     :ref:`routing`).
 
 .. py:class:: spead2.send.TcpStream(thread_pool, socket, config=spead2.send.StreamConfig())
 

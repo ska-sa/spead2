@@ -82,7 +82,10 @@ public:
      * @param endpoint     Destination host and port
      * @param config       Stream configuration
      * @param buffer_size  Socket buffer size (0 for OS default)
-     * @param interface_address   Address of the outgoing interface
+     * @param interface_address   Source address
+     *                            @verbatim embed:rst:leading-asterisks
+     *                            (see tips on :ref:`routing`)
+     *                            @endverbatim
      */
     template<typename ConnectHandler>
     tcp_stream(

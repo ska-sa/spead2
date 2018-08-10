@@ -48,7 +48,22 @@ public:
     /// Socket send buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 512 * 1024;
 
-    /// Constructor
+    /**
+     * Constructor.
+     *
+     * This constructor can handle unicast or multicast destinations, but is
+     * primarily intended for unicast as it does not provide all the options
+     * that the multicast-specific constructors do.
+     *
+     * @param io_service   I/O service for sending data
+     * @param endpoint     Destination address and port
+     * @param config       Stream configuration
+     * @param buffer_size  Socket buffer size (0 for OS default)
+     * @param interface_address   Source address
+     *                            @verbatim embed:rst:leading-asterisks
+     *                            (see tips on :ref:`routing`)
+     *                            @endverbatim
+     */
     udp_stream(
         io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,

@@ -15,6 +15,9 @@ consult other documentation to find equivalent commands for other systems.
 
 System tuning
 -------------
+
+Networking
+^^^^^^^^^^
 The first thing to do is to increase the maximum socket buffer sizes. See
 :doc:`introduction` for details.
 
@@ -30,6 +33,28 @@ the routers in your network have a sufficiently large MTU that packets do not
 get fragmented, particularly if using jumbo frames. You can use
 :command:`tcpdump -v` to see fragments.
 
+The above all applies to UDP. For TCP, dropped packets are far less of a
+concern, and overly large buffers may actually be counter-productive as they do
+not fit in cache and lead to buffer-bloat. The simplest way to improve
+performance is to increase the packet size in the sender.
+
+.. _routing:
+
+Routing
+~~~~~~~
+The constructors for the TCP and UDP stream classes take an `interface_address`
+argument, but the actual behaviour depends on the constructor used and the OS.
+For multicast constructors, it sets the ``IP_MULTICAST_IF`` socket option and
+hence directly determines the interface used. In other cases, it only
+determines the source IP address (via :manpage:`bind(2)`), and the effect
+depends on the operating system. On Linux, the routing table determines the
+interface, so this setting will only impact routing if you have `policy
+routing`_ configured.
+
+.. _policy routing: https://kindlund.wordpress.com/2007/11/19/configuring-multiple-default-routes-in-linux/
+
+CPU
+^^^
 On a system with multiple CPU sockets, it is important to pin the process
 using spead2 to a single socket, so that memory accesses do not cross the QPI
 bus. For best performance, use the same socket as the NIC, which can be
@@ -67,11 +92,6 @@ stream starts and the system must ramp up performance in response.
 .. [#pstate1] https://www.phoronix.com/scan.php?page=article&item=intel_pstate_linux315
 .. [#pstate2] https://www.phoronix.com/scan.php?page=article&item=linux-47-schedutil
 .. [#pstate3] https://www.phoronix.com/scan.php?page=news_item&px=Linux-4.4-CPUFreq-P-State-Gov
-
-The above all applies to UDP. For TCP, dropped packets are not a concern, and
-overly large buffers may actually be counter-productive as they do not fit in
-cache and lead to buffer-bloat. The simplest way to improve performance is to
-increase the packet size in the sender.
 
 Protocol design
 ---------------
