@@ -21,11 +21,12 @@ PySPEAD_ implementation, spead2:
 - cleanly supports several SPEAD flavours (e.g. 64-40 and 64-48) in one
   module, with the receiver adapting to the flavour used by the sender;
 - supports Python 3;
-- supports asynchronous operation, using trollius_.
+- supports asynchronous operation, using trollius_ or asyncio_.
 
 For more information, refer to the documentation on readthedocs_.
 
 .. _SPEAD: https://casper.berkeley.edu/wiki/SPEAD
 .. _PySPEAD: https://github.com/ska-sa/PySPEAD/
 .. _trollius: http://trollius.readthedocs.io/
+.. _asyncio: https://docs.python.org/3/library/asyncio.html
 .. _readthedocs: http://spead2.readthedocs.io/en/latest/
