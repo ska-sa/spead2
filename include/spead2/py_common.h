@@ -264,7 +264,15 @@ struct PTMFWrapperGen
         typedef Return result_type;
         Return operator()(T &obj, Args... args) const
         {
+            // Pragmas are to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
             return (obj.*Ptr)(std::forward<Args>(args)...);
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
         }
     };
 
@@ -274,7 +282,15 @@ struct PTMFWrapperGen
         typedef Return result_type;
         Return operator()(const T &obj, Args... args) const
         {
+            // Pragmas are to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
             return (obj.*Ptr)(std::forward<Args>(args)...);
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
         }
     };
 
