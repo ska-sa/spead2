@@ -74,6 +74,13 @@ class BuildExt(build_ext):
         # distutils uses old-style classes, so no super
         build_ext.run(self)
 
+    def build_extensions(self):
+        # Stop GCC complaining about -Wstrict-prototypes in C++ code
+        try:
+            self.compiler.compiler_so.remove('-Wstrict-prototypes')
+        except ValueError:
+            pass
+        build_ext.build_extensions(self)
 
 # Can't actually install on readthedocs.org because Boost.Python is missing,
 # but we need setup.py to still be successful to make the doc build work.
