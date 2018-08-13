@@ -253,9 +253,13 @@ private:
             }
             else
             {
+                auto send_next_callback = [this] (const boost::system::error_code &error)
+                {
+                    send_next_packet(error);
+                };
                 static_cast<Derived *>(this)->async_send_packet(
                     current_packet,
-                    [this] (const boost::system::error_code &ec, std::size_t bytes_transferred)
+                    [this, send_next_callback] (const boost::system::error_code &ec, std::size_t bytes_transferred)
                     {
                         if (ec)
                         {
@@ -283,10 +287,7 @@ private:
                             {
                                 sleeping = true;
                                 timer.expires_at(target_time);
-                                timer.async_wait([this] (const boost::system::error_code &error)
-                                {
-                                    send_next_packet(error);
-                                });
+                                timer.async_wait(send_next_callback);
                             }
                         }
                         if (!sleeping)
