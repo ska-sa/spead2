@@ -62,7 +62,6 @@ private:
     };
 
     const std::size_t n_slots;
-    const int max_poll;
     boost::asio::ip::udp::socket socket; // used only to assign a source UDP port
     boost::asio::ip::udp::endpoint endpoint;
     boost::asio::ip::udp::endpoint source;

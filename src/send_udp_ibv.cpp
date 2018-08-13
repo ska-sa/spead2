@@ -166,7 +166,6 @@ udp_ibv_stream::udp_ibv_stream(
     int max_poll)
     : stream_impl<udp_ibv_stream>(std::move(io_service), config),
     n_slots(std::max(std::size_t(1), buffer_size / (config.get_max_packet_size() + header_length))),
-    max_poll(max_poll),
     socket(get_io_service(), endpoint.protocol()),
     cm_id(event_channel, nullptr, RDMA_PS_UDP),
     comp_channel_wrapper(get_io_service())
