@@ -50,7 +50,8 @@ matrix:
           env: TEST=python2 CC="clang" CXX="clang++"
         - os: osx
           osx_image: xcode7.3
-          env: TEST=python3 CC="clang" CXX="clang++"
+          # -Wno-deprecated because pybind11 uses the old Python thread-local storage API
+          env: TEST=python3 CC="clang -Wno-deprecated" CXX="clang++"
 addons:
     apt:
         packages:
