@@ -29,7 +29,7 @@ matrix:
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=python2 CC="ccache clang-3.5 -Qunused-arguments" CXX="clang++-3.5"
+          env: TEST=python2 CC="clang-3.5" CXX="clang++-3.5"
         - os: linux
           sudo: false
           dist: trusty
@@ -37,7 +37,7 @@ matrix:
         - os: linux
           sudo: false
           dist: trusty
-          env: TEST=python3 CC="ccache clang-3.5 -Qunused-arguments" CXX="clang++-3.5"
+          env: TEST=python3 CC="clang-3.5" CXX="clang++-3.5"
         - os: linux
           sudo: false
           dist: trusty
@@ -115,13 +115,14 @@ script:
             --with-eventfd="$EVENTFD" \
             --with-ibv="$IBV" \
             --with-pcap="$PCAP" \
-            --disable-optimized
+            --disable-optimized \
+            CXXFLAGS=-Werror
         make -j4
         make -j4 check
     fi
     if [[ "$TEST" == py* ]]; then
         ./bootstrap.sh
-        $PIP_INSTALL -v .
+        CC="$CC -Werror" $PIP_INSTALL -v .
         # Avoid running nosetests from installation directory, to avoid picking up
         # things from the local tree that aren't installed.
         cd /
