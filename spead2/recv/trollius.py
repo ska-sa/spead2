@@ -121,6 +121,9 @@ class Stream(spead2.recv.Stream):
             except spead2.Empty:
                 pass
             else:
+                # Give the event loop a chance to run. This ensures that a
+                # heap-processing loop cannot live-lock the event loop.
+                yield
                 raise Return(heap)
 
         if loop is None:
