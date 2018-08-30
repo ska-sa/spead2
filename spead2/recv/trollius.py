@@ -52,6 +52,10 @@ class Stream(spead2.recv.Stream):
     might be data available. The callback is enabled when we have at least one
     waiter, otherwise disabled.
 
+    The futures store a singleton list containing the heap rather than the heap
+    itself. This allows the reference to the heap to be explicitly cleared so
+    that the heap can be garbage collected sooner.
+
     Parameters
     ----------
     loop : event loop, optional
@@ -98,9 +102,12 @@ class Stream(spead2.recv.Stream):
                 self._stop_listening()
             else:
                 waiter = self._waiters.popleft()
-                waiter.set_result(heap)
+                waiter.set_result([heap])
                 if not self._waiters:
                     self._stop_listening()
+        # Break cyclic references if spead2.Stopped is raised
+        self = None
+        waiter = None
 
     @trollius.coroutine
     def get(self, loop=None):
@@ -121,7 +128,7 @@ class Stream(spead2.recv.Stream):
         waiter = trollius.Future(loop=loop)
         self._waiters.append(waiter)
         self._start_listening()
-        heap = yield From(waiter)
+        heap = (yield From(waiter)).pop()
         raise Return(heap)
 
     # Asynchronous iterator support for Python 3.5+. It's not supported with
