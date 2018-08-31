@@ -1,6 +1,13 @@
 Changelog
 =========
 
+.. rubric:: 1.9.1
+
+- Make :py:meth:`spead2.recv.asyncio.Stream.get` always yield to the event loop
+  even if there is a heap ready.
+- Avoid :py:meth:`spead2.recv.asyncio.Stream.get` holding onto a reference to
+  the heap (via a future) for longer than necessary.
+
 .. rubric:: 1.9.0
 
 - Add support for TCP/IP (contributed by Rodrigo Tobar).
