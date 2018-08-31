@@ -91,6 +91,13 @@ if not rtd:
         raise SystemExit("configure not found. Either download a release " +
                          "from https://pypi.python.org/pypi/spead2 or run " +
                          "./bootstrap.sh if not using a release.")
+    if not os.path.exists(os.path.join(
+            os.path.dirname(__file__),
+            '3rdparty', 'pybind11', 'include', 'pybind11', 'pybind11.h')):
+        raise SystemExit("pybind11 not found. Either download a release " +
+                         "from https://pypi.python.org/pypi/spead2 or run " +
+                         "git submodule update --init --recursive if not " +
+                         "using a release.")
 
     libraries = ['boost_system']
 
