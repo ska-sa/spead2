@@ -340,12 +340,18 @@ void register_module(py::module m)
         .def_readwrite("format", &descriptor::format)
         .def_property("numpy_header", bytes_getter(&descriptor::numpy_header), bytes_setter(&descriptor::numpy_header))
     ;
+}
 
+void register_logging()
+{
     py::object logging_module = py::module::import("logging");
     py::object logger = logging_module.attr("getLogger")("spead2");
     detail::our_logger.reset(new log_function_python(logger));
     detail::orig_logger = set_log_function(std::ref(*detail::our_logger));
+}
 
+void register_atexit()
+{
     py::module atexit_mod = py::module::import("atexit");
     atexit_mod.attr("register")(py::cpp_function(detail::run_exit_stoppers));
 }

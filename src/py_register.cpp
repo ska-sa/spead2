@@ -26,4 +26,6 @@ PYBIND11_MODULE(_spead2, m)
     spead2::register_module(m);
     spead2::recv::register_module(m);
     spead2::send::register_module(m);
+    spead2::register_logging();
+    spead2::register_atexit();
 }

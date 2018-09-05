@@ -215,6 +215,11 @@ pybind11::buffer_info request_buffer_info(pybind11::buffer &buffer, int extra_fl
 
 void register_module(pybind11::module m);
 
+// Set up logging to go to the Python logging framework
+void register_logging();
+// Set up atexit handlers needed to ensure that exit_stopper works as advertised
+void register_atexit();
+
 namespace detail
 {
 
