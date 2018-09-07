@@ -62,6 +62,7 @@ void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src
     }
     std::size_t tail = n - offset;
     std::memcpy(dest_c + offset, src_c + offset, tail);
+    _mm_sfence();
     return dest;
 #endif // SPEAD2_USE_MOVNTDQ
 }
