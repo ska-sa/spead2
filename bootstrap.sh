@@ -28,4 +28,4 @@ if not hasattr(asyncio, 'ensure_future'):
 EOF
     done
 fi
-autoreconf --install
+autoreconf --install --force
