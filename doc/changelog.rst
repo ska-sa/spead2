@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: 1.9.2
+
+- autotools are no longer required to install the C++ build (when installing
+  from a release tarball).
+
 .. rubric:: 1.9.1
 
 - Make :py:meth:`spead2.recv.asyncio.Stream.get` always yield to the event loop
