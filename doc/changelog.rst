@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Update the vendored pybind11 to 2.2.4.
+
 .. rubric:: 1.9.2
 
 - autotools are no longer required to install the C++ build (when installing
