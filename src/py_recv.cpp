@@ -387,7 +387,8 @@ py::module register_module(py::module &parent)
         .def_readwrite("packets", &stream_stats::packets)
         .def_readwrite("worker_blocked", &stream_stats::worker_blocked)
         .def_readwrite("max_batch", &stream_stats::max_batch);
-    py::class_<ring_stream_wrapper>(m, "Stream")
+    py::class_<ring_stream_wrapper> stream_class(m, "Stream");
+    stream_class
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, bug_compat_mask,
                       std::size_t, std::size_t, bool, bool>(),
              "thread_pool"_a, "bug_compat"_a = 0,
@@ -470,6 +471,7 @@ py::module register_module(py::module &parent)
         .def("stop", SPEAD2_PTMF(ring_stream_wrapper, stop))
         .def_property_readonly("fd", SPEAD2_PTMF(ring_stream_wrapper, get_fd))
         .def_property_readonly("stats", SPEAD2_PTMF(ring_stream_wrapper, get_stats))
+        .def_property_readonly("ringbuffer", SPEAD2_PTMF(ring_stream_wrapper, get_ringbuffer))
 #if SPEAD2_USE_IBV
         .def_readonly_static("DEFAULT_UDP_IBV_MAX_SIZE", &udp_ibv_reader::default_max_size)
         .def_readonly_static("DEFAULT_UDP_IBV_BUFFER_SIZE", &udp_ibv_reader::default_buffer_size)
@@ -481,6 +483,10 @@ py::module register_module(py::module &parent)
         .def_readonly_static("DEFAULT_UDP_BUFFER_SIZE", &udp_reader::default_buffer_size)
         .def_readonly_static("DEFAULT_TCP_MAX_SIZE", &tcp_reader::default_max_size)
         .def_readonly_static("DEFAULT_TCP_BUFFER_SIZE", &tcp_reader::default_buffer_size);
+    using Ringbuffer = ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore>;
+    py::class_<Ringbuffer>(stream_class, "Ringbuffer")
+        .def("size", SPEAD2_PTMF(Ringbuffer, size))
+        .def("capacity", SPEAD2_PTMF(Ringbuffer, capacity));
 
     return m;
 }

@@ -200,6 +200,10 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
       Statistics_ about the stream.
 
+   .. py:attribute:: ringbuffer
+
+      The internal ringbuffer of the stream (see Statistics_).
+
    .. py:attribute:: stop_on_stop_item
 
       By default, a heap containing a stream control stop item will terminate
@@ -302,8 +306,6 @@ being captured and stored indefinitely rather than processed and released.
       Whether to issue a warning if the memory pool becomes empty and needs to
       allocate new memory on request. It defaults to true.
 
-.. Statistics:
-
 Incomplete Heaps
 ^^^^^^^^^^^^^^^^
 By default, an incomplete heap (one for which some but not all of the packets
@@ -345,6 +347,8 @@ stream. The stream will then yield instances of :py:class:`IncompleteHeap`.
 
       Returns true if the packet contains a stream stop control item.
 
+
+.. Statistics:
 
 Statistics
 ^^^^^^^^^^
@@ -395,3 +399,18 @@ the stream iterator, then find that :py:attr:`.StreamStats.heaps` is (briefly)
 
    Maximum number of packets received as a unit. This is only applicable to
    readers that support fetching a batch of packets from the source.
+
+Additional statistics are available on the ringbuffer underlying the stream
+(:attr:`~spead2.recv.Stream.ringbuffer` property), with similar caveats about
+synchronisation.
+
+.. py:class:: spead2.recv.Stream.Ringbuffer
+
+   .. py:method:: size()
+
+   Number of heaps currently in the ringbuffer.
+
+   .. py:method:: capacity()
+
+   Maximum number of heaps that can be help in the ringbuffer (corresponds to
+   the `ring_heaps` argument to the stream constructor).

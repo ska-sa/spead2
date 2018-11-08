@@ -75,12 +75,12 @@ private:
     const std::size_t cap;  ///< Number of slots
 
     /// Mutex held when reading from the head (needed for safe multi-consumer)
-    std::mutex head_mutex;
+    mutable std::mutex head_mutex;
     std::size_t head = 0;   ///< first slot with data
     bool stopped = false;   ///< Whether stop has been called
 
     /// Mutex held when writing to the tail (needed for safe multi-producer)
-    std::mutex tail_mutex;
+    mutable std::mutex tail_mutex;
     std::size_t tail = 0;   ///< first slot without data
     /**
      * Position in the queue which the receiver should treat as "please stop",
@@ -131,6 +131,18 @@ protected:
 
     /// Implementation of stopping, without the semaphores
     void stop_internal();
+
+public:
+    /// Maximum number of items that can be held at once
+    std::size_t capacity() const;
+
+    /**
+     * Return the number of items currently in the ringbuffer.
+     *
+     * This should only be used for metrics, not for control flow, as
+     * the result could be out of date by the time it is returned.
+     */
+    std::size_t size() const;
 };
 
 template<typename T>
@@ -147,6 +159,23 @@ void ringbuffer_base<T>::throw_empty_or_stopped()
         throw ringbuffer_stopped();
     else
         throw ringbuffer_empty();
+}
+
+template<typename T>
+std::size_t ringbuffer_base<T>::capacity() const
+{
+    return cap - 1;
+}
+
+template<typename T>
+std::size_t ringbuffer_base<T>::size() const
+{
+    std::lock_guard<std::mutex> head_lock(head_mutex);
+    std::lock_guard<std::mutex> tail_lock(tail_mutex);
+    if (head <= tail)
+        return tail - head;
+    else
+        return tail + cap - head;
 }
 
 template<typename T>
@@ -255,7 +284,7 @@ void ringbuffer_base<T>::stop_internal()
  * for @ref throw_empty_or_stopped and @ref throw_full_or_stopped.
  */
 template<typename T, typename DataSemaphore = semaphore, typename SpaceSemaphore = semaphore>
-class ringbuffer : protected ringbuffer_base<T>
+class ringbuffer : public ringbuffer_base<T>
 {
 private:
     DataSemaphore data_sem;     ///< Number of filled slots

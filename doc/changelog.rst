@@ -4,6 +4,7 @@ Changelog
 .. rubric:: Development version
 
 - Update the vendored pybind11 to 2.2.4.
+- Provide access to ringbuffer size and capacity for diagnostics.
 
 .. rubric:: 1.9.2
 
