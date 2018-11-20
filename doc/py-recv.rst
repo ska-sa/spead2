@@ -412,5 +412,5 @@ synchronisation.
 
    .. py:method:: capacity()
 
-   Maximum number of heaps that can be help in the ringbuffer (corresponds to
+   Maximum number of heaps that can be held in the ringbuffer (corresponds to
    the `ring_heaps` argument to the stream constructor).
