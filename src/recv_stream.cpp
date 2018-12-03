@@ -116,13 +116,19 @@ bool stream_base::add_packet(const packet_header &packet)
     live_heap *h = NULL;
     std::size_t position = 0;
     s_item_pointer_t heap_cnt = packet.heap_cnt;
-    if (heap_cnts[head] == heap_cnt)
+    if (packet.heap_length >= 0 && packet.payload_length == packet.heap_length)
+    {
+        // Packet is a complete heap, so it shouldn't match any partial heap.
+        h = NULL;
+    }
+    else if (heap_cnts[head] == heap_cnt)
     {
         position = head;
         h = reinterpret_cast<live_heap *>(&heap_storage[head]);
     }
     else
     {
+        h = NULL;
         for (std::size_t i = 0; i < max_heaps; i++)
             if (heap_cnts[i] == heap_cnt)
             {
@@ -130,30 +136,30 @@ bool stream_base::add_packet(const packet_header &packet)
                 h = reinterpret_cast<live_heap *>(&heap_storage[i]);
                 break;
             }
+    }
 
-        if (!h)
+    if (!h)
+    {
+        // Never seen this heap before. Evict the old one in its slot,
+        // if any. Note: not safe to dereference h just anywhere here!
+        if (++head == max_heaps)
+            head = 0;
+        position = head;
+        h = reinterpret_cast<live_heap *>(&heap_storage[head]);
+        if (heap_cnts[head] != -1)
         {
-            // Never seen this heap before. Evict the old one in its slot,
-            // if any. Note: not safe to dereference h just anywhere here!
-            if (++head == max_heaps)
-                head = 0;
-            position = head;
-            h = reinterpret_cast<live_heap *>(&heap_storage[head]);
-            if (heap_cnts[head] != -1)
-            {
-                incomplete_heaps_evicted++;
-                heap_ready(std::move(*h));
-                h->~live_heap();
-            }
-            heap_cnts[head] = heap_cnt;
-            std::shared_ptr<memory_allocator> allocator;
-            {
-                std::lock_guard<std::mutex> lock(allocator_mutex);
-                allocator = this->allocator;
-            }
-            new (h) live_heap(heap_cnt, bug_compat, allocator);
-            h->set_memcpy(memcpy.load(std::memory_order_relaxed));
+            incomplete_heaps_evicted++;
+            heap_ready(std::move(*h));
+            h->~live_heap();
         }
+        heap_cnts[head] = heap_cnt;
+        std::shared_ptr<memory_allocator> allocator;
+        {
+            std::lock_guard<std::mutex> lock(allocator_mutex);
+            allocator = this->allocator;
+        }
+        new (h) live_heap(heap_cnt, bug_compat, allocator);
+        h->set_memcpy(memcpy.load(std::memory_order_relaxed));
     }
 
     bool result = false;

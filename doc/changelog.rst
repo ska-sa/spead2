@@ -5,6 +5,7 @@ Changelog
 
 - Update the vendored pybind11 to 2.2.4.
 - Provide access to ringbuffer size and capacity for diagnostics.
+- Add a fast path for single-packet heaps.
 
 .. rubric:: 1.9.2
 
