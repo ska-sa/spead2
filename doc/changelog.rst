@@ -7,6 +7,7 @@ Changelog
 - Provide access to ringbuffer size and capacity for diagnostics.
 - Add a fast path for single-packet heaps.
 - Add support for pcap files to the C++ version of :program:`spead2_recv`.
+- Improve performance pcap reader by working on batches of packets
 
 .. rubric:: 1.9.2
 

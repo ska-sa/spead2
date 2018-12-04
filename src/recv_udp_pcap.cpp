@@ -36,48 +36,51 @@ namespace recv
 
 void udp_pcap_file_reader::run()
 {
+    const int BATCH = 64;
+
     spead2::recv::stream_base &s = get_stream_base();
-    if (s.is_stopped())
+
+    for (int pass = 0; pass < BATCH; pass++)
     {
-        stopped();
-        return;
-    }
-    struct pcap_pkthdr *h;
-    const u_char *pkt_data;
-    int status = pcap_next_ex(handle, &h, &pkt_data);
-    switch (status)
-    {
-    case 1:
-        // Successful read
-        if (h->caplen < h->len)
+        if (s.is_stopped())
+            break;
+        struct pcap_pkthdr *h;
+        const u_char *pkt_data;
+        int status = pcap_next_ex(handle, &h, &pkt_data);
+        switch (status)
         {
-            log_warning("Packet was truncated (%d < %d)", h->caplen, h->len);
+        case 1:
+            // Successful read
+            if (h->caplen < h->len)
+            {
+                log_warning("Packet was truncated (%d < %d)", h->caplen, h->len);
+            }
+            else
+            {
+                try
+                {
+                    void *bytes = const_cast<void *>((const void *) pkt_data);
+                    packet_buffer payload = udp_from_ethernet(bytes, h->len);
+                    process_one_packet(payload.data(), payload.size(), payload.size());
+                }
+                catch (packet_type_error &e)
+                {
+                    log_warning(e.what());
+                }
+                catch (std::length_error &e)
+                {
+                    log_warning(e.what());
+                }
+            }
+            break;
+        case -1:
+            log_warning("Error reading packet: %s", pcap_geterr(handle));
+            break;
+        case -2:
+            // End of file
+            s.stop_received();
+            break;
         }
-        else
-        {
-            try
-            {
-                void *bytes = const_cast<void *>((const void *) pkt_data);
-                packet_buffer payload = udp_from_ethernet(bytes, h->len);
-                process_one_packet(payload.data(), payload.size(), payload.size());
-            }
-            catch (packet_type_error &e)
-            {
-                log_warning(e.what());
-            }
-            catch (std::length_error &e)
-            {
-                log_warning(e.what());
-            }
-        }
-        break;
-    case -1:
-        log_warning("Error reading packet: %s", pcap_geterr(handle));
-        break;
-    case -2:
-        // End of file
-        s.stop_received();
-        break;
     }
     // Run ourselves again
     if (!s.is_stopped())
