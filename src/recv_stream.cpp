@@ -70,9 +70,9 @@ stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
 {
     if (max_heaps == 0)
         throw std::invalid_argument("max_heaps cannot be 0");
-    for (int i = 0; i < max_heaps; i++)
+    for (std::size_t i = 0; i < max_heaps; i++)
         cast(i)->next = INVALID_ENTRY;
-    for (int i = 0; i < bucket_count; i++)
+    for (std::size_t i = 0; i < bucket_count; i++)
         buckets[i] = NULL;
 }
 
