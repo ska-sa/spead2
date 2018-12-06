@@ -69,7 +69,7 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
 {
     if (!error)
     {
-        recv_stream::add_packet_state state(get_stream_base());
+        stream_base::add_packet_state state(get_stream_base());
         for (int ri = desc->first_rx_ring; ri <= desc->last_rx_ring; ri++)
         {
             netmap_ring *ring = NETMAP_RXRING(desc->nifp, ri);
