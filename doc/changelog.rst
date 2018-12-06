@@ -6,8 +6,9 @@ Changelog
 - Update the vendored pybind11 to 2.2.4.
 - Provide access to ringbuffer size and capacity for diagnostics.
 - Add a fast path for single-packet heaps.
+- Accelerate per-packet processing, particularly when `max_heaps` is large.
 - Add support for pcap files to the C++ version of :program:`spead2_recv`.
-- Improve performance pcap reader by working on batches of packets
+- Improve performance pcap reader by working on batches of packets.
 
 .. rubric:: 1.9.2
 

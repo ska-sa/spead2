@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017 SKA South Africa
+/* Copyright 2015, 2017, 2018 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -77,6 +77,16 @@ struct stream_stats
      * to readers that support fetching a batch of packets from the source.
      */
     std::size_t max_batch = 0;
+
+    /**
+     * Number of heaps that were entirely contained in one packet.
+     */
+    std::uint64_t single_packet_heaps = 0;
+
+    /**
+     * Total number of hash table probes.
+     */
+    std::uint64_t search_dist = 0;
 };
 
 /**
@@ -98,31 +108,48 @@ struct stream_stats
  * @internal
  *
  * The live heaps are stored in a circular queue (this has fewer pointer
- * indirections than @c std::deque). The heap cnts stored in another circular
- * queue with the same indexing. The heap cnt queue is redundant, but having a
- * separate queue of heap cnts reduces the number of cache lines touched to
- * find the right heap.
- *
+ * indirections than @c std::deque).
  * When a heap is removed from the circular queue, the queue is not shifted
  * up. Instead, a hole is left. The queue thus only needs a head and not a
  * tail. When adding a new heap, any heap stored in the head position is
  * evicted. This means that heaps may be evicted before it is strictly
  * necessary from the point of view of available storage, but this prevents
  * heaps with lost packets from hanging around forever.
+ *
+ * A hash table is used to accelerate finding the live heap matching the
+ * incoming packet. Some care is needed, because some hash table
+ * implementations just take the lower bits of a number to map it to a bucket,
+ * and some SPEAD streams increment cnts by a power of two, which can easily
+ * lead to all heaps in the same bucket. So rather than using
+ * std::unordered_map, we use a custom hash table implementation (with a
+ * fixed number of buckets).
  */
 class stream_base
 {
 private:
-    typedef typename std::aligned_storage<sizeof(live_heap), alignof(live_heap)>::type storage_type;
+    struct queue_entry
+    {
+        queue_entry *next;   // Hash table chain
+        live_heap heap;
+        /* TODO: pad to a multiple of 16 bytes, so that there is a
+         * good chance of next and heap.cnt being in the same cache line.
+         */
+    };
+
+    typedef typename std::aligned_storage<sizeof(queue_entry), alignof(queue_entry)>::type storage_type;
     /**
      * Circular queue for heaps.
      *
-     * A particular heap is in a constructed state iff the corresponding
-     * element of @a heap_cnt is non-negative.
+     * A particular heap is in a constructed state iff the next pointer is
+     * not INVALID_ENTRY.
      */
-    std::unique_ptr<storage_type[]> heap_storage;
-    /// Circular queue for heap cnts, with -1 indicating a hole.
-    std::unique_ptr<s_item_pointer_t[]> heap_cnts;
+    std::unique_ptr<storage_type[]> queue_storage;
+    /// Number of entries in @ref buckets
+    std::size_t bucket_count;
+    /// Right shift to map 64-bit unsigned to a bucket index
+    int bucket_shift;
+    /// Pointer to the first heap in each bucket, or NULL
+    std::unique_ptr<queue_entry *[]> buckets;
     /// Position of the most recently added heap
     std::size_t head;
 
@@ -151,6 +178,20 @@ private:
     /// @ref stop_received has been called, either externally or by stream control
     std::atomic<bool> stopped{false};
 
+    /// Compute bucket number for a heap cnt
+    std::size_t get_bucket(s_item_pointer_t heap_cnt) const;
+
+    /// Get an entry from @ref queue_storage with the right type
+    queue_entry *cast(std::size_t index);
+
+    /**
+     * Unlink an entry from the hash table.
+     *
+     * Note: this must be called before moving away the underlying heap,
+     * as it depends on accessing the heap cnt to identify the bucket.
+     */
+    void unlink_entry(queue_entry *entry);
+
     /**
      * Callback called when a heap is being ejected from the live list.
      * The heap might or might not be complete.
@@ -162,6 +203,30 @@ protected:
     stream_stats stats;
 
 public:
+    /**
+     * State for a batch of calls to @ref add_packet. The strand must be held for
+     * its entire lifetime. It holds copies of data that otherwise require
+     * atomic access in the owning class.
+     */
+    struct add_packet_state
+    {
+        stream_base &owner;
+
+        // Copied from the stream, but unencumbered by locks/atomics
+        memcpy_function memcpy;
+        std::shared_ptr<memory_allocator> allocator;
+        bool stop_on_stop_item;
+        // Updates to the statistics
+        std::uint64_t packets = 0;
+        std::uint64_t complete_heaps = 0;
+        std::uint64_t incomplete_heaps_evicted = 0;
+        std::uint64_t single_packet_heaps = 0;
+        std::uint64_t search_dist = 0;
+
+        explicit add_packet_state(stream_base &owner);
+        ~add_packet_state();
+    };
+
     static constexpr std::size_t default_max_heaps = 4;
 
     /**
@@ -197,9 +262,6 @@ public:
     /// Get whether to stop the stream when a stop item is received
     bool get_stop_on_stop_item() const;
 
-    /// Report a batch size, for updating the statistics
-    void batch_size(std::size_t size);
-
     /**
      * Add a packet that was received, and which has been examined by @a
      * decode_packet, and returns @c true if it is consumed. Even though @a
@@ -208,7 +270,8 @@ public:
      *
      * It is an error to call this after the stream has been stopped.
      */
-    bool add_packet(const packet_header &packet);
+    bool add_packet(add_packet_state &state, const packet_header &packet);
+
     /**
      * Shut down the stream. This calls @ref flush.  Subclasses may override
      * this to achieve additional effects, but must chain to the base

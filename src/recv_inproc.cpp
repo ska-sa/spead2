@@ -42,13 +42,14 @@ inproc_reader::inproc_reader(
     enqueue();
 }
 
-void inproc_reader::process_one_packet(const inproc_queue::packet &packet)
+void inproc_reader::process_one_packet(stream_base::add_packet_state &state,
+                                       const inproc_queue::packet &packet)
 {
     packet_header header;
     std::size_t size = decode_packet(header, packet.data.get(), packet.size);
     if (size == packet.size)
     {
-        get_stream_base().add_packet(header);
+        get_stream_base().add_packet(state, header);
     }
     else if (size != 0)
     {
@@ -66,10 +67,12 @@ void inproc_reader::packet_handler(
     }
     else
     {
+        stream_base::add_packet_state state(get_stream_base());
         try
         {
             inproc_queue::packet packet = queue->buffer.try_pop();
-            process_one_packet(packet);
+            process_one_packet(state, packet);
+            /* TODO: could grab a batch of packets to amortise costs */
         }
         catch (ringbuffer_stopped)
         {

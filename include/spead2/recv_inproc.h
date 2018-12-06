@@ -41,7 +41,8 @@ private:
     std::shared_ptr<inproc_queue> queue;
     boost::asio::posix::stream_descriptor data_sem_wrapper;
 
-    void process_one_packet(const inproc_queue::packet &packet);
+    void process_one_packet(stream_base::add_packet_state &state,
+                            const inproc_queue::packet &packet);
     void packet_handler(const boost::system::error_code &error, std::size_t bytes_received);
     void enqueue();
 

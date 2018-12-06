@@ -386,7 +386,9 @@ py::module register_module(py::module &parent)
         .def_readwrite("incomplete_heaps_flushed", &stream_stats::incomplete_heaps_flushed)
         .def_readwrite("packets", &stream_stats::packets)
         .def_readwrite("worker_blocked", &stream_stats::worker_blocked)
-        .def_readwrite("max_batch", &stream_stats::max_batch);
+        .def_readwrite("max_batch", &stream_stats::max_batch)
+        .def_readwrite("single_packet_heaps", &stream_stats::single_packet_heaps)
+        .def_readwrite("search_dist", &stream_stats::search_dist);
     py::class_<ring_stream_wrapper> stream_class(m, "Stream");
     stream_class
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, bug_compat_mask,

@@ -215,6 +215,7 @@ void udp_reader::packet_handler(
 {
     if (!error)
     {
+        stream_base::add_packet_state state(get_stream_base());
         if (get_stream_base().is_stopped())
         {
             log_info("UDP reader: discarding packet received after stream stopped");
@@ -225,8 +226,6 @@ void udp_reader::packet_handler(
             int received = recvmmsg(socket2.native_handle(), msgvec.data(), msgvec.size(),
                                     MSG_DONTWAIT, nullptr);
             log_debug("recvmmsg returned %1%", received);
-            if (received > 0)
-                get_stream_base().batch_size(received);
             if (received == -1 && errno != EAGAIN && errno != EWOULDBLOCK)
             {
                 std::error_code code(errno, std::system_category());
@@ -234,12 +233,13 @@ void udp_reader::packet_handler(
             }
             for (int i = 0; i < received; i++)
             {
-                bool stopped = process_one_packet(buffer[i].get(), msgvec[i].msg_len, max_size);
+                bool stopped = process_one_packet(state,
+                                                  buffer[i].get(), msgvec[i].msg_len, max_size);
                 if (stopped)
                     break;
             }
 #else
-            process_one_packet(buffer.get(), bytes_transferred, max_size);
+            process_one_packet(state, buffer.get(), bytes_transferred, max_size);
 #endif
         }
     }

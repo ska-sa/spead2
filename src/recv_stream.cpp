@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017 SKA South Africa
+/* Copyright 2015, 2017, 2018 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -27,6 +27,8 @@
 #include <spead2/common_memcpy.h>
 #include <spead2/common_thread_pool.h>
 
+#define INVALID_ENTRY ((queue_entry *) -1)
+
 namespace spead2
 {
 namespace recv
@@ -34,24 +36,82 @@ namespace recv
 
 constexpr std::size_t stream_base::default_max_heaps;
 
+static std::size_t compute_bucket_count(std::size_t max_heaps)
+{
+    std::size_t buckets = 4;
+    while (buckets < max_heaps)
+        buckets *= 2;
+    buckets *= 4;    // Make sure the table has a low load factor
+    return buckets;
+}
+
+/* Compute shift such that (x >> shift) < bucket_count for all 64-bit x
+ * and bucket_count a power of 2.
+ */
+static int compute_bucket_shift(std::size_t bucket_count)
+{
+    int shift = 64;
+    while (bucket_count > 1)
+    {
+        shift--;
+        bucket_count >>= 1;
+    }
+    return shift;
+}
+
 stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
-    : heap_storage(new storage_type[max_heaps]),
-    heap_cnts(new s_item_pointer_t[max_heaps]),
+    : queue_storage(new storage_type[max_heaps]),
+    bucket_count(compute_bucket_count(max_heaps)),
+    bucket_shift(compute_bucket_shift(bucket_count)),
+    buckets(new queue_entry *[bucket_count]),
     head(0),
     max_heaps(max_heaps), bug_compat(bug_compat),
     allocator(std::make_shared<memory_allocator>())
 {
     if (max_heaps == 0)
         throw std::invalid_argument("max_heaps cannot be 0");
-    for (std::size_t i = 0; i < max_heaps; i++)
-        heap_cnts[i] = -1;
+    for (int i = 0; i < max_heaps; i++)
+        cast(i)->next = INVALID_ENTRY;
+    for (int i = 0; i < bucket_count; i++)
+        buckets[i] = NULL;
 }
 
 stream_base::~stream_base()
 {
     for (std::size_t i = 0; i < max_heaps; i++)
-        if (heap_cnts[i] != -1)
-            reinterpret_cast<live_heap *>(&heap_storage[i])->~live_heap();
+    {
+        queue_entry *entry = cast(i);
+        if (entry->next != INVALID_ENTRY)
+        {
+            unlink_entry(entry);
+            entry->heap.~live_heap();
+        }
+    }
+}
+
+std::size_t stream_base::get_bucket(s_item_pointer_t heap_cnt) const
+{
+    // Look up Fibonacci hashing for an explanation of the magic number
+    return (heap_cnt * 11400714819323198485ULL) >> bucket_shift;
+}
+
+stream_base::queue_entry *stream_base::cast(std::size_t index)
+{
+    return reinterpret_cast<queue_entry *>(&queue_storage[index]);
+}
+
+void stream_base::unlink_entry(queue_entry *entry)
+{
+    assert(entry->next != INVALID_ENTRY);
+    std::size_t bucket_id = get_bucket(entry->heap.get_cnt());
+    queue_entry **prev = &buckets[bucket_id];
+    while (*prev != entry)
+    {
+        assert(*prev != NULL && *prev != INVALID_ENTRY);
+        prev = &(*prev)->next;
+    }
+    *prev = entry->next;
+    entry->next = INVALID_ENTRY;
 }
 
 void stream_base::set_memory_pool(std::shared_ptr<memory_pool> pool)
@@ -95,97 +155,90 @@ bool stream_base::get_stop_on_stop_item() const
     return stop_on_stop_item.load();
 }
 
-void stream_base::batch_size(std::size_t size)
+stream_base::add_packet_state::add_packet_state(stream_base &owner)
+    : owner(owner), memcpy(owner.memcpy.load()),
+    stop_on_stop_item(owner.stop_on_stop_item.load())
 {
-    std::lock_guard<std::mutex> stats_lock(stats_mutex);
-    if (size > stats.max_batch)
-        stats.max_batch = size;
+    std::lock_guard<std::mutex> lock(owner.allocator_mutex);
+    allocator = owner.allocator;
 }
 
-bool stream_base::add_packet(const packet_header &packet)
+stream_base::add_packet_state::~add_packet_state()
 {
-    /* Instead of locking the mutex separately for each stats field update,
-     * we track the values we'll add and do it all at the end.
-     */
-    int complete_heaps = 0;
-    int incomplete_heaps_evicted = 0;
+    std::lock_guard<std::mutex> stats_lock(owner.stats_mutex);
+    owner.stats.packets += packets;
+    owner.stats.heaps += complete_heaps + incomplete_heaps_evicted;
+    owner.stats.incomplete_heaps_evicted += incomplete_heaps_evicted;
+    owner.stats.single_packet_heaps += single_packet_heaps;
+    owner.stats.search_dist += search_dist;
+    owner.stats.max_batch = std::max(owner.stats.max_batch, std::size_t(packets));
+}
 
+bool stream_base::add_packet(add_packet_state &state, const packet_header &packet)
+{
     assert(!stopped);
-    // Look for matching heap. For large heaps, this will in most
-    // cases be in the head position.
-    live_heap *h = NULL;
-    std::size_t position = 0;
+    // Look for matching heap.
+    queue_entry *entry = NULL;
     s_item_pointer_t heap_cnt = packet.heap_cnt;
+    std::size_t bucket_id = get_bucket(heap_cnt);
+    assert(bucket_id < bucket_count);
     if (packet.heap_length >= 0 && packet.payload_length == packet.heap_length)
     {
         // Packet is a complete heap, so it shouldn't match any partial heap.
-        h = NULL;
-    }
-    else if (heap_cnts[head] == heap_cnt)
-    {
-        position = head;
-        h = reinterpret_cast<live_heap *>(&heap_storage[head]);
+        entry = NULL;
+        state.single_packet_heaps++;
     }
     else
     {
-        h = NULL;
-        for (std::size_t i = 0; i < max_heaps; i++)
-            if (heap_cnts[i] == heap_cnt)
-            {
-                position = i;
-                h = reinterpret_cast<live_heap *>(&heap_storage[i]);
+        int search_dist = 1;
+        for (entry = buckets[bucket_id]; entry != NULL; entry = entry->next, search_dist++)
+        {
+            assert(entry != INVALID_ENTRY);
+            if (entry->heap.get_cnt() == heap_cnt)
                 break;
-            }
+        }
+        state.search_dist += search_dist;
     }
 
-    if (!h)
+    if (!entry)
     {
         // Never seen this heap before. Evict the old one in its slot,
         // if any. Note: not safe to dereference h just anywhere here!
         if (++head == max_heaps)
             head = 0;
-        position = head;
-        h = reinterpret_cast<live_heap *>(&heap_storage[head]);
-        if (heap_cnts[head] != -1)
+        entry = cast(head);
+        if (entry->next != INVALID_ENTRY)
         {
-            incomplete_heaps_evicted++;
-            heap_ready(std::move(*h));
-            h->~live_heap();
+            state.incomplete_heaps_evicted++;
+            unlink_entry(entry);
+            heap_ready(std::move(entry->heap));
+            entry->heap.~live_heap();
         }
-        heap_cnts[head] = heap_cnt;
-        std::shared_ptr<memory_allocator> allocator;
-        {
-            std::lock_guard<std::mutex> lock(allocator_mutex);
-            allocator = this->allocator;
-        }
-        new (h) live_heap(heap_cnt, bug_compat, allocator);
-        h->set_memcpy(memcpy.load(std::memory_order_relaxed));
+        entry->next = buckets[bucket_id];
+        buckets[bucket_id] = entry;
+        new (&entry->heap) live_heap(heap_cnt, bug_compat, state.allocator);
+        entry->heap.set_memcpy(state.memcpy);
     }
 
+    live_heap *h = &entry->heap;
     bool result = false;
     bool end_of_stream = false;
     if (h->add_packet(packet))
     {
         result = true;
-        end_of_stream = stop_on_stop_item.load() && h->is_end_of_stream();
+        end_of_stream = state.stop_on_stop_item && h->is_end_of_stream();
         if (h->is_complete())
         {
+            unlink_entry(entry);
             if (!end_of_stream)
             {
-                complete_heaps++;
+                state.complete_heaps++;
                 heap_ready(std::move(*h));
             }
-            heap_cnts[position] = -1;
             h->~live_heap();
         }
     }
-
-    {
-        std::lock_guard<std::mutex> stats_lock(stats_mutex);
-        stats.packets++;
-        stats.heaps += complete_heaps + incomplete_heaps_evicted;
-        stats.incomplete_heaps_evicted += incomplete_heaps_evicted;
-    }
+    state.packets++;
 
     if (end_of_stream)
         stop_received();
@@ -199,13 +252,13 @@ void stream_base::flush()
     {
         if (++head == max_heaps)
             head = 0;
-        if (heap_cnts[head] != -1)
+        queue_entry *entry = cast(head);
+        if (entry->next != INVALID_ENTRY)
         {
-            live_heap *h = reinterpret_cast<live_heap *>(&heap_storage[head]);
             n_flushed++;
-            heap_ready(std::move(*h));
-            h->~live_heap();
-            heap_cnts[head] = -1;
+            unlink_entry(entry);
+            heap_ready(std::move(entry->heap));
+            entry->heap.~live_heap();
         }
     }
     std::lock_guard<std::mutex> stats_lock(stats_mutex);
@@ -231,10 +284,6 @@ stream_stats stream::get_stats() const
 {
     std::lock_guard<std::mutex> stats_lock(stats_mutex);
     stream_stats ret = stats;
-    // It's cheaper to fix this up here than make non-batched reader update
-    // max_batch on every packet
-    if (ret.packets > 0 && ret.max_batch == 0)
-        ret.max_batch = 1;
     return ret;
 }
 
@@ -280,13 +329,14 @@ stream::~stream()
 
 const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::size_t length)
 {
+    stream_base::add_packet_state state(s);
     while (length > 0 && !s.is_stopped())
     {
         packet_header packet;
         std::size_t size = decode_packet(packet, ptr, length);
         if (size > 0)
         {
-            s.add_packet(packet);
+            s.add_packet(state, packet);
             ptr += size;
             length -= size;
         }

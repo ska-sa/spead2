@@ -354,15 +354,21 @@ Statistics
 ^^^^^^^^^^
 The :py:attr:`~spead2.recv.Stream.stats` property of a stream contains
 statistics about the stream. Note that while the fields below are expected to
-be stable, their exact interpretation in edge cases is subject to change as the
-implementation evolves. It is intended for instrumentation, rather than for
-driving application logic.
+be stable except where otherwise noted, their exact interpretation in edge
+cases is subject to change as the implementation evolves. It is intended for
+instrumentation, rather than for driving application logic.
 
 Each time the property is accessed, an internally consistent view of the
 statistics is returned. However, it is not synchronised with other aspects of
 the stream. For example, it's theoretically possible to retrieve 5 heaps from
 the stream iterator, then find that :py:attr:`.StreamStats.heaps` is (briefly)
 4.
+
+Some readers process packets in batches, and the statistics are only updated
+after a whole batch is added. This can be particularly noticeable if the
+ringbuffer fills up and blocks the reader, as this prevents the batch from
+completing and so heaps that have already been received by Python code might
+not be reflected in the statistics.
 
 .. py:class:: spead2.recv.StreamStats
 
@@ -399,6 +405,17 @@ the stream iterator, then find that :py:attr:`.StreamStats.heaps` is (briefly)
 
    Maximum number of packets received as a unit. This is only applicable to
    readers that support fetching a batch of packets from the source.
+
+   .. py:attribute:: single_packet_heaps
+
+   Number of heaps that were entirely contained in a single packet. These
+   take a slightly faster path as it is not necessary to reassemble them.
+
+   .. py:attribute:: search_dist
+
+   Number of hash table entries searched to find the heaps associated with
+   packets. This is intended for debugging/profiling spead2 and **may be
+   removed without notice**.
 
 Additional statistics are available on the ringbuffer underlying the stream
 (:attr:`~spead2.recv.Stream.ringbuffer` property), with similar caveats about

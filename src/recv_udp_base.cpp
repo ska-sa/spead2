@@ -33,7 +33,9 @@ namespace recv
 
 constexpr std::size_t udp_reader_base::default_max_size;
 
-bool udp_reader_base::process_one_packet(const std::uint8_t *data, std::size_t length, std::size_t max_size)
+bool udp_reader_base::process_one_packet(
+    stream_base::add_packet_state &state,
+    const std::uint8_t *data, std::size_t length, std::size_t max_size)
 {
     bool stopped = false;
     if (length <= max_size && length > 0)
@@ -43,7 +45,7 @@ bool udp_reader_base::process_one_packet(const std::uint8_t *data, std::size_t l
         std::size_t size = decode_packet(packet, data, length);
         if (size == length)
         {
-            get_stream_base().add_packet(packet);
+            get_stream_base().add_packet(state, packet);
             if (get_stream_base().is_stopped())
             {
                 log_debug("UDP reader: end of stream detected");

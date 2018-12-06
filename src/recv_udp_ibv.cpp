@@ -112,6 +112,7 @@ ibv_flow_t udp_ibv_reader::create_flow(
 int udp_ibv_reader::poll_once()
 {
     int received = recv_cq.poll(n_slots, wc.get());
+    stream_base::add_packet_state state(get_stream_base());
     for (int i = 0; i < received; i++)
     {
         int index = wc[i].wr_id;
@@ -129,7 +130,8 @@ int udp_ibv_reader::poll_once()
             try
             {
                 packet_buffer payload = udp_from_ethernet(const_cast<void *>(ptr), len);
-                bool stopped = process_one_packet(payload.data(), payload.size(), max_size);
+                bool stopped = process_one_packet(state,
+                                                  payload.data(), payload.size(), max_size);
                 if (stopped)
                     return -2;
             }
@@ -144,7 +146,6 @@ int udp_ibv_reader::poll_once()
         }
         qp.post_recv(&slots[index].wr);
     }
-    get_stream_base().batch_size(received);
     return received;
 }
 

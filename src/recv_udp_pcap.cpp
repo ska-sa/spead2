@@ -36,10 +36,10 @@ namespace recv
 
 void udp_pcap_file_reader::run()
 {
-    const int BATCH = 64;
+    const int BATCH = 64;  // maximum number of packets to process in one go
 
     spead2::recv::stream_base &s = get_stream_base();
-
+    spead2::recv::stream_base::add_packet_state state(s);
     for (int pass = 0; pass < BATCH; pass++)
     {
         if (s.is_stopped())
@@ -61,7 +61,7 @@ void udp_pcap_file_reader::run()
                 {
                     void *bytes = const_cast<void *>((const void *) pkt_data);
                     packet_buffer payload = udp_from_ethernet(bytes, h->len);
-                    process_one_packet(payload.data(), payload.size(), payload.size());
+                    process_one_packet(state, payload.data(), payload.size(), payload.size());
                 }
                 catch (packet_type_error &e)
                 {

@@ -127,8 +127,10 @@ bool tcp_reader::parse_packet()
     std::size_t size = decode_packet(packet, head, pkt_size);
     if (size == pkt_size)
     {
-        get_stream_base().add_packet(packet);
-        if (get_stream_base().is_stopped())
+        stream_base &s = get_stream_base();
+        stream_base::add_packet_state state(s);
+        s.add_packet(state, packet);
+        if (s.is_stopped())
         {
             log_debug("TCP reader: end of stream detected");
             return true;

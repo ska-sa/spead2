@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2018 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -69,6 +69,7 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
 {
     if (!error)
     {
+        recv_stream::add_packet_state state(get_stream_base());
         for (int ri = desc->first_rx_ring; ri <= desc->last_rx_ring; ri++)
         {
             netmap_ring *ring = NETMAP_RXRING(desc->nifp, ri);
@@ -112,7 +113,7 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                         std::size_t size = decode_packet(packet, payload.data(), payload.size());
                         if (size == payload.size())
                         {
-                            get_stream_base().add_packet(packet);
+                            get_stream_base().add_packet(state, packet);
                             if (get_stream_base().is_stopped())
                                 log_debug("netmap_udp_reader: end of stream detected");
                         }

@@ -40,13 +40,16 @@ protected:
     /**
      * Handle a single received packet.
      *
+     * @param state     Batch state
      * @param data      Pointer to the start of the UDP payload
      * @param length    Length of the UDP payload
      * @param max_size  Maximum expected length of the UDP payload
      *
      * @return whether the packet caused the stream to stop
      */
-    bool process_one_packet(const std::uint8_t *data, std::size_t length, std::size_t max_size);
+    bool process_one_packet(
+        stream_base::add_packet_state &state,
+        const std::uint8_t *data, std::size_t length, std::size_t max_size);
 
 public:
     /// Maximum packet size, if none is explicitly passed to the constructor
