@@ -154,7 +154,10 @@ bool live_heap::add_packet(const packet_header &packet)
      * should avoid disabling vector's doubling heuristic.
      */
     if (pointers.capacity() == 0)
+    {
         pointers.reserve(packet.n_items);
+        seen_pointers.reserve(packet.n_items);
+    }
     for (int i = 0; i < packet.n_items; i++)
     {
         item_pointer_t pointer = load_be<item_pointer_t>(packet.pointers + i * sizeof(item_pointer_t));
