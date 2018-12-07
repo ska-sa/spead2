@@ -34,20 +34,17 @@ namespace spead2
 namespace recv
 {
 
-live_heap::live_heap(s_item_pointer_t cnt, bug_compat_mask bug_compat,
-                     std::shared_ptr<memory_allocator> allocator)
-    : cnt(cnt), bug_compat(bug_compat), allocator(std::move(allocator))
+live_heap::live_heap(const packet_header &initial_packet,
+                     bug_compat_mask bug_compat)
+    : cnt(initial_packet.heap_cnt), bug_compat(bug_compat),
+    decoder(initial_packet.heap_address_bits)
 {
-    assert(this->allocator);
     assert(cnt >= 0);
 }
 
-void live_heap::set_memcpy(memcpy_function memcpy)
-{
-    this->memcpy = memcpy;
-}
-
-void live_heap::payload_reserve(std::size_t size, bool exact, const packet_header &packet)
+void live_heap::payload_reserve(std::size_t size, bool exact, const packet_header &packet,
+                                const memcpy_function &memcpy,
+                                memory_allocator &allocator)
 {
     if (size > payload_reserved)
     {
@@ -56,9 +53,9 @@ void live_heap::payload_reserve(std::size_t size, bool exact, const packet_heade
             size = payload_reserved * 2;
         }
         memory_allocator::pointer new_payload;
-        new_payload = allocator->allocate(size, (void *) &packet);
+        new_payload = allocator.allocate(size, (void *) &packet);
         if (payload)
-            this->memcpy(new_payload.get(), payload.get(), payload_reserved);
+            memcpy(new_payload.get(), payload.get(), payload_reserved);
         payload = std::move(new_payload);
         payload_reserved = size;
     }
@@ -103,8 +100,13 @@ bool live_heap::add_payload_range(s_item_pointer_t first, s_item_pointer_t last)
     return true;
 }
 
-bool live_heap::add_packet(const packet_header &packet)
+bool live_heap::add_packet(const packet_header &packet, const memcpy_function &memcpy,
+                           memory_allocator &allocator)
 {
+    /* It's important that these initial checks can't fail for a
+     * just-constructed live heap, because otherwise an initial_packet could
+     * create a heap with a specific flavour but then get rejected.
+     */
     assert(cnt == packet.heap_cnt);
     if (heap_length >= 0
         && packet.heap_length >= 0
@@ -119,7 +121,7 @@ bool live_heap::add_packet(const packet_header &packet)
         log_info("packet rejected because its HEAP_LEN is too small for the heap");
         return false;
     }
-    if (heap_address_bits != -1 && packet.heap_address_bits != heap_address_bits)
+    if (packet.heap_address_bits != decoder.address_bits())
     {
         log_info("packet rejected because its flavour is inconsistent with the heap");
         return false;
@@ -135,20 +137,21 @@ bool live_heap::add_packet(const packet_header &packet)
     // Packet is now accepted, and we modify state
     ///////////////////////////////////////////////
 
-    heap_address_bits = packet.heap_address_bits;
-    // If this is the first time we know the length, record it
-    if (heap_length < 0 && packet.heap_length >= 0)
+    if (packet.heap_length >= 0)
     {
-        heap_length = packet.heap_length;
-        min_length = std::max(min_length, heap_length);
-        payload_reserve(min_length, true, packet);
+        // If this is the first time we know the length, record it
+        if (heap_length < 0)
+        {
+            heap_length = packet.heap_length;
+            min_length = std::max(min_length, heap_length);
+            payload_reserve(min_length, true, packet, memcpy, allocator);
+        }
     }
     else
     {
         min_length = std::max(min_length, packet.payload_offset + packet.payload_length);
-        payload_reserve(min_length, false, packet);
+        payload_reserve(min_length, false, packet, memcpy, allocator);
     }
-    pointer_decoder decoder(heap_address_bits);
     /* Try to avoid too many reallocations for pointers. We can't just
      * unconditionally call reserve for the size we actually want, because we
      * should avoid disabling vector's doubling heuristic.
@@ -181,9 +184,10 @@ bool live_heap::add_packet(const packet_header &packet)
 
     if (packet.payload_length > 0)
     {
-        this->memcpy(payload.get() + packet.payload_offset,
-                     packet.payload,
-                     packet.payload_length);
+        // Note: this is the memcpy function pointer passed in, not std::memcpy
+        memcpy(payload.get() + packet.payload_offset,
+               packet.payload,
+               packet.payload_length);
         received_length += packet.payload_length;
     }
     log_debug("packet with %d bytes of payload at offset %d added to heap %d",
@@ -218,6 +222,20 @@ s_item_pointer_t live_heap::get_received_length() const
 s_item_pointer_t live_heap::get_heap_length() const
 {
     return heap_length;
+}
+
+void live_heap::reset()
+{
+    heap_length = -1;
+    received_length = 0;
+    min_length = 0;
+    end_of_stream = false;
+    payload.reset();
+    payload_reserved = 0;
+    pointers.clear();
+    pointers.shrink_to_fit();
+    seen_pointers.clear();
+    payload_ranges.clear();
 }
 
 } // namespace recv

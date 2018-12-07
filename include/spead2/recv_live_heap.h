@@ -32,6 +32,7 @@
 #include <spead2/common_defines.h>
 #include <spead2/common_memory_allocator.h>
 #include <spead2/recv_packet.h>
+#include <spead2/recv_utils.h>
 
 namespace spead2
 {
@@ -82,14 +83,12 @@ private:
      * known.
      */
     s_item_pointer_t min_length = 0;
-    /// Heap address bits (from the SPEAD flavour)
-    int heap_address_bits = -1;
+    /// Item pointer decoder (determined by the SPEAD flavour)
+    pointer_decoder decoder;
     /// Protocol bugs to accept
     bug_compat_mask bug_compat;
     /// True if a stream control packet indicating end-of-heap was found
     bool end_of_stream = false;
-    /// Function to use for copying payload
-    memcpy_function memcpy = std::memcpy;
     /**
      * Heap payload. When the length is unknown, this is grown by successive
      * doubling. While @c std::vector would take care of that for us, it also
@@ -120,14 +119,13 @@ private:
      */
     std::map<s_item_pointer_t, s_item_pointer_t> payload_ranges;
 
-    /// Backing memory allocator
-    std::shared_ptr<memory_allocator> allocator;
-
     /**
      * Make sure at least @a size bytes are allocated for payload. If
      * @a exact is false, then a doubling heuristic will be used.
      */
-    void payload_reserve(std::size_t size, bool exact, const packet_header &packet);
+    void payload_reserve(std::size_t size, bool exact, const packet_header &packet,
+                         const memcpy_function &memcpy,
+                         memory_allocator &allocator);
 
     /**
      * Update @ref payload_ranges with a new range. Returns true if the new
@@ -137,17 +135,14 @@ private:
 
 public:
     /**
-     * Constructor.
+     * Constructor. Note that the constructor does not actually add @a
+     * initial_packet; it just extracts some per-heap information from it.
      *
-     * @param cnt          Heap ID
+     * @param initial_packet  First packet that will be added.
      * @param bug_compat   Bugs to expect in the protocol
-     * @param allocator    Allocator used to allocate payload data
      */
-    explicit live_heap(s_item_pointer_t cnt, bug_compat_mask bug_compat,
-                       std::shared_ptr<memory_allocator> allocator);
-
-    /// Set memcpy function to use for copying payload
-    void set_memcpy(memcpy_function memcpy);
+    explicit live_heap(const packet_header &initial_packet,
+                       bug_compat_mask bug_compat);
 
     /**
      * Attempt to add a packet to the heap. The packet must have been
@@ -160,7 +155,8 @@ public:
      * - inconsistent heap length
      * - payload range is beyond the heap length
      */
-    bool add_packet(const packet_header &packet);
+    bool add_packet(const packet_header &packet, const memcpy_function &memcpy,
+                    memory_allocator &allocator);
     /// True if the heap is complete
     bool is_complete() const;
     /// True if the heap is contiguous
@@ -175,6 +171,8 @@ public:
     s_item_pointer_t get_received_length() const;
     /// Get amount of payload expected, or -1 if not known
     s_item_pointer_t get_heap_length() const;
+    /// Free all allocated memory
+    void reset();
 };
 
 } // namespace recv

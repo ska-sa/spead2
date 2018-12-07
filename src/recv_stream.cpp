@@ -216,14 +216,13 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
         }
         entry->next = buckets[bucket_id];
         buckets[bucket_id] = entry;
-        new (&entry->heap) live_heap(heap_cnt, bug_compat, state.allocator);
-        entry->heap.set_memcpy(state.memcpy);
+        new (&entry->heap) live_heap(packet, bug_compat);
     }
 
     live_heap *h = &entry->heap;
     bool result = false;
     bool end_of_stream = false;
-    if (h->add_packet(packet))
+    if (h->add_packet(packet, state.memcpy, *state.allocator))
     {
         result = true;
         end_of_stream = state.stop_on_stop_item && h->is_end_of_stream();

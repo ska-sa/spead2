@@ -63,14 +63,14 @@ void heap_base::load(live_heap &&h, bool keep_addressed, bool keep_payload)
      * The sort needs to be stable, because there can be zero-length fields.
      * TODO: these can still break if they cross packet boundaries.
      */
+    const pointer_decoder &decoder = h.decoder;
     item_pointer_t sort_mask =
-        immediate_mask | ((item_pointer_t(1) << h.heap_address_bits) - 1);
+        immediate_mask | ((item_pointer_t(1) << decoder.address_bits()) - 1);
     auto compare = [sort_mask](item_pointer_t a, item_pointer_t b) {
         return (a & sort_mask) < (b & sort_mask);
     };
     std::stable_sort(h.pointers.begin(), h.pointers.end(), compare);
 
-    pointer_decoder decoder(h.heap_address_bits);
     // Determine how much memory is needed to store immediates
     std::size_t n_immediates = 0;
     for (std::size_t i = 0; i < h.pointers.size(); i++)
@@ -80,7 +80,7 @@ void heap_base::load(live_heap &&h, bool keep_addressed, bool keep_payload)
             n_immediates++;
     }
     // Allocate memory
-    const std::size_t immediate_size = h.heap_address_bits / 8;
+    const std::size_t immediate_size = decoder.address_bits() / 8;
     const std::size_t id_size = sizeof(item_pointer_t) - immediate_size;
     if (n_immediates > 0)
         immediate_payload.reset(new uint8_t[immediate_size * n_immediates]);
@@ -135,7 +135,7 @@ void heap_base::load(live_heap &&h, bool keep_addressed, bool keep_payload)
     }
     cnt = h.cnt;
     flavour_ = flavour(maximum_version, 8 * sizeof(item_pointer_t),
-                       h.heap_address_bits, h.bug_compat);
+                       decoder.address_bits(), h.bug_compat);
     if (keep_payload)
         payload = std::move(h.payload);
 }
@@ -168,7 +168,7 @@ heap::heap(live_heap &&h)
     assert(h.is_contiguous());
     load(std::move(h), true, true);
     // Reset h so that it still satisfies its invariants
-    h = live_heap(0, h.bug_compat, h.allocator);
+    h.reset();
 }
 
 descriptor heap::to_descriptor() const
@@ -283,7 +283,7 @@ incomplete_heap::incomplete_heap(live_heap &&h, bool keep_payload, bool keep_pay
     if (keep_payload_ranges)
         payload_ranges = std::move(h.payload_ranges);
     // Reset h so that it still satisfies its invariants
-    h = live_heap(0, h.bug_compat, h.allocator);
+    h.reset();
 }
 
 std::vector<std::pair<s_item_pointer_t, s_item_pointer_t>>
