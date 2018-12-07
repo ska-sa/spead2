@@ -170,6 +170,10 @@ AC_ARG_ENABLE(
     [AS_HELP_STRING([--enable-debug-log], [Emit debug-level log messages])])
 
 AC_ARG_ENABLE(
+    [coverage],
+    [AS_HELP_STRING([--enable-coverage], [Build for coverage (gcov)])])
+
+AC_ARG_ENABLE(
     [optimized],
     [AS_HELP_STRING([--disable-optimized], [Disable compiler optimizations])])
 
@@ -180,6 +184,7 @@ AC_ARG_ENABLE(
 AM_CONDITIONAL([DEBUG_SYMBOLS], [test "x$enable_debug_symbols" = "xyes"])
 AM_CONDITIONAL([DEBUG_LOG], [test "x$enable_debug_log" = "xyes"])
 AM_CONDITIONAL([OPTIMIZED], [test "x$enable_optimized" != "xno"])
+AM_CONDITIONAL([COVERAGE], [test "x$enable_coverage" = "xyes"])
 AM_CONDITIONAL([LTO], [test "x$enable_lto" = "xyes"])
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
 AM_CONDITIONAL([SPEAD2_USE_IBV_EXP], [test "x$SPEAD2_USE_IBV_EXP" = "x1"])

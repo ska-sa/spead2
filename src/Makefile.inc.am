@@ -13,6 +13,14 @@ if DEBUG_LOG
 DEFS += -DSPEAD2_MAX_LOG_LEVEL=spead2::log_level::debug
 endif
 
+if COVERAGE
+if !DEBUG_SYMBOLS
+AM_CXXFLAGS += -g
+endif
+AM_CXXFLAGS += --coverage
+AM_LDFLAGS += --coverage
+endif
+
 if OPTIMIZED
 AM_CXXFLAGS += -O3
 DEFS += -DNDEBUG
