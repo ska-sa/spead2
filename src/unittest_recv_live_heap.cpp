@@ -2,8 +2,8 @@
 #include <utility>
 #include <ostream>
 #include <memory>
-#include <spead2/common_memory_allocator.h>
 #include <spead2/recv_live_heap.h>
+#include <spead2/recv_packet.h>
 
 namespace std
 {
@@ -24,10 +24,26 @@ namespace unittest
 BOOST_AUTO_TEST_SUITE(recv)
 BOOST_AUTO_TEST_SUITE(live_heap)
 
+// Creates a packet_header with just enough in it to initialise a live_heap
+static spead2::recv::packet_header dummy_packet(
+    s_item_pointer_t heap_cnt, int heap_address_bits = 48)
+{
+    spead2::recv::packet_header header;
+    header.heap_address_bits = heap_address_bits;
+    header.n_items = 0;
+    header.heap_cnt = heap_cnt;
+    header.heap_length = 0;
+    header.payload_offset = 0;
+    header.payload_length = 0;
+    header.pointers = NULL;
+    header.payload = NULL;
+    return header;
+}
+
 BOOST_AUTO_TEST_CASE(payload_ranges)
 {
     using spead2::recv::live_heap;
-    live_heap heap(1, 0, std::make_shared<spead2::memory_allocator>());
+    live_heap heap(dummy_packet(1), 0);
 
     BOOST_CHECK(heap.add_payload_range(100, 200));
     std::pair<const s_item_pointer_t, s_item_pointer_t> expected1[] = {{100, 200}};
