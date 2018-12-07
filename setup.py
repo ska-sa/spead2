@@ -53,6 +53,16 @@ class BuildPy(build_py):
 
 
 class BuildExt(build_ext):
+    user_options = build_ext.user_options + [
+        ('coverage', None,
+         "build with GCC --coverage option")
+    ]
+    boolean_options = build_ext.boolean_options + ['coverage']
+
+    def initialize_options(self):
+        build_ext.initialize_options(self)
+        self.coverage = None
+
     def run(self):
         self.mkpath(self.build_temp)
         subprocess.check_call(os.path.abspath('configure'), cwd=self.build_temp)
@@ -70,6 +80,9 @@ class BuildExt(build_ext):
                 extension.libraries.extend(['rdmacm', 'ibverbs'])
             if have_pcap:
                 extension.libraries.extend(['pcap'])
+            if self.coverage:
+                extension.extra_compile_args.extend(['-g', '--coverage'])
+                extension.libraries.extend(['gcov'])
             extension.include_dirs.insert(0, os.path.join(self.build_temp, 'include'))
         # distutils uses old-style classes, so no super
         build_ext.run(self)

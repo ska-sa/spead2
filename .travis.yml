@@ -1,135 +1,86 @@
 language: generic
 cache:
-    ccache: true
-    pip: true
-    directories:
-        - $HOME/.ccache
+  ccache: true
+  pip: true
+  directories:
+    - $HOME/.ccache
 matrix:
-    include:
-        - os: linux
-          sudo: false
-          dist: trusty
-          env: TEST=cxx CXX="ccache g++" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no PCAP=yes
-        - os: linux
-          sudo: false
-          dist: trusty
-          env: TEST=cxx CXX="ccache g++" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes PCAP=no
-        - os: linux
-          sudo: false
-          dist: trusty
-          env: TEST=cxx CXX="ccache clang++-3.5 -Qunused-arguments" NETMAP=no RECVMMSG=yes EVENTFD=yes IBV=no PCAP=yes
-        - os: linux
-          sudo: false
-          dist: trusty
-          env: TEST=cxx CXX="ccache clang++-3.5 -Qunused-arguments" NETMAP=yes RECVMMSG=no EVENTFD=no IBV=yes PCAP=no
-        - os: linux
-          sudo: false
-          dist: trusty
-          env: TEST=python2 CC="ccache gcc" CXX="g++"
-        - os: linux
-          sudo: false
-          dist: trusty
-          env: TEST=python2 CC="clang-3.5" CXX="clang++-3.5"
-        - os: linux
-          sudo: false
-          dist: trusty
-          env: TEST=python3 CC="ccache gcc" CXX="g++"
-        - os: linux
-          sudo: false
-          dist: trusty
-          env: TEST=python3 CC="clang-3.5" CXX="clang++-3.5"
-        - os: linux
-          sudo: false
-          dist: trusty
-          env: TEST=pypy2 CC="ccache gcc" CXX="g++"
-        - os: osx
-          osx_image: xcode7.3
-          env: TEST=cxx CXX="clang++" NETMAP=no RECVMMSG=no EVENTFD=no IBV=no
-        - os: osx
-          osx_image: xcode7.3
-          env: TEST=python2 CC="clang" CXX="clang++"
-        - os: osx
-          osx_image: xcode7.3
-          # -Wno-deprecated because pybind11 uses the old Python thread-local storage API
-          env: TEST=python3 CC="clang -Wno-deprecated" CXX="clang++"
+  include:
+    - os: linux
+      sudo: false
+      dist: trusty
+      env: COVERAGE=yes
+        TEST_PYTHON=yes PYTHON=python3 CC="ccache gcc"
+        TEST_CXX=yes CXX="g++"
+        NETMAP=yes RECVMMSG=yes EVENTFD=yes IBV=yes PCAP=yes
+    - os: linux
+      sudo: false
+      dist: trusty
+      env: TEST_CXX=yes CXX="ccache g++" RECVMMSG=yes EVENTFD=yes PCAP=yes NETMAP=yes IBV=yes
+    - os: linux
+      sudo: false
+      dist: trusty
+      env: TEST_CXX=yes CXX="ccache g++"
+    - os: linux
+      sudo: false
+      dist: trusty
+      env: TEST_CXX=yes CXX="ccache clang++-3.5 -Qunused-arguments" RECVMMSG=yes EVENTFD=yes PCAP=yes NETMAP=yes IBV=yes
+    - os: linux
+      sudo: false
+      dist: trusty
+      env: TEST_CXX=yes CXX="ccache clang++-3.5 -Qunused-arguments"
+    - os: linux
+      sudo: false
+      dist: trusty
+      env: TEST_PYTHON=yes PYTHON=python2 CC="ccache gcc" CXX="g++"
+    - os: linux
+      sudo: false
+      dist: trusty
+      env: TEST_PYTHON=yes PYTHON=python2 CC="clang-3.5" CXX="clang++-3.5"
+    - os: linux
+      sudo: false
+      dist: trusty
+      env: TEST_PYTHON=yes PYTHON=python3 CC="ccache gcc" CXX="g++"
+    - os: linux
+      sudo: false
+      dist: trusty
+      env: TEST_PYTHON=yes PYTHON=python3 CC="clang-3.5" CXX="clang++-3.5"
+    - os: linux
+      sudo: false
+      dist: trusty
+      env: TEST_PYTHON=yes PYTHON=pypy2 CC="ccache gcc" CXX="g++"
+    - os: osx
+      osx_image: xcode7.3
+      env: TEST_CXX=yes CXX="clang++"
+    - os: osx
+      osx_image: xcode7.3
+      env: TEST_PYTHON=yes PYTHON=python2 CC="clang" CXX="clang++"
+    - os: osx
+      osx_image: xcode7.3
+      env: TEST_PYTHON=yes PYTHON=python3 CC="clang" CXX="clang++"
+
 addons:
-    apt:
-        packages:
-            - gcc
-            - g++
-            - clang-3.5
-            - libboost-system1.55-dev
-            - libboost-test1.55-dev
-            - libboost-program-options1.55-dev
-            - libpcap-dev
-            - python-dev
-            - python3-dev
-            - python-pip
-            - python3-pip
-            - librdmacm-dev
-            - libibverbs-dev
-before_install:
-    - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TEST" == "python2" ]]; then virtualenv venv; source venv/bin/activate; fi
-    - if [[ "$TRAVIS_OS_NAME" == "osx" && "$TEST" == "python3" ]]; then brew update; brew upgrade python; pyvenv venv; source venv/bin/activate; fi
+  apt:
+    packages:
+      - gcc
+      - g++
+      - clang-3.5
+      - libboost-system1.55-dev
+      - libboost-test1.55-dev
+      - libboost-program-options1.55-dev
+      - libpcap-dev
+      - python-dev
+      - python3-dev
+      - python-pip
+      - python3-pip
+      - librdmacm-dev
+      - libibverbs-dev
 install:
-- |
-    set -e
-    PYPY_VERSION=5.9.0
-    if [[ "$TEST" == pypy* ]]; then
-        curl -fSL https://bitbucket.org/pypy/pypy/downloads/${TEST}-v${PYPY_VERSION}-linux64.tar.bz2 | tar -jx
-        PY="$PWD/$TEST-v${PYPY_VERSION}-linux64/bin/pypy"
-        if [ "$TEST" = "pypy3" ]; then
-            PY="${PY}3"     # binary is pypy for pypy2 but pypy3 for pypy3
-        fi
-        $PY -m ensurepip --user
-    elif [[ "$TEST" == python* ]]; then
-        PY="$TEST"
-    fi
-
-    if [[ "$TEST" == py* ]]; then
-        PIP_INSTALL="$PY -m pip install"
-        if [[ "$TRAVIS_OS_NAME" != osx ]]; then
-            PIP_INSTALL="$PIP_INSTALL --user"
-        fi
-        $PIP_INSTALL -U pip setuptools wheel
-        $PIP_INSTALL -r requirements.txt
-        if [[ "$TEST" == "python2" ]]; then
-            $PIP_INSTALL "git+https://github.com/ska-sa/PySPEAD#egg=spead"
-        fi
-    fi
-
-    if [ "$NETMAP" = "yes" ]; then
-        git clone https://github.com/luigirizzo/netmap
-        git -C netmap reset --hard 454ef9c   # A known good version
-        export CPATH="$PWD/netmap/sys"
-    fi
-    set +e
+  - ./.travis/install.sh
 script:
-- |
-    set -e
-    if [ "$TEST" = "cxx" ]; then
-        ./bootstrap.sh --no-python
-        ./configure \
-            --with-netmap="$NETMAP" \
-            --with-recvmmsg="$RECVMMSG" \
-            --with-eventfd="$EVENTFD" \
-            --with-ibv="$IBV" \
-            --with-pcap="$PCAP" \
-            --disable-optimized \
-            CXXFLAGS=-Werror
-        make -j4
-        make -j4 check
+  - ./.travis/script.sh
+after_success:
+  - |
+    if [ "$COVERAGE" = "yes" ]; then
+      ./venv/bin/coveralls --include src --include include/spead2 --gcov-options '\-lp'
     fi
-    if [[ "$TEST" == py* ]]; then
-        ./bootstrap.sh
-        CC="$CC -Werror" $PIP_INSTALL -v .
-        # Avoid running nosetests from installation directory, to avoid picking up
-        # things from the local tree that aren't installed.
-        cd /
-        nosetests --with-ignore-docstring -v spead2
-        for test in test_logging_shutdown test_running_thread_pool test_running_stream; do
-            echo "Running shutdown test $test"
-            $PY -c "import spead2.test.shutdown; spead2.test.shutdown.$test()"
-        done
-    fi
-    set +e
