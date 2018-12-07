@@ -52,8 +52,10 @@ static inline item_pointer_t load_bytes_be(const std::uint8_t *ptr, int len)
 void heap_base::load(live_heap &&h, bool keep_addressed, bool keep_payload)
 {
     assert(h.is_contiguous() || !keep_addressed);
+    item_pointer_t *first = h.pointers_begin();
+    item_pointer_t *last = h.pointers_end();
     log_debug("freezing heap with ID %d, %d item pointers, %d bytes payload",
-              h.get_cnt(), h.pointers.size(), h.min_length);
+              h.get_cnt(), last - first, h.min_length);
     /* The length of addressed items is measured from the item to the
      * address of the next item, or the end of the heap. We may receive
      * packets (and hence pointers) out-of-order, so we have to sort.
@@ -69,14 +71,13 @@ void heap_base::load(live_heap &&h, bool keep_addressed, bool keep_payload)
     auto compare = [sort_mask](item_pointer_t a, item_pointer_t b) {
         return (a & sort_mask) < (b & sort_mask);
     };
-    std::stable_sort(h.pointers.begin(), h.pointers.end(), compare);
+    std::stable_sort(first, last, compare);
 
     // Determine how much memory is needed to store immediates
     std::size_t n_immediates = 0;
-    for (std::size_t i = 0; i < h.pointers.size(); i++)
+    for (auto ptr = first; ptr != last; ++ptr)
     {
-        item_pointer_t pointer = h.pointers[i];
-        if (decoder.is_immediate(pointer))
+        if (decoder.is_immediate(*ptr))
             n_immediates++;
     }
     // Allocate memory
@@ -85,12 +86,12 @@ void heap_base::load(live_heap &&h, bool keep_addressed, bool keep_payload)
     if (n_immediates > 0)
         immediate_payload.reset(new uint8_t[immediate_size * n_immediates]);
     uint8_t *next_immediate = immediate_payload.get();
-    items.reserve(keep_addressed ? h.pointers.size() : n_immediates);
+    items.reserve(keep_addressed ? last - first : n_immediates);
 
-    for (std::size_t i = 0; i < h.pointers.size(); i++)
+    for (auto ptr = first; ptr != last; ++ptr)
     {
         item new_item;
-        item_pointer_t pointer = h.pointers[i];
+        item_pointer_t pointer = *ptr;
         new_item.id = decoder.get_id(pointer);
         if (new_item.id == 0)
             continue; // just padding
@@ -115,9 +116,8 @@ void heap_base::load(live_heap &&h, bool keep_addressed, bool keep_payload)
                 continue;
             s_item_pointer_t start = decoder.get_address(pointer);
             s_item_pointer_t end;
-            if (i + 1 < h.pointers.size()
-                && !decoder.is_immediate(h.pointers[i + 1]))
-                end = decoder.get_address(h.pointers[i + 1]);
+            if (ptr + 1 < last && !decoder.is_immediate(ptr[1]))
+                end = decoder.get_address(ptr[1]);
             else
                 end = h.min_length;
             assert(start <= h.min_length);

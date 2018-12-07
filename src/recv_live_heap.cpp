@@ -152,29 +152,46 @@ bool live_heap::add_packet(const packet_header &packet, const memcpy_function &m
         min_length = std::max(min_length, packet.payload_offset + packet.payload_length);
         payload_reserve(min_length, false, packet, memcpy, allocator);
     }
-    /* Try to avoid too many reallocations for pointers. We can't just
-     * unconditionally call reserve for the size we actually want, because we
-     * should avoid disabling vector's doubling heuristic.
-     */
-    if (pointers.capacity() == 0)
-    {
-        pointers.reserve(packet.n_items);
-        seen_pointers.reserve(packet.n_items);
-    }
     for (int i = 0; i < packet.n_items; i++)
     {
         item_pointer_t pointer = load_be<item_pointer_t>(packet.pointers + i * sizeof(item_pointer_t));
-        if (seen_pointers.insert(pointer).second) // true if this is a new addition
+        if (!decoder.is_immediate(pointer))
+            min_length = std::max(min_length, s_item_pointer_t(decoder.get_address(pointer)));
+        s_item_pointer_t item_id = decoder.get_id(pointer);
+        if (item_id == 0 || item_id > PAYLOAD_LENGTH_ID)
         {
-            if (!decoder.is_immediate(pointer))
-                min_length = std::max(min_length, s_item_pointer_t(decoder.get_address(pointer)));
-            s_item_pointer_t item_id = decoder.get_id(pointer);
-            if (item_id == 0 || item_id > PAYLOAD_LENGTH_ID)
+            /* NULL items are included because they can be direct-addressed, and this
+             * pointer may determine the length of the previous direct-addressed item.
+             */
+            bool seen;
+            if (n_inline_pointers >= 0)
+                seen = std::count(inline_pointers.begin(), inline_pointers.begin() + n_inline_pointers,
+                                  pointer);
+            else
+                seen = seen_pointers.count(pointer);
+            if (!seen)
             {
-                /* NULL items are included because they can be direct-addressed, and this
-                 * pointer may determine the length of the previous direct-addressed item.
-                 */
-                pointers.push_back(pointer);
+                if (n_inline_pointers == max_inline_pointers)
+                {
+                    external_pointers.reserve(n_inline_pointers + packet.n_items);
+                    external_pointers.insert(external_pointers.end(),
+                                             inline_pointers.begin(),
+                                             inline_pointers.begin() + n_inline_pointers);
+                    seen_pointers.insert(inline_pointers.begin(),
+                                         inline_pointers.begin() + n_inline_pointers);
+                    n_inline_pointers = -1;
+                }
+
+                if (n_inline_pointers >= 0)
+                {
+                    inline_pointers[n_inline_pointers++] = pointer;
+                }
+                else
+                {
+                    external_pointers.push_back(pointer);
+                    seen_pointers.insert(pointer);
+                }
+
                 if (item_id == STREAM_CTRL_ID && decoder.is_immediate(pointer)
                     && decoder.get_immediate(pointer) == CTRL_STREAM_STOP)
                     end_of_stream = true;
@@ -224,6 +241,22 @@ s_item_pointer_t live_heap::get_heap_length() const
     return heap_length;
 }
 
+item_pointer_t *live_heap::pointers_begin()
+{
+    if (n_inline_pointers >= 0)
+        return inline_pointers.data();
+    else
+        return external_pointers.data();
+}
+
+item_pointer_t *live_heap::pointers_end()
+{
+    if (n_inline_pointers >= 0)
+        return inline_pointers.data() + n_inline_pointers;
+    else
+        return external_pointers.data() + external_pointers.size();
+}
+
 void live_heap::reset()
 {
     heap_length = -1;
@@ -232,8 +265,9 @@ void live_heap::reset()
     end_of_stream = false;
     payload.reset();
     payload_reserved = 0;
-    pointers.clear();
-    pointers.shrink_to_fit();
+    n_inline_pointers = 0;
+    external_pointers.clear();
+    external_pointers.shrink_to_fit();
     seen_pointers.clear();
     payload_ranges.clear();
 }

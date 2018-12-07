@@ -25,7 +25,8 @@
 #include <cstdint>
 #include <cstring>
 #include <vector>
-#include <unordered_set>
+#include <array>
+#include <set>
 #include <memory>
 #include <map>
 #include <functional>
@@ -71,6 +72,8 @@ private:
     friend class incomplete_heap;
     friend struct ::spead2::unittest::recv::live_heap::payload_ranges;
 
+    static constexpr int max_inline_pointers = 8;
+
     /// Heap ID encoded in packets
     s_item_pointer_t cnt;
     /// Heap payload length encoded in packets (-1 for unknown)
@@ -90,6 +93,12 @@ private:
     /// True if a stream control packet indicating end-of-heap was found
     bool end_of_stream = false;
     /**
+     * Number of pointers held in inline_pointers. It is set to -1 if the
+     * pointers have been switched to out-of-line storage.
+     */
+    signed char n_inline_pointers = 0;
+
+    /**
      * Heap payload. When the length is unknown, this is grown by successive
      * doubling. While @c std::vector would take care of that for us, it also
      * zero-fills the memory, which would be inefficient.
@@ -97,19 +106,26 @@ private:
     memory_allocator::pointer payload;
     /// Size of the memory in @ref payload
     std::size_t payload_reserved = 0;
+
+    /**@{*/
     /**
      * Item pointers extracted from the packets, excluding those that
      * are extracted in @ref packet_header. They are in native endian.
+     *
+     * For efficiency, the item pointers can be stored in two different ways.
+     * When the number is small, they are held inline to avoid memory
+     * allocation, and checks for duplicates use a linear search. Once there
+     * are too many to hold inline, they are stored both in a vector and a set.
+     * The former preserves order, while the latter is used to check for
+     * duplicates.
      */
-    std::vector<item_pointer_t> pointers;
-    /**
-     * The pointers again, but this time as a set. This is used purely to
-     * eliminate the duplicates that some implementations send us (in every
-     * single packet). This can't currently completely replace
-     * @ref pointers, because we need to preserve ordering in order to figure
-     * out item boundaries in the presence of zero-length items.
-     */
-    std::unordered_set<item_pointer_t> seen_pointers;
+
+    std::array<item_pointer_t, max_inline_pointers> inline_pointers;
+    std::vector<item_pointer_t> external_pointers;
+    std::set<item_pointer_t> seen_pointers;
+
+    /**@}*/
+
     /**
      * Parts of the payload that have been seen. Each key indicates the start
      * of a contiguous region of received data, and the value indicates the end
@@ -171,6 +187,10 @@ public:
     s_item_pointer_t get_received_length() const;
     /// Get amount of payload expected, or -1 if not known
     s_item_pointer_t get_heap_length() const;
+    /// Get first stored item pointer
+    item_pointer_t *pointers_begin();
+    /// Get last stored item pointer
+    item_pointer_t *pointers_end();
     /// Free all allocated memory
     void reset();
 };
