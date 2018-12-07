@@ -36,8 +36,9 @@ namespace recv
 
 live_heap::live_heap(const packet_header &initial_packet,
                      bug_compat_mask bug_compat)
-    : cnt(initial_packet.heap_cnt), bug_compat(bug_compat),
-    decoder(initial_packet.heap_address_bits)
+    : cnt(initial_packet.heap_cnt),
+    decoder(initial_packet.heap_address_bits),
+    bug_compat(bug_compat)
 {
     assert(cnt >= 0);
 }
