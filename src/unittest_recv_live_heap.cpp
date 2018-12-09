@@ -66,7 +66,7 @@ BOOST_AUTO_TEST_CASE(add_pointers)
 
     for (int i = 0; i < 30; i++)
         in_pointers[1].push_back(item_pointer_t(0x9000 + i) << 48);
-    in_pointers[1].push_back(htobe(0x9234000000001234));
+    in_pointers[1].push_back(0x9234000000001234);
 
     std::vector<item_pointer_t> expected;
     for (auto &in : in_pointers)
