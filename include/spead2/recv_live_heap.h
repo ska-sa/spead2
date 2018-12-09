@@ -38,7 +38,11 @@
 namespace spead2
 {
 
-namespace unittest { namespace recv { namespace live_heap { struct payload_ranges; }}}
+namespace unittest { namespace recv { namespace live_heap
+{
+    struct add_pointers;
+    struct payload_ranges;
+}}}
 
 namespace recv
 {
@@ -70,6 +74,7 @@ private:
     friend class heap_base;
     friend class heap;
     friend class incomplete_heap;
+    friend struct ::spead2::unittest::recv::live_heap::add_pointers;
     friend struct ::spead2::unittest::recv::live_heap::payload_ranges;
 
     static constexpr int max_inline_pointers = 8;
