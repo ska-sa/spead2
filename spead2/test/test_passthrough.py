@@ -226,6 +226,19 @@ class BaseTestPassthrough(object):
                     shape=(), format=format, value=data)
         self._test_item_group(ig)
 
+    def test_many_tems(self):
+        """Sends many items.
+
+        The implementation handles few-item heaps differently (for
+        performance), so need to test that the many-item code works too.
+        """
+        ig = spead2.send.ItemGroup()
+        for i in range(50):
+            name = 'test item {}'.format(i)
+            ig.add_item(id=0x2345 + i, name=name, description=name,
+                        shape=(), format=[('u', 40)], value=0x12345 * i)
+        self._test_item_group(ig)
+
     def transmit_item_group(self, item_group, memcpy, allocator):
         """Transmit `item_group` over the chosen transport,
         and return the item group received at the other end. Subclasses
