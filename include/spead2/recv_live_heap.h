@@ -149,6 +149,11 @@ private:
      */
     bool add_payload_range(s_item_pointer_t first, s_item_pointer_t last);
 
+    /**
+     * Update the list of item pointers.
+     */
+    void add_pointers(std::size_t n, const std::uint8_t *pointers);
+
 public:
     /**
      * Constructor. Note that the constructor does not actually add @a

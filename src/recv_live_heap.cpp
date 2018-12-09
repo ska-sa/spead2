@@ -101,6 +101,56 @@ bool live_heap::add_payload_range(s_item_pointer_t first, s_item_pointer_t last)
     return true;
 }
 
+void live_heap::add_pointers(std::size_t n, const std::uint8_t *pointers)
+{
+    for (std::size_t i = 0; i < n; i++)
+    {
+        item_pointer_t pointer = load_be<item_pointer_t>(pointers + i * sizeof(item_pointer_t));
+        if (!decoder.is_immediate(pointer))
+            min_length = std::max(min_length, s_item_pointer_t(decoder.get_address(pointer)));
+        s_item_pointer_t item_id = decoder.get_id(pointer);
+        if (item_id == 0 || item_id > PAYLOAD_LENGTH_ID)
+        {
+            /* NULL items are included because they can be direct-addressed, and this
+             * pointer may determine the length of the previous direct-addressed item.
+             */
+            bool seen;
+            if (n_inline_pointers >= 0)
+                seen = std::count(inline_pointers.begin(), inline_pointers.begin() + n_inline_pointers,
+                                  pointer);
+            else
+                seen = seen_pointers.count(pointer);
+            if (!seen)
+            {
+                if (n_inline_pointers == max_inline_pointers)
+                {
+                    external_pointers.reserve(n_inline_pointers + (n - i));
+                    external_pointers.insert(external_pointers.end(),
+                                             inline_pointers.begin(),
+                                             inline_pointers.begin() + n_inline_pointers);
+                    seen_pointers.insert(inline_pointers.begin(),
+                                         inline_pointers.begin() + n_inline_pointers);
+                    n_inline_pointers = -1;
+                }
+
+                if (n_inline_pointers >= 0)
+                {
+                    inline_pointers[n_inline_pointers++] = pointer;
+                }
+                else
+                {
+                    external_pointers.push_back(pointer);
+                    seen_pointers.insert(pointer);
+                }
+
+                if (item_id == STREAM_CTRL_ID && decoder.is_immediate(pointer)
+                    && decoder.get_immediate(pointer) == CTRL_STREAM_STOP)
+                    end_of_stream = true;
+            }
+        }
+    }
+}
+
 bool live_heap::add_packet(const packet_header &packet, const memcpy_function &memcpy,
                            memory_allocator &allocator)
 {
@@ -153,52 +203,8 @@ bool live_heap::add_packet(const packet_header &packet, const memcpy_function &m
         min_length = std::max(min_length, packet.payload_offset + packet.payload_length);
         payload_reserve(min_length, false, packet, memcpy, allocator);
     }
-    for (int i = 0; i < packet.n_items; i++)
-    {
-        item_pointer_t pointer = load_be<item_pointer_t>(packet.pointers + i * sizeof(item_pointer_t));
-        if (!decoder.is_immediate(pointer))
-            min_length = std::max(min_length, s_item_pointer_t(decoder.get_address(pointer)));
-        s_item_pointer_t item_id = decoder.get_id(pointer);
-        if (item_id == 0 || item_id > PAYLOAD_LENGTH_ID)
-        {
-            /* NULL items are included because they can be direct-addressed, and this
-             * pointer may determine the length of the previous direct-addressed item.
-             */
-            bool seen;
-            if (n_inline_pointers >= 0)
-                seen = std::count(inline_pointers.begin(), inline_pointers.begin() + n_inline_pointers,
-                                  pointer);
-            else
-                seen = seen_pointers.count(pointer);
-            if (!seen)
-            {
-                if (n_inline_pointers == max_inline_pointers)
-                {
-                    external_pointers.reserve(n_inline_pointers + packet.n_items);
-                    external_pointers.insert(external_pointers.end(),
-                                             inline_pointers.begin(),
-                                             inline_pointers.begin() + n_inline_pointers);
-                    seen_pointers.insert(inline_pointers.begin(),
-                                         inline_pointers.begin() + n_inline_pointers);
-                    n_inline_pointers = -1;
-                }
 
-                if (n_inline_pointers >= 0)
-                {
-                    inline_pointers[n_inline_pointers++] = pointer;
-                }
-                else
-                {
-                    external_pointers.push_back(pointer);
-                    seen_pointers.insert(pointer);
-                }
-
-                if (item_id == STREAM_CTRL_ID && decoder.is_immediate(pointer)
-                    && decoder.get_immediate(pointer) == CTRL_STREAM_STOP)
-                    end_of_stream = true;
-            }
-        }
-    }
+    add_pointers(packet.n_items, packet.pointers);
 
     if (packet.payload_length > 0)
     {
