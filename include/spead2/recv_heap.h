@@ -63,11 +63,23 @@ private:
     flavour flavour_;           ///< Flavour
     /**
      * Extracted items. The pointers in the items point into either @ref
-     * payload or @ref immediate_payload.
+     * payload, @ref immediate_payload_inline or @ref immediate_payload.
      */
     std::vector<item> items;
-    /// Storage for immediate values
+    /**@{*/
+    /**
+     * Storage for immediate values. If the number of items is small enough,
+     * they are stored in the object itself, avoiding the cost of a malloc.
+     * Otherwise they are stored in dynamically allocated memory. It is not
+     * necessary to store an indicator of which storage is used because the
+     * storage is accessed via the items.
+     */
+    std::uint8_t immediate_payload_inline[24];   // 4 items in SPEAD-64-48
     std::unique_ptr<std::uint8_t[]> immediate_payload;
+    /**@}*/
+
+    /* Copy inline immediate items and fix up pointers to it */
+    void transfer_immediates(heap_base &&other);
 
 protected:
     /// Create the structures from a live heap, destroying it in the process.
@@ -79,6 +91,10 @@ protected:
     memory_allocator::pointer payload;
 
 public:
+    heap_base() = default;
+    heap_base(heap_base &&other);
+    heap_base &operator=(heap_base &&other);
+
     /// Get heap ID
     s_item_pointer_t get_cnt() const { return cnt; }
     /// Get protocol flavour used

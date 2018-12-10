@@ -43,10 +43,43 @@ namespace recv
  */
 static inline item_pointer_t load_bytes_be(const std::uint8_t *ptr, int len)
 {
-    assert(0 <= len && len <= sizeof(item_pointer_t));
+    assert(0 <= len && len <= int(sizeof(item_pointer_t)));
     item_pointer_t out = 0;
     std::memcpy(reinterpret_cast<char *>(&out) + sizeof(item_pointer_t) - len, ptr, len);
     return betoh<item_pointer_t>(out);
+}
+
+void heap_base::transfer_immediates(heap_base &&other)
+{
+    if (!immediate_payload)
+    {
+        std::memcpy(immediate_payload_inline, other.immediate_payload_inline,
+                    sizeof(immediate_payload_inline));
+        for (item &it : items)
+            if (it.is_immediate)
+                it.ptr = immediate_payload_inline + (it.ptr - other.immediate_payload_inline);
+    }
+}
+
+heap_base::heap_base(heap_base &&other)
+    : cnt(std::move(other.cnt)),
+    flavour_(std::move(other.flavour_)),
+    items(std::move(other.items)),
+    immediate_payload(std::move(other.immediate_payload)),
+    payload(std::move(other.payload))
+{
+    transfer_immediates(std::move(other));
+}
+
+heap_base &heap_base::operator=(heap_base &&other)
+{
+    cnt = std::move(other.cnt);
+    flavour_ = std::move(other.flavour_);
+    items = std::move(other.items);
+    immediate_payload = std::move(other.immediate_payload);
+    payload = std::move(other.payload);
+    transfer_immediates(std::move(other));
+    return *this;
 }
 
 void heap_base::load(live_heap &&h, bool keep_addressed, bool keep_payload)
@@ -73,19 +106,26 @@ void heap_base::load(live_heap &&h, bool keep_addressed, bool keep_payload)
     };
     std::stable_sort(first, last, compare);
 
-    // Determine how much memory is needed to store immediates
+    /* Determine how much memory is needed to store immediates
+     * (conservative - also counts null items).
+     */
     std::size_t n_immediates = 0;
     for (auto ptr = first; ptr != last; ++ptr)
     {
         if (decoder.is_immediate(*ptr))
             n_immediates++;
     }
-    // Allocate memory
+    // Allocate memory if necessary
     const std::size_t immediate_size = decoder.address_bits() / 8;
     const std::size_t id_size = sizeof(item_pointer_t) - immediate_size;
-    if (n_immediates > 0)
-        immediate_payload.reset(new uint8_t[immediate_size * n_immediates]);
-    uint8_t *next_immediate = immediate_payload.get();
+    uint8_t *next_immediate;
+    if (immediate_size * n_immediates > sizeof(immediate_payload_inline))
+    {
+        next_immediate = new uint8_t[immediate_size * n_immediates];
+        immediate_payload.reset(next_immediate);
+    }
+    else
+        next_immediate = immediate_payload_inline;
     items.reserve(keep_addressed ? last - first : n_immediates);
 
     for (auto ptr = first; ptr != last; ++ptr)
