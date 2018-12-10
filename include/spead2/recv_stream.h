@@ -67,6 +67,8 @@ struct stream_stats
     std::uint64_t incomplete_heaps_flushed = 0;
     /// Number of packets received
     std::uint64_t packets = 0;
+    /// Number of batches of packets.
+    std::uint64_t batches = 0;
     /**
      * Number of times a worker thread was blocked because the ringbuffer was
      * full. Only applicable to @ref ring_stream.
@@ -83,9 +85,7 @@ struct stream_stats
      */
     std::uint64_t single_packet_heaps = 0;
 
-    /**
-     * Total number of hash table probes.
-     */
+    /// Total number of hash table probes.
     std::uint64_t search_dist = 0;
 };
 

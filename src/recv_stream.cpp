@@ -167,6 +167,7 @@ stream_base::add_packet_state::~add_packet_state()
 {
     std::lock_guard<std::mutex> stats_lock(owner.stats_mutex);
     owner.stats.packets += packets;
+    owner.stats.batches++;
     owner.stats.heaps += complete_heaps + incomplete_heaps_evicted;
     owner.stats.incomplete_heaps_evicted += incomplete_heaps_evicted;
     owner.stats.single_packet_heaps += single_packet_heaps;

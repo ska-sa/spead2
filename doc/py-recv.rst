@@ -394,6 +394,11 @@ not be reflected in the statistics.
    Total number of packets received, including the one containing the stop
    item.
 
+   .. py:attribute:: batches
+
+   Number of batches of packets. Some readers are able to take multiple packets
+   from the network in one go, and each time this forms a batch.
+
    .. py:attribute:: worker_blocked
 
    Number of times a worker thread was blocked because the ringbuffer was full.
