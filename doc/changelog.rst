@@ -10,7 +10,8 @@ Changelog
 - Provide access to ringbuffer size and capacity for diagnostics.
 - Add extra fields to :py:class:`spead2.recv.StreamStats`.
 - Add support for pcap files to the C++ version of :program:`spead2_recv`.
-- Update the vendored pybind11 to 2.2.4.
+- Update the vendored pybind11 to 2.2.4 (fixes some warnings on Python 3.7).
+- Deprecate netmap support in documentation.
 
 .. rubric:: 1.9.2
 

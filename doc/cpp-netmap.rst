@@ -1,6 +1,12 @@
 Support for netmap
 ==================
 
+.. warning::
+
+   Support for netmap is **deprecated** and will be removed in a future release
+   of spead2. It is not being maintained or tested at present, and the
+   :doc:`verbs <cpp-ibverbs>` support is much easier to use.
+
 Introduction
 ------------
 As an experimental feature, it is possible to use the netmap_ framework to

@@ -2,15 +2,15 @@ Support for ibverbs
 ===================
 Receiver performance can be significantly improved by using the Infiniband
 Verbs API instead of the BSD sockets API. This is currently only tested on
-Linux with Mellanox ConnectX®-3 NICs. It depends on device managed flow
-steering (DMFS), which may require using the Mellanox OFED version of
-libibverbs.
+Linux with Mellanox ConnectX®-3 and ConnectX®-5 NICs. It depends on device
+managed flow steering (DMFS), which may require using the Mellanox OFED version
+of libibverbs.
 
 There are a number of limitations in the current implementation:
 
  - Only IPv4 is supported
  - VLAN tagging, IP optional headers, and IP fragmentation are not supported
- - Only multicast is supported
+ - Only multicast is supported.
 
 Within these limitations, it is quite easy to take advantage of this faster
 code path. The main difficulty is that one *must* specify the IP address of
@@ -29,7 +29,8 @@ to work correctly. For ConnectX®-3, add the following to
    options mlx4_core fast_drop=1
    options mlx4_core log_num_mgm_entry_size=-1
 
-For more information, see the `libvma documentation`_.
+For more information, see the `libvma documentation`_. For ConnectX®-4/5, only
+the first of these lines is required.
 
 .. _libvma documentation: https://github.com/Mellanox/libvma
 
@@ -76,6 +77,9 @@ The ibverbs API can be used programmatically by using an extra method of
         waiting for an interrupt (if `comp_vector` is
         non-negative) or letting other code run on the
         thread (if `comp_vector` is negative).
+
+Reducing `max_size` to be close to the actual packet size can make a
+significant performance improvement.
 
 Environment variables
 ^^^^^^^^^^^^^^^^^^^^^

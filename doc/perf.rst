@@ -168,21 +168,16 @@ techniques that will make the most difference before implementing them.
 Kernel bypass APIs
 ^^^^^^^^^^^^^^^^^^
 There are two low-level kernel bypass networking APIs supported:
-:doc:`ibverbs <py-ibverbs>` and :doc:`netmap <cpp-netmap>`. These provide a
-zero-copy path from the NIC into the spead2 library, without the kernel being
+:doc:`ibverbs <py-ibverbs>` and :doc:`netmap <cpp-netmap>` (although the latter
+is deprecated and will be removed from a future spead2 release). These provide
+a zero-copy path from the NIC into the spead2 library, without the kernel being
 involved. This can make a huge performance difference, particularly for small
 packet sizes.
 
-Of these, ibverbs is the recommended one: it can be used without
-being a root user, it is supported by both the Python and C++ APIs, can be
-used for both sending and receiving, can be used by multiple processes or
-streams simultaneously, and in simple cases requires only an environment
-variable to be set. The netmap support is no longer developed or tested.
-
-These APIs are not free: they will only work with some NICs, require special
-kernel drivers and setup, have limitations in what networking features they
-can support, and require the application to specify which network device to
-use. Refer to the links above for more details.
+These APIs are not a free lunch: they will only work with some NICs, require
+special kernel drivers and setup, have limitations in what networking features
+they can support, and require the application to specify which network device
+to use. Refer to the links above for more details.
 
 Memory allocation
 ^^^^^^^^^^^^^^^^^
