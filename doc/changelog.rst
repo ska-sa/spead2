@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 1.10.0
 
 - Accelerate per-packet processing, particularly when `max_heaps` is large.
 - Accelerate per-heap processing, particularly for heaps with few items.
