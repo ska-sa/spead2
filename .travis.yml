@@ -10,7 +10,7 @@ matrix:
       sudo: false
       dist: trusty
       env: COVERAGE=yes
-        TEST_PYTHON=yes PYTHON=python3 CC="ccache gcc"
+        TEST_PYTHON=yes PYTHON=python3 CC="gcc"
         TEST_CXX=yes CXX="g++"
         NETMAP=yes RECVMMSG=yes EVENTFD=yes IBV=yes PCAP=yes
     - os: linux
