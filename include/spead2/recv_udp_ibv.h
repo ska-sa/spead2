@@ -111,7 +111,7 @@ private:
      * @retval -2 if the stream received a stop packet
      * @retval n otherwise, where n is the number of packets received
      */
-    int poll_once();
+    int poll_once(stream_base::add_packet_state &state);
 
     /**
      * Retrieve packets from the completion queue and process them.

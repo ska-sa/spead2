@@ -109,10 +109,9 @@ ibv_flow_t udp_ibv_reader::create_flow(
     return ibv_flow_t(qp, &flow_rule.attr);
 }
 
-int udp_ibv_reader::poll_once()
+int udp_ibv_reader::poll_once(stream_base::add_packet_state &state)
 {
     int received = recv_cq.poll(n_slots, wc.get());
-    stream_base::add_packet_state state(get_stream_base());
     for (int i = 0; i < received; i++)
     {
         int index = wc[i].wr_id;
@@ -159,6 +158,7 @@ void udp_ibv_reader::packet_handler(const boost::system::error_code &error)
         }
         else
         {
+            stream_base::add_packet_state state(get_stream_base());
             if (comp_channel)
             {
                 ibv_cq *event_cq;
@@ -185,7 +185,7 @@ void udp_ibv_reader::packet_handler(const boost::system::error_code &error)
                 }
                 else if (stop_poll.load())
                     break;
-                int received = poll_once();
+                int received = poll_once(state);
                 if (received < 0)
                     break;
             }
