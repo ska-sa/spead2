@@ -266,7 +266,7 @@ private:
             show_heap(frozen, opts);
             n_complete++;
         }
-        else
+        else if (!opts.quiet)
             std::cout << "Discarding incomplete heap " << heap.get_cnt() << '\n';
     }
 
@@ -450,7 +450,21 @@ int main(int argc, const char **argv)
             n_complete += stream.join();
         }
     }
+    spead2::recv::stream_stats stats;
+    for (const auto &ptr : streams)
+        stats += ptr->get_stats();
 
     std::cout << "Received " << n_complete << " heaps\n";
+#define REPORT_STAT(field) (std::cout << #field ": " << stats.field << '\n')
+    REPORT_STAT(heaps);
+    REPORT_STAT(incomplete_heaps_evicted);
+    REPORT_STAT(incomplete_heaps_flushed);
+    REPORT_STAT(packets);
+    REPORT_STAT(batches);
+    REPORT_STAT(worker_blocked);
+    REPORT_STAT(max_batch);
+    REPORT_STAT(single_packet_heaps);
+    REPORT_STAT(search_dist);
+#undef REPORT_STAT
     return 0;
 }

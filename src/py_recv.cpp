@@ -20,6 +20,7 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/operators.h>
 #include <stdexcept>
 #include <cstdint>
 #include <unistd.h>
@@ -389,7 +390,9 @@ py::module register_module(py::module &parent)
         .def_readwrite("worker_blocked", &stream_stats::worker_blocked)
         .def_readwrite("max_batch", &stream_stats::max_batch)
         .def_readwrite("single_packet_heaps", &stream_stats::single_packet_heaps)
-        .def_readwrite("search_dist", &stream_stats::search_dist);
+        .def_readwrite("search_dist", &stream_stats::search_dist)
+        .def(py::self + py::self)
+        .def(py::self += py::self);
     py::class_<ring_stream_wrapper> stream_class(m, "Stream");
     stream_class
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, bug_compat_mask,

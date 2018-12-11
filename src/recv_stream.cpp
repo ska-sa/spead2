@@ -20,6 +20,7 @@
 
 #include <cstddef>
 #include <utility>
+#include <algorithm>
 #include <cassert>
 #include <atomic>
 #include <spead2/recv_stream.h>
@@ -33,6 +34,27 @@ namespace spead2
 {
 namespace recv
 {
+
+stream_stats stream_stats::operator+(const stream_stats &other) const
+{
+    stream_stats out = *this;
+    out += other;
+    return out;
+}
+
+stream_stats &stream_stats::operator+=(const stream_stats &other)
+{
+    heaps += other.heaps;
+    incomplete_heaps_evicted += other.incomplete_heaps_evicted;
+    incomplete_heaps_flushed += other.incomplete_heaps_flushed;
+    packets += other.packets;
+    batches += other.batches;
+    worker_blocked += other.worker_blocked;
+    max_batch = std::max(max_batch, other.max_batch);
+    single_packet_heaps += other.single_packet_heaps;
+    search_dist += other.search_dist;
+    return *this;
+}
 
 constexpr std::size_t stream_base::default_max_heaps;
 

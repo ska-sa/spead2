@@ -87,6 +87,9 @@ struct stream_stats
 
     /// Total number of hash table probes.
     std::uint64_t search_dist = 0;
+
+    stream_stats operator+(const stream_stats &other) const;
+    stream_stats &operator+=(const stream_stats &other);
 };
 
 /**
