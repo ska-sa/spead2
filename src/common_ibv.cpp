@@ -65,6 +65,16 @@ void rdma_cm_id_t::bind_addr(const boost::asio::ip::address &addr)
         throw_errno("rdma_bind_addr did not bind to an RDMA device", ENODEV);
 }
 
+ibv_device_attr rdma_cm_id_t::query_device() const
+{
+    assert(get());
+    ibv_device_attr attr;
+    int status = ibv_query_device(get()->verbs, &attr);
+    if (status != 0)
+        throw_errno("ibv_query_device failed", status);
+    return attr;
+}
+
 ibv_comp_channel_t::ibv_comp_channel_t(const rdma_cm_id_t &cm_id)
 {
     errno = 0;

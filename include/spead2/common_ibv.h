@@ -123,6 +123,7 @@ public:
     rdma_cm_id_t(const rdma_event_channel_t &cm_id, void *context, rdma_port_space ps);
 
     void bind_addr(const boost::asio::ip::address &addr);
+    ibv_device_attr query_device() const;
 };
 
 class ibv_comp_channel_t : public std::unique_ptr<ibv_comp_channel, detail::ibv_comp_channel_deleter>

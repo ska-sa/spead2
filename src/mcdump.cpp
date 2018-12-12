@@ -394,22 +394,29 @@ void writer::writer_thread(int affinity)
     }
 }
 
+struct chunking_scheme
+{
+    std::size_t max_records;   ///< Packets per chunk
+    std::size_t n_chunks;      ///< Number of chunks
+};
+
 class capture
 {
 private:
     typedef spead2::ringbuffer<chunk> ringbuffer;
 
     const options opts;
-    std::size_t max_records;
     std::unique_ptr<writer> w;
-    ringbuffer ring;
-    ringbuffer free_ring;
+    boost::asio::ip::address_v4 interface_address;
     spead2::rdma_event_channel_t event_channel;
     spead2::rdma_cm_id_t cm_id;
     spead2::ibv_qp_t qp;
     spead2::ibv_pd_t pd;
     spead2::ibv_cq_t cq;
     std::vector<spead2::ibv_flow_t> flows;
+    const chunking_scheme chunking;
+    ringbuffer ring;
+    ringbuffer free_ring;
     std::uint64_t errors = 0;
     std::uint64_t packets = 0;
     std::uint64_t bytes = 0;
@@ -443,6 +450,7 @@ public:
 
 chunk capture::make_chunk(spead2::memory_allocator &allocator)
 {
+    const std::size_t max_records = chunking.max_records;
     chunk c;
     c.n_records = 0;
     c.n_bytes = 0;
@@ -488,7 +496,7 @@ void capture::chunk_done(chunk &&c)
      * chunk. So we push it back onto the ring without posting a
      * new receive, just to keep it live.
      */
-    if (c.n_records == max_records)
+    if (c.n_records == chunking.max_records)
         add_to_free(std::move(c));
     else
         free_ring.push(std::move(c));
@@ -554,7 +562,8 @@ void capture::network_thread()
         spead2::thread_pool::set_affinity(opts.network_affinity);
     start_time = std::chrono::high_resolution_clock::now();
     last_report = start_time;
-    bool has_file = opts.filename != "-";
+    const bool has_file = opts.filename != "-";
+    const std::size_t max_records = chunking.max_records;
 #if SPEAD2_USE_IBV_EXP
     std::unique_ptr<ibv_exp_wc[]> wc(new ibv_exp_wc[max_records]);
 #else
@@ -687,23 +696,70 @@ static spead2::ibv_qp_t create_qp(
 }
 
 // Returns number of records per chunk and number of chunks
-static std::pair<std::size_t, std::size_t> sizes(const options &opts)
+static chunking_scheme sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id)
 {
     constexpr std::size_t nominal_chunk_size = 2 * 1024 * 1024; // TODO: make tunable?
     std::size_t max_records = nominal_chunk_size / opts.snaplen;
     if (max_records == 0)
         max_records = 1;
+
     std::size_t chunk_size = max_records * opts.snaplen;
     std::size_t n_chunks = opts.net_buffer / chunk_size;
     if (n_chunks == 0)
-        n_chunks++;
+        n_chunks = 1;
+
+    ibv_device_attr attr = cm_id.query_device();
+    unsigned int device_slots = std::min(attr.max_cqe, attr.max_qp_wr);
+    unsigned int device_chunks = device_slots / max_records;
+    if (attr.max_mr < device_chunks)
+        device_chunks = attr.max_mr;
+
+    bool reduced = false;
+    if (device_slots < max_records)
+    {
+        max_records = device_slots;
+        reduced = true;
+    }
+    if (device_slots < n_chunks * max_records)
+    {
+        n_chunks = device_slots / max_records;
+        reduced = true;
+    }
+    if (reduced)
+        spead2::log_warning("Reducing buffer to %d to accommodate device limits",
+                            n_chunks * max_records * opts.snaplen);
     return {max_records, n_chunks};
 }
 
+static boost::asio::ip::address_v4 get_interface_address(const options &opts)
+{
+    boost::asio::ip::address_v4 interface_address;
+    try
+    {
+        interface_address = boost::asio::ip::address_v4::from_string(opts.interface);
+    }
+    catch (std::exception)
+    {
+        throw std::runtime_error("Invalid interface address " + opts.interface);
+    }
+    return interface_address;
+}
+
+static spead2::rdma_cm_id_t create_cm_id(const boost::asio::ip::address_v4 &interface_address,
+                                         const spead2::rdma_event_channel_t &event_channel)
+{
+    spead2::rdma_cm_id_t cm_id(event_channel, nullptr, RDMA_PS_UDP);
+    cm_id.bind_addr(interface_address);
+    return cm_id;
+}
+
 capture::capture(const options &opts)
-    : opts(opts), max_records(sizes(opts).first),
-    ring(sizes(opts).second),
-    free_ring(sizes(opts).second)
+    : opts(opts),
+    interface_address(get_interface_address(opts)),
+    cm_id(create_cm_id(interface_address, event_channel)),
+    chunking(sizes(opts, cm_id)),
+    ring(chunking.n_chunks),
+    free_ring(chunking.n_chunks)
 {
 }
 
@@ -757,26 +813,11 @@ void capture::run()
         w.reset(new writer(opts, fd, *allocator));
     }
 
-    boost::asio::io_service io_service;
     std::vector<udp::endpoint> endpoints;
     for (const std::string &s : opts.endpoints)
         endpoints.push_back(make_endpoint(s));
-    boost::asio::ip::address_v4 interface_address;
-    try
-    {
-        interface_address = boost::asio::ip::address_v4::from_string(opts.interface);
-    }
-    catch (std::exception)
-    {
-        throw std::runtime_error("Invalid interface address " + opts.interface);
-    }
 
-    std::size_t n_chunks = sizes(opts).second;
-    if (std::numeric_limits<std::uint32_t>::max() / max_records <= n_chunks)
-        throw std::runtime_error("Too many buffered packets");
-    std::uint32_t n_slots = n_chunks * max_records;
-    cm_id = spead2::rdma_cm_id_t(event_channel, nullptr, RDMA_PS_UDP);
-    cm_id.bind_addr(interface_address);
+    std::uint32_t n_slots = chunking.n_chunks * chunking.max_records;
 #if SPEAD2_USE_IBV_EXP
     timestamp_support = true;
     // Get tick rate of the HW timestamp counter
@@ -833,7 +874,7 @@ void capture::run()
     for (const udp::endpoint &endpoint : endpoints)
         flows.push_back(create_flow(qp, endpoint, cm_id->port_num));
 
-    for (std::size_t i = 0; i < n_chunks; i++)
+    for (std::size_t i = 0; i < chunking.n_chunks; i++)
         add_to_free(make_chunk(*allocator));
     qp.modify(IBV_QPS_RTR);
 
@@ -848,6 +889,7 @@ void capture::run()
     if (has_file)
         collect_future = std::async(std::launch::async, [this] { collect_thread(); });
 
+    boost::asio::io_service io_service;
     udp::socket join_socket(io_service, endpoints[0].protocol());
     join_socket.set_option(boost::asio::socket_base::reuse_address(true));
     for (const udp::endpoint &endpoint : endpoints)
