@@ -211,7 +211,7 @@ struct chunk
     std::unique_ptr<chunk_entry[]> entries;
     std::unique_ptr<iovec[]> iov;
     spead2::memory_pool::pointer storage;
-    spead2::ibv_mr_t records_mr, storage_mr;
+    spead2::ibv_mr_t storage_mr;
 };
 
 static std::atomic<bool> stop{false};
