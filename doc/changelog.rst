@@ -5,6 +5,7 @@ Changelog
 
 - Automatically reduce buffer size for verbs receiver to match hardware limits
   (fixed #64).
+- Gracefully handle Ctrl-C in :program:`spead2_recv` and print statistics.
 
 .. rubric:: 1.10.0
 

@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2018 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -278,10 +278,18 @@ public:
         : spead2::recv::stream::stream(std::forward<Args>(args)...),
         opts(opts) {}
 
+    ~callback_stream()
+    {
+        stop();
+    }
+
     virtual void stop_received() override
     {
-        spead2::recv::stream::stop_received();
-        stop_promise.set_value();
+        if (!is_stopped())
+        {
+            spead2::recv::stream::stop_received();
+            stop_promise.set_value();
+        }
     }
 
     std::int64_t join()
@@ -424,6 +432,17 @@ int main(int argc, const char **argv)
             streams.push_back(make_stream(thread_pool, opts, it, it + 1));
     }
 
+    spead2::thread_pool stopper_thread_pool;
+    boost::asio::signal_set signals(stopper_thread_pool.get_io_service());
+    signals.add(SIGINT);
+    signals.async_wait([&streams] (const boost::system::error_code &error, int signal_number) {
+        if (!error)
+            for (const std::unique_ptr<spead2::recv::stream> &stream : streams)
+            {
+                stream->stop();
+            }
+    });
+
     std::int64_t n_complete = 0;
     if (opts.ring)
     {
@@ -450,6 +469,7 @@ int main(int argc, const char **argv)
             n_complete += stream.join();
         }
     }
+    signals.cancel();
     spead2::recv::stream_stats stats;
     for (const auto &ptr : streams)
         stats += ptr->get_stats();
