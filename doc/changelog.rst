@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Automatically reduce buffer size for verbs receiver to match hardware limits
+  (fixed #64).
+
 .. rubric:: 1.10.0
 
 - Accelerate per-packet processing, particularly when `max_heaps` is large.
