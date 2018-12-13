@@ -59,6 +59,18 @@ private:
         ibv_sge sge;
     };
 
+    // All the data structures required by ibverbs
+    rdma_event_channel_t event_channel;
+    rdma_cm_id_t cm_id;
+    ibv_pd_t pd;
+    ibv_comp_channel_t comp_channel;
+    boost::asio::posix::stream_descriptor comp_channel_wrapper;
+    ibv_cq_t send_cq;
+    ibv_cq_t recv_cq;
+    ibv_qp_t qp;
+    std::vector<ibv_flow_t> flows;
+    ibv_mr_t mr;
+
     ///< Maximum supported packet size
     const std::size_t max_size;
     ///< Number of packets that can be queued
@@ -73,18 +85,6 @@ private:
     boost::asio::ip::udp::socket join_socket;
     /// Data buffer for all the packets
     memory_allocator::pointer buffer;
-
-    // All the data structures required by ibverbs
-    rdma_event_channel_t event_channel;
-    rdma_cm_id_t cm_id;
-    ibv_pd_t pd;
-    ibv_comp_channel_t comp_channel;
-    boost::asio::posix::stream_descriptor comp_channel_wrapper;
-    ibv_cq_t send_cq;
-    ibv_cq_t recv_cq;
-    ibv_qp_t qp;
-    std::vector<ibv_flow_t> flows;
-    ibv_mr_t mr;
 
     /// array of @ref n_slots slots for work requests
     std::unique_ptr<slot[]> slots;

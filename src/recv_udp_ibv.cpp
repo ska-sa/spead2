@@ -256,6 +256,43 @@ udp_ibv_reader::udp_ibv_reader(
 {
 }
 
+static spead2::rdma_cm_id_t make_cm_id(const rdma_event_channel_t &event_channel,
+                                       const boost::asio::ip::address &interface_address)
+{
+    if (!interface_address.is_v4())
+        throw std::invalid_argument("interface address is not an IPv4 address");
+    rdma_cm_id_t cm_id(event_channel, nullptr, RDMA_PS_UDP);
+    cm_id.bind_addr(interface_address);
+    return cm_id;
+}
+
+static std::size_t compute_n_slots(const rdma_cm_id_t &cm_id, std::size_t buffer_size,
+                                   std::size_t max_raw_size)
+{
+    bool reduced = false;
+    ibv_device_attr attr = cm_id.query_device();
+    if (attr.max_mr_size < max_raw_size)
+        throw std::invalid_argument("Packet size is larger than biggest MR supported by device");
+    if (attr.max_mr_size < buffer_size)
+    {
+        buffer_size = attr.max_mr_size;
+        reduced = true;
+    }
+
+    std::size_t n_slots = std::max(std::size_t(1), buffer_size / max_raw_size);
+    std::size_t hw_slots = std::min(attr.max_qp_wr, attr.max_cqe);
+    if (hw_slots == 0)
+        throw std::invalid_argument("This device does not have a usable verbs implementation");
+    if (hw_slots < n_slots)
+    {
+        n_slots = hw_slots;
+        reduced = true;
+    }
+    if (reduced)
+        log_warning("Reducing buffer to %1% to accommodate device limits", n_slots * max_raw_size);
+    return n_slots;
+}
+
 udp_ibv_reader::udp_ibv_reader(
     stream &owner,
     const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
@@ -265,11 +302,12 @@ udp_ibv_reader::udp_ibv_reader(
     int comp_vector,
     int max_poll)
     : udp_reader_base(owner),
+    cm_id(make_cm_id(event_channel, interface_address)),
+    comp_channel_wrapper(owner.get_strand().get_io_service()),
     max_size(max_size),
-    n_slots(std::max(std::size_t(1), buffer_size / (max_size + header_length))),
+    n_slots(compute_n_slots(cm_id, buffer_size, max_size + header_length)),
     max_poll(max_poll),
     join_socket(owner.get_strand().get_io_service(), boost::asio::ip::udp::v4()),
-    comp_channel_wrapper(owner.get_strand().get_io_service()),
     stop_poll(false)
 {
     for (const auto &endpoint : endpoints)
@@ -279,16 +317,11 @@ udp_ibv_reader::udp_ibv_reader(
             msg << "endpoint " << endpoint << " is not an IPv4 multicast address";
             throw std::invalid_argument(msg.str());
         }
-    if (!interface_address.is_v4())
-        throw std::invalid_argument("interface address is not an IPv4 address");
     if (max_poll <= 0)
         throw std::invalid_argument("max_poll must be positive");
     // Re-compute buffer_size as a whole number of slots
     const std::size_t max_raw_size = max_size + header_length;
     buffer_size = n_slots * max_raw_size;
-
-    cm_id = rdma_cm_id_t(event_channel, nullptr, RDMA_PS_UDP);
-    cm_id.bind_addr(interface_address);
 
     if (comp_vector >= 0)
     {
