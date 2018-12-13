@@ -1,4 +1,5 @@
 asynctest; python_version>='3.5'
+flake8
 netifaces
 numpy
 nose

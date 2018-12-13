@@ -32,7 +32,6 @@ if [ "$TEST_CXX" = "yes" ]; then
 fi
 
 if [ "$TEST_PYTHON" = "yes" ]; then
-    python --version
     if [ "$COVERAGE" = "yes" ]; then
         echo '[build_ext]' > setup.cfg
         echo 'coverage = yes' >> setup.cfg
@@ -50,4 +49,5 @@ if [ "$TEST_PYTHON" = "yes" ]; then
         python -c "import spead2.test.shutdown; spead2.test.shutdown.$test()"
     done
     popd
+    flake8
 fi
