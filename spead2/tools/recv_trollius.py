@@ -21,14 +21,16 @@ necessary, to allow multiple code-paths to be exercised.
 """
 
 from __future__ import print_function, division
-import spead2
-import spead2.recv
-import spead2.recv.trollius
 import logging
 import argparse
 import signal
+
 import trollius
 from trollius import From
+
+import spead2
+import spead2.recv
+import spead2.recv.trollius
 
 
 def get_args():
@@ -46,24 +48,37 @@ def get_args():
     group.add_argument('--bind', type=str, default='', help='Interface address for multicast')
     group.add_argument('--pyspead', action='store_true', help='Be bug-compatible with PySPEAD')
     group.add_argument('--joint', action='store_true', help='Treat all sources as a single stream')
-    group.add_argument('--packet', type=int, default=spead2.recv.Stream.DEFAULT_UDP_MAX_SIZE, help='Maximum packet size to accept for UDP [%(default)s]')
+    group.add_argument('--packet', type=int, default=spead2.recv.Stream.DEFAULT_UDP_MAX_SIZE,
+                       help='Maximum packet size to accept for UDP [%(default)s]')
 
     group = parser.add_argument_group('Performance options')
     group.add_argument('--buffer', type=int, help='Socket buffer size')
-    group.add_argument('--threads', type=int, default=1, help='Number of worker threads [%(default)s]')
-    group.add_argument('--heaps', type=int, default=spead2.recv.Stream.DEFAULT_MAX_HEAPS, help='Maximum number of in-flight heaps [%(default)s]')
-    group.add_argument('--ring-heaps', type=int, default=spead2.recv.Stream.DEFAULT_RING_HEAPS, help='Ring buffer capacity in heaps [%(default)s]')
+    group.add_argument('--threads', type=int, default=1,
+                       help='Number of worker threads [%(default)s]')
+    group.add_argument('--heaps', type=int, default=spead2.recv.Stream.DEFAULT_MAX_HEAPS,
+                       help='Maximum number of in-flight heaps [%(default)s]')
+    group.add_argument('--ring-heaps', type=int, default=spead2.recv.Stream.DEFAULT_RING_HEAPS,
+                       help='Ring buffer capacity in heaps [%(default)s]')
     group.add_argument('--mem-pool', action='store_true', help='Use a memory pool')
-    group.add_argument('--mem-lower', type=int, default=16384, help='Minimum allocation which will use the memory pool [%(default)s]')
-    group.add_argument('--mem-upper', type=int, default=32 * 1024**2, help='Maximum allocation which will use the memory pool [%(default)s]')
-    group.add_argument('--mem-max-free', type=int, default=12, help='Maximum free memory buffers [%(default)s]')
-    group.add_argument('--mem-initial', type=int, default=8, help='Initial free memory buffers [%(default)s]')
-    group.add_argument('--memcpy-nt', action='store_true', help='Use non-temporal memcpy')
-    group.add_argument('--affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
+    group.add_argument('--mem-lower', type=int, default=16384,
+                       help='Minimum allocation which will use the memory pool [%(default)s]')
+    group.add_argument('--mem-upper', type=int, default=32 * 1024**2,
+                       help='Maximum allocation which will use the memory pool [%(default)s]')
+    group.add_argument('--mem-max-free', type=int, default=12,
+                       help='Maximum free memory buffers [%(default)s]')
+    group.add_argument('--mem-initial', type=int, default=8,
+                       help='Initial free memory buffers [%(default)s]')
+    group.add_argument('--memcpy-nt', action='store_true',
+                       help='Use non-temporal memcpy')
+    group.add_argument('--affinity', type=spead2.parse_range_list,
+                       help='List of CPUs to pin threads to [no affinity]')
     if hasattr(spead2.recv.Stream, 'add_udp_ibv_reader'):
         group.add_argument('--ibv', action='store_true', help='Use ibverbs [no]')
-        group.add_argument('--ibv-vector', type=int, default=0, metavar='N', help='Completion vector, or -1 to use polling [%(default)s]')
-        group.add_argument('--ibv-max-poll', type=int, default=spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL, help='Maximum number of times to poll in a row [%(default)s]')
+        group.add_argument('--ibv-vector', type=int, default=0, metavar='N',
+                           help='Completion vector, or -1 to use polling [%(default)s]')
+        group.add_argument('--ibv-max-poll', type=int,
+                           default=spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL,
+                           help='Maximum number of times to poll in a row [%(default)s]')
 
     args = parser.parse_args()
     if args.ibv and not args.bind:
@@ -175,7 +190,8 @@ def main():
         thread_pool = spead2.ThreadPool(args.threads)
     memory_pool = None
     if args.mem_pool:
-        memory_pool = spead2.MemoryPool(args.mem_lower, args.mem_upper, args.mem_max_free, args.mem_initial)
+        memory_pool = spead2.MemoryPool(args.mem_lower, args.mem_upper,
+                                        args.mem_max_free, args.mem_initial)
     if args.joint:
         coros_and_streams = [make_coro(args.source)]
     else:

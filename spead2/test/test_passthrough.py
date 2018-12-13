@@ -18,16 +18,13 @@ transports, and mixing with the old PySPEAD implementation.
 """
 
 from __future__ import division, print_function
-import numpy as np
 import io
-import spead2
-import spead2.send
-import spead2.recv
 import socket
-import struct
+
+import numpy as np
 import netifaces
 from decorator import decorator
-from nose.tools import *
+from nose.tools import assert_equal, timed
 from nose.plugins.skip import SkipTest
 try:
     import spead64_40
@@ -43,6 +40,7 @@ except ImportError:
     import ctypes
     import ctypes.util
     _libc = ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
+
     def if_nametoindex(name):
         if not isinstance(name, bytes):
             name = name.encode('utf-8')
@@ -51,6 +49,10 @@ except ImportError:
             raise OSError(ctypes.get_errno(), 'if_nametoindex failed')
         else:
             return ret
+
+import spead2
+import spead2.send
+import spead2.recv
 
 
 def _assert_items_equal(item1, item2):
@@ -284,7 +286,8 @@ class BaseTestPassthroughIPv6(BaseTestPassthrough):
 
     def transmit_item_group(self, item_group, memcpy, allocator):
         self.check_ipv6()
-        return super(BaseTestPassthroughIPv6, self).transmit_item_group(item_group, memcpy, allocator)
+        return super(BaseTestPassthroughIPv6, self).transmit_item_group(
+            item_group, memcpy, allocator)
 
 
 class TestPassthroughUdp(BaseTestPassthrough):
@@ -360,9 +363,9 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
     def prepare_sender(self, thread_pool):
         interface_index = self.get_interface_index()
         return spead2.send.UdpStream(
-                thread_pool, self.MCAST_GROUP, 8887,
-                spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0, ttl=0, interface_index=interface_index)
+            thread_pool, self.MCAST_GROUP, 8887,
+            spead2.send.StreamConfig(rate=1e7),
+            buffer_size=0, ttl=0, interface_index=interface_index)
 
 
 class TestPassthroughTcp(BaseTestPassthrough):
@@ -463,12 +466,12 @@ class BaseTestPassthroughLegacySend(BaseTestPassthrough):
             else:
                 shape = item.shape
             legacy_item_group.add_item(
-                    id=item.id,
-                    name=item.name,
-                    description=item.description,
-                    shape=shape,
-                    fmt=self.spead.mkfmt(*item.format) if item.format else self.spead.DEFAULT_FMT,
-                    ndarray=np.array(item.value) if not item.format else None)
+                id=item.id,
+                name=item.name,
+                description=item.description,
+                shape=shape,
+                fmt=self.spead.mkfmt(*item.format) if item.format else self.spead.DEFAULT_FMT,
+                ndarray=np.array(item.value) if not item.format else None)
             legacy_item_group[item.name] = item.value
         sender.send_heap(legacy_item_group.get_heap())
         sender.end()
@@ -517,21 +520,21 @@ class BaseTestPassthroughLegacyReceive(BaseTestPassthrough):
                 shape = item.shape
             if item.dtype is None:
                 received_item_group.add_item(
-                        id=item.id,
-                        name=item.name,
-                        description=item.description,
-                        shape=shape,
-                        format=list(self.spead.parsefmt(item.format)),
-                        value=item.get_value())
+                    id=item.id,
+                    name=item.name,
+                    description=item.description,
+                    shape=shape,
+                    format=list(self.spead.parsefmt(item.format)),
+                    value=item.get_value())
             else:
                 received_item_group.add_item(
-                        id=item.id,
-                        name=item.name,
-                        description=item.description,
-                        shape=shape,
-                        dtype=item.dtype,
-                        order='F' if item.fortran_order else 'C',
-                        value=item.get_value())
+                    id=item.id,
+                    name=item.name,
+                    description=item.description,
+                    shape=shape,
+                    dtype=item.dtype,
+                    order='F' if item.fortran_order else 'C',
+                    value=item.get_value())
         return received_item_group
 
 

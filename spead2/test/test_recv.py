@@ -20,7 +20,9 @@ import time
 
 import numpy as np
 import six
-from nose.tools import *
+from nose.tools import (
+    assert_equal, assert_in, assert_is_instance,
+    assert_true, assert_false, assert_raises)
 
 import spead2
 import spead2.recv as recv
@@ -119,7 +121,7 @@ class Flavour(object):
             if not item.immediate:
                 value = bytes(item.value)
                 all_items.append(Item(item.id, value, offset=offset))
-                payload[offset : offset+len(value)] = value
+                payload[offset : offset + len(value)] = value
                 offset += len(value)
             else:
                 all_items.append(item)
@@ -172,7 +174,7 @@ class Flavour(object):
         else:
             raise ValueError('Array must be C or Fortran-order contiguous')
         return self.make_numpy_descriptor(
-                id, name, description, array.dtype, array.shape, fortran_order)
+            id, name, description, array.dtype, array.shape, fortran_order)
 
 
 FLAVOUR = Flavour(48)
@@ -258,7 +260,6 @@ class TestDecode(object):
             ])
         ig = self.data_to_ig(packet)
         assert_equal(3, len(ig))
-        item = ig[0x1234]
         assert_equal(0x9234567890AB, ig[0x1234].value)
         assert_equal(0x1234567890AB, ig[0x1235].value)
         assert_equal(-0x6DCBA9876F55, ig[0x1236].value)
@@ -529,16 +530,16 @@ class TestDecode(object):
             assert_equal(1, len(heaps))
             ig = spead2.ItemGroup()
             assert_raises(ValueError, ig.update, heaps[0])
-        helper("{'descr': 'S1'")  # Syntax error: no closing brace
-        helper("123")             # Not a dictionary
-        helper("import os")       # Security check
-        helper("{'descr': 'S1'}") # Missing keys
+        helper("{'descr': 'S1'")   # Syntax error: no closing brace
+        helper("123")              # Not a dictionary
+        helper("import os")        # Security check
+        helper("{'descr': 'S1'}")  # Missing keys
         helper("{'descr': 'S1', 'fortran_order': False, 'shape': (), 'foo': 'bar'}")  # Extra keys
-        helper("{'descr': 'S1', 'fortran_order': False, 'shape': (-1,)}")   # Bad shape
-        helper("{'descr': 1, 'fortran_order': False, 'shape': ()}")         # Bad descriptor
-        helper("{'descr': '+-', 'fortran_order': False, 'shape': ()}")      # Bad descriptor
-        helper("{'descr': 'S1', 'fortran_order': 0, 'shape': ()}")          # Bad fortran_order
-        helper("{'descr': 'S1', 'fortran_order': False, 'shape': (None,)}") # Bad shape
+        helper("{'descr': 'S1', 'fortran_order': False, 'shape': (-1,)}")    # Bad shape
+        helper("{'descr': 1, 'fortran_order': False, 'shape': ()}")          # Bad descriptor
+        helper("{'descr': '+-', 'fortran_order': False, 'shape': ()}")       # Bad descriptor
+        helper("{'descr': 'S1', 'fortran_order': 0, 'shape': ()}")           # Bad fortran_order
+        helper("{'descr': 'S1', 'fortran_order': False, 'shape': (None,)}")  # Bad shape
 
     def test_nonascii_value(self):
         """Receiving non-ASCII characters in a c8 string must raise

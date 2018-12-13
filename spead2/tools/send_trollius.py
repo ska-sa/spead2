@@ -17,18 +17,20 @@
 demonstrates the API."""
 
 from __future__ import print_function, division
-import spead2
-import spead2.send
-import spead2.send.trollius
-import numpy as np
 import logging
 import sys
 import time
 import itertools
 import argparse
-import trollius
 import collections
+
+import numpy as np
+import trollius
 from trollius import From
+
+import spead2
+import spead2.send
+import spead2.send.trollius
 
 
 def get_args():
@@ -37,34 +39,58 @@ def get_args():
     parser.add_argument('port', type=int)
 
     group = parser.add_argument_group('Data options')
-    group.add_argument('--heap-size', metavar='BYTES', type=int, default=4194304, help='Payload size for heap [%(default)s]')
-    group.add_argument('--items', type=int, default=1, help='Number of items per heap [%(default)s]')
-    group.add_argument('--dtype', type=str, default='<c8', help='Numpy data type [%(default)s]')
-    group.add_argument('--heaps', type=int, help='Number of data heaps to send [infinite]')
+    group.add_argument('--heap-size', metavar='BYTES', type=int, default=4194304,
+                       help='Payload size for heap [%(default)s]')
+    group.add_argument('--items', type=int, default=1,
+                       help='Number of items per heap [%(default)s]')
+    group.add_argument('--dtype', type=str, default='<c8',
+                       help='Numpy data type [%(default)s]')
+    group.add_argument('--heaps', type=int,
+                       help='Number of data heaps to send [infinite]')
 
     group = parser.add_argument_group('Output options')
-    group.add_argument('--log', metavar='LEVEL', default='INFO', help='Log level [%(default)s]')
+    group.add_argument('--log', metavar='LEVEL', default='INFO',
+                       help='Log level [%(default)s]')
 
     group = parser.add_argument_group('Protocol options')
-    group.add_argument('--tcp', action='store_true', help='Use TCP instead of UDP')
-    group.add_argument('--bind', type=str, default='', help='Local address to bind sockets to')
-    group.add_argument('--pyspead', action='store_true', help='Be bug-compatible with PySPEAD')
-    group.add_argument('--addr-bits', type=int, default=40, help='Heap address bits [%(default)s]')
-    group.add_argument('--packet', type=int, default=spead2.send.StreamConfig.DEFAULT_MAX_PACKET_SIZE, help='Maximum packet size to send [%(default)s]')
-    group.add_argument('--descriptors', type=int, help='Description issue frequency [only at start]')
+    group.add_argument('--tcp', action='store_true',
+                       help='Use TCP instead of UDP')
+    group.add_argument('--bind', type=str, default='',
+                       help='Local address to bind sockets to')
+    group.add_argument('--pyspead', action='store_true',
+                       help='Be bug-compatible with PySPEAD')
+    group.add_argument('--addr-bits', type=int, default=40,
+                       help='Heap address bits [%(default)s]')
+    group.add_argument('--packet', type=int,
+                       default=spead2.send.StreamConfig.DEFAULT_MAX_PACKET_SIZE,
+                       help='Maximum packet size to send [%(default)s]')
+    group.add_argument('--descriptors', type=int,
+                       help='Description issue frequency [only at start]')
 
     group = parser.add_argument_group('Performance options')
-    group.add_argument('--buffer', type=int, help='Socket buffer size')
-    group.add_argument('--threads', type=int, default=1, help='Number of worker threads [%(default)s]')
-    group.add_argument('--burst', metavar='BYTES', type=int, default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE, help='Burst size [%(default)s]')
-    group.add_argument('--rate', metavar='Gb/s', type=float, default=0, help='Transmission rate bound [no limit]')
-    group.add_argument('--burst-rate-ratio', metavar='RATIO', type=float, default=spead2.send.StreamConfig.DEFAULT_BURST_RATE_RATIO, help='Hard rate limit, relative to --rate [%(default)s]')
+    group.add_argument('--buffer', type=int,
+                       help='Socket buffer size')
+    group.add_argument('--threads', type=int, default=1,
+                       help='Number of worker threads [%(default)s]')
+    group.add_argument('--burst', metavar='BYTES', type=int,
+                       default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE,
+                       help='Burst size [%(default)s]')
+    group.add_argument('--rate', metavar='Gb/s', type=float, default=0,
+                       help='Transmission rate bound [no limit]')
+    group.add_argument('--burst-rate-ratio', metavar='RATIO', type=float,
+                       default=spead2.send.StreamConfig.DEFAULT_BURST_RATE_RATIO,
+                       help='Hard rate limit, relative to --rate [%(default)s]')
     group.add_argument('--ttl', type=int, help='TTL for multicast target [1]')
-    group.add_argument('--affinity', type=spead2.parse_range_list, help='List of CPUs to pin threads to [no affinity]')
+    group.add_argument('--affinity', type=spead2.parse_range_list,
+                       help='List of CPUs to pin threads to [no affinity]')
     if hasattr(spead2.send, 'UdpIbvStream'):
-        group.add_argument('--ibv', action='store_true', help='Use ibverbs [no]')
-        group.add_argument('--ibv-vector', type=int, default=0, metavar='N', help='Completion vector, or -1 to use polling [%(default)s]')
-        group.add_argument('--ibv-max-poll', type=int, default=spead2.send.UdpIbvStream.DEFAULT_MAX_POLL, help='Maximum number of times to poll in a row [%(default)s]')
+        group.add_argument('--ibv', action='store_true',
+                           help='Use ibverbs [no]')
+        group.add_argument('--ibv-vector', type=int, default=0, metavar='N',
+                           help='Completion vector, or -1 to use polling [%(default)s]')
+        group.add_argument('--ibv-max-poll', type=int,
+                           default=spead2.send.UdpIbvStream.DEFAULT_MAX_POLL,
+                           help='Maximum number of times to poll in a row [%(default)s]')
 
     args = parser.parse_args()
     if args.ibv and not args.bind:

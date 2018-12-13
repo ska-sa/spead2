@@ -17,11 +17,13 @@
 
 from __future__ import print_function, division
 import weakref
+
 import spead2 as _spead2
-from spead2._spead2.send import (StreamConfig, Heap, PacketGenerator,
-                                 BytesStream, UdpStream, TcpStream, InprocStream)
+from spead2._spead2.send import (       # noqa: F401
+    StreamConfig, Heap, PacketGenerator,
+    BytesStream, UdpStream, TcpStream, InprocStream)
 try:
-    from spead2._spead2.send import UdpIbvStream
+    from spead2._spead2.send import UdpIbvStream      # noqa: F401
 except ImportError:
     pass
 
@@ -110,7 +112,8 @@ class HeapGenerator(object):
             raise ValueError("data must be one of 'stale', 'all', 'none'")
         for item in self._item_group.values():
             info = self._get_info(item)
-            if (descriptors == 'all') or (descriptors == 'stale' and self._descriptor_stale(item, info)):
+            if (descriptors == 'all') or (descriptors == 'stale'
+                                          and self._descriptor_stale(item, info)):
                 heap.add_descriptor(item)
                 info.descriptor_cnt = self._descriptor_cnt
             if item.value is not None:

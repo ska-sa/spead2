@@ -17,9 +17,10 @@
 Integration between spead2.send and trollius
 """
 from __future__ import absolute_import
+
 import trollius
 from trollius import From, Return
-import spead2.send
+
 from spead2._spead2.send import UdpStreamAsyncio as _UdpStreamAsyncio
 from spead2._spead2.send import TcpStreamAsyncio as _TcpStreamAsyncio
 from spead2._spead2.send import InprocStreamAsyncio as _InprocStreamAsyncio
@@ -107,6 +108,8 @@ UdpStream.__doc__ = \
     """
 
 _TcpStreamBase = _wrap_class('TcpStream', _TcpStreamAsyncio)
+
+
 class TcpStream(_TcpStreamBase):
     """SPEAD over TCP with asynchronous connect and sends.
 
@@ -136,6 +139,7 @@ class TcpStream(_TcpStreamBase):
         if loop is None:
             loop = trollius.get_event_loop()
         future = trollius.Future(loop=loop)
+
         def callback(arg):
             if not future.done():
                 if isinstance(arg, Exception):

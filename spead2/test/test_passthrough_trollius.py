@@ -31,7 +31,8 @@ from . import test_passthrough
 class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
     def transmit_item_group(self, item_group, memcpy, allocator):
         self.loop = trollius.new_event_loop()
-        ret = self.loop.run_until_complete(self.transmit_item_group_async(item_group, memcpy, allocator))
+        ret = self.loop.run_until_complete(
+            self.transmit_item_group_async(item_group, memcpy, allocator))
         self.loop.close()
         return ret
 

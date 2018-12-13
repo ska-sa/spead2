@@ -17,7 +17,6 @@
 
 import spead2
 import spead2.send
-import sys
 import logging
 import numpy as np
 

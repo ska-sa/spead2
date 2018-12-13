@@ -18,7 +18,6 @@
 import spead2
 import spead2.send
 import spead2.send.trollius
-import sys
 import logging
 import numpy as np
 import trollius

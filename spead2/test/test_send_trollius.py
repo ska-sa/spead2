@@ -14,14 +14,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import division, print_function
+
 import trollius
-from trollius import From, Return
+from trollius import From
 import numpy as np
+from nose.tools import assert_greater, assert_equal, assert_raises
+
 import spead2
 import spead2.send
 import spead2.send.trollius
 from spead2.send.trollius import UdpStream
-from nose.tools import *
 
 
 class TestUdpStream(object):
@@ -75,7 +77,7 @@ class TestUdpStream(object):
 class TestTcpStream(object):
     def _test_connect_failed(self):
         thread_pool = spead2.ThreadPool()
-        with assert_raises(IOError) as cm:
+        with assert_raises(IOError):
             yield From(spead2.send.trollius.TcpStream.connect(thread_pool, '127.0.0.1', 8887))
 
     def test_connect_failed(self):

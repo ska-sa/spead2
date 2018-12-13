@@ -23,8 +23,6 @@ import glob
 import sys
 import os
 import os.path
-import ctypes.util
-import re
 import subprocess
 
 
@@ -95,6 +93,7 @@ class BuildExt(build_ext):
             pass
         build_ext.build_extensions(self)
 
+
 # Can't actually install on readthedocs.org because Boost.Python is missing,
 # but we need setup.py to still be successful to make the doc build work.
 rtd = os.environ.get('READTHEDOCS') == 'True'
@@ -138,7 +137,7 @@ setup(
     description='High-performance SPEAD implementation',
     url='https://github.com/ska-sa/spead2',
     license='LGPLv3+',
-    classifiers = [
+    classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Framework :: AsyncIO',
         'Intended Audience :: Developers',

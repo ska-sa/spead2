@@ -18,7 +18,6 @@
 from __future__ import print_function, division
 import spead2
 import spead2.recv
-import sys
 import logging
 
 logging.basicConfig(level=logging.INFO)

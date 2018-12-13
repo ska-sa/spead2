@@ -14,16 +14,20 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import division, print_function
+import binascii
+import gc
+import struct
+import time
+import threading
+import weakref
+
+import numpy as np
+from nose.tools import (
+    assert_equal, assert_is_none, assert_is_not_none, assert_false,
+    assert_raises)
+
 import spead2
 import spead2.send as send
-import struct
-import binascii
-import numpy as np
-import weakref
-import threading
-import time
-import gc
-from nose.tools import *
 
 
 def hexlify(data):
@@ -33,8 +37,9 @@ def hexlify(data):
     chunks = []
     for i in range(0, len(data), 8):
         part = data[i : min(i + 8, len(data))]
-        chunks.append(b':'.join([binascii.hexlify(part[i : i+1]) for i in range(len(part))]))
+        chunks.append(b':'.join([binascii.hexlify(part[i : i + 1]) for i in range(len(part))]))
     return b' '.join(chunks)
+
 
 def encode_be(size, value):
     """Encodes `value` as big-endian in `size` bytes"""
@@ -133,7 +138,7 @@ class TestEncode(object):
         heap = send.Heap(self.flavour)
         heap.add_item(item)
         del item
-        packets = list(send.PacketGenerator(heap, 0x123456, 1472))
+        packets = list(send.PacketGenerator(heap, 0x123456, 1472))   # noqa: F841
         assert_is_not_none(weak())
         del heap
         # pypy needs multiple gc passes to wind it all up
@@ -310,7 +315,6 @@ class TestEncode(object):
         """Sending a small item with fixed shape must use an immediate."""
         id = 0x2345
         data = 0x7654
-        payload = struct.pack('>I', data)
         expected = [
             b''.join([
                 self.flavour.make_header(6),
@@ -446,16 +450,16 @@ class TestStream(object):
         expected = b''
         for cnt in expected_cnts:
             expected = b''.join([
-                    expected,
-                    self.flavour.make_header(6),
-                    self.flavour.make_immediate(spead2.HEAP_CNT_ID, cnt),
-                    self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 1),
-                    self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
-                    self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 1),
-                    self.flavour.make_immediate(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_START),
-                    self.flavour.make_address(spead2.NULL_ID, 0),
-                    struct.pack('B', 0)
-                ])
+                expected,
+                self.flavour.make_header(6),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, cnt),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 1),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 1),
+                self.flavour.make_immediate(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_START),
+                self.flavour.make_address(spead2.NULL_ID, 0),
+                struct.pack('B', 0)
+            ])
         assert_equal(hexlify(expected), hexlify(self.stream.getvalue()))
 
 

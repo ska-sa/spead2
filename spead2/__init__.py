@@ -13,9 +13,15 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import numbers as _numbers
+import logging
+
+import six
+import numpy as _np
+
 import spead2._spead2
-from spead2._spead2 import (
-    Flavour, ThreadPool, Stopped, Empty, Stopped,
+from spead2._spead2 import (             # noqa: F401
+    Flavour, ThreadPool, Stopped, Empty,
     MemoryAllocator, MmapAllocator, MemoryPool, InprocQueue,
     BUG_COMPAT_DESCRIPTOR_WIDTHS,
     BUG_COMPAT_SHAPE_BIT_1,
@@ -40,11 +46,7 @@ from spead2._spead2 import (
     CTRL_DESCRIPTOR_UPDATE,
     MEMCPY_STD,
     MEMCPY_NONTEMPORAL)
-import numbers as _numbers
-import numpy as _np
-import logging
-import six
-from spead2._version import __version__
+from spead2._version import __version__       # noqa: F401
 
 
 _logger = logging.getLogger(__name__)
@@ -187,7 +189,7 @@ class Descriptor(object):
             raise ValueError(msg % (d['fortran_order'],))
         try:
             dtype = _np.dtype(d['descr'])
-        except TypeError as e:
+        except TypeError:
             msg = "descr is not a valid dtype descriptor: %r"
             raise ValueError(msg % (d['descr'],))
         order = 'F' if d['fortran_order'] else 'C'
@@ -196,8 +198,8 @@ class Descriptor(object):
     @classmethod
     def _make_numpy_header(self, shape, dtype, order):
         return "{{'descr': {!r}, 'fortran_order': {!r}, 'shape': {!r}}}".format(
-                _np.lib.format.dtype_to_descr(dtype), order == 'F',
-                tuple(shape))
+            _np.lib.format.dtype_to_descr(dtype), order == 'F',
+            tuple(shape))
 
     @classmethod
     def _parse_format(cls, fmt):
@@ -251,7 +253,7 @@ class Descriptor(object):
         is best not to send them at all.
         """
         return not self.is_variable_size() and (
-                self.dtype is not None or self.itemsize_bits % 8 == 0)
+            self.dtype is not None or self.itemsize_bits % 8 == 0)
 
     def dynamic_shape(self, max_elements):
         """Determine the dynamic shape, given incoming data that is big enough
@@ -291,8 +293,7 @@ class Descriptor(object):
         format = None
         if raw_descriptor.numpy_header:
             header = _bytes_to_str_ascii(raw_descriptor.numpy_header)
-            shape, order, dtype = \
-                    cls._parse_numpy_header(header)
+            shape, order, dtype = cls._parse_numpy_header(header)
             if flavour.bug_compat & BUG_COMPAT_SWAP_ENDIAN:
                 dtype = dtype.newbyteorder()
         else:
@@ -300,10 +301,10 @@ class Descriptor(object):
             order = 'C'
             format = raw_descriptor.format
         return cls(
-                raw_descriptor.id,
-                _bytes_to_str_ascii(raw_descriptor.name),
-                _bytes_to_str_ascii(raw_descriptor.description),
-                shape, dtype, order, format)
+            raw_descriptor.id,
+            _bytes_to_str_ascii(raw_descriptor.name),
+            _bytes_to_str_ascii(raw_descriptor.description),
+            shape, dtype, order, format)
 
     def to_raw(self, flavour):
         raw = spead2._spead2.RawDescriptor()
@@ -316,7 +317,8 @@ class Descriptor(object):
                 dtype = self.dtype.newbyteorder()
             else:
                 dtype = self.dtype
-            raw.numpy_header = self._make_numpy_header(self.shape, dtype, self.order).encode('ascii')
+            raw.numpy_header = self._make_numpy_header(
+                self.shape, dtype, self.order).encode('ascii')
         else:
             raw.format = self.format
         return raw
@@ -499,7 +501,8 @@ class Item(Descriptor):
                 array1d = raw_value[:size_bytes]
             array1d = array1d.view(dtype=self._internal_dtype)
             # Force to native endian
-            array1d = array1d.astype(self._internal_dtype.newbyteorder('='), casting='equiv', copy=False)
+            array1d = array1d.astype(self._internal_dtype.newbyteorder('='),
+                                     casting='equiv', copy=False)
             value = _np.reshape(array1d, shape, self.order)
         elif (self._fastpath == _FASTPATH_IMMEDIATE and
                 raw_item.is_immediate and
@@ -578,7 +581,7 @@ class Item(Descriptor):
             # This is complicated by Python 3 not providing a simple way to
             # turn a bytes object into a list of one-byte objects, the way
             # list(str) does.
-            value = [self.value[i : i+1] for i in range(len(self.value))]
+            value = [self.value[i : i + 1] for i in range(len(self.value))]
         value = _np.array(value, dtype=self._internal_dtype, order=self.order, copy=False)
         if not self.compatible_shape(value.shape):
             raise ValueError('Value has shape {}, expected {}'.format(value.shape, self.shape))
@@ -649,12 +652,12 @@ class ItemGroup(object):
 
         # Check if this is just the same thing
         if (old is not None and
-            old.name == item.name and
-            old.description == item.description and
-            old.shape == item.shape and
-            old.dtype == item.dtype and
-            old.order == item.order and
-            old.format == item.format):
+                old.name == item.name and
+                old.description == item.description and
+                old.shape == item.shape and
+                old.dtype == item.dtype and
+                old.order == item.order and
+                old.format == item.format):
             # Descriptor is the same, so just transfer the value. If the value
             # is None, then we've only been given a descriptor to add.
             if item.value is not None:
