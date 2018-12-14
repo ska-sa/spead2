@@ -1,4 +1,4 @@
-/* Copyright 2016, 2017 SKA South Africa
+/* Copyright 2016-2018 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -641,45 +641,6 @@ void capture::network_thread()
     ring.stop();
 }
 
-static spead2::ibv_flow_t create_flow(
-    const spead2::ibv_qp_t &qp, const boost::asio::ip::udp::endpoint &endpoint, int port_num)
-{
-    struct
-    {
-        ibv_flow_attr attr;
-        ibv_flow_spec_eth eth;
-        ibv_flow_spec_ipv4 ip;
-        ibv_flow_spec_tcp_udp udp;
-    } __attribute__((packed)) flow_rule;
-    memset(&flow_rule, 0, sizeof(flow_rule));
-
-    flow_rule.attr.type = IBV_FLOW_ATTR_NORMAL;
-    flow_rule.attr.priority = 0;
-    flow_rule.attr.size = sizeof(flow_rule);
-    flow_rule.attr.num_of_specs = 3;
-    flow_rule.attr.port = port_num;
-
-    flow_rule.eth.type = IBV_FLOW_SPEC_ETH;
-    flow_rule.eth.size = sizeof(flow_rule.eth);
-    spead2::mac_address dst_mac = spead2::multicast_mac(endpoint.address());
-    std::memcpy(&flow_rule.eth.val.dst_mac, &dst_mac, sizeof(dst_mac));
-    // Set all 1's mask
-    std::memset(&flow_rule.eth.mask.dst_mac, 0xFF, sizeof(flow_rule.eth.mask.dst_mac));
-
-    flow_rule.ip.type = IBV_FLOW_SPEC_IPV4;
-    flow_rule.ip.size = sizeof(flow_rule.ip);
-    auto bytes = endpoint.address().to_v4().to_bytes(); // big-endian address
-    std::memcpy(&flow_rule.ip.val.dst_ip, &bytes, sizeof(bytes));
-    std::memset(&flow_rule.ip.mask.dst_ip, 0xFF, sizeof(flow_rule.ip.mask.dst_ip));
-
-    flow_rule.udp.type = IBV_FLOW_SPEC_UDP;
-    flow_rule.udp.size = sizeof(flow_rule.udp);
-    flow_rule.udp.val.dst_port = htobe16(endpoint.port());
-    flow_rule.udp.mask.dst_port = 0xFFFF;
-
-    return spead2::ibv_flow_t(qp, &flow_rule.attr);
-}
-
 static spead2::ibv_qp_t create_qp(
     const spead2::ibv_pd_t &pd, const spead2::ibv_cq_t &cq, std::uint32_t n_slots)
 {
@@ -871,8 +832,7 @@ void capture::run()
     pd = spead2::ibv_pd_t(cm_id);
     qp = create_qp(pd, cq, n_slots);
     qp.modify(IBV_QPS_INIT, cm_id->port_num);
-    for (const udp::endpoint &endpoint : endpoints)
-        flows.push_back(create_flow(qp, endpoint, cm_id->port_num));
+    flows = spead2::create_flows(qp, endpoints, cm_id->port_num);
 
     for (std::size_t i = 0; i < chunking.n_chunks; i++)
         add_to_free(make_chunk(*allocator));

@@ -1,4 +1,4 @@
-/* Copyright 2016, 2017 SKA South Africa
+/* Copyright 2016-2018 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -26,6 +26,7 @@
 #endif
 #include <spead2/common_features.h>
 #include <memory>
+#include <vector>
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
 #include <boost/asio.hpp>
@@ -196,6 +197,33 @@ public:
     ibv_flow_t() = default;
     ibv_flow_t(const ibv_qp_t &qp, ibv_flow_attr *flow);
 };
+
+/**
+ * Create a single flow rule.
+ *
+ * The @a mask specifies a subset of bits in the IPv4 address that must match
+ * (in host byte order, so for example 0xFFFFFF00 specifies a /24 subnet).
+ * Note that not all IB drivers support a mask other than the default (all
+ * 1's).
+ *
+ * @pre The endpoint contains an IPv4 multicast address.
+ */
+ibv_flow_t create_flow(
+    const ibv_qp_t &qp, const boost::asio::ip::udp::endpoint &endpoint,
+    int port_num, std::uint32_t mask = 0xFFFFFFFF);
+
+/**
+ * Create flow rules to subscribe to a given set of multicast endpoints.
+ *
+ * Where supported by the driver, it will coalesce multiple endpoints into a
+ * single flow rule with a mask. This only applies per-port; it does not try
+ * to identify subscriptions to multiple ports on the same address.
+ *
+ * @pre The endpoints are IPv4 multicast addresses.
+ */
+std::vector<ibv_flow_t> create_flows(
+    const ibv_qp_t &qp, const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+    int port_num);
 
 } // namespace spead2
 
