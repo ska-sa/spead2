@@ -164,5 +164,6 @@ setup(
     ],
     test_suite='nose.collector',
     packages=find_packages(),
+    package_data={'': ['py.typed', '*.pyi']},
     scripts=glob.glob('scripts/*.py')
 )

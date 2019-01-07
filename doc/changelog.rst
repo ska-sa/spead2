@@ -6,6 +6,11 @@ Changelog
 - Automatically reduce buffer size for verbs receiver to match hardware limits
   (fixed #64).
 - Gracefully handle Ctrl-C in :program:`spead2_recv` and print statistics.
+- Add typing stub files to assist checking with Mypy.
+- Give a name to the argument of
+  :py:meth:`spead2.recv.Stream.add_inproc_reader`.
+- Fix Python binding for one of the UDP reader overloads that takes an existing
+  socket. This was a deprecated overload.
 
 .. rubric:: 1.10.0
 

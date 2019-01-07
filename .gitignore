@@ -18,6 +18,7 @@ Makefile.in
 .deps
 *.pyc
 *.o
+.mypy_cache
 /include/spead2/common_features.h
 /examples/test_recv
 /examples/test_ringbuffer

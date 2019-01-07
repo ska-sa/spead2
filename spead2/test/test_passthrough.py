@@ -39,9 +39,12 @@ try:
 except ImportError:
     import ctypes
     import ctypes.util
-    _libc = ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
+    _libc_name = ctypes.util.find_library('c')
+    if _libc_name is None:
+        raise
+    _libc = ctypes.CDLL(_libc_name, use_errno=True)
 
-    def if_nametoindex(name):
+    def if_nametoindex(name):       # type: ignore
         if not isinstance(name, bytes):
             name = name.encode('utf-8')
         ret = _libc.if_nametoindex(name)
