@@ -118,7 +118,7 @@ class TestPassthroughTcpCustomSocket(BaseTestPassthroughAsync):
     @trollius.coroutine
     def prepare_sender(self, thread_pool):
         sock = socket.socket()
-        sock.setblocking(0)
+        sock.setblocking(False)
         yield From(self.loop.sock_connect(sock, ('127.0.0.1', self._port)))
         sender = spead2.send.trollius.TcpStream(
             thread_pool, sock, loop=self.loop)
