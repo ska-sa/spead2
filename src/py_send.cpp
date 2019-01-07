@@ -405,7 +405,7 @@ static py::class_<T> udp_stream_register(py::module &m, const char *name)
     using namespace pybind11::literals;
 
     return py::class_<T>(m, name)
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, std::string>(),
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, const socket_wrapper<boost::asio::ip::udp::socket> &>(),
              "thread_pool"_a, "hostname"_a, "port"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
