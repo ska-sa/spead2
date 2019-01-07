@@ -473,7 +473,8 @@ py::module register_module(py::module &parent)
         .def("add_udp_pcap_file_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_pcap_file_reader),
              "filename"_a)
 #endif
-        .def("add_inproc_reader", SPEAD2_PTMF(ring_stream_wrapper, add_inproc_reader))
+        .def("add_inproc_reader", SPEAD2_PTMF(ring_stream_wrapper, add_inproc_reader),
+             "queue"_a)
         .def("stop", SPEAD2_PTMF(ring_stream_wrapper, stop))
         .def_property_readonly("fd", SPEAD2_PTMF(ring_stream_wrapper, get_fd))
         .def_property_readonly("stats", SPEAD2_PTMF(ring_stream_wrapper, get_stats))
