@@ -364,7 +364,7 @@ void register_module(py::module m)
                 return ibv_context_t(make_address_no_release(
                     io_service, interface_address, boost::asio::ip::udp::resolver::query::passive));
             }), "interface"_a)
-        .def("reset", SPEAD2_PTMF(ibv_context_t, reset))
+        .def("reset", [](ibv_context_t &self) { self.reset(); })
     ;
 #endif
 }
