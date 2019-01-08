@@ -11,6 +11,8 @@ Changelog
   :py:meth:`spead2.recv.Stream.add_inproc_reader`.
 - Fix Python binding for one of the UDP reader overloads that takes an existing
   socket. This was a deprecated overload.
+- Add a unit test for ibverbs support. It's not run by default because it
+  needs specific hardware.
 
 .. rubric:: 1.10.0
 

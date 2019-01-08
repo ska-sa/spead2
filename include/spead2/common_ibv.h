@@ -1,4 +1,4 @@
-/* Copyright 2016-2018 SKA South Africa
+/* Copyright 2016-2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -58,6 +58,14 @@ struct rdma_event_channel_deleter
     void operator()(rdma_event_channel *event_channel)
     {
         rdma_destroy_event_channel(event_channel);
+    }
+};
+
+struct ibv_context_deleter
+{
+    void operator()(ibv_context *ctx)
+    {
+        ibv_close_device(ctx);
     }
 };
 
@@ -125,6 +133,20 @@ public:
 
     void bind_addr(const boost::asio::ip::address &addr);
     ibv_device_attr query_device() const;
+};
+
+/* This class is not intended to be used for anything. However, the mlx5 driver
+ * will only enable multicast loopback if there at least 2 device contexts, and
+ * multiple instances of rdma_cm_id_t bound to the same device end up with the
+ * same device context, so constructing one is a way to force multicast
+ * loopback to function.
+ */
+class ibv_context_t : public std::unique_ptr<ibv_context, detail::ibv_context_deleter>
+{
+public:
+    ibv_context_t() = default;
+    explicit ibv_context_t(struct ibv_device *device);
+    explicit ibv_context_t(const boost::asio::ip::address &addr);
 };
 
 class ibv_comp_channel_t : public std::unique_ptr<ibv_comp_channel, detail::ibv_comp_channel_deleter>

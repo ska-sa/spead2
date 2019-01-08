@@ -109,15 +109,8 @@ private:
 
     boost::asio::ip::address make_address(const std::string &hostname)
     {
-        if (hostname.empty())
-            return boost::asio::ip::address_v4::any();
-        else
-        {
-            using boost::asio::ip::udp;
-            udp::resolver resolver(get_strand().get_io_service());
-            udp::resolver::query query(hostname, "", udp::resolver::query::passive);
-            return resolver.resolve(query)->endpoint().address();
-        }
+        return make_address_no_release(get_strand().get_io_service(), hostname,
+                                       boost::asio::ip::udp::resolver::query::passive);
     }
 
     template<typename Protocol>

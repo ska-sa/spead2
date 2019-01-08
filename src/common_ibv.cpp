@@ -1,4 +1,4 @@
-/* Copyright 2016-2018 SKA South Africa
+/* Copyright 2016-2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -77,6 +77,52 @@ ibv_device_attr rdma_cm_id_t::query_device() const
     if (status != 0)
         throw_errno("ibv_query_device failed", status);
     return attr;
+}
+
+ibv_context_t::ibv_context_t(struct ibv_device *device)
+{
+    ibv_context *ctx = ibv_open_device(device);
+    if (!ctx)
+        throw_errno("ibv_open_device failed");
+    reset(ctx);
+}
+
+ibv_context_t::ibv_context_t(const boost::asio::ip::address &addr)
+{
+    /* Use rdma_cm_id_t to get an existing device context, then
+     * query it for its GUID and find the corresponding device.
+     */
+    rdma_event_channel_t event_channel;
+    rdma_cm_id_t cm_id(event_channel, nullptr, RDMA_PS_UDP);
+    cm_id.bind_addr(addr);
+    ibv_device_attr attr = cm_id.query_device();
+
+    struct ibv_device **devices;
+    devices = ibv_get_device_list(nullptr);
+    if (devices == nullptr)
+        throw_errno("ibv_get_device_list failed");
+
+    ibv_device *device = nullptr;
+    for (ibv_device **d = devices; *d != nullptr; d++)
+        if (ibv_get_device_guid(*d) == attr.node_guid)
+        {
+            device = *d;
+            break;
+        }
+    if (device == nullptr)
+    {
+        ibv_free_device_list(devices);
+        throw_errno("no matching device found", ENOENT);
+    }
+
+    ibv_context *ctx = ibv_open_device(device);
+    if (!ctx)
+    {
+        ibv_free_device_list(devices);
+        throw_errno("ibv_open_device failed");
+    }
+    reset(ctx);
+    ibv_free_device_list(devices);
 }
 
 ibv_comp_channel_t::ibv_comp_channel_t(const rdma_cm_id_t &cm_id)
