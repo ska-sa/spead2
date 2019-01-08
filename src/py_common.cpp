@@ -33,6 +33,9 @@
 #include <spead2/common_memory_pool.h>
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_inproc.h>
+#if SPEAD2_USE_IBV
+# include <spead2/common_ibv.h>
+#endif
 
 namespace py = pybind11;
 
@@ -88,6 +91,18 @@ static void translate_exception_boost_io_error(std::exception_ptr p)
 template class socket_wrapper<boost::asio::ip::udp::socket>;
 template class socket_wrapper<boost::asio::ip::tcp::socket>;
 template class socket_wrapper<boost::asio::ip::tcp::acceptor>;
+
+boost::asio::ip::address make_address_no_release(
+    boost::asio::io_service &io_service, const std::string &hostname,
+    boost::asio::ip::resolver_query_base::flags flags)
+{
+    if (hostname == "")
+        return boost::asio::ip::address();
+    using boost::asio::ip::udp;
+    udp::resolver resolver(io_service);
+    udp::resolver::query query(hostname, "", flags);
+    return resolver.resolve(query)->endpoint().address();
+}
 
 void deprecation_warning(const char *msg)
 {
@@ -340,6 +355,18 @@ void register_module(py::module m)
         .def_readwrite("format", &descriptor::format)
         .def_property("numpy_header", bytes_getter(&descriptor::numpy_header), bytes_setter(&descriptor::numpy_header))
     ;
+#if SPEAD2_USE_IBV
+    py::class_<ibv_context_t>(m, "IbvContext")
+        .def(py::init([](const std::string &interface_address)
+            {
+                py::gil_scoped_release release;
+                boost::asio::io_service io_service;
+                return ibv_context_t(make_address_no_release(
+                    io_service, interface_address, boost::asio::ip::udp::resolver::query::passive));
+            }), "interface"_a)
+        .def("reset", SPEAD2_PTMF(ibv_context_t, reset))
+    ;
+#endif
 }
 
 void register_logging()

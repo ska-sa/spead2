@@ -102,6 +102,10 @@ extern template class socket_wrapper<boost::asio::ip::udp::socket>;
 extern template class socket_wrapper<boost::asio::ip::tcp::socket>;
 extern template class socket_wrapper<boost::asio::ip::tcp::acceptor>;
 
+boost::asio::ip::address make_address_no_release(
+    boost::asio::io_service &io_service, const std::string &hostname,
+    boost::asio::ip::resolver_query_base::flags flags);
+
 /**
  * Issue a Python deprecation.
  *

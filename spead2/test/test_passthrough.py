@@ -381,6 +381,15 @@ class TestPassthroughUdpIbv(BaseTestPassthrough):
             raise SkipTest('Envar SPEAD2_TEST_IBV_INTERFACE_ADDRESS not set')
         return ifaddr
 
+    def setup(self):
+        # mlx5 drivers only enable multicast loopback if there are multiple
+        # device contexts. The sender and receiver end up sharing one, so we
+        # need to explicitly create another.
+        self._extra_context = spead2.IbvContext(self._interface_address())
+
+    def teardown(self):
+        self._extra_context.reset()
+
     def prepare_receiver(self, receiver):
         if not hasattr(receiver, 'add_udp_ibv_reader'):
             raise SkipTest('IBV support not compiled in')

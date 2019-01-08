@@ -246,14 +246,9 @@ public:
 static boost::asio::ip::address make_address(
     boost::asio::io_service &io_service, const std::string &hostname)
 {
-    if (hostname == "")
-        return boost::asio::ip::address();
     py::gil_scoped_release gil;
-
-    using boost::asio::ip::udp;
-    udp::resolver resolver(io_service);
-    udp::resolver::query query(hostname, "", boost::asio::ip::resolver_query_base::flags(0));
-    return resolver.resolve(query)->endpoint().address();
+    return make_address_no_release(io_service, hostname,
+                                   boost::asio::ip::resolver_query_base::flags(0));
 }
 
 template<typename Protocol>
