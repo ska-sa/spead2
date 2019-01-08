@@ -18,6 +18,7 @@ transports, and mixing with the old PySPEAD implementation.
 """
 
 from __future__ import division, print_function
+import os
 import io
 import socket
 
@@ -369,6 +370,27 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
             thread_pool, self.MCAST_GROUP, 8887,
             spead2.send.StreamConfig(rate=1e7),
             buffer_size=0, ttl=0, interface_index=interface_index)
+
+
+class TestPassthroughUdpIbv(BaseTestPassthrough):
+    MCAST_GROUP = '239.255.88.88'
+
+    def _interface_address(self):
+        ifaddr = os.getenv('SPEAD2_TEST_IBV_INTERFACE_ADDRESS')
+        if not ifaddr:
+            raise SkipTest('Envar SPEAD2_TEST_IBV_INTERFACE_ADDRESS not set')
+        return ifaddr
+
+    def prepare_receiver(self, receiver):
+        if not hasattr(receiver, 'add_udp_ibv_reader'):
+            raise SkipTest('IBV support not compiled in')
+        receiver.add_udp_ibv_reader([(self.MCAST_GROUP, 8886)], self._interface_address())
+
+    def prepare_sender(self, thread_pool):
+        return spead2.send.UdpIbvStream(
+            thread_pool, self.MCAST_GROUP, 8886,
+            spead2.send.StreamConfig(rate=1e7),
+            self._interface_address())
 
 
 class TestPassthroughTcp(BaseTestPassthrough):
