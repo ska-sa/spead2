@@ -43,7 +43,8 @@ namespace recv
 static ibv_qp_t create_qp(const rdma_cm_id_t &cm_id,
                           const ibv_pd_t &pd,
                           const ibv_cq_t &cq,
-                          const ibv_exp_rwq_ind_table_t &ind_table)
+                          const ibv_exp_rwq_ind_table_t &ind_table,
+                          const ibv_exp_res_domain_t &res_domain)
 {
     /* ConnectX-5 only seems to work with Toeplitz hashing. This code seems to
      * work, but I don't really know what I'm doing so it might be horrible.
@@ -61,9 +62,11 @@ static ibv_qp_t create_qp(const rdma_cm_id_t &cm_id,
     memset(&attr, 0, sizeof(attr));
     attr.qp_type = IBV_QPT_RAW_PACKET;
     attr.pd = pd.get();
+    attr.res_domain = res_domain.get();
     attr.rx_hash_conf = &hash_conf;
     attr.port_num = cm_id->port_num;
-    attr.comp_mask = IBV_EXP_QP_INIT_ATTR_PD | IBV_EXP_QP_INIT_ATTR_RX_HASH | IBV_EXP_QP_INIT_ATTR_PORT;
+    attr.comp_mask = IBV_EXP_QP_INIT_ATTR_PD | IBV_EXP_QP_INIT_ATTR_RX_HASH
+        | IBV_EXP_QP_INIT_ATTR_PORT | IBV_EXP_QP_INIT_ATTR_RES_DOMAIN;
     return ibv_qp_t(cm_id, &attr);
 }
 
@@ -143,6 +146,13 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     : udp_ibv_reader_base<udp_ibv_mprq_reader>(
         owner, endpoints, interface_address, max_size, comp_vector, max_poll)
 {
+    ibv_exp_res_domain_init_attr res_domain_attr;
+    memset(&res_domain_attr, 0, sizeof(res_domain_attr));
+    res_domain_attr.comp_mask = IBV_EXP_RES_DOMAIN_THREAD_MODEL | IBV_EXP_RES_DOMAIN_MSG_MODEL;
+    res_domain_attr.thread_model = IBV_EXP_THREAD_UNSAFE;
+    res_domain_attr.msg_model = IBV_EXP_MSG_HIGH_BW;
+    res_domain = ibv_exp_res_domain_t(cm_id, &res_domain_attr);
+
     ibv_device_attr device_attr = cm_id.query_device();
 
     // TODO: adjust stride parameters based on device info
@@ -176,24 +186,33 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     if (reduced)
         log_warning("Reducing buffer to %1% to accommodate device limits", buffer_size);
 
+    ibv_exp_cq_init_attr cq_attr;
+    memset(&cq_attr, 0, sizeof(cq_attr));
+    cq_attr.comp_mask = IBV_EXP_CQ_INIT_ATTR_RES_DOMAIN;
+    cq_attr.res_domain = res_domain.get();
     if (comp_vector >= 0)
         recv_cq = ibv_cq_t(cm_id, strides, nullptr,
-                           comp_channel, comp_vector % cm_id->verbs->num_comp_vectors);
+                           comp_channel, comp_vector % cm_id->verbs->num_comp_vectors,
+                           &cq_attr);
     else
-        recv_cq = ibv_cq_t(cm_id, strides, nullptr);
+        recv_cq = ibv_cq_t(cm_id, strides, nullptr, &cq_attr);
     cq_intf = ibv_exp_cq_family_v1_t(cm_id, recv_cq);
 
     wq_attr.mp_rq.use_shift = IBV_EXP_MP_RQ_NO_SHIFT;
+    wq_attr.wq_type = IBV_EXP_WQT_RQ;
     wq_attr.max_recv_wr = wqe;
     wq_attr.max_recv_sge = 1;
     wq_attr.pd = pd.get();
     wq_attr.cq = recv_cq.get();
-    wq_attr.comp_mask = IBV_EXP_CREATE_WQ_MP_RQ;
+    wq_attr.res_domain = res_domain.get();
+    wq_attr.comp_mask = IBV_EXP_CREATE_WQ_MP_RQ | IBV_EXP_CREATE_WQ_RES_DOMAIN;
+    // TODO: investigate IBV_EXP_CREATE_WQ_FLAG_DELAY_DROP to reduce dropped
+    // packets.
     wq = ibv_exp_wq_t(cm_id, &wq_attr);
     wq_intf = ibv_exp_wq_family_t(cm_id, wq);
 
     rwq_ind_table = create_rwq_ind_table(cm_id, pd, wq);
-    qp = create_qp(cm_id, pd, recv_cq, rwq_ind_table);
+    qp = create_qp(cm_id, pd, recv_cq, rwq_ind_table, res_domain);
     wq.modify(IBV_EXP_WQS_RDY);
 
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);

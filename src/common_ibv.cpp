@@ -51,6 +51,19 @@ void ibv_intf_deleter::operator()(void *intf)
     std::memset(&params, 0, sizeof(params));
     ibv_exp_release_intf(context, intf, &params);
 }
+
+ibv_exp_res_domain_deleter::ibv_exp_res_domain_deleter(struct ibv_context *context) noexcept
+    : context(context)
+{
+}
+
+void ibv_exp_res_domain_deleter::operator()(ibv_exp_res_domain *res_domain)
+{
+    ibv_exp_destroy_res_domain_attr attr;
+    std::memset(&attr, 0, sizeof(attr));
+    ibv_exp_destroy_res_domain(context, res_domain, &attr);
+}
+
 #endif
 
 } // namespace detail
@@ -614,6 +627,17 @@ ibv_exp_rwq_ind_table_t create_rwq_ind_table(
     attr.log_ind_tbl_size = 0;
     attr.ind_tbl = tbl;
     return ibv_exp_rwq_ind_table_t(cm_id, &attr);
+}
+
+ibv_exp_res_domain_t::ibv_exp_res_domain_t(const rdma_cm_id_t &cm_id, ibv_exp_res_domain_init_attr *attr)
+    : std::unique_ptr<ibv_exp_res_domain, detail::ibv_exp_res_domain_deleter>(
+        nullptr, detail::ibv_exp_res_domain_deleter(cm_id->verbs))
+{
+    errno = 0;
+    ibv_exp_res_domain *res_domain = ibv_exp_create_res_domain(cm_id->verbs, attr);
+    if (!res_domain)
+        throw_errno("ibv_exp_create_res_domain_failed");
+    reset(res_domain);
 }
 
 #endif // SPEAD2_USE_IBV_MPRQ

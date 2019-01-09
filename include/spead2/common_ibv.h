@@ -147,6 +147,16 @@ public:
     void operator()(void *intf);
 };
 
+class ibv_exp_res_domain_deleter
+{
+private:
+    struct ibv_context *context;
+
+public:
+    explicit ibv_exp_res_domain_deleter(struct ibv_context *context = nullptr) noexcept;
+    void operator()(ibv_exp_res_domain *res_domain);
+};
+
 #endif
 
 } // namespace detail
@@ -327,6 +337,13 @@ public:
 /// Construct a table with a single entry
 ibv_exp_rwq_ind_table_t create_rwq_ind_table(
     const rdma_cm_id_t &cm_id, const ibv_pd_t &pd, const ibv_exp_wq_t &wq);
+
+class ibv_exp_res_domain_t : public std::unique_ptr<ibv_exp_res_domain, detail::ibv_exp_res_domain_deleter>
+{
+public:
+    ibv_exp_res_domain_t() = default;
+    ibv_exp_res_domain_t(const rdma_cm_id_t &cm_id, ibv_exp_res_domain_init_attr *attr);
+};
 
 #endif // SPEAD2_USE_IBV_MPRQ
 
