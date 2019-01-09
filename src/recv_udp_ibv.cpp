@@ -31,6 +31,7 @@
 #include <cstddef>
 #include <cstring>
 #include <memory>
+#include <utility>
 #include <algorithm>
 #include <boost/asio.hpp>
 #include <unistd.h>

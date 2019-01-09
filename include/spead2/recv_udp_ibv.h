@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <memory>
+#include <utility>
 #include <vector>
 #include <boost/asio.hpp>
 #include <boost/noncopyable.hpp>
@@ -332,6 +333,49 @@ public:
         std::size_t buffer_size = default_buffer_size,
         int comp_vector = 0,
         int max_poll = default_max_poll);
+};
+
+} // namespace recv
+} // namespace spead2
+
+#include <spead2/recv_udp_ibv_mprq.h>
+
+namespace spead2
+{
+namespace recv
+{
+
+template<>
+struct reader_factory<udp_ibv_reader>
+{
+    template<typename... Args>
+    static std::unique_ptr<reader> make_reader(Args&&... args)
+    {
+        /* Note: using perfect forwarding twice on the same args is normally a
+         * bad idea if any of them are rvalue references. But the constructors
+         * we're forwarding to don't have any.
+         */
+#if SPEAD2_USE_IBV_MPRQ
+        try
+        {
+            std::unique_ptr<reader> reader(new udp_ibv_mprq_reader(
+                std::forward<Args>(args)...));
+            log_info("Using multi-packet receive queue for verbs acceleration");
+            return reader;
+        }
+        catch (std::system_error &e)
+        {
+            if (e.code() != std::errc::not_supported)
+                throw;
+            log_info("Multi-packet receive requeues not supported (%1%), falling back", e.what());
+            return std::unique_ptr<reader>(new udp_ibv_reader(
+                std::forward<Args>(args)...));
+        }
+#else
+        return std::unique_ptr<reader>(new udp_ibv_reader(
+            std::forward<Args>(args)...));
+#endif
+    }
 };
 
 } // namespace recv

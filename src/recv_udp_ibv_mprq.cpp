@@ -25,6 +25,9 @@
 #if SPEAD2_USE_IBV_MPRQ
 #include <algorithm>
 #include <cstdint>
+#include <cstddef>
+#include <cstring>
+#include <utility>
 #include <boost/asio.hpp>
 #include <spead2/common_raw_packet.h>
 #include <spead2/common_ibv.h>
