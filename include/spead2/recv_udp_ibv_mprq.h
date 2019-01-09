@@ -1,4 +1,4 @@
-/* Copyright 2016 SKA South Africa
+/* Copyright 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -18,14 +18,14 @@
  * @file
  */
 
-#ifndef SPEAD2_RECV_UDP_IBV_H
-#define SPEAD2_RECV_UDP_IBV_H
+#ifndef SPEAD2_RECV_UDP_IBV_MPRQ_H
+#define SPEAD2_RECV_UDP_IBV_MPRQ_H
 
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
 #include <spead2/common_features.h>
-#if SPEAD2_USE_IBV
+#if SPEAD2_USE_IBV_MPRQ
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
 
@@ -34,204 +34,48 @@
 #include <memory>
 #include <vector>
 #include <boost/asio.hpp>
-#include <boost/noncopyable.hpp>
 #include <spead2/common_ibv.h>
-#include <spead2/common_logging.h>
 #include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_base.h>
+#include <spead2/recv_udp_ibv.h>
 
 namespace spead2
 {
 namespace recv
 {
 
-namespace detail
-{
-
-/* Parts of udp_ibv_reader_base that don't need to be templated */
-class udp_ibv_reader_core : public udp_reader_base
-{
-private:
-    /**
-     * Socket that is used only to join the multicast group. It is not
-     * bound to a port.
-     */
-    boost::asio::ip::udp::socket join_socket;
-
-protected:
-    // Data structures required by ibverbs
-    rdma_event_channel_t event_channel;
-    rdma_cm_id_t cm_id;
-    ibv_pd_t pd;
-    ibv_comp_channel_t comp_channel;
-    boost::asio::posix::stream_descriptor comp_channel_wrapper;
-    std::vector<ibv_flow_t> flows;
-    ibv_cq_t recv_cq;
-
-    ///< Maximum supported packet size
-    const std::size_t max_size;
-    ///< Number of times to poll before waiting
-    const int max_poll;
-    /// Signals poll-mode to stop
-    std::atomic<bool> stop_poll;
-
-    void join_groups(const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-                     const boost::asio::ip::address &interface_address);
-
-public:
-    /// Receive buffer size, if none is explicitly passed to the constructor
-    static constexpr std::size_t default_buffer_size = 16 * 1024 * 1024;
-    /// Number of times to poll in a row, if none is explicitly passed to the constructor
-    static constexpr int default_max_poll = 10;
-
-    udp_ibv_reader_core(
-        stream &owner,
-        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-        const boost::asio::ip::address &interface_address,
-        std::size_t max_size,
-        int comp_vector,
-        int max_poll);
-
-    virtual void stop() override;
-};
-
-/**
- * Common code between spead2::recv::udp_ibv_reader and
- * spead2::recv::udp_ibv_mprq_reader. It uses the curiously recursive template
- * pattern to avoid virtual functions.
- */
-template<typename Derived>
-class udp_ibv_reader_base : public udp_ibv_reader_core
-{
-protected:
-    /**
-     * Retrieve packets from the completion queue and process them.
-     *
-     * This is called from the io_service either when the completion channel
-     * is notified (non-polling mode) or by a post to the strand (polling
-     * mode).
-     */
-    void packet_handler(const boost::system::error_code &error);
-
-    /**
-     * Request a callback when there is data (or as soon as possible, in
-     * polling mode).
-     */
-    void enqueue_receive();
-
-    using udp_ibv_reader_core::udp_ibv_reader_core;
-};
-
-template<typename Derived>
-void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_code &error)
-{
-    if (!error)
-    {
-        if (get_stream_base().is_stopped())
-        {
-            log_info("UDP reader: discarding packet received after stream stopped");
-        }
-        else
-        {
-            stream_base::add_packet_state state(get_stream_base());
-            if (comp_channel)
-            {
-                ibv_cq *event_cq;
-                void *event_context;
-                comp_channel.get_event(&event_cq, &event_context);
-                // TODO: defer acks until shutdown
-                recv_cq.ack_events(1);
-            }
-            for (int i = 0; i < max_poll; i++)
-            {
-                if (comp_channel)
-                {
-                    if (i == max_poll - 1)
-                    {
-                        /* We need to call req_notify_cq *before* the last
-                         * poll_once, because notifications are edge-triggered.
-                         * If we did it the other way around, there is a race
-                         * where a new packet can arrive after poll_once but
-                         * before req_notify_cq, failing to trigger a
-                         * notification.
-                         */
-                        recv_cq.req_notify(false);
-                    }
-                }
-                else if (stop_poll.load())
-                    break;
-                int received = static_cast<Derived *>(this)->poll_once(state);
-                if (received < 0)
-                    break;
-            }
-        }
-    }
-    else if (error != boost::asio::error::operation_aborted)
-        log_warning("Error in UDP receiver: %1%", error.message());
-
-    if (!get_stream_base().is_stopped())
-    {
-        enqueue_receive();
-    }
-    else
-        stopped();
-}
-
-template<typename Derived>
-void udp_ibv_reader_base<Derived>::enqueue_receive()
-{
-    using namespace std::placeholders;
-    if (comp_channel)
-    {
-        // Asynchronous mode
-        comp_channel_wrapper.async_read_some(
-            boost::asio::null_buffers(),
-            get_stream().get_strand().wrap(
-                std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1)));
-    }
-    else
-    {
-        // Polling mode
-        get_stream().get_strand().post(
-            std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this,
-                      boost::system::error_code()));
-    }
-}
-
-} // namespace detail
-
 /**
  * Synchronous or asynchronous stream reader that reads UDP packets using
- * the Infiniband verbs API. It currently only supports multicast IPv4, with
- * no fragmentation, IP header options, or VLAN tags.
+ * the Infiniband verbs API with multi-packet receive queues. It currently only
+ * supports multicast IPv4, with no fragmentation, IP header options, or VLAN
+ * tags.
  */
-class udp_ibv_reader : public detail::udp_ibv_reader_base<udp_ibv_reader>
+class udp_ibv_mprq_reader : public detail::udp_ibv_reader_base<udp_ibv_mprq_reader>
 {
 private:
-    friend class detail::udp_ibv_reader_base<udp_ibv_reader>;
-
-    struct slot : boost::noncopyable
-    {
-        ibv_recv_wr wr;
-        ibv_sge sge;
-    };
+    friend class detail::udp_ibv_reader_base<udp_ibv_mprq_reader>;
 
     // All the data structures required by ibverbs
-    ibv_cq_t send_cq;
+    ibv_exp_wq_t wq;
+    ibv_exp_rwq_ind_table_t rwq_ind_table;
+    ibv_exp_cq_family_v1_t cq_intf;
+    ibv_exp_wq_family_t wq_intf;
     ibv_qp_t qp;
     ibv_mr_t mr;
-
-    ///< Number of packets that can be queued
-    const std::size_t n_slots;
 
     /// Data buffer for all the packets
     memory_allocator::pointer buffer;
 
-    /// array of @ref n_slots slots for work requests
-    std::unique_ptr<slot[]> slots;
-    /// array of @ref n_slots work completions
-    std::unique_ptr<ibv_wc[]> wc;
+    /// Bytes of buffer for each WQ entry
+    std::size_t wqe_size;
+    /// Buffer offset of the current WQE
+    std::size_t wqe_start = 0;
+    /// Total buffer size
+    std::size_t buffer_size;
+
+    /// Post one work request to the receive work queue
+    void post_wr(std::size_t offset);
 
     /**
      * Do one pass over the completion queue.
@@ -271,7 +115,7 @@ public:
      * @throws std::invalid_argument If @a endpoint is not an IPv4 multicast address
      * @throws std::invalid_argument If @a interface_address is not an IPv4 address
      */
-    udp_ibv_reader(
+    udp_ibv_mprq_reader(
         stream &owner,
         const boost::asio::ip::udp::endpoint &endpoint,
         const boost::asio::ip::address &interface_address,
@@ -308,7 +152,7 @@ public:
      * @throws std::invalid_argument If any element of @a endpoints is not an IPv4 multicast address
      * @throws std::invalid_argument If @a interface_address is not an IPv4 address
      */
-    udp_ibv_reader(
+    udp_ibv_mprq_reader(
         stream &owner,
         const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const boost::asio::ip::address &interface_address,

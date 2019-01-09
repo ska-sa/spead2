@@ -73,6 +73,23 @@ SPEAD2_ARG_WITH(
 )
 
 SPEAD2_ARG_WITH(
+    [ibv_mprq],
+    [AS_HELP_STRING([--without-ibv-mprq], [Do not use multi-packet receive queues, even if detected])],
+    [SPEAD2_USE_IBV_MPRQ],
+    [SPEAD2_USE_IBV_MPRQ=1
+     SPEAD2_CHECK_FEATURE(
+        [ibv_mprq], [multi-packet receive queue], [infiniband/verbs_exp.h], [ibverbs],
+        [ibv_exp_cq_family_v1 *cq_intf;
+         ibv_exp_wq_family *wq_intf;
+         ibv_exp_qp_init_attr attr;
+         ibv_exp_query_intf(NULL, NULL, NULL);
+         ibv_exp_create_wq(NULL, NULL);
+         ibv_exp_create_rwq_ind_table(NULL, NULL);],
+        [], [SPEAD2_USE_IBV_MPRQ=0])
+    ]
+)
+
+SPEAD2_ARG_WITH(
     [pcap],
     [AS_HELP_STRING([--without-pcap], [Do not use pcap, even if detected])],
     [SPEAD2_USE_PCAP],

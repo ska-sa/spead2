@@ -70,6 +70,7 @@ libspead2_a_SOURCES = \
 	recv_udp_base.cpp \
 	recv_udp.cpp \
 	recv_udp_ibv.cpp \
+	recv_udp_ibv_mprq.cpp \
 	recv_udp_pcap.cpp \
 	send_heap.cpp \
 	send_inproc.cpp \
