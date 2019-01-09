@@ -160,7 +160,7 @@ static ibv_qp_t create_qp(
     return ibv_qp_t(pd, &attr);
 }
 
-int udp_ibv_reader::poll_once(stream_base::add_packet_state &state)
+udp_ibv_reader::poll_result udp_ibv_reader::poll_once(stream_base::add_packet_state &state)
 {
     /* Number of work requests to queue at a time. This is a balance between
      * not calling post_recv too often (it takes a lock) and not starving the
@@ -190,7 +190,7 @@ int udp_ibv_reader::poll_once(stream_base::add_packet_state &state)
                 bool stopped = process_one_packet(state,
                                                   payload.data(), payload.size(), max_size);
                 if (stopped)
-                    return -2;
+                    return poll_result::stopped;
             }
             catch (packet_type_error &e)
             {
@@ -219,7 +219,7 @@ int udp_ibv_reader::poll_once(stream_base::add_packet_state &state)
         tail->next = nullptr;
         qp.post_recv(head);
     }
-    return received;
+    return poll_result::drained;
 }
 
 udp_ibv_reader::udp_ibv_reader(
@@ -265,9 +265,7 @@ udp_ibv_reader::udp_ibv_reader(
         qp.post_recv(&slots[i].wr);
     }
 
-    if (comp_channel)
-        recv_cq.req_notify(false);
-    enqueue_receive();
+    enqueue_receive(true);
     qp.modify(IBV_QPS_RTR);
     join_groups(endpoints, interface_address);
 }

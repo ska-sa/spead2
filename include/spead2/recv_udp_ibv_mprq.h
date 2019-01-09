@@ -77,14 +77,8 @@ private:
     /// Post one work request to the receive work queue
     void post_wr(std::size_t offset);
 
-    /**
-     * Do one pass over the completion queue.
-     *
-     * @retval -1 if there was an ibverbs failure
-     * @retval -2 if the stream received a stop packet
-     * @retval n otherwise, where n is the number of packets received
-     */
-    int poll_once(stream_base::add_packet_state &state);
+    /// Do one pass over the completion queue.
+    poll_result poll_once(stream_base::add_packet_state &state);
 
 public:
     /**

@@ -60,6 +60,13 @@ private:
     boost::asio::ip::udp::socket join_socket;
 
 protected:
+    enum class poll_result
+    {
+        stopped,       ///< stream was stopped
+        partial,       ///< read zero or more CQEs, but stopped to prevent livelock
+        drained,       ///< CQ fully drained
+    };
+
     // Data structures required by ibverbs
     rdma_event_channel_t event_channel;
     rdma_cm_id_t cm_id;
@@ -111,21 +118,27 @@ protected:
      * This is called from the io_service either when the completion channel
      * is notified (non-polling mode) or by a post to the strand (polling
      * mode).
+     *
+     * If @a consume_event is true, an event should be removed and consumed
+     * from the completion channel.
      */
-    void packet_handler(const boost::system::error_code &error);
+    void packet_handler(const boost::system::error_code &error,
+                        bool consume_event);
 
     /**
      * Request a callback when there is data (or as soon as possible, in
-     * polling mode).
+     * polling mode or when @a need_poll is true).
      */
-    void enqueue_receive();
+    void enqueue_receive(bool needs_poll);
 
     using udp_ibv_reader_core::udp_ibv_reader_core;
 };
 
 template<typename Derived>
-void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_code &error)
+void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_code &error,
+                                                  bool consume_event)
 {
+    bool need_poll = true;
     if (!error)
     {
         if (get_stream_base().is_stopped())
@@ -135,7 +148,7 @@ void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_cod
         else
         {
             stream_base::add_packet_state state(get_stream_base());
-            if (comp_channel)
+            if (consume_event)
             {
                 ibv_cq *event_cq;
                 void *event_context;
@@ -157,13 +170,22 @@ void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_cod
                          * notification.
                          */
                         recv_cq.req_notify(false);
+                        need_poll = false;
                     }
                 }
                 else if (stop_poll.load())
                     break;
-                int received = static_cast<Derived *>(this)->poll_once(state);
-                if (received < 0)
+                poll_result result = static_cast<Derived *>(this)->poll_once(state);
+                if (result == poll_result::stopped)
                     break;
+                else if (result == poll_result::partial)
+                {
+                    /* If we armed req_notify_cq but then didn't drain the CQ, and
+                     * we get no more packets, then we won't get woken up again, so
+                     * we need to poll again next time we go around the event loop.
+                     */
+                    need_poll = true;
+                }
             }
         }
     }
@@ -172,30 +194,30 @@ void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_cod
 
     if (!get_stream_base().is_stopped())
     {
-        enqueue_receive();
+        enqueue_receive(need_poll);
     }
     else
         stopped();
 }
 
 template<typename Derived>
-void udp_ibv_reader_base<Derived>::enqueue_receive()
+void udp_ibv_reader_base<Derived>::enqueue_receive(bool need_poll)
 {
     using namespace std::placeholders;
-    if (comp_channel)
+    if (comp_channel && !need_poll)
     {
         // Asynchronous mode
         comp_channel_wrapper.async_read_some(
             boost::asio::null_buffers(),
             get_stream().get_strand().wrap(
-                std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1)));
+                std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1, true)));
     }
     else
     {
         // Polling mode
         get_stream().get_strand().post(
             std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this,
-                      boost::system::error_code()));
+                      boost::system::error_code(), false));
     }
 }
 
@@ -233,14 +255,8 @@ private:
     /// array of @ref n_slots work completions
     std::unique_ptr<ibv_wc[]> wc;
 
-    /**
-     * Do one pass over the completion queue.
-     *
-     * @retval -1 if there was an ibverbs failure
-     * @retval -2 if the stream received a stop packet
-     * @retval n otherwise, where n is the number of packets received
-     */
-    int poll_once(stream_base::add_packet_state &state);
+    /// Do one pass over the completion queue.
+    poll_result poll_once(stream_base::add_packet_state &state);
 
 public:
     /**

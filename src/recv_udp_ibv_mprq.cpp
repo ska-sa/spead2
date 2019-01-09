@@ -1,4 +1,4 @@
-/* Copyright 2016 SKA South Africa
+/* Copyright 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -76,13 +76,12 @@ void udp_ibv_mprq_reader::post_wr(std::size_t offset)
         throw_errno("recv_burst failed");
 }
 
-int udp_ibv_mprq_reader::poll_once(stream_base::add_packet_state &state)
+udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add_packet_state &state)
 {
     /* Bound the number of times to receive packets, to avoid live-locking the
      * receive queue if we're getting packets as fast as we can process them.
      */
     const int max_iter = 256;
-    int received = 0;
     for (int iter = 0; iter < max_iter; iter++)
     {
         uint32_t offset;
@@ -97,7 +96,6 @@ int udp_ibv_mprq_reader::poll_once(stream_base::add_packet_state &state)
         }
         else if (len > 0)
         {
-            received++;
             const void *ptr = reinterpret_cast<void *>(buffer.get() + (wqe_start + offset));
 
             // Sanity checks
@@ -107,7 +105,7 @@ int udp_ibv_mprq_reader::poll_once(stream_base::add_packet_state &state)
                 bool stopped = process_one_packet(state,
                                                   payload.data(), payload.size(), max_size);
                 if (stopped)
-                    return -2;
+                    return poll_result::stopped;
             }
             catch (packet_type_error &e)
             {
@@ -126,9 +124,9 @@ int udp_ibv_mprq_reader::poll_once(stream_base::add_packet_state &state)
                 wqe_start = 0;
         }
         if (len == 0 && flags == 0)
-            break;  // No CQEs available
+            return poll_result::drained;
     }
-    return received;
+    return poll_result::partial;
 }
 
 udp_ibv_mprq_reader::udp_ibv_mprq_reader(
@@ -202,9 +200,7 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
         post_wr(i * wqe_size);
 
     flows = create_flows(qp, endpoints, cm_id->port_num);
-    if (comp_channel)
-        recv_cq.req_notify(false);
-    enqueue_receive();
+    enqueue_receive(true);
     join_groups(endpoints, interface_address);
 }
 
