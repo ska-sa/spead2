@@ -264,6 +264,7 @@ ibv_qp_t::ibv_qp_t(const ibv_pd_t &pd, ibv_qp_init_attr *init_attr)
     reset(qp);
 }
 
+#if SPEAD2_USE_IBV_MPRQ
 ibv_qp_t::ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_exp_qp_init_attr *init_attr)
 {
     errno = 0;
@@ -272,6 +273,7 @@ ibv_qp_t::ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_exp_qp_init_attr *init_attr)
         throw_errno("ibv_exp_create_qp failed");
     reset(qp);
 }
+#endif
 
 ibv_mr_t::ibv_mr_t(const ibv_pd_t &pd, void *addr, std::size_t length, int access)
 {
