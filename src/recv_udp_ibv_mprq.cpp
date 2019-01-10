@@ -164,7 +164,6 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     wqe_size = std::size_t(1) << log_wqe_size;
     if (buffer_size < 2 * wqe_size)
         buffer_size = 2 * wqe_size;
-    this->buffer_size = buffer_size;
 
     bool reduced = false;
     std::size_t strides = buffer_size >> wq_attr.mp_rq.single_stride_log_num_of_bytes;
@@ -185,6 +184,7 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     buffer_size = wqe * wqe_size;
     if (reduced)
         log_warning("Reducing buffer to %1% to accommodate device limits", buffer_size);
+    this->buffer_size = buffer_size;
 
     ibv_exp_cq_init_attr cq_attr;
     memset(&cq_attr, 0, sizeof(cq_attr));
