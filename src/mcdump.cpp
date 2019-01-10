@@ -602,21 +602,6 @@ void capture_base::report_rates(time_point now)
     last_report = now;
 }
 
-static spead2::ibv_qp_t create_qp(
-    const spead2::ibv_pd_t &pd, const spead2::ibv_cq_t &cq, std::uint32_t n_slots)
-{
-    ibv_qp_init_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.send_cq = cq.get();
-    attr.recv_cq = cq.get();
-    attr.qp_type = IBV_QPT_RAW_PACKET;
-    attr.cap.max_send_wr = 1;
-    attr.cap.max_recv_wr = n_slots;
-    attr.cap.max_send_sge = 1;
-    attr.cap.max_recv_sge = 1;
-    return spead2::ibv_qp_t(pd, &attr);
-}
-
 static boost::asio::ip::address_v4 get_interface_address(const options &opts)
 {
     boost::asio::ip::address_v4 interface_address;
@@ -812,11 +797,19 @@ capture::capture(const options &opts)
 #else
     cq = spead2::ibv_cq_t(cm_id, n_slots, nullptr);
 #endif
-    qp = create_qp(pd, cq, n_slots);
+
+    ibv_qp_init_attr qp_attr = {};
+    qp_attr.send_cq = cq.get();
+    qp_attr.recv_cq = cq.get();
+    qp_attr.qp_type = IBV_QPT_RAW_PACKET;
+    qp_attr.cap.max_send_wr = 1;
+    qp_attr.cap.max_recv_wr = n_slots;
+    qp_attr.cap.max_send_sge = 1;
+    qp_attr.cap.max_recv_sge = 1;
+    qp = spead2::ibv_qp_t(pd, &qp_attr);
     qp.modify(IBV_QPS_INIT, cm_id->port_num);
 }
 
-// Returns number of records per chunk and number of chunks
 chunking_scheme capture::sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id)
 {
     constexpr std::size_t nominal_chunk_size = 2 * 1024 * 1024; // TODO: make tunable?
@@ -867,7 +860,6 @@ void capture::network_thread()
 
     start_time = std::chrono::high_resolution_clock::now();
     last_report = start_time;
-    const bool has_file = opts.filename != "-";
     const std::size_t max_records = chunking.max_records;
 #if SPEAD2_USE_IBV_EXP
     std::unique_ptr<ibv_exp_wc[]> wc(new ibv_exp_wc[max_records]);
@@ -965,14 +957,250 @@ void capture::init_record(chunk &c, std::size_t idx)
     c.iov[2 * idx + 1].iov_base = (void *) ptr;
 }
 
+#if SPEAD2_USE_IBV_MPRQ
+
+class capture_mprq : public capture_base
+{
+private:
+    spead2::ibv_exp_res_domain_t res_domain;
+    spead2::ibv_cq_t cq;
+    spead2::ibv_exp_cq_family_v1_t cq_intf;
+    spead2::ibv_exp_wq_t wq;
+    spead2::ibv_exp_wq_family_t wq_intf;
+    spead2::ibv_exp_rwq_ind_table_t rwq_ind_table;
+    spead2::ibv_qp_t qp;
+
+    virtual void network_thread() override;
+    virtual void post_chunk(chunk &c) override;
+    virtual void init_record(chunk &c, std::size_t idx) override;
+
+    static chunking_scheme sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id);
+
+public:
+    capture_mprq(const options &opts);
+};
+
+static int log2i(std::size_t value)
+{
+    int x = 0;
+    while ((value >> x) != 1)
+        x++;
+    assert(value == std::size_t(1) << x);
+    return x;
+}
+
+capture_mprq::capture_mprq(const options &opts)
+    : capture_base(opts, sizes)
+{
+    const std::size_t max_cqe = chunking.max_records * chunking.n_chunks;
+
+    ibv_exp_res_domain_init_attr res_domain_attr = {};
+    res_domain_attr.comp_mask = IBV_EXP_RES_DOMAIN_THREAD_MODEL | IBV_EXP_RES_DOMAIN_MSG_MODEL;
+    res_domain_attr.thread_model = IBV_EXP_THREAD_UNSAFE;
+    res_domain_attr.msg_model = IBV_EXP_MSG_HIGH_BW;
+    res_domain = spead2::ibv_exp_res_domain_t(cm_id, &res_domain_attr);
+
+    ibv_exp_cq_init_attr cq_attr = {};
+    if (timestamp_support)
+        cq_attr.flags |= IBV_EXP_CQ_TIMESTAMP;
+    cq_attr.res_domain = res_domain.get();
+    cq_attr.comp_mask = IBV_EXP_CQ_INIT_ATTR_FLAGS | IBV_EXP_CQ_INIT_ATTR_RES_DOMAIN;
+    cq = spead2::ibv_cq_t(cm_id, max_cqe, nullptr, &cq_attr);
+    cq_intf = spead2::ibv_exp_cq_family_v1_t(cm_id, cq);
+
+    ibv_exp_wq_init_attr wq_attr = {};
+    std::size_t stride = chunking.chunk_size / chunking.max_records;
+    wq_attr.mp_rq.single_stride_log_num_of_bytes = log2i(stride);
+    wq_attr.mp_rq.single_wqe_log_num_of_strides = log2i(chunking.max_records);
+    wq_attr.mp_rq.use_shift = IBV_EXP_MP_RQ_NO_SHIFT;
+    wq_attr.wq_type = IBV_EXP_WQT_RQ;
+    wq_attr.max_recv_wr = chunking.n_chunks;
+    wq_attr.max_recv_sge = 1;
+    wq_attr.pd = pd.get();
+    wq_attr.cq = cq.get();
+    wq_attr.res_domain = res_domain.get();
+    wq_attr.comp_mask = IBV_EXP_CREATE_WQ_MP_RQ | IBV_EXP_CREATE_WQ_RES_DOMAIN;
+    wq = spead2::ibv_exp_wq_t(cm_id, &wq_attr);
+    wq_intf = spead2::ibv_exp_wq_family_t(cm_id, wq);
+
+    rwq_ind_table = spead2::create_rwq_ind_table(cm_id, pd, wq);
+
+    /* ConnectX-5 only seems to work with Toeplitz hashing. This code seems to
+     * work, but I don't really know what I'm doing so it might be horrible.
+     */
+    uint8_t toeplitz_key[40] = {};
+    ibv_exp_rx_hash_conf hash_conf = {};
+    hash_conf.rx_hash_function = IBV_EXP_RX_HASH_FUNC_TOEPLITZ;
+    hash_conf.rx_hash_key_len = sizeof(toeplitz_key);
+    hash_conf.rx_hash_key = toeplitz_key;
+    hash_conf.rx_hash_fields_mask = 0;
+    hash_conf.rwq_ind_tbl = rwq_ind_table.get();
+
+    ibv_exp_qp_init_attr qp_attr = {};
+    qp_attr.qp_type = IBV_QPT_RAW_PACKET;
+    qp_attr.pd = pd.get();
+    qp_attr.res_domain = res_domain.get();
+    qp_attr.rx_hash_conf = &hash_conf;
+    qp_attr.port_num = cm_id->port_num;
+    qp_attr.comp_mask = IBV_EXP_QP_INIT_ATTR_PD | IBV_EXP_QP_INIT_ATTR_RX_HASH
+        | IBV_EXP_QP_INIT_ATTR_PORT | IBV_EXP_QP_INIT_ATTR_RES_DOMAIN;
+    qp = spead2::ibv_qp_t(cm_id, &qp_attr);
+
+    wq.modify(IBV_EXP_WQS_RDY);
+}
+
+chunking_scheme capture_mprq::sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id)
+{
+    // TODO: adapt these to the hardware and the requested buffer size
+    std::size_t log_stride_bytes = 6;        // 64 bytes
+    std::size_t log_strides_per_chunk = 16;  // 2MB chunks
+    std::size_t max_records = 1 << log_strides_per_chunk;
+    std::size_t chunk_size = max_records << log_stride_bytes;
+    std::size_t n_chunks = opts.net_buffer / chunk_size;
+    if (n_chunks == 0)
+        n_chunks = 1;
+
+    ibv_device_attr attr = cm_id.query_device();
+    unsigned int device_chunks = std::min(attr.max_qp_wr, attr.max_mr);
+
+    bool reduced = false;
+    if (device_chunks < n_chunks)
+    {
+        n_chunks = device_chunks;
+        reduced = true;
+    }
+
+    if (reduced)
+        spead2::log_warning("Reducing buffer to %d to accommodate device limits",
+                            n_chunks * chunk_size);
+    return {max_records, n_chunks, chunk_size};
+}
+
+void capture_mprq::network_thread()
+{
+    // Number of polls + packets between checking the time. Fetching the
+    // time is expensive, so we don't want to do it too often.
+    constexpr int GET_TIME_RATE = 10000;
+
+    std::vector<boost::asio::ip::udp::endpoint> endpoints;
+    for (const std::string &s : opts.endpoints)
+        endpoints.push_back(make_endpoint(s));
+    auto flows = spead2::create_flows(qp, endpoints, cm_id->port_num);
+    joiner join(interface_address, endpoints);
+
+    start_time = std::chrono::high_resolution_clock::now();
+    last_report = start_time;
+    const std::size_t max_records = chunking.max_records;
+    int until_get_time = GET_TIME_RATE;
+    std::uint64_t remaining_count = opts.count;
+    while (!stop.load() && remaining_count > 0)
+    {
+        chunk c = free_ring.pop();
+        while (!stop.load() && remaining_count > 0 && !c.full)
+        {
+            std::uint32_t offset;
+            std::uint32_t flags;
+            std::uint64_t timestamp;
+            std::int32_t len = cq_intf->poll_length_flags_mp_rq_ts(
+                cq.get(), &offset, &flags, &timestamp);
+            if (len < 0)
+            {
+                // Error condition.
+                ibv_wc wc;
+                ibv_poll_cq(cq.get(), 1, &wc);
+                spead2::log_warning("failed WR %1%: %2% (vendor_err: %3%)",
+                                    wc.wr_id, wc.status, wc.vendor_err);
+                errors++;
+            }
+            else if (len > 0)
+            {
+                packets++;
+                std::size_t idx = c.n_records;
+                record_header &record = c.entries[idx].record;
+                record.incl_len = (len <= opts.snaplen) ? len : opts.snaplen;
+                record.orig_len = len;
+                if (timestamp_support && (flags & IBV_EXP_CQ_RX_WITH_TIMESTAMP))
+                {
+                    std::uint64_t ticks = timestamp - timestamp_subtract;
+                    std::uint64_t ns = std::uint64_t(ticks * hca_ns_per_clock);
+                    ns += timestamp_add;
+                    record.ts_sec = ns / 1000000000;
+                    record.ts_nsec = ns % 1000000000;
+                }
+                else
+                {
+                    record.ts_sec = 0;
+                    record.ts_nsec = 0;
+                }
+                c.iov[2 * idx + 1].iov_base = &c.storage[offset];
+                c.iov[2 * idx + 1].iov_len = record.incl_len;
+                c.n_records++;
+                c.n_bytes += len + sizeof(record_header);
+                bytes += len;
+            }
+            until_get_time--;
+            if (until_get_time <= 0)
+            {
+                // TODO: unify this code with non-mprq
+                until_get_time = GET_TIME_RATE;
+                if (!opts.quiet)
+                {
+                    time_point now = std::chrono::high_resolution_clock::now();
+                    if (now - last_report >= std::chrono::seconds(1))
+                        report_rates(now);
+                }
+            }
+            if (remaining_count != std::numeric_limits<std::uint64_t>::max())
+                remaining_count--;
+            if (flags & IBV_EXP_CQ_RX_MULTI_PACKET_LAST_V1)
+                c.full = true;
+        }
+        chunk_ready(std::move(c));
+    }
+}
+
+void capture_mprq::post_chunk(chunk &c)
+{
+    ibv_sge sge;
+    memset(&sge, 0, sizeof(sge));
+    sge.addr = (uintptr_t) c.storage.get();
+    sge.length = chunking.chunk_size;
+    sge.lkey = c.storage_mr->lkey;
+    int status = wq_intf->recv_burst(wq.get(), &sge, 1);
+    if (status != 0)
+        spead2::throw_errno("recv_burst failed", status);
+}
+
+void capture_mprq::init_record(chunk &c, std::size_t idx)
+{
+    c.iov[2 * idx].iov_base = &c.entries[idx].record;
+    c.iov[2 * idx].iov_len = sizeof(record_header);
+}
+
+#endif // SPEAD2_USE_IBV_MPRQ
+
 int main(int argc, const char **argv)
 {
     try
     {
         spead2::set_log_function(log_function);
         options opts = parse_args(argc, argv);
-        capture cap(opts);
-        cap.run();
+        std::unique_ptr<capture_base> cap;
+
+#if SPEAD2_USE_IBV_MPRQ
+        try
+        {
+            cap.reset(new capture_mprq(opts));
+        }
+        catch (std::system_error &e)
+        {
+            if (e.code() != std::errc::not_supported)
+                throw;
+        }
+#endif
+        if (!cap)
+            cap.reset(new capture(opts));
+        cap->run();
     }
     catch (std::runtime_error &e)
     {

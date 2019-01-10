@@ -79,7 +79,7 @@ void udp_ibv_mprq_reader::post_wr(std::size_t offset)
     sge.lkey = mr->lkey;
     int status = wq_intf->recv_burst(wq.get(), &sge, 1);
     if (status != 0)
-        throw_errno("recv_burst failed");
+        throw_errno("recv_burst failed", status);
 }
 
 udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add_packet_state &state)
