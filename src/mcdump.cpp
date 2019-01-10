@@ -733,8 +733,22 @@ void capture_base::run()
         w.reset(new writer(opts, fd, *allocator));
     }
 
-    for (std::size_t i = 0; i < chunking.n_chunks; i++)
-        add_to_free(make_chunk(*allocator));
+    /* Run in a thread that's bound to network_affinity, so that the pages are more likely
+     * to end up on the right NUMA node. It is system policy dependent, the
+     * Linux default is to allocate memory on the same node as the CPU that
+     * made the allocation.
+     *
+     * We don't want to bind the parent thread, because we haven't yet forked
+     * off collect_thread, and if it doesn't have a specific affinity we don't
+     * want it to inherit network_affinity.
+     */
+    std::future<void> alloc_future = std::async(std::launch::async, [this, allocator] {
+        if (opts.network_affinity >= 0)
+            spead2::thread_pool::set_affinity(opts.network_affinity);
+        for (std::size_t i = 0; i < chunking.n_chunks; i++)
+            add_to_free(make_chunk(*allocator));
+    });
+    alloc_future.get();
 
     struct sigaction act = {}, old_act;
     act.sa_handler = signal_handler;
