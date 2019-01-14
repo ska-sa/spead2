@@ -367,7 +367,7 @@ struct reader_factory<udp_ibv_reader>
         {
             if (e.code() != std::errc::not_supported)
                 throw;
-            log_info("Multi-packet receive requeues not supported (%1%), falling back", e.what());
+            log_debug("Multi-packet receive queues not supported (%1%), falling back", e.what());
             return std::unique_ptr<reader>(new udp_ibv_reader(
                 std::forward<Args>(args)...));
         }
