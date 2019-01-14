@@ -135,6 +135,11 @@ udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add
     return poll_result::partial;
 }
 
+static int clamp(int x, int low, int high)
+{
+    return std::min(std::max(x, low), high);
+}
+
 udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     stream &owner,
     const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
@@ -146,6 +151,12 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     : udp_ibv_reader_base<udp_ibv_mprq_reader>(
         owner, endpoints, interface_address, max_size, comp_vector, max_poll)
 {
+    ibv_exp_device_attr device_attr = cm_id.exp_query_device();
+    if (!(device_attr.comp_mask & IBV_EXP_DEVICE_ATTR_MP_RQ)
+        || !(device_attr.mp_rq_caps.supported_qps & IBV_EXP_MP_RQ_SUP_TYPE_WQ_RQ))
+        throw std::system_error(std::make_error_code(std::errc::not_supported),
+                                "device does not support multi-packet receive queues");
+
     ibv_exp_res_domain_init_attr res_domain_attr;
     memset(&res_domain_attr, 0, sizeof(res_domain_attr));
     res_domain_attr.comp_mask = IBV_EXP_RES_DOMAIN_THREAD_MODEL | IBV_EXP_RES_DOMAIN_MSG_MODEL;
@@ -153,13 +164,17 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     res_domain_attr.msg_model = IBV_EXP_MSG_HIGH_BW;
     res_domain = ibv_exp_res_domain_t(cm_id, &res_domain_attr);
 
-    ibv_device_attr device_attr = cm_id.query_device();
-
     // TODO: adjust stride parameters based on device info
     ibv_exp_wq_init_attr wq_attr;
     memset(&wq_attr, 0, sizeof(wq_attr));
-    wq_attr.mp_rq.single_stride_log_num_of_bytes = 6;  // 64 bytes per stride
-    wq_attr.mp_rq.single_wqe_log_num_of_strides = 14;  // 1MB per WQE
+    wq_attr.mp_rq.single_stride_log_num_of_bytes =
+        clamp(6,
+              device_attr.mp_rq_caps.min_single_stride_log_num_of_bytes,
+              device_attr.mp_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes per stride
+    wq_attr.mp_rq.single_wqe_log_num_of_strides =
+        clamp(20 - wq_attr.mp_rq.single_stride_log_num_of_bytes,
+              device_attr.mp_rq_caps.min_single_wqe_log_num_of_strides,
+              device_attr.mp_rq_caps.max_single_wqe_log_num_of_strides);    // 1MB per WQE
     int log_wqe_size = wq_attr.mp_rq.single_stride_log_num_of_bytes + wq_attr.mp_rq.single_wqe_log_num_of_strides;
     wqe_size = std::size_t(1) << log_wqe_size;
     if (buffer_size < 2 * wqe_size)

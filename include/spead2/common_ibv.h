@@ -175,6 +175,9 @@ public:
 
     void bind_addr(const boost::asio::ip::address &addr);
     ibv_device_attr query_device() const;
+#if SPEAD2_USE_IBV_EXP
+    ibv_exp_device_attr exp_query_device() const;
+#endif
 };
 
 /* This class is not intended to be used for anything. However, the mlx5 driver

@@ -103,11 +103,26 @@ ibv_device_attr rdma_cm_id_t::query_device() const
 {
     assert(get());
     ibv_device_attr attr;
+    std::memset(&attr, 0, sizeof(attr));
     int status = ibv_query_device(get()->verbs, &attr);
     if (status != 0)
         throw_errno("ibv_query_device failed", status);
     return attr;
 }
+
+#if SPEAD2_USE_IBV_EXP
+ibv_exp_device_attr rdma_cm_id_t::exp_query_device() const
+{
+    assert(get());
+    ibv_exp_device_attr attr;
+    std::memset(&attr, 0, sizeof(attr));
+    attr.comp_mask = IBV_EXP_DEVICE_ATTR_RESERVED - 1;
+    int status = ibv_exp_query_device(get()->verbs, &attr);
+    if (status != 0)
+        throw_errno("ibv_exp_query_device failed", status);
+    return attr;
+}
+#endif
 
 ibv_context_t::ibv_context_t(struct ibv_device *device)
 {
@@ -588,7 +603,7 @@ ibv_exp_wq_t::ibv_exp_wq_t(const rdma_cm_id_t &cm_id, ibv_exp_wq_init_attr *attr
 void ibv_exp_wq_t::modify(ibv_exp_wq_state state)
 {
     ibv_exp_wq_attr wq_attr;
-    memset(&wq_attr, 0, sizeof(wq_attr));
+    std::memset(&wq_attr, 0, sizeof(wq_attr));
     wq_attr.wq_state = IBV_EXP_WQS_RDY;
     wq_attr.attr_mask = IBV_EXP_WQ_ATTR_STATE;
     int status = ibv_exp_modify_wq(get(), &wq_attr);

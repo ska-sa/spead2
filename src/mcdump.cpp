@@ -1063,18 +1063,37 @@ capture_mprq::capture_mprq(const options &opts)
     wq.modify(IBV_EXP_WQS_RDY);
 }
 
+static int clamp(int x, int low, int high)
+{
+    return std::min(std::max(x, low), high);
+}
+
 chunking_scheme capture_mprq::sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id)
 {
-    // TODO: adapt these to the hardware and the requested buffer size
-    std::size_t log_stride_bytes = 6;        // 64 bytes
-    std::size_t log_strides_per_chunk = 16;  // 2MB chunks
+    ibv_exp_device_attr attr = cm_id.exp_query_device();
+    if (!(attr.comp_mask & IBV_EXP_DEVICE_ATTR_MP_RQ)
+        || !(attr.mp_rq_caps.supported_qps & IBV_EXP_MP_RQ_SUP_TYPE_WQ_RQ))
+        throw std::system_error(std::make_error_code(std::errc::not_supported),
+                                "device does not support multi-packet receive queues");
+
+    /* TODO: adapt these to the requested buffer size e.g. if a very large
+     * buffer is requested, might need to increase the stride size to avoid
+     * running out of CQEs.
+     */
+    std::size_t log_stride_bytes =
+        clamp(6,
+              attr.mp_rq_caps.min_single_stride_log_num_of_bytes,
+              attr.mp_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes
+    std::size_t log_strides_per_chunk =
+        clamp(21 - log_stride_bytes,
+              attr.mp_rq_caps.min_single_wqe_log_num_of_strides,
+              attr.mp_rq_caps.max_single_wqe_log_num_of_strides);    // 2MB chunks
     std::size_t max_records = 1 << log_strides_per_chunk;
     std::size_t chunk_size = max_records << log_stride_bytes;
     std::size_t n_chunks = opts.net_buffer / chunk_size;
     if (n_chunks == 0)
         n_chunks = 1;
 
-    ibv_device_attr attr = cm_id.query_device();
     unsigned int device_chunks = std::min(attr.max_qp_wr, attr.max_mr);
 
     bool reduced = false;
