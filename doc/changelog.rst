@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 1.11.0
 
 - Use ibverbs multi-packet receive queues automatically when available
   (supported by mlx5 driver).
