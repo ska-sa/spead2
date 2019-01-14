@@ -27,9 +27,11 @@
 #include <spead2/common_features.h>
 #include <memory>
 #include <vector>
+#include <cstdint>
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
 #include <boost/asio.hpp>
+#include <system_error>
 
 #if SPEAD2_USE_IBV
 
@@ -117,6 +119,46 @@ struct ibv_flow_deleter
     }
 };
 
+#if SPEAD2_USE_IBV_MPRQ
+
+struct ibv_exp_wq_deleter
+{
+    void operator()(ibv_exp_wq *wq)
+    {
+        ibv_exp_destroy_wq(wq);
+    }
+};
+
+struct ibv_exp_rwq_ind_table_deleter
+{
+    void operator()(ibv_exp_rwq_ind_table *table)
+    {
+        ibv_exp_destroy_rwq_ind_table(table);
+    }
+};
+
+class ibv_intf_deleter
+{
+private:
+    struct ibv_context *context;
+
+public:
+    explicit ibv_intf_deleter(struct ibv_context *context = nullptr) noexcept;
+    void operator()(void *intf);
+};
+
+class ibv_exp_res_domain_deleter
+{
+private:
+    struct ibv_context *context;
+
+public:
+    explicit ibv_exp_res_domain_deleter(struct ibv_context *context = nullptr) noexcept;
+    void operator()(ibv_exp_res_domain *res_domain);
+};
+
+#endif
+
 } // namespace detail
 
 class rdma_event_channel_t : public std::unique_ptr<rdma_event_channel, detail::rdma_event_channel_deleter>
@@ -133,6 +175,9 @@ public:
 
     void bind_addr(const boost::asio::ip::address &addr);
     ibv_device_attr query_device() const;
+#if SPEAD2_USE_IBV_EXP
+    ibv_exp_device_attr exp_query_device() const;
+#endif
 };
 
 /* This class is not intended to be used for anything. However, the mlx5 driver
@@ -196,6 +241,9 @@ class ibv_qp_t : public std::unique_ptr<ibv_qp, detail::ibv_qp_deleter>
 public:
     ibv_qp_t() = default;
     ibv_qp_t(const ibv_pd_t &pd, ibv_qp_init_attr *init_attr);
+#if SPEAD2_USE_IBV_MPRQ
+    ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_exp_qp_init_attr *init_attr);
+#endif
 
     void modify(ibv_qp_attr *attr, int attr_mask);
     void modify(ibv_qp_state qp_state);
@@ -246,6 +294,61 @@ ibv_flow_t create_flow(
 std::vector<ibv_flow_t> create_flows(
     const ibv_qp_t &qp, const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     int port_num);
+
+#if SPEAD2_USE_IBV_MPRQ
+
+class ibv_exp_query_intf_error_category : public std::error_category
+{
+public:
+    virtual const char *name() const noexcept override;
+    virtual std::string message(int condition) const override;
+    virtual std::error_condition default_error_condition(int condition) const noexcept override;
+};
+
+std::error_category &ibv_exp_query_intf_category();
+
+class ibv_exp_cq_family_v1_t : public std::unique_ptr<ibv_exp_cq_family_v1, detail::ibv_intf_deleter>
+{
+public:
+    ibv_exp_cq_family_v1_t() = default;
+    ibv_exp_cq_family_v1_t(const rdma_cm_id_t &cm_id, const ibv_cq_t &cq);
+};
+
+class ibv_exp_wq_t : public std::unique_ptr<ibv_exp_wq, detail::ibv_exp_wq_deleter>
+{
+public:
+    ibv_exp_wq_t() = default;
+    ibv_exp_wq_t(const rdma_cm_id_t &cm_id, ibv_exp_wq_init_attr *attr);
+
+    void modify(ibv_exp_wq_state state);
+};
+
+class ibv_exp_wq_family_t : public std::unique_ptr<ibv_exp_wq_family, detail::ibv_intf_deleter>
+{
+public:
+    ibv_exp_wq_family_t() = default;
+    ibv_exp_wq_family_t(const rdma_cm_id_t &cm_id, const ibv_exp_wq_t &wq);
+};
+
+class ibv_exp_rwq_ind_table_t : public std::unique_ptr<ibv_exp_rwq_ind_table, detail::ibv_exp_rwq_ind_table_deleter>
+{
+public:
+    ibv_exp_rwq_ind_table_t() = default;
+    ibv_exp_rwq_ind_table_t(const rdma_cm_id_t &cm_id, ibv_exp_rwq_ind_table_init_attr *attr);
+};
+
+/// Construct a table with a single entry
+ibv_exp_rwq_ind_table_t create_rwq_ind_table(
+    const rdma_cm_id_t &cm_id, const ibv_pd_t &pd, const ibv_exp_wq_t &wq);
+
+class ibv_exp_res_domain_t : public std::unique_ptr<ibv_exp_res_domain, detail::ibv_exp_res_domain_deleter>
+{
+public:
+    ibv_exp_res_domain_t() = default;
+    ibv_exp_res_domain_t(const rdma_cm_id_t &cm_id, ibv_exp_res_domain_init_attr *attr);
+};
+
+#endif // SPEAD2_USE_IBV_MPRQ
 
 } // namespace spead2
 

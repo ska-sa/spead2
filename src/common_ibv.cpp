@@ -38,6 +38,36 @@
 namespace spead2
 {
 
+namespace detail
+{
+
+#if SPEAD2_USE_IBV_MPRQ
+ibv_intf_deleter::ibv_intf_deleter(struct ibv_context *context) noexcept : context(context) {}
+
+void ibv_intf_deleter::operator()(void *intf)
+{
+    assert(context);
+    struct ibv_exp_release_intf_params params;
+    std::memset(&params, 0, sizeof(params));
+    ibv_exp_release_intf(context, intf, &params);
+}
+
+ibv_exp_res_domain_deleter::ibv_exp_res_domain_deleter(struct ibv_context *context) noexcept
+    : context(context)
+{
+}
+
+void ibv_exp_res_domain_deleter::operator()(ibv_exp_res_domain *res_domain)
+{
+    ibv_exp_destroy_res_domain_attr attr;
+    std::memset(&attr, 0, sizeof(attr));
+    ibv_exp_destroy_res_domain(context, res_domain, &attr);
+}
+
+#endif
+
+} // namespace detail
+
 rdma_event_channel_t::rdma_event_channel_t()
 {
     errno = 0;
@@ -73,11 +103,26 @@ ibv_device_attr rdma_cm_id_t::query_device() const
 {
     assert(get());
     ibv_device_attr attr;
+    std::memset(&attr, 0, sizeof(attr));
     int status = ibv_query_device(get()->verbs, &attr);
     if (status != 0)
         throw_errno("ibv_query_device failed", status);
     return attr;
 }
+
+#if SPEAD2_USE_IBV_EXP
+ibv_exp_device_attr rdma_cm_id_t::exp_query_device() const
+{
+    assert(get());
+    ibv_exp_device_attr attr;
+    std::memset(&attr, 0, sizeof(attr));
+    attr.comp_mask = IBV_EXP_DEVICE_ATTR_RESERVED - 1;
+    int status = ibv_exp_query_device(get()->verbs, &attr);
+    if (status != 0)
+        throw_errno("ibv_exp_query_device failed", status);
+    return attr;
+}
+#endif
 
 ibv_context_t::ibv_context_t(struct ibv_device *device)
 {
@@ -247,6 +292,17 @@ ibv_qp_t::ibv_qp_t(const ibv_pd_t &pd, ibv_qp_init_attr *init_attr)
     reset(qp);
 }
 
+#if SPEAD2_USE_IBV_MPRQ
+ibv_qp_t::ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_exp_qp_init_attr *init_attr)
+{
+    errno = 0;
+    ibv_qp *qp = ibv_exp_create_qp(cm_id->verbs, init_attr);
+    if (!qp)
+        throw_errno("ibv_exp_create_qp failed");
+    reset(qp);
+}
+#endif
+
 ibv_mr_t::ibv_mr_t(const ibv_pd_t &pd, void *addr, std::size_t length, int access)
 {
     errno = 0;
@@ -344,7 +400,7 @@ ibv_flow_t create_flow(
         ibv_flow_spec_ipv4 ip;
         ibv_flow_spec_tcp_udp udp;
     } __attribute__((packed)) flow_rule;
-    memset(&flow_rule, 0, sizeof(flow_rule));
+    std::memset(&flow_rule, 0, sizeof(flow_rule));
 
     flow_rule.attr.type = IBV_FLOW_ATTR_NORMAL;
     flow_rule.attr.priority = 0;
@@ -450,6 +506,156 @@ std::vector<ibv_flow_t> create_flows(
     }
     return flows;
 }
+
+#if SPEAD2_USE_IBV_MPRQ
+
+const char *ibv_exp_query_intf_error_category::name() const noexcept
+{
+    return "ibv_exp_query_intf";
+}
+
+std::string ibv_exp_query_intf_error_category::message(int condition) const
+{
+    switch (condition)
+    {
+    case IBV_EXP_INTF_STAT_OK:
+        return "OK";
+    case IBV_EXP_INTF_STAT_VENDOR_NOT_SUPPORTED:
+        return "The provided 'vendor_guid' is not supported";
+    case IBV_EXP_INTF_STAT_INTF_NOT_SUPPORTED:
+        return "The provided 'intf' is not supported";
+    case IBV_EXP_INTF_STAT_VERSION_NOT_SUPPORTED:
+        return "The provided 'intf_version' is not supported";
+    case IBV_EXP_INTF_STAT_INVAL_PARARM:
+        return "General invalid parameter";
+    case IBV_EXP_INTF_STAT_INVAL_OBJ_STATE:
+        return "QP is not in INIT, RTR or RTS state";
+    case IBV_EXP_INTF_STAT_INVAL_OBJ:
+        return "Mismatch between the provided 'obj'(CQ/QP/WQ) and requested 'intf'";
+    case IBV_EXP_INTF_STAT_FLAGS_NOT_SUPPORTED:
+        return "The provided set of 'flags' is not supported";
+    case IBV_EXP_INTF_STAT_FAMILY_FLAGS_NOT_SUPPORTED:
+        return "The provided set of 'family_flags' is not supported";
+    default:
+        return "Unknown error";
+    }
+}
+
+std::error_condition ibv_exp_query_intf_error_category::default_error_condition(int condition) const noexcept
+{
+    switch (condition)
+    {
+    case IBV_EXP_INTF_STAT_VENDOR_NOT_SUPPORTED:
+    case IBV_EXP_INTF_STAT_INTF_NOT_SUPPORTED:
+    case IBV_EXP_INTF_STAT_VERSION_NOT_SUPPORTED:
+    case IBV_EXP_INTF_STAT_FLAGS_NOT_SUPPORTED:
+    case IBV_EXP_INTF_STAT_FAMILY_FLAGS_NOT_SUPPORTED:
+        return std::errc::not_supported;
+    case IBV_EXP_INTF_STAT_INVAL_PARARM:
+    case IBV_EXP_INTF_STAT_INVAL_OBJ_STATE:
+    case IBV_EXP_INTF_STAT_INVAL_OBJ:
+        return std::errc::invalid_argument;
+    default:
+        return std::error_condition(condition, *this);
+    }
+}
+
+std::error_category &ibv_exp_query_intf_category()
+{
+    static ibv_exp_query_intf_error_category category;
+    return category;
+}
+
+static void *query_intf(const rdma_cm_id_t &cm_id, ibv_exp_query_intf_params *params)
+{
+    ibv_exp_query_intf_status status;
+    void *intf = ibv_exp_query_intf(cm_id->verbs, params, &status);
+    if (status != IBV_EXP_INTF_STAT_OK)
+    {
+        std::error_code code(status, ibv_exp_query_intf_category());
+        throw std::system_error(code, "ibv_exp_query_intf failed");
+    }
+    return intf;
+}
+
+ibv_exp_cq_family_v1_t::ibv_exp_cq_family_v1_t(const rdma_cm_id_t &cm_id, const ibv_cq_t &cq)
+    : std::unique_ptr<ibv_exp_cq_family_v1, detail::ibv_intf_deleter>(
+        nullptr, detail::ibv_intf_deleter(cm_id->verbs))
+{
+    ibv_exp_query_intf_params params;
+    std::memset(&params, 0, sizeof(params));
+    params.intf_scope = IBV_EXP_INTF_GLOBAL;
+    params.intf = IBV_EXP_INTF_CQ;
+    params.intf_version = 1;
+    params.obj = cq.get();
+    void *intf = query_intf(cm_id, &params);
+    reset(static_cast<ibv_exp_cq_family_v1 *>(intf));
+}
+
+ibv_exp_wq_t::ibv_exp_wq_t(const rdma_cm_id_t &cm_id, ibv_exp_wq_init_attr *attr)
+{
+    ibv_exp_wq *wq = ibv_exp_create_wq(cm_id->verbs, attr);
+    if (!wq)
+        throw_errno("ibv_exp_create_wq failed");
+    reset(wq);
+}
+
+void ibv_exp_wq_t::modify(ibv_exp_wq_state state)
+{
+    ibv_exp_wq_attr wq_attr;
+    std::memset(&wq_attr, 0, sizeof(wq_attr));
+    wq_attr.wq_state = IBV_EXP_WQS_RDY;
+    wq_attr.attr_mask = IBV_EXP_WQ_ATTR_STATE;
+    int status = ibv_exp_modify_wq(get(), &wq_attr);
+    if (status != 0)
+        throw_errno("ibv_exp_modify_wq failed", status);
+}
+
+ibv_exp_wq_family_t::ibv_exp_wq_family_t(const rdma_cm_id_t &cm_id, const ibv_exp_wq_t &wq)
+    : std::unique_ptr<ibv_exp_wq_family, detail::ibv_intf_deleter>(
+        nullptr, detail::ibv_intf_deleter(cm_id->verbs))
+{
+    ibv_exp_query_intf_params params;
+    std::memset(&params, 0, sizeof(params));
+    params.intf_scope = IBV_EXP_INTF_GLOBAL;
+    params.intf = IBV_EXP_INTF_WQ;
+    params.obj = wq.get();
+    void *intf = query_intf(cm_id, &params);
+    reset(static_cast<ibv_exp_wq_family *>(intf));
+}
+
+ibv_exp_rwq_ind_table_t::ibv_exp_rwq_ind_table_t(const rdma_cm_id_t &cm_id, ibv_exp_rwq_ind_table_init_attr *attr)
+{
+    ibv_exp_rwq_ind_table *table = ibv_exp_create_rwq_ind_table(cm_id->verbs, attr);
+    if (!table)
+        throw_errno("ibv_exp_create_rwq_ind_table failed");
+    reset(table);
+}
+
+ibv_exp_rwq_ind_table_t create_rwq_ind_table(
+    const rdma_cm_id_t &cm_id, const ibv_pd_t &pd, const ibv_exp_wq_t &wq)
+{
+    ibv_exp_rwq_ind_table_init_attr attr;
+    ibv_exp_wq *tbl[1] = {wq.get()};
+    std::memset(&attr, 0, sizeof(attr));
+    attr.pd = pd.get();
+    attr.log_ind_tbl_size = 0;
+    attr.ind_tbl = tbl;
+    return ibv_exp_rwq_ind_table_t(cm_id, &attr);
+}
+
+ibv_exp_res_domain_t::ibv_exp_res_domain_t(const rdma_cm_id_t &cm_id, ibv_exp_res_domain_init_attr *attr)
+    : std::unique_ptr<ibv_exp_res_domain, detail::ibv_exp_res_domain_deleter>(
+        nullptr, detail::ibv_exp_res_domain_deleter(cm_id->verbs))
+{
+    errno = 0;
+    ibv_exp_res_domain *res_domain = ibv_exp_create_res_domain(cm_id->verbs, attr);
+    if (!res_domain)
+        throw_errno("ibv_exp_create_res_domain_failed");
+    reset(res_domain);
+}
+
+#endif // SPEAD2_USE_IBV_MPRQ
 
 } // namespace spead
 
