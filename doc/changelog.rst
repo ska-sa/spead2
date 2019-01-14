@@ -3,6 +3,8 @@ Changelog
 
 .. rubric:: Development version
 
+- Use ibverbs multi-packet receive queues automatically when available
+  (supported by mlx5 driver).
 - Automatically reduce buffer size for verbs receiver to match hardware limits
   (fixed #64).
 - Gracefully handle Ctrl-C in :program:`spead2_recv` and print statistics.

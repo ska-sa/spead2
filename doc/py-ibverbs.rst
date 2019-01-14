@@ -59,10 +59,9 @@ The ibverbs API can be used programmatically by using an extra method of
       :param str interface_address: Hostname/IP address of the interface which
         will be subscribed
       :param int max_size: Maximum packet size that will be accepted
-      :param int buffer_size: Requested memory allocation for work requests. Note
-        that this is used to determine the number of packets
-        to buffer; if the packets are smaller than `max_size`,
-        then fewer bytes will be buffered.
+      :param int buffer_size: Requested memory allocation for work requests.
+        It may be adjusted due to implementation-dependent limits or alignment
+        requirements.
       :param int comp_vector: Completion channel vector (interrupt)
         for asynchronous operation, or
         a negative value to poll continuously. Polling
@@ -78,8 +77,18 @@ The ibverbs API can be used programmatically by using an extra method of
         non-negative) or letting other code run on the
         thread (if `comp_vector` is negative).
 
-Reducing `max_size` to be close to the actual packet size can make a
-significant performance improvement.
+If supported by the NIC, the receive code will automatically use a
+"multi-packet receive queue", which allows each packet to consume only the
+amount of space needed in the buffer. This is not supported by all NICs (for
+example, ConnectX-3 does not, but ConnectX-5 does). When in use, the
+`max_size` parameter has little impact on performance, and is used only to
+reject larger packets.
+
+When multi-packet receive queues are not supported, performance can be
+improved by making `max_size` as small as possible for the intended data
+stream. This will increase the number of packets that can be buffered (because
+the buffer is divided into fixed-size slots), and also improve memory
+efficiency by keeping data more-or-less contiguous.
 
 Environment variables
 ^^^^^^^^^^^^^^^^^^^^^
