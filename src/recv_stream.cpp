@@ -83,9 +83,9 @@ static int compute_bucket_shift(std::size_t bucket_count)
 }
 
 #define SPEAD2_ADAPT_MEMCPY(func, capture) \
-    (packet_memcpy_function([capture](std::uint8_t *allocation, const packet_header &packet) \
+    (packet_memcpy_function([capture](const spead2::memory_allocator::pointer &allocation, const packet_header &packet) \
      { \
-         func(allocation + packet.payload_offset, packet.payload, packet.payload_length); \
+         func(allocation.get() + packet.payload_offset, packet.payload, packet.payload_length); \
      }))
 
 stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)

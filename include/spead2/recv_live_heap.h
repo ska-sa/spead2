@@ -47,7 +47,8 @@ namespace unittest { namespace recv { namespace live_heap
 namespace recv
 {
 
-typedef std::function<void(std::uint8_t *allocation, const packet_header &packet)> packet_memcpy_function;
+typedef std::function<void(const spead2::memory_allocator::pointer &allocation,
+                           const packet_header &packet)> packet_memcpy_function;
 
 class heap;
 

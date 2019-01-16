@@ -20,9 +20,9 @@ namespace unittest
 BOOST_AUTO_TEST_SUITE(recv)
 BOOST_AUTO_TEST_SUITE(custom_memcpy)
 
-static void reverse_memcpy(std::uint8_t *allocation, const spead2::recv::packet_header &packet)
+static void reverse_memcpy(const spead2::memory_allocator::pointer &allocation, const spead2::recv::packet_header &packet)
 {
-    std::uint8_t *ptr = allocation + (packet.heap_length - packet.payload_offset);
+    std::uint8_t *ptr = allocation.get() + (packet.heap_length - packet.payload_offset);
     for (std::size_t i = 0; i < packet.payload_length; i++)
         *--ptr = packet.payload[i];
 }

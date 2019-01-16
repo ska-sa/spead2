@@ -208,7 +208,7 @@ bool live_heap::add_packet(const packet_header &packet,
 
     if (packet.payload_length > 0)
     {
-        packet_memcpy(payload.get(), packet);
+        packet_memcpy(payload, packet);
         received_length += packet.payload_length;
     }
     log_debug("packet with %d bytes of payload at offset %d added to heap %d",
