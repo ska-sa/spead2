@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2018 SKA South Africa
+/* Copyright 2015, 2017-2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -143,13 +143,14 @@ void stream_base::set_memory_pool(std::shared_ptr<memory_pool> pool)
 
 void stream_base::set_memory_allocator(std::shared_ptr<memory_allocator> allocator)
 {
-    std::lock_guard<std::mutex> lock(allocator_mutex);
+    std::lock_guard<std::mutex> lock(mutex);
     this->allocator = std::move(allocator);
 }
 
 void stream_base::set_memcpy(memcpy_function memcpy)
 {
-    this->memcpy.store(memcpy, std::memory_order_relaxed);
+    std::lock_guard<std::mutex> lock(mutex);
+    this->memcpy = memcpy;
 }
 
 void stream_base::set_memcpy(memcpy_function_id id)
@@ -169,20 +170,23 @@ void stream_base::set_memcpy(memcpy_function_id id)
 
 void stream_base::set_stop_on_stop_item(bool stop)
 {
+    std::lock_guard<std::mutex> lock(mutex);
     stop_on_stop_item = stop;
 }
 
 bool stream_base::get_stop_on_stop_item() const
 {
-    return stop_on_stop_item.load();
+    std::lock_guard<std::mutex> lock(mutex);
+    return stop_on_stop_item;
 }
 
 stream_base::add_packet_state::add_packet_state(stream_base &owner)
-    : owner(owner), memcpy(owner.memcpy.load()),
-    stop_on_stop_item(owner.stop_on_stop_item.load())
+    : owner(owner)
 {
-    std::lock_guard<std::mutex> lock(owner.allocator_mutex);
+    std::lock_guard<std::mutex> lock(owner.mutex);
     allocator = owner.allocator;
+    memcpy = owner.memcpy;
+    stop_on_stop_item = owner.stop_on_stop_item;
 }
 
 stream_base::add_packet_state::~add_packet_state()

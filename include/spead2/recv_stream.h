@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2018 SKA South Africa
+/* Copyright 2015, 2017-2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -126,6 +126,9 @@ struct stream_stats
  * lead to all heaps in the same bucket. So rather than using
  * std::unordered_map, we use a custom hash table implementation (with a
  * fixed number of buckets).
+ *
+ * Except where otherwise noted, of type std::atomic, or const, fields must
+ * only be accessed with the strand held.
  */
 class stream_base
 {
@@ -146,28 +149,29 @@ private:
      * A particular heap is in a constructed state iff the next pointer is
      * not INVALID_ENTRY.
      */
-    std::unique_ptr<storage_type[]> queue_storage;
+    const std::unique_ptr<storage_type[]> queue_storage;
     /// Number of entries in @ref buckets
-    std::size_t bucket_count;
+    const std::size_t bucket_count;
     /// Right shift to map 64-bit unsigned to a bucket index
-    int bucket_shift;
+    const int bucket_shift;
     /// Pointer to the first heap in each bucket, or NULL
-    std::unique_ptr<queue_entry *[]> buckets;
+    const std::unique_ptr<queue_entry *[]> buckets;
     /// Position of the most recently added heap
     std::size_t head;
 
     /// Maximum number of live heaps permitted.
-    std::size_t max_heaps;
+    const std::size_t max_heaps;
     /// Protocol bugs to be compatible with
-    bug_compat_mask bug_compat;
+    const bug_compat_mask bug_compat;
+
+    /// Mutex protecting @ref allocator, @ref memcpy and @ref stop_on_stop_item
+    mutable std::mutex mutex;
 
     /// Function used to copy heap payloads
-    std::atomic<memcpy_function> memcpy{std::memcpy};
+    memcpy_function memcpy = std::memcpy;
     /// Whether to stop when a stream control stop item is received
-    std::atomic<bool> stop_on_stop_item{true};
+    bool stop_on_stop_item = true;
 
-    /// Mutex protecting @ref allocator
-    std::mutex allocator_mutex;
     /**
      * Memory allocator used by heaps.
      *

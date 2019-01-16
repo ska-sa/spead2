@@ -27,6 +27,7 @@
 #include <vector>
 #include <utility>
 #include <string>
+#include <functional>
 
 #ifndef SPEAD2_MAX_LOG_LEVEL
 #define SPEAD2_MAX_LOG_LEVEL (spead2::log_level::info)
@@ -88,7 +89,7 @@ enum memcpy_function_id : unsigned int
     MEMCPY_NONTEMPORAL
 };
 
-typedef void *(*memcpy_function)(void * __restrict__, const void * __restrict__, std::size_t);
+typedef std::function<void *(void * __restrict__, const void * __restrict__, std::size_t)> memcpy_function;
 
 /**
  * An unpacked descriptor.
