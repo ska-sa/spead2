@@ -82,6 +82,12 @@ static int compute_bucket_shift(std::size_t bucket_count)
     return shift;
 }
 
+#define SPEAD2_ADAPT_MEMCPY(func, capture) \
+    (packet_memcpy_function([capture](std::uint8_t *allocation, const packet_header &packet) \
+     { \
+         func(allocation + packet.payload_offset, packet.payload, packet.payload_length); \
+     }))
+
 stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
     : queue_storage(new storage_type[max_heaps]),
     bucket_count(compute_bucket_count(max_heaps)),
@@ -89,6 +95,7 @@ stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
     buckets(new queue_entry *[bucket_count]),
     head(0),
     max_heaps(max_heaps), bug_compat(bug_compat),
+    memcpy(SPEAD2_ADAPT_MEMCPY(std::memcpy, )),
     allocator(std::make_shared<memory_allocator>())
 {
     if (max_heaps == 0)
@@ -148,21 +155,30 @@ void stream_base::set_memory_allocator(std::shared_ptr<memory_allocator> allocat
     this->allocator = std::move(allocator);
 }
 
-void stream_base::set_memcpy(memcpy_function memcpy)
+void stream_base::set_memcpy(packet_memcpy_function memcpy)
 {
     std::lock_guard<std::mutex> lock(mutex);
     this->memcpy = memcpy;
 }
 
+void stream_base::set_memcpy(memcpy_function memcpy)
+{
+    set_memcpy(SPEAD2_ADAPT_MEMCPY(memcpy, memcpy));
+}
+
 void stream_base::set_memcpy(memcpy_function_id id)
 {
+    /* We adapt each case to the packet_memcpy signature rather than using the
+     * generic wrapping in the memcpy_function overload. This ensures that
+     * there is only one level of indirect function call instead of two.
+     */
     switch (id)
     {
     case MEMCPY_STD:
-        set_memcpy(std::memcpy);
+        set_memcpy(SPEAD2_ADAPT_MEMCPY(std::memcpy, ));
         break;
     case MEMCPY_NONTEMPORAL:
-        set_memcpy(spead2::memcpy_nontemporal);
+        set_memcpy(SPEAD2_ADAPT_MEMCPY(spead2::memcpy_nontemporal, ));
         break;
     default:
         throw std::invalid_argument("Unknown memcpy function");

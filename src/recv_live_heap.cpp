@@ -44,7 +44,6 @@ live_heap::live_heap(const packet_header &initial_packet,
 }
 
 void live_heap::payload_reserve(std::size_t size, bool exact, const packet_header &packet,
-                                const memcpy_function &memcpy,
                                 memory_allocator &allocator)
 {
     if (size > payload_reserved)
@@ -55,8 +54,8 @@ void live_heap::payload_reserve(std::size_t size, bool exact, const packet_heade
         }
         memory_allocator::pointer new_payload;
         new_payload = allocator.allocate(size, (void *) &packet);
-        if (payload)
-            memcpy(new_payload.get(), payload.get(), payload_reserved);
+        if (payload && new_payload)
+            std::memcpy(new_payload.get(), payload.get(), payload_reserved);
         payload = std::move(new_payload);
         payload_reserved = size;
     }
@@ -151,7 +150,8 @@ void live_heap::add_pointers(std::size_t n, const std::uint8_t *pointers)
     }
 }
 
-bool live_heap::add_packet(const packet_header &packet, const memcpy_function &memcpy,
+bool live_heap::add_packet(const packet_header &packet,
+                           const packet_memcpy_function &packet_memcpy,
                            memory_allocator &allocator)
 {
     /* It's important that these initial checks can't fail for a
@@ -195,23 +195,20 @@ bool live_heap::add_packet(const packet_header &packet, const memcpy_function &m
         {
             heap_length = packet.heap_length;
             min_length = std::max(min_length, heap_length);
-            payload_reserve(min_length, true, packet, memcpy, allocator);
+            payload_reserve(min_length, true, packet, allocator);
         }
     }
     else
     {
         min_length = std::max(min_length, packet.payload_offset + packet.payload_length);
-        payload_reserve(min_length, false, packet, memcpy, allocator);
+        payload_reserve(min_length, false, packet, allocator);
     }
 
     add_pointers(packet.n_items, packet.pointers);
 
     if (packet.payload_length > 0)
     {
-        // Note: this is the memcpy function pointer passed in, not std::memcpy
-        memcpy(payload.get() + packet.payload_offset,
-               packet.payload,
-               packet.payload_length);
+        packet_memcpy(payload.get(), packet);
         received_length += packet.payload_length;
     }
     log_debug("packet with %d bytes of payload at offset %d added to heap %d",

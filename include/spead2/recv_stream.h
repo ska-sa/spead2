@@ -176,7 +176,7 @@ private:
     mutable std::mutex mutex;
 
     /// Function used to copy heap payloads
-    memcpy_function memcpy = std::memcpy;
+    packet_memcpy_function memcpy;
     /// Whether to stop when a stream control stop item is received
     bool stop_on_stop_item = true;
     /// Whether to permit packets that don't have HEAP_LENGTH item
@@ -230,7 +230,7 @@ public:
         stream_base &owner;
 
         // Copied from the stream, but unencumbered by locks/atomics
-        memcpy_function memcpy;
+        packet_memcpy_function memcpy;
         std::shared_ptr<memory_allocator> allocator;
         bool stop_on_stop_item;
         bool allow_unsized_heaps;
@@ -267,6 +267,9 @@ public:
      * Set an allocator to use for allocating heap memory.
      */
     void set_memory_allocator(std::shared_ptr<memory_allocator> allocator);
+
+    /// Set an alternative memcpy function for copying heap payload
+    void set_memcpy(packet_memcpy_function memcpy);
 
     /// Set an alternative memcpy function for copying heap payload
     void set_memcpy(memcpy_function memcpy);

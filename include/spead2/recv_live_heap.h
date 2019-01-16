@@ -47,6 +47,8 @@ namespace unittest { namespace recv { namespace live_heap
 namespace recv
 {
 
+typedef std::function<void(std::uint8_t *allocation, const packet_header &packet)> packet_memcpy_function;
+
 class heap;
 
 /**
@@ -145,7 +147,6 @@ private:
      * @a exact is false, then a doubling heuristic will be used.
      */
     void payload_reserve(std::size_t size, bool exact, const packet_header &packet,
-                         const memcpy_function &memcpy,
                          memory_allocator &allocator);
 
     /**
@@ -181,7 +182,8 @@ public:
      * - inconsistent heap length
      * - payload range is beyond the heap length
      */
-    bool add_packet(const packet_header &packet, const memcpy_function &memcpy,
+    bool add_packet(const packet_header &packet,
+                    const packet_memcpy_function &packet_memcpy,
                     memory_allocator &allocator);
     /// True if the heap is complete
     bool is_complete() const;
