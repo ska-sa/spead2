@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add :py:attr:`spead2.recv.Stream.allow_unsized_heaps` to support rejecting
+  packets without a heap length.
+
 .. rubric:: 1.10.1
 
 - Use ibverbs multi-packet receive queues automatically when available

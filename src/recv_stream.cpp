@@ -27,6 +27,7 @@
 #include <spead2/recv_live_heap.h>
 #include <spead2/common_memcpy.h>
 #include <spead2/common_thread_pool.h>
+#include <spead2/common_logging.h>
 
 #define INVALID_ENTRY ((queue_entry *) -1)
 
@@ -180,6 +181,18 @@ bool stream_base::get_stop_on_stop_item() const
     return stop_on_stop_item;
 }
 
+void stream_base::set_allow_unsized_heaps(bool allow)
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    allow_unsized_heaps = allow;
+}
+
+bool stream_base::get_allow_unsized_heaps() const
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    return allow_unsized_heaps;
+}
+
 stream_base::add_packet_state::add_packet_state(stream_base &owner)
     : owner(owner)
 {
@@ -187,6 +200,7 @@ stream_base::add_packet_state::add_packet_state(stream_base &owner)
     allocator = owner.allocator;
     memcpy = owner.memcpy;
     stop_on_stop_item = owner.stop_on_stop_item;
+    allow_unsized_heaps = owner.allow_unsized_heaps;
 }
 
 stream_base::add_packet_state::~add_packet_state()
@@ -204,6 +218,13 @@ stream_base::add_packet_state::~add_packet_state()
 bool stream_base::add_packet(add_packet_state &state, const packet_header &packet)
 {
     assert(!stopped);
+    state.packets++;
+    if (packet.heap_length < 0 && !state.allow_unsized_heaps)
+    {
+        log_info("packet rejected because it has no HEAP_LEN");
+        return false;
+    }
+
     // Look for matching heap.
     queue_entry *entry = NULL;
     s_item_pointer_t heap_cnt = packet.heap_cnt;
@@ -264,7 +285,6 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
             h->~live_heap();
         }
     }
-    state.packets++;
 
     if (end_of_stream)
         stop_received();

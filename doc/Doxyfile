@@ -56,7 +56,7 @@ QUIET                  = YES
 WARN_IF_UNDOCUMENTED   = NO
 
 INPUT                  = ../src ../include/spead2
-EXCLUDE_PATTERNS       = test_*
+EXCLUDE_PATTERNS       = test_* spead2_*
 
 GENERATE_HTML          = NO
 GENERATE_LATEX         = NO

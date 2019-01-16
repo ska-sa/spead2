@@ -35,8 +35,11 @@ to avoid data loss when using UDP. To use this interface, subclass
 :cpp:class:`spead2::recv::stream` and implement :cpp:func:`heap_ready` and
 optionally override :cpp:func:`stop_received`.
 
+Note that some public functions are incorrectly listed as protected below due
+to limitations of the documentation tools.
+
 .. doxygenclass:: spead2::recv::stream
-   :members: emplace_reader, stop, stop_received, flush, heap_ready, get_stats
+   :members:
 
 .. doxygenstruct:: spead2::recv::stream_stats
    :members:

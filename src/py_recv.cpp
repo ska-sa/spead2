@@ -415,6 +415,13 @@ py::module register_module(py::module &parent)
                       [](ring_stream_wrapper &self, bool stop) {
                           self.set_stop_on_stop_item(stop);
                       })
+        .def_property("allow_unsized_heaps",
+                      [](const ring_stream_wrapper &self) {
+                          return self.get_allow_unsized_heaps();
+                      },
+                      [](ring_stream_wrapper &self, bool allow) {
+                          self.set_allow_unsized_heaps(allow);
+                      })
         .def("add_buffer_reader", SPEAD2_PTMF(ring_stream_wrapper, add_buffer_reader), "buffer"_a)
         .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader),
               "port"_a,

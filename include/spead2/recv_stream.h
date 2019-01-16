@@ -164,13 +164,23 @@ private:
     /// Protocol bugs to be compatible with
     const bug_compat_mask bug_compat;
 
-    /// Mutex protecting @ref allocator, @ref memcpy and @ref stop_on_stop_item
+    /**
+     * Mutex protecting configuration options.
+     *
+     * The following fields are protected by this mutex:
+     * - @ref allocator
+     * - @ref memcpy
+     * - @ref stop_on_stop_item
+     * - @ref allow_unsized_heaps
+     */
     mutable std::mutex mutex;
 
     /// Function used to copy heap payloads
     memcpy_function memcpy = std::memcpy;
     /// Whether to stop when a stream control stop item is received
     bool stop_on_stop_item = true;
+    /// Whether to permit packets that don't have HEAP_LENGTH item
+    bool allow_unsized_heaps = true;
 
     /**
      * Memory allocator used by heaps.
@@ -223,6 +233,7 @@ public:
         memcpy_function memcpy;
         std::shared_ptr<memory_allocator> allocator;
         bool stop_on_stop_item;
+        bool allow_unsized_heaps;
         // Updates to the statistics
         std::uint64_t packets = 0;
         std::uint64_t complete_heaps = 0;
@@ -269,9 +280,15 @@ public:
     /// Get whether to stop the stream when a stop item is received
     bool get_stop_on_stop_item() const;
 
+    /// Set whether to allow heaps without HEAP_LENGTH
+    void set_allow_unsized_heaps(bool allow);
+
+    /// Get whether to allow heaps without HEAP_LENGTH
+    bool get_allow_unsized_heaps() const;
+
     /**
-     * Add a packet that was received, and which has been examined by @a
-     * decode_packet, and returns @c true if it is consumed. Even though @a
+     * Add a packet that was received, and which has been examined by @ref
+     * decode_packet, and returns @c true if it is consumed. Even though @ref
      * decode_packet does some basic sanity-checking, it may still be rejected
      * by @ref live_heap::add_packet e.g., because it is a duplicate.
      *
@@ -393,6 +410,8 @@ public:
     using stream_base::set_memcpy;
     using stream_base::set_stop_on_stop_item;
     using stream_base::get_stop_on_stop_item;
+    using stream_base::set_allow_unsized_heaps;
+    using stream_base::get_allow_unsized_heaps;
 
     boost::asio::io_service::strand &get_strand() { return strand; }
 

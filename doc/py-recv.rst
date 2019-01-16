@@ -213,6 +213,14 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
       treatment. Such heaps can then be detected with
       :meth:`~spead2.recv.Heap.is_end_of_stream`.
 
+   .. py:attribute:: allow_unsized_heaps
+
+      By default, spead2 caters for heaps without a `HEAP_LEN` item, and will
+      dynamically extend the memory allocation as data arrives. However, this
+      can be expensive, and ideally senders should include this item. Setting
+      this attribute to ``False`` will cause packets without this item to be
+      rejected.
+
 Asynchronous receive
 ^^^^^^^^^^^^^^^^^^^^
 Asynchronous I/O is supported through Python 3's :py:mod:`asyncio` module, as
