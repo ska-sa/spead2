@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2018 SKA South Africa
+/* Copyright 2015, 2017-2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -126,6 +126,9 @@ struct stream_stats
  * lead to all heaps in the same bucket. So rather than using
  * std::unordered_map, we use a custom hash table implementation (with a
  * fixed number of buckets).
+ *
+ * Except where otherwise noted, of type std::atomic, or const, fields must
+ * only be accessed with the strand held.
  */
 class stream_base
 {
@@ -146,28 +149,39 @@ private:
      * A particular heap is in a constructed state iff the next pointer is
      * not INVALID_ENTRY.
      */
-    std::unique_ptr<storage_type[]> queue_storage;
+    const std::unique_ptr<storage_type[]> queue_storage;
     /// Number of entries in @ref buckets
-    std::size_t bucket_count;
+    const std::size_t bucket_count;
     /// Right shift to map 64-bit unsigned to a bucket index
-    int bucket_shift;
+    const int bucket_shift;
     /// Pointer to the first heap in each bucket, or NULL
-    std::unique_ptr<queue_entry *[]> buckets;
+    const std::unique_ptr<queue_entry *[]> buckets;
     /// Position of the most recently added heap
     std::size_t head;
 
     /// Maximum number of live heaps permitted.
-    std::size_t max_heaps;
+    const std::size_t max_heaps;
     /// Protocol bugs to be compatible with
-    bug_compat_mask bug_compat;
+    const bug_compat_mask bug_compat;
+
+    /**
+     * Mutex protecting configuration options.
+     *
+     * The following fields are protected by this mutex:
+     * - @ref allocator
+     * - @ref memcpy
+     * - @ref stop_on_stop_item
+     * - @ref allow_unsized_heaps
+     */
+    mutable std::mutex mutex;
 
     /// Function used to copy heap payloads
-    std::atomic<memcpy_function> memcpy{std::memcpy};
+    packet_memcpy_function memcpy;
     /// Whether to stop when a stream control stop item is received
-    std::atomic<bool> stop_on_stop_item{true};
+    bool stop_on_stop_item = true;
+    /// Whether to permit packets that don't have HEAP_LENGTH item
+    bool allow_unsized_heaps = true;
 
-    /// Mutex protecting @ref allocator
-    std::mutex allocator_mutex;
     /**
      * Memory allocator used by heaps.
      *
@@ -216,9 +230,10 @@ public:
         stream_base &owner;
 
         // Copied from the stream, but unencumbered by locks/atomics
-        memcpy_function memcpy;
+        packet_memcpy_function memcpy;
         std::shared_ptr<memory_allocator> allocator;
         bool stop_on_stop_item;
+        bool allow_unsized_heaps;
         // Updates to the statistics
         std::uint64_t packets = 0;
         std::uint64_t complete_heaps = 0;
@@ -254,6 +269,9 @@ public:
     void set_memory_allocator(std::shared_ptr<memory_allocator> allocator);
 
     /// Set an alternative memcpy function for copying heap payload
+    void set_memcpy(packet_memcpy_function memcpy);
+
+    /// Set an alternative memcpy function for copying heap payload
     void set_memcpy(memcpy_function memcpy);
 
     /// Set builtin memcpy function to use for copying payload
@@ -265,9 +283,15 @@ public:
     /// Get whether to stop the stream when a stop item is received
     bool get_stop_on_stop_item() const;
 
+    /// Set whether to allow heaps without HEAP_LENGTH
+    void set_allow_unsized_heaps(bool allow);
+
+    /// Get whether to allow heaps without HEAP_LENGTH
+    bool get_allow_unsized_heaps() const;
+
     /**
-     * Add a packet that was received, and which has been examined by @a
-     * decode_packet, and returns @c true if it is consumed. Even though @a
+     * Add a packet that was received, and which has been examined by @ref
+     * decode_packet, and returns @c true if it is consumed. Even though @ref
      * decode_packet does some basic sanity-checking, it may still be rejected
      * by @ref live_heap::add_packet e.g., because it is a duplicate.
      *
@@ -389,6 +413,8 @@ public:
     using stream_base::set_memcpy;
     using stream_base::set_stop_on_stop_item;
     using stream_base::get_stop_on_stop_item;
+    using stream_base::set_allow_unsized_heaps;
+    using stream_base::get_allow_unsized_heaps;
 
     boost::asio::io_service::strand &get_strand() { return strand; }
 

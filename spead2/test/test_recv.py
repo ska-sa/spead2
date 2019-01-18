@@ -23,6 +23,10 @@ import six
 from nose.tools import (
     assert_equal, assert_in, assert_is_instance,
     assert_true, assert_false, assert_raises)
+try:
+    from nose.tools import assert_logs    # Only available from 3.4
+except ImportError:
+    assert_logs = None
 
 import spead2
 import spead2.recv as recv
@@ -193,9 +197,12 @@ class TestDecode(object):
         """
         thread_pool = spead2.ThreadPool()
         stop_on_stop_item = kwargs.pop('stop_on_stop_item', None)
+        allow_unsized_heaps = kwargs.pop('allow_unsized_heaps', None)
         stream = recv.Stream(thread_pool, self.flavour.bug_compat, **kwargs)
         if stop_on_stop_item is not None:
             stream.stop_on_stop_item = stop_on_stop_item
+        if allow_unsized_heaps is not None:
+            stream.allow_unsized_heaps = allow_unsized_heaps
         stream.add_buffer_reader(data)
         return list(stream)
 
@@ -605,6 +612,24 @@ class TestDecode(object):
         raw_items = heaps[0].get_items()
         assert_equal(1, len(raw_items))
         assert_equal(payload1 + payload2, bytearray(raw_items[0]))
+
+    def test_disallow_unsized_heaps(self):
+        """Packets without heap length rejected if disallowed"""
+        packet = self.flavour.make_packet(
+            [
+                Item(spead2.HEAP_CNT_ID, 1, True),
+                Item(0x1000, None, False, offset=0),
+                Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
+                Item(spead2.PAYLOAD_LENGTH_ID, 64, True)
+            ], bytes(np.arange(0, 64, dtype=np.uint8).data))
+        if assert_logs is not None:
+            with assert_logs('spead2', 'INFO') as cm:
+                heaps = self.data_to_heaps(packet, allow_unsized_heaps=False)
+            assert_equal(cm.output, ['INFO:spead2:packet rejected because it has no HEAP_LEN'])
+        else:
+            # Python 2 fallback
+            heaps = self.data_to_heaps(packet, allow_unsized_heaps=False)
+        assert_equal(0, len(heaps))
 
     def test_bad_offset(self):
         """Heap with out-of-range offset should be dropped"""

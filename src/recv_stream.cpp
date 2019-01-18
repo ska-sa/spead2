@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2018 SKA South Africa
+/* Copyright 2015, 2017-2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -27,6 +27,7 @@
 #include <spead2/recv_live_heap.h>
 #include <spead2/common_memcpy.h>
 #include <spead2/common_thread_pool.h>
+#include <spead2/common_logging.h>
 
 #define INVALID_ENTRY ((queue_entry *) -1)
 
@@ -81,6 +82,12 @@ static int compute_bucket_shift(std::size_t bucket_count)
     return shift;
 }
 
+#define SPEAD2_ADAPT_MEMCPY(func, capture) \
+    (packet_memcpy_function([capture](const spead2::memory_allocator::pointer &allocation, const packet_header &packet) \
+     { \
+         func(allocation.get() + packet.payload_offset, packet.payload, packet.payload_length); \
+     }))
+
 stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
     : queue_storage(new storage_type[max_heaps]),
     bucket_count(compute_bucket_count(max_heaps)),
@@ -88,6 +95,7 @@ stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
     buckets(new queue_entry *[bucket_count]),
     head(0),
     max_heaps(max_heaps), bug_compat(bug_compat),
+    memcpy(SPEAD2_ADAPT_MEMCPY(std::memcpy, )),
     allocator(std::make_shared<memory_allocator>())
 {
     if (max_heaps == 0)
@@ -143,24 +151,34 @@ void stream_base::set_memory_pool(std::shared_ptr<memory_pool> pool)
 
 void stream_base::set_memory_allocator(std::shared_ptr<memory_allocator> allocator)
 {
-    std::lock_guard<std::mutex> lock(allocator_mutex);
+    std::lock_guard<std::mutex> lock(mutex);
     this->allocator = std::move(allocator);
+}
+
+void stream_base::set_memcpy(packet_memcpy_function memcpy)
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    this->memcpy = memcpy;
 }
 
 void stream_base::set_memcpy(memcpy_function memcpy)
 {
-    this->memcpy.store(memcpy, std::memory_order_relaxed);
+    set_memcpy(SPEAD2_ADAPT_MEMCPY(memcpy, memcpy));
 }
 
 void stream_base::set_memcpy(memcpy_function_id id)
 {
+    /* We adapt each case to the packet_memcpy signature rather than using the
+     * generic wrapping in the memcpy_function overload. This ensures that
+     * there is only one level of indirect function call instead of two.
+     */
     switch (id)
     {
     case MEMCPY_STD:
-        set_memcpy(std::memcpy);
+        set_memcpy(SPEAD2_ADAPT_MEMCPY(std::memcpy, ));
         break;
     case MEMCPY_NONTEMPORAL:
-        set_memcpy(spead2::memcpy_nontemporal);
+        set_memcpy(SPEAD2_ADAPT_MEMCPY(spead2::memcpy_nontemporal, ));
         break;
     default:
         throw std::invalid_argument("Unknown memcpy function");
@@ -169,20 +187,36 @@ void stream_base::set_memcpy(memcpy_function_id id)
 
 void stream_base::set_stop_on_stop_item(bool stop)
 {
+    std::lock_guard<std::mutex> lock(mutex);
     stop_on_stop_item = stop;
 }
 
 bool stream_base::get_stop_on_stop_item() const
 {
-    return stop_on_stop_item.load();
+    std::lock_guard<std::mutex> lock(mutex);
+    return stop_on_stop_item;
+}
+
+void stream_base::set_allow_unsized_heaps(bool allow)
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    allow_unsized_heaps = allow;
+}
+
+bool stream_base::get_allow_unsized_heaps() const
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    return allow_unsized_heaps;
 }
 
 stream_base::add_packet_state::add_packet_state(stream_base &owner)
-    : owner(owner), memcpy(owner.memcpy.load()),
-    stop_on_stop_item(owner.stop_on_stop_item.load())
+    : owner(owner)
 {
-    std::lock_guard<std::mutex> lock(owner.allocator_mutex);
+    std::lock_guard<std::mutex> lock(owner.mutex);
     allocator = owner.allocator;
+    memcpy = owner.memcpy;
+    stop_on_stop_item = owner.stop_on_stop_item;
+    allow_unsized_heaps = owner.allow_unsized_heaps;
 }
 
 stream_base::add_packet_state::~add_packet_state()
@@ -200,6 +234,13 @@ stream_base::add_packet_state::~add_packet_state()
 bool stream_base::add_packet(add_packet_state &state, const packet_header &packet)
 {
     assert(!stopped);
+    state.packets++;
+    if (packet.heap_length < 0 && !state.allow_unsized_heaps)
+    {
+        log_info("packet rejected because it has no HEAP_LEN");
+        return false;
+    }
+
     // Look for matching heap.
     queue_entry *entry = NULL;
     s_item_pointer_t heap_cnt = packet.heap_cnt;
@@ -260,7 +301,6 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
             h->~live_heap();
         }
     }
-    state.packets++;
 
     if (end_of_stream)
         stop_received();

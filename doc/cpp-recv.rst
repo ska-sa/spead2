@@ -35,8 +35,11 @@ to avoid data loss when using UDP. To use this interface, subclass
 :cpp:class:`spead2::recv::stream` and implement :cpp:func:`heap_ready` and
 optionally override :cpp:func:`stop_received`.
 
+Note that some public functions are incorrectly listed as protected below due
+to limitations of the documentation tools.
+
 .. doxygenclass:: spead2::recv::stream
-   :members: emplace_reader, stop, stop_received, flush, heap_ready, get_stats
+   :members:
 
 .. doxygenstruct:: spead2::recv::stream_stats
    :members:
@@ -79,8 +82,61 @@ new allocators can be created by subclassing :cpp:class:`spead2::memory_allocato
 For an allocator set on a stream, a pointer to a
 :cpp:class:`spead2::recv::packet_header` is passed as a hint to the allocator,
 allowing memory to be placed according to information in the packet. Note that
-this can be any packet from the heap, so you must not rely on it being the
-initial packet.
+for unreliable transport this could be any packet from the heap, and you should
+not rely on it being the initial packet.
 
 .. doxygenclass:: spead2::memory_allocator
    :members: allocate, free
+
+
+Custom memory scatter
+---------------------------
+In specialised high-bandwidth cases, the overhead of assembling heaps in
+temporary storage before scattering the data into other arrangements can be
+very high. It is possible (since 1.11) to take complete control over the
+transfer of the payload of the SPEAD packets. Before embarking on such an
+approach, be sure you have a good understanding of the SPEAD protocol,
+particularly packets, heaps, item pointers and payload.
+
+In the simplest case, each heap needs to be written to some special or
+pre-allocated storage, but in a contiguous fashion. In this case it is
+sufficient to provide a custom allocator (see above), which will return a
+pointer to the target storage.
+
+In more complex cases, the contents of each heap, or even each packet, needs
+to be scattered to discontiguous storage areas. In this case, one can
+additionally override the memory copy function with
+:cpp:func:`~spead2::recv::stream_base::set_memcpy` and providing a
+:cpp:type:`~spead2::recv::packet_memcpy_function`.
+
+.. doxygentypedef:: spead2::recv::packet_memcpy_function
+
+It takes a pointer to the start of the heap's allocation (as returned by the
+allocator) and the packet metadata. The default implementation is equivalent
+to the following:
+
+.. code-block:: c++
+
+    void copy(const spead2::memory_allocator::pointer &allocation, const packet_header &packet)
+    {
+        memcpy(allocation.get() + packet.payload_offset, packet.payload, packet.payload_length);
+    }
+
+Note that when providing your own memory copy and allocator, you don't
+necessarily need the allocator to actually return a pointer to payload memory.
+It could, for example, populate a structure that guides the copy, and return a
+pointer to that; or it could return a null pointer. There are some caveats
+though:
+
+1. If the sender doesn't provide the heap length item, then spead2 may need to
+   make multiple allocations of increasing size as the heap grows, and each
+   time it will copy (with standard memcpy, rather than your custom one) the
+   old content to the new. Assuming you aren't expecting such packets, you can
+   reject them using
+   :cpp:func:`~spead2::recv::stream_base::set_allow_unsized_heaps`.
+
+2. :cpp:func:`spead2::recv::heap_base::get_items` constructs pointers to the items
+   on the assumption of the default memcpy function, so if your replacement
+   doesn't copy things to the same place, you obviously won't be able to use
+   those pointers. Note that :cpp:func:`~spead2::recv::heap::get_descriptors`
+   will also not be usable.
