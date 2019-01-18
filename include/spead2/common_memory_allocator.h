@@ -66,6 +66,12 @@ public:
      * Allocate @a size bytes of memory. The default implementation uses @c new
      * and pre-faults the memory.
      *
+     * The pointer type includes a custom deleter that takes a
+     * <code>void *</code> argument, which will be passed to @ref free. This
+     * can be used to pass extra information that is needed to free the
+     * memory. It is guaranteed that the base class will set this to
+     * @c nullptr.
+     *
      * @param size         Number of bytes to allocate
      * @param hint         Usage-dependent extra information
      * @returns Pointer to newly allocated memory
@@ -81,7 +87,7 @@ private:
      * Free memory previously returned from @ref allocate.
      *
      * @param ptr          Value returned by @ref allocate
-     * @param user         User-defined handle returned by @ref allocate
+     * @param user         User-defined handle stored in the deleter by @ref allocate
      */
     virtual void free(std::uint8_t *ptr, void *user);
 };
