@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Update type stubs for new features in 1.11.0.
+
 .. rubric:: 1.11.0
 
 - Add :py:attr:`spead2.recv.Stream.allow_unsized_heaps` to support rejecting
