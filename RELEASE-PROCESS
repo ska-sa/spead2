@@ -2,6 +2,7 @@
 - ./bootstrap.sh
 - Update version number in ChangeLog
 - Update version number in spead2/_version.py
+- Check that .pyi stubs have been updated
 - Check that Travis successfully tested the release
 - Run ./mkwheels.sh
 - Run ./setup.py sdist
@@ -10,3 +11,4 @@
 - Tag the release, git push --tags
 - Upload the sdist to PyPI with twine
 - Upload the sdist and wheels to github
+- Check that readthedocs has updated itself
