@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017 SKA South Africa
+/* Copyright 2015, 2017, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -650,11 +650,14 @@ py::module register_module(py::module &parent)
 
     py::class_<heap_wrapper>(m, "Heap")
         .def(py::init<flavour>(), "flavour"_a = flavour())
-        .def_property_readonly("flavour", &heap_wrapper::get_flavour)
+        .def_property_readonly("flavour", SPEAD2_PTMF(heap_wrapper, get_flavour))
         .def("add_item", SPEAD2_PTMF(heap_wrapper, add_item), "item"_a)
         .def("add_descriptor", SPEAD2_PTMF(heap_wrapper, add_descriptor), "descriptor"_a)
         .def("add_start", SPEAD2_PTMF(heap_wrapper, add_start))
-        .def("add_end", SPEAD2_PTMF(heap_wrapper, add_end));
+        .def("add_end", SPEAD2_PTMF(heap_wrapper, add_end))
+        .def_property("repeat_pointers",
+                      SPEAD2_PTMF(heap_wrapper, get_repeat_pointers),
+                      SPEAD2_PTMF(heap_wrapper, set_repeat_pointers));
 
     // keep_alive is safe to use here in spite of pybind/pybind11#856, because
     // the destructor of packet_generator doesn't reference the heap.

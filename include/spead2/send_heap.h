@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -126,6 +126,7 @@ class heap
     friend class packet_generator;
 private:
     flavour flavour_;
+    bool repeat_pointers = false;
 
     /// Items to write (including descriptors)
     std::vector<item> items;
@@ -221,6 +222,29 @@ public:
     void add_end()
     {
         add_item(STREAM_CTRL_ID, CTRL_STREAM_STOP);
+    }
+
+    /**
+     * Enable/disable repetition of item pointers in all packets.
+     *
+     * Usually this is not needed, but it can enable some specialised use
+     * cases where immediates can be recovered from incomplete heaps or where
+     * the receiver examines the item pointers in each packet to decide how
+     * to handle it. The packet size must be large enough to fit all the item
+     * pointers for the heap (the implementation also reserves a little space,
+     * so do not rely on a tight fit working).
+     *
+     * The default is disabled.
+     */
+    void set_repeat_pointers(bool repeat)
+    {
+        repeat_pointers = repeat;
+    }
+
+    /// Return the flag set by @ref set_repeat_pointers.
+    bool get_repeat_pointers() const
+    {
+        return repeat_pointers;
     }
 };
 

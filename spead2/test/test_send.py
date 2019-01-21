@@ -1,4 +1,4 @@
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -88,7 +88,7 @@ class Flavour(spead2.Flavour):
             ans.append(encode_be(8 - self.heap_address_bits // 8, length))
         return b''.join(ans)
 
-    def items_to_bytes(self, items, descriptors=None, max_packet_size=1500):
+    def items_to_bytes(self, items, descriptors=None, max_packet_size=1500, repeat_pointers=False):
         if descriptors is None:
             descriptors = items
         heap = send.Heap(self)
@@ -96,6 +96,7 @@ class Flavour(spead2.Flavour):
             heap.add_descriptor(descriptor)
         for item in items:
             heap.add_item(item)
+        heap.repeat_pointers = repeat_pointers
         gen = send.PacketGenerator(heap, 0x123456, max_packet_size)
         return list(gen)
 
@@ -393,6 +394,41 @@ class TestEncode(object):
         heap.add_end()
         packet = list(send.PacketGenerator(heap, 0x123456, 1500))
         assert_equal(hexlify(expected), hexlify(packet))
+
+    def test_replicate_pointers(self):
+        """Tests sending a heap with replicate_pointers set to true"""
+        id = 0x2345
+        data = np.arange(32, dtype=np.uint8)
+        item1 = spead2.Item(id=id, name='item1', description='addressed item',
+                            shape=data.shape, dtype=data.dtype, value=data)
+        item2 = spead2.Item(id=id+1, name='item2', description='inline item',
+                            shape=(), format=[('u', self.flavour.heap_address_bits)],
+                            value=0xdeadbeef)
+        expected = [
+            b''.join([
+                self.flavour.make_header(6),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 32),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 16),
+                self.flavour.make_address(id, 0),
+                self.flavour.make_immediate(id + 1, 0xdeadbeef),
+                data.tobytes()[0:16]
+            ]),
+            b''.join([
+                self.flavour.make_header(6),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 32),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 16),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 16),
+                self.flavour.make_address(id, 0),
+                self.flavour.make_immediate(id + 1, 0xdeadbeef),
+                data.tobytes()[16:32]
+            ])
+        ]
+        packets = self.flavour.items_to_bytes([item1, item2], [], max_packet_size=72,
+                                              repeat_pointers=True)
+        assert_equal(hexlify(expected), hexlify(packets))
 
 
 class TestStream(object):

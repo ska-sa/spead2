@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -76,6 +76,8 @@ packet_generator::packet_generator(
      * to mark the separation between the padding and the last item.
      */
     std::size_t item_packets = h.items.size() / max_item_pointers_per_packet + 1;
+    if (h.get_repeat_pointers() && item_packets > 1)
+        throw std::invalid_argument("packet size is too small to repeat item pointers");
     /* We want every packet to have some payload, so that packets can be
      * unambiguously ordered and lost packets can be detected. For all
      * packets except the last, we want a multiple of sizeof(item_pointer_t)
@@ -93,6 +95,12 @@ packet_generator::packet_generator(
 packet packet_generator::next_packet()
 {
     packet out;
+
+    if (h.get_repeat_pointers())
+    {
+        next_item_pointer = 0;
+        next_address = 0;
+    }
 
     if (payload_offset < payload_size)
     {

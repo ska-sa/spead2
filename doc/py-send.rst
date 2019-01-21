@@ -41,6 +41,39 @@ is paired with one heap generator, a convenience class
    .. automethod:: spead2.send.HeapGenerator.get_start
    .. automethod:: spead2.send.HeapGenerator.get_end
 
+.. py:class:: spead2.send.Heap(flavour=spead2.Flavour())
+
+   .. py:attribute:: repeat_pointers
+
+      Enable/disable repetition of item pointers in all packets.
+
+      Usually this is not needed, but it can enable some specialised use
+      cases where immediates can be recovered from incomplete heaps or where
+      the receiver examines the item pointers in each packet to decide how
+      to handle it. The packet size must be large enough to fit all the item
+      pointers for the heap (the implementation also reserves a little space,
+      so do not rely on a tight fit working).
+
+      The default is disabled.
+
+   .. py:method:: add_item(item)
+
+      Add an :py:class:`~spead2.Item` to the heap. This references the memory in
+      the item rather than copying it. It does *not* cause a descriptor to be
+      sent; use :py:meth:`add_descriptor` for that.
+
+   .. py:method:: add_descriptor(descriptor)
+
+      Add a :py:class:`~spead2.Descriptor` to the heap.
+
+   .. py:method:: add_start()
+
+      Convenience method to add a start-of-stream item.
+
+   .. py:method:: add_end()
+
+      Convenience method to add an end-of-stream item.
+
 Blocking send
 -------------
 
