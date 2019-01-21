@@ -401,7 +401,7 @@ class TestEncode(object):
         data = np.arange(32, dtype=np.uint8)
         item1 = spead2.Item(id=id, name='item1', description='addressed item',
                             shape=data.shape, dtype=data.dtype, value=data)
-        item2 = spead2.Item(id=id+1, name='item2', description='inline item',
+        item2 = spead2.Item(id=id + 1, name='item2', description='inline item',
                             shape=(), format=[('u', self.flavour.heap_address_bits)],
                             value=0xdeadbeef)
         expected = [
