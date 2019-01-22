@@ -100,7 +100,7 @@ implement the following interface, although this base class does not actually ex
       will have cnt `next`, and each following cnt will be incremented by
       `step`. When using this, it is the user's responsibility to ensure
       that the generated values remain unique. The initial state is `next` =
-      1, `cnt` = 1.
+      1, `step` = 1.
 
       This is useful when multiple senders will send heaps to the same
       receiver, and need to keep their heap cnts separate.
