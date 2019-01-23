@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <spead2/recv_reader.h>
+#include <spead2/recv_stream.h>
 
 namespace spead2
 {

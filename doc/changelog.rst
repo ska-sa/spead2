@@ -4,6 +4,8 @@ Changelog
 .. rubric:: Development version
 
 - Fix ``-c`` option to mcdump.
+- Fix a missing ``#include`` that could be exposed by including headers in a
+  particular order.
 
 .. rubric:: 1.11.1
 
