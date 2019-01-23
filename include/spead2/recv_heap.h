@@ -79,7 +79,7 @@ private:
     /**@}*/
 
     /* Copy inline immediate items and fix up pointers to it */
-    void transfer_immediates(heap_base &&other);
+    void transfer_immediates(heap_base &&other) noexcept;
 
 protected:
     /// Create the structures from a live heap, destroying it in the process.
@@ -92,8 +92,8 @@ protected:
 
 public:
     heap_base() = default;
-    heap_base(heap_base &&other);
-    heap_base &operator=(heap_base &&other);
+    heap_base(heap_base &&other) noexcept;
+    heap_base &operator=(heap_base &&other) noexcept;
 
     /// Get heap ID
     s_item_pointer_t get_cnt() const { return cnt; }

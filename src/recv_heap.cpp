@@ -49,7 +49,7 @@ static inline item_pointer_t load_bytes_be(const std::uint8_t *ptr, int len)
     return betoh<item_pointer_t>(out);
 }
 
-void heap_base::transfer_immediates(heap_base &&other)
+void heap_base::transfer_immediates(heap_base &&other) noexcept
 {
     if (!immediate_payload)
     {
@@ -61,7 +61,7 @@ void heap_base::transfer_immediates(heap_base &&other)
     }
 }
 
-heap_base::heap_base(heap_base &&other)
+heap_base::heap_base(heap_base &&other) noexcept
     : cnt(std::move(other.cnt)),
     flavour_(std::move(other.flavour_)),
     items(std::move(other.items)),
@@ -71,7 +71,7 @@ heap_base::heap_base(heap_base &&other)
     transfer_immediates(std::move(other));
 }
 
-heap_base &heap_base::operator=(heap_base &&other)
+heap_base &heap_base::operator=(heap_base &&other) noexcept
 {
     cnt = std::move(other.cnt);
     flavour_ = std::move(other.flavour_);

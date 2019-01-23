@@ -6,6 +6,8 @@ Changelog
 - Fix ``-c`` option to mcdump.
 - Fix a missing ``#include`` that could be exposed by including headers in a
   particular order.
+- Make :cpp:class:`spead2::recv::heap`'s move constructor and move assignment
+  operator ``noexcept``.
 
 .. rubric:: 1.11.1
 
