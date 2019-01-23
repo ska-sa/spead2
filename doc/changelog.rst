@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Fix ``-c`` option to mcdump.
+
 .. rubric:: 1.11.1
 
 - Update type stubs for new features in 1.11.0.

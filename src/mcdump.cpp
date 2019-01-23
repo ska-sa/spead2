@@ -1148,6 +1148,8 @@ void capture_mprq::network_thread()
             else if (len > 0)
             {
                 packets++;
+                if (remaining_count != std::numeric_limits<std::uint64_t>::max())
+                    remaining_count--;
                 std::size_t idx = c.n_records;
                 record_header &record = c.entries[idx].record;
                 record.incl_len = (len <= opts.snaplen) ? len : opts.snaplen;
@@ -1183,8 +1185,6 @@ void capture_mprq::network_thread()
                         report_rates(now);
                 }
             }
-            if (remaining_count != std::numeric_limits<std::uint64_t>::max())
-                remaining_count--;
             if (flags & IBV_EXP_CQ_RX_MULTI_PACKET_LAST_V1)
                 c.full = true;
         }
