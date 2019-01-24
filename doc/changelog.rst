@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 1.11.2
 
 - Fix ``-c`` option to :program:`mcdump`.
 - Fix a missing ``#include`` that could be exposed by including headers in a
