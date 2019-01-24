@@ -8,6 +8,7 @@ Changelog
   particular order.
 - Make :cpp:class:`spead2::recv::heap`'s move constructor and move assignment
   operator ``noexcept``.
+- Add a `long_description` to the Python metadata.
 
 .. rubric:: 1.11.1
 

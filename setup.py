@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2015, 2017 SKA South Africa
+# Copyright 2015, 2017, 2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -129,12 +129,16 @@ if not rtd:
 else:
     extensions = []
 
+with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme_file:
+    readme = readme_file.read()
+
 setup(
     author='Bruce Merry',
     author_email='bmerry@ska.ac.za',
     name='spead2',
     version=find_version(),
     description='High-performance SPEAD implementation',
+    long_description=readme,
     url='https://github.com/ska-sa/spead2',
     license='LGPLv3+',
     classifiers=[
