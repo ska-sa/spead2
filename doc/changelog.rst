@@ -3,7 +3,7 @@ Changelog
 
 .. rubric:: Development version
 
-- Fix ``-c`` option to mcdump.
+- Fix ``-c`` option to :program:`mcdump`.
 - Fix a missing ``#include`` that could be exposed by including headers in a
   particular order.
 - Make :cpp:class:`spead2::recv::heap`'s move constructor and move assignment
