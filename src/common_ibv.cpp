@@ -364,31 +364,6 @@ ibv_flow_t::ibv_flow_t(const ibv_qp_t &qp, ibv_flow_attr *flow_attr)
     reset(flow);
 }
 
-/**
- * Check if @a b is the next IP address after @a a.
- *
- * Behaviour is undefined if the addresses are not multicast addresses (in particular,
- * it does not try to cater for wraparound from 255.255.255.255 to 0.0.0.0).
- */
-static bool sequential(const boost::asio::ip::address_v4 &a,
-                       const boost::asio::ip::address_v4 &b)
-{
-    std::uint32_t a_raw = a.to_ulong();
-    std::uint32_t b_raw = b.to_ulong();
-    return b_raw == a_raw + 1;
-}
-
-/**
- * Check if @a a and @a b have the same port and sequential IPv4 addresses.
- *
- * Behaviour is undefined if the addresses are not IPv4 multicast addresses.
- */
-static bool sequential(const boost::asio::ip::udp::endpoint &a,
-                       const boost::asio::ip::udp::endpoint &b)
-{
-    return a.port() == b.port() && sequential(a.address().to_v4(), b.address().to_v4());
-}
-
 ibv_flow_t create_flow(
     const ibv_qp_t &qp, const boost::asio::ip::udp::endpoint &endpoint,
     int port_num, std::uint32_t mask)
@@ -441,69 +416,14 @@ std::vector<ibv_flow_t> create_flows(
     const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     int port_num)
 {
-    /* Compare endpoints by port first (unlike the builtin comparison), so that
-     * a sequence of addresses on the same port sort together.
+    /* Note: some NICs support flow rules with non-trivial masks. However,
+     * using such rules can lead to subtle problems when there are multiple
+     * receivers on the same NIC subscribing to common groups. See #66 for
+     * more details.
      */
-    auto cmp_endpoints = [](const boost::asio::ip::udp::endpoint &e1,
-                            const boost::asio::ip::udp::endpoint &e2) -> bool
-    {
-        if (e1.port() != e2.port())
-            return e1.port() < e2.port();
-        else
-            return e1.address() < e2.address();
-    };
-
-    // Get a sorted list of endpoints, using the given ones if already sorted
-    std::vector<boost::asio::ip::udp::endpoint> endpoints_copy;
-    bool is_sorted = std::is_sorted(endpoints.begin(), endpoints.end(), cmp_endpoints);
-    if (!is_sorted)
-    {
-        endpoints_copy = endpoints;
-        std::sort(endpoints_copy.begin(), endpoints_copy.end(), cmp_endpoints);
-    }
-    auto &ep = is_sorted ? endpoints : endpoints_copy;
-
     std::vector<ibv_flow_t> flows;
-    auto pos = ep.begin();
-    while (pos != ep.end())
-    {
-        // Find range of contiguous addresses with the same port
-        auto cur = pos;
-        auto tail = std::next(pos);
-        while (tail != ep.end() && sequential(*cur, *tail))
-        {
-            cur = tail;
-            ++tail;
-        }
-        // Break up this range into aligned power-of-two groups.
-        std::size_t n = tail - pos;
-        while (n > 0)
-        {
-            std::uint32_t pos_raw = pos->address().to_v4().to_ulong();
-            std::uint32_t mask = 0xFFFFFFFF;
-            while (mask != 0 && (pos_raw & ~(mask << 1)) == 0 && ~(mask << 1) < n)
-                mask <<= 1;
-            try
-            {
-                flows.push_back(create_flow(qp, *pos, port_num, mask));
-                pos += ~mask + 1;
-                n -= ~mask + 1;
-            }
-            catch (std::system_error)
-            {
-                /* Driver doesn't support non-trivial masks. Fall back to
-                 * adding a separate flow rule per endpoint.
-                 */
-                while (pos != ep.end())
-                {
-                    flows.push_back(create_flow(qp, *pos, port_num));
-                    ++pos;
-                }
-                n = 0;
-            }
-        }
-        pos = tail;
-    }
+    for (const auto &ep : endpoints)
+        flows.push_back(create_flow(qp, ep, port_num));
     return flows;
 }
 
