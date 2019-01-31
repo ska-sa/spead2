@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: 1.11.3
+
+- Undo the optimisation of using a single flow steering rule to cover multiple
+  multicast groups (see #11).
+
 .. rubric:: 1.11.2
 
 - Fix ``-c`` option to :program:`mcdump`.
