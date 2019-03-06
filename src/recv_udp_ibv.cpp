@@ -73,8 +73,8 @@ udp_ibv_reader_core::udp_ibv_reader_core(
     int comp_vector,
     int max_poll)
     : udp_reader_base(owner),
-    join_socket(owner.get_strand().get_io_service(), boost::asio::ip::udp::v4()),
-    comp_channel_wrapper(owner.get_strand().get_io_service()),
+    join_socket(owner.get_io_service(), boost::asio::ip::udp::v4()),
+    comp_channel_wrapper(owner.get_io_service()),
     max_size(max_size),
     max_poll(max_poll),
     stop_poll(false)
@@ -94,7 +94,7 @@ udp_ibv_reader_core::udp_ibv_reader_core(
     if (comp_vector >= 0)
     {
         comp_channel = ibv_comp_channel_t(cm_id);
-        comp_channel_wrapper = comp_channel.wrap(owner.get_strand().get_io_service());
+        comp_channel_wrapper = comp_channel.wrap(get_io_service());
     }
     // TODO: init recv_cq, flows, join in derived classes
 }

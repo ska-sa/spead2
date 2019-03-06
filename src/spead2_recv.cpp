@@ -285,11 +285,8 @@ public:
 
     virtual void stop_received() override
     {
-        if (!is_stopped())
-        {
-            spead2::recv::stream::stop_received();
-            stop_promise.set_value();
-        }
+        spead2::recv::stream::stop_received();
+        stop_promise.set_value();
     }
 
     std::int64_t join()

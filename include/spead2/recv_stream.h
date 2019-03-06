@@ -149,6 +149,9 @@ struct stream_stats
  */
 class stream_base
 {
+public:
+    struct add_packet_state;
+
 private:
     struct queue_entry
     {
@@ -186,6 +189,7 @@ private:
      * - @ref queue_storage
      * - @ref buckets
      * - @ref head
+     * - @ref stopped
      */
     mutable std::mutex queue_mutex;
 
@@ -209,7 +213,7 @@ private:
     std::shared_ptr<memory_allocator> allocator;
 
     /// @ref stop_received has been called, either externally or by stream control
-    std::atomic<bool> stopped{false};
+    bool stopped = false;
 
     /// Compute bucket number for a heap cnt
     std::size_t get_bucket(s_item_pointer_t heap_cnt) const;
@@ -235,6 +239,12 @@ private:
     /// Implementation of @ref flush that assumes the caller has locked @ref queue_mutex
     void flush_unlocked();
 
+    /// Implementation of @ref stop that assumes the caller has locked @ref queue_mutex
+    void stop_unlocked();
+
+    /// Implementation of @ref add_packet_state::add_packet
+    bool add_packet(add_packet_state &state, const packet_header &packet);
+
 protected:
     mutable std::mutex stats_mutex;
     stream_stats stats;
@@ -242,7 +252,7 @@ protected:
     /**
      * Shut down the stream. This calls @ref flush_unlocked. Subclasses may
      * override this to achieve additional effects, but must chain to the base
-     * implementation.
+     * implementation. It is guaranteed that it will only be called once.
      *
      * It is undefined what happens if @ref add_packet is called after a stream
      * is stopped.
@@ -276,6 +286,19 @@ public:
 
         explicit add_packet_state(stream_base &owner);
         ~add_packet_state();
+
+        bool is_stopped() const { return owner.stopped; }
+        /// Indicate that the stream has stopped (e.g. because the remote peer disconnected)
+        void stop() { owner.stop_unlocked(); }
+        /**
+         * Add a packet that was received, and which has been examined by @ref
+         * decode_packet, and returns @c true if it is consumed. Even though @ref
+         * decode_packet does some basic sanity-checking, it may still be rejected
+         * by @ref live_heap::add_packet e.g., because it is a duplicate.
+         *
+         * It is an error to call this after the stream has been stopped.
+         */
+        bool add_packet(const packet_header &packet) { return owner.add_packet(*this, packet); }
     };
 
     static constexpr std::size_t default_max_heaps = 4;
@@ -322,18 +345,6 @@ public:
     /// Get whether to allow heaps without HEAP_LENGTH
     bool get_allow_unsized_heaps() const;
 
-    /**
-     * Add a packet that was received, and which has been examined by @ref
-     * decode_packet, and returns @c true if it is consumed. Even though @ref
-     * decode_packet does some basic sanity-checking, it may still be rejected
-     * by @ref live_heap::add_packet e.g., because it is a duplicate.
-     *
-     * It is an error to call this after the stream has been stopped.
-     */
-    bool add_packet(add_packet_state &state, const packet_header &packet);
-
-    bool is_stopped() const { return stopped.load(); }
-
     bug_compat_mask get_bug_compat() const { return bug_compat; }
 
     /// Flush the collection of live heaps, passing them to @ref heap_ready.
@@ -345,22 +356,13 @@ public:
     void stop();
 
     /**
-     * Stop the stream while holding a @ref add_packet_state. This calls
-     * @ref stop_received.
-     */
-    void stop(add_packet_state &state);
-
-    /**
      * Return statistics about the stream. See the Python documentation.
      */
     stream_stats get_stats() const;
 };
 
 /**
- * Stream that is fed by subclasses of @ref reader. The stream provides a
- * strand, and readers should use it for callbacks that call
- * @ref stream_base::add_packet (so that if one thread is spending time there,
- * other threads in a thread pool remain available to service other streams).
+ * Stream that is fed by subclasses of @ref reader.
  *
  * The public interface to this class is thread-safe.
  */
@@ -372,15 +374,18 @@ private:
     /// Holder that just ensures that the thread pool doesn't vanish
     std::shared_ptr<thread_pool> thread_pool_holder;
 
-    /// Strand to ensure that multiple readers don't try to @ref add_packet simultaneously
-    boost::asio::io_service::strand strand;
+    /// I/O service used by the readers
+    boost::asio::io_service &io_service;
 
-    /// Protects mutable state (@ref readers, @ref lossy).
+    /// Protects mutable state (@ref readers, @ref stop_readers, @ref lossy).
     mutable std::mutex reader_mutex;
     /**
      * Readers providing the stream data.
      */
     std::vector<std::unique_ptr<reader> > readers;
+
+    /// Set to true to indicate that no new readers should be added
+    bool stop_readers = false;
 
     /// True if any lossy reader has been added
     bool lossy = false;
@@ -402,31 +407,6 @@ private:
 protected:
     virtual void stop_received() override;
 
-    /**
-     * Schedule execution of the function object @a callback through the @c
-     * io_service using the strand, and block until it completes. If the
-     * function throws an exception, it is rethrown in this thread.
-     */
-    template<typename F>
-    typename std::result_of<F()>::type run_in_strand(F &&func)
-    {
-        typedef typename std::result_of<F()>::type return_type;
-        std::packaged_task<return_type()> task(std::forward<F>(func));
-        auto future = task.get_future();
-        get_strand().dispatch([&task]
-        {
-            /* This is subtle: task lives on the run_in_strand stack frame, so
-             * we have to be very careful not to touch it after that function
-             * exits. Calling task() directly can continue to touch task even
-             * after it has unblocked the future. But the move constructor for
-             * packaged_task will take over the shared state for the future.
-             */
-            std::packaged_task<return_type()> my_task(std::move(task));
-            my_task();
-        });
-        return future.get();
-    }
-
     /// Actual implementation of @ref stop
     void stop_impl();
 
@@ -442,10 +422,10 @@ public:
     using stream_base::get_allow_unsized_heaps;
     using stream_base::get_stats;
 
-    boost::asio::io_service::strand &get_strand() { return strand; }
-
     explicit stream(io_service_ref io_service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
     virtual ~stream() override;
+
+    boost::asio::io_service &get_io_service() { return io_service; }
 
     /**
      * Add a new reader by passing its constructor arguments, excluding
@@ -456,7 +436,7 @@ public:
     {
         std::lock_guard<std::mutex> lock(reader_mutex);
         // See comments in stop_impl for why we do this check
-        if (!is_stopped())
+        if (!stop_readers)
         {
             // Guarantee space before constructing the reader
             readers.emplace_back(nullptr);

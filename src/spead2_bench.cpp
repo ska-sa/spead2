@@ -470,11 +470,8 @@ private:
 
     virtual void stop_received() override
     {
-        if (!is_stopped())
-        {
-            spead2::recv::stream::stop_received();
-            stopped_promise.set_value();
-        }
+        spead2::recv::stream::stop_received();
+        stopped_promise.set_value();
     }
 
 public:

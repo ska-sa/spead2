@@ -117,7 +117,7 @@ protected:
      * Retrieve packets from the completion queue and process them.
      *
      * This is called from the io_service either when the completion channel
-     * is notified (non-polling mode) or by a post to the strand (polling
+     * is notified (non-polling mode) or by a post to the io_service (polling
      * mode).
      *
      * If @a consume_event is true, an event should be removed and consumed
@@ -139,24 +139,25 @@ template<typename Derived>
 void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_code &error,
                                                   bool consume_event)
 {
+    stream_base::add_packet_state state(get_stream_base());
+
     bool need_poll = true;
     if (!error)
     {
-        if (get_stream_base().is_stopped())
+        if (consume_event)
+        {
+            ibv_cq *event_cq;
+            void *event_context;
+            comp_channel.get_event(&event_cq, &event_context);
+            // TODO: defer acks until shutdown
+            recv_cq.ack_events(1);
+        }
+        if (state.is_stopped())
         {
             log_info("UDP reader: discarding packet received after stream stopped");
         }
         else
         {
-            stream_base::add_packet_state state(get_stream_base());
-            if (consume_event)
-            {
-                ibv_cq *event_cq;
-                void *event_context;
-                comp_channel.get_event(&event_cq, &event_context);
-                // TODO: defer acks until shutdown
-                recv_cq.ack_events(1);
-            }
             for (int i = 0; i < max_poll; i++)
             {
                 if (comp_channel)
@@ -193,7 +194,7 @@ void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_cod
     else if (error != boost::asio::error::operation_aborted)
         log_warning("Error in UDP receiver: %1%", error.message());
 
-    if (!get_stream_base().is_stopped())
+    if (!state.is_stopped())
     {
         enqueue_receive(need_poll);
     }
@@ -210,13 +211,12 @@ void udp_ibv_reader_base<Derived>::enqueue_receive(bool need_poll)
         // Asynchronous mode
         comp_channel_wrapper.async_read_some(
             boost::asio::null_buffers(),
-            get_stream().get_strand().wrap(
-                std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1, true)));
+            std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1, true));
     }
     else
     {
         // Polling mode
-        get_stream().get_strand().post(
+        get_io_service().post(
             std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this,
                       boost::system::error_code(), false));
     }

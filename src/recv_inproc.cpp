@@ -36,7 +36,7 @@ inproc_reader::inproc_reader(
     std::shared_ptr<inproc_queue> queue)
     : reader(owner),
     queue(std::move(queue)),
-    data_sem_wrapper(wrap_fd(get_io_service(),
+    data_sem_wrapper(wrap_fd(owner.get_io_service(),
                              this->queue->buffer.get_data_sem().get_fd()))
 {
     enqueue();
@@ -49,7 +49,7 @@ void inproc_reader::process_one_packet(stream_base::add_packet_state &state,
     std::size_t size = decode_packet(header, packet.data.get(), packet.size);
     if (size == packet.size)
     {
-        get_stream_base().add_packet(state, header);
+        state.add_packet(header);
     }
     else if (size != 0)
     {
@@ -61,13 +61,13 @@ void inproc_reader::packet_handler(
     const boost::system::error_code &error,
     std::size_t bytes_transferred)
 {
-    if (get_stream_base().is_stopped())
+    stream_base::add_packet_state state(get_stream_base());
+    if (state.is_stopped())
     {
         log_info("inproc reader: discarding packet received after stream stopped");
     }
     else
     {
-        stream_base::add_packet_state state(get_stream_base());
         try
         {
             inproc_queue::packet packet = queue->buffer.try_pop();
@@ -76,14 +76,14 @@ void inproc_reader::packet_handler(
         }
         catch (ringbuffer_stopped)
         {
-            get_stream_base().stop(state);
+            state.stop();
         }
         catch (ringbuffer_empty)
         {
             // spurious wakeup - no action needed
         }
     }
-    if (!get_stream_base().is_stopped())
+    if (!state.is_stopped())
         enqueue();
     else
     {
@@ -97,7 +97,7 @@ void inproc_reader::enqueue()
     using namespace std::placeholders;
     data_sem_wrapper.async_read_some(
         boost::asio::null_buffers(),
-        get_stream().get_strand().wrap(std::bind(&inproc_reader::packet_handler, this, _1, _2)));
+        std::bind(&inproc_reader::packet_handler, this, _1, _2));
 }
 
 void inproc_reader::stop()

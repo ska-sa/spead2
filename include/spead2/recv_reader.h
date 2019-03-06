@@ -65,8 +65,7 @@ public:
     stream &get_stream() const { return owner; }
 
     /**
-     * Retrieve the wrapped stream's base class. This must only be used when
-     * the stream's strand is held.
+     * Retrieve the wrapped stream's base class.
      */
     stream_base &get_stream_base() const;
 
@@ -75,9 +74,9 @@ public:
 
     /**
      * Cancel any pending asynchronous operations. This is called with the
-     * owner's strand held. This function does not need to wait for
-     * completion handlers to run, but if there are any, the destructor must
-     * wait for them.
+     * owner's queue_mutex held. This function does not need to wait for
+     * completion handlers to run, but it must schedule a call to @ref
+     * stopped.
      */
     virtual void stop() = 0;
 

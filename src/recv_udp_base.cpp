@@ -1,4 +1,4 @@
-/* Copyright 2016 SKA South Africa
+/* Copyright 2016, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -45,8 +45,8 @@ bool udp_reader_base::process_one_packet(
         std::size_t size = decode_packet(packet, data, length);
         if (size == length)
         {
-            get_stream_base().add_packet(state, packet);
-            if (get_stream_base().is_stopped())
+            state.add_packet(packet);
+            if (state.is_stopped())
             {
                 log_debug("UDP reader: end of stream detected");
                 stopped = true;

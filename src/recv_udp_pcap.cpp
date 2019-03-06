@@ -38,11 +38,10 @@ void udp_pcap_file_reader::run()
 {
     const int BATCH = 64;  // maximum number of packets to process in one go
 
-    spead2::recv::stream_base &s = get_stream_base();
-    spead2::recv::stream_base::add_packet_state state(s);
+    spead2::recv::stream_base::add_packet_state state(get_stream_base());
     for (int pass = 0; pass < BATCH; pass++)
     {
-        if (s.is_stopped())
+        if (state.is_stopped())
             break;
         struct pcap_pkthdr *h;
         const u_char *pkt_data;
@@ -78,13 +77,13 @@ void udp_pcap_file_reader::run()
             break;
         case -2:
             // End of file
-            s.stop(state);
+            state.stop();
             break;
         }
     }
     // Run ourselves again
-    if (!s.is_stopped())
-        get_stream().get_strand().post([this] { run(); });
+    if (!state.is_stopped())
+        get_io_service().post([this] { run(); });
     else
         stopped();
 }
@@ -112,7 +111,7 @@ udp_pcap_file_reader::udp_pcap_file_reader(stream &owner, const std::string &fil
     pcap_freecode(&filter);
 
     // Process the file
-    get_stream().get_strand().post([this] { run(); });
+    get_io_service().post([this] { run(); });
 }
 
 udp_pcap_file_reader::~udp_pcap_file_reader()

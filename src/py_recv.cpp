@@ -109,7 +109,7 @@ private:
 
     boost::asio::ip::address make_address(const std::string &hostname)
     {
-        return make_address_no_release(get_strand().get_io_service(), hostname,
+        return make_address_no_release(get_io_service(), hostname,
                                        boost::asio::ip::udp::resolver::query::passive);
     }
 
@@ -208,7 +208,7 @@ public:
         else
         {
             deprecation_warning("passing unbound socket plus port is deprecated");
-            auto asio_socket = socket->copy(get_strand().get_io_service());
+            auto asio_socket = socket->copy(get_io_service());
             py::gil_scoped_release gil;
             auto endpoint = make_endpoint<boost::asio::ip::udp>(bind_hostname, port);
             emplace_reader<udp_reader>(std::move(asio_socket), endpoint, max_size, buffer_size);
@@ -219,7 +219,7 @@ public:
         const socket_wrapper<boost::asio::ip::udp::socket> &socket,
         std::size_t max_size = udp_reader::default_max_size)
     {
-        auto asio_socket = socket.copy(get_strand().get_io_service());
+        auto asio_socket = socket.copy(get_io_service());
         py::gil_scoped_release gil;
         emplace_reader<udp_reader>(std::move(asio_socket), max_size);
     }
@@ -263,7 +263,7 @@ public:
         const socket_wrapper<boost::asio::ip::tcp::acceptor> &acceptor,
         std::size_t max_size)
     {
-        auto asio_socket = acceptor.copy(get_strand().get_io_service());
+        auto asio_socket = acceptor.copy(get_io_service());
         py::gil_scoped_release gil;
         emplace_reader<tcp_reader>(std::move(asio_socket), max_size);
     }

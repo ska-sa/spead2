@@ -28,8 +28,10 @@ namespace recv
 
 void reader::stopped()
 {
+    // Schedule it to run later so that at the time it occurs there are no
+    // further references to *this.
     stream *owner_ptr = &owner;
-    owner.get_strand().post([owner_ptr] { owner_ptr->readers_stopped.put(); });
+    get_io_service().post([owner_ptr] { owner_ptr->readers_stopped.put(); });
 }
 
 bool reader::lossy() const
@@ -39,7 +41,7 @@ bool reader::lossy() const
 
 boost::asio::io_service &reader::get_io_service()
 {
-    return owner.get_strand().get_io_service();
+    return owner.get_io_service();
 }
 
 stream_base &reader::get_stream_base() const

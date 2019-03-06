@@ -1,4 +1,4 @@
-/* Copyright 2015, 2018 SKA South Africa
+/* Copyright 2015, 2018-2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -67,9 +67,9 @@ netmap_udp_reader::netmap_udp_reader(stream &owner, const std::string &device, s
 
 void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
 {
+    stream_base::add_packet_state state(get_stream_base());
     if (!error)
     {
-        stream_base::add_packet_state state(get_stream_base());
         for (int ri = desc->first_rx_ring; ri <= desc->last_rx_ring; ri++)
         {
             netmap_ring *ring = NETMAP_RXRING(desc->nifp, ri);
@@ -113,8 +113,8 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                         std::size_t size = decode_packet(packet, payload.data(), payload.size());
                         if (size == payload.size())
                         {
-                            get_stream_base().add_packet(state, packet);
-                            if (get_stream_base().is_stopped())
+                            state.add_packet(packet);
+                            if (state.is_stopped())
                                 log_debug("netmap_udp_reader: end of stream detected");
                         }
                         else if (size != 0)
@@ -133,7 +133,7 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
     else
         log_warning("error in netmap receive: %1% (%2%)", error.value(), error.message());
 
-    if (get_stream_base().is_stopped())
+    if (state.is_stopped())
         stopped();
     else
         enqueue_receive();
@@ -144,7 +144,7 @@ void netmap_udp_reader::enqueue_receive()
     using namespace std::placeholders;
     handle.async_read_some(
         boost::asio::null_buffers(),
-        get_stream().get_strand().wrap(std::bind(&netmap_udp_reader::packet_handler, this, _1)));
+        std::bind(&netmap_udp_reader::packet_handler, this, _1));
 }
 
 void netmap_udp_reader::stop()

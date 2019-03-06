@@ -222,6 +222,8 @@ stream_base::add_packet_state::add_packet_state(stream_base &owner)
 stream_base::add_packet_state::~add_packet_state()
 {
     std::lock_guard<std::mutex> stats_lock(owner.stats_mutex);
+    if (!packets && is_stopped())
+        return;   // Stream was stopped before we could do anything - don't count as a batch
     owner.stats.packets += packets;
     owner.stats.batches++;
     owner.stats.heaps += complete_heaps + incomplete_heaps_evicted;
@@ -334,19 +336,21 @@ void stream_base::flush()
     flush_unlocked();
 }
 
-void stream_base::stop(add_packet_state &state)
+void stream_base::stop_unlocked()
 {
-    stop_received();
+    if (!stopped)
+        stop_received();
 }
 
 void stream_base::stop()
 {
     std::lock_guard<std::mutex> lock(queue_mutex);
-    stop_received();
+    stop_unlocked();
 }
 
 void stream_base::stop_received()
 {
+    assert(!stopped);
     stopped = true;
     flush_unlocked();
 }
@@ -362,38 +366,29 @@ stream_stats stream_base::get_stats() const
 stream::stream(io_service_ref io_service, bug_compat_mask bug_compat, std::size_t max_heaps)
     : stream_base(bug_compat, max_heaps),
     thread_pool_holder(std::move(io_service).get_shared_thread_pool()),
-    strand(*io_service)
+    io_service(*io_service)
 {
 }
 
 void stream::stop_received()
 {
-    /* Check for already stopped, so that readers are stopped exactly once.
-     * This function is always called with queue_mutex, so there is no race
-     * condition between the check and the actual stop.
-     */
-    if (!is_stopped())
-    {
-        stream_base::stop_received();
-        std::lock_guard<std::mutex> lock(reader_mutex);
-        for (const auto &reader : readers)
-            reader->stop();
-    }
+    stream_base::stop_received();
+    std::lock_guard<std::mutex> lock(reader_mutex);
+    for (const auto &reader : readers)
+        reader->stop();
 }
 
 void stream::stop_impl()
 {
     stream_base::stop();
 
-    /* Note that emplace_reader either happens-before the stop_received call
-     * above or sees that the stream has been stopped and does not touch the
-     * readers list. So no new readers will be added after taking the lock
-     * below. Also, stop_impl is only ever called once, so readers won't be
-     * removed either.
-     */
     std::size_t n_readers;
     {
         std::lock_guard<std::mutex> lock(reader_mutex);
+        /* Prevent any further calls to emplace_reader from doing anything, so
+         * that n_readers will remain accurate.
+         */
+        stop_readers = true;
         n_readers = readers.size();
     }
 
@@ -403,7 +398,14 @@ void stream::stop_impl()
         semaphore_get(readers_stopped);
         n_readers--;
     }
-    readers.clear();
+
+    {
+        /* This lock is not strictly needed since no other thread can touch
+         * readers any more, but is harmless.
+         */
+        std::lock_guard<std::mutex> lock(reader_mutex);
+        readers.clear();
+    }
 }
 
 void stream::stop()
@@ -426,13 +428,13 @@ stream::~stream()
 const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::size_t length)
 {
     stream_base::add_packet_state state(s);
-    while (length > 0 && !s.is_stopped())
+    while (length > 0 && !state.is_stopped())
     {
         packet_header packet;
         std::size_t size = decode_packet(packet, ptr, length);
         if (size > 0)
         {
-            s.add_packet(state, packet);
+            state.add_packet(packet);
             ptr += size;
             length -= size;
         }

@@ -76,13 +76,13 @@ private:
         std::size_t bytes_transferred);
 
     /// Processes the content of the buffer, returns true if more reading needs to be enqueued
-    bool process_buffer(const std::size_t bytes_recv);
+    bool process_buffer(stream_base::add_packet_state &state, const std::size_t bytes_recv);
 
     /// Parses the size of the next packet to read from the stream, returns true if more data needs to be read to parse the packet size correctly
     bool parse_packet_size();
 
     /// Parses the next packet out of the stream, returns false if the contents of the current stream are not enough
-    bool parse_packet();
+    bool parse_packet(stream_base::add_packet_state &state);
 
     /// Ignores bytes from the stream according to @a to_skip, returns true if more data needs to be read and skipped
     bool skip_bytes();
