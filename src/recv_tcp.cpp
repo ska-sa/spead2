@@ -98,7 +98,7 @@ void tcp_reader::packet_handler(
     }
     else if (error == boost::asio::error::eof)
     {
-        get_stream_base().stop_received();
+        get_stream_base().stop();
         read_more = false;
     }
     else if (error != boost::asio::error::operation_aborted)

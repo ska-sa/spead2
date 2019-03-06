@@ -1,4 +1,4 @@
-/* Copyright 2016-2017 SKA South Africa
+/* Copyright 2016-2017, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -78,7 +78,7 @@ void udp_pcap_file_reader::run()
             break;
         case -2:
             // End of file
-            s.stop_received();
+            s.stop(state);
             break;
         }
     }

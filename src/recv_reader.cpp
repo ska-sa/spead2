@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -28,7 +28,8 @@ namespace recv
 
 void reader::stopped()
 {
-    stopped_promise.set_value();
+    stream *owner_ptr = &owner;
+    owner.get_strand().post([owner_ptr] { owner_ptr->readers_stopped.put(); });
 }
 
 bool reader::lossy() const
@@ -44,11 +45,6 @@ boost::asio::io_service &reader::get_io_service()
 stream_base &reader::get_stream_base() const
 {
     return owner;
-}
-
-void reader::join()
-{
-    stopped_promise.get_future().get();
 }
 
 } // namespace recv

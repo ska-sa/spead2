@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -311,7 +311,7 @@ std::vector<descriptor> heap::get_descriptors() const
             s.flush();
         }
     }
-    s.stop_received();
+    s.stop();
     return s.descriptors;
 }
 

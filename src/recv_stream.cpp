@@ -151,13 +151,13 @@ void stream_base::set_memory_pool(std::shared_ptr<memory_pool> pool)
 
 void stream_base::set_memory_allocator(std::shared_ptr<memory_allocator> allocator)
 {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::lock_guard<std::mutex> lock(config_mutex);
     this->allocator = std::move(allocator);
 }
 
 void stream_base::set_memcpy(packet_memcpy_function memcpy)
 {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::lock_guard<std::mutex> lock(config_mutex);
     this->memcpy = memcpy;
 }
 
@@ -187,32 +187,32 @@ void stream_base::set_memcpy(memcpy_function_id id)
 
 void stream_base::set_stop_on_stop_item(bool stop)
 {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::lock_guard<std::mutex> lock(config_mutex);
     stop_on_stop_item = stop;
 }
 
 bool stream_base::get_stop_on_stop_item() const
 {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::lock_guard<std::mutex> lock(config_mutex);
     return stop_on_stop_item;
 }
 
 void stream_base::set_allow_unsized_heaps(bool allow)
 {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::lock_guard<std::mutex> lock(config_mutex);
     allow_unsized_heaps = allow;
 }
 
 bool stream_base::get_allow_unsized_heaps() const
 {
-    std::lock_guard<std::mutex> lock(mutex);
+    std::lock_guard<std::mutex> lock(config_mutex);
     return allow_unsized_heaps;
 }
 
 stream_base::add_packet_state::add_packet_state(stream_base &owner)
-    : owner(owner)
+    : owner(owner), lock(owner.queue_mutex)
 {
-    std::lock_guard<std::mutex> lock(owner.mutex);
+    std::lock_guard<std::mutex> config_lock(owner.config_mutex);
     allocator = owner.allocator;
     memcpy = owner.memcpy;
     stop_on_stop_item = owner.stop_on_stop_item;
@@ -307,7 +307,7 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
     return result;
 }
 
-void stream_base::flush()
+void stream_base::flush_unlocked()
 {
     std::size_t n_flushed = 0;
     for (std::size_t i = 0; i < max_heaps; i++)
@@ -328,33 +328,54 @@ void stream_base::flush()
     stats.incomplete_heaps_flushed += n_flushed;
 }
 
+void stream_base::flush()
+{
+    std::lock_guard<std::mutex> lock(queue_mutex);
+    flush_unlocked();
+}
+
+void stream_base::stop(add_packet_state &state)
+{
+    stop_received();
+}
+
+void stream_base::stop()
+{
+    std::lock_guard<std::mutex> lock(queue_mutex);
+    stop_received();
+}
+
 void stream_base::stop_received()
 {
     stopped = true;
-    flush();
+    flush_unlocked();
 }
 
-
-stream::stream(io_service_ref io_service, bug_compat_mask bug_compat, std::size_t max_heaps)
-    : stream_base(bug_compat, max_heaps),
-    thread_pool_holder(std::move(io_service).get_shared_thread_pool()),
-    strand(*io_service), lossy(false)
-{
-}
-
-stream_stats stream::get_stats() const
+stream_stats stream_base::get_stats() const
 {
     std::lock_guard<std::mutex> stats_lock(stats_mutex);
     stream_stats ret = stats;
     return ret;
 }
 
+
+stream::stream(io_service_ref io_service, bug_compat_mask bug_compat, std::size_t max_heaps)
+    : stream_base(bug_compat, max_heaps),
+    thread_pool_holder(std::move(io_service).get_shared_thread_pool()),
+    strand(*io_service)
+{
+}
+
 void stream::stop_received()
 {
-    // Check for already stopped, so that readers are stopped exactly once
+    /* Check for already stopped, so that readers are stopped exactly once.
+     * This function is always called with queue_mutex, so there is no race
+     * condition between the check and the actual stop.
+     */
     if (!is_stopped())
     {
         stream_base::stop_received();
+        std::lock_guard<std::mutex> lock(reader_mutex);
         for (const auto &reader : readers)
             reader->stop();
     }
@@ -362,25 +383,38 @@ void stream::stop_received()
 
 void stream::stop_impl()
 {
-    run_in_strand([this] { stop_received(); });
+    stream_base::stop();
 
-    /* Block until all readers have entered their final completion handler.
-     * Note that this cannot conflict with a previously issued emplace_reader,
-     * because its emplace_reader_callback either happens-before the
-     * stop_received call above or sees that the stream has been stopped and
-     * does not touch the readers list.
+    /* Note that emplace_reader either happens-before the stop_received call
+     * above or sees that the stream has been stopped and does not touch the
+     * readers list. So no new readers will be added after taking the lock
+     * below. Also, stop_impl is only ever called once, so readers won't be
+     * removed either.
      */
-    for (const auto &r : readers)
-        r->join();
+    std::size_t n_readers;
+    {
+        std::lock_guard<std::mutex> lock(reader_mutex);
+        n_readers = readers.size();
+    }
 
-    // Destroy the readers with the strand held, to ensure that the
-    // completion handlers have actually returned.
-    run_in_strand([this] { readers.clear(); });
+    // Wait until all readers have wound up all their completion handlers
+    while (n_readers > 0)
+    {
+        semaphore_get(readers_stopped);
+        n_readers--;
+    }
+    readers.clear();
 }
 
 void stream::stop()
 {
     std::call_once(stop_once, [this] { stop_impl(); });
+}
+
+bool stream::is_lossy() const
+{
+    std::lock_guard<std::mutex> lock(reader_mutex);
+    return lossy;
 }
 
 stream::~stream()

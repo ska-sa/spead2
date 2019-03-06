@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -38,16 +38,20 @@ class stream_base;
  * a stream. Subclasses will usually override @ref stop.
  *
  * The lifecycle of a reader is:
- * - construction (strand held)
- * - stop (strand held)
- * - join (strand not held)
- * - destruction (strand held)
+ * - construction
+ * - @ref stop (called with queue_mutex held)
+ * - destruction
+ *
+ * All of the above occur with @ref stream::reader_lock held.
+ *
+ * Once the reader has completed its work (whether because @ref stop was called or
+ * because of network input), it must call @ref stopped to indicate that
+ * it can be safely destroyed.
  */
 class reader
 {
 private:
     stream &owner;  ///< Owning stream
-    std::promise<void> stopped_promise; ///< Promise filled when last completion handler done
 
 protected:
     /// Called by last completion handler
@@ -83,12 +87,6 @@ public:
      * should be given when the consumer is applying back-pressure.
      */
     virtual bool lossy() const;
-
-    /**
-     * Block until @ref stopped has been called by the last completion
-     * handler. This function is called outside the strand.
-     */
-    void join();
 };
 
 /**

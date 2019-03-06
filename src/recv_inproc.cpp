@@ -1,4 +1,4 @@
-/* Copyright 2018 SKA South Africa
+/* Copyright 2018-2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -76,7 +76,7 @@ void inproc_reader::packet_handler(
         }
         catch (ringbuffer_stopped)
         {
-            get_stream_base().stop_received();
+            get_stream_base().stop(state);
         }
         catch (ringbuffer_empty)
         {

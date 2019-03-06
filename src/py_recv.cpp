@@ -477,7 +477,8 @@ py::module register_module(py::module &parent)
              "queue"_a)
         .def("stop", SPEAD2_PTMF(ring_stream_wrapper, stop))
         .def_property_readonly("fd", SPEAD2_PTMF(ring_stream_wrapper, get_fd))
-        .def_property_readonly("stats", SPEAD2_PTMF(ring_stream_wrapper, get_stats))
+        // SPEAD2_PTMF doesn't work for get_stats because it's defined in stream_base, which is a protected ancestor
+        .def_property_readonly("stats", [](const ring_stream_wrapper &stream) { return stream.get_stats(); })
         .def_property_readonly("ringbuffer", SPEAD2_PTMF(ring_stream_wrapper, get_ringbuffer))
 #if SPEAD2_USE_IBV
         .def_readonly_static("DEFAULT_UDP_IBV_MAX_SIZE", &udp_ibv_reader::default_max_size)

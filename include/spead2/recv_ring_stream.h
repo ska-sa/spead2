@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -168,10 +168,14 @@ void ring_stream<Ringbuffer>::heap_ready(live_heap &&h)
             }
             catch (ringbuffer_full &e)
             {
+                bool lossy = is_lossy();
                 if (lossy)
                     log_warning("worker thread blocked by full ringbuffer on heap %d",
                                 h.get_cnt());
-                stats.worker_blocked++;
+                {
+                    std::lock_guard<std::mutex> lock(stats_mutex);
+                    stats.worker_blocked++;
+                }
                 ready_heaps.push(std::move(h));
                 if (lossy)
                     log_debug("worker thread unblocked, heap %d pushed", h.get_cnt());
@@ -249,9 +253,9 @@ template<typename Ringbuffer>
 void ring_stream<Ringbuffer>::stop()
 {
     /* Make sure the ringbuffer is stopped *before* the base implementation
-     * takes the strand. Without this, a heap_ready call could be blocking the
-     * strand, waiting for space in the ring buffer. This will cause the
-     * heap_ready call to abort, allowing the strand to be accessed for the
+     * takes the queue_mutex. Without this, a heap_ready call could be holding
+     * the mutex, waiting for space in the ring buffer. This will cause the
+     * heap_ready call to abort, allowing the mutex to be taken for the
      * rest of the shutdown.
      */
     ready_heaps.stop();
