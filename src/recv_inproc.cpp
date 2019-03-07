@@ -62,27 +62,33 @@ void inproc_reader::packet_handler(
     std::size_t bytes_transferred)
 {
     stream_base::add_packet_state state(get_stream_base());
-    if (state.is_stopped())
+    if (!error)
     {
-        log_info("inproc reader: discarding packet received after stream stopped");
+        if (state.is_stopped())
+        {
+            log_info("inproc reader: discarding packet received after stream stopped");
+        }
+        else
+        {
+            try
+            {
+                inproc_queue::packet packet = queue->buffer.try_pop();
+                process_one_packet(state, packet);
+                /* TODO: could grab a batch of packets to amortise costs */
+            }
+            catch (ringbuffer_stopped)
+            {
+                state.stop();
+            }
+            catch (ringbuffer_empty)
+            {
+                // spurious wakeup - no action needed
+            }
+        }
     }
-    else
-    {
-        try
-        {
-            inproc_queue::packet packet = queue->buffer.try_pop();
-            process_one_packet(state, packet);
-            /* TODO: could grab a batch of packets to amortise costs */
-        }
-        catch (ringbuffer_stopped)
-        {
-            state.stop();
-        }
-        catch (ringbuffer_empty)
-        {
-            // spurious wakeup - no action needed
-        }
-    }
+    else if (error != boost::asio::error::operation_aborted)
+        log_warning("Error in inproc receiver: %1%", error.message());
+
     if (!state.is_stopped())
         enqueue();
     else
