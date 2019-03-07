@@ -625,6 +625,8 @@ class TestDecode(object):
         if assert_logs is not None:
             with assert_logs('spead2', 'INFO') as cm:
                 heaps = self.data_to_heaps(packet, allow_unsized_heaps=False)
+                # Logging is asynchronous, so we have to give it a bit of time
+                time.sleep(0.1)
             assert_equal(cm.output, ['INFO:spead2:packet rejected because it has no HEAP_LEN'])
         else:
             # Python 2 fallback
