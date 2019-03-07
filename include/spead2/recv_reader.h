@@ -39,7 +39,7 @@ class stream_base;
  *
  * The lifecycle of a reader is:
  * - construction
- * - @ref stop (called with queue_mutex held)
+ * - @ref stop (called with @ref stream_base::queue_mutex held)
  * - destruction
  *
  * All of the above occur with @ref stream::reader_mutex held.
@@ -65,18 +65,19 @@ public:
     stream &get_stream() const { return owner; }
 
     /**
-     * Retrieve the wrapped stream's base class.
+     * Retrieve the wrapped stream's base class. This is normally only used
+     * to construct a @ref stream_base::add_packet_state.
      */
     stream_base &get_stream_base() const;
 
-    /// Retrieve the io_service corresponding to the owner
+    /// Retrieve the @c io_service corresponding to the owner
     boost::asio::io_service &get_io_service();
 
     /**
      * Cancel any pending asynchronous operations. This is called with the
-     * owner's queue_mutex held. This function does not need to wait for
-     * completion handlers to run, but it must schedule a call to @ref
-     * stopped.
+     * owner's queue_mutex and reader_mutex held. This function does not need
+     * to wait for completion handlers to run, but it must schedule a call to
+     * @ref stopped.
      */
     virtual void stop() = 0;
 

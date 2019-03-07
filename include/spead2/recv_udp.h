@@ -59,6 +59,9 @@ private:
      * to shut down the reader while racing with the recvmmsg call. The
      * close call will just cancel pending handlers, without causing us to
      * read from a closed file descriptor.
+     *
+     * TODO: probably no longer needed, since stop() is called with the
+     * queue_mutex held.
      */
     boost::asio::ip::udp::socket socket2;
     /// Buffer for asynchronous receive, of size @a max_size + 1.

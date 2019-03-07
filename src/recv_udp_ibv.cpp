@@ -96,7 +96,6 @@ udp_ibv_reader_core::udp_ibv_reader_core(
         comp_channel = ibv_comp_channel_t(cm_id);
         comp_channel_wrapper = comp_channel.wrap(get_io_service());
     }
-    // TODO: init recv_cq, flows, join in derived classes
 }
 
 void udp_ibv_reader_core::join_groups(

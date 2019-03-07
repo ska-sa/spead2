@@ -454,7 +454,9 @@ public:
      * in the thread pool.
      *
      * In most cases subclasses should override @ref stop_received rather than
-     * this function.
+     * this function. However, if @ref heap_ready can block indefinitely, this
+     * function should be overridden to unblock it before calling the base
+     * implementation.
      */
     virtual void stop();
 
