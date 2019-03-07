@@ -42,7 +42,7 @@ class stream_base;
  * - @ref stop (called with queue_mutex held)
  * - destruction
  *
- * All of the above occur with @ref stream::reader_lock held.
+ * All of the above occur with @ref stream::reader_mutex held.
  *
  * Once the reader has completed its work (whether because @ref stop was called or
  * because of network input), it must call @ref stopped to indicate that

@@ -270,7 +270,7 @@ public:
     struct add_packet_state
     {
         stream_base &owner;
-        std::lock_guard<std::mutex> lock;    ///< Holds a lock on the owner's @ref heap_mutex
+        std::lock_guard<std::mutex> lock;    ///< Holds a lock on the owner's @ref queue_mutex
 
         // Copied from the stream, but unencumbered by locks/atomics
         packet_memcpy_function memcpy;
