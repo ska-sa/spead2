@@ -1,6 +1,16 @@
 Changelog
 =========
 
+.. rubric:: 1.11.4
+
+- Rework the locking internals of :cpp:class:`spead2::recv::stream` so that
+  a full ringbuffer doesn't block new readers from being added. This changes
+  the interfaces between :cpp:class:`spead2::recv::reader` and
+  :cpp:class:`spead2::recv::stream_base`, but since users generally don't deal
+  with that interface the major version hasn't been incremented.
+- Fix a spurious log message if an in-process receiver is manually stopped.
+- Fix an intermittent unit test failure due to timing.
+
 .. rubric:: 1.11.3
 
 - Undo the optimisation of using a single flow steering rule to cover multiple
