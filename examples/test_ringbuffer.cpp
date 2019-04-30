@@ -131,7 +131,7 @@ static void reader(Ringbuffer &ring, const options &opts)
             (void) item;
         }
     }
-    catch (spead2::ringbuffer_stopped)
+    catch (spead2::ringbuffer_stopped &)
     {
     }
 }

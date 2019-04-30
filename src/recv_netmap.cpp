@@ -103,7 +103,7 @@ void netmap_udp_reader::packet_handler(const boost::system::error_code &error)
                             }
                         }
                     }
-                    catch (std::length_error)
+                    catch (std::length_error &)
                     {
                         // just pass them to the host stack
                     }

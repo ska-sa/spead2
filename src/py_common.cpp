@@ -173,7 +173,7 @@ void log_function_python::run()
                     log(msg.first, msg.second);
                 }
             }
-            catch (ringbuffer_empty)
+            catch (ringbuffer_empty &)
             {
             }
             if (overflowed.exchange(false))
@@ -181,7 +181,7 @@ void log_function_python::run()
                     "Log ringbuffer was full - some log messages were dropped");
         }
     }
-    catch (ringbuffer_stopped)
+    catch (ringbuffer_stopped &)
     {
         // Could possibly report the overflowed flag here again - but this may be
         // deep into interpreter shutdown and it might not be safe to log.
@@ -219,7 +219,7 @@ void log_function_python::operator()(log_level level, const std::string &msg)
     {
         ring.try_emplace(level, msg);
     }
-    catch (ringbuffer_full)
+    catch (ringbuffer_full &)
     {
         overflowed = true;
     }

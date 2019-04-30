@@ -341,7 +341,7 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
         {
             boost::lexical_cast<std::uint16_t>(port);
         }
-        catch (boost::bad_lexical_cast)
+        catch (boost::bad_lexical_cast &)
         {
             is_pcap = true;
         }

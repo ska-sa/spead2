@@ -344,7 +344,7 @@ public:
         {
             fd = src.attr("fileno")().cast<int>();
         }
-        catch (std::exception)
+        catch (std::exception &)
         {
             return false;
         }

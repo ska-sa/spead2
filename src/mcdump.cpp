@@ -321,7 +321,7 @@ void writer::close()
         {
             free_ring.pop();
         }
-        catch (spead2::ringbuffer_stopped)
+        catch (spead2::ringbuffer_stopped &)
         {
             break;
         }
@@ -387,7 +387,7 @@ void writer::writer_thread(int affinity)
                 b.length = 0;
                 free_ring.push(std::move(b));
             }
-            catch (spead2::ringbuffer_stopped)
+            catch (spead2::ringbuffer_stopped &)
             {
                 break;
             }
@@ -573,7 +573,7 @@ void capture_base::collect_thread()
 
                 chunk_done(std::move(c));
             }
-            catch (spead2::ringbuffer_stopped)
+            catch (spead2::ringbuffer_stopped &)
             {
                 free_ring.stop();
                 w->close();
@@ -609,7 +609,7 @@ static boost::asio::ip::address_v4 get_interface_address(const options &opts)
     {
         interface_address = boost::asio::ip::address_v4::from_string(opts.interface);
     }
-    catch (std::exception)
+    catch (std::exception &)
     {
         throw std::runtime_error("Invalid interface address " + opts.interface);
     }
@@ -707,7 +707,7 @@ static boost::asio::ip::udp::endpoint make_endpoint(const std::string &s)
         std::uint16_t port = boost::lexical_cast<std::uint16_t>(s.substr(pos + 1));
         return boost::asio::ip::udp::endpoint(addr, port);
     }
-    catch (boost::bad_lexical_cast)
+    catch (boost::bad_lexical_cast &)
     {
         throw std::runtime_error("Invalid port number " + s.substr(pos + 1));
     }

@@ -59,7 +59,7 @@ private:
             queue->buffer.push(std::move(dup));
             get_io_service().post(std::bind(handler, boost::system::error_code(), size));
         }
-        catch (ringbuffer_stopped)
+        catch (ringbuffer_stopped &)
         {
             get_io_service().post(std::bind(handler, boost::asio::error::operation_aborted, 0));
         }

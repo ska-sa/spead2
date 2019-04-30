@@ -63,7 +63,7 @@ static boost::asio::ip::udp::socket duplicate_socket(
             socket.get_io_service(), socket.local_endpoint().protocol(), fd2);
         return socket2;
     }
-    catch (std::exception)
+    catch (std::exception &)
     {
         close(fd2);
         throw;
@@ -316,7 +316,7 @@ static void init_ibv_override()
                 {
                     ibv_comp_vector = boost::lexical_cast<int>(comp_vector);
                 }
-                catch (boost::bad_lexical_cast)
+                catch (boost::bad_lexical_cast &)
                 {
                     log_warning("SPEAD2_IBV_COMP_VECTOR is not a valid integer, ignoring");
                 }

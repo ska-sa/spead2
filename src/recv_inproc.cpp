@@ -76,11 +76,11 @@ void inproc_reader::packet_handler(
                 process_one_packet(state, packet);
                 /* TODO: could grab a batch of packets to amortise costs */
             }
-            catch (ringbuffer_stopped)
+            catch (ringbuffer_stopped &)
             {
                 state.stop();
             }
-            catch (ringbuffer_empty)
+            catch (ringbuffer_empty &)
             {
                 // spurious wakeup - no action needed
             }
