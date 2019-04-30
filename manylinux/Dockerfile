@@ -10,8 +10,8 @@ RUN tar -C /tmp -jxf /tmp/boost_1_64_0.tar.bz2 && \
 ENV CPATH=/opt/boost_1_64_0/include LIBRARY_PATH=/opt/boost_1_64_0/lib
 
 COPY requirements.txt /tmp/spead2/requirements.txt
-COPY manylinux1/install_requirements.sh /tmp/spead2/manylinux1/install_requirements.sh
-RUN /tmp/spead2/manylinux1/install_requirements.sh
+COPY manylinux/install_requirements.sh /tmp/spead2/manylinux/install_requirements.sh
+RUN /tmp/spead2/manylinux/install_requirements.sh
 
 COPY . /tmp/spead2
-RUN /tmp/spead2/manylinux1/generate_wheels.sh
+RUN /tmp/spead2/manylinux/generate_wheels.sh
