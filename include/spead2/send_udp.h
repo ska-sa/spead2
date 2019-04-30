@@ -71,11 +71,13 @@ public:
         std::size_t buffer_size = default_buffer_size,
         const boost::asio::ip::address &interface_address = boost::asio::ip::address());
 
+#if BOOST_VERSION < 107000
     /**
      * Constructor using an existing socket. The socket must be open but
      * not bound.
      *
-     * @deprecated Use the overload without @a buffer_size.
+     * @deprecated Use the overload without @a buffer_size and with an explicit
+     * @a io_service.
      */
     udp_stream(
         boost::asio::ip::udp::socket &&socket,
@@ -84,13 +86,18 @@ public:
         std::size_t buffer_size);
 
     /**
-     * Constructor using an existing socket. The socket must be open and
+     * Constructor using an existing socket. The socket must be open
      * but not connected.
+     *
+     * @deprecated This constructor is not supported from Boost 1.70 onwards,
+     * and will be removed entirely in a future release. Use the constructor with
+     * an explicit @a io_service.
      */
     udp_stream(
         boost::asio::ip::udp::socket &&socket,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config = stream_config());
+#endif // BOOST_VERSION < 107000
 
     /**
      * Constructor using an existing socket and an explicit io_service or

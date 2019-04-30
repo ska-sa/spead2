@@ -55,16 +55,18 @@ tcp_stream::tcp_stream(
     socket(std::move(socket)),
     connected(true)
 {
-    if (&get_io_service() != &this->socket.get_io_service())
+    if (!socket_uses_io_service(this->socket, get_io_service()))
         throw std::invalid_argument("I/O service does not match the socket's I/O service");
 }
 
+#if BOOST_VERSION < 107000
 tcp_stream::tcp_stream(
     boost::asio::ip::tcp::socket &&socket,
     const stream_config &config)
-    : tcp_stream(socket.get_io_service(), std::move(socket), config)
+    : tcp_stream(get_socket_io_service(socket), std::move(socket), config)
 {
 }
+#endif
 
 tcp_stream::~tcp_stream()
 {

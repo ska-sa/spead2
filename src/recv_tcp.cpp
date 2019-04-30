@@ -51,13 +51,13 @@ tcp_reader::tcp_reader(
     std::size_t max_size,
     std::size_t buffer_size)
     : reader(owner), acceptor(std::move(acceptor)),
-    peer(this->acceptor.get_io_service()),
+    peer(get_socket_io_service(this->acceptor)),
     max_size(max_size),
     buffer(new std::uint8_t[max_size * pkts_per_buffer]),
     head(buffer.get()),
     tail(buffer.get())
 {
-    assert(&this->acceptor.get_io_service() == &get_io_service());
+    assert(socket_uses_io_service(this->acceptor, get_io_service()));
     set_socket_recv_buffer_size(this->acceptor, buffer_size);
     this->acceptor.async_accept(peer,
         std::bind(&tcp_reader::accept_handler, this, std::placeholders::_1));

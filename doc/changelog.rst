@@ -1,6 +1,15 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Update Python wheels to manylinux2010. These support all the optional ibverbs
+  and pcap features.
+- Support for Boost 1.70. Unfortunately Boost 1.70 removes the ability to query
+  the io_service from a socket, so constructors that take a socket but no
+  io_service are omitted when compiling with Boost 1.70 or newer.
+- Fix some compiler warnings from GCC 8.
+
 .. rubric:: 1.11.4
 
 - Rework the locking internals of :cpp:class:`spead2::recv::stream` so that

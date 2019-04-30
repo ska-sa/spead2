@@ -60,7 +60,8 @@ static boost::asio::ip::udp::socket duplicate_socket(
     try
     {
         boost::asio::ip::udp::socket socket2(
-            socket.get_io_service(), socket.local_endpoint().protocol(), fd2);
+            get_socket_io_service(socket),
+            socket.local_endpoint().protocol(), fd2);
         return socket2;
     }
     catch (std::exception &)
@@ -87,13 +88,13 @@ udp_reader::udp_reader(
     std::size_t max_size)
     : udp_reader_base(owner), socket(std::move(socket)), max_size(max_size),
 #if SPEAD2_USE_RECVMMSG
-    socket2(socket.get_io_service()),
+    socket2(get_socket_io_service(socket)),
     buffer(mmsg_count), iov(mmsg_count), msgvec(mmsg_count)
 #else
     buffer(new std::uint8_t[max_size + 1])
 #endif
 {
-    assert(&this->socket.get_io_service() == &get_io_service());
+    assert(socket_uses_io_service(this->socket, get_io_service()));
 #if SPEAD2_USE_RECVMMSG
     for (std::size_t i = 0; i < mmsg_count; i++)
     {

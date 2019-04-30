@@ -131,6 +131,7 @@ udp_stream::udp_stream(
 {
 }
 
+#if BOOST_VERSION < 107000
 udp_stream::udp_stream(
     boost::asio::ip::udp::socket &&socket,
     const boost::asio::ip::udp::endpoint &endpoint,
@@ -147,6 +148,7 @@ udp_stream::udp_stream(
     : udp_stream(socket.get_io_service(), std::move(socket), endpoint, config)
 {
 }
+#endif
 
 udp_stream::udp_stream(
     io_service_ref io_service,
@@ -157,7 +159,7 @@ udp_stream::udp_stream(
     : stream_impl<udp_stream>(std::move(io_service), config),
     socket(std::move(socket)), endpoint(endpoint)
 {
-    if (&get_io_service() != &this->socket.get_io_service())
+    if (!socket_uses_io_service(this->socket, get_io_service()))
         throw std::invalid_argument("I/O service does not match the socket's I/O service");
     set_socket_send_buffer_size(this->socket, buffer_size);
 }
