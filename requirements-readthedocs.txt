@@ -4,5 +4,5 @@ nose
 decorator
 six
 sphinx
-breathe
+breathe==4.12.0     # Later versions don't work with the RTD version of Sphinx
 trollius
