@@ -255,10 +255,10 @@ udp_ibv_reader::udp_ibv_reader(
     wc.reset(new ibv_wc[n_slots]);
     for (std::size_t i = 0; i < n_slots; i++)
     {
-        std::memset(&slots[i], 0, sizeof(slots[i]));
         slots[i].sge.addr = (uintptr_t) &buffer[i * max_raw_size];
         slots[i].sge.length = max_raw_size;
         slots[i].sge.lkey = mr->lkey;
+        std::memset(&slots[i].wr, 0, sizeof(slots[i].wr));
         slots[i].wr.sg_list = &slots[i].sge;
         slots[i].wr.num_sge = 1;
         slots[i].wr.wr_id = i;

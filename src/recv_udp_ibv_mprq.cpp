@@ -182,13 +182,13 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
 
     bool reduced = false;
     std::size_t strides = buffer_size >> wq_attr.mp_rq.single_stride_log_num_of_bytes;
-    if (device_attr.max_cqe < strides)
+    if (std::size_t(device_attr.max_cqe) < strides)
     {
         strides = device_attr.max_cqe;
         reduced = true;
     }
     std::size_t wqe = strides >> wq_attr.mp_rq.single_wqe_log_num_of_strides;
-    if (device_attr.max_qp_wr < wqe)
+    if (std::size_t(device_attr.max_qp_wr) < wqe)
     {
         wqe = device_attr.max_qp_wr;
         reduced = true;
@@ -233,7 +233,7 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(buffer_size, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
-    for (int i = 0; i < wqe; i++)
+    for (std::size_t i = 0; i < wqe; i++)
         post_wr(i * wqe_size);
 
     flows = create_flows(qp, endpoints, cm_id->port_num);
