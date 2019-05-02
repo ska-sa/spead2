@@ -28,4 +28,6 @@ if not hasattr(asyncio, 'ensure_future'):
 EOF
     done
 fi
+python3 gen/gen_ibv_loader.py header > include/spead2/common_ibv_loader.h
+python3 gen/gen_ibv_loader.py cxx > src/common_ibv_loader.cpp
 autoreconf --install --force
