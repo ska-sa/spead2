@@ -131,11 +131,29 @@ HEADER = PREFIX + '''\
 
 #if SPEAD2_USE_IBV
 
+#include <system_error>
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
 
 namespace spead2
 {
+
+enum class ibv_loader_error : int
+{
+    LIBRARY_ERROR,
+    SYMBOL_ERROR,
+    NO_INIT
+};
+
+class ibv_loader_error_category : public std::error_category
+{
+public:
+    virtual const char *name() const noexcept override;
+    virtual std::string message(int condition) const override;
+    virtual std::error_condition default_error_condition(int condition) const noexcept override;
+};
+
+static std::error_category &ibv_loader_category();
 
 {% for node in nodes -%}
 extern {{ node | ptr | gen }};
@@ -168,12 +186,55 @@ namespace spead2
 {
 
 static std::once_flag init_once;
-static bool success = false;
+static std::exception_ptr init_result;
+
+const char *ibv_loader_error_category::name() const noexcept
+{
+    return "ibv_loader";
+}
+
+std::string ibv_loader_error_category::message(int condition) const
+{
+    switch (ibv_loader_error(condition))
+    {
+        case ibv_loader_error::LIBRARY_ERROR:
+            return "library could not be loaded";
+        case ibv_loader_error::SYMBOL_ERROR:
+            return "symbol could not be loaded";
+        case ibv_loader_error::NO_INIT:
+            return "ibv_loader_init was not called";
+    }
+}
+
+std::error_condition ibv_loader_error_category::default_error_condition(int condition) const noexcept
+{
+    switch (ibv_loader_error(condition))
+    {
+        case ibv_loader_error::LIBRARY_ERROR:
+            return std::errc::no_such_file_or_directory;
+        case ibv_loader_error::SYMBOL_ERROR:
+            return std::errc::not_supported;
+        case ibv_loader_error::NO_INIT:
+            return std::errc::state_not_recoverable;
+    }
+}
+
+std::error_category &ibv_loader_category()
+{
+    static ibv_loader_error_category category;
+    return category;
+}
 
 {% for node in nodes %}
 {{ node | rename(node.name + '_stub') | gen }}
 {
-    throw std::runtime_error("ibv_loader_init was not called or was not successful");
+    if (init_result)
+        std::rethrow_exception(init_result);
+    else
+    {
+        std::error_code code((int) ibv_loader_error::NO_INIT, ibv_loader_category());
+        throw std::system_error(code, "ibv_loader_init was not called");
+    }
 }
 {% endfor %}
 
@@ -187,12 +248,6 @@ static void reset_stubs()
     {{ node.name }} = {{ node.name }}_stub;
 {% endfor %}
 }
-
-class bad_library : public std::runtime_error
-{
-public:
-    using std::runtime_error::runtime_error;
-};
 
 class dl_handle
 {
@@ -209,9 +264,12 @@ public:
 
 dl_handle::dl_handle(const char *filename)
 {
-    handle = dlopen(filename, RTLD_LOCAL);
+    handle = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
     if (!handle)
-        throw bad_library(std::string("Could not open ") + filename + ": " + dlerror());
+    {
+        std::error_code code((int) ibv_loader_error::LIBRARY_ERROR, ibv_loader_category());
+        throw std::system_error(code, std::string("Could not open ") + filename + ": " + dlerror());
+    }
 }
 
 dl_handle::~dl_handle()
@@ -235,7 +293,11 @@ void *dl_handle::sym(const char *name)
 {
     void *ret = dlsym(handle, name);
     if (!ret)
-        throw bad_library(std::string("Symbol ") + name + " not found: " + dlerror());
+    {
+        std::error_code code((int) ibv_loader_error::SYMBOL_ERROR, ibv_loader_category());
+        throw std::system_error(code, std::string("Symbol ") + name + " not found: " + dlerror());
+    }
+    return ret;
 }
 
 static void init()
@@ -246,15 +308,16 @@ static void init()
         dl_handle libibverbs("libibverbs.so.1");
 {% for node in nodes %}
         {{ node.name }} = reinterpret_cast<{{ node | ptr(False) | gen }}>(
-            {{ 'libibverbs' if node.name.startswith('ibv_') else 'librdmacm' }}.sym("{{ node.name }})"));
+            {{ 'libibverbs' if node.name.startswith('ibv_') else 'librdmacm' }}.sym("{{ node.name }}"));
 {% endfor %}
         // Prevent the libraries being closed, so that the symbols stay valid
         librdmacm.release();
         libibverbs.release();
-        success = true;
     }
-    catch (bad_library &e)
+    catch (std::system_error &e)
     {
+        init_result = std::current_exception();
+        reset_stubs();
         log_warning("could not load ibverbs: %s", e.what());
     }
 }
@@ -262,11 +325,21 @@ static void init()
 void ibv_loader_init()
 {
     std::call_once(init_once, init);
-    if (!success)
-        throw_errno(ENOENT);
+    if (init_result)
+        std::rethrow_exception(init_result);
 }
 
 } // namespace spead2
+
+/* Wrappers in the global namespace. This is needed because ibv_exp_create_qp calls ibv_create_qp, and so we
+ * need to provide an implementation.
+ */
+{% for node in nodes %}
+{{ node | gen }}
+{
+    return spead2::{{ node.name }}({{ node | args | join(', ') }});
+}
+{% endfor %}
 
 #endif // SPEAD2_USE_IBV
 '''
@@ -308,7 +381,11 @@ def make_func_ptr(func: c_ast.Decl, with_name: Optional[bool] = True) -> c_ast.D
 
 def func_args(func: c_ast.Decl) -> List[str]:
     """Get list of function argument names"""
-    return [arg.name for arg in func.type.args.params]
+    args = [arg.name for arg in func.type.args.params]
+    # Handle (void)
+    if args == [None]:
+        args = []
+    return args
 
 
 class Visitor(c_ast.NodeVisitor):
