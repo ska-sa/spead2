@@ -56,7 +56,7 @@ PREFIX = '''
 # inline functions, and so do not get listed here.
 INPUT = '''
 typedef unsigned long size_t;
-typedef unsigned long __be64;
+typedef unsigned long uint64_t;
 
 void ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents);
 
@@ -89,7 +89,7 @@ void ibv_free_device_list(struct ibv_device **list);
 int ibv_get_cq_event(struct ibv_comp_channel *channel,
                      struct ibv_cq **cq, void **cq_context);
 
-__be64 ibv_get_device_guid(struct ibv_device *device);
+uint64_t ibv_get_device_guid(struct ibv_device *device);
 
 struct ibv_device **ibv_get_device_list(int *num_devices);
 
@@ -224,7 +224,7 @@ void ibv_loader_init()
 /* Wrappers in the global namespace. This is needed because ibv_exp_create_qp
  * calls ibv_create_qp, and so we need to provide an implementation.
  */
-{% for node in nodes %}
+{% for node in nodes if node.name in ['ibv_create_qp'] %}
 {{ node | gen }}
 {
     return spead2::{{ node.name }}({{ node | args | join(', ') }});
