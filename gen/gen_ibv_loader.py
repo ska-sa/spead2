@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # Copyright 2019 SKA South Africa
 #
@@ -17,7 +17,6 @@
 
 import sys
 import copy
-from typing import List, Optional
 
 import jinja2
 import pycparser
@@ -242,17 +241,17 @@ class RenameVisitor(c_ast.NodeVisitor):
     The function name is stored both in the Decl and in the inner-most TypeDecl
     of the return type. This only handles the latter.
     """
-    def __init__(self, old_name: str, new_name: str) -> None:
-        super().__init__()
+    def __init__(self, old_name, new_name):
+        super(RenameVisitor, self).__init__()
         self.old_name = old_name
         self.new_name = new_name
 
-    def visit_TypeDecl(self, node: c_ast.TypeDecl) -> None:
+    def visit_TypeDecl(self, node):
         if node.declname == self.old_name:
             node.declname = self.new_name
 
 
-def rename_func(func: c_ast.Decl, new_name: str) -> c_ast.Decl:
+def rename_func(func, new_name):
     """Return a copy of a function declaration with a new name"""
     func = copy.deepcopy(func)
     RenameVisitor(func.name, new_name).visit(func)
@@ -260,7 +259,7 @@ def rename_func(func: c_ast.Decl, new_name: str) -> c_ast.Decl:
     return func
 
 
-def make_func_ptr(func: c_ast.Decl, with_name: Optional[bool] = True) -> c_ast.Decl:
+def make_func_ptr(func, with_name=True):
     """Create a node of pointer-to-function type."""
     if not with_name:
         node = rename_func(func, None)
@@ -270,7 +269,7 @@ def make_func_ptr(func: c_ast.Decl, with_name: Optional[bool] = True) -> c_ast.D
     return node
 
 
-def func_args(func: c_ast.Decl) -> List[str]:
+def func_args(func):
     """Get list of function argument names"""
     args = [arg.name for arg in func.type.args.params]
     # Handle (void)
