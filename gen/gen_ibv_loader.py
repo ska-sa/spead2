@@ -19,7 +19,6 @@ import sys
 import copy
 
 import jinja2
-import pycparser
 from pycparser import c_ast
 from pycparser.c_parser import CParser
 from pycparser.c_generator import CGenerator
@@ -197,8 +196,9 @@ static void init()
         dl_handle librdmacm("librdmacm.so.1");
         dl_handle libibverbs("libibverbs.so.1");
 {% for node in nodes %}
+{% set lib = 'libibverbs' if node.name.startswith('ibv_') else 'librdmacm' %}
         {{ node.name }} = reinterpret_cast<{{ node | ptr(False) | gen }}>(
-            {{ 'libibverbs' if node.name.startswith('ibv_') else 'librdmacm' }}.sym("{{ node.name }}"));
+            {{ lib }}.sym("{{ node.name }}"));
 {% endfor %}
         // Prevent the libraries being closed, so that the symbols stay valid
         librdmacm.release();
