@@ -4,6 +4,7 @@ global-include *asyncio.py
 exclude src/common_features.h
 exclude .gitignore
 include configure
+include include/spead2/common_ibv_loader.h
 graft 3rdparty
 graft build-aux
 prune doc/_build
