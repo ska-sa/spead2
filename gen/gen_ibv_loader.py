@@ -57,7 +57,7 @@ PREFIX = '''
 # inline functions, and so do not get listed here.
 INPUT = '''
 typedef unsigned long size_t;
-typedef unsigned long uint64_t;
+typedef unsigned long __be64;
 
 void ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents);
 
@@ -90,7 +90,7 @@ void ibv_free_device_list(struct ibv_device **list);
 int ibv_get_cq_event(struct ibv_comp_channel *channel,
                      struct ibv_cq **cq, void **cq_context);
 
-uint64_t ibv_get_device_guid(struct ibv_device *device);
+__be64 ibv_get_device_guid(struct ibv_device *device);
 
 struct ibv_device **ibv_get_device_list(int *num_devices);
 
@@ -111,8 +111,8 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr);
 struct rdma_event_channel *rdma_create_event_channel(void);
 
 int rdma_create_id(struct rdma_event_channel *channel,
-		   struct rdma_cm_id **id, void *context,
-		   enum rdma_port_space ps);
+                   struct rdma_cm_id **id, void *context,
+                   enum rdma_port_space ps);
 
 void rdma_destroy_event_channel(struct rdma_event_channel *channel);
 
@@ -131,29 +131,11 @@ HEADER = PREFIX + '''\
 
 #if SPEAD2_USE_IBV
 
-#include <system_error>
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
 
 namespace spead2
 {
-
-enum class ibv_loader_error : int
-{
-    LIBRARY_ERROR,
-    SYMBOL_ERROR,
-    NO_INIT
-};
-
-class ibv_loader_error_category : public std::error_category
-{
-public:
-    virtual const char *name() const noexcept override;
-    virtual std::string message(int condition) const override;
-    virtual std::error_condition default_error_condition(int condition) const noexcept override;
-};
-
-static std::error_category &ibv_loader_category();
 
 {% for node in nodes -%}
 extern {{ node | ptr | gen }};
@@ -177,10 +159,10 @@ CXX = '''\
 #if SPEAD2_USE_IBV
 
 #include <spead2/common_ibv_loader.h>
+#include <spead2/common_ibv_loader_utils.h>
 #include <spead2/common_logging.h>
 #include <mutex>
-#include <stdexcept>
-#include <dlfcn.h>
+#include <exception>
 
 namespace spead2
 {
@@ -188,53 +170,13 @@ namespace spead2
 static std::once_flag init_once;
 static std::exception_ptr init_result;
 
-const char *ibv_loader_error_category::name() const noexcept
-{
-    return "ibv_loader";
-}
-
-std::string ibv_loader_error_category::message(int condition) const
-{
-    switch (ibv_loader_error(condition))
-    {
-        case ibv_loader_error::LIBRARY_ERROR:
-            return "library could not be loaded";
-        case ibv_loader_error::SYMBOL_ERROR:
-            return "symbol could not be loaded";
-        case ibv_loader_error::NO_INIT:
-            return "ibv_loader_init was not called";
-    }
-}
-
-std::error_condition ibv_loader_error_category::default_error_condition(int condition) const noexcept
-{
-    switch (ibv_loader_error(condition))
-    {
-        case ibv_loader_error::LIBRARY_ERROR:
-            return std::errc::no_such_file_or_directory;
-        case ibv_loader_error::SYMBOL_ERROR:
-            return std::errc::not_supported;
-        case ibv_loader_error::NO_INIT:
-            return std::errc::state_not_recoverable;
-    }
-}
-
-std::error_category &ibv_loader_category()
-{
-    static ibv_loader_error_category category;
-    return category;
-}
-
 {% for node in nodes %}
 {{ node | rename(node.name + '_stub') | gen }}
 {
-    if (init_result)
-        std::rethrow_exception(init_result);
-    else
-    {
-        std::error_code code((int) ibv_loader_error::NO_INIT, ibv_loader_category());
-        throw std::system_error(code, "ibv_loader_init was not called");
-    }
+{% for arg in (node | args) %}
+    (void) {{ arg }};
+{% endfor %}
+    ibv_loader_stub(init_result);
 }
 {% endfor %}
 
@@ -247,57 +189,6 @@ static void reset_stubs()
 {% for node in nodes %}
     {{ node.name }} = {{ node.name }}_stub;
 {% endfor %}
-}
-
-class dl_handle
-{
-private:
-    void *handle;
-public:
-    dl_handle(const char *filename);
-    ~dl_handle();
-
-    void *sym(const char *name);
-
-    void *release();
-};
-
-dl_handle::dl_handle(const char *filename)
-{
-    handle = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
-    if (!handle)
-    {
-        std::error_code code((int) ibv_loader_error::LIBRARY_ERROR, ibv_loader_category());
-        throw std::system_error(code, std::string("Could not open ") + filename + ": " + dlerror());
-    }
-}
-
-dl_handle::~dl_handle()
-{
-    if (handle)
-    {
-        int ret = dlclose(handle);
-        if (ret != 0)
-            log_warning("dlclose failed: %s", dlerror());
-    }
-}
-
-void *dl_handle::release()
-{
-    void *ret = handle;
-    handle = nullptr;
-    return ret;
-}
-
-void *dl_handle::sym(const char *name)
-{
-    void *ret = dlsym(handle, name);
-    if (!ret)
-    {
-        std::error_code code((int) ibv_loader_error::SYMBOL_ERROR, ibv_loader_category());
-        throw std::system_error(code, std::string("Symbol ") + name + " not found: " + dlerror());
-    }
-    return ret;
 }
 
 static void init()
@@ -331,8 +222,8 @@ void ibv_loader_init()
 
 } // namespace spead2
 
-/* Wrappers in the global namespace. This is needed because ibv_exp_create_qp calls ibv_create_qp, and so we
- * need to provide an implementation.
+/* Wrappers in the global namespace. This is needed because ibv_exp_create_qp
+ * calls ibv_create_qp, and so we need to provide an implementation.
  */
 {% for node in nodes %}
 {{ node | gen }}
