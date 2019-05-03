@@ -3,9 +3,10 @@ Changelog
 
 .. rubric:: Development version
 
+- Provide manylinux2010 wheels.
 - Dynamically link to libibverbs and librdmacm on demand. This allows binaries
-  to support verbs acceleration but still work on systems without these
-  libraries installed.
+  (particularly wheels) to support verbs acceleration but still work on systems
+  without these libraries installed.
 - Support for Boost 1.70. Unfortunately Boost 1.70 removes the ability to query
   the io_service from a socket, so constructors that take a socket but no
   io_service are omitted when compiling with Boost 1.70 or newer.

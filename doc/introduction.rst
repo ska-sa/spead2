@@ -49,49 +49,40 @@ Installing spead2 for Python
 ----------------------------
 The only Python dependencies are numpy_ and six_, and trollius_ on Python
 versions below 3.4 (for 3.4-3.6 trollius can still be used, and is needed to
-run the test suite). It is also necessary to have the development headers for
-Python.
+run the test suite).
 
 The test suite has additional dependencies; refer to
-``setup.py`` if you are developing spead2.
+:file:`setup.py` if you are developing spead2.
 Some tests depend on PySPEAD_, but they will be skipped if it is not
 installed.
 
 There are two ways to install spead2 for Python: compiling from source and
-installing a binary wheel. The binary wheels are experimental and only
-recommended if installing from source is not an option.
+installing a binary wheel.
 
 .. _numpy: http://www.numpy.org
 .. _six: https://pythonhosted.org/six/
-.. _nose: https://nose.readthedocs.io/en/latest/
-.. _decorator: http://pythonhosted.org/decorator/
-.. _netifaces: https://pypi.python.org/pypi/netifaces
+
+Installing a binary wheel
+^^^^^^^^^^^^^^^^^^^^^^^^^
+As from version 1.12, binary wheels are provided on PyPI for x86-64 Linux
+systems. These support all the optional features, it is now the recommended
+installation method as it does not depend on a compiler, development
+libraries etc. The wheels use the "manylinux2010" tag, which requires at least
+:command:`pip` 19.0 to install.
+
+Provided your system meets these requirements, just run::
+
+    pip install spead2
 
 Python install from source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 Installing from source requires a modern C++ compiler supporting C++11 (GCC
-4.8+ or Clang 3.5+) as well as Boost (including compiled libraries). At the
-moment only GNU/Linux and OS X get tested but other POSIX-like systems should
-work too. There are no plans to support Windows.
+4.8+ or Clang 3.5+) as well as Boost (including compiled libraries) and the
+Python development headers. At the moment only GNU/Linux and OS X get tested
+but other POSIX-like systems should work too. There are no plans to support
+Windows.
 
-Installation works with standard Python installation methods. For example, to
-install the latest version from PyPI, run::
-
-    pip install spead2
-
-Installing a binary wheel
-^^^^^^^^^^^^^^^^^^^^^^^^^
-As from version 1.3.2, binary wheels for x86-64 Linux systems are placed on the
-Github `release page`_. They are still experimental, lack the optional features,
-and may be slower than installs from source because they are compiled with an
-old compiler. They are mainly intended for systems where it is not practical
-to install a new enough C++ compiler or Boost. For this reason, they are
-currently *not* provided through PyPI.
-
-.. _release page: https://github.com/ska-sa/spead2/releases
-
-After downloading the appropriate wheel for your Python version, install it
-with :samp:`pip install {filename}`.
+Installation works with standard Python installation methods.
 
 Installing spead2 for C++
 -------------------------
