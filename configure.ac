@@ -1,4 +1,4 @@
-# Copyright 2016, 2017 SKA South Africa
+# Copyright 2016, 2017, 2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -172,8 +172,8 @@ SPEAD2_ARG_WITH(
 
 ### Determine libraries to link against
 
-LIBS="-lboost_system -lpthread"
-AS_IF([test "x$SPEAD2_USE_IBV" = "x1"], [LIBS="-lrdmacm -libverbs $LIBS"])
+LIBS="-lboost_system -lpthread -ldl"
+AS_IF([test "x$SPEAD2_USE_IBV" = "x1"], [LIBS="$LIBS"])
 AS_IF([test "x$SPEAD2_USE_PCAP" = "x1"], [LIBS="-lpcap $LIBS"])
 
 ### Build variants

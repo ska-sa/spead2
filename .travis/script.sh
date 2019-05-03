@@ -1,14 +1,10 @@
 #!/bin/bash
 set -e -v
 
-if [ "$TEST_PYTHON" = "yes" ]; then
-    set +v
-    source venv/bin/activate
-    set -v
-    ./bootstrap.sh
-else
-    ./bootstrap.sh --no-python
-fi
+set +v
+source venv/bin/activate
+set -v
+./bootstrap.sh
 
 if [ "$NETMAP" = "yes" ]; then
     export CPATH="$PWD/netmap/sys"

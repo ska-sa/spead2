@@ -65,17 +65,12 @@ class BuildExt(build_ext):
         self.mkpath(self.build_temp)
         subprocess.check_call(os.path.abspath('configure'), cwd=self.build_temp)
         # Ugly hack to add libraries conditional on configure result
-        have_ibv = False
         have_pcap = False
         with open(os.path.join(self.build_temp, 'include', 'spead2', 'common_features.h')) as f:
             for line in f:
-                if line.strip() == '#define SPEAD2_USE_IBV 1':
-                    have_ibv = True
                 if line.strip() == '#define SPEAD2_USE_PCAP 1':
                     have_pcap = True
         for extension in self.extensions:
-            if have_ibv:
-                extension.libraries.extend(['rdmacm', 'ibverbs'])
             if have_pcap:
                 extension.libraries.extend(['pcap'])
             if self.coverage:

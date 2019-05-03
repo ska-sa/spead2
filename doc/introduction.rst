@@ -31,8 +31,9 @@ automatically and support for them will be included.
 .. _pcap: http://www.tcpdump.org/
 
 If you are installing spead2 from a git checkout, it is first necessary to run
-``./bootstrap.sh`` to prepare the configure script and related files. When
-building from a packaged download this is not required.
+``./bootstrap.sh`` to prepare the configure script and related files. This
+requires a Python installation with trollius-fixers, pycparser and jinja2
+installed. When building from a packaged download this is not required.
 
 High-performance usage requires larger buffer sizes than Linux allows by
 default. The following commands will increase the permitted buffer sizes on
@@ -48,10 +49,13 @@ Installing spead2 for Python
 ----------------------------
 The only Python dependencies are numpy_ and six_, and trollius_ on Python
 versions below 3.4 (for 3.4-3.6 trollius can still be used, and is needed to
-run the test suite). Running the test
-suite additionally requires nose_, decorator_ and netifaces_, and some tests
-depend on PySPEAD_ (they will be skipped if it is not installed). It is also
-necessary to have the development headers for Python.
+run the test suite). It is also necessary to have the development headers for
+Python.
+
+The test suite has additional dependencies; refer to
+``setup.py`` if you are developing spead2.
+Some tests depend on PySPEAD_, but they will be skipped if it is not
+installed.
 
 There are two ways to install spead2 for Python: compiling from source and
 installing a binary wheel. The binary wheels are experimental and only
