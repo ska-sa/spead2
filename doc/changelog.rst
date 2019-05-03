@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 1.12.0
 
 - Provide manylinux2010 wheels.
 - Dynamically link to libibverbs and librdmacm on demand. This allows binaries
