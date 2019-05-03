@@ -31,8 +31,9 @@ automatically and support for them will be included.
 .. _pcap: http://www.tcpdump.org/
 
 If you are installing spead2 from a git checkout, it is first necessary to run
-``./bootstrap.sh`` to prepare the configure script and related files. When
-building from a packaged download this is not required.
+``./bootstrap.sh`` to prepare the configure script and related files. This
+requires a Python installation with trollius-fixers, pycparser and jinja2
+installed. When building from a packaged download this is not required.
 
 High-performance usage requires larger buffer sizes than Linux allows by
 default. The following commands will increase the permitted buffer sizes on
