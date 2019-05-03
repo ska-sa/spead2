@@ -1,14 +1,14 @@
 - pip install setuptools_git
 - ./bootstrap.sh
-- Update version number in ChangeLog
+- Update version number in docs/changelog.rst
 - Update version number in spead2/_version.py
 - Check that .pyi stubs have been updated
 - Check that Travis successfully tested the release
 - Run ./mkwheels.sh
 - Run ./setup.py sdist
-- Unpack the sdist and check that it installs and passes nosetests
-- Install a wheel and check that it installs and passes nosetests
+- Install the sdist and check that it passes nosetests
+- Install a wheel and check that it passes nosetests
 - Tag the release, git push --tags
-- Upload the sdist to PyPI with twine
-- Upload the sdist and wheels to github
+- Upload the sdist and wheels to PyPI with twine
+- Upload the sdist to github
 - Check that readthedocs has updated itself
