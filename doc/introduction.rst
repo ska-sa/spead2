@@ -49,10 +49,13 @@ Installing spead2 for Python
 ----------------------------
 The only Python dependencies are numpy_ and six_, and trollius_ on Python
 versions below 3.4 (for 3.4-3.6 trollius can still be used, and is needed to
-run the test suite). Running the test
-suite additionally requires nose_, decorator_ and netifaces_, and some tests
-depend on PySPEAD_ (they will be skipped if it is not installed). It is also
-necessary to have the development headers for Python.
+run the test suite). It is also necessary to have the development headers for
+Python.
+
+The test suite has additional dependencies; refer to
+``setup.py`` if you are developing spead2.
+Some tests depend on PySPEAD_, but they will be skipped if it is not
+installed.
 
 There are two ways to install spead2 for Python: compiling from source and
 installing a binary wheel. The binary wheels are experimental and only
