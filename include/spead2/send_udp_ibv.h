@@ -29,9 +29,8 @@
 
 #include <boost/asio.hpp>
 #include <utility>
-#include <list>
 #include <vector>
-#include <functional>
+#include <memory>
 #include <boost/noncopyable.hpp>
 #include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
@@ -58,7 +57,6 @@ private:
         ibv_send_wr wr{};
         ibv_sge sge{};
         ethernet_frame frame;
-        std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> handler;
     };
 
     const std::size_t n_slots;
