@@ -37,12 +37,9 @@ private:
     friend class stream_impl<udp_stream>;
     boost::asio::ip::udp::socket socket;
     boost::asio::ip::udp::endpoint endpoint;
+    stream_impl<udp_stream>::transmit_item current_item;
 
-    template<typename Handler>
-    void async_send_packet(const packet &pkt, Handler &&handler)
-    {
-        socket.async_send_to(pkt.buffers, endpoint, std::move(handler));
-    }
+    void async_send_packets();
 
 public:
     /// Socket send buffer size, if none is explicitly passed to the constructor

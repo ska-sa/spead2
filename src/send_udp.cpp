@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -27,6 +27,21 @@ namespace send
 {
 
 constexpr std::size_t udp_stream::default_buffer_size;
+
+void udp_stream::async_send_packets()
+{
+    if (next_packet(current_item))
+    {
+        auto handler = [this](const boost::system::error_code &ec, std::size_t bytes_transferred)
+        {
+            current_item.result = ec;
+            packets_handler(&current_item, 1);
+        };
+        socket.async_send_to(current_item.pkt.buffers, endpoint, handler);
+    }
+    else
+        get_io_service().post([this] { packets_handler(nullptr, 0); });
+}
 
 static boost::asio::ip::udp::socket make_socket(
     boost::asio::io_service &io_service,

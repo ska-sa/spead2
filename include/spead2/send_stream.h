@@ -194,6 +194,7 @@ private:
         }
     };
 
+protected:
     struct transmit_item
     {
         packet pkt;
@@ -203,6 +204,7 @@ private:
         boost::system::error_code result;
     };
 
+private:
     const stream_config config;
     const double seconds_per_byte_burst, seconds_per_byte;
 
@@ -320,6 +322,11 @@ private:
     }
 
 protected:
+    void packets_handler(const transmit_item *items, std::size_t n_items)
+    {
+        do_next(items, n_items);
+    }
+
     /**
      * Get the next packet for transmission.
      *
@@ -428,7 +435,7 @@ public:
             static_cast<Derived *>(this)->async_send_packet(current_item.pkt, handler);
         }
         else
-            get_io_service().post([this] { do_next(); });
+            get_io_service().post([this] { packets_handler(nullptr, 0); });
     }
 
     /**
