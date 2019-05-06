@@ -75,7 +75,7 @@ private:
     std::unique_ptr<slot[]> slots;
     std::vector<slot *> available;
 
-    transmit_packet current_packet;
+    std::vector<transmit_packet> current_packets;
 
     static ibv_qp_t
     create_qp(const ibv_pd_t &pd, const ibv_cq_t &send_cq, const ibv_cq_t &recv_cq,
@@ -84,7 +84,7 @@ private:
     /// Clear out the completion queue and return slots to available
     void reap();
 
-    void async_send_current_packet();
+    void async_send_current_packets();
     void async_send_packets();
 
 public:

@@ -68,24 +68,25 @@ void udp_ibv_stream::reap()
     }
 }
 
-void udp_ibv_stream::async_send_current_packet()
+void udp_ibv_stream::async_send_current_packets()
 {
     try
     {
         reap();
-        if (available.empty())
+        if (available.size() < current_packets.size())
         {
             if (comp_channel)
             {
                 send_cq.req_notify(false);
-                // Need to check again, in case of a race
-                reap();
+
                 auto rerun = [this] (boost::system::error_code ec, size_t)
                 {
                     if (ec)
                     {
-                        current_packet.result = ec;
-                        packets_handler(&current_packet, 1);
+                        for (auto &current_packet : current_packets)
+                            current_packet.result = ec;
+                        packets_handler(current_packets.data(), current_packets.size());
+                        current_packets.clear();
                     }
                     else
                     {
@@ -94,48 +95,85 @@ void udp_ibv_stream::async_send_current_packet()
                         // This should be non-blocking, since we were woken up
                         comp_channel.get_event(&event_cq, &event_cq_context);
                         send_cq.ack_events(1);
-                        async_send_current_packet();
+                        async_send_current_packets();
                     }
                 };
-                comp_channel_wrapper.async_read_some(boost::asio::null_buffers(), rerun);
-                return;
+
+                /* Need to check again, in case of a race (in which case the event
+                 * won't fire until we send some more packets). Note that this
+                 * leaves us with an unwanted req_notify which will lead to a
+                 * spurious event later, but that is harmless.
+                 */
+                reap();
+                if (available.size() < current_packets.size())
+                {
+                    comp_channel_wrapper.async_read_some(boost::asio::null_buffers(), rerun);
+                    return;
+                }
             }
             else
             {
                 // Poll mode - keep trying until we have space
-                while (available.empty())
+                while (available.size() < current_packets.size())
                     reap();
             }
         }
-        slot *s = available.back();
-        available.pop_back();
 
-        std::size_t payload_size = current_packet.size;
-        ipv4_packet ipv4 = s->frame.payload_ipv4();
-        ipv4.total_length(payload_size + udp_packet::min_size + ipv4.header_length());
-        ipv4.update_checksum();
-        udp_packet udp = ipv4.payload_udp();
-        udp.length(payload_size + udp_packet::min_size);
-        packet_buffer payload = udp.payload();
-        boost::asio::buffer_copy(boost::asio::mutable_buffer(payload), current_packet.pkt.buffers);
-        s->sge.length = payload_size + (payload.data() - s->frame.data());
-        qp.post_send(&s->wr);
+        slot *prev = nullptr;
+        slot *first = nullptr;
+        for (auto &current_packet : current_packets)
+        {
+            slot *s = available.back();
+            available.pop_back();
+
+            std::size_t payload_size = current_packet.size;
+            ipv4_packet ipv4 = s->frame.payload_ipv4();
+            ipv4.total_length(payload_size + udp_packet::min_size + ipv4.header_length());
+            ipv4.update_checksum();
+            udp_packet udp = ipv4.payload_udp();
+            udp.length(payload_size + udp_packet::min_size);
+            packet_buffer payload = udp.payload();
+            boost::asio::buffer_copy(boost::asio::mutable_buffer(payload), current_packet.pkt.buffers);
+            s->sge.length = payload_size + (payload.data() - s->frame.data());
+            s->wr.next = nullptr;
+            if (prev != nullptr)
+                prev->wr.next = &s->wr;
+            else
+                first = s;
+            prev = s;
+        }
+        qp.post_send(&first->wr);
         // TODO: wait until we've reaped the CQE to claim success and post
         // completion?
-        current_packet.result = boost::system::error_code();
+        for (auto &current_packet : current_packets)
+            current_packet.result = boost::system::error_code();
     }
     catch (std::system_error &e)
     {
-        current_packet.result = boost::system::error_code(
-            e.code().value(), boost::system::system_category());
+        for (auto &current_packet : current_packets)
+            current_packet.result = boost::system::error_code(
+                e.code().value(), boost::system::system_category());
     }
-    get_io_service().post([this] { packets_handler(&current_packet, 1); });
+    get_io_service().post([this]
+    {
+        packets_handler(current_packets.data(), current_packets.size());
+    });
 }
 
 void udp_ibv_stream::async_send_packets()
 {
-    if (next_packet(current_packet))
-        async_send_current_packet();
+    current_packets.clear();
+    while (current_packets.size() < n_slots)
+    {
+        current_packets.emplace_back();
+        if (!next_packet(current_packets.back()))
+        {
+            current_packets.pop_back();
+            break;
+        }
+    }
+    if (!current_packets.empty())
+        async_send_current_packets();
     else
         get_io_service().post([this] { packets_handler(nullptr, 0); });
 }
@@ -217,6 +255,7 @@ udp_ibv_stream::udp_ibv_stream(
         udp.checksum(0);
         available.push_back(&slots[i]);
     }
+    current_packets.reserve(n_slots);
 }
 
 udp_ibv_stream::~udp_ibv_stream()
