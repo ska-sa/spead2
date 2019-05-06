@@ -89,23 +89,6 @@ private:
     void async_send_current_packet();
     void async_send_packets();
 
-    /**
-     * Wrapper to defer invocation of the handler. Like the above, this is
-     * a workaround for lambdas not allowing moves.
-     */
-    struct invoke_handler
-    {
-    private:
-        udp_ibv_stream::completion_handler handler;
-        boost::system::error_code ec;
-        std::size_t bytes_transferred;
-    public:
-        invoke_handler(udp_ibv_stream::completion_handler &&handler,
-                       boost::system::error_code ec,
-                       std::size_t bytes_transferred);
-        void operator()();
-    };
-
 public:
     /// Default receive buffer size, if none is passed to the constructor
     static constexpr std::size_t default_buffer_size = 512 * 1024;
