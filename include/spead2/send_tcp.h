@@ -54,15 +54,9 @@ private:
     boost::asio::ip::tcp::socket socket;
     /// Whether the underlying socket is already connected or not
     std::atomic<bool> connected{false};
+    transmit_packet current_packet;
 
-    template<typename Handler>
-    void async_send_packet(const packet &pkt, Handler &&handler)
-    {
-        if (!connected.load())
-            handler(boost::asio::error::not_connected, 0);
-        else
-            boost::asio::async_write(socket, pkt.buffers, std::move(handler));
-    }
+    void async_send_packets();
 
 public:
     /// Socket send buffer size, if none is explicitly passed to the constructor

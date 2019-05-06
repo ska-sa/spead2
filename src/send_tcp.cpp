@@ -27,6 +27,30 @@ namespace spead2
 namespace send
 {
 
+void tcp_stream::async_send_packets()
+{
+    if (next_packet(current_packet))
+    {
+        if (!connected.load())
+        {
+            current_packet.result = boost::asio::error::not_connected;
+            get_io_service().post([this] { packets_handler(&current_packet, 1); });
+        }
+        else
+        {
+            auto handler = [this](const boost::system::error_code &ec, std::size_t)
+            {
+                current_packet.result = ec;
+                packets_handler(&current_packet, 1);
+            };
+            boost::asio::async_write(socket, current_packet.pkt.buffers, handler);
+        }
+    }
+    else
+        get_io_service().post([this] { packets_handler(nullptr, 0); });
+}
+
+
 namespace detail
 {
 
