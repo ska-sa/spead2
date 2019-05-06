@@ -92,6 +92,11 @@ packet_generator::packet_generator(
     }
 }
 
+bool packet_generator::has_next_packet() const
+{
+    return payload_offset < payload_size;
+}
+
 packet packet_generator::next_packet()
 {
     packet out;

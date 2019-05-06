@@ -53,7 +53,7 @@ private:
             streambuf.sputn(boost::asio::buffer_cast<const char *>(buffer), buffer_size);
             size += buffer_size;
         }
-        get_io_service().dispatch(std::bind(std::move(handler), boost::system::error_code(), size));
+        get_io_service().post(std::bind(std::move(handler), boost::system::error_code(), size));
     }
 
 public:

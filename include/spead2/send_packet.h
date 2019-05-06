@@ -80,6 +80,7 @@ private:
 public:
     packet_generator(const heap &h, item_pointer_t cnt, std::size_t max_packet_size);
 
+    bool has_next_packet() const;
     packet next_packet();
 };
 

@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017 SKA South Africa
+/* Copyright 2015, 2017, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -25,9 +25,10 @@
 #include <utility>
 #include <vector>
 #include <memory>
-#include <queue>
+#include <list>
 #include <chrono>
 #include <mutex>
+#include <iterator>
 #include <condition_variable>
 #include <stdexcept>
 #include <boost/asio.hpp>
@@ -152,11 +153,31 @@ public:
  * Stream that sends packets at a maximum rate. It also serialises heaps so
  * that only one heap is being sent at a time. Heaps are placed in a queue, and if
  * the queue becomes too long heaps are discarded.
+ *
+ * The stream operates as a state machine, depending on which handlers are
+ * pending:
+ * - QUEUED: waiting for a callback to do_next
+ * - SENDING: the derived class is in the process of sending packets
+ * - SLEEPING: we are sleeping as a result of rate limiting
+ * - EMPTY: there are no heaps and no pending callbacks.
+ *
+ * The derived class implements async_send_packets, which requests packets
+ * from the base class. It keeps requesting packets until it has as many as
+ * it needs for a batch, or until the base class doesn't provide any more
+ * (which can be for rate limiting or because there is no more data).
  */
 template<typename Derived>
 class stream_impl : public stream
 {
 private:
+    enum class state_t
+    {
+        QUEUED,
+        SENDING,
+        SLEEPING,
+        EMPTY
+    };
+
     typedef boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock> timer_type;
 
     struct queue_item
@@ -164,6 +185,7 @@ private:
         const heap &h;
         item_pointer_t cnt;
         completion_handler handler;
+        item_pointer_t bytes_sent = 0;
 
         queue_item() = default;
         queue_item(const heap &h, item_pointer_t cnt, completion_handler &&handler)
@@ -172,129 +194,163 @@ private:
         }
     };
 
+    struct transmit_item
+    {
+        packet pkt;
+        std::size_t size;
+        bool last;          // if this is the last packet in the heap
+        queue_item *item;
+        boost::system::error_code result;
+    };
+
     const stream_config config;
     const double seconds_per_byte_burst, seconds_per_byte;
 
     /**
-     * Protects access to @a queue. All other members are either const or are
+     * Protects access to @a queue, @a state and @a heap_empty.
+     * All other members are either const or are
      * only accessed only by completion handlers, and there is only ever one
      * scheduled at a time.
      */
     std::mutex queue_mutex;
-    std::queue<queue_item> queue;
+    std::list<queue_item> queue;
+    /// Item holding data for the next packet to send
+    typename std::list<queue_item>::iterator active;
+    state_t state = state_t::EMPTY;
     timer_type timer;
-    // Time at which next burst should be sent, considering the burst rate
+    /// Time at which next burst should be sent, considering the burst rate
     timer_type::time_point send_time_burst;
-    // Time at which next burst should be sent, considering the average rate
+    /// Time at which next burst should be sent, considering the average rate
     timer_type::time_point send_time;
-    /// Number of bytes sent in the current heap
-    item_pointer_t heap_bytes = 0;
     /// Number of bytes sent since send_time and sent_time_burst were updated
     std::uint64_t rate_bytes = 0;
     /// Heap cnt for the next heap to send
     item_pointer_t next_cnt = 1;
     /// Increment to next_cnt after each heap
     item_pointer_t step_cnt = 1;
-    std::unique_ptr<packet_generator> gen; // TODO: make this inlinable
-    /// Packet undergoing transmission by send_next_packet
-    packet current_packet;
-    /// Signalled whenever the last heap is popped from the queue
+    /// Packet generator for the @ref active heap
+    std::unique_ptr<packet_generator> gen; // TODO: make this inlinable (boost::optional?)
+    /// Signalled when transitioning to EMPTY state
     std::condition_variable heap_empty;
 
-    /**
-     * Asynchronously send the next packet from the current heap
-     * (or the next heap, if the current one is finished).
-     *
-     * @param ec Error from sending the previous packet. If set, the rest of the
-     *           current heap is aborted.
-     */
-    void send_next_packet(boost::system::error_code ec = boost::system::error_code())
+    void next_active()
     {
-        bool again;
-        do
+        ++active;
+        if (active != queue.end())
+            gen.reset(new packet_generator(
+                    active->h, active->cnt, config.get_max_packet_size()));
+        else
+            gen.reset();
+    }
+
+    void post_handler(boost::system::error_code result)
+    {
+        get_io_service().post(
+            std::bind(std::move(queue.front().handler), result, queue.front().bytes_sent));
+        if (active == queue.begin())
+            next_active();
+        queue.pop_front();
+    }
+
+    bool must_sleep() const
+    {
+        return rate_bytes >= config.get_burst_size();
+    }
+
+    void process_results(const transmit_item *items, std::size_t n_items)
+    {
+        // TODO move to base class
+        for (std::size_t i = 0; i < n_items; i++)
         {
-            assert(gen);
-            again = false;
-            current_packet = gen->next_packet();
-            if (ec || current_packet.buffers.empty())
+            const transmit_item &item = items[i];
+            if (item.item != &*queue.begin())
             {
-                // Reached the end of a heap. Pop the current one, and start the
-                // next one if there is one.
-                completion_handler handler;
-                bool empty;
-
-                gen.reset();
-                std::unique_lock<std::mutex> lock(queue_mutex);
-                handler = std::move(queue.front().handler);
-                queue.pop();
-                empty = queue.empty();
-                if (!empty)
-                    gen.reset(new packet_generator(
-                        queue.front().h, queue.front().cnt, config.get_max_packet_size()));
-                else
-                    gen.reset();
-
-                std::size_t old_heap_bytes = heap_bytes;
-                heap_bytes = 0;
-                if (empty)
-                {
-                    heap_empty.notify_all();
-                    // Avoid hanging on to data indefinitely
-                    current_packet = packet();
-                }
-                again = !empty;  // Start again on the next heap
-                lock.unlock();
-
-                /* At this point it is not safe to touch *this at all, because
-                 * if the queue is empty, the destructor is free to complete
-                 * and take the memory out from under us.
-                 */
-                handler(ec, old_heap_bytes);
+                // A previous packet in this heap already aborted it
+                continue;
             }
+            if (item.result)
+                post_handler(item.result);
             else
             {
-                auto send_next_callback = [this] (const boost::system::error_code &error)
-                {
-                    send_next_packet(error);
-                };
-                static_cast<Derived *>(this)->async_send_packet(
-                    current_packet,
-                    [this, send_next_callback] (const boost::system::error_code &ec, std::size_t bytes_transferred)
-                    {
-                        if (ec)
-                        {
-                            send_next_packet(ec);
-                            return;
-                        }
-                        bool sleeping = false;
-                        rate_bytes += bytes_transferred;
-                        heap_bytes += bytes_transferred;
-                        if (rate_bytes >= config.get_burst_size())
-                        {
-                            auto now = timer_type::clock_type::now();
-                            std::chrono::duration<double> wait_burst(rate_bytes * seconds_per_byte_burst);
-                            std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
-                            send_time_burst += std::chrono::duration_cast<timer_type::clock_type::duration>(wait_burst);
-                            send_time += std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
-                            /* send_time_burst needs to reflect the time the burst
-                             * was actually sent (as well as we can estimate it), even if
-                             * sent_time or now is later.
-                             */
-                            auto target_time = max(send_time_burst, send_time);
-                            send_time_burst = max(now, target_time);
-                            rate_bytes = 0;
-                            if (now < target_time)
-                            {
-                                sleeping = true;
-                                timer.expires_at(target_time);
-                                timer.async_wait(send_next_callback);
-                            }
-                        }
-                        if (!sleeping)
-                            send_next_packet();
-                    });
+                item.item->bytes_sent += item.size;
+                if (item.last)
+                    post_handler(item.result);
             }
-        } while (again);
+        }
+    }
+
+    void do_next(const transmit_item *items = nullptr, std::size_t n_items = 0)
+    {
+        std::lock_guard<std::mutex> lock(queue_mutex);
+        // Just for debugging: every path should set another state before exit
+        state = state_t::QUEUED;
+        process_results(items, n_items);
+        if (must_sleep())
+        {
+            auto now = timer_type::clock_type::now();
+            std::chrono::duration<double> wait_burst(rate_bytes * seconds_per_byte_burst);
+            std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
+            send_time_burst += std::chrono::duration_cast<timer_type::clock_type::duration>(wait_burst);
+            send_time += std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
+            /* send_time_burst needs to reflect the time the burst
+             * was actually sent (as well as we can estimate it), even if
+             * sent_time or now is later.
+             */
+            auto target_time = max(send_time_burst, send_time);
+            send_time_burst = max(now, target_time);
+            rate_bytes = 0;
+            if (now < target_time)
+            {
+                state = state_t::SLEEPING;
+                timer.expires_at(target_time);
+                timer.async_wait([this](const boost::system::error_code &) { do_next(); });
+                return;
+            }
+        }
+
+        if (queue.empty())
+        {
+            state = state_t::EMPTY;
+            heap_empty.notify_all();
+            return;
+        }
+
+        state = state_t::SENDING;
+        static_cast<Derived *>(this)->async_send_packets();
+    }
+
+protected:
+    /**
+     * Get the next packet for transmission.
+     *
+     * This should only be called by the derived @c async_send_packets.
+     *
+     * @retval true if a packet was returned
+     * @retval false if the queue is empty or a pause is needed for rate limiting
+     *
+     * @todo move to base class
+     */
+    bool next_packet(transmit_item &data)
+    {
+        if (must_sleep())
+            return false;
+        while (active != queue.end())
+        {
+            assert(gen);
+            if (gen->has_next_packet())
+            {
+                data.pkt = gen->next_packet();
+                data.size = boost::asio::buffer_size(data.pkt.buffers);
+                data.last = !gen->has_next_packet();
+                data.item = &*active;
+                data.result = boost::system::error_code();
+                rate_bytes += data.size;
+                return true;
+            }
+            else
+                next_active();
+        }
+        return false;
     }
 
 public:
@@ -305,6 +361,7 @@ public:
             config(config),
             seconds_per_byte_burst(config.get_burst_rate() > 0.0 ? 1.0 / config.get_burst_rate() : 0.0),
             seconds_per_byte(config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0),
+            active(queue.end()),
             timer(get_io_service())
     {
     }
@@ -327,7 +384,6 @@ public:
             get_io_service().dispatch(std::bind(handler, boost::asio::error::would_block, 0));
             return false;
         }
-        bool empty = queue.empty();
         item_pointer_t ucnt; // unsigned, so that copying next_cnt cannot overflow
         if (cnt < 0)
         {
@@ -336,24 +392,43 @@ public:
         }
         else
             ucnt = cnt;
-        queue.emplace(h, ucnt, std::move(handler));
+        queue.emplace_back(h, ucnt, std::move(handler));
+        if (!gen)
+        {
+            active = std::prev(queue.end());
+            gen.reset(new packet_generator(h, ucnt, config.get_max_packet_size()));
+        }
+
+        bool empty = (state == state_t::EMPTY);
         if (empty)
         {
-            assert(!gen);
-            gen.reset(new packet_generator(queue.front().h, queue.front().cnt, config.get_max_packet_size()));
+            // TODO: this can allow sending too fast
+            send_time = send_time_burst = timer_type::clock_type::now();
+            rate_bytes = 0;
+            state = state_t::QUEUED;
         }
         lock.unlock();
 
-        /* If it is not empty, the new heap will be started as a continuation
-         * of the previous one.
-         */
         if (empty)
-        {
-            send_time = send_time_burst = timer_type::clock_type::now();
-            rate_bytes = 0;
-            get_io_service().dispatch([this] { send_next_packet(); });
-        }
+            get_io_service().dispatch([this] { do_next(); });
         return true;
+    }
+
+    transmit_item current_item;
+    // TODO: temporary
+    void async_send_packets()
+    {
+        if (next_packet(current_item))
+        {
+            auto handler = [this](const boost::system::error_code &ec, std::size_t bytes_transferred)
+            {
+                current_item.result = ec;
+                do_next(&current_item, 1);
+            };
+            static_cast<Derived *>(this)->async_send_packet(current_item.pkt, handler);
+        }
+        else
+            get_io_service().post([this] { do_next(); });
     }
 
     /**
@@ -364,7 +439,7 @@ public:
     virtual void flush() override
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
-        while (!queue.empty())
+        while (state != state_t::EMPTY)
         {
             heap_empty.wait(lock);
         }
