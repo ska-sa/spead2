@@ -41,20 +41,9 @@ class streambuf_stream : public stream_impl<streambuf_stream>
 private:
     friend class stream_impl<streambuf_stream>;
     std::streambuf &streambuf;
+    transmit_item current_item;
 
-    template<typename Handler>
-    void async_send_packet(const packet &pkt, Handler &&handler)
-    {
-        std::size_t size = 0;
-        for (const auto &buffer : pkt.buffers)
-        {
-            std::size_t buffer_size = boost::asio::buffer_size(buffer);
-            // TODO: handle errors
-            streambuf.sputn(boost::asio::buffer_cast<const char *>(buffer), buffer_size);
-            size += buffer_size;
-        }
-        get_io_service().post(std::bind(std::move(handler), boost::system::error_code(), size));
-    }
+    void async_send_packets();
 
 public:
     /// Constructor
