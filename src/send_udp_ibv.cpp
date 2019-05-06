@@ -68,47 +68,7 @@ void udp_ibv_stream::reap()
     }
 }
 
-udp_ibv_stream::rerun_async_send_packet::rerun_async_send_packet(
-    udp_ibv_stream *self,
-    const packet &pkt,
-    udp_ibv_stream::completion_handler &&handler)
-    : self(self), pkt(&pkt), handler(std::move(handler))
-{
-}
-
-void udp_ibv_stream::rerun_async_send_packet::operator()(
-    boost::system::error_code ec, std::size_t bytes_transferred)
-{
-    (void) bytes_transferred;
-    if (ec)
-    {
-        handler(ec, 0);
-    }
-    else
-    {
-        ibv_cq *event_cq;
-        void *event_cq_context;
-        // This should be non-blocking, since we were woken up
-        self->comp_channel.get_event(&event_cq, &event_cq_context);
-        self->send_cq.ack_events(1);
-        self->async_send_packet(*pkt, std::move(handler));
-    }
-}
-
-udp_ibv_stream::invoke_handler::invoke_handler(
-    udp_ibv_stream::completion_handler &&handler,
-    boost::system::error_code ec,
-    std::size_t bytes_transferred)
-    : handler(std::move(handler)), ec(ec), bytes_transferred(bytes_transferred)
-{
-}
-
-void udp_ibv_stream::invoke_handler::operator()()
-{
-    handler(ec, bytes_transferred);
-}
-
-void udp_ibv_stream::async_send_packet(const packet &pkt, completion_handler &&handler)
+void udp_ibv_stream::async_send_current_packet()
 {
     try
     {
@@ -120,9 +80,24 @@ void udp_ibv_stream::async_send_packet(const packet &pkt, completion_handler &&h
                 send_cq.req_notify(false);
                 // Need to check again, in case of a race
                 reap();
-                comp_channel_wrapper.async_read_some(
-                    boost::asio::null_buffers(),
-                    rerun_async_send_packet(this, pkt, std::move(handler)));
+                auto rerun = [this] (boost::system::error_code ec, size_t)
+                {
+                    if (ec)
+                    {
+                        current_packet.result = ec;
+                        packets_handler(&current_packet, 1);
+                    }
+                    else
+                    {
+                        ibv_cq *event_cq;
+                        void *event_cq_context;
+                        // This should be non-blocking, since we were woken up
+                        comp_channel.get_event(&event_cq, &event_cq_context);
+                        send_cq.ack_events(1);
+                        async_send_current_packet();
+                    }
+                };
+                comp_channel_wrapper.async_read_some(boost::asio::null_buffers(), rerun);
                 return;
             }
             else
@@ -135,24 +110,34 @@ void udp_ibv_stream::async_send_packet(const packet &pkt, completion_handler &&h
         slot *s = available.back();
         available.pop_back();
 
-        std::size_t payload_size = boost::asio::buffer_size(pkt.buffers);
+        std::size_t payload_size = current_packet.size;
         ipv4_packet ipv4 = s->frame.payload_ipv4();
         ipv4.total_length(payload_size + udp_packet::min_size + ipv4.header_length());
         ipv4.update_checksum();
         udp_packet udp = ipv4.payload_udp();
         udp.length(payload_size + udp_packet::min_size);
         packet_buffer payload = udp.payload();
-        boost::asio::buffer_copy(boost::asio::mutable_buffer(payload), pkt.buffers);
+        boost::asio::buffer_copy(boost::asio::mutable_buffer(payload), current_packet.pkt.buffers);
         s->sge.length = payload_size + (payload.data() - s->frame.data());
         qp.post_send(&s->wr);
-        get_io_service().post(invoke_handler(std::move(handler), boost::system::error_code(),
-                                             payload_size));
+        // TODO: wait until we've reaped the CQE to claim success and post
+        // completion?
+        current_packet.result = boost::system::error_code();
     }
     catch (std::system_error &e)
     {
-        get_io_service().post(invoke_handler(std::move(handler),
-            boost::system::error_code(e.code().value(), boost::system::system_category()), 0));
+        current_packet.result = boost::system::error_code(
+            e.code().value(), boost::system::system_category());
     }
+    get_io_service().post([this] { packets_handler(&current_packet, 1); });
+}
+
+void udp_ibv_stream::async_send_packets()
+{
+    if (next_packet(current_packet))
+        async_send_current_packet();
+    else
+        get_io_service().post([this] { packets_handler(nullptr, 0); });
 }
 
 udp_ibv_stream::udp_ibv_stream(

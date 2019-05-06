@@ -77,6 +77,8 @@ private:
     std::unique_ptr<slot[]> slots;
     std::vector<slot *> available;
 
+    transmit_packet current_packet;
+
     static ibv_qp_t
     create_qp(const ibv_pd_t &pd, const ibv_cq_t &send_cq, const ibv_cq_t &recv_cq,
               std::size_t n_slots);
@@ -84,27 +86,8 @@ private:
     /// Clear out the completion queue and return slots to available
     void reap();
 
-    void async_send_packet(const packet &pkt, completion_handler &&handler);
-
-    /**
-     * Handler triggered by a completion interrupt. It would be much simpler as
-     * a lambda function, but this does not allow perfect forwarding of the
-     * handler since C++11 doesn't have generalised lambda captures.
-     */
-    struct rerun_async_send_packet
-    {
-    private:
-        udp_ibv_stream *self;
-        const packet *pkt;
-        udp_ibv_stream::completion_handler handler;
-
-    public:
-        rerun_async_send_packet(udp_ibv_stream *self,
-                                const packet &pkt,
-                                udp_ibv_stream::completion_handler &&handler);
-
-        void operator()(boost::system::error_code ec, std::size_t bytes_transferred);
-    };
+    void async_send_current_packet();
+    void async_send_packets();
 
     /**
      * Wrapper to defer invocation of the handler. Like the above, this is
