@@ -421,23 +421,6 @@ public:
         return true;
     }
 
-    transmit_packet current_packet;
-    // TODO: temporary
-    void async_send_packets()
-    {
-        if (next_packet(current_packet))
-        {
-            auto handler = [this](const boost::system::error_code &ec, std::size_t bytes_transferred)
-            {
-                current_packet.result = ec;
-                do_next(&current_packet, 1);
-            };
-            static_cast<Derived *>(this)->async_send_packet(current_packet.pkt, handler);
-        }
-        else
-            get_io_service().post([this] { packets_handler(nullptr, 0); });
-    }
-
     /**
      * Block until all enqueued heaps have been sent. This function is
      * thread-safe, but can be live-locked if more heaps are added while it is
