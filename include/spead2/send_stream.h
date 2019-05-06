@@ -195,7 +195,7 @@ private:
     };
 
 protected:
-    struct transmit_item
+    struct transmit_packet
     {
         packet pkt;
         std::size_t size;
@@ -259,12 +259,12 @@ private:
         return rate_bytes >= config.get_burst_size();
     }
 
-    void process_results(const transmit_item *items, std::size_t n_items)
+    void process_results(const transmit_packet *items, std::size_t n_items)
     {
         // TODO move to base class
         for (std::size_t i = 0; i < n_items; i++)
         {
-            const transmit_item &item = items[i];
+            const transmit_packet &item = items[i];
             if (item.item != &*queue.begin())
             {
                 // A previous packet in this heap already aborted it
@@ -281,7 +281,7 @@ private:
         }
     }
 
-    void do_next(const transmit_item *items = nullptr, std::size_t n_items = 0)
+    void do_next(const transmit_packet *items = nullptr, std::size_t n_items = 0)
     {
         std::lock_guard<std::mutex> lock(queue_mutex);
         // Just for debugging: every path should set another state before exit
@@ -322,7 +322,7 @@ private:
     }
 
 protected:
-    void packets_handler(const transmit_item *items, std::size_t n_items)
+    void packets_handler(const transmit_packet *items, std::size_t n_items)
     {
         do_next(items, n_items);
     }
@@ -337,7 +337,7 @@ protected:
      *
      * @todo move to base class
      */
-    bool next_packet(transmit_item &data)
+    bool next_packet(transmit_packet &data)
     {
         if (must_sleep())
             return false;
@@ -421,18 +421,18 @@ public:
         return true;
     }
 
-    transmit_item current_item;
+    transmit_packet current_packet;
     // TODO: temporary
     void async_send_packets()
     {
-        if (next_packet(current_item))
+        if (next_packet(current_packet))
         {
             auto handler = [this](const boost::system::error_code &ec, std::size_t bytes_transferred)
             {
-                current_item.result = ec;
-                do_next(&current_item, 1);
+                current_packet.result = ec;
+                do_next(&current_packet, 1);
             };
-            static_cast<Derived *>(this)->async_send_packet(current_item.pkt, handler);
+            static_cast<Derived *>(this)->async_send_packet(current_packet.pkt, handler);
         }
         else
             get_io_service().post([this] { packets_handler(nullptr, 0); });

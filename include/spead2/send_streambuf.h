@@ -41,7 +41,7 @@ class streambuf_stream : public stream_impl<streambuf_stream>
 private:
     friend class stream_impl<streambuf_stream>;
     std::streambuf &streambuf;
-    transmit_item current_item;
+    transmit_packet current_packet;
 
     void async_send_packets();
 

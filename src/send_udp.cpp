@@ -30,14 +30,14 @@ constexpr std::size_t udp_stream::default_buffer_size;
 
 void udp_stream::async_send_packets()
 {
-    if (next_packet(current_item))
+    if (next_packet(current_packet))
     {
         auto handler = [this](const boost::system::error_code &ec, std::size_t bytes_transferred)
         {
-            current_item.result = ec;
-            packets_handler(&current_item, 1);
+            current_packet.result = ec;
+            packets_handler(&current_packet, 1);
         };
-        socket.async_send_to(current_item.pkt.buffers, endpoint, handler);
+        socket.async_send_to(current_packet.pkt.buffers, endpoint, handler);
     }
     else
         get_io_service().post([this] { packets_handler(nullptr, 0); });
