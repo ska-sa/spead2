@@ -75,7 +75,9 @@ private:
     std::unique_ptr<slot[]> slots;
     std::vector<slot *> available;
 
-    std::vector<transmit_packet> current_packets;
+    const std::size_t max_current_packets;
+    std::size_t n_current_packets = 0;
+    std::unique_ptr<transmit_packet[]> current_packets;
 
     static ibv_qp_t
     create_qp(const ibv_pd_t &pd, const ibv_cq_t &send_cq, const ibv_cq_t &recv_cq,

@@ -1,4 +1,4 @@
-/* Copyright 2016 SKA South Africa
+/* Copyright 2016, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -77,7 +77,7 @@ void udp_ibv_stream::async_send_current_packets()
     try
     {
         reap();
-        if (available.size() < current_packets.size())
+        if (available.size() < n_current_packets)
         {
             if (comp_channel)
             {
@@ -87,10 +87,12 @@ void udp_ibv_stream::async_send_current_packets()
                 {
                     if (ec)
                     {
-                        for (auto &current_packet : current_packets)
-                            current_packet.result = ec;
-                        packets_handler(current_packets.data(), current_packets.size());
-                        current_packets.clear();
+                        for (std::size_t i = 0; i < n_current_packets; i++)
+                            current_packets[i].result = ec;
+                        // Must clear before calling packets_handler, because it in turn calls async_send_packets
+                        std::size_t old_current_packets = n_current_packets;
+                        n_current_packets = 0;
+                        packets_handler(current_packets.get(), old_current_packets);
                     }
                     else
                     {
@@ -109,7 +111,7 @@ void udp_ibv_stream::async_send_current_packets()
                  * spurious event later, but that is harmless.
                  */
                 reap();
-                if (available.size() < current_packets.size())
+                if (available.size() < n_current_packets)
                 {
                     comp_channel_wrapper.async_read_some(boost::asio::null_buffers(), rerun);
                     return;
@@ -118,15 +120,16 @@ void udp_ibv_stream::async_send_current_packets()
             else
             {
                 // Poll mode - keep trying until we have space
-                while (available.size() < current_packets.size())
+                while (available.size() < n_current_packets)
                     reap();
             }
         }
 
         slot *prev = nullptr;
         slot *first = nullptr;
-        for (auto &current_packet : current_packets)
+        for (std::size_t i = 0; i < n_current_packets; i++)
         {
+            const auto &current_packet = current_packets[i];
             slot *s = available.back();
             available.pop_back();
 
@@ -149,34 +152,34 @@ void udp_ibv_stream::async_send_current_packets()
         qp.post_send(&first->wr);
         // TODO: wait until we've reaped the CQE to claim success and post
         // completion?
-        for (auto &current_packet : current_packets)
-            current_packet.result = boost::system::error_code();
+        for (std::size_t i = 0; i < n_current_packets; i++)
+            current_packets[i].result = boost::system::error_code();
     }
     catch (std::system_error &e)
     {
-        for (auto &current_packet : current_packets)
-            current_packet.result = boost::system::error_code(
-                e.code().value(), boost::system::system_category());
+        boost::system::error_code ec(e.code().value(), boost::system::system_category());
+        for (std::size_t i = 0; i < n_current_packets; i++)
+            current_packets[i].result = ec;
     }
     get_io_service().post([this]
     {
-        packets_handler(current_packets.data(), current_packets.size());
+        // Must clear before calling packets_handler, because it in turn calls async_send_packets
+        std::size_t old_current_packets = n_current_packets;
+        n_current_packets = 0;
+        packets_handler(current_packets.get(), old_current_packets);
     });
 }
 
 void udp_ibv_stream::async_send_packets()
 {
-    current_packets.clear();
-    while (current_packets.size() < n_slots)
+    n_current_packets = 0;
+    while (n_current_packets < max_current_packets)
     {
-        current_packets.emplace_back();
-        if (!next_packet(current_packets.back()))
-        {
-            current_packets.pop_back();
+        if (!next_packet(current_packets[n_current_packets]))
             break;
-        }
+        n_current_packets++;
     }
-    if (!current_packets.empty())
+    if (n_current_packets > 0)
         async_send_current_packets();
     else
         get_io_service().post([this] { packets_handler(nullptr, 0); });
@@ -193,6 +196,8 @@ udp_ibv_stream::udp_ibv_stream(
     int max_poll)
     : stream_impl<udp_ibv_stream>(std::move(io_service), config),
     n_slots(std::max(std::size_t(1), buffer_size / (config.get_max_packet_size() + header_length))),
+    max_current_packets(n_slots <= 1 ? 1 : n_slots / 2),
+    current_packets(new transmit_packet[max_current_packets]),
     socket(get_io_service(), endpoint.protocol()),
     cm_id(event_channel, nullptr, RDMA_PS_UDP),
     comp_channel_wrapper(get_io_service())
@@ -259,7 +264,6 @@ udp_ibv_stream::udp_ibv_stream(
         udp.checksum(0);
         available.push_back(&slots[i]);
     }
-    current_packets.reserve(n_slots);
 }
 
 udp_ibv_stream::~udp_ibv_stream()
