@@ -34,6 +34,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/high_resolution_timer.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/optional.hpp>
 #include <spead2/send_heap.h>
 #include <spead2/send_packet.h>
 #include <spead2/common_logging.h>
@@ -216,7 +217,7 @@ private:
     /// Increment to next_cnt after each heap
     item_pointer_t step_cnt = 1;
     /// Packet generator for the @ref active heap
-    std::unique_ptr<packet_generator> gen; // TODO: make this inlinable (boost::optional?)
+    boost::optional<packet_generator> gen;
     /// Signalled when transitioning to EMPTY state
     std::condition_variable heap_empty;
 
@@ -376,7 +377,7 @@ public:
         if (!gen)
         {
             active = std::prev(queue.end());
-            gen.reset(new packet_generator(h, ucnt, config.get_max_packet_size()));
+            gen.emplace(h, ucnt, config.get_max_packet_size());
         }
 
         bool empty = (state == state_t::EMPTY);

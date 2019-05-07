@@ -123,10 +123,9 @@ void stream_impl_base::next_active()
 {
     ++active;
     if (active != queue.end())
-        gen.reset(new packet_generator(
-                active->h, active->cnt, config.get_max_packet_size()));
+        gen.emplace(active->h, active->cnt, config.get_max_packet_size());
     else
-        gen.reset();
+        gen = boost::none;
 }
 
 void stream_impl_base::post_handler(boost::system::error_code result)
