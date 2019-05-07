@@ -35,6 +35,7 @@
 #include <boost/asio/high_resolution_timer.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/optional.hpp>
+#include <boost/utility/in_place_factory.hpp>
 #include <spead2/send_heap.h>
 #include <spead2/send_packet.h>
 #include <spead2/common_logging.h>
