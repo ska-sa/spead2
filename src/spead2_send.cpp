@@ -53,6 +53,7 @@ struct options
     std::size_t buffer;
     std::size_t burst = spead2::send::stream_config::default_burst_size;
     double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
+    std::size_t max_heaps = spead2::send::stream_config::default_max_heaps;
     int threads = 1;
     double rate = 0.0;
     int ttl = 1;
@@ -104,6 +105,7 @@ static options parse_args(int argc, const char **argv)
         ("buffer", make_opt_no_default(opts.buffer), "Socket buffer size")
         ("burst", make_opt(opts.burst), "Burst size")
         ("burst-rate-ratio", make_opt(opts.burst_rate_ratio), "Hard rate limit, relative to --rate")
+        ("max-heaps", make_opt(opts.max_heaps), "Maximum heaps in flight")
         ("threads", make_opt(opts.threads), "Number of worker threads")
         ("rate", make_opt(opts.rate), "Transmission rate bound (Gb/s)")
         ("ttl", make_opt(opts.ttl), "TTL for multicast target")
@@ -215,7 +217,7 @@ int run(spead2::send::stream &stream, const options &opts)
     auto start_time = std::chrono::high_resolution_clock::now();
     while (opts.heaps < 0 || sent <= std::uint64_t(opts.heaps))
     {
-        if (futures.size() >= 2)
+        if (futures.size() >= opts.max_heaps)
         {
             sent_bytes += futures.front().get();
             futures.pop_front();
@@ -272,7 +274,7 @@ int main(int argc, const char **argv)
     spead2::thread_pool thread_pool(opts.threads);
     spead2::send::stream_config config(
         opts.packet, opts.rate * 1000 * 1000 * 1000 / 8, opts.burst,
-        spead2::send::stream_config::default_max_heaps, opts.burst_rate_ratio);
+        opts.max_heaps, opts.burst_rate_ratio);
     std::unique_ptr<spead2::send::stream> stream;
     auto &io_service = thread_pool.get_io_service();
     boost::asio::ip::address interface_address;
