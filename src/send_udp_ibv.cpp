@@ -196,11 +196,11 @@ udp_ibv_stream::udp_ibv_stream(
     int max_poll)
     : stream_impl<udp_ibv_stream>(std::move(io_service), config),
     n_slots(std::max(std::size_t(1), buffer_size / (config.get_max_packet_size() + header_length))),
-    max_current_packets(n_slots <= 1 ? 1 : n_slots / 2),
-    current_packets(new transmit_packet[max_current_packets]),
     socket(get_io_service(), endpoint.protocol()),
     cm_id(event_channel, nullptr, RDMA_PS_UDP),
-    comp_channel_wrapper(get_io_service())
+    comp_channel_wrapper(get_io_service()),
+    max_current_packets(n_slots <= 1 ? 1 : n_slots / 2),
+    current_packets(new transmit_packet[max_current_packets])
 {
     if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
         throw std::invalid_argument("endpoint is not an IPv4 multicast address");
