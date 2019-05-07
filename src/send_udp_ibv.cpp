@@ -55,16 +55,20 @@ ibv_qp_t udp_ibv_stream::create_qp(
 
 void udp_ibv_stream::reap()
 {
-    ibv_wc wc;
+    constexpr int BATCH = 16;
+    ibv_wc wc[BATCH];
     int done;
-    while ((done = send_cq.poll(1, &wc)) > 0)
+    while ((done = send_cq.poll(BATCH, wc)) > 0)
     {
-        if (wc.status != IBV_WC_SUCCESS)
+        for (int i = 0; i < done; i++)
         {
-            log_warning("Work Request failed with code %1%", wc.status);
+            if (wc[i].status != IBV_WC_SUCCESS)
+            {
+                log_warning("Work Request failed with code %1%", wc[i].status);
+            }
+            slot *s = &slots[wc[i].wr_id];
+            available.push_back(s);
         }
-        slot *s = &slots[wc.wr_id];
-        available.push_back(s);
     }
 }
 
