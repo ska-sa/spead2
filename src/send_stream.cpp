@@ -123,7 +123,7 @@ void stream_impl_base::next_active()
 {
     ++active;
     if (active != queue.end())
-        gen.emplace(active->h, active->cnt, config.get_max_packet_size());
+        gen = boost::in_place(active->h, active->cnt, config.get_max_packet_size());
     else
         gen = boost::none;
 }

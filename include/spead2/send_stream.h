@@ -377,7 +377,7 @@ public:
         if (!gen)
         {
             active = std::prev(queue.end());
-            gen.emplace(h, ucnt, config.get_max_packet_size());
+            gen = boost::in_place(h, ucnt, config.get_max_packet_size());
         }
 
         bool empty = (state == state_t::EMPTY);
