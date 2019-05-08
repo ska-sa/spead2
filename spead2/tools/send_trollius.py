@@ -1,4 +1,4 @@
-# Copyright 2015, 2017 SKA South Africa
+# Copyright 2015, 2017, 2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -80,6 +80,9 @@ def get_args():
     group.add_argument('--burst-rate-ratio', metavar='RATIO', type=float,
                        default=spead2.send.StreamConfig.DEFAULT_BURST_RATE_RATIO,
                        help='Hard rate limit, relative to --rate [%(default)s]')
+    group.add_argument('--max-heaps', metavar='HEAPS', type=int,
+                       default=spead2.send.StreamConfig.DEFAULT_MAX_HEAPS,
+                       help='Maximum heaps in flight')
     group.add_argument('--ttl', type=int, help='TTL for multicast target [1]')
     group.add_argument('--affinity', type=spead2.parse_range_list,
                        help='List of CPUs to pin threads to [no affinity]')
@@ -117,7 +120,7 @@ def run(item_group, stream, args):
     else:
         rep = itertools.chain(itertools.repeat(False, args.heaps), [True])
     for is_end in rep:
-        if len(tasks) >= 2:
+        if len(tasks) >= args.max_heaps:
             try:
                 n_bytes += yield From(tasks.popleft())
             except Exception as error:
@@ -172,7 +175,8 @@ def async_main():
         max_packet_size=args.packet,
         burst_size=args.burst,
         rate=args.rate * 10**9 / 8,
-        burst_rate_ratio=args.burst_rate_ratio)
+        burst_rate_ratio=args.burst_rate_ratio,
+        max_heaps=args.max_heaps)
     if args.tcp:
         stream = yield From(spead2.send.trollius.TcpStream.connect(
             thread_pool, args.host, args.port, config, args.buffer, args.bind))
