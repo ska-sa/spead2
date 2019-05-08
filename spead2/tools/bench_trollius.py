@@ -1,4 +1,4 @@
-# Copyright 2015, 2017 SKA South Africa
+# Copyright 2015, 2017, 2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -153,11 +153,11 @@ def run_slave(args):
 
 
 @trollius.coroutine
-def send_stream(item_group, stream, num_heaps):
+def send_stream(item_group, stream, num_heaps, args):
     tasks = collections.deque()
     transferred = 0
     for i in range(num_heaps + 1):
-        while len(tasks) >= 2:
+        while len(tasks) >= args.heaps:
             transferred += yield From(tasks.popleft())
         if i == num_heaps:
             heap = item_group.get_end()
@@ -189,7 +189,7 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
         max_packet_size=args.packet,
         burst_size=args.burst,
         rate=rate,
-        max_heaps=num_heaps + 1,
+        max_heaps=args.heaps,
         burst_rate_ratio=args.burst_rate_ratio)
     host = args.host
     if args.multicast is not None:
@@ -209,7 +209,7 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
                         value=np.zeros((args.heap_size,), dtype=np.uint8))
 
     start = timeit.default_timer()
-    transferred = yield From(send_stream(item_group, stream, num_heaps))
+    transferred = yield From(send_stream(item_group, stream, num_heaps, args))
     end = timeit.default_timer()
     elapsed = end - start
     actual_rate = transferred / elapsed
