@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017 SKA South Africa
+/* Copyright 2015, 2017, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -238,7 +238,8 @@ static std::string decode_string(const std::string &s)
 }
 
 static std::int64_t send_heaps(spead2::send::stream &stream,
-                               const std::vector<spead2::send::heap> &heaps)
+                               const std::vector<spead2::send::heap> &heaps,
+                               const options &opts)
 {
     std::size_t n_heaps = heaps.size();
     std::deque<std::future<std::int64_t>> futures;
@@ -247,7 +248,7 @@ static std::int64_t send_heaps(spead2::send::stream &stream,
     boost::system::error_code last_error;
     for (std::size_t i = 0; i < n_heaps; i++)
     {
-        while (futures.size() >= 2)
+        while (futures.size() >= opts.heaps)
         {
             transferred += futures.front().get();
             futures.pop_front();
@@ -325,11 +326,8 @@ static std::pair<bool, double> measure_connection_once(
         /* Construct the stream */
         spead2::thread_pool thread_pool;
         spead2::flavour flavour(4, 64, opts.heap_address_bits);
-        /* Allow all heaps to be queued up at once. Since they all point to
-         * the same payload, this should not cause excessive memory use.
-         */
         spead2::send::stream_config config(
-            opts.packet_size, rate, opts.burst_size, num_heaps + 1, opts.burst_rate_ratio);
+            opts.packet_size, rate, opts.burst_size, opts.heaps, opts.burst_rate_ratio);
 
         /* Build the heaps */
         std::vector<spead2::send::heap> heaps;
@@ -360,7 +358,7 @@ static std::pair<bool, double> measure_connection_once(
             stream.reset(new spead2::send::udp_stream(
                 thread_pool.get_io_service(), endpoint, config, opts.send_buffer));
         }
-        transferred = send_heaps(*stream, heaps);
+        transferred = send_heaps(*stream, heaps, opts);
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_duration = end - start;
         double actual_rate = transferred / elapsed_duration.count();
