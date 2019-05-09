@@ -30,17 +30,12 @@ constexpr std::size_t udp_stream::default_buffer_size;
 
 void udp_stream::async_send_packets()
 {
-    if (next_packet(current_packet))
+    auto handler = [this](const boost::system::error_code &ec, std::size_t bytes_transferred)
     {
-        auto handler = [this](const boost::system::error_code &ec, std::size_t bytes_transferred)
-        {
-            current_packet.result = ec;
-            packets_handler(&current_packet, 1);
-        };
-        socket.async_send_to(current_packet.pkt.buffers, endpoint, handler);
-    }
-    else
-        get_io_service().post([this] { packets_handler(nullptr, 0); });
+        current_packets[0].result = ec;
+        packets_handler();
+    };
+    socket.async_send_to(current_packets[0].pkt.buffers, endpoint, handler);
 }
 
 static boost::asio::ip::udp::socket make_socket(
@@ -171,7 +166,7 @@ udp_stream::udp_stream(
     const boost::asio::ip::udp::endpoint &endpoint,
     const stream_config &config,
     std::size_t buffer_size)
-    : stream_impl<udp_stream>(std::move(io_service), config),
+    : stream_impl<udp_stream>(std::move(io_service), config, 1),
     socket(std::move(socket)), endpoint(endpoint)
 {
     if (!socket_uses_io_service(this->socket, get_io_service()))

@@ -46,29 +46,27 @@ inproc_queue::packet copy_packet(const packet &in)
 
 void inproc_stream::async_send_packets()
 {
-    if (next_packet(current_packet))
+    for (std::size_t i = 0; i < n_current_packets; i++)
     {
-        inproc_queue::packet dup = detail::copy_packet(current_packet.pkt);
+        inproc_queue::packet dup = detail::copy_packet(current_packets[i].pkt);
         try
         {
             queue->buffer.push(std::move(dup));
-            current_packet.result = boost::system::error_code();
+            current_packets[i].result = boost::system::error_code();
         }
         catch (ringbuffer_stopped &)
         {
-            current_packet.result = boost::asio::error::operation_aborted;
+            current_packets[i].result = boost::asio::error::operation_aborted;
         }
-        get_io_service().post([this] { packets_handler(&current_packet, 1); });
     }
-    else
-        get_io_service().post([this] { packets_handler(nullptr, 0); });
+    get_io_service().post([this] { packets_handler(); });
 }
 
 inproc_stream::inproc_stream(
     io_service_ref io_service,
     std::shared_ptr<inproc_queue> queue,
     const stream_config &config)
-    : stream_impl<inproc_stream>(std::move(io_service), config),
+    : stream_impl<inproc_stream>(std::move(io_service), config, 1),
     queue(std::move(queue))
 {
 }

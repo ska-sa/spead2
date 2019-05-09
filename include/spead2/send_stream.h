@@ -196,11 +196,19 @@ protected:
         boost::system::error_code result;
     };
 
+    std::unique_ptr<transmit_packet[]> current_packets;
+    std::size_t n_current_packets = 0;
+    const std::size_t max_current_packets;
+
 private:
     const stream_config config;
     const double seconds_per_byte_burst, seconds_per_byte;
 
-    /// Protects access to shared state (not just the queue)
+    /**
+     * Protects access to shared state (not just the queue). It specifically
+     * does *not* protect @ref current_packets and @ref n_current_packets,
+     * which are protected by virtue of only one callback running at a time.
+     */
     std::mutex queue_mutex;
     std::list<queue_item> queue;
     /// Item holding data for the next packet to send
@@ -240,7 +248,7 @@ private:
      * Apply per-packet transmission results to the queue. This must be called
      * with @ref queue_mutex held.
      */
-    void process_results(const transmit_packet *items, std::size_t n_items);
+    void process_results();
 
     /**
      * Update @ref send_time_burst and @ref send_time from @ref rate_bytes.
@@ -250,19 +258,14 @@ private:
      */
     timer_type::time_point update_send_times(timer_type::time_point now);
 
-protected:
     /**
-     * Get the next packet for transmission.
-     *
-     * This should only be called by the derived class's @c async_send_packets
-     * (which in turn is called with @ref queue_mutex held).
-     *
-     * @retval true if a packet was returned
-     * @retval false if the queue is empty or a pause is needed for rate limiting
+     * Populate @ref current_packets and @ref n_current_packets with packets to
+     * send. This is called with @ref queue_mutex held.
      */
-    bool next_packet(transmit_packet &data);
+    void load_packets();
 
-    stream_impl_base(io_service_ref io_service, const stream_config &config = stream_config());
+protected:
+    stream_impl_base(io_service_ref io_service, const stream_config &config, std::size_t max_current_packets);
 
 public:
     virtual void set_cnt_sequence(item_pointer_t next, item_pointer_t step) override;
@@ -287,12 +290,11 @@ public:
  * - SLEEPING: we are sleeping as a result of rate limiting
  * - EMPTY: there are no heaps and no pending callbacks.
  *
- * The derived class implements async_send_packets, which requests packets
- * from the base class. It keeps requesting packets until it has as many as
- * it needs for a batch, or until the base class doesn't provide any more
- * (which can be for rate limiting or because there is no more data). It
- * must then arrange for @ref packets_handler to be called once the data has
- * been sent (or at least passed on to another layer).
+ * The derived class implements async_send_packets, which is responsible for
+ * arranging transmission the @ref n_current_packets stored in @ref
+ * current_packets. Once the packets are sent, it must cause @ref
+ * packets_handler to be called (but not before returning). It may assume
+ * that there is at least one packet to send.
  */
 template<typename Derived>
 class stream_impl : public stream_impl_base
@@ -301,16 +303,14 @@ private:
     /**
      * Advance the state machine. Whenever the state is not EMPTY, there is a
      * future call to this function expected (possibly indirectly via
-     * @ref packets_handler). If it is scheduled from SENDING, then @a items
-     * and @a n_items will contain the results from the previous call to
-     * @c async_send_packets.
+     * @ref packets_handler).
      */
-    void do_next(const transmit_packet *items = nullptr, std::size_t n_items = 0)
+    void do_next()
     {
-        std::lock_guard<std::mutex> lock(queue_mutex);
+        std::unique_lock<std::mutex> lock(queue_mutex);
         // Just for debugging: every path should set another state before exit
         state = state_t::QUEUED;
-        process_results(items, n_items);
+        process_results();
         if (must_sleep())
         {
             auto now = timer_type::clock_type::now();
@@ -324,14 +324,18 @@ private:
             }
         }
 
-        if (queue.empty())
+        load_packets();
+        if (n_current_packets == 0)
         {
+            // TODO: check that all cases are considered, including empty heaps
+            assert(queue.empty());
             state = state_t::EMPTY;
             heap_empty.notify_all();
             return;
         }
 
         state = state_t::SENDING;
+        lock.unlock();
         static_cast<Derived *>(this)->async_send_packets();
     }
 
@@ -343,19 +347,14 @@ protected:
      * This function must not be called directly from async_send_packets, as this will
      * lead to a deadlock. It must be scheduled to be called later.
      */
-    void packets_handler(const transmit_packet *items, std::size_t n_items)
+    void packets_handler()
     {
-        do_next(items, n_items);
+        do_next();
     }
+
+    using stream_impl_base::stream_impl_base;
 
 public:
-    stream_impl(
-        io_service_ref io_service,
-        const stream_config &config = stream_config()) :
-            stream_impl_base(io_service, config)
-    {
-    }
-
     virtual bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt = -1) override
     {
         std::unique_lock<std::mutex> lock(queue_mutex);

@@ -142,11 +142,11 @@ bool stream_impl_base::must_sleep() const
     return rate_bytes >= config.get_burst_size();
 }
 
-void stream_impl_base::process_results(const transmit_packet *items, std::size_t n_items)
+void stream_impl_base::process_results()
 {
-    for (std::size_t i = 0; i < n_items; i++)
+    for (std::size_t i = 0; i < n_current_packets; i++)
     {
-        const transmit_packet &item = items[i];
+        const transmit_packet &item = current_packets[i];
         if (item.item != &*queue.begin())
         {
             // A previous packet in this heap already aborted it
@@ -161,6 +161,7 @@ void stream_impl_base::process_results(const transmit_packet *items, std::size_t
                 post_handler(item.result);
         }
     }
+    n_current_packets = 0;
 }
 
 stream_impl_base::timer_type::time_point stream_impl_base::update_send_times(
@@ -181,33 +182,35 @@ stream_impl_base::timer_type::time_point stream_impl_base::update_send_times(
     return target_time;
 }
 
-bool stream_impl_base::next_packet(transmit_packet &data)
+void stream_impl_base::load_packets()
 {
-    if (must_sleep())
-        return false;
-    while (active != queue.end())
+    n_current_packets = 0;
+    while (n_current_packets < max_current_packets && !must_sleep() && active != queue.end())
     {
         assert(gen);
         if (gen->has_next_packet())
         {
+            transmit_packet &data = current_packets[n_current_packets];
             data.pkt = gen->next_packet();
             data.size = boost::asio::buffer_size(data.pkt.buffers);
             data.last = !gen->has_next_packet();
             data.item = &*active;
             data.result = boost::system::error_code();
             rate_bytes += data.size;
-            return true;
+            n_current_packets++;
         }
         else
             next_active();
     }
-    return false;
 }
 
 stream_impl_base::stream_impl_base(
     io_service_ref io_service,
-    const stream_config &config) :
+    const stream_config &config,
+    std::size_t max_current_packets) :
         stream(std::move(io_service)),
+        current_packets(new transmit_packet[max_current_packets]),
+        max_current_packets(max_current_packets),
         config(config),
         seconds_per_byte_burst(config.get_burst_rate() > 0.0 ? 1.0 / config.get_burst_rate() : 0.0),
         seconds_per_byte(config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0),

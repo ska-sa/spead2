@@ -54,7 +54,6 @@ private:
     boost::asio::ip::tcp::socket socket;
     /// Whether the underlying socket is already connected or not
     std::atomic<bool> connected{false};
-    transmit_packet current_packet;
 
     void async_send_packets();
 
@@ -89,7 +88,7 @@ public:
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size,
         const boost::asio::ip::address &interface_address = boost::asio::ip::address())
-        : stream_impl(std::move(io_service), config),
+        : stream_impl(std::move(io_service), config, 1),
         socket(detail::make_socket(get_io_service(), endpoint, buffer_size, interface_address))
     {
         socket.async_connect(endpoint,

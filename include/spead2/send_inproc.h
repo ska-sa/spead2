@@ -48,7 +48,6 @@ class inproc_stream : public stream_impl<inproc_stream>
 {
 private:
     friend class stream_impl<inproc_stream>;
-    transmit_packet current_packet;
     std::shared_ptr<inproc_queue> queue;
 
     void async_send_packets();

@@ -37,7 +37,6 @@ private:
     friend class stream_impl<udp_stream>;
     boost::asio::ip::udp::socket socket;
     boost::asio::ip::udp::endpoint endpoint;
-    transmit_packet current_packet;
 
     void async_send_packets();
 

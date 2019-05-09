@@ -72,7 +72,7 @@ void udp_ibv_stream::reap()
     }
 }
 
-void udp_ibv_stream::async_send_current_packets()
+void udp_ibv_stream::async_send_packets()
 {
     try
     {
@@ -89,10 +89,7 @@ void udp_ibv_stream::async_send_current_packets()
                     {
                         for (std::size_t i = 0; i < n_current_packets; i++)
                             current_packets[i].result = ec;
-                        // Must clear before calling packets_handler, because it in turn calls async_send_packets
-                        std::size_t old_current_packets = n_current_packets;
-                        n_current_packets = 0;
-                        packets_handler(current_packets.get(), old_current_packets);
+                        packets_handler();
                     }
                     else
                     {
@@ -101,7 +98,7 @@ void udp_ibv_stream::async_send_current_packets()
                         // This should be non-blocking, since we were woken up
                         comp_channel.get_event(&event_cq, &event_cq_context);
                         send_cq.ack_events(1);
-                        async_send_current_packets();
+                        async_send_packets();
                     }
                 };
 
@@ -161,28 +158,12 @@ void udp_ibv_stream::async_send_current_packets()
         for (std::size_t i = 0; i < n_current_packets; i++)
             current_packets[i].result = ec;
     }
-    get_io_service().post([this]
-    {
-        // Must clear before calling packets_handler, because it in turn calls async_send_packets
-        std::size_t old_current_packets = n_current_packets;
-        n_current_packets = 0;
-        packets_handler(current_packets.get(), old_current_packets);
-    });
+    get_io_service().post([this] { packets_handler(); });
 }
 
-void udp_ibv_stream::async_send_packets()
+static std::size_t calc_n_slots(const stream_config &config, std::size_t buffer_size)
 {
-    n_current_packets = 0;
-    while (n_current_packets < max_current_packets)
-    {
-        if (!next_packet(current_packets[n_current_packets]))
-            break;
-        n_current_packets++;
-    }
-    if (n_current_packets > 0)
-        async_send_current_packets();
-    else
-        get_io_service().post([this] { packets_handler(nullptr, 0); });
+    return std::max(std::size_t(1), buffer_size / (config.get_max_packet_size() + header_length));
 }
 
 udp_ibv_stream::udp_ibv_stream(
@@ -194,13 +175,12 @@ udp_ibv_stream::udp_ibv_stream(
     int ttl,
     int comp_vector,
     int max_poll)
-    : stream_impl<udp_ibv_stream>(std::move(io_service), config),
-    n_slots(std::max(std::size_t(1), buffer_size / (config.get_max_packet_size() + header_length))),
+    : stream_impl<udp_ibv_stream>(std::move(io_service), config,
+                                  std::max(std::size_t(1), calc_n_slots(config, buffer_size) / 2)),
+    n_slots(calc_n_slots(config, buffer_size)),
     socket(get_io_service(), endpoint.protocol()),
     cm_id(event_channel, nullptr, RDMA_PS_UDP),
-    comp_channel_wrapper(get_io_service()),
-    max_current_packets(n_slots <= 1 ? 1 : n_slots / 2),
-    current_packets(new transmit_packet[max_current_packets])
+    comp_channel_wrapper(get_io_service())
 {
     if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
         throw std::invalid_argument("endpoint is not an IPv4 multicast address");

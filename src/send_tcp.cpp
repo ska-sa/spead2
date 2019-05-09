@@ -29,27 +29,21 @@ namespace send
 
 void tcp_stream::async_send_packets()
 {
-    if (next_packet(current_packet))
+    if (!connected.load())
     {
-        if (!connected.load())
-        {
-            current_packet.result = boost::asio::error::not_connected;
-            get_io_service().post([this] { packets_handler(&current_packet, 1); });
-        }
-        else
-        {
-            auto handler = [this](const boost::system::error_code &ec, std::size_t)
-            {
-                current_packet.result = ec;
-                packets_handler(&current_packet, 1);
-            };
-            boost::asio::async_write(socket, current_packet.pkt.buffers, handler);
-        }
+        current_packets[0].result = boost::asio::error::not_connected;
+        get_io_service().post([this] { packets_handler(); });
     }
     else
-        get_io_service().post([this] { packets_handler(nullptr, 0); });
+    {
+        auto handler = [this](const boost::system::error_code &ec, std::size_t)
+        {
+            current_packets[0].result = ec;
+            packets_handler();
+        };
+        boost::asio::async_write(socket, current_packets[0].pkt.buffers, handler);
+    }
 }
-
 
 namespace detail
 {
@@ -75,7 +69,7 @@ tcp_stream::tcp_stream(
     io_service_ref io_service,
     boost::asio::ip::tcp::socket &&socket,
     const stream_config &config)
-    : stream_impl(std::move(io_service), config),
+    : stream_impl(std::move(io_service), config, 1),
     socket(std::move(socket)),
     connected(true)
 {

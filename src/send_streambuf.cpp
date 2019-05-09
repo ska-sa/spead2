@@ -28,26 +28,24 @@ namespace send
 
 void streambuf_stream::async_send_packets()
 {
-    if (next_packet(current_packet))
+    for (std::size_t i = 0; i < n_current_packets; i++)
     {
-        for (const auto &buffer : current_packet.pkt.buffers)
+        for (const auto &buffer : current_packets[i].pkt.buffers)
         {
             std::size_t buffer_size = boost::asio::buffer_size(buffer);
             // TODO: handle errors
             streambuf.sputn(boost::asio::buffer_cast<const char *>(buffer), buffer_size);
         }
-        current_packet.result = boost::system::error_code();
-        get_io_service().post([this] { packets_handler(&current_packet, 1); });
+        current_packets[i].result = boost::system::error_code();
     }
-    else
-        get_io_service().post([this] { packets_handler(nullptr, 0); });
+    get_io_service().post([this] { packets_handler(); });
 }
 
 streambuf_stream::streambuf_stream(
     io_service_ref io_service,
     std::streambuf &streambuf,
     const stream_config &config)
-    : stream_impl<streambuf_stream>(std::move(io_service), config), streambuf(streambuf)
+    : stream_impl<streambuf_stream>(std::move(io_service), config, 64), streambuf(streambuf)
 {
 }
 
