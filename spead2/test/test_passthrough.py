@@ -232,7 +232,7 @@ class BaseTestPassthrough(object):
                     shape=(), format=format, value=data)
         self._test_item_group(ig)
 
-    def test_many_tems(self):
+    def test_many_items(self):
         """Sends many items.
 
         The implementation handles few-item heaps differently (for
