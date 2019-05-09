@@ -25,10 +25,10 @@
 #include <utility>
 #include <vector>
 #include <memory>
-#include <list>
 #include <chrono>
 #include <mutex>
 #include <iterator>
+#include <type_traits>
 #include <condition_variable>
 #include <stdexcept>
 #include <boost/asio.hpp>
@@ -180,11 +180,13 @@ private:
         item_pointer_t bytes_sent = 0;
 
         queue_item() = default;
-        queue_item(const heap &h, item_pointer_t cnt, completion_handler &&handler)
+        queue_item(const heap &h, item_pointer_t cnt, completion_handler &&handler) noexcept
             : h(std::move(h)), cnt(cnt), handler(std::move(handler))
         {
         }
     };
+
+    typedef std::aligned_storage<sizeof(queue_item), alignof(queue_item)>::type queue_item_storage;
 
 protected:
     struct transmit_packet
@@ -205,14 +207,23 @@ private:
     const double seconds_per_byte_burst, seconds_per_byte;
 
     /**
-     * Protects access to shared state (not just the queue). It specifically
-     * does *not* protect @ref current_packets and @ref n_current_packets,
-     * which are protected by virtue of only one callback running at a time.
+     * Protects access to
+     * - @ref queue_head and @ref queue_tail
+     * - @ref state
+     * - @ref next_cnt and @ref step_cnt
      */
     std::mutex queue_mutex;
-    std::list<queue_item> queue;
+    /**
+     * Circular queue with config.max_heaps + 1 slots, which must never be full
+     * (because that can't be distinguished from empty). Items from @ref
+     * queue_head to @ref queue_tail are constructed in place, which the rest
+     * is uninitialised raw storage.
+     */
+    std::unique_ptr<queue_item_storage[]> queue;
+    /// Bounds of the queue
+    std::size_t queue_head = 0, queue_tail = 0;
     /// Item holding data for the next packet to send
-    typename std::list<queue_item>::iterator active;
+    std::size_t active = 0;   // queue slot for next packet to send
     state_t state = state_t::EMPTY;
     timer_type timer;
     /// Time at which next burst should be sent, considering the burst rate
@@ -225,13 +236,27 @@ private:
     item_pointer_t next_cnt = 1;
     /// Increment to next_cnt after each heap
     item_pointer_t step_cnt = 1;
-    /// Packet generator for the @ref active heap
+    /**
+     * Packet generator for the active heap. It may be empty at any time, which
+     * indicates that it should be initialised from the heap indicated by
+     * @ref active.
+     *
+     * When non-empty, it must always have a next packet i.e. after
+     * exhausting it, it must be cleared/changed.
+     */
     boost::optional<packet_generator> gen;
     /// Signalled when transitioning to EMPTY state
     std::condition_variable heap_empty;
 
+    /// Get next slot position in queue
+    std::size_t next_queue_slot(std::size_t cur) const;
+
+    /// Access an item from the queue
+    queue_item *get_queue(std::size_t idx);
+
     /**
-     * Advance @ref active to the next heap. This must be called with @ref queue_mutex held.
+     * Advance @ref active to the next heap and clear @ref gen.
+     * It does not need @ref queue_mutex.
      */
     void next_active();
 
@@ -241,7 +266,10 @@ private:
      */
     void post_handler(boost::system::error_code result);
 
-    /// Whether a full burst has been transmitted, requiring some sleep time
+    /**
+     * Whether a full burst has been transmitted, requiring some sleep time.
+     * Does not require @ref queue_mutex.
+     */
     bool must_sleep() const;
 
     /**
@@ -252,6 +280,7 @@ private:
 
     /**
      * Update @ref send_time_burst and @ref send_time from @ref rate_bytes.
+     * Does not require @ref queue_mutex.
      *
      * @param now       Current time
      * @returns         Time at which next packet should be sent
@@ -260,12 +289,14 @@ private:
 
     /**
      * Populate @ref current_packets and @ref n_current_packets with packets to
-     * send. This is called with @ref queue_mutex held.
+     * send. This is called without @ref queue_mutex held. It takes a copy of
+     * @ref queue_tail so that it does not need the lock to access the original.
      */
-    void load_packets();
+    void load_packets(std::size_t tail);
 
 protected:
     stream_impl_base(io_service_ref io_service, const stream_config &config, std::size_t max_current_packets);
+    virtual ~stream_impl_base() override;
 
 public:
     virtual void set_cnt_sequence(item_pointer_t next, item_pointer_t step) override;
@@ -285,16 +316,21 @@ public:
  *
  * The stream operates as a state machine, depending on which handlers are
  * pending:
- * - QUEUED: waiting for a callback to @ref do_next
+ * - QUEUED: was previously empty, but async_send_heap posted a callback to @ref do_next
  * - SENDING: the derived class is in the process of sending packets
  * - SLEEPING: we are sleeping as a result of rate limiting
  * - EMPTY: there are no heaps and no pending callbacks.
  *
- * The derived class implements async_send_packets, which is responsible for
- * arranging transmission the @ref n_current_packets stored in @ref
- * current_packets. Once the packets are sent, it must cause @ref
- * packets_handler to be called (but not before returning). It may assume
+ * The derived class implements @c async_send_packets, which is responsible for
+ * arranging transmission the @ref n_current_packets stored in
+ * @ref current_packets. Once the packets are sent, it must cause
+ * @ref packets_handler to be called (but not before returning). It may assume
  * that there is at least one packet to send.
+ *
+ * There are two mechanisms to protect shared data: the @ref do_next callback
+ * is only ever scheduled once, so it does not need to lock data for which it
+ * is the only user. Data also accessed by user-facing functions are protected
+ * by a mutex.
  */
 template<typename Derived>
 class stream_impl : public stream_impl_base
@@ -308,9 +344,16 @@ private:
     void do_next()
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
-        // Just for debugging: every path should set another state before exit
-        state = state_t::QUEUED;
-        process_results();
+        if (state == state_t::SENDING)
+            process_results();
+        else if (state == state_t::QUEUED)
+        {
+            // TODO: this can allow sending too fast
+            send_time = send_time_burst = timer_type::clock_type::now();
+            rate_bytes = 0;
+        }
+        assert(active == queue_head);
+
         if (must_sleep())
         {
             auto now = timer_type::clock_type::now();
@@ -324,18 +367,20 @@ private:
             }
         }
 
-        load_packets();
-        if (n_current_packets == 0)
+        if (queue_head == queue_tail)
         {
-            // TODO: check that all cases are considered, including empty heaps
-            assert(queue.empty());
             state = state_t::EMPTY;
             heap_empty.notify_all();
             return;
         }
 
+        // Save a copy to use outside the protection of the lock.
+        std::size_t tail = queue_tail;
         state = state_t::SENDING;
         lock.unlock();
+
+        load_packets(tail);
+        assert(n_current_packets > 0);
         static_cast<Derived *>(this)->async_send_packets();
     }
 
@@ -358,7 +403,8 @@ public:
     virtual bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt = -1) override
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
-        if (queue.size() >= config.get_max_heaps())
+        std::size_t new_tail = next_queue_slot(queue_tail);
+        if (new_tail == queue_head)
         {
             lock.unlock();
             log_warning("async_send_heap: dropping heap because queue is full");
@@ -373,21 +419,13 @@ public:
         }
         else
             ucnt = cnt;
-        queue.emplace_back(h, ucnt, std::move(handler));
-        if (!gen)
-        {
-            active = std::prev(queue.end());
-            gen = boost::in_place(h, ucnt, config.get_max_packet_size());
-        }
+        // Construct in place
+        new (get_queue(queue_tail)) queue_item(h, ucnt, std::move(handler));
+        queue_tail = new_tail;
 
         bool empty = (state == state_t::EMPTY);
         if (empty)
-        {
-            // TODO: this can allow sending too fast
-            send_time = send_time_burst = timer_type::clock_type::now();
-            rate_bytes = 0;
             state = state_t::QUEUED;
-        }
         lock.unlock();
 
         if (empty)

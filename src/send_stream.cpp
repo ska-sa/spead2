@@ -119,22 +119,38 @@ stream::~stream()
 }
 
 
+std::size_t stream_impl_base::next_queue_slot(std::size_t cur) const
+{
+    if (++cur == config.get_max_heaps() + 1)
+        cur = 0;
+    return cur;
+}
+
+stream_impl_base::queue_item *stream_impl_base::get_queue(std::size_t idx)
+{
+    return reinterpret_cast<queue_item *>(queue.get() + idx);
+}
+
 void stream_impl_base::next_active()
 {
-    ++active;
-    if (active != queue.end())
-        gen = boost::in_place(active->h, active->cnt, config.get_max_packet_size());
-    else
-        gen = boost::none;
+    active = next_queue_slot(active);
+    gen = boost::none;
 }
 
 void stream_impl_base::post_handler(boost::system::error_code result)
 {
+    queue_item &front = *get_queue(queue_head);
     get_io_service().post(
-        std::bind(std::move(queue.front().handler), result, queue.front().bytes_sent));
-    if (active == queue.begin())
+        std::bind(std::move(front.handler), result, front.bytes_sent));
+    if (active == queue_head)
+    {
+        // Can only happen if there is an error with the head of the queue
+        // before we've transmitted all its packets.
+        assert(result);
         next_active();
-    queue.pop_front();
+    }
+    front.~queue_item();
+    queue_head = next_queue_slot(queue_head);
 }
 
 bool stream_impl_base::must_sleep() const
@@ -147,7 +163,7 @@ void stream_impl_base::process_results()
     for (std::size_t i = 0; i < n_current_packets; i++)
     {
         const transmit_packet &item = current_packets[i];
-        if (item.item != &*queue.begin())
+        if (item.item != get_queue(queue_head))
         {
             // A previous packet in this heap already aborted it
             continue;
@@ -182,24 +198,24 @@ stream_impl_base::timer_type::time_point stream_impl_base::update_send_times(
     return target_time;
 }
 
-void stream_impl_base::load_packets()
+void stream_impl_base::load_packets(std::size_t tail)
 {
     n_current_packets = 0;
-    while (n_current_packets < max_current_packets && !must_sleep() && active != queue.end())
+    while (n_current_packets < max_current_packets && !must_sleep() && active != tail)
     {
-        assert(gen);
-        if (gen->has_next_packet())
-        {
-            transmit_packet &data = current_packets[n_current_packets];
-            data.pkt = gen->next_packet();
-            data.size = boost::asio::buffer_size(data.pkt.buffers);
-            data.last = !gen->has_next_packet();
-            data.item = &*active;
-            data.result = boost::system::error_code();
-            rate_bytes += data.size;
-            n_current_packets++;
-        }
-        else
+        queue_item *cur = get_queue(active);
+        if (!gen)
+            gen = boost::in_place(cur->h, cur->cnt, config.get_max_packet_size());
+        assert(gen->has_next_packet());
+        transmit_packet &data = current_packets[n_current_packets];
+        data.pkt = gen->next_packet();
+        data.size = boost::asio::buffer_size(data.pkt.buffers);
+        data.last = !gen->has_next_packet();
+        data.item = cur;
+        data.result = boost::system::error_code();
+        rate_bytes += data.size;
+        n_current_packets++;
+        if (data.last)
             next_active();
     }
 }
@@ -214,9 +230,15 @@ stream_impl_base::stream_impl_base(
         config(config),
         seconds_per_byte_burst(config.get_burst_rate() > 0.0 ? 1.0 / config.get_burst_rate() : 0.0),
         seconds_per_byte(config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0),
-        active(queue.end()),
+        queue(new queue_item_storage[config.get_max_heaps() + 1]),
         timer(get_io_service())
 {
+}
+
+stream_impl_base::~stream_impl_base()
+{
+    for (std::size_t i = queue_head; i != queue_tail; i = next_queue_slot(i))
+        get_queue(i)->~queue_item();
 }
 
 void stream_impl_base::set_cnt_sequence(item_pointer_t next, item_pointer_t step)
