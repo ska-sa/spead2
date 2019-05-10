@@ -28,14 +28,36 @@ namespace send
 
 constexpr std::size_t udp_stream::default_buffer_size;
 
+void udp_stream::send_packets(std::size_t first)
+{
+    std::size_t idx = first;
+    for (std::size_t idx = first; idx < n_current_packets; idx++)
+    {
+        // First try to send synchronously, to reduce overheads from callbacks etc
+        boost::system::error_code ec;
+        socket.send_to(current_packets[idx].pkt.buffers, endpoint, 0, ec);
+        if (ec == boost::asio::error::would_block)
+        {
+            // Socket buffer is full, fall back to asynchronous
+            auto handler = [this, idx](const boost::system::error_code &ec, std::size_t bytes_transferred)
+            {
+                current_packets[idx].result = ec;
+                send_packets(idx + 1);
+            };
+            socket.async_send_to(current_packets[idx].pkt.buffers, endpoint, handler);
+            return;
+        }
+        else
+        {
+            current_packets[idx].result = ec;
+        }
+    }
+    get_io_service().post([this] { packets_handler(); });
+}
+
 void udp_stream::async_send_packets()
 {
-    auto handler = [this](const boost::system::error_code &ec, std::size_t bytes_transferred)
-    {
-        current_packets[0].result = ec;
-        packets_handler();
-    };
-    socket.async_send_to(current_packets[0].pkt.buffers, endpoint, handler);
+    send_packets(0);
 }
 
 static boost::asio::ip::udp::socket make_socket(
@@ -166,12 +188,13 @@ udp_stream::udp_stream(
     const boost::asio::ip::udp::endpoint &endpoint,
     const stream_config &config,
     std::size_t buffer_size)
-    : stream_impl<udp_stream>(std::move(io_service), config, 1),
+    : stream_impl<udp_stream>(std::move(io_service), config, 64),
     socket(std::move(socket)), endpoint(endpoint)
 {
     if (!socket_uses_io_service(this->socket, get_io_service()))
         throw std::invalid_argument("I/O service does not match the socket's I/O service");
     set_socket_send_buffer_size(this->socket, buffer_size);
+    this->socket.non_blocking(true);
 }
 
 udp_stream::udp_stream(

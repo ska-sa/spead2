@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -37,6 +37,9 @@ private:
     friend class stream_impl<udp_stream>;
     boost::asio::ip::udp::socket socket;
     boost::asio::ip::udp::endpoint endpoint;
+
+    /// Implements async_send_packets, starting from @a first
+    void send_packets(std::size_t first);
 
     void async_send_packets();
 
