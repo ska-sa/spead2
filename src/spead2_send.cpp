@@ -193,8 +193,9 @@ public:
 
 sender::sender(spead2::send::stream &stream, const options &opts)
     : stream(stream),
-    max_heaps(opts.max_heaps),
-    n_heaps((opts.heaps < 0 || std::uint64_t(opts.heaps) >= max_heaps) ? opts.heaps : max_heaps),
+    max_heaps((opts.heaps < 0 || std::uint64_t(opts.heaps) >= opts.max_heaps)
+              ? opts.max_heaps : opts.heaps + 1),
+    n_heaps(opts.heaps),
     flavour(spead2::maximum_version, 64, opts.addr_bits,
             opts.pyspead ? spead2::BUG_COMPAT_PYSPEAD_0_5_2 : 0),
     first_heap(flavour),
