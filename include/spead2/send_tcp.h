@@ -92,7 +92,7 @@ public:
         socket(detail::make_socket(get_io_service(), endpoint, buffer_size, interface_address))
     {
         socket.async_connect(endpoint,
-            [this, connect_handler] (boost::system::error_code ec)
+            [this, connect_handler] (const boost::system::error_code &ec)
             {
                 if (!ec)
                     connected.store(true);

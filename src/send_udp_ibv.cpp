@@ -83,7 +83,7 @@ void udp_ibv_stream::async_send_packets()
             {
                 send_cq.req_notify(false);
 
-                auto rerun = [this] (boost::system::error_code ec, size_t)
+                auto rerun = [this] (const boost::system::error_code &ec, size_t)
                 {
                     if (ec)
                     {

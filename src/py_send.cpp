@@ -87,7 +87,7 @@ py::bytes packet_generator_next(packet_generator &gen)
                                  boost::asio::buffers_end(pkt.buffers)));
 }
 
-static py::object make_io_error(boost::system::error_code ec)
+static py::object make_io_error(const boost::system::error_code &ec)
 {
     if (ec)
     {
@@ -534,7 +534,7 @@ private:
     static std::unique_ptr<stream_type> construct(Args... args)
     {
         std::shared_ptr<connect_state> state = std::make_shared<connect_state>();
-        auto connect_handler = [state](boost::system::error_code ec)
+        auto connect_handler = [state](const boost::system::error_code &ec)
         {
             state->ec = ec;
             state->sem.put();
