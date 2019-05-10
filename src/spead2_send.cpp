@@ -161,6 +161,9 @@ static options parse_args(int argc, const char **argv)
     }
 }
 
+namespace
+{
+
 class sender
 {
 private:
@@ -276,7 +279,9 @@ std::uint64_t sender::run()
     return bytes_transferred;
 }
 
-int run(spead2::send::stream &stream, const options &opts)
+} // anonymous namespace
+
+static int run(spead2::send::stream &stream, const options &opts)
 {
     sender s(stream, opts);
 
@@ -292,7 +297,8 @@ int run(spead2::send::stream &stream, const options &opts)
 }
 
 template <typename Proto>
-boost::asio::ip::basic_endpoint<Proto> get_endpoint(boost::asio::io_service &io_service, const options &opts)
+static boost::asio::ip::basic_endpoint<Proto> get_endpoint(
+    boost::asio::io_service &io_service, const options &opts)
 {
     typedef boost::asio::ip::basic_resolver<Proto> resolver_type;
     resolver_type resolver(io_service);

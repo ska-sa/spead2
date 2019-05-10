@@ -33,6 +33,7 @@
 #include <spead2/common_defines.h>
 #include <spead2/common_flavour.h>
 #include <spead2/common_memory_pool.h>
+#include <spead2/common_semaphore.h>
 #include <spead2/recv_udp.h>
 #include <spead2/recv_heap.h>
 #include <spead2/recv_live_heap.h>
@@ -237,47 +238,64 @@ static std::string decode_string(const std::string &s)
     return out;
 }
 
-static std::int64_t send_heaps(spead2::send::stream &stream,
-                               const std::vector<spead2::send::heap> &heaps,
-                               const options &opts)
+namespace
 {
-    std::size_t n_heaps = heaps.size();
-    std::deque<std::future<std::int64_t>> futures;
-    std::deque<std::promise<std::int64_t>> promises;
-    std::int64_t transferred = 0;
-    boost::system::error_code last_error;
-    for (std::size_t i = 0; i < n_heaps; i++)
-    {
-        while (futures.size() >= opts.heaps)
-        {
-            transferred += futures.front().get();
-            futures.pop_front();
-            promises.pop_front();
-        }
-        promises.emplace_back();
-        std::promise<std::int64_t> &promise = promises.back();
-        futures.push_back(promise.get_future());
-        auto callback = [&transferred, &last_error, &promise] (
-            const boost::system::error_code &ec, spead2::item_pointer_t bytes)
-        {
-            if (!ec)
-                promise.set_value(bytes);
-            else
-                last_error = ec;
-        };
-        stream.async_send_heap(heaps[i], callback);
-    }
-    stream.flush();
-    while (!futures.empty())
-    {
-        transferred += futures.front().get();
-        futures.pop_front();
-        promises.pop_front();
-    }
-    if (last_error)
-        throw boost::system::system_error(last_error);
-    return transferred;
+
+class sender
+{
+private:
+    spead2::send::stream &stream;
+    const std::vector<spead2::send::heap> &heaps;
+    const std::size_t max_heaps;
+
+    std::uint64_t bytes_transferred = 0;
+    boost::system::error_code error;
+    spead2::semaphore done_sem{0};
+
+    void callback(std::size_t idx, const boost::system::error_code &ec, std::size_t bytes_transferred);
+
+public:
+    sender(spead2::send::stream &stream, const std::vector<spead2::send::heap> &heaps,
+           const options &opts);
+    std::int64_t run();
+};
+
+sender::sender(spead2::send::stream &stream, const std::vector<spead2::send::heap> &heaps,
+               const options &opts)
+    : stream(stream), heaps(heaps), max_heaps(std::min(opts.heaps, heaps.size()))
+{
 }
+
+void sender::callback(std::size_t idx, const boost::system::error_code &ec, std::size_t bytes_transferred)
+{
+    this->bytes_transferred += bytes_transferred;
+    if (ec && !error)
+        error = ec;
+    if (!error && idx + max_heaps < heaps.size())
+    {
+        idx += max_heaps;
+        stream.async_send_heap(heaps[idx], [this, idx] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
+            callback(idx, ec, bytes_transferred); });
+    }
+    else
+        done_sem.put();
+}
+
+std::int64_t sender::run()
+{
+    bytes_transferred = 0;
+    error = boost::system::error_code();
+    for (int i = 0; i < max_heaps; i++)
+        stream.async_send_heap(heaps[i], [this, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
+            callback(i, ec, bytes_transferred); });
+    for (int i = 0; i < max_heaps; i++)
+        semaphore_get(done_sem);
+    if (error)
+        throw boost::system::system_error(error);
+    return bytes_transferred;
+}
+
+} // anonymous namespace
 
 static std::pair<bool, double> measure_connection_once(
     const options &opts, double rate,
@@ -358,7 +376,8 @@ static std::pair<bool, double> measure_connection_once(
             stream.reset(new spead2::send::udp_stream(
                 thread_pool.get_io_service(), endpoint, config, opts.send_buffer));
         }
-        transferred = send_heaps(*stream, heaps, opts);
+        sender s(*stream, heaps, opts);
+        transferred = s.run();
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_duration = end - start;
         double actual_rate = transferred / elapsed_duration.count();
