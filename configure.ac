@@ -122,6 +122,12 @@ SPEAD2_ARG_WITH(
     [AC_CHECK_FUNC([recvmmsg], [SPEAD2_USE_RECVMMSG=1], [])])
 
 SPEAD2_ARG_WITH(
+    [sendmmsg],
+    [AS_HELP_STRING([--without-sendmmsg], [Do not use sendmmsg system call])],
+    [SPEAD2_USE_SENDMMSG],
+    [AC_CHECK_FUNC([sendmmsg], [SPEAD2_USE_SENDMMSG=1], [])])
+
+SPEAD2_ARG_WITH(
     [eventfd],
     [AS_HELP_STRING([--without-eventfd], [Do not use eventfd system call for semaphores])],
     [SPEAD2_USE_EVENTFD],

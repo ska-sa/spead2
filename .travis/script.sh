@@ -16,6 +16,7 @@ if [ "$TEST_CXX" = "yes" ]; then
     ../configure \
         --with-netmap="${NETMAP:-no}" \
         --with-recvmmsg="${RECVMMSG:-no}" \
+        --with-sendmmsg="${SENDMMSG:-no}" \
         --with-eventfd="${EVENTFD:-no}" \
         --with-ibv="${IBV:-no}" \
         --with-pcap="${PCAP:-no}" \

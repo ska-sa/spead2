@@ -21,8 +21,17 @@
 #ifndef SPEAD2_SEND_UDP_H
 #define SPEAD2_SEND_UDP_H
 
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
+#include <spead2/common_features.h>
+#if SPEAD2_USE_SENDMMSG
+# include <sys/socket.h>
+# include <sys/types.h>
+#endif
 #include <boost/asio.hpp>
 #include <utility>
+#include <vector>
 #include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
 
@@ -42,6 +51,12 @@ private:
     void send_packets(std::size_t first);
 
     void async_send_packets();
+
+    static constexpr int batch_size = 64;
+#if SPEAD2_USE_SENDMMSG
+    struct mmsghdr msgvec[batch_size];
+    std::vector<struct iovec> msg_iov;
+#endif
 
 public:
     /// Socket send buffer size, if none is explicitly passed to the constructor
