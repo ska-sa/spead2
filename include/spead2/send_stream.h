@@ -287,6 +287,9 @@ private:
      */
     timer_type::time_point update_send_times(timer_type::time_point now);
 
+    /// Update @ref send_time after a period in state @c EMPTY.
+    void update_send_time_empty();
+
     /**
      * Populate @ref current_packets and @ref n_current_packets with packets to
      * send. This is called without @ref queue_mutex held. It takes a copy of
@@ -347,11 +350,7 @@ private:
         if (state == state_t::SENDING)
             process_results();
         else if (state == state_t::QUEUED)
-        {
-            // TODO: this can allow sending too fast
-            send_time = send_time_burst = timer_type::clock_type::now();
-            rate_bytes = 0;
-        }
+            update_send_time_empty();
         assert(active == queue_head);
 
         if (must_sleep())

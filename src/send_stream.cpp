@@ -193,9 +193,20 @@ stream_impl_base::timer_type::time_point stream_impl_base::update_send_times(
      * was actually sent (as well as we can estimate it), even if
      * sent_time or now is later.
      */
-    timer_type::time_point target_time = max(send_time_burst, send_time);
-    send_time_burst = max(now, target_time);
+    timer_type::time_point target_time = std::max(send_time_burst, send_time);
+    send_time_burst = std::max(now, target_time);
     return target_time;
+}
+
+void stream_impl_base::update_send_time_empty()
+{
+    timer_type::time_point now = timer_type::clock_type::now();
+    // Compute what send_time would need to be to make the next packet due to be
+    // transmitted now.
+    std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
+    auto wait2 = std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
+    timer_type::time_point backdate = now - wait2;
+    send_time = std::max(send_time, backdate);
 }
 
 void stream_impl_base::load_packets(std::size_t tail)
