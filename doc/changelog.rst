@@ -10,6 +10,8 @@ Changelog
 - Make `max_poll` argument to :py:class:`spead2.send.UdpIbvStream` actually
   have an effect (#55).
 - Correctly report EOF errors in :cpp:class:`spead2::send::streambuf_stream`.
+- Wrap implicitly computed heap cnts to the number of available bits (#3).
+  Previously behaviour was undefined.
 
 .. rubric:: 1.13.0
 

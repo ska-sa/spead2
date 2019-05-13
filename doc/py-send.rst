@@ -87,7 +87,7 @@ implement the following interface, although this base class does not actually ex
 
       Sends a :py:class:`spead2.send.Heap` to the peer, and wait for
       completion. There is currently no indication of whether it successfully
-      arrived.
+      arrived, but :py:exc:`IOError` is raised if it could not be sent.
 
       If not specified, a heap cnt is chosen automatically (the choice can be
       modified by calling :py:meth:`set_cnt_sequence`). If a non-negative value
@@ -104,6 +104,9 @@ implement the following interface, although this base class does not actually ex
 
       This is useful when multiple senders will send heaps to the same
       receiver, and need to keep their heap cnts separate.
+
+      If the computed cnt overflows the number of bits available, the
+      bottom-most bits are taken.
 
 UDP
 ^^^
