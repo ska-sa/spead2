@@ -486,7 +486,7 @@ class TestStream(object):
         """An explicit set heap ID must be respected, and not increment the
         implicit sequence.
 
-        The implicit sequencing is also tested.
+        The implicit sequencing is also tested, including wrapping
         """
         ig = send.ItemGroup(flavour=self.flavour)
         self.stream.send_heap(ig.get_start())
@@ -494,7 +494,11 @@ class TestStream(object):
         self.stream.send_heap(ig.get_start())
         self.stream.send_heap(ig.get_start(), 0x9876543210ab)
         self.stream.send_heap(ig.get_start())
-        expected_cnts = [1, 0x1111111111, 0x9876543210ab, 0x2345623456]
+        self.stream.set_cnt_sequence(2**48 - 1, 1)
+        self.stream.send_heap(ig.get_start())
+        self.stream.send_heap(ig.get_start())
+        expected_cnts = [1, 0x1111111111, 0x9876543210ab, 0x2345623456,
+                         2**48 - 1, 0]
         expected = b''
         for cnt in expected_cnts:
             expected = b''.join([
@@ -509,6 +513,12 @@ class TestStream(object):
                 struct.pack('B', 0)
             ])
         assert_equal(hexlify(expected), hexlify(self.stream.getvalue()))
+
+    def test_invalid_cnt(self):
+        """An explicit heap ID that overflows must raise an error."""
+        ig = send.ItemGroup(flavour=self.flavour)
+        with assert_raises(OSError):
+            self.stream.send_heap(ig.get_start(), 2**48)
 
 
 class TestTcpStream(object):

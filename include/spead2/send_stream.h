@@ -407,19 +407,25 @@ public:
         {
             lock.unlock();
             log_warning("async_send_heap: dropping heap because queue is full");
-            get_io_service().dispatch(std::bind(handler, boost::asio::error::would_block, 0));
+            get_io_service().post(std::bind(handler, boost::asio::error::would_block, 0));
             return false;
         }
-        item_pointer_t ucnt; // unsigned, so that copying next_cnt cannot overflow
+        item_pointer_t cnt_mask = (item_pointer_t(1) << h.get_flavour().get_heap_address_bits()) - 1;
         if (cnt < 0)
         {
-            ucnt = next_cnt;
+            cnt = next_cnt & cnt_mask;
             next_cnt += step_cnt;
         }
-        else
-            ucnt = cnt;
+        else if (item_pointer_t(cnt) > cnt_mask)
+        {
+            lock.unlock();
+            log_warning("async_send_heap: dropping heap because cnt is out of range");
+            get_io_service().post(std::bind(handler, boost::asio::error::invalid_argument, 0));
+            return false;
+        }
+
         // Construct in place
-        new (get_queue(queue_tail)) queue_item(h, ucnt, std::move(handler));
+        new (get_queue(queue_tail)) queue_item(h, cnt, std::move(handler));
         queue_tail = new_tail;
 
         bool empty = (state == state_t::EMPTY);
