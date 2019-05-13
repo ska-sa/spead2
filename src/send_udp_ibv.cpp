@@ -72,55 +72,63 @@ void udp_ibv_stream::reap()
     }
 }
 
+bool udp_ibv_stream::make_space()
+{
+    for (int i = 0; i < max_poll; i++)
+    {
+        reap();
+        if (available.size() >= n_current_packets)
+            return true;
+    }
+
+    // Synchronous attempts failed. Give the event loop a chance to run.
+    if (comp_channel)
+    {
+        send_cq.req_notify(false);
+
+        auto rerun = [this] (const boost::system::error_code &ec, size_t)
+        {
+            if (ec)
+            {
+                for (std::size_t i = 0; i < n_current_packets; i++)
+                    current_packets[i].result = ec;
+                packets_handler();
+            }
+            else
+            {
+                ibv_cq *event_cq;
+                void *event_cq_context;
+                // This should be non-blocking, since we were woken up
+                comp_channel.get_event(&event_cq, &event_cq_context);
+                send_cq.ack_events(1);
+                async_send_packets();
+            }
+        };
+
+        /* Need to check again, in case of a race (in which case the event
+         * won't fire until we send some more packets). Note that this
+         * leaves us with an unwanted req_notify which will lead to a
+         * spurious event later, but that is harmless.
+         */
+        reap();
+        if (available.size() >= n_current_packets)
+            return true;
+        comp_channel_wrapper.async_read_some(boost::asio::null_buffers(), rerun);
+    }
+    else
+    {
+        get_io_service().post([this] { async_send_packets(); });
+    }
+
+    return false;
+}
+
 void udp_ibv_stream::async_send_packets()
 {
     try
     {
-        reap();
-        if (available.size() < n_current_packets)
-        {
-            if (comp_channel)
-            {
-                send_cq.req_notify(false);
-
-                auto rerun = [this] (const boost::system::error_code &ec, size_t)
-                {
-                    if (ec)
-                    {
-                        for (std::size_t i = 0; i < n_current_packets; i++)
-                            current_packets[i].result = ec;
-                        packets_handler();
-                    }
-                    else
-                    {
-                        ibv_cq *event_cq;
-                        void *event_cq_context;
-                        // This should be non-blocking, since we were woken up
-                        comp_channel.get_event(&event_cq, &event_cq_context);
-                        send_cq.ack_events(1);
-                        async_send_packets();
-                    }
-                };
-
-                /* Need to check again, in case of a race (in which case the event
-                 * won't fire until we send some more packets). Note that this
-                 * leaves us with an unwanted req_notify which will lead to a
-                 * spurious event later, but that is harmless.
-                 */
-                reap();
-                if (available.size() < n_current_packets)
-                {
-                    comp_channel_wrapper.async_read_some(boost::asio::null_buffers(), rerun);
-                    return;
-                }
-            }
-            else
-            {
-                // Poll mode - keep trying until we have space
-                while (available.size() < n_current_packets)
-                    reap();
-            }
-        }
+        if (!make_space())
+            return;
 
         slot *prev = nullptr;
         slot *first = nullptr;
@@ -180,7 +188,8 @@ udp_ibv_stream::udp_ibv_stream(
     n_slots(calc_n_slots(config, buffer_size)),
     socket(get_io_service(), endpoint.protocol()),
     cm_id(event_channel, nullptr, RDMA_PS_UDP),
-    comp_channel_wrapper(get_io_service())
+    comp_channel_wrapper(get_io_service()),
+    max_poll(max_poll)
 {
     if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
         throw std::invalid_argument("endpoint is not an IPv4 multicast address");

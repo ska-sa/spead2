@@ -7,6 +7,8 @@ Changelog
 - Change exception when dtype has embedded objects from :exc:`TypeError` to
   :exc:`ValueError` for consistency
 - Remove duplicated socket handle in UDP receiver (#67).
+- Make `max_poll` argument to :py:class:`spead2.send.UdpIbvStream` actually
+  have an effect (#55).
 
 .. rubric:: 1.13.0
 

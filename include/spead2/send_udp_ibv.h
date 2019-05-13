@@ -74,6 +74,7 @@ private:
     ibv_mr_t mr;
     std::unique_ptr<slot[]> slots;
     std::vector<slot *> available;
+    const int max_poll;
 
     static ibv_qp_t
     create_qp(const ibv_pd_t &pd, const ibv_cq_t &send_cq, const ibv_cq_t &recv_cq,
@@ -81,6 +82,13 @@ private:
 
     /// Clear out the completion queue and return slots to available
     void reap();
+
+    /**
+     * Try to reap completion events until there is enough space to send all
+     * current packets. Returns true if successful, otherwise returns false
+     * and schedules @ref async_send_packets to be called again later.
+     */
+    bool make_space();
 
     void async_send_packets();
 
