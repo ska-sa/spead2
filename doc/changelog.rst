@@ -6,6 +6,7 @@ Changelog
 - Raise :exc:`ValueError` on a dtype that has zero itemsize (#37).
 - Change exception when dtype has embedded objects from :exc:`TypeError` to
   :exc:`ValueError` for consistency
+- Remove duplicated socket handle in UDP receiver (#67).
 
 .. rubric:: 1.13.0
 
