@@ -12,6 +12,7 @@ Changelog
 - Correctly report EOF errors in :cpp:class:`spead2::send::streambuf_stream`.
 - Wrap implicitly computed heap cnts to the number of available bits (#3).
   Previously behaviour was undefined.
+- Some header files were not installed by ``make install`` (#72).
 
 .. rubric:: 1.13.0
 
