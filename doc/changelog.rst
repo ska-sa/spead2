@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 1.13.1
 
 - Raise :exc:`ValueError` on a dtype that has zero itemsize (#37).
 - Change exception when dtype has embedded objects from :exc:`TypeError` to
