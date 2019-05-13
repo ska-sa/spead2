@@ -21,6 +21,7 @@ from __future__ import division, print_function
 import os
 import io
 import socket
+import sys
 
 import numpy as np
 import netifaces
@@ -119,6 +120,7 @@ class BaseTestPassthrough(object):
 
     is_legacy_send = False
     is_legacy_receive = False
+    is_lossy = False
 
     def _test_item_group(self, item_group, memcpy=spead2.MEMCPY_STD, allocator=None):
         received_item_group = self.transmit_item_group(item_group, memcpy, allocator)
@@ -140,6 +142,10 @@ class BaseTestPassthrough(object):
         """A numpy style array split across several packets. It also
         uses non-temporal copies, a custom allocator, and a memory pool,
         to test that those all work."""
+        # macOS doesn't have a big enough socket buffer to reliably transmit
+        # the whole thing over UDP.
+        if self.is_lossy and sys.platform == 'darwin':
+            raise SkipTest("macOS can't reliably handle large heaps over UDP")
         ig = spead2.send.ItemGroup()
         data = np.random.randn(100, 200)
         ig.add_item(id=0x2345, name='name', description='description',
@@ -295,6 +301,8 @@ class BaseTestPassthroughIPv6(BaseTestPassthrough):
 
 
 class TestPassthroughUdp(BaseTestPassthrough):
+    is_lossy = True
+
     def prepare_receiver(self, receiver):
         receiver.add_udp_reader(8888, bind_hostname="localhost")
 
@@ -306,6 +314,8 @@ class TestPassthroughUdp(BaseTestPassthrough):
 
 
 class TestPassthroughUdp6(BaseTestPassthroughIPv6):
+    is_lossy = True
+
     def prepare_receiver(self, receiver):
         receiver.add_udp_reader(8888, bind_hostname="::1")
 
@@ -317,6 +327,8 @@ class TestPassthroughUdp6(BaseTestPassthroughIPv6):
 
 
 class TestPassthroughUdpCustomSocket(BaseTestPassthrough):
+    is_lossy = True
+
     def prepare_receiver(self, receiver):
         recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         recv_sock.bind(("127.0.0.1", 0))
@@ -334,6 +346,7 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthrough):
 
 
 class TestPassthroughUdpMulticast(BaseTestPassthrough):
+    is_lossy = True
     MCAST_GROUP = '239.255.88.88'
     INTERFACE_ADDRESS = '127.0.0.1'
 
@@ -373,6 +386,7 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
 
 
 class TestPassthroughUdpIbv(BaseTestPassthrough):
+    is_lossy = True
     MCAST_GROUP = '239.255.88.88'
 
     def _interface_address(self):
