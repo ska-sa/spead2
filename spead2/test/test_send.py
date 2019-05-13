@@ -357,6 +357,18 @@ class TestEncode(object):
         packet = self.flavour.items_to_bytes([item], [])
         assert_equal(hexlify(expected), hexlify(packet))
 
+    def test_numpy_zero_length(self):
+        """A zero-length numpy type raises :exc:`ValueError`"""
+        with assert_raises(ValueError):
+            spead2.Item(id=0x2345, name='name', description='description',
+                        shape=(), dtype=np.str_)
+
+    def test_fallback_zero_length(self):
+        """A zero-length type raises :exc:`ValueError`"""
+        with assert_raises(ValueError):
+            spead2.Item(id=0x2345, name='name', description='description',
+                        shape=(), format=[('u', 0)])
+
     def test_start(self):
         """Tests sending a start-of-stream marker."""
         expected = [

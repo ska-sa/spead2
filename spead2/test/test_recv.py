@@ -522,7 +522,22 @@ class TestDecode(object):
         heaps = self.data_to_heaps(packet)
         assert_equal(1, len(heaps))
         ig = spead2.ItemGroup()
-        assert_raises(TypeError, ig.update, heaps[0])
+        assert_raises(ValueError, ig.update, heaps[0])
+
+    def test_numpy_zero_size(self):
+        """numpy dtypes can represent zero bytes."""
+        dtype = np.dtype(np.str_)
+        packet = self.flavour.make_packet_heap(
+            1,
+            [
+                self.flavour.make_numpy_descriptor(
+                    0x1234, 'empty', 'an item with zero-byte dtype', dtype, (5,)),
+                Item(0x1234, b'')
+            ])
+        heaps = self.data_to_heaps(packet)
+        assert_equal(1, len(heaps))
+        ig = spead2.ItemGroup()
+        assert_raises(ValueError, ig.update, heaps[0])
 
     def test_numpy_malformed(self):
         """Malformed numpy header must raise :py:exc:`ValueError`."""

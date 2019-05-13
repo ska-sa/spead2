@@ -100,13 +100,15 @@ def parse_range_list(ranges):
 class Descriptor(object):
     """Metadata for a SPEAD item.
 
-    There are a number of restrictions in the way the parameters combine,
-    which will cause `ValueError` to be raised if violated:
+    There are a number of restrictions on the parameters, which will cause
+    `ValueError` to be raised if violated:
 
     - At most one element of `shape` can be `None`.
     - Exactly one of `dtype` and `format` must be non-`None`.
     - If `dtype` is specified, `shape` cannot have any unknown dimensions.
     - If `format` is specified, `order` must be 'C'
+    - If `dtype` is specified, it cannot contain objects, and must have
+      positive size.
 
     Parameters
     ----------
@@ -135,9 +137,11 @@ class Descriptor(object):
         if dtype is not None:
             dtype = _np.dtype(dtype)
             if dtype.hasobject:
-                raise TypeError('Cannot use dtype that has reference-counted objects')
+                raise ValueError('Cannot use dtype that has reference-counted objects')
             if format is not None:
                 raise ValueError('Only one of dtype and format can be specified')
+            if dtype.itemsize == 0:
+                raise ValueError('Cannot use zero-sized dtype')
             if unknowns > 0:
                 raise ValueError('Cannot have unknown dimensions when using numpy descriptor')
             self._internal_dtype = dtype
@@ -219,8 +223,11 @@ class Descriptor(object):
         if not fmt:
             raise ValueError('empty format')
         for code, length in fmt:
-            if length == 0:
-                raise ValueError('zero-length field (bug_compat mismatch?)')
+            if length <= 0:
+                if length == 0:
+                    raise ValueError('zero-length field (bug_compat mismatch?)')
+                else:
+                    raise ValueError('negative-length field')
             if ((code in ('u', 'i') and length in (8, 16, 32, 64)) or
                     (code == 'f' and length in (32, 64))):
                 fields.append('>' + code + str(length // 8))
