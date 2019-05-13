@@ -1,6 +1,22 @@
 Changelog
 =========
 
+.. rubric:: 1.13.0
+
+- Significant performance improvements to send code (in some cases an order of
+  magnitude improvement).
+- Add :option:`--max-heap` option to :program:`spead2_send` and
+  :program:`spead2_send.py` to control the depth of the send queue.
+- Change the meaning of the :option:`--heaps` option in :program:`spead2_bench`
+  and :program:`spead2_bench.py`: it now also controls the depth of the sending
+  queue.
+- Fix a bug in send rate limiting that could allow the target rate to be
+  exceeded under some conditions.
+- Remove :option:`--threads` option from C++ :program:`spead2_send`, as the new
+  optimised implementation isn't thread-safe.
+- Disable the ``test_numpy_large`` test on macOS, which was causing frequent
+  failures on TravisCI due to dropped packets.
+
 .. rubric:: 1.12.0
 
 - Provide manylinux2010 wheels.
