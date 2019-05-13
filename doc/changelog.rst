@@ -9,6 +9,7 @@ Changelog
 - Remove duplicated socket handle in UDP receiver (#67).
 - Make `max_poll` argument to :py:class:`spead2.send.UdpIbvStream` actually
   have an effect (#55).
+- Correctly report EOF errors in :cpp:class:`spead2::send::streambuf_stream`.
 
 .. rubric:: 1.13.0
 

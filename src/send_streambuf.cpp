@@ -30,13 +30,17 @@ void streambuf_stream::async_send_packets()
 {
     for (std::size_t i = 0; i < n_current_packets; i++)
     {
+        current_packets[i].result = boost::system::error_code();
         for (const auto &buffer : current_packets[i].pkt.buffers)
         {
             std::size_t buffer_size = boost::asio::buffer_size(buffer);
-            // TODO: handle errors
-            streambuf.sputn(boost::asio::buffer_cast<const char *>(buffer), buffer_size);
+            std::size_t written = streambuf.sputn(boost::asio::buffer_cast<const char *>(buffer), buffer_size);
+            if (written != buffer_size)
+            {
+                current_packets[i].result = boost::asio::error::eof;
+                break;
+            }
         }
-        current_packets[i].result = boost::system::error_code();
     }
     get_io_service().post([this] { packets_handler(); });
 }
