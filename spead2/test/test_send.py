@@ -517,7 +517,7 @@ class TestStream(object):
     def test_invalid_cnt(self):
         """An explicit heap ID that overflows must raise an error."""
         ig = send.ItemGroup(flavour=self.flavour)
-        with assert_raises(OSError):
+        with assert_raises(IOError):
             self.stream.send_heap(ig.get_start(), 2**48)
 
 
