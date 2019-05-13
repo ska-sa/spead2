@@ -270,9 +270,17 @@ std::uint64_t sender::run()
 {
     bytes_transferred = 0;
     error = boost::system::error_code();
-    for (int i = 0; i < max_heaps; i++)
-        stream.async_send_heap(get_heap(i), [this, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
-            callback(i, ec, bytes_transferred); });
+    /* Send the initial heaps from the worker thread. This ensures that no
+     * callbacks can happen until the initial heaps are all sent, which would
+     * otherwise lead to heaps being queued out of order. For this benchmark it
+     * doesn't really matter since the heaps are all the same, but it makes it
+     * a more realistic benchmark.
+     */
+    stream.get_io_service().post([this] {
+        for (int i = 0; i < max_heaps; i++)
+            stream.async_send_heap(get_heap(i), [this, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
+                callback(i, ec, bytes_transferred); });
+    });
     for (int i = 0; i < max_heaps; i++)
         semaphore_get(done_sem);
     if (error)

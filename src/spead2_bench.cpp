@@ -285,9 +285,14 @@ std::int64_t sender::run()
 {
     bytes_transferred = 0;
     error = boost::system::error_code();
-    for (int i = 0; i < max_heaps; i++)
-        stream.async_send_heap(heaps[i], [this, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
-            callback(i, ec, bytes_transferred); });
+    /* See comments in spead2_send.cpp for the explanation of why this is
+     * posted rather than run directly.
+     */
+    stream.get_io_service().post([this] {
+        for (int i = 0; i < max_heaps; i++)
+            stream.async_send_heap(heaps[i], [this, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
+                callback(i, ec, bytes_transferred); });
+    });
     for (int i = 0; i < max_heaps; i++)
         semaphore_get(done_sem);
     if (error)
