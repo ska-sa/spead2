@@ -4,6 +4,8 @@
 #include <map>
 #include <functional>
 #include <memory>
+#include <thread>
+#include <chrono>
 #include <spead2/common_memory_pool.h>
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_logging.h>
@@ -16,6 +18,11 @@ namespace unittest
 BOOST_AUTO_TEST_SUITE(common)
 BOOST_AUTO_TEST_SUITE(memory_pool)
 
+BOOST_AUTO_TEST_CASE(default_constructible)
+{
+    spead2::memory_pool pool;
+}
+
 // Repeatedly allocates memory from a memory pool to check that the refilling
 // code does not crash.
 BOOST_AUTO_TEST_CASE(memory_pool_refill)
@@ -27,6 +34,8 @@ BOOST_AUTO_TEST_CASE(memory_pool_refill)
     std::vector<spead2::memory_pool::pointer> pointers;
     for (int i = 0; i < 100; i++)
         pointers.push_back(pool->allocate(1024 * 1024, nullptr));
+    // Give the refiller time to refill completely
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 class mock_allocator : public spead2::memory_allocator
