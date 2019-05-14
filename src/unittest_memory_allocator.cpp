@@ -31,7 +31,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(allocator_test, T, test_types)
     ptr.reset();
 }
 
-BOOST_TEST_DECORATOR(*boost::unit_test::enable_if<sizeof(std::size_t) >= 8>())
 BOOST_AUTO_TEST_CASE_TEMPLATE(out_of_memory, T, test_types)
 {
     std::shared_ptr<T> allocator = std::make_shared<T>();
