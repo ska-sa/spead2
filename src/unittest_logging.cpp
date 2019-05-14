@@ -52,11 +52,19 @@ struct capture_stderr
 BOOST_AUTO_TEST_SUITE(common)
 BOOST_FIXTURE_TEST_SUITE(logging, capture_logging)
 
+#define CHECK_MESSAGES(message, level) do {                                                \
+        std::vector<std::string> expected_messages{(message)};                             \
+        BOOST_CHECK_EQUAL_COLLECTIONS(messages.begin(), messages.end(),                    \
+                                      expected_messages.begin(), expected_messages.end()); \
+        std::vector<log_level> expected_levels{(level)};                                   \
+        BOOST_CHECK_EQUAL_COLLECTIONS(levels.begin(), levels.end(),                        \
+                                      expected_levels.begin(), expected_levels.end());     \
+    } while (false)
+
 BOOST_AUTO_TEST_CASE(log_info)
 {
     spead2::log_info("Hello %1%", 3);
-    BOOST_TEST(messages == std::vector<std::string>{"Hello 3"}, boost::test_tools::per_element());
-    BOOST_TEST(levels == std::vector<log_level>{log_level::info}, boost::test_tools::per_element());
+    CHECK_MESSAGES("Hello 3", log_level::info);
 }
 
 BOOST_AUTO_TEST_CASE(log_errno_explicit)
@@ -65,8 +73,7 @@ BOOST_AUTO_TEST_CASE(log_errno_explicit)
     log_errno("Test: %1% %2%", EBADF);
     std::ostringstream expected;
     expected << "Test: " << EBADF << " Bad file descriptor";
-    BOOST_TEST(messages == std::vector<std::string>{expected.str()}, boost::test_tools::per_element());
-    BOOST_TEST(levels == std::vector<log_level>{log_level::warning}, boost::test_tools::per_element());
+    CHECK_MESSAGES(expected.str(), log_level::warning);
 }
 
 BOOST_AUTO_TEST_CASE(log_errno_implicit)
@@ -75,8 +82,7 @@ BOOST_AUTO_TEST_CASE(log_errno_implicit)
     spead2::log_errno("Test: %1% %2%");
     std::ostringstream expected;
     expected << "Test: " << EBADF << " Bad file descriptor";
-    BOOST_TEST(messages == std::vector<std::string>{expected.str()}, boost::test_tools::per_element());
-    BOOST_TEST(levels == std::vector<log_level>{log_level::warning}, boost::test_tools::per_element());
+    CHECK_MESSAGES(expected.str(), log_level::warning);
 }
 
 static boost::test_tools::predicate_result ebadf_exception(const std::system_error &error)
