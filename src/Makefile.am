@@ -41,6 +41,7 @@ spead2_unittest_SOURCES = \
 	unittest_memcpy.cpp \
 	unittest_memory_allocator.cpp \
 	unittest_memory_pool.cpp \
+	unittest_raw_packet.cpp \
 	unittest_recv_live_heap.cpp \
 	unittest_recv_custom_memcpy.cpp \
 	unittest_send_heap.cpp \
