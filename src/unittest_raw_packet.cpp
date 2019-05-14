@@ -56,7 +56,8 @@ BOOST_AUTO_TEST_CASE(multicast_mac)
     auto address = boost::asio::ip::address::from_string("239.202.234.100");
     mac_address result = spead2::multicast_mac(address);
     mac_address expected = {{0x01, 0x00, 0x5e, 0x4a, 0xea, 0x64}};
-    BOOST_TEST(result == expected, boost::test_tools::per_element());
+    BOOST_CHECK_EQUAL_COLLECTIONS(result.begin(), result.end(),
+                                  expected.begin(), expected.end());
 }
 
 /* It's not really possible to unit test interface_mac because it interacts
