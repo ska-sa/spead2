@@ -37,6 +37,7 @@ spead2_bench_LDADD = -lboost_program_options $(LDADD)
 
 spead2_unittest_SOURCES = \
 	unittest_main.cpp \
+	unittest_logging.cpp \
 	unittest_memcpy.cpp \
 	unittest_memory_allocator.cpp \
 	unittest_memory_pool.cpp \

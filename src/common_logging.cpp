@@ -36,11 +36,16 @@ static const char * const level_names[] =
     "debug"
 };
 
-static void default_log_function(log_level level, const std::string &msg)
+std::ostream &operator<<(std::ostream &o, log_level level)
 {
     unsigned int level_idx = static_cast<unsigned int>(level);
     assert(level_idx < sizeof(level_names) / sizeof(level_names[0]));
-    std::cerr << "spead2: " << level_names[level_idx] << ": " << msg << "\n";
+    return o << level_names[level_idx];
+}
+
+static void default_log_function(log_level level, const std::string &msg)
+{
+    std::cerr << "spead2: " << level << ": " << msg << "\n";
 }
 
 static std::function<void(log_level, const std::string &)> log_function = default_log_function;

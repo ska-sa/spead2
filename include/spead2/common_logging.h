@@ -27,6 +27,7 @@
 #include <boost/format.hpp>
 #include <boost/preprocessor/cat.hpp>
 #include <spead2/common_defines.h>
+#include <iosfwd>
 
 namespace spead2
 {
@@ -37,6 +38,8 @@ enum class log_level : unsigned int
     info = 1,
     debug = 2
 };
+
+std::ostream &operator<<(std::ostream &o, log_level level);
 
 namespace detail
 {
