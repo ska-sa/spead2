@@ -57,8 +57,15 @@ class TestThreadPool(object):
         spead2.ThreadPool(4)
 
     def test_affinity(self):
+        spead2.ThreadPool(3, [])
         spead2.ThreadPool(3, [0, 1])
         spead2.ThreadPool(1, [1, 0, 2])
+
+    def test_zero_threads(self):
+        with assert_raises(ValueError):
+            spead2.ThreadPool(0)
+        with assert_raises(ValueError):
+            spead2.ThreadPool(0, [0, 1])
 
 
 class TestFlavour(object):
