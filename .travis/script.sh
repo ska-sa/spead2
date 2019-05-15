@@ -33,9 +33,11 @@ if [ "$TEST_PYTHON" = "yes" ]; then
         echo '[build_ext]' > setup.cfg
         echo 'coverage = yes' >> setup.cfg
         # pip's build isolation prevents us getting .gcno files, so build with setuptools
-        CC="$CC -Werror" python ./setup.py install
+        CC="$CC -Werror -Wno-deprecated-register" python ./setup.py install
     else
-        CC="$CC -Werror" pip install -v .
+        # -Wdeprecated-register fails on Clang because Python 2.7 headers use
+        # the register keyword.
+        CC="$CC -Werror -Wno-deprecated-register" pip install -v .
     fi
     # Avoid running nosetests from installation directory, to avoid picking up
     # things from the local tree that aren't installed.
