@@ -78,7 +78,7 @@ BOOST_AUTO_TEST_CASE(packet_buffer_construct)
     std::uint8_t data[2];
     packet_buffer a;
     packet_buffer b(data, 2);
-    BOOST_CHECK_EQUAL(a.data(), nullptr);
+    BOOST_CHECK_EQUAL(a.data(), (std::uint8_t *) nullptr);
     BOOST_CHECK_EQUAL(a.size(), 0);
     BOOST_CHECK_EQUAL(b.data(), data);
     BOOST_CHECK_EQUAL(b.size(), 2);
