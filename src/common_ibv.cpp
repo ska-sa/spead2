@@ -373,10 +373,10 @@ ibv_flow_t create_flow(
     struct
     {
         ibv_flow_attr attr;
-        ibv_flow_spec_eth eth;
-        ibv_flow_spec_ipv4 ip;
-        ibv_flow_spec_tcp_udp udp;
-    } __attribute__((packed)) flow_rule;
+        ibv_flow_spec_eth eth __attribute__((packed));
+        ibv_flow_spec_ipv4 ip __attribute__((packed));
+        ibv_flow_spec_tcp_udp udp __attribute__((packed));
+    } flow_rule;
     std::memset(&flow_rule, 0, sizeof(flow_rule));
 
     flow_rule.attr.type = IBV_FLOW_ATTR_NORMAL;
