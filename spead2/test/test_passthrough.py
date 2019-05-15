@@ -285,7 +285,7 @@ class BaseTestPassthroughIPv6(BaseTestPassthrough):
     def check_ipv6(cls):
         if not socket.has_ipv6:
             raise SkipTest('platform does not support IPv6')
-        # Travis' Trusty image fails to bind to an IPv6 address
+        # Travis build systems fail to bind to an IPv6 address
         sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         try:
             sock.bind(("::1", 8888))
