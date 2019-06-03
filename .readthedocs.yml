@@ -1,4 +1,7 @@
-requirements_file: requirements-readthedocs.txt
+version: 2
 python:
-    pip_install: true
-    python_version: 3
+  version: 3.6
+  install:
+    - requirements: requirements-readthedocs.txt
+    - method: pip
+      path: .
