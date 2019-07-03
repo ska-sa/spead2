@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add `new_order` argument to :py:meth:`spead2.ItemGroup.update`.
+- Improved unit tests.
+
 .. rubric:: 1.13.1
 
 - Raise :exc:`ValueError` on a dtype that has zero itemsize (#37).

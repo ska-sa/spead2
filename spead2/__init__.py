@@ -494,7 +494,7 @@ class Item(Descriptor):
                     raise ValueError('unhandled format {0}'.format((code, length)))
                 gen.send((raw, length))
 
-    def set_from_raw(self, raw_item):
+    def set_from_raw(self, raw_item, new_order='='):
         raw_value = _np.array(raw_item, _np.uint8, copy=False)
         if self._fastpath == _FASTPATH_NUMPY:
             max_elements = raw_value.shape[0] // self._internal_dtype.itemsize
@@ -511,8 +511,8 @@ class Item(Descriptor):
             else:
                 array1d = raw_value[:size_bytes]
             array1d = array1d.view(dtype=self._internal_dtype)
-            # Force to native endian
-            array1d = array1d.astype(self._internal_dtype.newbyteorder('='),
+            # Force the byte order if requested
+            array1d = array1d.astype(self._internal_dtype.newbyteorder(new_order),
                                      casting='equiv', copy=False)
             value = _np.reshape(array1d, shape, self.order)
         elif (self._fastpath == _FASTPATH_IMMEDIATE and
@@ -748,13 +748,18 @@ class ItemGroup(object):
         """Number of items"""
         return len(self._by_name)
 
-    def update(self, heap):
+    def update(self, heap, new_order='='):
         """Update the item descriptors and items from an incoming heap.
 
         Parameters
         ----------
         heap : :class:`spead2.recv.Heap`
             Incoming heap
+        new_order : str
+            Byte ordering to coerce new byte arrays into. The default is to
+            force arrays to native byte order. Use ``'|'`` to keep whatever
+            byte order was in the heap. See :meth:`np.dtype.newbyteorder` for
+            the full list of options.
 
         Returns
         -------
@@ -773,7 +778,7 @@ class ItemGroup(object):
             except KeyError:
                 _logger.warning('Item with ID %#x received but there is no descriptor', raw_item.id)
             else:
-                item.set_from_raw(raw_item)
+                item.set_from_raw(raw_item, new_order=new_order)
                 item.version += 1
                 updated_items[item.name] = item
         return updated_items
