@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 1.14.0
 
 - Add `new_order` argument to :py:meth:`spead2.ItemGroup.update`.
 - Improved unit tests.
