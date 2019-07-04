@@ -122,13 +122,13 @@ class BaseTestPassthrough(object):
     is_legacy_receive = False
     is_lossy = False
 
-    def _test_item_group(self, item_group, memcpy=spead2.MEMCPY_STD, allocator=None):
-        received_item_group = self.transmit_item_group(item_group, memcpy, allocator)
+    def _test_item_group(self, item_group, memcpy=spead2.MEMCPY_STD, allocator=None, new_order='='):
+        received_item_group = self.transmit_item_group(item_group, memcpy, allocator, new_order)
         assert_item_groups_equal(item_group, received_item_group)
         if not self.is_legacy_receive:
             for item in received_item_group.values():
                 if item.dtype is not None:
-                    assert_equal(item.value.dtype, item.value.dtype.newbyteorder('='))
+                    assert_equal(item.value.dtype, item.value.dtype.newbyteorder(new_order))
 
     def test_numpy_simple(self):
         """A basic array with numpy encoding"""
@@ -137,6 +137,15 @@ class BaseTestPassthrough(object):
         ig.add_item(id=0x2345, name='name', description='description',
                     shape=data.shape, dtype=data.dtype, value=data)
         self._test_item_group(ig)
+
+    def test_numpy_byteorder(self):
+        """A numpy array in non-native byte order"""
+        ig = spead2.send.ItemGroup()
+        data = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.dtype(np.uint16).newbyteorder())
+        ig.add_item(id=0x2345, name='name', description='description',
+                    shape=data.shape, dtype=data.dtype, value=data)
+        self._test_item_group(ig)
+        self._test_item_group(ig, new_order='|')
 
     def test_numpy_large(self):
         """A numpy style array split across several packets. It also
@@ -251,7 +260,7 @@ class BaseTestPassthrough(object):
                         shape=(), format=[('u', 40)], value=0x12345 * i)
         self._test_item_group(ig)
 
-    def transmit_item_group(self, item_group, memcpy, allocator):
+    def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
         """Transmit `item_group` over the chosen transport,
         and return the item group received at the other end. Subclasses
         should override this.
@@ -268,7 +277,7 @@ class BaseTestPassthrough(object):
         sender.send_heap(gen.get_end())
         received_item_group = spead2.ItemGroup()
         for heap in receiver:
-            received_item_group.update(heap)
+            received_item_group.update(heap, new_order)
         return received_item_group
 
     def prepare_receiver(self, receiver):
@@ -294,10 +303,10 @@ class BaseTestPassthroughIPv6(BaseTestPassthrough):
         finally:
             sock.close()
 
-    def transmit_item_group(self, item_group, memcpy, allocator):
+    def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
         self.check_ipv6()
         return super(BaseTestPassthroughIPv6, self).transmit_item_group(
-            item_group, memcpy, allocator)
+            item_group, memcpy, allocator, new_order)
 
 
 class TestPassthroughUdp(BaseTestPassthrough):
@@ -447,7 +456,7 @@ class TestPassthroughTcp6(BaseTestPassthroughIPv6):
 
 
 class TestPassthroughMem(BaseTestPassthrough):
-    def transmit_item_group(self, item_group, memcpy, allocator):
+    def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
         thread_pool = spead2.ThreadPool(2)
         sender = spead2.send.BytesStream(thread_pool)
         gen = spead2.send.HeapGenerator(item_group)
@@ -460,7 +469,7 @@ class TestPassthroughMem(BaseTestPassthrough):
         receiver.add_buffer_reader(sender.getvalue())
         received_item_group = spead2.ItemGroup()
         for heap in receiver:
-            received_item_group.update(heap)
+            received_item_group.update(heap, new_order)
         return received_item_group
 
 
@@ -471,16 +480,17 @@ class TestPassthroughInproc(BaseTestPassthrough):
     def prepare_sender(self, thread_pool):
         return spead2.send.InprocStream(thread_pool, self._queue)
 
-    def transmit_item_group(self, item_group, memcpy, allocator):
+    def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
         self._queue = spead2.InprocQueue()
-        ret = super(TestPassthroughInproc, self).transmit_item_group(item_group, memcpy, allocator)
+        ret = super(TestPassthroughInproc, self).transmit_item_group(
+            item_group, memcpy, allocator, new_order)
         self._queue.stop()
         return ret
 
 
 class TestAllocators(BaseTestPassthrough):
     """Like TestPassthroughMem, but uses some custom allocators"""
-    def transmit_item_group(self, item_group, memcpy, allocator):
+    def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
         thread_pool = spead2.ThreadPool(2)
         sender = spead2.send.BytesStream(thread_pool)
         gen = spead2.send.HeapGenerator(item_group)
@@ -493,14 +503,14 @@ class TestAllocators(BaseTestPassthrough):
         receiver.add_buffer_reader(sender.getvalue())
         received_item_group = spead2.ItemGroup()
         for heap in receiver:
-            received_item_group.update(heap)
+            received_item_group.update(heap, new_order)
         return received_item_group
 
 
 class BaseTestPassthroughLegacySend(BaseTestPassthrough):
     is_legacy_send = True
 
-    def transmit_item_group(self, item_group, memcpy, allocator):
+    def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
         if not self.spead:
             raise SkipTest('spead module not importable')
         transport = io.BytesIO()
@@ -531,7 +541,7 @@ class BaseTestPassthroughLegacySend(BaseTestPassthrough):
         receiver.add_buffer_reader(transport.getvalue())
         received_item_group = spead2.ItemGroup()
         for heap in receiver:
-            received_item_group.update(heap)
+            received_item_group.update(heap, new_order)
         return received_item_group
 
 
@@ -546,7 +556,7 @@ class TestPassthroughLegacySend64_48(BaseTestPassthroughLegacySend):
 class BaseTestPassthroughLegacyReceive(BaseTestPassthrough):
     is_legacy_receive = True
 
-    def transmit_item_group(self, item_group, memcpy, allocator):
+    def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
         if not self.spead:
             raise SkipTest('spead module not importable')
         thread_pool = spead2.ThreadPool(1)

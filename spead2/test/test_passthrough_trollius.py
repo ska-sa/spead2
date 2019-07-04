@@ -29,15 +29,15 @@ from . import test_passthrough
 
 
 class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
-    def transmit_item_group(self, item_group, memcpy, allocator):
+    def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
         self.loop = trollius.new_event_loop()
         ret = self.loop.run_until_complete(
-            self.transmit_item_group_async(item_group, memcpy, allocator))
+            self.transmit_item_group_async(item_group, memcpy, allocator, new_order))
         self.loop.close()
         return ret
 
     @trollius.coroutine
-    def transmit_item_group_async(self, item_group, memcpy, allocator):
+    def transmit_item_group_async(self, item_group, memcpy, allocator, new_order='='):
         thread_pool = spead2.ThreadPool(2)
         receiver = spead2.recv.trollius.Stream(thread_pool, loop=self.loop)
         receiver.set_memcpy(memcpy)
@@ -56,7 +56,7 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
             except spead2.Stopped:
                 break
             else:
-                received_item_group.update(heap)
+                received_item_group.update(heap, new_order)
         raise Return(received_item_group)
 
 
@@ -136,9 +136,9 @@ class TestPassthroughInproc(BaseTestPassthroughAsync):
         return spead2.send.trollius.InprocStream(thread_pool, self._queue, loop=self.loop)
 
     @trollius.coroutine
-    def transmit_item_group_async(self, item_group, memcpy, allocator):
+    def transmit_item_group_async(self, item_group, memcpy, allocator, new_order='='):
         self._queue = spead2.InprocQueue()
         ret = yield From(super(TestPassthroughInproc, self).transmit_item_group_async(
-            item_group, memcpy, allocator))
+            item_group, memcpy, allocator, new_order))
         self._queue.stop()
         raise Return(ret)
