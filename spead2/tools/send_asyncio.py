@@ -13,24 +13,23 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Generate and send SPEAD packets. This is mainly a benchmark application, but also
-demonstrates the API."""
+"""Generate and send SPEAD packets.
 
-from __future__ import print_function, division
+This is mainly a benchmark application, but also demonstrates the API."""
+
 import logging
 import sys
 import time
 import itertools
 import argparse
 import collections
+import asyncio
 
 import numpy as np
-import trollius
-from trollius import From
 
 import spead2
 import spead2.send
-import spead2.send.trollius
+import spead2.send.asyncio
 
 
 def get_args():
@@ -102,14 +101,13 @@ def get_args():
         parser.error('--ibv and --tcp are incompatible')
     if args.buffer is None:
         if args.tcp:
-            args.buffer = spead2.send.trollius.TcpStream.DEFAULT_BUFFER_SIZE
+            args.buffer = spead2.send.asyncio.TcpStream.DEFAULT_BUFFER_SIZE
         else:
-            args.buffer = spead2.send.trollius.UdpStream.DEFAULT_BUFFER_SIZE
+            args.buffer = spead2.send.asyncio.UdpStream.DEFAULT_BUFFER_SIZE
     return args
 
 
-@trollius.coroutine
-def run(item_group, stream, args):
+async def run(item_group, stream, args):
     n_bytes = 0
     n_errors = 0
     last_error = None
@@ -122,20 +120,20 @@ def run(item_group, stream, args):
     for is_end in rep:
         if len(tasks) >= args.max_heaps:
             try:
-                n_bytes += yield From(tasks.popleft())
+                n_bytes += await tasks.popleft()
             except Exception as error:
                 n_errors += 1
                 last_error = error
         if is_end:
-            task = trollius.ensure_future(stream.async_send_heap(item_group.get_end()))
+            task = asyncio.ensure_future(stream.async_send_heap(item_group.get_end()))
         else:
             for item in item_group.values():
                 item.version += 1
-            task = trollius.ensure_future(stream.async_send_heap(item_group.get_heap()))
+            task = asyncio.ensure_future(stream.async_send_heap(item_group.get_heap()))
         tasks.append(task)
     while len(tasks) > 0:
         try:
-            n_bytes += yield From(tasks.popleft())
+            n_bytes += await tasks.popleft()
         except Exception as error:
             n_errors += 1
             last_error = error
@@ -146,8 +144,7 @@ def run(item_group, stream, args):
         n_bytes, elapsed, n_bytes * 8 / elapsed / 1e9))
 
 
-@trollius.coroutine
-def async_main():
+async def async_main():
     args = get_args()
     logging.basicConfig(level=getattr(logging, args.log.upper()))
 
@@ -178,10 +175,10 @@ def async_main():
         burst_rate_ratio=args.burst_rate_ratio,
         max_heaps=args.max_heaps)
     if args.tcp:
-        stream = yield From(spead2.send.trollius.TcpStream.connect(
-            thread_pool, args.host, args.port, config, args.buffer, args.bind))
+        stream = await spead2.send.asyncio.TcpStream.connect(
+            thread_pool, args.host, args.port, config, args.buffer, args.bind)
     elif 'ibv' in args and args.ibv:
-        stream = spead2.send.trollius.UdpIbvStream(
+        stream = spead2.send.asyncio.UdpIbvStream(
             thread_pool, args.host, args.port, config, args.bind,
             args.buffer, args.ttl or 1, args.ibv_vector, args.ibv_max_poll)
     else:
@@ -190,14 +187,14 @@ def async_main():
             kwargs['ttl'] = args.ttl
         if args.bind:
             kwargs['interface_address'] = args.bind
-        stream = spead2.send.trollius.UdpStream(
+        stream = spead2.send.asyncio.UdpStream(
             thread_pool, args.host, args.port, config, args.buffer, **kwargs)
 
-    yield From(run(item_group, stream, args))
+    await run(item_group, stream, args)
 
 
 def main():
     try:
-        trollius.get_event_loop().run_until_complete(async_main())
+        asyncio.get_event_loop().run_until_complete(async_main())
     except KeyboardInterrupt:
         sys.exit(1)

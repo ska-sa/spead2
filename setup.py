@@ -41,12 +41,8 @@ class BuildPy(build_py):
     def find_package_modules(self, package, package_dir):
         # distutils uses old-style classes, so no super
         modules = build_py.find_package_modules(self, package, package_dir)
-        if sys.version_info < (3, 4):
+        if sys.version_info < (3,):
             modules = [m for m in modules if not m[1].endswith('asyncio')]
-        if sys.version_info < (3, 5):
-            modules = [m for m in modules if not m[1].endswith('py35')]
-        if sys.version_info >= (3, 7):
-            modules = [m for m in modules if not m[1].endswith('trollius')]
         return modules
 
 
@@ -151,18 +147,17 @@ setup(
     cmdclass={'build_ext': BuildExt, 'build_py': BuildPy},
     install_requires=[
         'numpy>=1.9.2',
-        'six',
-        'trollius; python_version<"3.4"'
+        'six'
     ],
     tests_require=[
         'netifaces',
         'nose',
         'decorator',
-        'trollius; python_version<"3.7"',
         'asynctest; python_version>="3.5"'
     ],
+    python_requires='>=2.7, !=3.0, !=3.1, !=3.2, !=3.3, !=3.4',
     test_suite='nose.collector',
     packages=find_packages(),
     package_data={'': ['py.typed', '*.pyi']},
-    scripts=glob.glob('scripts/*.py')
+    scripts=glob.glob('scripts/*.py') if sys.version_info >= (3,) else []
 )

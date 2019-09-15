@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -26,12 +26,7 @@ stream is used to synchronise the two ends. All configuration is done on
 the master end.
 """
 
-import sys
+from spead2.tools import bench_asyncio
 
 
-if sys.version_info >= (3, 4):
-    from spead2.tools import bench_asyncio
-    bench_asyncio.main()
-else:
-    from spead2.tools import bench_trollius
-    bench_trollius.main()
+bench_asyncio.main()

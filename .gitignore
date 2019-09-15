@@ -13,7 +13,6 @@ Makefile.in
 /config.sub
 /configure
 /spead2.pc
-*asyncio.py
 /wheelhouse
 .deps
 *.pyc

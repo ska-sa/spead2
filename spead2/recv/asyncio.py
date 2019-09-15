@@ -14,15 +14,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
-Integration between spead2.recv and trollius
+Integration between spead2.recv and asyncio
 """
-from __future__ import absolute_import
 import collections
 import functools
 import sys
-
-import trollius
-from trollius import From, Return
+import asyncio
 
 import spead2.recv
 
@@ -34,9 +31,8 @@ import spead2.recv
 if sys.version_info < (3, 5, 2):
     def _aiter_compat(func):
         @functools.wraps(func)
-        @trollius.coroutine
-        def wrapper(self):
-            raise Return(func(self))
+        async def wrapper(self):
+            return func(self)
         return wrapper
 else:
     def _aiter_compat(func):
@@ -65,7 +61,7 @@ class Stream(spead2.recv.Stream):
     def __init__(self, *args, **kwargs):
         self._loop = kwargs.pop('loop', None)
         if self._loop is None:
-            self._loop = trollius.get_event_loop()
+            self._loop = asyncio.get_event_loop()
         super(Stream, self).__init__(*args, **kwargs)
         self._waiters = collections.deque()
         self._listening = False
@@ -109,8 +105,7 @@ class Stream(spead2.recv.Stream):
         self = None
         waiter = None
 
-    @trollius.coroutine
-    def get(self, loop=None):
+    async def get(self, loop=None):
         """Coroutine that waits for a heap to become available and returns it."""
         if loop is None:
             loop = self._loop
@@ -125,26 +120,25 @@ class Stream(spead2.recv.Stream):
             else:
                 # Give the event loop a chance to run. This ensures that a
                 # heap-processing loop cannot live-lock the event loop.
-                yield From(trollius.sleep(0, loop=loop))
-                raise Return(heap)
+                await asyncio.sleep(0, loop=loop)
+                return heap
 
-        waiter = trollius.Future(loop=loop)
+        waiter = asyncio.Future(loop=loop)
         self._waiters.append(waiter)
         self._start_listening()
-        heap = (yield From(waiter)).pop()
-        raise Return(heap)
+        heap = (await waiter).pop()
+        return heap
 
     # Asynchronous iterator support for Python 3.5+. It's not supported with
-    # trollius, but after passing through trollius2asyncio it becomes useful.
+    # asyncio, but after passing through asyncio2asyncio it becomes useful.
     @_aiter_compat
     def __aiter__(self):
         return self
 
-    @trollius.coroutine
-    def __anext__(self):
+    async def __anext__(self):
         try:
-            heap = yield From(self.get())
+            heap = await self.get()
         except spead2.Stopped:
             raise StopAsyncIteration       # noqa: F821 (for Python 2)
         else:
-            raise Return(heap)
+            return heap

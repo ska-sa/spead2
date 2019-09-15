@@ -1,4 +1,4 @@
-# Copyright 2015, 2017-2018 SKA South Africa
+# Copyright 2015, 2017-2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -20,17 +20,14 @@ spead2 package. It thus has many more command-line options than are strictly
 necessary, to allow multiple code-paths to be exercised.
 """
 
-from __future__ import print_function, division
 import logging
 import argparse
 import signal
-
-import trollius
-from trollius import From
+import asyncio
 
 import spead2
 import spead2.recv
-import spead2.recv.trollius
+import spead2.recv.asyncio
 
 
 def get_args():
@@ -87,14 +84,13 @@ def get_args():
         parser.error('--ibv and --tcp are incompatible')
     if args.buffer is None:
         if args.tcp:
-            args.buffer = spead2.recv.trollius.Stream.DEFAULT_TCP_BUFFER_SIZE
+            args.buffer = spead2.recv.asyncio.Stream.DEFAULT_TCP_BUFFER_SIZE
         else:
-            args.buffer = spead2.recv.trollius.Stream.DEFAULT_UDP_BUFFER_SIZE
+            args.buffer = spead2.recv.asyncio.Stream.DEFAULT_UDP_BUFFER_SIZE
     return args
 
 
-@trollius.coroutine
-def run_stream(stream, name, args):
+async def run_stream(stream, name, args):
     try:
         item_group = spead2.ItemGroup()
         num_heaps = 0
@@ -102,7 +98,7 @@ def run_stream(stream, name, args):
             try:
                 if num_heaps == args.max_heaps:
                     break
-                heap = yield From(stream.get())
+                heap = await stream.get()
                 print("Received heap {} on stream {}".format(heap.cnt, name))
                 num_heaps += 1
                 try:
@@ -123,7 +119,7 @@ def run_stream(stream, name, args):
                             print(key)
                 except ValueError as e:
                     print("Error raised processing heap: {}".format(e))
-            except (spead2.Stopped, trollius.CancelledError):
+            except (spead2.Stopped, asyncio.CancelledError):
                 print("Shutting down stream {} after {} heaps".format(name, num_heaps))
                 stats = stream.stats
                 for key in dir(stats):
@@ -137,7 +133,7 @@ def run_stream(stream, name, args):
 def main():
     def make_stream(sources):
         bug_compat = spead2.BUG_COMPAT_PYSPEAD_0_5_2 if args.pyspead else 0
-        stream = spead2.recv.trollius.Stream(thread_pool, bug_compat, args.heaps, args.ring_heaps)
+        stream = spead2.recv.asyncio.Stream(thread_pool, bug_compat, args.heaps, args.ring_heaps)
         if memory_pool is not None:
             stream.set_memory_allocator(memory_pool)
         if args.memcpy_nt:
@@ -197,11 +193,11 @@ def main():
     else:
         coros_and_streams = [make_coro([source]) for source in args.source]
     coros, streams = zip(*coros_and_streams)
-    main_task = trollius.ensure_future(trollius.gather(*coros))
-    loop = trollius.get_event_loop()
+    main_task = asyncio.ensure_future(asyncio.gather(*coros))
+    loop = asyncio.get_event_loop()
     loop.add_signal_handler(signal.SIGINT, stop_streams)
     try:
         loop.run_until_complete(main_task)
-    except trollius.CancelledError:
+    except asyncio.CancelledError:
         pass
     loop.close()

@@ -6,7 +6,5 @@ nose
 nose-ignore-docstring
 decorator
 six
-trollius; python_version<'3.7'
-trollius-fixers
 pycparser
 jinja2

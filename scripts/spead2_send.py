@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -18,12 +18,7 @@
 """Generate and send SPEAD packets. This is mainly a benchmark application, but also
 demonstrates the API."""
 
-import sys
+from spead2.tools import send_asyncio
 
 
-if sys.version_info >= (3, 4):
-    from spead2.tools import send_asyncio
-    send_asyncio.main()
-else:
-    from spead2.tools import send_trollius
-    send_trollius.main()
+send_asyncio.main()

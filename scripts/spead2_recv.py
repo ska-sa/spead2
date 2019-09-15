@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -22,12 +22,7 @@ spead2 package. It thus has many more command-line options than are strictly
 necessary, to allow multiple code-paths to be exercised.
 """
 
-import sys
+from spead2.tools import recv_asyncio
 
 
-if sys.version_info >= (3, 4):
-    from spead2.tools import recv_asyncio
-    recv_asyncio.main()
-else:
-    from spead2.tools import recv_trollius
-    recv_trollius.main()
+recv_asyncio.main()
