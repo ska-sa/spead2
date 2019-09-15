@@ -26,8 +26,7 @@ import spead2.recv
 
 # Decorator from official Python documentation to have compatibility with
 # both 3.5.0/1 (which expected __aiter__ to return an awaitable) and 3.5.2+
-# (which expects it to return an async iterator), and modified to use legal
-# Python 2 syntax.
+# (which expects it to return an async iterator).
 if sys.version_info < (3, 5, 2):
     def _aiter_compat(func):
         @functools.wraps(func)
@@ -129,8 +128,6 @@ class Stream(spead2.recv.Stream):
         heap = (await waiter).pop()
         return heap
 
-    # Asynchronous iterator support for Python 3.5+. It's not supported with
-    # asyncio, but after passing through asyncio2asyncio it becomes useful.
     @_aiter_compat
     def __aiter__(self):
         return self
