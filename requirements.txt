@@ -7,7 +7,6 @@
 asynctest==0.12.2 ; python_version >= "3.5"
 decorator==4.3.0
 flake8==3.6.0
-futures==3.1.1
 jinja2==2.10.1
 markupsafe==1.1.1         # via jinja2
 mccabe==0.6.1             # via flake8
@@ -20,4 +19,7 @@ pycparser==2.19
 pyflakes==2.0.0           # via flake8
 six==1.12.0
 trollius-fixers==0.1.1
-trollius==2.2 ; python_version < "3.7"
+trollius==2.1.post2 ; python_version < "3.7"
+
+# The following packages are considered to be unsafe in a requirements file:
+# setuptools==41.2.0        # via flake8
