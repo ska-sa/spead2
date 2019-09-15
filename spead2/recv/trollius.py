@@ -1,4 +1,4 @@
-# Copyright 2015, 2018 SKA South Africa
+# Copyright 2015, 2018-2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -112,6 +112,8 @@ class Stream(spead2.recv.Stream):
     @trollius.coroutine
     def get(self, loop=None):
         """Coroutine that waits for a heap to become available and returns it."""
+        if loop is None:
+            loop = self._loop
         self._clear_done_waiters()
         if not self._waiters:
             # If something is available directly, we can avoid going back to
@@ -123,11 +125,9 @@ class Stream(spead2.recv.Stream):
             else:
                 # Give the event loop a chance to run. This ensures that a
                 # heap-processing loop cannot live-lock the event loop.
-                yield
+                yield From(trollius.sleep(0, loop=loop))
                 raise Return(heap)
 
-        if loop is None:
-            loop = self._loop
         waiter = trollius.Future(loop=loop)
         self._waiters.append(waiter)
         self._start_listening()

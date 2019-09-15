@@ -1,4 +1,4 @@
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -59,6 +59,7 @@ class TestUdpStream(object):
         # test needs to be run from inside the event loop
         trollius.get_event_loop().run_until_complete(self._test_async_flush())
 
+    @trollius.coroutine
     def _test_send_error(self, future):
         with assert_raises(IOError):
             yield From(future)
@@ -75,6 +76,7 @@ class TestUdpStream(object):
 
 
 class TestTcpStream(object):
+    @trollius.coroutine
     def _test_connect_failed(self):
         thread_pool = spead2.ThreadPool()
         with assert_raises(IOError):
