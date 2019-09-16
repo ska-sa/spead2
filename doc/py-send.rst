@@ -270,8 +270,7 @@ Refer to the separate :doc:`documentation <py-inproc>`.
 Asynchronous send
 -----------------
 
-As for asynchronous receives, asynchronous sends are managed by asyncio_ or
-trollius_. A
+As for asynchronous receives, asynchronous sends are managed by asyncio_. A
 stream can buffer up multiple heaps for asynchronous send, up to the limit
 specified by `max_heaps` in the :py:class:`~spead2.send.StreamConfig`. If this
 limit is exceeded, heaps will be dropped, and the returned future has an
@@ -279,13 +278,11 @@ limit is exceeded, heaps will be dropped, and the returned future has an
 low-level error in sending the heap (for example, if the packet size exceeds
 the MTU).
 
-.. _trollius: http://trollius.readthedocs.io/
 .. _asyncio: https://docs.python.org/3/library/asyncio.html
 
-The classes existing in the :py:mod:`spead2.send.asyncio` and
-:py:mod:`spead2.send.trollius` modules, and mostly implement the same
-constructors as the synchronous classes. They implement the following abstract
-interface (the class does not actually exist):
+The classes exist in the :py:mod:`spead2.send.asyncio` modules, and mostly
+implement the same constructors as the synchronous classes. They implement the
+following abstract interface (the class does not actually exist):
 
 .. class:: spead2.send.asyncio.AbstractStream()
 
