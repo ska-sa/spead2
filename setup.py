@@ -123,6 +123,14 @@ else:
 with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme_file:
     readme = readme_file.read()
 
+entry_points = {
+    'console_scripts': [
+        'spead2_send.py = spead2.tools.send_asyncio:main',
+        'spead2_recv.py = spead2.tools.recv_asyncio:main',
+        'spead2_bench.py = spead2.tools.bench_asyncio:main'
+    ]
+}
+
 setup(
     author='Bruce Merry',
     author_email='bmerry@ska.ac.za',
@@ -159,5 +167,5 @@ setup(
     test_suite='nose.collector',
     packages=find_packages(),
     package_data={'': ['py.typed', '*.pyi']},
-    scripts=glob.glob('scripts/*.py') if sys.version_info >= (3,) else []
+    entry_points=entry_points if sys.version_info >= (3,) else {}
 )
