@@ -26,24 +26,6 @@ import netifaces
 from decorator import decorator
 from nose.tools import assert_equal, timed
 from nose.plugins.skip import SkipTest
-try:
-    from socket import if_nametoindex
-except ImportError:
-    import ctypes
-    import ctypes.util
-    _libc_name = ctypes.util.find_library('c')
-    if _libc_name is None:
-        raise
-    _libc = ctypes.CDLL(_libc_name, use_errno=True)
-
-    def if_nametoindex(name):       # type: ignore
-        if not isinstance(name, bytes):
-            name = name.encode('utf-8')
-        ret = _libc.if_nametoindex(name)
-        if ret == 0:
-            raise OSError(ctypes.get_errno(), 'if_nametoindex failed')
-        else:
-            return ret
 
 import spead2
 import spead2.send
@@ -330,7 +312,7 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
             addrs = netifaces.ifaddresses(iface).get(netifaces.AF_INET6, [])
             for addr in addrs:
                 if addr['addr'] != '::1':
-                    return if_nametoindex(iface)
+                    return socket.if_nametoindex(iface)
         raise SkipTest('could not find suitable interface for test')
 
     def prepare_receiver(self, receiver):
