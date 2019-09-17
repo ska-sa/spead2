@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Drop support for trollius (which also removes support for the tools on
+  Python 2).
+- Drop support for Python 3.4.
+
 .. rubric:: 1.14.0
 
 - Add `new_order` argument to :py:meth:`spead2.ItemGroup.update`.

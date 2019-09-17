@@ -24,7 +24,6 @@ stream is used to synchronise the two ends. All configuration is done on
 the master end.
 """
 
-from __future__ import division, print_function
 import sys
 import argparse
 import json
@@ -32,17 +31,16 @@ import collections
 import logging
 import traceback
 import timeit
+import asyncio
 
 import six
 import numpy as np
-import trollius
-from trollius import From, Return
 
 import spead2
 import spead2.recv
-import spead2.recv.trollius
+import spead2.recv.asyncio
 import spead2.send
-import spead2.send.trollius
+import spead2.send.asyncio
 
 
 class SlaveConnection(object):
@@ -50,25 +48,23 @@ class SlaveConnection(object):
         self.reader = reader
         self.writer = writer
 
-    @trollius.coroutine
-    def run_stream(self, stream):
+    async def run_stream(self, stream):
         num_heaps = 0
         while True:
             try:
-                yield From(stream.get())
+                await stream.get()
                 num_heaps += 1
             except spead2.Stopped:
-                raise Return(num_heaps)
+                return num_heaps
 
     def _write(self, s):
         self.writer.write(s.encode('ascii'))
 
-    @trollius.coroutine
-    def run_control(self):
+    async def run_control(self):
         try:
             stream_task = None
             while True:
-                command = yield From(self.reader.readline())
+                command = await self.reader.readline()
                 command = command.decode('ascii')
                 logging.debug("command = %s", command)
                 if not command:
@@ -93,8 +89,8 @@ class SlaveConnection(object):
                     thread_pool = spead2.ThreadPool()
                     memory_pool = spead2.MemoryPool(
                         args.heap_size, args.heap_size + 1024, args.mem_max_free, args.mem_initial)
-                    stream = spead2.recv.trollius.Stream(thread_pool, 0, args.heaps,
-                                                         args.ring_heaps)
+                    stream = spead2.recv.asyncio.Stream(thread_pool, 0, args.heaps,
+                                                        args.ring_heaps)
                     stream.set_memory_allocator(memory_pool)
                     if args.memcpy_nt:
                         stream.set_memcpy(spead2.MEMCPY_NONTEMPORAL)
@@ -114,14 +110,14 @@ class SlaveConnection(object):
                                               bind_hostname)
                     thread_pool = None
                     memory_pool = None
-                    stream_task = trollius.ensure_future(self.run_stream(stream))
+                    stream_task = asyncio.ensure_future(self.run_stream(stream))
                     self._write('ready\n')
                 elif command['cmd'] == 'stop':
                     if stream_task is None:
                         logging.warning("Stop received when already stopped")
                         continue
                     stream.stop()
-                    received_heaps = yield From(stream_task)
+                    received_heaps = await stream_task
                     self._write(json.dumps({'received_heaps': received_heaps}) + '\n')
                     stream_task = None
                     stream = None
@@ -133,53 +129,49 @@ class SlaveConnection(object):
             logging.debug("Connection closed")
             if stream_task is not None:
                 stream.stop()
-                yield From(stream_task)
+                await stream_task
         except Exception:
             traceback.print_exc()
 
 
-@trollius.coroutine
-def slave_connection(reader, writer):
+async def slave_connection(reader, writer):
     try:
         conn = SlaveConnection(reader, writer)
-        yield From(conn.run_control())
+        await conn.run_control()
     except Exception:
         traceback.print_exc()
 
 
-@trollius.coroutine
-def run_slave(args):
-    server = yield From(trollius.start_server(slave_connection, port=args.port))
-    yield From(server.wait_closed())
+async def run_slave(args):
+    server = await asyncio.start_server(slave_connection, port=args.port)
+    await server.wait_closed()
 
 
-@trollius.coroutine
-def send_stream(item_group, stream, num_heaps, args):
+async def send_stream(item_group, stream, num_heaps, args):
     tasks = collections.deque()
     transferred = 0
     for i in range(num_heaps + 1):
         while len(tasks) >= args.heaps:
-            transferred += yield From(tasks.popleft())
+            transferred += await tasks.popleft()
         if i == num_heaps:
             heap = item_group.get_end()
         else:
             heap = item_group.get_heap(data='all')
-        task = trollius.ensure_future(stream.async_send_heap(heap))
+        task = asyncio.ensure_future(stream.async_send_heap(heap))
         tasks.append(task)
     for task in tasks:
-        transferred += yield From(task)
-    raise Return(transferred)
+        transferred += await task
+    return transferred
 
 
-@trollius.coroutine
-def measure_connection_once(args, rate, num_heaps, required_heaps):
+async def measure_connection_once(args, rate, num_heaps, required_heaps):
     def write(s):
         writer.write(s.encode('ascii'))
 
-    reader, writer = yield From(trollius.open_connection(args.host, args.port))
+    reader, writer = await asyncio.open_connection(args.host, args.port)
     write(json.dumps({'cmd': 'start', 'args': vars(args)}) + '\n')
     # Wait for "ready" response
-    response = yield From(reader.readline())
+    response = await reader.readline()
     assert response == b'ready\n'
     if args.send_affinity is not None and len(args.send_affinity) > 0:
         spead2.ThreadPool.set_affinity(args.send_affinity[0])
@@ -197,11 +189,11 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
     if args.multicast is not None:
         host = args.multicast
     if 'send_ibv' in args and args.send_ibv is not None:
-        stream = spead2.send.trollius.UdpIbvStream(
+        stream = spead2.send.asyncio.UdpIbvStream(
             thread_pool, host, args.port, config, args.send_ibv, args.send_buffer,
             1, args.send_ibv_vector, args.send_ibv_max_poll)
     else:
-        stream = spead2.send.trollius.UdpStream(
+        stream = spead2.send.asyncio.UdpStream(
             thread_pool, host, args.port, config, args.send_buffer)
     item_group = spead2.send.ItemGroup(
         flavour=spead2.Flavour(4, 64, args.addr_bits, 0))
@@ -211,47 +203,45 @@ def measure_connection_once(args, rate, num_heaps, required_heaps):
                         value=np.zeros((args.heap_size,), dtype=np.uint8))
 
     start = timeit.default_timer()
-    transferred = yield From(send_stream(item_group, stream, num_heaps, args))
+    transferred = await send_stream(item_group, stream, num_heaps, args)
     end = timeit.default_timer()
     elapsed = end - start
     actual_rate = transferred / elapsed
     # Give receiver time to catch up with any queue
-    yield From(trollius.sleep(0.1))
+    await asyncio.sleep(0.1)
     write(json.dumps({'cmd': 'stop'}) + '\n')
     # Read number of heaps received
-    response = yield From(reader.readline())
+    response = await reader.readline()
     response = json.loads(response.decode('ascii'))
     received_heaps = response['received_heaps']
-    yield From(trollius.sleep(0.5))
-    yield From(writer.drain())
+    await asyncio.sleep(0.5)
+    await writer.drain()
     writer.close()
     logging.debug("Received %d/%d heaps in %f seconds, rate %.3f Gbps",
                   received_heaps, num_heaps, elapsed, actual_rate * 8e-9)
-    raise Return(received_heaps >= required_heaps, actual_rate)
+    return received_heaps >= required_heaps, actual_rate
 
 
-@trollius.coroutine
-def measure_connection(args, rate, num_heaps, required_heaps):
+async def measure_connection(args, rate, num_heaps, required_heaps):
     good = True
     rate_sum = 0.0
     passes = 5
     for i in range(passes):
-        status, actual_rate = yield From(measure_connection_once(args, rate, num_heaps,
-                                                                 required_heaps))
+        status, actual_rate = await measure_connection_once(args, rate, num_heaps,
+                                                            required_heaps)
         good = good and status
         rate_sum += actual_rate
-    raise Return(good, rate_sum / passes)
+    return good, rate_sum / passes
 
 
-@trollius.coroutine
-def run_master(args):
+async def run_master(args):
     best_actual = 0.0
 
     # Send 1GB as fast as possible to find an upper bound - receive rate
     # does not matter. Also do a warmup run first to warm up the receiver.
     num_heaps = int(1e9 / args.heap_size) + 2
-    yield From(measure_connection_once(args, 0.0, num_heaps, 0))  # warmup
-    good, actual_rate = yield From(measure_connection(args, 0.0, num_heaps, num_heaps - 1))
+    await measure_connection_once(args, 0.0, num_heaps, 0)  # warmup
+    good, actual_rate = await measure_connection(args, 0.0, num_heaps, num_heaps - 1)
     if good:
         if not args.quiet:
             print("Limited by send spead")
@@ -265,7 +255,7 @@ def run_master(args):
             # 1 second for warmup effects.
             rate = (low + high) * 0.5
             num_heaps = int(max(1e9, rate) / args.heap_size) + 2
-            good, actual_rate = yield From(measure_connection(args, rate, num_heaps, num_heaps - 1))
+            good, actual_rate = await measure_connection(args, rate, num_heaps, num_heaps - 1)
             if not args.quiet:
                 print("Rate: {:.3f} Gbps ({:.3f} actual): {}".format(
                     rate * 8e-9, actual_rate * 8e-9, "GOOD" if good else "BAD"))
@@ -300,7 +290,7 @@ def main():
     group.add_argument('--send-affinity', type=spead2.parse_range_list,
                        help='List of CPUs to pin threads to [no affinity]')
     group.add_argument('--send-buffer', metavar='BYTES', type=int,
-                       default=spead2.send.trollius.UdpStream.DEFAULT_BUFFER_SIZE,
+                       default=spead2.send.asyncio.UdpStream.DEFAULT_BUFFER_SIZE,
                        help='Socket buffer size [%(default)s]')
     group.add_argument('--burst', metavar='BYTES', type=int,
                        default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE,
@@ -351,6 +341,6 @@ def main():
         task = run_master(args)
     else:
         task = run_slave(args)
-    task = trollius.ensure_future(task)
-    trollius.get_event_loop().run_until_complete(task)
+    task = asyncio.ensure_future(task)
+    asyncio.get_event_loop().run_until_complete(task)
     task.result()

@@ -223,12 +223,9 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
 Asynchronous receive
 ^^^^^^^^^^^^^^^^^^^^
-Asynchronous I/O is supported through Python 3's :py:mod:`asyncio` module, as
-well as through trollius_ (a Python 2 backport). It can be combined with other
+Asynchronous I/O is supported through Python 3's :py:mod:`asyncio` module. It
+is no longer supported on Python 2. It can be combined with other
 asynchronous I/O frameworks like twisted_ and Tornado_.
-
-The documentation below is for the :py:mod:`asyncio` interface; replace all
-instances of ``asyncio`` with ``trollius`` if you're using trollius.
 
 .. py:class:: spead2.recv.asyncio.Stream(\*args, \*\*kwargs, loop=None)
 
@@ -248,12 +245,11 @@ instances of ``asyncio`` with ``trollius`` if you're using trollius.
 
       :param loop: asyncio event loop to use, overriding constructor.
 
-.. _trollius: http://trollius.readthedocs.io/
 .. _twisted: https://twistedmatrix.com/trac/
 .. _tornado: http://www.tornadoweb.org/en/stable/
 
-When using Python 3.5 or higher, the stream is also asynchronously iterable,
-i.e., can be used in an ``async for`` loop to iterate over the heaps.
+The stream is also asynchronously iterable, i.e., can be used in an ``async
+for`` loop to iterate over the heaps.
 
 .. _py-memory-allocators:
 

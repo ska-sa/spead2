@@ -12,11 +12,10 @@ PySPEAD_ implementation, spead2:
 - cleanly supports several SPEAD flavours (e.g. 64-40 and 64-48) in one
   module, with the receiver adapting to the flavour used by the sender;
 - supports Python 3;
-- supports asynchronous operation, using trollius_ or asyncio_.
+- supports asynchronous operation, using asyncio_ (Python 3 only).
 
 .. _SPEAD: https://casper.berkeley.edu/wiki/SPEAD
 .. _PySPEAD: https://github.com/ska-sa/PySPEAD/
-.. _trollius: http://trollius.readthedocs.io/
 .. _asyncio: https://docs.python.org/3/library/asyncio.html
 
 Preparation
@@ -32,8 +31,8 @@ automatically and support for them will be included.
 
 If you are installing spead2 from a git checkout, it is first necessary to run
 ``./bootstrap.sh`` to prepare the configure script and related files. This
-requires a Python installation with trollius-fixers, pycparser and jinja2
-installed. When building from a packaged download this is not required.
+requires a Python installation with pycparser and jinja2 installed. When
+building from a packaged download this is not required.
 
 High-performance usage requires larger buffer sizes than Linux allows by
 default. The following commands will increase the permitted buffer sizes on
@@ -47,9 +46,7 @@ need to be stored in :file:`/etc/sysctl.conf` or :file:`/etc/sysctl.d`.
 
 Installing spead2 for Python
 ----------------------------
-The only Python dependencies are numpy_ and six_, and trollius_ on Python
-versions below 3.4 (for 3.4-3.6 trollius can still be used, and is needed to
-run the test suite).
+The only Python dependencies are numpy_ and six_.
 
 The test suite has additional dependencies; refer to
 :file:`setup.py` if you are developing spead2.
@@ -65,7 +62,7 @@ installing a binary wheel.
 Installing a binary wheel
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 As from version 1.12, binary wheels are provided on PyPI for x86-64 Linux
-systems. These support all the optional features, it is now the recommended
+systems. These support all the optional features, and it is now the recommended
 installation method as it does not depend on a compiler, development
 libraries etc. The wheels use the "manylinux2010" tag, which requires at least
 :command:`pip` 19.0 to install.

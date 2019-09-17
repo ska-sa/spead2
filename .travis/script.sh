@@ -48,5 +48,7 @@ if [ "$TEST_PYTHON" = "yes" ]; then
         python -c "import spead2.test.shutdown; spead2.test.shutdown.$test()"
     done
     popd
-    flake8
+    if [ "$PYTHON" = "python3" ]; then
+        flake8
+    fi
 fi

@@ -13,17 +13,15 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import division, print_function
+import asyncio
 
-import trollius
-from trollius import From
 import numpy as np
 from nose.tools import assert_greater, assert_equal, assert_raises
 
 import spead2
 import spead2.send
-import spead2.send.trollius
-from spead2.send.trollius import UdpStream
+import spead2.send.asyncio
+from spead2.send.asyncio import UdpStream
 
 
 class TestUdpStream(object):
@@ -36,33 +34,31 @@ class TestUdpStream(object):
         self.ig['test'].value = np.zeros((256 * 1024,), np.uint8)
         self.heap = self.ig.get_heap()
 
-    @trollius.coroutine
-    def _test_async_flush(self):
+    async def _test_async_flush(self):
         assert_greater(self.stream._active, 0)
-        yield From(self.stream.async_flush())
+        await self.stream.async_flush()
         assert_equal(self.stream._active, 0)
 
     def test_async_flush(self):
         for i in range(3):
-            trollius.ensure_future(self.stream.async_send_heap(self.heap))
+            asyncio.ensure_future(self.stream.async_send_heap(self.heap))
         # The above only queues up the async sends on the event loop. The rest of the
         # test needs to be run from inside the event loop
-        trollius.get_event_loop().run_until_complete(self._test_async_flush())
+        asyncio.get_event_loop().run_until_complete(self._test_async_flush())
 
     def test_async_flush_fail(self):
         """Test async_flush in the case that the last heap sent failed.
         This is arranged by filling up the queue slots first.
         """
         for i in range(5):
-            trollius.ensure_future(self.stream.async_send_heap(self.heap))
+            asyncio.ensure_future(self.stream.async_send_heap(self.heap))
         # The above only queues up the async sends on the event loop. The rest of the
         # test needs to be run from inside the event loop
-        trollius.get_event_loop().run_until_complete(self._test_async_flush())
+        asyncio.get_event_loop().run_until_complete(self._test_async_flush())
 
-    @trollius.coroutine
-    def _test_send_error(self, future):
+    async def _test_send_error(self, future):
         with assert_raises(IOError):
-            yield From(future)
+            await future
 
     def test_send_error(self):
         """An error in sending must be reported through the future."""
@@ -72,15 +68,14 @@ class TestUdpStream(object):
             spead2.ThreadPool(), "localhost", 8888,
             spead2.send.StreamConfig(max_packet_size=100000), buffer_size=0)
         future = stream.async_send_heap(self.heap)
-        trollius.get_event_loop().run_until_complete(self._test_send_error(future))
+        asyncio.get_event_loop().run_until_complete(self._test_send_error(future))
 
 
 class TestTcpStream(object):
-    @trollius.coroutine
-    def _test_connect_failed(self):
+    async def _test_connect_failed(self):
         thread_pool = spead2.ThreadPool()
         with assert_raises(IOError):
-            yield From(spead2.send.trollius.TcpStream.connect(thread_pool, '127.0.0.1', 8887))
+            await spead2.send.asyncio.TcpStream.connect(thread_pool, '127.0.0.1', 8887)
 
     def test_connect_failed(self):
-        trollius.get_event_loop().run_until_complete(self._test_connect_failed())
+        asyncio.get_event_loop().run_until_complete(self._test_connect_failed())
