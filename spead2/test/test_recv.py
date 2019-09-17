@@ -19,7 +19,6 @@ import struct
 import time
 
 import numpy as np
-import six
 from nose.tools import (
     assert_equal, assert_in, assert_is_instance,
     assert_true, assert_false, assert_raises)

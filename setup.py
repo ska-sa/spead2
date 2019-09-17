@@ -135,8 +135,7 @@ setup(
     ext_modules=extensions,
     cmdclass={'build_ext': BuildExt},
     install_requires=[
-        'numpy>=1.9.2',
-        'six'
+        'numpy>=1.9.2'
     ],
     tests_require=[
         'netifaces',

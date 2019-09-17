@@ -15,8 +15,8 @@
 
 import numbers as _numbers
 import logging
+import struct
 
-import six
 import numpy as _np
 
 import spead2._spead2
@@ -431,7 +431,7 @@ class Item(Descriptor):
                 elif code == 'b':
                     field = bool(raw)
                 elif code == 'c':
-                    field = six.int2byte(raw)
+                    field = struct.pack('B', raw)
                 elif code == 'f':
                     if length == 32:
                         field = _np.uint32(raw).view(_np.float32)

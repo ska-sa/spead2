@@ -18,4 +18,3 @@ numpy==1.15.4
 pycodestyle==2.5.0        # via flake8
 pycparser==2.19
 pyflakes==2.1.1           # via flake8
-six==1.12.0

@@ -5,6 +5,5 @@ numpy
 nose
 nose-ignore-docstring
 decorator
-six
 pycparser
 jinja2

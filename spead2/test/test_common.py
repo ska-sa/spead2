@@ -18,7 +18,6 @@
 from __future__ import division, print_function
 
 import numpy as np
-import six
 from nose.tools import (
     assert_equal, assert_greater, assert_raises, assert_true, assert_false,
     assert_is, assert_is_not, assert_is_none)
