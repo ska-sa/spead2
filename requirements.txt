@@ -4,7 +4,7 @@
 #
 #    pip-compile requirements.in
 #
-asynctest==0.13.0 ; python_version >= "3.5"
+asynctest==0.13.0
 decorator==4.4.0
 entrypoints==0.3          # via flake8
 flake8==3.7.8

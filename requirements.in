@@ -1,4 +1,4 @@
-asynctest; python_version>='3.5'
+asynctest
 flake8
 netifaces
 numpy
