@@ -35,7 +35,7 @@ import spead2.send as send
 from .test_common import assert_equal_typed
 
 
-class Item(object):
+class Item:
     def __init__(self, id, value, immediate=False, offset=0):
         self.id = id
         self.value = value
@@ -49,7 +49,7 @@ class Item(object):
             return struct.pack('>Q', (self.id << heap_address_bits) | self.offset)
 
 
-class Flavour(object):
+class Flavour:
     def __init__(self, heap_address_bits, bug_compat=0):
         self.heap_address_bits = heap_address_bits
         self.bug_compat = bug_compat
@@ -184,7 +184,7 @@ class Flavour(object):
 FLAVOUR = Flavour(48)
 
 
-class TestDecode(object):
+class TestDecode:
     """Various types of descriptors must be correctly interpreted to decode data"""
 
     def __init__(self):
@@ -571,7 +571,7 @@ class TestDecode(object):
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_string', 'a byte string', [('c', 8)], [None]),
-                Item(0x1234, six.u('\u0200').encode('utf-8'))
+                Item(0x1234, '\u0200'.encode())
             ])
         heaps = self.data_to_heaps(packet)
         ig = spead2.ItemGroup()
@@ -662,7 +662,7 @@ class TestDecode(object):
         assert_equal(0, len(heaps))
 
 
-class TestStream(object):
+class TestStream:
     """Tests for the stream API"""
 
     def __init__(self):
@@ -729,7 +729,7 @@ class TestStream(object):
         assert_equal(0, stats.worker_blocked)
 
 
-class TestUdpReader(object):
+class TestUdpReader:
     def test_out_of_range_udp_port(self):
         receiver = spead2.recv.Stream(spead2.ThreadPool())
         assert_raises(TypeError, receiver.add_udp_reader, 100000)
@@ -739,7 +739,7 @@ class TestUdpReader(object):
         assert_raises(RuntimeError, receiver.add_udp_reader, 22)
 
 
-class TestTcpReader(object):
+class TestTcpReader:
     def setup(self):
         self.receiver = spead2.recv.Stream(spead2.ThreadPool())
         recv_sock = socket.socket()

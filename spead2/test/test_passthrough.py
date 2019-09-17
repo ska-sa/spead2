@@ -115,7 +115,7 @@ def timed_class(cls):
 
 
 @timed_class
-class BaseTestPassthrough(object):
+class BaseTestPassthrough:
     """Tests common to all transports and libraries"""
 
     is_legacy_send = False
@@ -305,7 +305,7 @@ class BaseTestPassthroughIPv6(BaseTestPassthrough):
 
     def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
         self.check_ipv6()
-        return super(BaseTestPassthroughIPv6, self).transmit_item_group(
+        return super().transmit_item_group(
             item_group, memcpy, allocator, new_order)
 
 
@@ -482,7 +482,7 @@ class TestPassthroughInproc(BaseTestPassthrough):
 
     def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
         self._queue = spead2.InprocQueue()
-        ret = super(TestPassthroughInproc, self).transmit_item_group(
+        ret = super().transmit_item_group(
             item_group, memcpy, allocator, new_order)
         self._queue.stop()
         return ret

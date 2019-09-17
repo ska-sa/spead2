@@ -30,7 +30,7 @@ def _wrap_class(name, base_class):
     class Wrapped(base_class):
         def __init__(self, *args, **kwargs):
             self._loop = kwargs.pop('loop', None)
-            super(Wrapped, self).__init__(*args, **kwargs)
+            super().__init__(*args, **kwargs)
             if self._loop is None:
                 self._loop = asyncio.get_event_loop()
             self._active = 0
@@ -64,7 +64,7 @@ def _wrap_class(name, base_class):
                 if self._active == 0:
                     self._loop.remove_reader(self.fd)
                     self._last_queued_future = None  # Purely to free the memory
-            queued = super(Wrapped, self).async_send_heap(heap, callback, cnt)
+            queued = super().async_send_heap(heap, callback, cnt)
             if self._active == 0:
                 self._loop.add_reader(self.fd, self.process_callbacks)
             self._active += 1
