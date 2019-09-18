@@ -4,6 +4,5 @@ netifaces
 numpy
 nose
 nose-ignore-docstring
-decorator
 pycparser
 jinja2

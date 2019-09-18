@@ -18,9 +18,7 @@
 from __future__ import print_function
 from setuptools import setup, find_packages, Extension
 from setuptools.command.build_ext import build_ext
-from setuptools.command.build_py import build_py
 import glob
-import sys
 import os
 import os.path
 import subprocess
@@ -140,7 +138,6 @@ setup(
     tests_require=[
         'netifaces',
         'nose',
-        'decorator',
         'asynctest'
     ],
     python_requires='>=3.5',

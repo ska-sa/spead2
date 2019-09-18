@@ -17,13 +17,11 @@
 
 from __future__ import division, print_function
 import os
-import io
 import socket
 import sys
 
 import numpy as np
 import netifaces
-from decorator import decorator
 from nose.tools import assert_equal, timed
 from nose.plugins.skip import SkipTest
 
