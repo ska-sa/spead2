@@ -1,4 +1,4 @@
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -23,16 +23,6 @@ from nose.tools import (
     assert_is, assert_is_not, assert_is_none)
 
 import spead2
-
-
-def assert_equal_typed(expected, actual, msg=None):
-    """Check that expected and actual compare equal *and* have the same type.
-
-    This is used for checking that strings have the correct type (str vs
-    unicode in Python 2, str vs bytes in Python 3).
-    """
-    assert_equal(expected, actual, msg)
-    assert_equal(type(expected), type(actual), msg)
 
 
 class TestParseRangeList:
