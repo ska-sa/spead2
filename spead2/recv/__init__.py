@@ -41,9 +41,7 @@ Python. The following are accepted.
    the shape is zero.
  - The `u`, `i`, `c` and `b` types may also be used with other sizes, but it
    will invoke a slow conversion process and is not recommended for large
-   arrays. The valid range of the `c` conversion depends on the Python
-   version: for Python 2 it must be 0 to 255, for Python 3 it is interpreted
-   as a Unicode code point.
+   arrays. For `c`, the value is interpreted as a Unicode code point.
 
 Two cases are treated specially:
 

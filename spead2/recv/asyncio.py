@@ -136,6 +136,6 @@ class Stream(spead2.recv.Stream):
         try:
             heap = await self.get()
         except spead2.Stopped:
-            raise StopAsyncIteration       # noqa: F821 (for Python 2)
+            raise StopAsyncIteration
         else:
             return heap
