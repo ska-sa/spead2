@@ -151,7 +151,7 @@ def main():
                 try:
                     stream.add_udp_pcap_file_reader(source)
                 except AttributeError:
-                    raise RuntimeError('spead2 was compiled without pcap support')
+                    raise RuntimeError('spead2 was compiled without pcap support') from None
             else:
                 if args.tcp:
                     stream.add_tcp_reader(port, args.packet, args.buffer, host)

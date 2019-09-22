@@ -1,4 +1,4 @@
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -168,7 +168,7 @@ class Descriptor:
             d = _np.lib.utils.safe_eval(header)
         except SyntaxError as e:
             msg = "Cannot parse descriptor: %r\nException: %r"
-            raise ValueError(msg % (header, e))
+            raise ValueError(msg % (header, e)) from e
         if not isinstance(d, dict):
             msg = "Descriptor is not a dictionary: %r"
             raise ValueError(msg % d)
@@ -187,9 +187,9 @@ class Descriptor:
             raise ValueError(msg % (d['fortran_order'],))
         try:
             dtype = _np.dtype(d['descr'])
-        except TypeError:
+        except TypeError as e:
             msg = "descr is not a valid dtype descriptor: %r"
-            raise ValueError(msg % (d['descr'],))
+            raise ValueError(msg % (d['descr'],)) from e
         order = 'F' if d['fortran_order'] else 'C'
         return d['shape'], order, dtype
 
