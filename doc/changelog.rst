@@ -6,6 +6,7 @@ Changelog
 - Drop support for Python 2.
 - Drop support for Python 3.4.
 - Drop support for trollius.
+- Drop support for netmap.
 
 .. rubric:: 1.14.0
 

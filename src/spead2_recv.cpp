@@ -1,4 +1,4 @@
-/* Copyright 2015, 2018 SKA South Africa
+/* Copyright 2015, 2018, 2019 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -28,9 +28,6 @@
 #include <spead2/common_thread_pool.h>
 #include <spead2/recv_udp.h>
 #include <spead2/recv_tcp.h>
-#if SPEAD2_USE_NETMAP
-# include <spead2/recv_netmap.h>
-#endif
 #if SPEAD2_USE_IBV
 # include <spead2/recv_udp_ibv.h>
 #endif
@@ -64,9 +61,6 @@ struct options
     std::size_t mem_initial = 8;
     bool ring = false;
     bool memcpy_nt = false;
-#if SPEAD2_USE_NETMAP
-    bool netmap = false;
-#endif
 #if SPEAD2_USE_IBV
     bool ibv = false;
     int ibv_comp_vector = 0;
@@ -125,9 +119,6 @@ static options parse_args(int argc, const char **argv)
         ("mem-initial", make_opt(opts.mem_initial), "Initial free memory buffers")
         ("ring", make_opt(opts.ring), "Use ringbuffer instead of callbacks")
         ("memcpy-nt", make_opt(opts.memcpy_nt), "Use non-temporal memcpy")
-#if SPEAD2_USE_NETMAP
-        ("netmap", make_opt(opts.netmap), "Use netmap")
-#endif
 #if SPEAD2_USE_IBV
         ("ibv", make_opt(opts.ibv), "Use ibverbs")
         ("ibv-vector", make_opt(opts.ibv_comp_vector), "Interrupt vector (-1 for polled)")
@@ -178,16 +169,6 @@ static options parse_args(int argc, const char **argv)
             throw po::error("--ibv requires --bind");
         if (opts.tcp && opts.ibv)
             throw po::error("--ibv and --tcp are incompatible");
-#endif
-#if SPEAD2_USE_NETMAP
-        if (opts.sources.size() > 1 && opts.netmap)
-            throw po::error("--netmap cannot be used with multiple sources");
-        if (opts.tcp && opts.netmap)
-            throw po::error("--netmap and --tcp are incompatible");
-#endif
-#if SPEAD2_USE_IBV && SPEAD2_USE_NETMAP
-        if (opts.ibv && opts.netmap)
-            throw po::error("--ibv and --netmap are incompatible");
 #endif
         return opts;
     }
@@ -366,14 +347,6 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
             udp::resolver resolver(thread_pool.get_io_service());
             udp::resolver::query query(host, port);
             udp::endpoint endpoint = *resolver.resolve(query);
-#if SPEAD2_USE_NETMAP
-            if (opts.netmap)
-            {
-                stream->emplace_reader<spead2::recv::netmap_udp_reader>(
-                    opts.bind, endpoint.port());
-            }
-            else
-#endif
 #if SPEAD2_USE_IBV
             if (opts.ibv)
             {
