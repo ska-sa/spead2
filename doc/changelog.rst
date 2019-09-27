@@ -3,9 +3,9 @@ Changelog
 
 .. rubric:: Development version
 
-- Drop support for trollius (which also removes support for the tools on
-  Python 2).
+- Drop support for Python 2.
 - Drop support for Python 3.4.
+- Drop support for trollius.
 
 .. rubric:: 1.14.0
 

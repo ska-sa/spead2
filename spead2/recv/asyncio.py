@@ -61,7 +61,7 @@ class Stream(spead2.recv.Stream):
         self._loop = kwargs.pop('loop', None)
         if self._loop is None:
             self._loop = asyncio.get_event_loop()
-        super(Stream, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._waiters = collections.deque()
         self._listening = False
 
@@ -136,6 +136,6 @@ class Stream(spead2.recv.Stream):
         try:
             heap = await self.get()
         except spead2.Stopped:
-            raise StopAsyncIteration       # noqa: F821 (for Python 2)
+            raise StopAsyncIteration
         else:
             return heap

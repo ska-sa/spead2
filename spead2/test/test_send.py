@@ -50,7 +50,7 @@ def encode_be(size, value):
 
 class Flavour(spead2.Flavour):
     def __init__(self, version, item_pointer_bits, heap_address_bits, bug_compat=0):
-        super(Flavour, self).__init__(version, item_pointer_bits, heap_address_bits, bug_compat)
+        super().__init__(version, item_pointer_bits, heap_address_bits, bug_compat)
 
     def make_header(self, num_items):
         address_size = self.heap_address_bits // 8
@@ -109,7 +109,7 @@ def offset_generator(fields):
         yield offset
 
 
-class TestEncode(object):
+class TestEncode:
     """Test heap encoding of various data"""
 
     def __init__(self):
@@ -443,7 +443,7 @@ class TestEncode(object):
         assert_equal(hexlify(expected), hexlify(packets))
 
 
-class TestStream(object):
+class TestStream:
     def setup(self):
         # A slow stream, so that we can test overflowing the queue
         self.flavour = Flavour(4, 64, 48, 0)
@@ -521,13 +521,13 @@ class TestStream(object):
             self.stream.send_heap(ig.get_start(), 2**48)
 
 
-class TestTcpStream(object):
+class TestTcpStream:
     def test_failed_connect(self):
         with assert_raises(IOError):
             send.TcpStream(spead2.ThreadPool(), '127.0.0.1', 8887)
 
 
-class TestInprocStream(object):
+class TestInprocStream:
     def setup(self):
         self.flavour = Flavour(4, 64, 48, 0)
         self.queue = spead2.InprocQueue()

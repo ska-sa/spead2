@@ -32,29 +32,14 @@ matrix:
     - os: linux
       sudo: false
       dist: xenial
-      env: TEST_PYTHON=yes PYTHON=python2 CC="ccache gcc" CXX="g++"
-    - os: linux
-      sudo: false
-      dist: xenial
-      env: TEST_PYTHON=yes PYTHON=python2 CC="clang" CXX="clang++"
-    - os: linux
-      sudo: false
-      dist: xenial
       env: TEST_PYTHON=yes PYTHON=python3 CC="ccache gcc" CXX="g++"
     - os: linux
       sudo: false
       dist: xenial
       env: TEST_PYTHON=yes PYTHON=python3 CC="clang" CXX="clang++"
-    - os: linux
-      sudo: false
-      dist: xenial
-      env: TEST_PYTHON=yes PYTHON=pypy2 CC="ccache gcc" CXX="g++"
     - os: osx
       osx_image: xcode8.3
       env: TEST_CXX=yes CXX="clang++"
-    - os: osx
-      osx_image: xcode8.3
-      env: TEST_PYTHON=yes PYTHON=python2 CC="clang" CXX="clang++"
     - os: osx
       osx_image: xcode8.3
       env: TEST_PYTHON=yes PYTHON=python3 CC="clang" CXX="clang++"
@@ -69,9 +54,7 @@ addons:
       - libboost-test1.58-dev
       - libboost-program-options1.58-dev
       - libpcap-dev
-      - python-dev
       - python3-dev
-      - python-pip
       - python3-pip
       - librdmacm-dev
       - libibverbs-dev

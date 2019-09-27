@@ -18,9 +18,7 @@
 from __future__ import print_function
 from setuptools import setup, find_packages, Extension
 from setuptools.command.build_ext import build_ext
-from setuptools.command.build_py import build_py
 import glob
-import sys
 import os
 import os.path
 import subprocess
@@ -34,16 +32,6 @@ def find_version():
         code = f.read()
     exec(code, globals_)
     return globals_['__version__']
-
-
-# Restrict installed modules to those appropriate to the Python version
-class BuildPy(build_py):
-    def find_package_modules(self, package, package_dir):
-        # distutils uses old-style classes, so no super
-        modules = build_py.find_package_modules(self, package, package_dir)
-        if sys.version_info < (3,):
-            modules = [m for m in modules if not m[1].endswith('asyncio')]
-        return modules
 
 
 class BuildExt(build_ext):
@@ -123,14 +111,6 @@ else:
 with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme_file:
     readme = readme_file.read()
 
-entry_points = {
-    'console_scripts': [
-        'spead2_send.py = spead2.tools.send_asyncio:main',
-        'spead2_recv.py = spead2.tools.recv_asyncio:main',
-        'spead2_bench.py = spead2.tools.bench_asyncio:main'
-    ]
-}
-
 setup(
     author='Bruce Merry',
     author_email='bmerry@ska.ac.za',
@@ -146,26 +126,29 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)',
         'Operating System :: POSIX',
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
         'Topic :: Software Development :: Libraries',
         'Topic :: System :: Networking'],
     ext_package='spead2',
     ext_modules=extensions,
-    cmdclass={'build_ext': BuildExt, 'build_py': BuildPy},
+    cmdclass={'build_ext': BuildExt},
     install_requires=[
-        'numpy>=1.9.2',
-        'six'
+        'numpy>=1.9.2'
     ],
     tests_require=[
         'netifaces',
         'nose',
-        'decorator',
-        'asynctest; python_version>="3.5"'
+        'asynctest'
     ],
-    python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*',
+    python_requires='>=3.5',
     test_suite='nose.collector',
     packages=find_packages(),
     package_data={'': ['py.typed', '*.pyi']},
-    entry_points=entry_points if sys.version_info >= (3,) else {}
+    entry_points={
+        'console_scripts': [
+            'spead2_send.py = spead2.tools.send_asyncio:main',
+            'spead2_recv.py = spead2.tools.recv_asyncio:main',
+            'spead2_bench.py = spead2.tools.bench_asyncio:main'
+        ]
+    }
 )

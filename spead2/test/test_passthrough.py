@@ -1,4 +1,4 @@
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2019 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -13,47 +13,17 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Test that data can be passed over the SPEAD protocol, using the various
-transports, and mixing with the old PySPEAD implementation.
-"""
+"""Test that data can be passed over the SPEAD protocol using the various transports."""
 
 from __future__ import division, print_function
 import os
-import io
 import socket
 import sys
 
 import numpy as np
 import netifaces
-from decorator import decorator
 from nose.tools import assert_equal, timed
 from nose.plugins.skip import SkipTest
-try:
-    import spead64_40
-except ImportError:
-    spead64_40 = None
-try:
-    import spead64_48
-except ImportError:
-    spead64_48 = None
-try:
-    from socket import if_nametoindex
-except ImportError:
-    import ctypes
-    import ctypes.util
-    _libc_name = ctypes.util.find_library('c')
-    if _libc_name is None:
-        raise
-    _libc = ctypes.CDLL(_libc_name, use_errno=True)
-
-    def if_nametoindex(name):       # type: ignore
-        if not isinstance(name, bytes):
-            name = name.encode('utf-8')
-        ret = _libc.if_nametoindex(name)
-        if ret == 0:
-            raise OSError(ctypes.get_errno(), 'if_nametoindex failed')
-        else:
-            return ret
 
 import spead2
 import spead2.send
@@ -88,24 +58,6 @@ def assert_item_groups_equal(item_group1, item_group2):
         _assert_items_equal(item_group1[key], item_group2[key])
 
 
-@decorator
-def no_legacy_send(test, *args, **kwargs):
-    if not args[0].is_legacy_send:
-        test(*args, **kwargs)
-
-
-@decorator
-def no_legacy_receive(test, *args, **kwargs):
-    if not args[0].is_legacy_receive:
-        test(*args, **kwargs)
-
-
-@decorator
-def no_legacy(test, *args, **kwargs):
-    if not (args[0].is_legacy_send or args[0].is_legacy_receive):
-        test(*args, **kwargs)
-
-
 def timed_class(cls):
     """Class decorator version of `nose.tools.timed`"""
     for key in cls.__dict__:
@@ -115,20 +67,17 @@ def timed_class(cls):
 
 
 @timed_class
-class BaseTestPassthrough(object):
+class BaseTestPassthrough:
     """Tests common to all transports and libraries"""
 
-    is_legacy_send = False
-    is_legacy_receive = False
     is_lossy = False
 
     def _test_item_group(self, item_group, memcpy=spead2.MEMCPY_STD, allocator=None, new_order='='):
         received_item_group = self.transmit_item_group(item_group, memcpy, allocator, new_order)
         assert_item_groups_equal(item_group, received_item_group)
-        if not self.is_legacy_receive:
-            for item in received_item_group.values():
-                if item.dtype is not None:
-                    assert_equal(item.value.dtype, item.value.dtype.newbyteorder(new_order))
+        for item in received_item_group.values():
+            if item.dtype is not None:
+                assert_equal(item.value.dtype, item.value.dtype.newbyteorder(new_order))
 
     def test_numpy_simple(self):
         """A basic array with numpy encoding"""
@@ -173,13 +122,8 @@ class BaseTestPassthrough(object):
                     shape=(), format=format, value=data)
         self._test_item_group(ig)
 
-    @no_legacy_receive
     def test_string(self):
-        """Byte string is converted to array of characters and back.
-
-        It is disabled for PySPEAD receive because PySPEAD requires a
-        non-standard 's' conversion to do this correctly.
-        """
+        """Byte string is converted to array of characters and back."""
         ig = spead2.send.ItemGroup()
         format = [('c', 8)]
         data = 'Hello world'
@@ -187,13 +131,9 @@ class BaseTestPassthrough(object):
                     shape=(None,), format=format, value=data)
         self._test_item_group(ig)
 
-    @no_legacy_receive
     def test_fallback_array_partial_bytes_small(self):
         """An array which takes a fractional number of bytes per element
         and is small enough to encode in an immediate.
-
-        It is disabled for PySPEAD receive because PySPEAD does not decode
-        such items in the same way as it encodes them.
         """
         ig = spead2.send.ItemGroup()
         format = [('u', 7)]
@@ -202,7 +142,6 @@ class BaseTestPassthrough(object):
                     shape=(len(data),), format=format, value=data)
         self._test_item_group(ig)
 
-    @no_legacy
     def test_fallback_types(self):
         """An array structure using a mix of types."""
         ig = spead2.send.ItemGroup()
@@ -212,10 +151,8 @@ class BaseTestPassthrough(object):
                     shape=(2,), format=format, value=data)
         self._test_item_group(ig)
 
-    @no_legacy
     def test_numpy_fallback_struct(self):
-        """A structure specified using a format, but which is encodable using
-        numpy."""
+        """A structure specified using a format, but which is encodable using numpy."""
         ig = spead2.send.ItemGroup()
         format = [('u', 8), ('f', 32)]
         data = (12, 1.5)
@@ -223,10 +160,8 @@ class BaseTestPassthrough(object):
                     shape=(), format=format, value=data)
         self._test_item_group(ig)
 
-    @no_legacy
     def test_fallback_struct_partial_bytes(self):
-        """A structure which takes a fractional number of bytes per element.
-        """
+        """A structure which takes a fractional number of bytes per element."""
         ig = spead2.send.ItemGroup()
         format = [('u', 4), ('f', 64)]
         data = (12, 1.5)
@@ -235,11 +170,7 @@ class BaseTestPassthrough(object):
         self._test_item_group(ig)
 
     def test_fallback_scalar(self):
-        """Send a scalar using fallback format descriptor.
-
-        PySPEAD has a bug that makes this fail if the format is upgraded to a
-        numpy descriptor.
-        """
+        """Send a scalar using fallback format descriptor."""
         ig = spead2.send.ItemGroup()
         format = [('f', 64)]
         data = 1.5
@@ -305,7 +236,7 @@ class BaseTestPassthroughIPv6(BaseTestPassthrough):
 
     def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
         self.check_ipv6()
-        return super(BaseTestPassthroughIPv6, self).transmit_item_group(
+        return super().transmit_item_group(
             item_group, memcpy, allocator, new_order)
 
 
@@ -379,7 +310,7 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
             addrs = netifaces.ifaddresses(iface).get(netifaces.AF_INET6, [])
             for addr in addrs:
                 if addr['addr'] != '::1':
-                    return if_nametoindex(iface)
+                    return socket.if_nametoindex(iface)
         raise SkipTest('could not find suitable interface for test')
 
     def prepare_receiver(self, receiver):
@@ -482,7 +413,7 @@ class TestPassthroughInproc(BaseTestPassthrough):
 
     def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
         self._queue = spead2.InprocQueue()
-        ret = super(TestPassthroughInproc, self).transmit_item_group(
+        ret = super().transmit_item_group(
             item_group, memcpy, allocator, new_order)
         self._queue.stop()
         return ret
@@ -505,102 +436,3 @@ class TestAllocators(BaseTestPassthrough):
         for heap in receiver:
             received_item_group.update(heap, new_order)
         return received_item_group
-
-
-class BaseTestPassthroughLegacySend(BaseTestPassthrough):
-    is_legacy_send = True
-
-    def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
-        if not self.spead:
-            raise SkipTest('spead module not importable')
-        transport = io.BytesIO()
-        sender = self.spead.Transmitter(transport)
-        legacy_item_group = self.spead.ItemGroup()
-        for item in item_group.values():
-            # PySPEAD only supports either 1D variable or fixed-size
-            if item.is_variable_size():
-                assert len(item.shape) == 1
-                shape = -1
-            else:
-                shape = item.shape
-            legacy_item_group.add_item(
-                id=item.id,
-                name=item.name,
-                description=item.description,
-                shape=shape,
-                fmt=self.spead.mkfmt(*item.format) if item.format else self.spead.DEFAULT_FMT,
-                ndarray=np.array(item.value) if not item.format else None)
-            legacy_item_group[item.name] = item.value
-        sender.send_heap(legacy_item_group.get_heap())
-        sender.end()
-        thread_pool = spead2.ThreadPool(1)
-        receiver = spead2.recv.Stream(thread_pool, bug_compat=spead2.BUG_COMPAT_PYSPEAD_0_5_2)
-        receiver.set_memcpy(memcpy)
-        if allocator is not None:
-            receiver.set_memory_allocator(allocator)
-        receiver.add_buffer_reader(transport.getvalue())
-        received_item_group = spead2.ItemGroup()
-        for heap in receiver:
-            received_item_group.update(heap, new_order)
-        return received_item_group
-
-
-class TestPassthroughLegacySend64_40(BaseTestPassthroughLegacySend):
-    spead = spead64_40
-
-
-class TestPassthroughLegacySend64_48(BaseTestPassthroughLegacySend):
-    spead = spead64_48
-
-
-class BaseTestPassthroughLegacyReceive(BaseTestPassthrough):
-    is_legacy_receive = True
-
-    def transmit_item_group(self, item_group, memcpy, allocator, new_order='='):
-        if not self.spead:
-            raise SkipTest('spead module not importable')
-        thread_pool = spead2.ThreadPool(1)
-        sender = spead2.send.BytesStream(thread_pool)
-        gen = spead2.send.HeapGenerator(item_group, flavour=self.flavour)
-        sender.send_heap(gen.get_heap())
-        sender.send_heap(gen.get_end())
-        receiver = self.spead.TransportString(sender.getvalue())
-        legacy_item_group = self.spead.ItemGroup()
-        for heap in self.spead.iterheaps(receiver):
-            legacy_item_group.update(heap)
-        received_item_group = spead2.ItemGroup()
-        for key in legacy_item_group.keys():
-            item = legacy_item_group.get_item(key)
-            # PySPEAD indicates 1D variable as -1 (scalar), everything else is fixed-sized
-            if item.shape == -1:
-                shape = (None,)
-            else:
-                shape = item.shape
-            if item.dtype is None:
-                received_item_group.add_item(
-                    id=item.id,
-                    name=item.name,
-                    description=item.description,
-                    shape=shape,
-                    format=list(self.spead.parsefmt(item.format)),
-                    value=item.get_value())
-            else:
-                received_item_group.add_item(
-                    id=item.id,
-                    name=item.name,
-                    description=item.description,
-                    shape=shape,
-                    dtype=item.dtype,
-                    order='F' if item.fortran_order else 'C',
-                    value=item.get_value())
-        return received_item_group
-
-
-class TestPassthroughLegacyReceive64_40(BaseTestPassthroughLegacyReceive):
-    spead = spead64_40
-    flavour = spead2.Flavour(4, 64, 40, spead2.BUG_COMPAT_PYSPEAD_0_5_2)
-
-
-class TestPassthroughLegacyReceive64_48(BaseTestPassthroughLegacyReceive):
-    spead = spead64_48
-    flavour = spead2.Flavour(4, 64, 48, spead2.BUG_COMPAT_PYSPEAD_0_5_2)

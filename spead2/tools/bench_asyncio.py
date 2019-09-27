@@ -33,7 +33,6 @@ import traceback
 import timeit
 import asyncio
 
-import six
 import numpy as np
 
 import spead2
@@ -43,7 +42,7 @@ import spead2.send
 import spead2.send.asyncio
 
 
-class SlaveConnection(object):
+class SlaveConnection:
     def __init__(self, reader, writer):
         self.reader = reader
         self.writer = writer
@@ -75,11 +74,6 @@ class SlaveConnection(object):
                         logging.warning("Start received while already running: %s", command)
                         continue
                     args = argparse.Namespace(**command['args'])
-                    if six.PY2:
-                        args_dict = vars(args)
-                        for key in args_dict:
-                            if isinstance(args_dict[key], six.text_type):
-                                args_dict[key] = args_dict[key].encode('ascii')
                     if args.recv_affinity is not None and len(args.recv_affinity) > 0:
                         spead2.ThreadPool.set_affinity(args.recv_affinity[0])
                         thread_pool = spead2.ThreadPool(

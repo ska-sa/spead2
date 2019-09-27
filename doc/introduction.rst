@@ -12,7 +12,7 @@ PySPEAD_ implementation, spead2:
 - cleanly supports several SPEAD flavours (e.g. 64-40 and 64-48) in one
   module, with the receiver adapting to the flavour used by the sender;
 - supports Python 3;
-- supports asynchronous operation, using asyncio_ (Python 3 only).
+- supports asynchronous operation, using asyncio_.
 
 .. _SPEAD: https://casper.berkeley.edu/wiki/SPEAD
 .. _PySPEAD: https://github.com/ska-sa/PySPEAD/
@@ -46,12 +46,10 @@ need to be stored in :file:`/etc/sysctl.conf` or :file:`/etc/sysctl.d`.
 
 Installing spead2 for Python
 ----------------------------
-The only Python dependencies are numpy_ and six_.
+The only Python dependency is numpy_.
 
 The test suite has additional dependencies; refer to
 :file:`setup.py` if you are developing spead2.
-Some tests depend on PySPEAD_, but they will be skipped if it is not
-installed.
 
 There are two ways to install spead2 for Python: compiling from source and
 installing a binary wheel.

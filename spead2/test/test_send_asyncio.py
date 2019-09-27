@@ -24,7 +24,7 @@ import spead2.send.asyncio
 from spead2.send.asyncio import UdpStream
 
 
-class TestUdpStream(object):
+class TestUdpStream:
     def setup(self):
         # Make a stream slow enough that we can test async interactions
         config = spead2.send.StreamConfig(rate=5e6)
@@ -71,7 +71,7 @@ class TestUdpStream(object):
         asyncio.get_event_loop().run_until_complete(self._test_send_error(future))
 
 
-class TestTcpStream(object):
+class TestTcpStream:
     async def _test_connect_failed(self):
         thread_pool = spead2.ThreadPool()
         with assert_raises(IOError):

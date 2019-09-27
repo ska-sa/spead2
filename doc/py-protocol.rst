@@ -3,9 +3,8 @@ Mapping of SPEAD protocol to Python
 * Any descriptor with a numpy header is handled by numpy. The value is
   converted to native endian, but is otherwise left untouched.
 * Strings are expected to use ASCII encoding only. At present this is variably
-  enforced, and enforcement may differ between Python 2 and 3. Future versions
-  may apply stricter enforcement. This applies to names, descriptions, and to
-  values passed with the `c` format code.
+  enforced. Future versions may apply stricter enforcement. This applies to
+  names, descriptions, and to values passed with the `c` format code.
 * The `c` format code may only be used with length 8, and `f` may only be used
   with lengths 32 or 64.
 * The `0` format code is not supported.

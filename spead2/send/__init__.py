@@ -28,14 +28,14 @@ except ImportError:
     pass
 
 
-class _ItemInfo(object):
+class _ItemInfo:
     def __init__(self, item):
         self.version = None
         self.descriptor_cnt = None
         self.item = weakref.ref(item)
 
 
-class HeapGenerator(object):
+class HeapGenerator:
     """Tracks which items and item values have previously been sent and
     generates delta heaps.
 

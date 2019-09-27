@@ -223,9 +223,8 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
 Asynchronous receive
 ^^^^^^^^^^^^^^^^^^^^
-Asynchronous I/O is supported through Python 3's :py:mod:`asyncio` module. It
-is no longer supported on Python 2. It can be combined with other
-asynchronous I/O frameworks like twisted_ and Tornado_.
+Asynchronous I/O is supported through Python's :py:mod:`asyncio` module. It can
+be combined with other asynchronous I/O frameworks like twisted_ and Tornado_.
 
 .. py:class:: spead2.recv.asyncio.Stream(\*args, \*\*kwargs, loop=None)
 
