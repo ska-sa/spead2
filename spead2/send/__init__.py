@@ -51,7 +51,9 @@ class HeapGenerator:
         :py:meth:`get_end`.
     """
     def __init__(self, item_group, descriptor_frequency=None, flavour=_spead2.Flavour()):
-        self._item_group = item_group
+        # Workaround to avoid creating a self-reference when it's bundled into
+        # the same class.
+        self._item_group = item_group if item_group is not self else None
         self._info = {}              # Maps ID to _ItemInfo
         self._descriptor_frequency = descriptor_frequency
         # Counter for calls to add_to_heap. This is independent of the
@@ -110,7 +112,8 @@ class HeapGenerator:
             raise ValueError("descriptors must be one of 'stale', 'all', 'none'")
         if data not in ['stale', 'all', 'none']:
             raise ValueError("data must be one of 'stale', 'all', 'none'")
-        for item in self._item_group.values():
+        item_group = self._item_group if self._item_group is not None else self
+        for item in item_group.values():
             info = self._get_info(item)
             if (descriptors == 'all') or (descriptors == 'stale'
                                           and self._descriptor_stale(item, info)):
