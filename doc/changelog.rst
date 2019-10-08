@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 2.0.0
 
 - Drop support for Python 2.
 - Drop support for Python 3.4.
