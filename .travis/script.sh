@@ -6,15 +6,10 @@ source venv/bin/activate
 set -v
 ./bootstrap.sh
 
-if [ "$NETMAP" = "yes" ]; then
-    export CPATH="$PWD/netmap/sys"
-fi
-
 if [ "$TEST_CXX" = "yes" ]; then
     mkdir -p build
     pushd build
     ../configure \
-        --with-netmap="${NETMAP:-no}" \
         --with-recvmmsg="${RECVMMSG:-no}" \
         --with-sendmmsg="${SENDMMSG:-no}" \
         --with-eventfd="${EVENTFD:-no}" \

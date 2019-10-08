@@ -102,20 +102,6 @@ SPEAD2_ARG_WITH(
 
 
 SPEAD2_ARG_WITH(
-    [netmap],
-    [AS_HELP_STRING([--without-netmap], [Do not use netmap, even if detected])],
-    [SPEAD2_USE_NETMAP],
-    [AC_LANG_PUSH(C)      # netmap_user.h doesn't do extern "C"
-     SPEAD2_CHECK_FEATURE(
-        [header_net_netmap_user_h], [netmap],
-        [stddef.h net/netmap_user.h], [], [nm_open(NULL, NULL, 0, NULL)],
-        [SPEAD2_USE_NETMAP=1], [], [#define NETMAP_WITH_LIBS]
-     )
-     AC_LANG_POP
-    ]
-)
-
-SPEAD2_ARG_WITH(
     [recvmmsg],
     [AS_HELP_STRING([--without-recvmmsg], [Do not use recvmmsg system call])],
     [SPEAD2_USE_RECVMMSG],

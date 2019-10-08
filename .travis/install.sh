@@ -30,8 +30,3 @@ pip install -r requirements.txt
 if [ "$COVERAGE" = "yes" ]; then
     pip install cpp-coveralls
 fi
-
-if [ "$NETMAP" = "yes" ]; then
-    git clone https://github.com/luigirizzo/netmap
-    git -C netmap reset --hard 454ef9c   # A known good version
-fi

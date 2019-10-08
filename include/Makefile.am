@@ -38,7 +38,6 @@ nobase_include_HEADERS = \
 	spead2/recv_inproc.h \
 	spead2/recv_live_heap.h \
 	spead2/recv_mem.h \
-	spead2/recv_netmap.h \
 	spead2/recv_packet.h \
 	spead2/recv_reader.h \
 	spead2/recv_ring_stream.h \
