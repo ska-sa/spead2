@@ -12,11 +12,11 @@ matrix:
       env: COVERAGE=yes
         TEST_PYTHON=yes PYTHON=python3 CC="gcc"
         TEST_CXX=yes CXX="g++"
-        NETMAP=yes RECVMMSG=yes SENDMMSG=yes EVENTFD=yes IBV=yes PCAP=yes
+        RECVMMSG=yes SENDMMSG=yes EVENTFD=yes IBV=yes PCAP=yes
     - os: linux
       sudo: false
       dist: xenial
-      env: TEST_CXX=yes CXX="ccache g++" RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes NETMAP=yes IBV=yes
+      env: TEST_CXX=yes CXX="ccache g++" RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes
     - os: linux
       sudo: false
       dist: xenial
@@ -24,7 +24,7 @@ matrix:
     - os: linux
       sudo: false
       dist: xenial
-      env: TEST_CXX=yes CXX="ccache clang++ -Qunused-arguments" RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes NETMAP=yes IBV=yes
+      env: TEST_CXX=yes CXX="ccache clang++ -Qunused-arguments" RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes
     - os: linux
       sudo: false
       dist: xenial

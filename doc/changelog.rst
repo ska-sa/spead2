@@ -6,6 +6,7 @@ Changelog
 - Drop support for Python 2.
 - Drop support for Python 3.4.
 - Drop support for trollius.
+- Drop support for netmap.
 - Avoid creating some cyclic references. These were not memory leaks, but
   prevented CPython from freeing objects as soon as it might have.
 
