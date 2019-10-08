@@ -125,8 +125,12 @@ class Stream(spead2.recv.Stream):
         waiter = asyncio.Future(loop=loop)
         self._waiters.append(waiter)
         self._start_listening()
-        heap = (await waiter).pop()
-        return heap
+        try:
+            return (await waiter).pop()
+        finally:
+            # Prevent cyclic references when an exception is thrown
+            waiter = None
+            self = None
 
     @_aiter_compat
     def __aiter__(self):
