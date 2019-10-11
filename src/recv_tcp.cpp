@@ -216,6 +216,13 @@ bool tcp_reader::skip_bytes()
 
 void tcp_reader::accept_handler(const boost::system::error_code &error)
 {
+    /* We need to hold the stream's queue_mutex, because that guards access
+     * to the sockets. This is a heavy-weight way to do it, but since it
+     * only happens once per connection it is probably not worth trying to
+     * add a lighter-weight interface to @c stream.
+     */
+    stream_base::add_packet_state state(get_stream_base());
+
     acceptor.close();
     if (!error)
         enqueue_receive();

@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Fix race condition in TCP receiver (#78)
+
 .. rubric:: 2.0.0
 
 - Drop support for Python 2.
