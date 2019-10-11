@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 2.0.1
 
 - Fix race condition in TCP receiver (#78).
 - Update vendored pybind11 to 2.4.2.
