@@ -3,7 +3,8 @@ Changelog
 
 .. rubric:: Development version
 
-- Fix race condition in TCP receiver (#78)
+- Fix race condition in TCP receiver (#78).
+- Update vendored pybind11 to 2.4.2.
 
 .. rubric:: 2.0.0
 
@@ -13,6 +14,7 @@ Changelog
 - Drop support for netmap.
 - Avoid creating some cyclic references. These were not memory leaks, but
   prevented CPython from freeing objects as soon as it might have.
+- Update vendored pybind11 to 2.4.1.
 
 .. rubric:: 1.14.0
 
