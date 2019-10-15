@@ -10,5 +10,5 @@
 - Install a wheel and check that it passes nosetests
 - Tag the release, git push --tags
 - Upload the sdist and wheels to PyPI with twine
-- Upload the sdist to github
+- Upload the sdist and debug symbols to github
 - Check that readthedocs has updated itself

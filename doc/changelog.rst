@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: 2.0.2
+
+- Log warnings on some internal errors (that hopefully never happen)
+- Include wheels for Python 3.8
+- Build debug symbols for binary wheels (in a separate tarball on Github)
+
 .. rubric:: 2.0.1
 
 - Fix race condition in TCP receiver (#78).
