@@ -144,18 +144,29 @@ public:
     }
 };
 
+struct callback_item
+{
+    py::handle callback;
+    py::handle h;  // heap: kept here because it can only be freed with the GIL
+    boost::system::error_code ec;
+    item_pointer_t bytes_transferred;
+};
+
+static void free_callback_items(const std::vector<callback_item> &callbacks)
+{
+    for (const callback_item &item : callbacks)
+    {
+        if (item.h)
+            item.h.dec_ref();
+        if (item.callback)
+            item.callback.dec_ref();
+    }
+}
+
 template<typename Base>
 class asyncio_stream_wrapper : public Base
 {
 private:
-    struct callback_item
-    {
-        py::handle callback;
-        py::handle h;  // heap: kept here because it can only be freed with the GIL
-        boost::system::error_code ec;
-        item_pointer_t bytes_transferred;
-    };
-
     semaphore_gil<semaphore_fd> sem;
     std::vector<callback_item> callbacks;
     std::mutex callbacks_mutex;
@@ -216,19 +227,24 @@ public:
                 callback(make_io_error(item.ec), item.bytes_transferred);
             }
         }
+        catch (py::error_already_set &e)
+        {
+            log_warning("send callback raised Python exception; expect deadlocks!");
+            free_callback_items(current_callbacks);
+            throw;
+        }
+        catch (std::bad_alloc &e)
+        {
+            /* If we're out of memory we might not be able to construct a log
+             * message. Just rely on Python to report an error.
+             */
+            free_callback_items(current_callbacks);
+            throw;
+        }
         catch (std::exception &e)
         {
-            /* Clean up the remaining handles. Note that we only get here if
-             * things have gone very badly wrong, such as an out-of-memory
-             * error.
-             */
-            for (const callback_item &item : current_callbacks)
-            {
-                if (item.h)
-                    item.h.dec_ref();
-                if (item.callback)
-                    item.callback.dec_ref();
-            }
+            log_warning("unexpected error in process_callbacks: %1%", e.what());
+            free_callback_items(current_callbacks);
             throw;
         }
     }
