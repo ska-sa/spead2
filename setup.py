@@ -37,13 +37,20 @@ def find_version():
 class BuildExt(build_ext):
     user_options = build_ext.user_options + [
         ('coverage', None,
-         "build with GCC --coverage option")
+         'build with GCC --coverage option'),
+        ('split-debug=', None,
+         'write debug symbols to a separate directory')
     ]
     boolean_options = build_ext.boolean_options + ['coverage']
 
     def initialize_options(self):
         build_ext.initialize_options(self)
-        self.coverage = None
+        # setuptools bug causes these to be lost during reinitialization by
+        # ./setup.py develop
+        if not hasattr(self, 'coverage'):
+            self.coverage = None
+        if not hasattr(self, 'split_debug'):
+            self.split_debug = None
 
     def run(self):
         self.mkpath(self.build_temp)
@@ -60,6 +67,8 @@ class BuildExt(build_ext):
             if self.coverage:
                 extension.extra_compile_args.extend(['-g', '--coverage'])
                 extension.libraries.extend(['gcov'])
+            if self.split_debug:
+                extension.extra_compile_args.extend(['-g'])
             extension.include_dirs.insert(0, os.path.join(self.build_temp, 'include'))
         # distutils uses old-style classes, so no super
         build_ext.run(self)
@@ -72,8 +81,38 @@ class BuildExt(build_ext):
             pass
         build_ext.build_extensions(self)
 
+    def build_extension(self, ext):
+        ext_path = self.get_ext_fullpath(ext.name)
+        if self.split_debug:
+            # If the base class decides to skip the link, we'll end up
+            # constructing the .debug file from the already-stripped version of
+            # the library, and it won't have any symbols. So force the link by
+            # removing the output.
+            try:
+                os.remove(ext_path)
+            except OSError:
+                pass
+        build_ext.build_extension(self, ext)
+        if self.split_debug:
+            os.makedirs(self.split_debug, exist_ok=True)
+            basename = os.path.basename(ext_path)
+            debug_path = os.path.join(self.split_debug, basename + '.debug')
+            self.spawn(['objcopy', '--only-keep-debug', '--', ext_path, debug_path])
+            self.spawn(['strip', '--strip-debug', '--', ext_path])
+            old_cwd = os.getcwd()
+            # See the documentation for --add-gnu-debuglink for why it needs to be
+            # run from the directory containing the file.
+            ext_path_abs = os.path.abspath(ext_path)
+            try:
+                os.chdir(self.split_debug)
+                self.spawn(['objcopy', '--add-gnu-debuglink=' + os.path.basename(debug_path),
+                            '--', ext_path_abs])
+            finally:
+                os.chdir(old_cwd)
+            self.spawn(['chmod', '-x', '--', debug_path])
 
-# Can't actually install on readthedocs.org because Boost.Python is missing,
+
+# Can't actually install on readthedocs.org because we can't compile,
 # but we need setup.py to still be successful to make the doc build work.
 rtd = os.environ.get('READTHEDOCS') == 'True'
 
