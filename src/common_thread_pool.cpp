@@ -33,6 +33,24 @@
 namespace spead2
 {
 
+static void run_io_service(boost::asio::io_service &io_service)
+{
+    try
+    {
+        io_service.run();
+    }
+    catch (const std::exception &e)
+    {
+        log_warning("Worker thread threw exception (expect deadlocks!): %1%", e.what());
+        throw;
+    }
+    catch (...)
+    {
+        log_warning("Worker thread threw unknown exception (expect deadlocks!)");
+        throw;
+    }
+}
+
 thread_pool::thread_pool(int num_threads)
     : work(io_service)
 {
@@ -41,7 +59,7 @@ thread_pool::thread_pool(int num_threads)
     workers.reserve(num_threads);
     for (int i = 0; i < num_threads; i++)
     {
-        workers.push_back(std::async(std::launch::async, [this] { io_service.run(); }));
+        workers.push_back(std::async(std::launch::async, [this] { run_io_service(io_service); }));
     }
 }
 
@@ -54,12 +72,14 @@ thread_pool::thread_pool(int num_threads, const std::vector<int> &affinity)
     for (int i = 0; i < num_threads; i++)
     {
         if (affinity.empty())
-            workers.push_back(std::async(std::launch::async, [this] { io_service.run(); }));
+            workers.push_back(std::async(std::launch::async, [this] { run_io_service(io_service); }));
         else
         {
             int core = affinity[i % affinity.size()];
             workers.push_back(std::async(std::launch::async, [this, core] {
-                set_affinity(core); io_service.run(); }));
+                set_affinity(core);
+                run_io_service(io_service);
+            }));
         }
     }
 }
