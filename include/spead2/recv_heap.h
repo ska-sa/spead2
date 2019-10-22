@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include <map>
 #include <spead2/common_defines.h>
 #include <spead2/common_flavour.h>
 #include <spead2/common_memory_allocator.h>

@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add missing ``<map>`` include to ``<spead2/recv_heap.h>``.
+
 .. rubric:: 2.0.2
 
 - Log warnings on some internal errors (that hopefully never happen)
