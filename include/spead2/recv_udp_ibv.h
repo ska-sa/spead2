@@ -265,12 +265,12 @@ public:
      *
      * @param owner        Owning stream
      * @param endpoint     Multicast group and port
+     * @param interface_address  Address of the interface which should join the group and listen for data
      * @param max_size     Maximum packet size that will be accepted
      * @param buffer_size  Requested memory allocation for work requests. Note
      *                     that this is used to determine the number of packets
      *                     to buffer; if the packets are smaller than @a max_size,
      *                     then fewer bytes will be buffered.
-     * @param interface_address  Address of the interface which should join the group and listen for data
      * @param comp_vector  Completion channel vector (interrupt) for asynchronous operation, or
      *                     a negative value to poll continuously. Polling
      *                     should not be used if there are other users of the
@@ -302,12 +302,12 @@ public:
      *
      * @param owner        Owning stream
      * @param endpoints    Multicast groups and ports
+     * @param interface_address  Address of the interface which should join the group and listen for data
      * @param max_size     Maximum packet size that will be accepted
      * @param buffer_size  Requested memory allocation for work requests. Note
      *                     that this is used to determine the number of packets
      *                     to buffer; if the packets are smaller than @a max_size,
      *                     then fewer bytes will be buffered.
-     * @param interface_address  Address of the interface which should join the group and listen for data
      * @param comp_vector  Completion channel vector (interrupt) for asynchronous operation, or
      *                     a negative value to poll continuously. Polling
      *                     should not be used if there are other users of the
