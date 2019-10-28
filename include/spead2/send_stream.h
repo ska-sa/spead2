@@ -216,7 +216,7 @@ private:
     /**
      * Circular queue with config.max_heaps + 1 slots, which must never be full
      * (because that can't be distinguished from empty). Items from @ref
-     * queue_head to @ref queue_tail are constructed in place, which the rest
+     * queue_head to @ref queue_tail are constructed in place, while the rest
      * is uninitialised raw storage.
      */
     std::unique_ptr<queue_item_storage[]> queue;
