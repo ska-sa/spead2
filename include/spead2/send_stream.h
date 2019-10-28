@@ -325,7 +325,7 @@ public:
  * - EMPTY: there are no heaps and no pending callbacks.
  *
  * The derived class implements @c async_send_packets, which is responsible for
- * arranging transmission the @ref n_current_packets stored in
+ * arranging transmission of the @ref n_current_packets stored in
  * @ref current_packets. Once the packets are sent, it must cause
  * @ref packets_handler to be called (but not before returning). It may assume
  * that there is at least one packet to send.

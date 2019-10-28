@@ -191,7 +191,7 @@ stream_impl_base::timer_type::time_point stream_impl_base::update_send_times(
 
     /* send_time_burst needs to reflect the time the burst
      * was actually sent (as well as we can estimate it), even if
-     * sent_time or now is later.
+     * send_time or now is later.
      */
     timer_type::time_point target_time = std::max(send_time_burst, send_time);
     send_time_burst = std::max(now, target_time);
