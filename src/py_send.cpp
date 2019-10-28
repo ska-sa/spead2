@@ -660,7 +660,6 @@ static void async_stream_register(py::class_<T> &stream_class)
 py::module register_module(py::module &parent)
 {
     using namespace pybind11::literals;
-    using namespace spead2::send;
 
     py::module m = parent.def_submodule("send");
 

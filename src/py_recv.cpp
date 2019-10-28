@@ -338,10 +338,8 @@ public:
 py::module register_module(py::module &parent)
 {
     using namespace pybind11::literals;
-    using namespace spead2::recv;
 
-    // Create the module, and set it as the current boost::python scope so that
-    // classes we define are added to this module rather than the root.
+    // Create the module
     py::module m = parent.def_submodule("recv");
 
     py::class_<heap_base>(m, "HeapBase")

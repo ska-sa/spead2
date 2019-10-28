@@ -240,7 +240,6 @@ void log_function_python::stop()
 
 void register_module(py::module m)
 {
-    using namespace spead2;
     using namespace pybind11::literals;
 
     py::register_exception<ringbuffer_stopped>(m, "Stopped");
