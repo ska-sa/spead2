@@ -46,7 +46,7 @@ namespace detail
 
 void log_msg_impl(log_level level, const std::string &msg);
 
-static inline void apply_format(boost::format &format)
+static inline void apply_format(boost::format &)
 {
 }
 
