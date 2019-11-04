@@ -142,9 +142,11 @@ void udp_ibv_stream::async_send_packets()
             std::size_t payload_size = current_packet.size;
             ipv4_packet ipv4 = s->frame.payload_ipv4();
             ipv4.total_length(payload_size + udp_packet::min_size + ipv4.header_length());
+            ipv4.destination_address(current_packet.item->extra.address);
             ipv4.update_checksum();
             udp_packet udp = ipv4.payload_udp();
             udp.length(payload_size + udp_packet::min_size);
+            udp.destination_port(current_packet.item->extra.port);
             packet_buffer payload = udp.payload();
             boost::asio::buffer_copy(boost::asio::mutable_buffer(payload), current_packet.pkt.buffers);
             s->sge.length = payload_size + (payload.data() - s->frame.data());
@@ -184,8 +186,9 @@ udp_ibv_stream::udp_ibv_stream(
     int ttl,
     int comp_vector,
     int max_poll)
-    : stream_impl<udp_ibv_stream>(std::move(io_service), config,
-                                  std::max(std::size_t(1), calc_n_slots(config, buffer_size) / 2)),
+    : stream_impl<udp_ibv_stream, detail::endpoint_v4>(
+        std::move(io_service), config,
+        std::max(std::size_t(1), calc_n_slots(config, buffer_size) / 2)),
     n_slots(calc_n_slots(config, buffer_size)),
     socket(get_io_service(), endpoint.protocol()),
     cm_id(event_channel, nullptr, RDMA_PS_UDP),
@@ -267,7 +270,22 @@ udp_ibv_stream::~udp_ibv_stream()
         reap();
 }
 
-template class stream_impl<udp_ibv_stream>;
+bool udp_ibv_stream::async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt)
+{
+    return async_send_heap_extra(h, std::move(handler), cnt,
+                                 endpoint.address().to_v4(), endpoint.port());
+}
+
+bool udp_ibv_stream::async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt,
+                                     const boost::asio::ip::udp::endpoint &endpoint)
+{
+    if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
+        throw std::invalid_argument("endpoint is not an IPv4 multicast address");
+    return async_send_heap_extra(h, std::move(handler), cnt,
+                                 endpoint.address().to_v4(), endpoint.port());
+}
+
+template class stream_impl<udp_ibv_stream, detail::endpoint_v4>;
 
 } // namespace send
 } // namespace spead2

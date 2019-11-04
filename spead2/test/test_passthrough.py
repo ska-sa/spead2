@@ -375,6 +375,14 @@ class TestPassthroughUdpIbv(BaseTestPassthrough):
             self._interface_address())
 
 
+class TestPassthroughUdpIbvOverrideAddress(TestPassthroughUdpIbv):
+    def prepare_receiver(self, receiver):
+        receiver.add_udp_ibv_reader([('239.255.88.89', 8889)], self._interface_address())
+
+    def send_heap(self, sender, heap):
+        sender.send_heap(heap, -1, self.MCAST_GROUP, 8886)
+
+
 class TestPassthroughTcp(BaseTestPassthrough):
     def prepare_receiver(self, receiver):
         receiver.add_tcp_reader(8887, bind_hostname="127.0.0.1")

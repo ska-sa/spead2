@@ -762,11 +762,11 @@ py::module register_module(py::module &parent)
 #if SPEAD2_USE_IBV
     {
         auto stream_class = udp_ibv_stream_register<udp_ibv_stream_wrapper<stream_wrapper<udp_ibv_stream>>>(m, "UdpIbvStream");
-        sync_stream_register(stream_class);
+        sync_udp_stream_register(stream_class);
     }
     {
         auto stream_class = udp_ibv_stream_register<udp_ibv_stream_wrapper<asyncio_stream_wrapper<udp_ibv_stream>>>(m, "UdpIbvStreamAsyncio");
-        async_stream_register(stream_class);
+        async_udp_stream_register(stream_class);
     }
 #endif
 

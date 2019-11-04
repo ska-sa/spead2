@@ -43,14 +43,34 @@ namespace spead2
 namespace send
 {
 
+namespace detail
+{
+
+/* A UDP v4 endpoint. Using this instead of boost::asio::ip::udp::endpoint
+ * saves the space that would be required for an IPv6 address.
+ */
+struct endpoint_v4
+{
+    boost::asio::ip::address_v4 address;
+    std::uint16_t port;
+
+    endpoint_v4() = default;
+    endpoint_v4(const boost::asio::ip::address_v4 &address, std::uint16_t port)
+        : address(address), port(port)
+    {
+    }
+};
+
+} // namespace detail
+
 /**
  * Stream using Infiniband versions for acceleration. Only IPv4 multicast
  * with an explicit source address are supported.
  */
-class udp_ibv_stream : public stream_impl<udp_ibv_stream>
+class udp_ibv_stream : public stream_impl<udp_ibv_stream, detail::endpoint_v4>
 {
 private:
-    friend class stream_impl<udp_ibv_stream>;
+    friend class stream_impl<udp_ibv_stream, detail::endpoint_v4>;
 
     struct slot : public boost::noncopyable
     {
@@ -135,9 +155,13 @@ public:
         int max_poll = default_max_poll);
 
     virtual ~udp_ibv_stream();
+
+    virtual bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt = -1) override;
+    bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt,
+                         const boost::asio::ip::udp::endpoint &endpoint);
 };
 
-extern template class stream_impl<udp_ibv_stream>;
+extern template class stream_impl<udp_ibv_stream, detail::endpoint_v4>;
 
 } // namespace send
 } // namespace spead2

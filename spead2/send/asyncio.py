@@ -276,11 +276,14 @@ try:
             super().__init__(*args, **kwargs)
             self._helper = _AsyncHelper(loop=loop)
 
-        async def async_send_heap(self, heap, cnt=-1, *, loop=None):
-            return await self._helper.async_send_heap(self, heap, cnt, loop=loop)
+        async def async_send_heap(self, heap, cnt=-1, *args, loop=None, **kwargs):
+            return await self._helper.async_send_heap(self, heap, cnt, *args, loop=loop, **kwargs)
 
         async def async_flush(self):
             await self._helper.async_flush()
+
+        async_send_heap.__doc__ = UdpStream.async_send_heap.__doc__
+
 
 except ImportError:
     pass
