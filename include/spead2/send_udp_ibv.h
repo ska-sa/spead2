@@ -82,7 +82,6 @@ private:
     const std::size_t n_slots;
     boost::asio::ip::udp::socket socket; // used only to assign a source UDP port
     boost::asio::ip::udp::endpoint endpoint;
-    boost::asio::ip::udp::endpoint source;
     memory_allocator::pointer buffer;
     rdma_event_channel_t event_channel;
     rdma_cm_id_t cm_id;

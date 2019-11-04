@@ -376,8 +376,11 @@ class TestPassthroughUdpIbv(BaseTestPassthrough):
 
 
 class TestPassthroughUdpIbvOverrideAddress(TestPassthroughUdpIbv):
-    def prepare_receiver(self, receiver):
-        receiver.add_udp_ibv_reader([('239.255.88.89', 8889)], self._interface_address())
+    def prepare_sender(self, thread_pool):
+        return spead2.send.UdpIbvStream(
+            thread_pool, '239.255.88.89', 8889,
+            spead2.send.StreamConfig(rate=1e7),
+            self._interface_address())
 
     def send_heap(self, sender, heap):
         sender.send_heap(heap, -1, self.MCAST_GROUP, 8886)
