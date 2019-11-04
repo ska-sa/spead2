@@ -204,8 +204,8 @@ class BaseTestPassthrough:
         self.prepare_receiver(receiver)
         sender = self.prepare_sender(thread_pool)
         gen = spead2.send.HeapGenerator(item_group)
-        sender.send_heap(gen.get_heap())
-        sender.send_heap(gen.get_end())
+        self.send_heap(sender, gen.get_heap())
+        self.send_heap(sender, gen.get_end())
         received_item_group = spead2.ItemGroup()
         for heap in receiver:
             received_item_group.update(heap, new_order)
@@ -218,6 +218,9 @@ class BaseTestPassthrough:
     def prepare_sender(self, thread_pool):
         """Generate a sender to use in the test"""
         raise NotImplementedError()
+
+    def send_heap(self, sender, heap):
+        sender.send_heap(heap)
 
 
 class BaseTestPassthroughIPv6(BaseTestPassthrough):
@@ -264,6 +267,22 @@ class TestPassthroughUdp6(BaseTestPassthroughIPv6):
             thread_pool, "::1", 8888,
             spead2.send.StreamConfig(rate=1e7),
             buffer_size=0)
+
+
+class TestPassthroughUdpOverrideAddress(BaseTestPassthrough):
+    is_lossy = True
+
+    def prepare_receiver(self, receiver):
+        receiver.add_udp_reader(8888, bind_hostname="127.0.0.1")
+
+    def prepare_sender(self, thread_pool):
+        return spead2.send.UdpStream(
+            thread_pool, "127.0.0.2", 8889,
+            spead2.send.StreamConfig(rate=1e7),
+            buffer_size=0)
+
+    def send_heap(self, sender, heap):
+        sender.send_heap(heap, -1, "127.0.0.1", 8888)
 
 
 class TestPassthroughUdpCustomSocket(BaseTestPassthrough):

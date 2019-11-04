@@ -26,8 +26,8 @@ class _AsyncStream(spead2.send._Stream):
     @property
     def fd(self) -> int: ...
     def flush(self) -> None: ...
-    def async_send_heap(self, heap: spead2.send.Heap, cnt: int = ...,
-                        loop: Optional[asyncio.AbstractEventLoop] = None) -> asyncio.Future[int]: ...
+    async def async_send_heap(self, heap: spead2.send.Heap, cnt: int = ..., *,
+                        loop: Optional[asyncio.AbstractEventLoop] = None) -> int: ...
     async def async_flush(self) -> None: ...
 
 class UdpStream(spead2.send._UdpStream, _AsyncStream):
@@ -67,6 +67,15 @@ class UdpStream(spead2.send._UdpStream, _AsyncStream):
                  config: spead2.send.StreamConfig = ...,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
 
+    @overload
+    async def async_send_heap(self, heap: spead2.send.Heap, cnt: int = ..., *,
+                              loop: Optional[asyncio.AbstractEventLoop] = None) -> int: ...
+
+    @overload
+    async def async_send_heap(self, heap: spead2.send.Heap, cnt: int = ...,
+                              address: _PybindStr, port: int, *,
+                              loop: Optional[asyncio.AbstractEventLoop] = None) -> int: ...
+
 
 class TcpStream(spead2.send._TcpStream, _AsyncStream):
     def __init__(self, thread_pool: spead2.ThreadPool, socket: socket.socket,
@@ -84,4 +93,3 @@ class InprocStream(spead2.send._InprocStream, _AsyncStream):
     def __init__(self, thread_pool: spead2.ThreadPool, queue: spead2.InprocQueue,
                  config: spead2.send.StreamConfig = ...,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
-

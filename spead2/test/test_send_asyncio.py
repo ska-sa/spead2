@@ -35,9 +35,9 @@ class TestUdpStream:
         self.heap = self.ig.get_heap()
 
     async def _test_async_flush(self):
-        assert_greater(self.stream._active, 0)
+        assert_greater(self.stream._helper._active, 0)
         await self.stream.async_flush()
-        assert_equal(self.stream._active, 0)
+        assert_equal(self.stream._helper._active, 0)
 
     def test_async_flush(self):
         for i in range(3):

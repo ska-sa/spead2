@@ -42,8 +42,8 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
         await self.prepare_receiver(receiver)
         sender = await self.prepare_sender(thread_pool)
         gen = spead2.send.HeapGenerator(item_group)
-        await sender.async_send_heap(gen.get_heap())
-        await sender.async_send_heap(gen.get_end())
+        await self.async_send_heap(sender, gen.get_heap())
+        await self.async_send_heap(sender, gen.get_end())
         await sender.async_flush()
         received_item_group = spead2.ItemGroup()
         while True:
@@ -54,6 +54,9 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
             else:
                 received_item_group.update(heap, new_order)
         return received_item_group
+
+    async def async_send_heap(self, sender, heap):
+        return await sender.async_send_heap(heap)
 
 
 class TestPassthroughUdp(BaseTestPassthroughAsync):
@@ -82,6 +85,14 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughAsync):
             spead2.send.StreamConfig(rate=1e7), loop=self.loop)
         sock.close()
         return stream
+
+
+class TestPassthroughUdpOverrideAddress(TestPassthroughUdp):
+    async def prepare_receiver(self, receiver):
+        receiver.add_udp_reader(8889, bind_hostname="127.0.0.1")
+
+    async def async_send_heap(self, sender, heap):
+        return await sender.async_send_heap(heap, -1, "127.0.0.1", 8889)
 
 
 class TestPassthroughTcp(BaseTestPassthroughAsync):

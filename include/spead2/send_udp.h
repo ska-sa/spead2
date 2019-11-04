@@ -207,8 +207,8 @@ public:
     /**
      * Override the destination address.
      */
-    bool async_send_heap(const boost::asio::ip::udp::endpoint &endpoint,
-                         const heap &h, completion_handler handler, s_item_pointer_t cnt);
+    bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt,
+                         const boost::asio::ip::udp::endpoint &endpoint);
 
     virtual ~udp_stream();
 };

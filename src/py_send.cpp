@@ -131,12 +131,12 @@ public:
          * the heap is sent.
          */
         auto state = std::make_shared<callback_state>();
-        Base::async_send_heap(std::forward<Args>(args)..., h, [state] (const boost::system::error_code &ec, item_pointer_t bytes_transferred)
+        Base::async_send_heap(h, [state] (const boost::system::error_code &ec, item_pointer_t bytes_transferred)
         {
             state->ec = ec;
             state->bytes_transferred = bytes_transferred;
             state->sem.put();
-        }, cnt);
+        }, cnt, std::forward<Args>(args)...);
         semaphore_get(state->sem);
         if (state->ec)
             throw boost_io_error(state->ec);
@@ -198,8 +198,7 @@ public:
         py::handle callback_ptr = callback.ptr();
         h_ptr.inc_ref();
         callback_ptr.inc_ref();
-        return Base::async_send_heap(std::forward<Args>(args)...,
-                                     h.cast<heap_wrapper &>(), [this, callback_ptr, h_ptr] (
+        return Base::async_send_heap(h.cast<heap_wrapper &>(), [this, callback_ptr, h_ptr] (
             const boost::system::error_code &ec, item_pointer_t bytes_transferred)
         {
             bool was_empty;
@@ -210,7 +209,7 @@ public:
             }
             if (was_empty)
                 sem.put();
-        }, cnt);
+        }, cnt, std::forward<Args>(args)...);
     }
 
     void process_callbacks()
@@ -655,13 +654,13 @@ static void sync_udp_stream_register(py::class_<T> &stream_class)
     sync_stream_register(stream_class);
     stream_class.def(
         "send_heap",
-        [](T &self, const std::string &address, std::uint16_t port,
-           const heap_wrapper &h, s_item_pointer_t cnt)
+        [](T &self, const heap_wrapper &h, s_item_pointer_t cnt,
+           const std::string &address, std::uint16_t port)
         {
             self.send_heap(h, cnt, boost::asio::ip::udp::endpoint(
                 boost::asio::ip::address::from_string(address), port));
         },
-        "address"_a, "port"_a, "heap"_a, "cnt"_a = s_item_pointer_t(-1));
+        "heap"_a, "cnt"_a = s_item_pointer_t(-1), "address"_a, "port"_a);
 }
 
 template<typename T>
@@ -671,7 +670,7 @@ static void async_stream_register(py::class_<T> &stream_class)
     stream_register(stream_class);
     stream_class
         .def_property_readonly("fd", SPEAD2_PTMF(T, get_fd))
-        .def("async_send_heap", SPEAD2_PTMF(T, template async_send_heap_obj<>),
+        .def("async_send_heap_callback", SPEAD2_PTMF(T, template async_send_heap_obj<>),
              "heap"_a, "callback"_a, "cnt"_a = s_item_pointer_t(-1))
         .def("flush", SPEAD2_PTMF(T, flush))
         .def("process_callbacks", SPEAD2_PTMF(T, process_callbacks));
@@ -683,16 +682,16 @@ static void async_udp_stream_register(py::class_<T> &stream_class)
     using namespace pybind11::literals;
     async_stream_register(stream_class);
     stream_class.def(
-        "async_send_heap",
-        [](T &self, const std::string &address, std::uint16_t port,
-           py::object h, py::object callback, s_item_pointer_t cnt = -1)
+        "async_send_heap_callback",
+        [](T &self, py::object h, py::object callback, s_item_pointer_t cnt = -1,
+           const std::string &address, std::uint16_t port)
         {
             self.async_send_heap_obj(
                 std::move(h), std::move(callback), cnt,
                 boost::asio::ip::udp::endpoint(
                     boost::asio::ip::address::from_string(address), port));
         },
-        "address"_a, "port"_a, "heap"_a, "callback"_a, "cnt"_a = s_item_pointer_t(-1));
+        "heap"_a, "callback"_a, "cnt"_a = s_item_pointer_t(-1), "address"_a, "port"_a);
 }
 
 /// Register the send module with Boost.Python

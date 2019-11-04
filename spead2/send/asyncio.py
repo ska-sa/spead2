@@ -26,20 +26,51 @@ from spead2._spead2.send import TcpStreamAsyncio as _TcpStreamAsyncio
 from spead2._spead2.send import InprocStreamAsyncio as _InprocStreamAsyncio
 
 
-def _wrap_class(name, base_class):
-    class Wrapped(base_class):
-        def __init__(self, *args, **kwargs):
-            self._loop = kwargs.pop('loop', None)
-            super().__init__(*args, **kwargs)
-            if self._loop is None:
-                self._loop = asyncio.get_event_loop()
-            self._active = 0
-            self._last_queued_future = None
+class _AsyncHelper:
+    def __init__(self, *, loop):
+        if loop is None:
+            self._loop = asyncio.get_event_loop()
+        else:
+            self._loop = loop
+        self._active = 0
+        self._last_queued_future = None
 
-        def async_send_heap(self, heap, cnt=-1, loop=None):
-            """Send a heap asynchronously. Note that this is *not* a coroutine:
-            it returns a future. Adding the heap to the queue is done
-            synchronously, to ensure proper ordering.
+    async def async_send_heap(self, stream, heap, cnt, *extra, loop):
+        if loop is None:
+            loop = self._loop
+        future = asyncio.Future(loop=self._loop)
+
+        def callback(exc, bytes_transferred):
+            if exc is not None:
+                future.set_exception(exc)
+            else:
+                future.set_result(bytes_transferred)
+
+        queued = stream.async_send_heap_callback(heap, callback, cnt, *extra)
+        if self._active == 0:
+            self._loop.add_reader(stream.fd, stream.process_callbacks)
+        self._active += 1
+        if queued:
+            self._last_queued_future = future
+        try:
+            return await future
+        finally:
+            self._active -= 1
+            if self._active == 0:
+                self._loop.remove_reader(stream.fd)
+                self._last_queued_future = None  # Purely to free the memory
+
+    async def async_flush(self):
+        future = self._last_queued_future
+        if future is not None:
+            await asyncio.wait([future])
+
+
+def _fix_docs(cls):
+    async_send_heap = getattr(cls, 'async_send_heap')
+    if async_send_heap.__doc__ is None:
+        async_send_heap.__doc__ = \
+            """Send a heap asynchronously.
 
             Parameters
             ----------
@@ -50,42 +81,19 @@ def _wrap_class(name, base_class):
             loop : :py:class:`asyncio.BaseEventLoop`, optional
                 Event loop to use, overriding the constructor.
             """
+    async_flush = getattr(cls, 'async_flush')
+    if async_flush.__doc__ is None:
+        async_flush.__doc__ = \
+            """Asynchronously wait for all enqueued heaps to be sent.
 
-            if loop is None:
-                loop = self._loop
-            future = asyncio.Future(loop=self._loop)
-
-            def callback(exc, bytes_transferred):
-                if exc is not None:
-                    future.set_exception(exc)
-                else:
-                    future.set_result(bytes_transferred)
-                self._active -= 1
-                if self._active == 0:
-                    self._loop.remove_reader(self.fd)
-                    self._last_queued_future = None  # Purely to free the memory
-            queued = super().async_send_heap(heap, callback, cnt)
-            if self._active == 0:
-                self._loop.add_reader(self.fd, self.process_callbacks)
-            self._active += 1
-            if queued:
-                self._last_queued_future = future
-            return future
-
-        async def async_flush(self):
-            """Asynchronously wait for all enqueued heaps to be sent. Note that
-            this only waits for heaps passed to :meth:`async_send_heap` prior to
-            this call, not ones added while waiting."""
-            future = self._last_queued_future
-            if future is not None:
-                await asyncio.wait([future])
-
-    Wrapped.__name__ = name
-    return Wrapped
+            Note that this only waits for heaps passed to
+            :meth:`async_send_heap` prior to this call, not ones added while
+            waiting."""
+    return cls
 
 
-UdpStream = _wrap_class('UdpStream', _UdpStreamAsyncio)
-UdpStream.__doc__ = \
+@_fix_docs
+class UdpStream(_UdpStreamAsyncio):
     """SPEAD over UDP with asynchronous sends. The other constructors
     defined for :py:class:`spead2.send.UdpStream` are also applicable here.
 
@@ -105,11 +113,36 @@ UdpStream.__doc__ = \
     loop : :py:class:`asyncio.BaseEventLoop`, optional
         Event loop to use (defaults to ``asyncio.get_event_loop()``)
     """
+    def __init__(self, *args, loop=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._helper = _AsyncHelper(loop=loop)
 
-_TcpStreamBase = _wrap_class('TcpStream', _TcpStreamAsyncio)
+    async def async_send_heap(self, heap, cnt=-1, *args, loop=None, **kwargs):
+        """Send a heap asynchronously.
+
+        Parameters
+        ----------
+        heap : :py:class:`spead2.send.Heap`
+            Heap to send
+        cnt : int, optional
+            Heap cnt to send (defaults to auto-incrementing)
+        address : str, optional
+            Override the destination IP address. Unlike the constructor, a DNS
+            name is not accepted.
+        port : int, optional
+            Override the destination port. Either both the address and port should
+            be specified, or neither.
+        loop : :py:class:`asyncio.BaseEventLoop`, optional
+            Event loop to use, overriding the constructor.
+        """
+        return await self._helper.async_send_heap(self, heap, cnt, *args, loop=loop, **kwargs)
+
+    async def async_flush(self):
+        await self._helper.async_flush()
 
 
-class TcpStream(_TcpStreamBase):
+@_fix_docs
+class TcpStream(_TcpStreamAsyncio):
     """SPEAD over TCP with asynchronous connect and sends.
 
     Most users will use :py:meth:`connect` to asynchronously create a stream.
@@ -124,7 +157,13 @@ class TcpStream(_TcpStreamBase):
         TCP/IP Socket that is already connected to the remote end
     config : :py:class:`spead2.send.StreamConfig`
         Stream configuration
+    loop : :py:class:`asyncio.BaseEventLoop`, optional
+        Event loop to use (defaults to ``asyncio.get_event_loop()``)
     """
+
+    def __init__(self, *args, loop=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._helper = _AsyncHelper(loop=loop)
 
     @classmethod
     async def connect(cls, *args, **kwargs):
@@ -149,9 +188,15 @@ class TcpStream(_TcpStreamBase):
         await future
         return stream
 
+    async def async_send_heap(self, heap, cnt=-1, *, loop=None):
+        return await self._helper.async_send_heap(self, heap, cnt, loop=loop)
 
-InprocStream = _wrap_class('InprocStream', _InprocStreamAsyncio)
-InprocStream.__doc__ = \
+    async def async_flush(self):
+        await self._helper.async_flush()
+
+
+@_fix_docs
+class InprocStream(_InprocStreamAsyncio):
     """SPEAD over reliable in-process transport.
 
     .. note::
@@ -169,13 +214,26 @@ InprocStream.__doc__ = \
         Queue holding the data in flight
     config : :py:class:`spead2.send.StreamConfig`
         Stream configuration
+    loop : :py:class:`asyncio.BaseEventLoop`, optional
+        Event loop to use (defaults to ``asyncio.get_event_loop()``)
     """
+
+    def __init__(self, *args, loop=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._helper = _AsyncHelper(loop=loop)
+
+    async def async_send_heap(self, heap, cnt=-1, *, loop=None):
+        return await self._helper.async_send_heap(self, heap, cnt, loop=loop)
+
+    async def async_flush(self):
+        await self._helper.async_flush()
+
 
 try:
     from spead2._spead2.send import UdpIbvStreamAsyncio as _UdpIbvStreamAsyncio
 
-    UdpIbvStream = _wrap_class('UdpIbvStream', _UdpIbvStreamAsyncio)
-    UdpIbvStream.__doc__ = \
+    @_fix_docs
+    class UdpIbvStream(_UdpIbvStreamAsyncio):
         """Like :class:`UdpStream`, but using the Infiniband Verbs API.
 
         Parameters
@@ -213,6 +271,16 @@ try:
         loop : :py:class:`asyncio.BaseEventLoop`, optional
             Event loop to use (defaults to ``asyncio.get_event_loop()``)
         """
+
+        def __init__(self, *args, loop=None, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._helper = _AsyncHelper(loop=loop)
+
+        async def async_send_heap(self, heap, cnt=-1, *, loop=None):
+            return await self._helper.async_send_heap(self, heap, cnt, loop=loop)
+
+        async def async_flush(self):
+            await self._helper.async_flush()
 
 except ImportError:
     pass

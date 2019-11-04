@@ -277,8 +277,8 @@ bool udp_stream::async_send_heap(const heap &h, completion_handler handler, s_it
     return async_send_heap_extra(h, std::move(handler), cnt, this->endpoint);
 }
 
-bool udp_stream::async_send_heap(const boost::asio::ip::udp::endpoint &endpoint,
-                                 const heap &h, completion_handler handler, s_item_pointer_t cnt)
+bool udp_stream::async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt,
+                                 const boost::asio::ip::udp::endpoint &endpoint)
 {
     return async_send_heap_extra(h, std::move(handler), cnt, endpoint);
 }
