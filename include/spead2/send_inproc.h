@@ -65,6 +65,8 @@ public:
     virtual ~inproc_stream();
 };
 
+extern template class stream_impl<inproc_stream>;
+
 } // namespace send
 } // namespace spead2
 

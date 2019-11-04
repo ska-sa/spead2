@@ -137,6 +137,8 @@ public:
     virtual ~udp_ibv_stream();
 };
 
+extern template class stream_impl<udp_ibv_stream>;
+
 } // namespace send
 } // namespace spead2
 

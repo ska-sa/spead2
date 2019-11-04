@@ -19,6 +19,7 @@
 #include <utility>
 #include <boost/asio.hpp>
 #include <spead2/send_udp.h>
+#include <spead2/send_stream_impl.h>
 #include <spead2/common_defines.h>
 #include <spead2/common_socket.h>
 
@@ -265,6 +266,8 @@ udp_stream::~udp_stream()
 {
     flush();
 }
+
+template class stream_impl<udp_stream>;
 
 } // namespace send
 } // namespace spead2

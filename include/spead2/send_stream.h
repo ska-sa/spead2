@@ -30,12 +30,10 @@
 #include <iterator>
 #include <type_traits>
 #include <condition_variable>
-#include <stdexcept>
 #include <boost/asio.hpp>
 #include <boost/asio/high_resolution_timer.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/optional.hpp>
-#include <boost/utility/in_place_factory.hpp>
 #include <spead2/send_heap.h>
 #include <spead2/send_packet.h>
 #include <spead2/common_logging.h>
@@ -94,11 +92,11 @@ private:
     io_service_ref io_service;
 
 protected:
-    typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
-
     explicit stream(io_service_ref io_service);
 
 public:
+    typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
+
     /// Retrieve the io_service used for processing the stream
     boost::asio::io_service &get_io_service() const { return *io_service; }
 
@@ -151,16 +149,78 @@ public:
     virtual ~stream();
 };
 
-template<typename Derived>
-class stream_impl;
+namespace detail
+{
+    /* Define queue_item<Extra> to be a type that has a fixed set of fields
+     * plus a field of type Extra, unless Extra = void in which case it is
+     * skipped. This is preferred over using an empty class to indicate that
+     * no extra data is required, because empty classes still have non-zero
+     * size.
+     */
+
+    struct queue_item_base
+    {
+        const heap &h;
+        item_pointer_t cnt;
+        stream::completion_handler handler;
+        item_pointer_t bytes_sent = 0;
+
+        queue_item_base() = default;
+        queue_item_base(const heap &h, item_pointer_t cnt, stream::completion_handler &&handler) noexcept
+            : h(std::move(h)), cnt(cnt), handler(std::move(handler))
+        {
+        }
+    };
+
+    template<typename Extra>
+    struct queue_item : public queue_item_base
+    {
+        Extra extra;
+
+        queue_item() = default;
+
+        template<typename... Args>
+        queue_item(const heap &h, item_pointer_t cnt, stream::completion_handler &&handler,
+                   Args&&... extra_args)
+            : queue_item<void>(h, cnt, std::move(handler)),
+            extra(std::forward<Args>(extra_args)...)
+        {
+        }
+    };
+
+    template<>
+    struct queue_item<void> : public queue_item_base
+    {
+        using queue_item_base::queue_item_base;
+    };
+};
 
 /**
- * Base class for @ref stream_impl. It implements the parts that are
- * independent of the transport.
+ * Stream that sends packets at a maximum rate. It also serialises heaps so
+ * that only one heap is being sent at a time. Heaps are placed in a queue, and
+ * if the queue becomes too deep heaps are discarded.
+ *
+ * The stream operates as a state machine, depending on which handlers are
+ * pending:
+ * - QUEUED: was previously empty, but async_send_heap posted a callback to @ref do_next
+ * - SENDING: the derived class is in the process of sending packets
+ * - SLEEPING: we are sleeping as a result of rate limiting
+ * - EMPTY: there are no heaps and no pending callbacks.
+ *
+ * The derived class implements @c async_send_packets, which is responsible for
+ * arranging transmission of the @ref n_current_packets stored in
+ * @ref current_packets. Once the packets are sent, it must cause
+ * @ref packets_handler to be called (but not before returning). It may assume
+ * that there is at least one packet to send.
+ *
+ * There are two mechanisms to protect shared data: the @ref do_next callback
+ * is only ever scheduled once, so it does not need to lock data for which it
+ * is the only user. Data also accessed by user-facing functions are protected
+ * by a mutex.
  */
-class stream_impl_base : public stream
+template<typename Derived, typename Extra = void>
+class stream_impl : public stream
 {
-    template<typename Derived> friend class stream_impl;
 private:
     enum class state_t
     {
@@ -171,24 +231,13 @@ private:
     };
 
     typedef boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock> timer_type;
+    typedef detail::queue_item<Extra> queue_item;
 
-    struct queue_item
-    {
-        const heap &h;
-        item_pointer_t cnt;
-        completion_handler handler;
-        item_pointer_t bytes_sent = 0;
-
-        queue_item() = default;
-        queue_item(const heap &h, item_pointer_t cnt, completion_handler &&handler) noexcept
-            : h(std::move(h)), cnt(cnt), handler(std::move(handler))
-        {
-        }
-    };
-
-    typedef std::aligned_storage<sizeof(queue_item), alignof(queue_item)>::type queue_item_storage;
+    typedef typename std::aligned_storage<sizeof(queue_item), alignof(queue_item)>::type queue_item_storage;
 
 protected:
+    typedef void queue_item_extra;
+
     struct transmit_packet
     {
         packet pkt;
@@ -297,95 +346,19 @@ private:
      */
     void load_packets(std::size_t tail);
 
-protected:
-    stream_impl_base(io_service_ref io_service, const stream_config &config, std::size_t max_current_packets);
-    virtual ~stream_impl_base() override;
-
-public:
-    virtual void set_cnt_sequence(item_pointer_t next, item_pointer_t step) override;
-
-    /**
-     * Block until all enqueued heaps have been sent. This function is
-     * thread-safe, but can be live-locked if more heaps are added while it is
-     * running.
-     */
-    virtual void flush() override;
-};
-
-/**
- * Stream that sends packets at a maximum rate. It also serialises heaps so
- * that only one heap is being sent at a time. Heaps are placed in a queue, and
- * if the queue becomes too deep heaps are discarded.
- *
- * The stream operates as a state machine, depending on which handlers are
- * pending:
- * - QUEUED: was previously empty, but async_send_heap posted a callback to @ref do_next
- * - SENDING: the derived class is in the process of sending packets
- * - SLEEPING: we are sleeping as a result of rate limiting
- * - EMPTY: there are no heaps and no pending callbacks.
- *
- * The derived class implements @c async_send_packets, which is responsible for
- * arranging transmission of the @ref n_current_packets stored in
- * @ref current_packets. Once the packets are sent, it must cause
- * @ref packets_handler to be called (but not before returning). It may assume
- * that there is at least one packet to send.
- *
- * There are two mechanisms to protect shared data: the @ref do_next callback
- * is only ever scheduled once, so it does not need to lock data for which it
- * is the only user. Data also accessed by user-facing functions are protected
- * by a mutex.
- */
-template<typename Derived>
-class stream_impl : public stream_impl_base
-{
-private:
     /**
      * Advance the state machine. Whenever the state is not EMPTY, there is a
      * future call to this function expected (possibly indirectly via
      * @ref packets_handler).
      */
-    void do_next()
-    {
-        std::unique_lock<std::mutex> lock(queue_mutex);
-        if (state == state_t::SENDING)
-            process_results();
-        else if (state == state_t::QUEUED)
-            update_send_time_empty();
-        assert(active == queue_head);
-
-        if (must_sleep())
-        {
-            auto now = timer_type::clock_type::now();
-            auto target_time = update_send_times(now);
-            if (now < target_time)
-            {
-                state = state_t::SLEEPING;
-                timer.expires_at(target_time);
-                timer.async_wait([this](const boost::system::error_code &) { do_next(); });
-                return;
-            }
-        }
-
-        if (queue_head == queue_tail)
-        {
-            state = state_t::EMPTY;
-            heap_empty.notify_all();
-            return;
-        }
-
-        // Save a copy to use outside the protection of the lock.
-        std::size_t tail = queue_tail;
-        state = state_t::SENDING;
-        lock.unlock();
-
-        load_packets(tail);
-        assert(n_current_packets > 0);
-        static_cast<Derived *>(this)->async_send_packets();
-    }
+    void do_next();
 
 protected:
+    stream_impl(io_service_ref io_service, const stream_config &config, std::size_t max_current_packets);
+    virtual ~stream_impl() override;
+
     /**
-     * Report on completed packets. Each element of @a items must have it's @c result
+     * Report on completed packets. Each element of @a items must have its @c result
      * field updated.
      *
      * This function must not be called directly from async_send_packets, as this will
@@ -396,47 +369,17 @@ protected:
         do_next();
     }
 
-    using stream_impl_base::stream_impl_base;
-
 public:
-    virtual bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt = -1) override
-    {
-        std::unique_lock<std::mutex> lock(queue_mutex);
-        std::size_t new_tail = next_queue_slot(queue_tail);
-        if (new_tail == queue_head)
-        {
-            lock.unlock();
-            log_warning("async_send_heap: dropping heap because queue is full");
-            get_io_service().post(std::bind(handler, boost::asio::error::would_block, 0));
-            return false;
-        }
-        item_pointer_t cnt_mask = (item_pointer_t(1) << h.get_flavour().get_heap_address_bits()) - 1;
-        if (cnt < 0)
-        {
-            cnt = next_cnt & cnt_mask;
-            next_cnt += step_cnt;
-        }
-        else if (item_pointer_t(cnt) > cnt_mask)
-        {
-            lock.unlock();
-            log_warning("async_send_heap: dropping heap because cnt is out of range");
-            get_io_service().post(std::bind(handler, boost::asio::error::invalid_argument, 0));
-            return false;
-        }
+    virtual void set_cnt_sequence(item_pointer_t next, item_pointer_t step) override;
 
-        // Construct in place
-        new (get_queue(queue_tail)) queue_item(h, cnt, std::move(handler));
-        queue_tail = new_tail;
+    /**
+     * Block until all enqueued heaps have been sent. This function is
+     * thread-safe, but can be live-locked if more heaps are added while it is
+     * running.
+     */
+    virtual void flush() override;
 
-        bool empty = (state == state_t::EMPTY);
-        if (empty)
-            state = state_t::QUEUED;
-        lock.unlock();
-
-        if (empty)
-            get_io_service().dispatch([this] { do_next(); });
-        return true;
-    }
+    virtual bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt = -1) override;
 };
 
 } // namespace send

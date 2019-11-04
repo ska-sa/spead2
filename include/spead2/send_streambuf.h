@@ -54,6 +54,8 @@ public:
     virtual ~streambuf_stream();
 };
 
+extern template class stream_impl<streambuf_stream>;
+
 } // namespace send
 } // namespace spead2
 

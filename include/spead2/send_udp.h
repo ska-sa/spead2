@@ -204,6 +204,8 @@ public:
     virtual ~udp_stream();
 };
 
+extern template class stream_impl<udp_stream>;
+
 } // namespace send
 } // namespace spead2
 

@@ -21,6 +21,7 @@
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_inproc.h>
 #include <spead2/send_packet.h>
+#include <spead2/send_stream_impl.h>
 #include <spead2/send_inproc.h>
 
 namespace spead2
@@ -80,6 +81,8 @@ std::shared_ptr<inproc_queue> inproc_stream::get_queue() const
 {
     return queue;
 }
+
+template class stream_impl<inproc_stream>;
 
 } // namespace send
 } // namespace spead2

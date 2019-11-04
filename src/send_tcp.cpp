@@ -20,6 +20,7 @@
  */
 
 #include <stdexcept>
+#include <spead2/send_stream_impl.h>
 #include <spead2/send_tcp.h>
 
 namespace spead2
@@ -90,6 +91,8 @@ tcp_stream::~tcp_stream()
 {
     flush();
 }
+
+template class stream_impl<tcp_stream>;
 
 } // namespace send
 } // namespace spead2

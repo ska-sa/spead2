@@ -19,6 +19,7 @@
  */
 
 #include <streambuf>
+#include <spead2/send_stream_impl.h>
 #include <spead2/send_streambuf.h>
 
 namespace spead2
@@ -57,6 +58,8 @@ streambuf_stream::~streambuf_stream()
 {
     flush();
 }
+
+template class stream_impl<streambuf_stream>;
 
 } // namespace send
 } // namespace spead2

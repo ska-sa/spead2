@@ -25,6 +25,7 @@
 #if SPEAD2_USE_IBV
 
 #include <spead2/common_raw_packet.h>
+#include <spead2/send_stream_impl.h>
 #include <spead2/send_udp_ibv.h>
 
 namespace spead2
@@ -265,6 +266,8 @@ udp_ibv_stream::~udp_ibv_stream()
     while (available.size() < n_slots)
         reap();
 }
+
+template class stream_impl<udp_ibv_stream>;
 
 } // namespace send
 } // namespace spead2

@@ -124,6 +124,8 @@ public:
     virtual ~tcp_stream();
 };
 
+extern template class stream_impl<tcp_stream>;
+
 } // namespace send
 } // namespace spead2
 

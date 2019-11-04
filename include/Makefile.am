@@ -54,6 +54,7 @@ nobase_include_HEADERS = \
 	spead2/send_packet.h \
 	spead2/send_streambuf.h \
 	spead2/send_stream.h \
+	spead2/send_stream_impl.h \
 	spead2/send_udp.h \
 	spead2/send_udp_ibv.h \
 	spead2/send_utils.h
