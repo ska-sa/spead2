@@ -62,7 +62,7 @@ void udp_stream::send_packets(std::size_t first)
     {
         // First try to send synchronously, to reduce overheads from callbacks etc
         boost::system::error_code ec;
-        socket.send_to(current_packets[idx].pkt.buffers, endpoint, 0, ec);
+        socket.send_to(current_packets[idx].pkt.buffers, current_packets[idx].item->extra, 0, ec);
         if (ec == boost::asio::error::would_block)
         {
             // Socket buffer is full, fall back to asynchronous
@@ -99,8 +99,12 @@ void udp_stream::async_send_packets()
     std::size_t offset = 0;
     for (std::size_t i = 0; i < n_current_packets; i++)
     {
-        msgvec[i].msg_hdr.msg_iov = &msg_iov[offset];
-        msgvec[i].msg_hdr.msg_iovlen = current_packets[i].pkt.buffers.size();
+        auto &hdr = msgvec[i].msg_hdr;
+        hdr.msg_iov = &msg_iov[offset];
+        hdr.msg_iovlen = current_packets[i].pkt.buffers.size();
+        const auto &endpoint = current_packets[i].item->extra;
+        hdr.msg_name = (void *) endpoint.data();
+        hdr.msg_namelen = endpoint.size();
         offset += msgvec[i].msg_hdr.msg_iovlen;
     }
 #endif
@@ -235,7 +239,8 @@ udp_stream::udp_stream(
     const boost::asio::ip::udp::endpoint &endpoint,
     const stream_config &config,
     std::size_t buffer_size)
-    : stream_impl<udp_stream>(std::move(io_service), config, batch_size),
+    : stream_impl<udp_stream, boost::asio::ip::udp::endpoint>(
+        std::move(io_service), config, batch_size),
     socket(std::move(socket)), endpoint(endpoint)
 {
     if (!socket_uses_io_service(this->socket, get_io_service()))
@@ -249,7 +254,7 @@ udp_stream::udp_stream(
         auto &hdr = msgvec[i].msg_hdr;
         hdr.msg_name = (void *) this->endpoint.data();
         hdr.msg_namelen = this->endpoint.size();
-    }   
+    }
 #endif // SPEAD2_USE_SENDMMSG
 }
 
@@ -267,7 +272,18 @@ udp_stream::~udp_stream()
     flush();
 }
 
-template class stream_impl<udp_stream>;
+bool udp_stream::async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt)
+{
+    return async_send_heap_extra(h, std::move(handler), cnt, this->endpoint);
+}
+
+bool udp_stream::async_send_heap(const boost::asio::ip::udp::endpoint &endpoint,
+                                 const heap &h, completion_handler handler, s_item_pointer_t cnt)
+{
+    return async_send_heap_extra(h, std::move(handler), cnt, endpoint);
+}
+
+template class stream_impl<udp_stream, boost::asio::ip::udp::endpoint>;
 
 } // namespace send
 } // namespace spead2

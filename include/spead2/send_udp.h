@@ -40,10 +40,10 @@ namespace spead2
 namespace send
 {
 
-class udp_stream : public stream_impl<udp_stream>
+class udp_stream : public stream_impl<udp_stream, boost::asio::ip::udp::endpoint>
 {
 private:
-    friend class stream_impl<udp_stream>;
+    friend class stream_impl<udp_stream, boost::asio::ip::udp::endpoint>;
     boost::asio::ip::udp::socket socket;
     boost::asio::ip::udp::endpoint endpoint;
 
@@ -201,10 +201,19 @@ public:
         int ttl,
         unsigned int interface_index);
 
+    virtual bool async_send_heap(
+        const heap &h, completion_handler handler, s_item_pointer_t cnt = -1) override;
+
+    /**
+     * Override the destination address.
+     */
+    bool async_send_heap(const boost::asio::ip::udp::endpoint &endpoint,
+                         const heap &h, completion_handler handler, s_item_pointer_t cnt);
+
     virtual ~udp_stream();
 };
 
-extern template class stream_impl<udp_stream>;
+extern template class stream_impl<udp_stream, boost::asio::ip::udp::endpoint>;
 
 } // namespace send
 } // namespace spead2

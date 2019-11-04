@@ -182,7 +182,7 @@ namespace detail
         template<typename... Args>
         queue_item(const heap &h, item_pointer_t cnt, stream::completion_handler &&handler,
                    Args&&... extra_args)
-            : queue_item<void>(h, cnt, std::move(handler)),
+            : queue_item_base(h, cnt, std::move(handler)),
             extra(std::forward<Args>(extra_args)...)
         {
         }
@@ -368,6 +368,14 @@ protected:
     {
         do_next();
     }
+
+    /**
+     * Like @ref async_send_heap, but provides constructor arguments to the extra
+     * field in @ref queue_item.
+     */
+    template<typename... Args>
+    bool async_send_heap_extra(
+        const heap &h, completion_handler &&handler, s_item_pointer_t cnt, Args&&... args);
 
 public:
     virtual void set_cnt_sequence(item_pointer_t next, item_pointer_t step) override;

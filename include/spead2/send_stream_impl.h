@@ -245,7 +245,10 @@ void stream_impl<Derived, Extra>::flush()
 }
 
 template<typename Derived, typename Extra>
-bool stream_impl<Derived, Extra>::async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt)
+template<typename... Args>
+bool stream_impl<Derived, Extra>::async_send_heap_extra(
+    const heap &h, completion_handler &&handler, s_item_pointer_t cnt,
+    Args&&... args)
 {
     std::unique_lock<std::mutex> lock(queue_mutex);
     std::size_t new_tail = next_queue_slot(queue_tail);
@@ -271,7 +274,7 @@ bool stream_impl<Derived, Extra>::async_send_heap(const heap &h, completion_hand
     }
 
     // Construct in place
-    new (get_queue(queue_tail)) queue_item(h, cnt, std::move(handler));
+    new (get_queue(queue_tail)) queue_item(h, cnt, std::move(handler), std::forward<Args>(args)...);
     queue_tail = new_tail;
 
     bool empty = (state == state_t::EMPTY);
@@ -282,6 +285,13 @@ bool stream_impl<Derived, Extra>::async_send_heap(const heap &h, completion_hand
     if (empty)
         get_io_service().dispatch([this] { do_next(); });
     return true;
+}
+
+template<typename Derived, typename Extra>
+bool stream_impl<Derived, Extra>::async_send_heap(
+    const heap &h, completion_handler handler, s_item_pointer_t cnt)
+{
+    return async_send_heap_extra(h, std::move(handler), cnt);
 }
 
 } // namespace send
