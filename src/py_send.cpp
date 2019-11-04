@@ -182,7 +182,7 @@ public:
     int get_fd() const { return sem.get_fd(); }
 
     template<typename... Args>
-    bool async_send_heap_obj(py::object h, py::object callback, s_item_pointer_t cnt = -1,
+    bool async_send_heap_obj(py::object h, py::object callback, s_item_pointer_t cnt,
                              Args&&... args)
     {
         /* Normally the callback should not refer to this, since it could have
@@ -683,7 +683,7 @@ static void async_udp_stream_register(py::class_<T> &stream_class)
     async_stream_register(stream_class);
     stream_class.def(
         "async_send_heap_callback",
-        [](T &self, py::object h, py::object callback, s_item_pointer_t cnt = -1,
+        [](T &self, py::object h, py::object callback, s_item_pointer_t cnt,
            const std::string &address, std::uint16_t port)
         {
             self.async_send_heap_obj(
