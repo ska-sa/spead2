@@ -72,7 +72,7 @@ class UdpStream(spead2.send._UdpStream, _AsyncStream):
                               loop: Optional[asyncio.AbstractEventLoop] = None) -> int: ...
 
     @overload
-    async def async_send_heap(self, heap: spead2.send.Heap, cnt: int = ...,
+    async def async_send_heap(self, heap: spead2.send.Heap, cnt: int,
                               address: _PybindStr, port: int, *,
                               loop: Optional[asyncio.AbstractEventLoop] = None) -> int: ...
 
