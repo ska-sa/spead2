@@ -9,4 +9,4 @@ the :cpp:class:`spead2::recv::udp_ibv_reader` and
    :members: udp_ibv_reader
 
 .. doxygenclass:: spead2::send::udp_ibv_stream
-   :members: udp_ibv_stream
+   :members: udp_ibv_stream, async_send_heap

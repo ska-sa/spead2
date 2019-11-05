@@ -156,6 +156,8 @@ public:
     virtual ~udp_ibv_stream();
 
     virtual bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt = -1) override;
+
+    /** Override the destination address. */
     bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt,
                          const boost::asio::ip::udp::endpoint &endpoint);
 };

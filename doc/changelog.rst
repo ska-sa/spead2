@@ -3,6 +3,8 @@ Changelog
 
 .. rubric:: Development version
 
+- Add parameters for destination in send functions (UDP only), overriding the
+  value provided to the constructor.
 - Add missing ``<map>`` include to ``<spead2/recv_heap.h>``.
 
 .. rubric:: 2.0.2

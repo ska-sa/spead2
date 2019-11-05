@@ -206,6 +206,16 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
    .. deprecated:: 1.9
       Use the overload that does not take `buffer_size`.
 
+Since 2.1 it has also been possible to specify the destination for each heap
+(although a valid endpoint must still be specified in the constructor).
+
+.. py:method:: spead2.send.UdpStream.send_heap(heap, cnt=-1, address, port)
+
+   Like :meth:`spead2.send.AbstractStream.send_heap`, but with an explicit
+   destination. The destination must be a string containing an IP address, of
+   the same version (IPv4 or IPv6) as used in the constructor. Note that for
+   efficiency, DNS names are not accepted here.
+
 TCP
 ^^^
 
@@ -286,7 +296,7 @@ following abstract interface (the class does not actually exist):
 
 .. class:: spead2.send.asyncio.AbstractStream()
 
-   .. py:method:: async_send_heap(heap, cnt=-1, loop=None)
+   .. py:method:: async_send_heap(heap, cnt=-1, *, loop=None)
 
       Send a heap asynchronously. Note that this is *not* a coroutine:
       it returns a future. Adding the heap to the queue is done
@@ -307,6 +317,9 @@ following abstract interface (the class does not actually exist):
       Asynchronously wait for all enqueued heaps to be sent. Note that
       this only waits for heaps passed to :meth:`async_send_heap` prior to
       this call, not ones added while waiting.
+
+For UDP one may again pass `address` and `port`, as for
+:meth:`spead2.send.UdpStream.send_heap`.
 
 TCP
 ^^^
