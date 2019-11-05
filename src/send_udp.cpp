@@ -71,7 +71,7 @@ void udp_stream::send_packets(std::size_t first)
                 current_packets[idx].result = ec;
                 send_packets(idx + 1);
             };
-            socket.async_send_to(current_packets[idx].pkt.buffers, endpoint, handler);
+            socket.async_send_to(current_packets[idx].pkt.buffers, current_packets[idx].item->extra, handler);
             return;
         }
         else
