@@ -91,6 +91,12 @@ class TestPassthroughUdpOverrideAddress(TestPassthroughUdp):
     async def prepare_receiver(self, receiver):
         receiver.add_udp_reader(8885, bind_hostname="127.0.0.1")
 
+    async def prepare_sender(self, thread_pool):
+        return spead2.send.asyncio.UdpStream(
+            thread_pool, "127.0.0.1", 8888,
+            spead2.send.StreamConfig(rate=1e7),
+            buffer_size=0, loop=self.loop)
+
     async def async_send_heap(self, sender, heap):
         return await sender.async_send_heap(heap, -1, "127.0.0.1", 8885)
 
