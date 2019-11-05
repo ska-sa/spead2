@@ -236,8 +236,6 @@ private:
     typedef typename std::aligned_storage<sizeof(queue_item), alignof(queue_item)>::type queue_item_storage;
 
 protected:
-    typedef void queue_item_extra;
-
     struct transmit_packet
     {
         packet pkt;
