@@ -89,10 +89,10 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughAsync):
 
 class TestPassthroughUdpOverrideAddress(TestPassthroughUdp):
     async def prepare_receiver(self, receiver):
-        receiver.add_udp_reader(8889, bind_hostname="127.0.0.1")
+        receiver.add_udp_reader(8885, bind_hostname="127.0.0.1")
 
     async def async_send_heap(self, sender, heap):
-        return await sender.async_send_heap(heap, -1, "127.0.0.1", 8889)
+        return await sender.async_send_heap(heap, -1, "127.0.0.1", 8885)
 
 
 class TestPassthroughTcp(BaseTestPassthroughAsync):
