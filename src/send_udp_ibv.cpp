@@ -133,21 +133,26 @@ void udp_ibv_stream::async_send_packets()
 
         slot *prev = nullptr;
         slot *first = nullptr;
+        bool need_override = endpoint_overrides.load();
         for (std::size_t i = 0; i < n_current_packets; i++)
         {
             const auto &current_packet = current_packets[i];
             slot *s = available.back();
             available.pop_back();
 
-            s->frame.destination_mac(multicast_mac(current_packet.item->extra.address));
             std::size_t payload_size = current_packet.size;
             ipv4_packet ipv4 = s->frame.payload_ipv4();
             ipv4.total_length(payload_size + udp_packet::min_size + ipv4.header_length());
-            ipv4.destination_address(current_packet.item->extra.address);
-            ipv4.update_checksum();
             udp_packet udp = ipv4.payload_udp();
+            if (need_override)
+            {
+                const auto &endpoint = current_packet.item->extra;
+                s->frame.destination_mac(multicast_mac(endpoint.address));
+                ipv4.destination_address(endpoint.address);
+                udp.destination_port(endpoint.port);
+            }
+            ipv4.update_checksum();
             udp.length(payload_size + udp_packet::min_size);
-            udp.destination_port(current_packet.item->extra.port);
             packet_buffer payload = udp.payload();
             boost::asio::buffer_copy(boost::asio::mutable_buffer(payload), current_packet.pkt.buffers);
             s->sge.length = payload_size + (payload.data() - s->frame.data());
@@ -229,6 +234,7 @@ udp_ibv_stream::udp_ibv_stream(
     buffer = allocator->allocate(max_raw_size * n_slots, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
     slots.reset(new slot[n_slots]);
+    mac_address destination_mac = multicast_mac(endpoint.address());
     mac_address source_mac = interface_mac(interface_address);
     for (std::size_t i = 0; i < n_slots; i++)
     {
@@ -239,6 +245,7 @@ udp_ibv_stream::udp_ibv_stream(
         slots[i].wr.num_sge = 1;
         slots[i].wr.opcode = IBV_WR_SEND;
         slots[i].wr.wr_id = i;
+        slots[i].frame.destination_mac(destination_mac);
         slots[i].frame.source_mac(source_mac);
         slots[i].frame.ethertype(ipv4_packet::ethertype);
         ipv4_packet ipv4 = slots[i].frame.payload_ipv4();
@@ -249,8 +256,10 @@ udp_ibv_stream::udp_ibv_stream(
         ipv4.ttl(ttl);
         ipv4.protocol(udp_packet::protocol);
         ipv4.source_address(interface_address.to_v4());
+        ipv4.destination_address(endpoint.address().to_v4());
         udp_packet udp = ipv4.payload_udp();
         udp.source_port(socket.local_endpoint().port());
+        udp.destination_port(endpoint.port());
         udp.length(config.get_max_packet_size() + udp_packet::min_size);
         udp.checksum(0);
         available.push_back(&slots[i]);
@@ -279,6 +288,7 @@ bool udp_ibv_stream::async_send_heap(const heap &h, completion_handler handler, 
 {
     if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
         throw std::invalid_argument("endpoint is not an IPv4 multicast address");
+    endpoint_overrides.store(true);
     return async_send_heap_extra(h, std::move(handler), cnt,
                                  endpoint.address().to_v4(), endpoint.port());
 }

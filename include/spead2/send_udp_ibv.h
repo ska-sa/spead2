@@ -94,6 +94,7 @@ private:
     std::unique_ptr<slot[]> slots;
     std::vector<slot *> available;
     const int max_poll;
+    std::atomic<bool> endpoint_overrides{false};  // set to true if an address override is used
 
     static ibv_qp_t
     create_qp(const ibv_pd_t &pd, const ibv_cq_t &send_cq, const ibv_cq_t &recv_cq,
