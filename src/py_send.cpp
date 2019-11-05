@@ -686,7 +686,7 @@ static void async_udp_stream_register(py::class_<T> &stream_class)
         [](T &self, py::object h, py::object callback, s_item_pointer_t cnt,
            const std::string &address, std::uint16_t port)
         {
-            self.async_send_heap_obj(
+            return self.async_send_heap_obj(
                 std::move(h), std::move(callback), cnt,
                 boost::asio::ip::udp::endpoint(
                     boost::asio::ip::address::from_string(address), port));
