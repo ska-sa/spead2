@@ -5,13 +5,16 @@ Changelog
 
 - Add parameters for destination in send functions (UDP only), overriding the
   value provided to the constructor.
+- Make `loop` arguments to asyncio functions keyword-only. In some places
+  they were already keyword-only, so this makes it consistent, and was
+  necessary to support optional address and port arguments.
 - Add missing ``<map>`` include to ``<spead2/recv_heap.h>``.
 
 .. rubric:: 2.0.2
 
-- Log warnings on some internal errors (that hopefully never happen)
-- Include wheels for Python 3.8
-- Build debug symbols for binary wheels (in a separate tarball on Github)
+- Log warnings on some internal errors (that hopefully never happen).
+- Include wheels for Python 3.8.
+- Build debug symbols for binary wheels (in a separate tarball on Github).
 
 .. rubric:: 2.0.1
 
