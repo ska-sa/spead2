@@ -57,15 +57,15 @@ public:
     static constexpr double default_burst_rate_ratio = 1.05;
 
     void set_max_packet_size(std::size_t max_packet_size);
-    std::size_t get_max_packet_size() const;
+    std::size_t get_max_packet_size() const { return max_packet_size; }
     void set_rate(double rate);
-    double get_rate() const;
+    double get_rate() const { return rate; }
     void set_burst_size(std::size_t burst_size);
-    std::size_t get_burst_size() const;
+    std::size_t get_burst_size() const { return burst_size; }
     void set_max_heaps(std::size_t max_heaps);
-    std::size_t get_max_heaps() const;
+    std::size_t get_max_heaps() const { return max_heaps; }
     void set_burst_rate_ratio(double burst_rate_ratio);
-    double get_burst_rate_ratio() const;
+    double get_burst_rate_ratio() const { return burst_rate_ratio; }
 
     /// Get product of rate and burst_rate_ratio
     double get_burst_rate() const;
