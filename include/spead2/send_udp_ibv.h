@@ -113,7 +113,7 @@ private:
     void async_send_packets();
 
 public:
-    /// Default receive buffer size, if none is passed to the constructor
+    /// Default send buffer size, if none is passed to the constructor
     static constexpr std::size_t default_buffer_size = 512 * 1024;
     /// Number of times to poll in a row, if none is explicitly passed to the constructor
     static constexpr int default_max_poll = 10;
