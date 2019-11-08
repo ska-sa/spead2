@@ -322,7 +322,7 @@ following abstract interface (the class does not actually exist):
       this call, not ones added while waiting.
 
 For UDP one may again pass `address` and `port`, as for
-:meth:`spead2.send.UdpStream.send_heap`.
+:meth:`spead2.send.UdpStream.send_heap` (experimental API).
 
 TCP
 ^^^

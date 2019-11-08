@@ -142,6 +142,7 @@ class, analogous to :py:class:`spead2.send.asyncio.UdpStream`.
      non-negative) or letting other code run on the
      thread (if `comp_vector` is negative).
 
-As for the regular UDP classes, `address` and `port` parameters may be
-specified when sending a heap to override the destination (see
+As for the regular UDP classes, there is *experimental* support
+for passing `address` and `port` parameters when
+sending a heap to override the destination (see
 :meth:`spead2.send.UdpStream.send_heap`).
