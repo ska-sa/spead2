@@ -3,11 +3,12 @@ Changelog
 
 .. rubric:: Development version
 
-- Add parameters for destination in send functions (UDP only), overriding the
-  value provided to the constructor.
+- Add an experimental interface to allow destination endpoint to be set for
+  each heap, overriding the value provided to the constructor (UDP only).
 - Make `loop` arguments to asyncio functions keyword-only. In some places
   they were already keyword-only, so this makes it consistent, and was
-  necessary to support optional address and port arguments.
+  necessary to support optional address and port arguments. Code that passed
+  it positionally will need to be updated.
 - Add missing ``<map>`` include to ``<spead2/recv_heap.h>``.
 
 .. rubric:: 2.0.2

@@ -206,8 +206,9 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
    .. deprecated:: 1.9
       Use the overload that does not take `buffer_size`.
 
-Since 2.1 it has also been possible to specify the destination for each heap
-(although a valid endpoint must still be specified in the constructor).
+There is also *experimental* support for specifing the destination for each
+heap (although a valid endpoint must still be specified in the constructor).
+This may be replaced by a different interface in a future release.
 
 .. py:method:: spead2.send.UdpStream.send_heap(heap, cnt=-1, address, port)
 
@@ -215,6 +216,8 @@ Since 2.1 it has also been possible to specify the destination for each heap
    destination. The destination must be a string containing an IP address, of
    the same version (IPv4 or IPv6) as used in the constructor. Note that for
    efficiency, DNS names are not accepted here.
+
+   .. versionadded:: 2.1
 
 TCP
 ^^^

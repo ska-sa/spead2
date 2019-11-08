@@ -205,7 +205,8 @@ public:
         const heap &h, completion_handler handler, s_item_pointer_t cnt = -1) override;
 
     /**
-     * Override the destination address.
+     * Override the destination address. This is an experimental interface that
+     * may be replaced in a future release.
      */
     bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt,
                          const boost::asio::ip::udp::endpoint &endpoint);
