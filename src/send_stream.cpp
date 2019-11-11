@@ -38,21 +38,11 @@ void stream_config::set_max_packet_size(std::size_t max_packet_size)
     this->max_packet_size = max_packet_size;
 }
 
-std::size_t stream_config::get_max_packet_size() const
-{
-    return max_packet_size;
-}
-
 void stream_config::set_rate(double rate)
 {
     if (rate < 0.0 || !std::isfinite(rate))
         throw std::invalid_argument("rate must be non-negative");
     this->rate = rate;
-}
-
-double stream_config::get_rate() const
-{
-    return rate;
 }
 
 void stream_config::set_max_heaps(std::size_t max_heaps)
@@ -62,19 +52,9 @@ void stream_config::set_max_heaps(std::size_t max_heaps)
     this->max_heaps = max_heaps;
 }
 
-std::size_t stream_config::get_max_heaps() const
-{
-    return max_heaps;
-}
-
 void stream_config::set_burst_size(std::size_t burst_size)
 {
     this->burst_size = burst_size;
-}
-
-std::size_t stream_config::get_burst_size() const
-{
-    return burst_size;
 }
 
 void stream_config::set_burst_rate_ratio(double burst_rate_ratio)
@@ -82,11 +62,6 @@ void stream_config::set_burst_rate_ratio(double burst_rate_ratio)
     if (burst_rate_ratio < 1.0 || !std::isfinite(burst_rate_ratio))
         throw std::invalid_argument("burst rate ratio must be at least 1.0 and finite");
     this->burst_rate_ratio = burst_rate_ratio;
-}
-
-double stream_config::get_burst_rate_ratio() const
-{
-    return burst_rate_ratio;
 }
 
 double stream_config::get_burst_rate() const
