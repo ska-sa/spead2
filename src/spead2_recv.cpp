@@ -228,7 +228,10 @@ void show_heap(const spead2::recv::heap &fheap, const options &opts)
     for (const auto &item : items)
     {
         std::cout << std::hex << item.id << std::dec
-            << " = [" << item.length << " bytes]\n";
+            << " = [" << item.length << " bytes]";
+        if (item.is_immediate)
+            std::cout << " = " << std::hex << item.immediate_value;
+        std::cout << '\n';
     }
     std::cout << std::noshowbase;
 }
