@@ -4,6 +4,7 @@ Changelog
 .. rubric:: Development version
 
 - Add missing ``<map>`` include to ``<spead2/recv_heap.h>``.
+- Show the values of immediate items in :program:`spead2_recv`.
 
 .. rubric:: 2.0.2
 
