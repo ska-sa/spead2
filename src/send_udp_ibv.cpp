@@ -98,9 +98,10 @@ bool udp_ibv_stream::make_space()
             {
                 ibv_cq *event_cq;
                 void *event_cq_context;
-                // This should be non-blocking, since we were woken up
-                comp_channel.get_event(&event_cq, &event_cq_context);
-                send_cq.ack_events(1);
+                // This should be non-blocking, since we were woken up, but
+                // spurious wakeups have been observed.
+                while (comp_channel.get_event(&event_cq, &event_cq_context))
+                    send_cq.ack_events(1);
                 async_send_packets();
             }
         };

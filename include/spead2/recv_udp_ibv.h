@@ -148,9 +148,11 @@ void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_cod
         {
             ibv_cq *event_cq;
             void *event_context;
-            comp_channel.get_event(&event_cq, &event_context);
-            // TODO: defer acks until shutdown
-            recv_cq.ack_events(1);
+            while (comp_channel.get_event(&event_cq, &event_context))
+            {
+                // TODO: defer acks until shutdown
+                recv_cq.ack_events(1);
+            }
         }
         if (state.is_stopped())
         {

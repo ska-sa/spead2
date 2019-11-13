@@ -188,13 +188,19 @@ boost::asio::posix::stream_descriptor ibv_comp_channel_t::wrap(
     return wrap_fd(io_service, get()->fd);
 }
 
-void ibv_comp_channel_t::get_event(ibv_cq **cq, void **context)
+bool ibv_comp_channel_t::get_event(ibv_cq **cq, void **context)
 {
     assert(get());
     errno = 0;
     int status = ibv_get_cq_event(get(), cq, context);
     if (status < 0)
-        throw_errno("ibv_get_cq_event failed");
+    {
+        if (errno == EAGAIN)
+            return false;
+        else
+            throw_errno("ibv_get_cq_event failed");
+    }
+    return true;
 }
 
 ibv_cq_t::ibv_cq_t(

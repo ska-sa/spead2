@@ -203,7 +203,8 @@ public:
 
     /// Create a file descriptor that is ready to read when the completion channel has events
     boost::asio::posix::stream_descriptor wrap(boost::asio::io_service &io_service) const;
-    void get_event(ibv_cq **cq, void **context);
+    /// Get an event, if one is available
+    bool get_event(ibv_cq **cq, void **context);
 };
 
 class ibv_cq_t : public std::unique_ptr<ibv_cq, detail::ibv_cq_deleter>
