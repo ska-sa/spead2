@@ -1,4 +1,4 @@
-/* Copyright 2016-2019 SKA South Africa
+/* Copyright 2016-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -272,17 +272,10 @@ public:
 
 /**
  * Create a single flow rule.
- *
- * The @a mask specifies a subset of bits in the IPv4 address that must match
- * (in host byte order, so for example 0xFFFFFF00 specifies a /24 subnet).
- * Note that not all IB drivers support a mask other than the default (all
- * 1's).
- *
- * @pre The endpoint contains an IPv4 multicast address.
  */
 ibv_flow_t create_flow(
     const ibv_qp_t &qp, const boost::asio::ip::udp::endpoint &endpoint,
-    int port_num, std::uint32_t mask = 0xFFFFFFFF);
+    int port_num);
 
 /**
  * Create flow rules to subscribe to a given set of multicast endpoints.

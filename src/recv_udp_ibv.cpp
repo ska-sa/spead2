@@ -1,4 +1,4 @@
-/* Copyright 2016 SKA South Africa
+/* Copyright 2016-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -80,10 +80,10 @@ udp_ibv_reader_core::udp_ibv_reader_core(
     stop_poll(false)
 {
     for (const auto &endpoint : endpoints)
-        if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
+        if (!endpoint.address().is_v4())
         {
             std::ostringstream msg;
-            msg << "endpoint " << endpoint << " is not an IPv4 multicast address";
+            msg << "endpoint " << endpoint << " is not an IPv4 address";
             throw std::invalid_argument(msg.str());
         }
     if (max_poll <= 0)
@@ -104,8 +104,11 @@ void udp_ibv_reader_core::join_groups(
 {
     join_socket.set_option(boost::asio::socket_base::reuse_address(true));
     for (const auto &endpoint : endpoints)
-        join_socket.set_option(boost::asio::ip::multicast::join_group(
-            endpoint.address().to_v4(), interface_address.to_v4()));
+        if (endpoint.address().is_multicast())
+        {
+            join_socket.set_option(boost::asio::ip::multicast::join_group(
+                endpoint.address().to_v4(), interface_address.to_v4()));
+        }
 }
 
 void udp_ibv_reader_core::stop()

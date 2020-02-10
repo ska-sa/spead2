@@ -1,4 +1,4 @@
-/* Copyright 2016-2019 SKA South Africa
+/* Copyright 2016-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -17,8 +17,8 @@
 /**
  * @file
  *
- * Utility program to dump raw multicast packets, using ibverbs. It works with
- * any multicast UDP data, not just SPEAD.
+ * Utility program to dump raw packets, using ibverbs. It works with any UDP
+ * data, not just SPEAD.
  *
  * The design is based on three threads:
  * 1. A network thread that handles the ibverbs interface, removing packets
@@ -141,7 +141,7 @@ static options parse_args(int argc, const char **argv)
 
     hidden.add_options()
         ("filename", make_opt_nodefault(opts.filename), "output filename")
-        ("endpoint", po::value<std::vector<std::string>>(&opts.endpoints)->composing(), "multicast-group:port")
+        ("endpoint", po::value<std::vector<std::string>>(&opts.endpoints)->composing(), "address:port")
     ;
     all.add(desc);
     all.add(hidden);
@@ -410,7 +410,7 @@ struct chunking_scheme
 typedef std::function<chunking_scheme(const options &,
                                       const spead2::rdma_cm_id_t &)> chunking_scheme_generator;
 
-/* Joints multicast groups for its lifetime */
+/* Joins multicast groups for its lifetime */
 class joiner
 {
 private:
@@ -428,8 +428,11 @@ joiner::joiner(const boost::asio::ip::address_v4 &interface_address,
 {
     join_socket.set_option(boost::asio::socket_base::reuse_address(true));
     for (const auto &endpoint : endpoints)
-        join_socket.set_option(boost::asio::ip::multicast::join_group(
-            endpoint.address().to_v4(), interface_address));
+        if (endpoint.address().is_multicast())
+        {
+            join_socket.set_option(boost::asio::ip::multicast::join_group(
+                endpoint.address().to_v4(), interface_address));
+        }
 }
 
 class capture_base
@@ -702,8 +705,6 @@ static boost::asio::ip::udp::endpoint make_endpoint(const std::string &s)
     try
     {
         boost::asio::ip::address_v4 addr = boost::asio::ip::address_v4::from_string(s.substr(0, pos));
-        if (!addr.is_multicast())
-            throw std::runtime_error("Address " + s.substr(0, pos) + " is not a multicast address");
         std::uint16_t port = boost::lexical_cast<std::uint16_t>(s.substr(pos + 1));
         return boost::asio::ip::udp::endpoint(addr, port);
     }

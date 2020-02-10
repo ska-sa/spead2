@@ -1,4 +1,4 @@
-/* Copyright 2016-2019 SKA South Africa
+/* Copyright 2016-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -374,7 +374,7 @@ ibv_flow_t::ibv_flow_t(const ibv_qp_t &qp, ibv_flow_attr *flow_attr)
 
 ibv_flow_t create_flow(
     const ibv_qp_t &qp, const boost::asio::ip::udp::endpoint &endpoint,
-    int port_num, std::uint32_t mask)
+    int port_num)
 {
     struct
     {
@@ -397,19 +397,19 @@ ibv_flow_t create_flow(
      */
     flow_rule.eth.type = IBV_FLOW_SPEC_ETH;
     flow_rule.eth.size = sizeof(flow_rule.eth);
-    mac_address dst_mac = multicast_mac(endpoint.address());
+    mac_address dst_mac;
+    if (endpoint.address().is_multicast())
+        dst_mac = multicast_mac(endpoint.address());
+    else
+        dst_mac = interface_mac(endpoint.address());
     std::memcpy(&flow_rule.eth.val.dst_mac, &dst_mac, sizeof(dst_mac));
-    /* Set mask. Multicast MAC addresses only encode the bottom 23 bits. */
-    std::uint32_t mac_mask = mask | 0xFF800000;
     std::memset(&flow_rule.eth.mask.dst_mac, 0xFF, sizeof(flow_rule.eth.mask.dst_mac));
-    for (int i = 0; i < 4; i++)
-        flow_rule.eth.mask.dst_mac[5 - i] = (mac_mask >> (8 * i)) & 0xFF;
 
     flow_rule.ip.type = IBV_FLOW_SPEC_IPV4;
     flow_rule.ip.size = sizeof(flow_rule.ip);
     auto bytes = endpoint.address().to_v4().to_bytes(); // big-endian address
     std::memcpy(&flow_rule.ip.val.dst_ip, &bytes, sizeof(bytes));
-    flow_rule.ip.mask.dst_ip = htobe(mask);
+    std::memset(&flow_rule.ip.mask.dst_ip, 0xFF, sizeof(flow_rule.ip.mask.dst_ip));
 
     flow_rule.udp.type = IBV_FLOW_SPEC_UDP;
     flow_rule.udp.size = sizeof(flow_rule.udp);
