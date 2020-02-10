@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019 SKA South Africa
+/* Copyright 2015, 2017, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -687,8 +687,10 @@ static void main_slave(int argc, const char **argv)
                 opts.recv_ibv_if = decode_string(opts.recv_ibv_if);
                 /* Look up the bind address for the data socket */
                 udp::resolver resolver(thread_pool.get_io_service());
-                udp::resolver::query query(opts.multicast.empty() ? "0.0.0.0" : opts.multicast,
-                                           slave_opts.port);
+                udp::resolver::query query(
+                    !opts.multicast.empty() ? opts.multicast :
+                    !opts.recv_ibv_if.empty() ? opts.recv_ibv_if : "0.0.0.0",
+                    slave_opts.port);
                 udp::endpoint endpoint = *resolver.resolve(query);
                 if (opts.ring)
                     connection.reset(new recv_connection_ring(opts));
