@@ -159,7 +159,7 @@ def main():
                     stream.add_tcp_reader(port, args.packet, args.buffer, host)
                 elif 'ibv' in args and args.ibv:
                     ibv_endpoints.append((host, port))
-                elif args.bind and host:
+                elif args.bind and host != args.bind:
                     stream.add_udp_reader(host, port, args.packet, args.buffer, args.bind)
                 else:
                     stream.add_udp_reader(port, args.packet, args.buffer, host)
