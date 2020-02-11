@@ -350,7 +350,9 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
         else
         {
             udp::resolver resolver(thread_pool.get_io_service());
-            udp::resolver::query query(host, port);
+            udp::resolver::query query(host, port,
+                boost::asio::ip::udp::resolver::query::address_configured
+                | boost::asio::ip::udp::resolver::query::passive);
             udp::endpoint endpoint = *resolver.resolve(query);
 #if SPEAD2_USE_IBV
             if (opts.ibv)
