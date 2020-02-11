@@ -3,7 +3,8 @@ Changelog
 
 .. rubric:: Development version
 
-- Support unicast receive with ibverbs acceleration.
+- Support unicast receive with ibverbs acceleration (including in
+  :program:`mcdump`).
 - Fix :program:`spead2_recv` listening only on loopback when given just a port
   number.
 - Support unicast addresses in a few APIs that previously only accepted
