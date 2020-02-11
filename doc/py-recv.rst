@@ -112,7 +112,9 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
    .. py:method:: add_udp_reader(multicast_group, port, max_size=DEFAULT_UDP_MAX_SIZE, buffer_size=DEFAULT_UDP_BUFFER_SIZE, interface_address)
 
-      Feed data from a UDP port with multicast (IPv4 only).
+      Feed data from a UDP port (IPv4 only). This is intended for use with
+      multicast, but it will also accept a unicast address as long as it is the
+      same as the interface address.
 
       :param str multicast_group: Hostname/IP address of the multicast group to subscribe to
       :param int port: UDP port number
