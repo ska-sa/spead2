@@ -272,6 +272,8 @@ public:
 
 /**
  * Create a single flow rule.
+ *
+ * @pre The endpoint contains an IPv4 address.
  */
 ibv_flow_t create_flow(
     const ibv_qp_t &qp, const boost::asio::ip::udp::endpoint &endpoint,
@@ -282,7 +284,7 @@ ibv_flow_t create_flow(
  *
  * If the address in an endpoint is unspecified, it will not be filtered on.
  * Multicast addresses are supported; unicast addresses must have corresponding
- * interfaces (which is used to retrieve the corresponding MAC address).
+ * interfaces (which are used to retrieve the corresponding MAC addresses).
  *
  * @pre The @a endpoints are IPv4 addresses.
  */
