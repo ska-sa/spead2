@@ -106,7 +106,7 @@ static options parse_args(int argc, const char **argv)
         ("pyspead", make_opt(opts.pyspead), "Be bug-compatible with PySPEAD")
         ("joint", make_opt(opts.joint), "Treat all sources as a single stream")
         ("tcp", make_opt(opts.tcp), "Receive data over TCP instead of UDP")
-        ("bind", make_opt(opts.bind), "Interface address (used for multicast and when no address is specified)")
+        ("bind", make_opt(opts.bind), "Interface address")
         ("packet", make_opt_no_default(opts.packet), "Maximum packet size to use")
         ("buffer", make_opt_no_default(opts.buffer), "Socket buffer size")
         ("threads", make_opt(opts.threads), "Number of worker threads")
@@ -319,8 +319,6 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
         }
         else
             port = *i;
-        if (host.empty())
-            host = opts.bind;
 
         bool is_pcap = false;
         try
@@ -361,8 +359,7 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
             }
             else
 #endif
-            if (endpoint.address().is_multicast() && endpoint.address().is_v4()
-                && !opts.bind.empty())
+            if (endpoint.address().is_v4() && !opts.bind.empty())
             {
                 stream->emplace_reader<spead2::recv::udp_reader>(
                     endpoint, opts.packet, opts.buffer,
@@ -370,6 +367,8 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
             }
             else
             {
+                if (!opts.bind.empty())
+                    std::cerr << "--bind is not implemented for IPv6\n";
                 stream->emplace_reader<spead2::recv::udp_reader>(endpoint, opts.packet, opts.buffer);
             }
         }

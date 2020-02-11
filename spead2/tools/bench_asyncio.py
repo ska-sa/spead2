@@ -88,12 +88,7 @@ class SlaveConnection:
                     stream.set_memory_allocator(memory_pool)
                     if args.memcpy_nt:
                         stream.set_memcpy(spead2.MEMCPY_NONTEMPORAL)
-                    if args.multicast is not None:
-                        bind_hostname = args.multicast
-                    elif args.recv_ibv is not None:
-                        bind_hostname = args.recv_ibv
-                    else:
-                        bind_hostname = ''
+                    bind_hostname = '' if args.multicast is None else args.multicast
                     if 'recv_ibv' in args and args.recv_ibv is not None:
                         try:
                             stream.add_udp_ibv_reader(

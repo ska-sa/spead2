@@ -278,13 +278,13 @@ ibv_flow_t create_flow(
     int port_num);
 
 /**
- * Create flow rules to subscribe to a given set of multicast endpoints.
+ * Create flow rules to subscribe to a given set of endpoints.
  *
- * Where supported by the driver, it will coalesce multiple endpoints into a
- * single flow rule with a mask. This only applies per-port; it does not try
- * to identify subscriptions to multiple ports on the same address.
+ * If the address in an endpoint is unspecified, it will not be filtered on.
+ * Multicast addresses are supported; unicast addresses must have corresponding
+ * interfaces (which is used to retrieve the corresponding MAC address).
  *
- * @pre The endpoints are IPv4 multicast addresses.
+ * @pre The @a endpoints are IPv4 addresses.
  */
 std::vector<ibv_flow_t> create_flows(
     const ibv_qp_t &qp, const std::vector<boost::asio::ip::udp::endpoint> &endpoints,

@@ -42,7 +42,7 @@ def get_args():
 
     group = parser.add_argument_group('Protocol options')
     group.add_argument('--tcp', action='store_true', help='Receive data over TCP instead of UDP')
-    group.add_argument('--bind', type=str, default='', help='Interface address (used for multicast and when no address is specified)')
+    group.add_argument('--bind', type=str, default='', help='Interface address')
     group.add_argument('--pyspead', action='store_true', help='Be bug-compatible with PySPEAD')
     group.add_argument('--joint', action='store_true', help='Treat all sources as a single stream')
     group.add_argument('--packet', type=int, default=spead2.recv.Stream.DEFAULT_UDP_MAX_SIZE,
@@ -153,13 +153,11 @@ def main():
                 except AttributeError:
                     raise RuntimeError('spead2 was compiled without pcap support') from None
             else:
-                if args.bind and not host:
-                    host = args.bind
                 if args.tcp:
                     stream.add_tcp_reader(port, args.packet, args.buffer, host)
                 elif 'ibv' in args and args.ibv:
                     ibv_endpoints.append((host, port))
-                elif args.bind and host != args.bind:
+                elif args.bind:
                     stream.add_udp_reader(host, port, args.packet, args.buffer, args.bind)
                 else:
                     stream.add_udp_reader(port, args.packet, args.buffer, host)

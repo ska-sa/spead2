@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019 SKA South Africa
+/* Copyright 2015, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -97,21 +97,29 @@ udp_reader::udp_reader(
 {
 }
 
-static boost::asio::ip::udp::socket make_multicast_v4_socket(
+static boost::asio::ip::udp::socket make_bound_v4_socket(
     boost::asio::io_service &io_service,
     const boost::asio::ip::udp::endpoint &endpoint,
     std::size_t buffer_size,
     const boost::asio::ip::address &interface_address)
 {
-    if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
-        throw std::invalid_argument("endpoint is not an IPv4 multicast address");
     if (!interface_address.is_v4())
         throw std::invalid_argument("interface address is not an IPv4 address");
-    boost::asio::ip::udp::socket socket(io_service, endpoint.protocol());
-    socket.set_option(boost::asio::socket_base::reuse_address(true));
-    socket.set_option(boost::asio::ip::multicast::join_group(
-        endpoint.address().to_v4(), interface_address.to_v4()));
-    return bind_socket(std::move(socket), endpoint, buffer_size);
+    auto ep = endpoint;
+    if (ep.address().is_unspecified())
+        ep.address(interface_address);
+    if (!ep.address().is_v4())
+        throw std::invalid_argument("endpoint is not an IPv4 address");
+    if (!ep.address().is_multicast() && ep.address() != interface_address)
+        throw std::invalid_argument("endpoint is not multicast and does not match interface address");
+    boost::asio::ip::udp::socket socket(io_service, ep.protocol());
+    if (ep.address().is_multicast())
+    {
+        socket.set_option(boost::asio::socket_base::reuse_address(true));
+        socket.set_option(boost::asio::ip::multicast::join_group(
+            ep.address().to_v4(), interface_address.to_v4()));
+    }
+    return bind_socket(std::move(socket), ep, buffer_size);
 }
 
 static boost::asio::ip::udp::socket make_multicast_v6_socket(
@@ -163,8 +171,8 @@ udp_reader::udp_reader(
     const boost::asio::ip::address &interface_address)
     : udp_reader(
         owner,
-        make_multicast_v4_socket(owner.get_io_service(),
-                                 endpoint, buffer_size, interface_address),
+        make_bound_v4_socket(owner.get_io_service(),
+                             endpoint, buffer_size, interface_address),
         max_size)
 {
 }
@@ -303,7 +311,7 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
     std::size_t max_size,
     std::size_t buffer_size)
 {
-    if (endpoint.address().is_v4() && endpoint.address().is_multicast())
+    if (endpoint.address().is_v4())
     {
         std::call_once(ibv_once, init_ibv_override);
 #if SPEAD2_USE_IBV
@@ -326,7 +334,7 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
     std::size_t buffer_size,
     const boost::asio::ip::address &interface_address)
 {
-    if (endpoint.address().is_v4() && endpoint.address().is_multicast())
+    if (endpoint.address().is_v4())
     {
         std::call_once(ibv_once, init_ibv_override);
 #if SPEAD2_USE_IBV

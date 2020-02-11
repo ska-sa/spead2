@@ -224,27 +224,27 @@ public:
         emplace_reader<udp_reader>(std::move(asio_socket), max_size);
     }
 
-    void add_udp_reader_multicast_v4(
-        const std::string &multicast_group,
+    void add_udp_reader_bind_v4(
+        const std::string &address,
         std::uint16_t port,
         std::size_t max_size,
         std::size_t buffer_size,
         const std::string &interface_address)
     {
         py::gil_scoped_release gil;
-        auto endpoint = make_endpoint<boost::asio::ip::udp>(multicast_group, port);
+        auto endpoint = make_endpoint<boost::asio::ip::udp>(address, port);
         emplace_reader<udp_reader>(endpoint, max_size, buffer_size, make_address(interface_address));
     }
 
-    void add_udp_reader_multicast_v6(
-        const std::string &multicast_group,
+    void add_udp_reader_bind_v6(
+        const std::string &address,
         std::uint16_t port,
         std::size_t max_size,
         std::size_t buffer_size,
         unsigned int interface_index)
     {
         py::gil_scoped_release gil;
-        auto endpoint = make_endpoint<boost::asio::ip::udp>(multicast_group, port);
+        auto endpoint = make_endpoint<boost::asio::ip::udp>(address, port);
         emplace_reader<udp_reader>(endpoint, max_size, buffer_size, interface_index);
     }
 
@@ -270,7 +270,7 @@ public:
 
 #if SPEAD2_USE_IBV
     void add_udp_ibv_reader_single(
-        const std::string &multicast_group,
+        const std::string &address,
         std::uint16_t port,
         const std::string &interface_address,
         std::size_t max_size,
@@ -279,7 +279,7 @@ public:
         int max_poll)
     {
         py::gil_scoped_release gil;
-        auto endpoint = make_endpoint<boost::asio::ip::udp>(multicast_group, port);
+        auto endpoint = make_endpoint<boost::asio::ip::udp>(address, port);
         emplace_reader<udp_ibv_reader>(endpoint, make_address(interface_address),
                                        max_size, buffer_size, comp_vector, max_poll);
     }
@@ -297,9 +297,9 @@ public:
         for (size_t i = 0; i < len(endpoints); i++)
         {
             py::sequence endpoint = endpoints[i].cast<py::sequence>();
-            std::string multicast_group = endpoint[0].cast<std::string>();
+            std::string address = endpoint[0].cast<std::string>();
             std::uint16_t port = endpoint[1].cast<std::uint16_t>();
-            endpoints2.push_back(make_endpoint<boost::asio::ip::udp>(multicast_group, port));
+            endpoints2.push_back(make_endpoint<boost::asio::ip::udp>(address, port));
         }
         py::gil_scoped_release gil;
         emplace_reader<udp_ibv_reader>(endpoints2, make_address(interface_address),
@@ -430,13 +430,13 @@ py::module register_module(py::module &parent)
         .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_socket),
               "socket"_a,
               "max_size"_a = udp_reader::default_max_size)
-        .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_multicast_v4),
+        .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_bind_v4),
               "multicast_group"_a,
               "port"_a,
               "max_size"_a = udp_reader::default_max_size,
               "buffer_size"_a = udp_reader::default_buffer_size,
               "interface_address"_a = "0.0.0.0")
-        .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_multicast_v6),
+        .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_bind_v6),
               "multicast_group"_a,
               "port"_a,
               "max_size"_a = udp_reader::default_max_size,

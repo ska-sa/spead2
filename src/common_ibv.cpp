@@ -391,25 +391,30 @@ ibv_flow_t create_flow(
     flow_rule.attr.num_of_specs = 3;
     flow_rule.attr.port = port_num;
 
-    /* At least the ConnectX-3 cards seem to require an Ethernet match. We
-     * thus have to construct the Ethernet multicast address corresponding to
-     * the IP multicast address from RFC 7042.
-     */
     flow_rule.eth.type = IBV_FLOW_SPEC_ETH;
     flow_rule.eth.size = sizeof(flow_rule.eth);
-    mac_address dst_mac;
-    if (endpoint.address().is_multicast())
-        dst_mac = multicast_mac(endpoint.address());
-    else
-        dst_mac = interface_mac(endpoint.address());
-    std::memcpy(&flow_rule.eth.val.dst_mac, &dst_mac, sizeof(dst_mac));
-    std::memset(&flow_rule.eth.mask.dst_mac, 0xFF, sizeof(flow_rule.eth.mask.dst_mac));
-
     flow_rule.ip.type = IBV_FLOW_SPEC_IPV4;
     flow_rule.ip.size = sizeof(flow_rule.ip);
-    auto bytes = endpoint.address().to_v4().to_bytes(); // big-endian address
-    std::memcpy(&flow_rule.ip.val.dst_ip, &bytes, sizeof(bytes));
-    std::memset(&flow_rule.ip.mask.dst_ip, 0xFF, sizeof(flow_rule.ip.mask.dst_ip));
+
+    if (!endpoint.address().is_unspecified())
+    {
+        /* At least the ConnectX-3 cards seem to require an Ethernet match. We
+         * thus have to construct the either the MAC address corresponding to
+         * the IP multicast address from RFC 7042, the interface address for
+         * unicast.
+         */
+        mac_address dst_mac;
+        if (endpoint.address().is_multicast())
+            dst_mac = multicast_mac(endpoint.address());
+        else
+            dst_mac = interface_mac(endpoint.address());
+        std::memcpy(&flow_rule.eth.val.dst_mac, &dst_mac, sizeof(dst_mac));
+        std::memset(&flow_rule.eth.mask.dst_mac, 0xFF, sizeof(flow_rule.eth.mask.dst_mac));
+
+        auto bytes = endpoint.address().to_v4().to_bytes(); // big-endian address
+        std::memcpy(&flow_rule.ip.val.dst_ip, &bytes, sizeof(bytes));
+        std::memset(&flow_rule.ip.mask.dst_ip, 0xFF, sizeof(flow_rule.ip.mask.dst_ip));
+    }
 
     flow_rule.udp.type = IBV_FLOW_SPEC_UDP;
     flow_rule.udp.size = sizeof(flow_rule.udp);

@@ -80,7 +80,7 @@ udp_ibv_reader_core::udp_ibv_reader_core(
     stop_poll(false)
 {
     for (const auto &endpoint : endpoints)
-        if (!endpoint.address().is_v4())
+        if (!endpoint.address().is_unspecified() && !endpoint.address().is_v4())
         {
             std::ostringstream msg;
             msg << "endpoint " << endpoint << " is not an IPv4 address";
