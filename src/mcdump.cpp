@@ -764,23 +764,32 @@ void capture_base::run()
 
     if (opts.network_affinity >= 0)
         spead2::thread_pool::set_affinity(opts.network_affinity);
-    network_thread();
-    ring.stop();
+    try
+    {
+        network_thread();
+        ring.stop();
 
-    /* Briefly sleep so that we can unsubscribe from the switch before we shut
-     * down the QP. This makes it more likely that we can avoid incrementing
-     * the dropped packets counter on the NIC.
-     */
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    if (has_file)
-        collect_future.get();
-    // Restore SIGINT handler
-    sigaction(SIGINT, &old_act, &act);
-    time_point now = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = now - start_time;
-    std::cout << "\n\n" << packets << " packets captured (" << bytes << " bytes) in "
-        << elapsed.count() << "s\n"
-        << errors << " errors\n";
+        /* Briefly sleep so that we can unsubscribe from the switch before we shut
+         * down the QP. This makes it more likely that we can avoid incrementing
+         * the dropped packets counter on the NIC.
+         */
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        if (has_file)
+            collect_future.get();
+        // Restore SIGINT handler
+        sigaction(SIGINT, &old_act, &act);
+        time_point now = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = now - start_time;
+        std::cout << "\n\n" << packets << " packets captured (" << bytes << " bytes) in "
+            << elapsed.count() << "s\n"
+            << errors << " errors\n";
+    }
+    catch (...)
+    {
+        ring.stop();
+        sigaction(SIGINT, &old_act, &act);
+        throw;
+    }
 }
 
 class capture : public capture_base
