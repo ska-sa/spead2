@@ -12,9 +12,8 @@ echo "CXX = ${CXX:=g++}"
 
 if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
     if [[ "$PYTHON" == "python3" ]]; then
-        brew update
-        brew upgrade python
-        pyvenv venv
+        python3 --version
+        python3 -m venv venv
     fi
 elif [[ "$PYTHON" == pypy* ]]; then
     curl -fSL https://bitbucket.org/pypy/pypy/downloads/${PYTHON}-v${PYPY_VERSION}-linux64.tar.bz2 | tar -jx
