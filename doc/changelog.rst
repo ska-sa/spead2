@@ -3,6 +3,12 @@ Changelog
 
 .. rubric:: Development version
 
+- Support unicast receive with ibverbs acceleration.
+- Fix :program:`spead2_recv` listening only on loopback when given just a port
+  number.
+- Support unicast addresses in a few APIs that previously only accepted
+  multicast addresses; in most cases the unicast address must match the
+  interface address.
 - Add missing ``<map>`` include to ``<spead2/recv_heap.h>``.
 - Show the values of immediate items in :program:`spead2_recv`.
 - Fix occasional crash when using thread pool with more than one thread
