@@ -15,7 +15,9 @@ Changelog
 - Fix occasional crash when using thread pool with more than one thread
   together with ibverbs.
 - Fix bug in mcdump causing it to hang if the arguments couldn't be parsed
-  and capturing to file.
+  (only happened when capturing to file).
+- Fix :program:`spead2_recv` reporting statistics that may miss out the last
+  batch of packets.
 
 .. rubric:: 2.0.2
 

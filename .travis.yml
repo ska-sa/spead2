@@ -38,10 +38,10 @@ matrix:
       dist: xenial
       env: TEST_PYTHON=yes PYTHON=python3 CC="clang" CXX="clang++"
     - os: osx
-      osx_image: xcode8.3
+      osx_image: xcode9.4
       env: TEST_CXX=yes CXX="clang++"
     - os: osx
-      osx_image: xcode8.3
+      osx_image: xcode9.4
       env: TEST_PYTHON=yes PYTHON=python3 CC="clang" CXX="clang++"
 
 addons:

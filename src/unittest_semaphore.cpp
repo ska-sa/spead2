@@ -44,10 +44,11 @@ typedef boost::mpl::list<
     spead2::semaphore_eventfd,
 #endif
 #if SPEAD2_USE_POSIX_SEMAPHORES
-    spead2::semaphore_posix,
+    spead2::semaphore_posix
+#else
+    spead2::semaphore      // a new type only when not using posix semaphores
 #endif
-    spead2::semaphore_fd,
-    spead2::semaphore> semaphore_types;
+    > semaphore_types;
 
 typedef boost::mpl::list<
 #if SPEAD2_USE_EVENTFD
