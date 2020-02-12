@@ -1,4 +1,4 @@
-/* Copyright 2016, 2019 SKA South Africa
+/* Copyright 2016, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -92,6 +92,21 @@ private:
 
     void async_send_packets();
 
+    /**
+     * Constructor implementation. This is a common backend for the public constructors.
+     */
+    udp_ibv_stream(
+        bool multicast,
+        io_service_ref io_service,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        const mac_address &destination_mac,
+        const stream_config &config,
+        const boost::asio::ip::address &interface_address,
+        std::size_t buffer_size,
+        int ttl,
+        int comp_vector,
+        int max_poll);
+
 public:
     /// Default send buffer size, if none is passed to the constructor
     static constexpr std::size_t default_buffer_size = 512 * 1024;
@@ -131,6 +146,45 @@ public:
         const boost::asio::ip::address &interface_address,
         std::size_t buffer_size = default_buffer_size,
         int ttl = 1,
+        int comp_vector = 0,
+        int max_poll = default_max_poll);
+
+    /**
+     * Constructor for unicast. This is an @em experimental API that will
+     * likely be removed in future. It requires the user to provide the
+     * destination MAC address, rather than inferring it from kernel routing
+     * tables and ARP.
+     *
+     * @param io_service   I/O service for sending data
+     * @param endpoint     Multicast group and port
+     * @param destination_mac  Next-hop MAC address
+     * @param config       Stream configuration
+     * @param interface_address   Address of the outgoing interface
+     * @param buffer_size  Socket buffer size (0 for OS default)
+     * @param comp_vector  Completion channel vector (interrupt) for asynchronous operation, or
+     *                     a negative value to poll continuously. Polling
+     *                     should not be used if there are other users of the
+     *                     thread pool. If a non-negative value is provided, it
+     *                     is taken modulo the number of available completion
+     *                     vectors. This allows a number of readers to be
+     *                     assigned sequential completion vectors and have them
+     *                     load-balanced, without concern for the number
+     *                     available.
+     * @param max_poll     Maximum number of times to poll in a row, without
+     *                     waiting for an interrupt (if @a comp_vector is
+     *                     non-negative) or letting other code run on the
+     *                     thread (if @a comp_vector is negative).
+     *
+     * @throws std::invalid_argument if @a endpoint is not an IPv4 multicast address
+     * @throws std::invalid_argument if @a interface_address is not an IPv4 address
+     */
+    udp_ibv_stream(
+        io_service_ref io_service,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        const mac_address &destination_mac,
+        const stream_config &config,
+        const boost::asio::ip::address &interface_address,
+        std::size_t buffer_size = default_buffer_size,
         int comp_vector = 0,
         int max_poll = default_max_poll);
 

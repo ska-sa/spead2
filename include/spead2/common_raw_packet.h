@@ -28,6 +28,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <string>
 #include <array>
 #include <boost/preprocessor/cat.hpp>
 #include <boost/asio/ip/address_v4.hpp>
@@ -47,6 +48,14 @@ typedef std::array<std::uint8_t, 6> mac_address;
  */
 mac_address multicast_mac(const boost::asio::ip::address_v4 &address);
 mac_address multicast_mac(const boost::asio::ip::address &address);
+
+/**
+ * Parse a MAC address from a string. It must have the format
+ * xx:xx:xx:xx:xx:xx, where each x is a hex digit (upper or lower case).
+ *
+ * @throw std::invalid_argument if it does not conform to the format.
+ */
+mac_address parse_mac(const std::string &mac);
 
 /**
  * Determine the MAC address for an interface, given the interface's IP address.

@@ -1,4 +1,4 @@
-/* Copyright 2016, 2017, 2019 SKA South Africa
+/* Copyright 2016, 2017, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -28,6 +28,7 @@
 #include <boost/asio.hpp>
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_semaphore.h>
+#include <spead2/common_raw_packet.h>
 #include <spead2/send_stream.h>
 #include <spead2/send_udp.h>
 #include <spead2/send_tcp.h>
@@ -49,6 +50,7 @@ struct options
     bool pyspead = false;
     bool tcp = false;
     std::string bind;
+    std::string mac;
     int addr_bits = 40;
     std::size_t packet = spead2::send::stream_config::default_max_packet_size;
     std::size_t buffer;
@@ -101,6 +103,7 @@ static options parse_args(int argc, const char **argv)
         ("addr-bits", make_opt(opts.addr_bits), "Heap address bits")
         ("tcp", make_opt(opts.tcp), "Use TCP instead than UDP")
         ("bind", make_opt(opts.bind), "Local address to bind sockets to")
+        ("mac", make_opt(opts.mac), "Next-hop MAC address (for unicast with --ibv)")
         ("packet", make_opt(opts.packet), "Maximum packet size to send")
         ("buffer", make_opt_no_default(opts.buffer), "Socket buffer size")
         ("burst", make_opt(opts.burst), "Burst size")
@@ -326,8 +329,12 @@ int main(int argc, const char **argv)
     std::unique_ptr<spead2::send::stream> stream;
     auto &io_service = thread_pool.get_io_service();
     boost::asio::ip::address interface_address;
+    spead2::mac_address destination_mac{};
+
     if (!opts.bind.empty())
         interface_address = boost::asio::ip::address::from_string(opts.bind);
+    if (!opts.mac.empty())
+        destination_mac = spead2::parse_mac(opts.mac);
 
     if (opts.tcp) {
         tcp::endpoint endpoint = get_endpoint<tcp>(io_service, opts);
@@ -348,10 +355,20 @@ int main(int argc, const char **argv)
 #if SPEAD2_USE_IBV
         if (opts.ibv)
         {
-            stream.reset(new spead2::send::udp_ibv_stream(
-                    io_service, endpoint, config,
-                    interface_address, opts.buffer, opts.ttl,
-                    opts.ibv_comp_vector, opts.ibv_max_poll));
+            if (endpoint.address().is_multicast())
+                stream.reset(new spead2::send::udp_ibv_stream(
+                        io_service, endpoint, config,
+                        interface_address, opts.buffer, opts.ttl,
+                        opts.ibv_comp_vector, opts.ibv_max_poll));
+            else
+            {
+                if (opts.mac.empty())
+                    throw std::runtime_error("--ibv with unicast requires --mac");
+                stream.reset(new spead2::send::udp_ibv_stream(
+                        io_service, endpoint, destination_mac, config,
+                        interface_address, opts.buffer,
+                        opts.ibv_comp_vector, opts.ibv_max_poll));
+            }
         }
         else
 #endif

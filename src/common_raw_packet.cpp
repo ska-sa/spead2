@@ -67,6 +67,36 @@ mac_address multicast_mac(const boost::asio::ip::address &address)
     return multicast_mac(address.to_v4());
 }
 
+mac_address parse_mac(const std::string &mac)
+{
+    const char *format_msg = "MAC address does not conform to the xx:xx:xx:xx:xx:xx format";
+    if (mac.size() != 17)
+        throw std::invalid_argument(format_msg);
+    for (int i = 2; i < 17; i += 3)
+        if (mac[i] != ':')
+            throw std::invalid_argument(format_msg);
+    mac_address out;
+    for (int i = 0; i < 6; i++)
+    {
+        std::uint8_t byte = 0;
+        for (int j = 0; j < 2; j++)
+        {
+            byte <<= 4;
+            char c = mac[i * 3 + j];
+            if (c >= '0' && c <= '9')
+                byte += c - '0';
+            else if (c >= 'A' && c <= 'F')
+                byte += c - 'A' + 10;
+            else if (c >= 'a' && c <= 'f')
+                byte += c - 'a' + 10;
+            else
+                throw std::invalid_argument(format_msg);
+        }
+        out[i] = byte;
+    }
+    return out;
+}
+
 namespace
 {
 struct freeifaddrs_deleter

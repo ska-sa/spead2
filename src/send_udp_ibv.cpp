@@ -176,8 +176,10 @@ static std::size_t calc_n_slots(const stream_config &config, std::size_t buffer_
 }
 
 udp_ibv_stream::udp_ibv_stream(
+    bool multicast,
     io_service_ref io_service,
     const boost::asio::ip::udp::endpoint &endpoint,
+    const mac_address &destination_mac,
     const stream_config &config,
     const boost::asio::ip::address &interface_address,
     std::size_t buffer_size,
@@ -192,8 +194,16 @@ udp_ibv_stream::udp_ibv_stream(
     comp_channel_wrapper(get_io_service()),
     max_poll(max_poll)
 {
-    if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
-        throw std::invalid_argument("endpoint is not an IPv4 multicast address");
+    if (multicast)
+    {
+        if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
+            throw std::invalid_argument("endpoint is not an IPv4 multicast address");
+    }
+    else
+    {
+        if (!endpoint.address().is_v4() || endpoint.address().is_multicast())
+            throw std::invalid_argument("endpoint is not an IPv4 unicast address");
+    }
     if (!interface_address.is_v4())
         throw std::invalid_argument("interface address is not an IPv4 address");
     if (max_poll <= 0)
@@ -224,7 +234,6 @@ udp_ibv_stream::udp_ibv_stream(
     buffer = allocator->allocate(max_raw_size * n_slots, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
     slots.reset(new slot[n_slots]);
-    mac_address destination_mac = multicast_mac(endpoint.address());
     mac_address source_mac = interface_mac(interface_address);
     for (std::size_t i = 0; i < n_slots; i++)
     {
@@ -254,6 +263,36 @@ udp_ibv_stream::udp_ibv_stream(
         udp.checksum(0);
         available.push_back(&slots[i]);
     }
+}
+
+udp_ibv_stream::udp_ibv_stream(
+    io_service_ref io_service,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    const stream_config &config,
+    const boost::asio::ip::address &interface_address,
+    std::size_t buffer_size,
+    int ttl,
+    int comp_vector,
+    int max_poll)
+    : udp_ibv_stream(true, std::move(io_service), endpoint, multicast_mac(endpoint.address()),
+                     config, interface_address, buffer_size, ttl, comp_vector,
+                     max_poll)
+{
+}
+
+udp_ibv_stream::udp_ibv_stream(
+    io_service_ref io_service,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    const mac_address &destination_mac,
+    const stream_config &config,
+    const boost::asio::ip::address &interface_address,
+    std::size_t buffer_size,
+    int comp_vector,
+    int max_poll)
+    : udp_ibv_stream(false, std::move(io_service), endpoint, destination_mac,
+                     config, interface_address, buffer_size, 64, comp_vector,
+                     max_poll)
+{
 }
 
 udp_ibv_stream::~udp_ibv_stream()
