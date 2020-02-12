@@ -19,7 +19,10 @@ if [ "$TEST_CXX" = "yes" ]; then
         --disable-optimized \
         CXXFLAGS=-Werror
     make -j4
-    make -j4 check
+    if ! make -j4 check; then
+        cat src/test-suite.log
+        exit 1
+    fi
     popd
 fi
 
