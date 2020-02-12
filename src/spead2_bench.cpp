@@ -69,6 +69,7 @@ struct options
     std::size_t mem_initial = 8;
 
     std::string send_ibv_if;
+    std::string send_mac;
     int send_ibv_comp_vector = 0;
     int send_ibv_max_poll =
 #if SPEAD2_USE_IBV
@@ -148,6 +149,7 @@ static options parse_args(int argc, const char **argv, command_mode mode)
             ("multicast", make_opt(opts.multicast), "Multicast group to use, instead of unicast")
 #if SPEAD2_USE_IBV
             ("send-ibv", make_opt(opts.send_ibv_if), "Interface address for ibverbs (sender)")
+            ("send-mac", make_opt(opts.send_mac), "MAC address of next hop (sender)")
             ("send-ibv-vector", make_opt(opts.send_ibv_comp_vector), "Interrupt vector (-1 for polled) (sender)")
             ("send-ibv-max-poll", make_opt(opts.send_ibv_max_poll), "Maximum number of times to poll in a row (sender)")
             ("recv-ibv", make_opt(opts.recv_ibv_if), "Interface address for ibverbs (receiver)")
@@ -371,9 +373,24 @@ static std::pair<bool, double> measure_connection_once(
         {
             boost::asio::ip::address interface_address =
                 boost::asio::ip::address::from_string(opts.send_ibv_if);
-            stream.reset(new spead2::send::udp_ibv_stream(
-                thread_pool.get_io_service(), endpoint, config, interface_address,
-                opts.send_buffer, 1, opts.send_ibv_comp_vector, opts.send_ibv_max_poll));
+            if (opts.send_mac.empty() && opts.multicast.empty())
+            {
+                std::cerr << "--send-ibv requires either --multicast or --send-mac\n";
+                std::exit(1);
+            }
+            else if (!opts.multicast.empty())
+            {
+                stream.reset(new spead2::send::udp_ibv_stream(
+                    thread_pool.get_io_service(), endpoint, config, interface_address,
+                    opts.send_buffer, 1, opts.send_ibv_comp_vector, opts.send_ibv_max_poll));
+            }
+            else
+            {
+                auto mac = spead2::parse_mac(opts.send_mac);
+                stream.reset(new spead2::send::udp_ibv_stream(
+                    thread_pool.get_io_service(), endpoint, mac, config, interface_address,
+                    opts.send_buffer, opts.send_ibv_comp_vector, opts.send_ibv_max_poll));
+            }
         }
         else
 #endif
