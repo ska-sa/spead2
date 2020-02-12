@@ -15,7 +15,7 @@ Changelog
 - Fix occasional crash when using thread pool with more than one thread
   together with ibverbs.
 - Fix bug in mcdump causing it to hang if the arguments couldn't be parsed
-  and capturing to file.
+  (only happened when capturing to file).
 
 .. rubric:: 2.0.2
 
