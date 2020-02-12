@@ -1,4 +1,4 @@
-/* Copyright 2016, 2019 SKA South Africa
+/* Copyright 2016, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -228,7 +228,7 @@ void udp_ibv_reader_base<Derived>::enqueue_receive(bool need_poll)
 
 /**
  * Synchronous or asynchronous stream reader that reads UDP packets using
- * the Infiniband verbs API. It currently only supports multicast IPv4, with
+ * the Infiniband verbs API. It currently only supports IPv4, with
  * no fragmentation, IP header options, or VLAN tags.
  */
 class udp_ibv_reader : public detail::udp_ibv_reader_base<udp_ibv_reader>
@@ -266,7 +266,11 @@ public:
      * Constructor.
      *
      * @param owner        Owning stream
-     * @param endpoint     Multicast group and port
+     * @param endpoint     Address and port. Note that is it possible for the address to be
+     *                     unicast and different to the @a interface_address: the interface
+     *                     may have multiple IP addresses, in which case this filters packets
+     *                     on the interface by IP address. An unspecified address can also be
+     *                     used to skip address filtering.
      * @param interface_address  Address of the interface which should join the group and listen for data
      * @param max_size     Maximum packet size that will be accepted
      * @param buffer_size  Requested memory allocation for work requests. Note
@@ -287,7 +291,8 @@ public:
      *                     non-negative) or letting other code run on the
      *                     thread (if @a comp_vector is negative).
      *
-     * @throws std::invalid_argument If @a endpoint is not an IPv4 multicast address
+     * @throws std::invalid_argument If @a endpoint is specified and is not an
+     *                               IPv4 address
      * @throws std::invalid_argument If @a interface_address is not an IPv4 address
      */
     udp_ibv_reader(
@@ -303,7 +308,11 @@ public:
      * Constructor with multiple endpoints.
      *
      * @param owner        Owning stream
-     * @param endpoints    Multicast groups and ports
+     * @param endpoints    Addresses and ports. Note that is it possible for the addresses to be
+     *                     unicast and different to the @a interface_address: the interface
+     *                     may have multiple IP addresses, in which case this filters packets
+     *                     on the interface by IP address. An unspecified address can also be
+     *                     used to skip address filtering.
      * @param interface_address  Address of the interface which should join the group and listen for data
      * @param max_size     Maximum packet size that will be accepted
      * @param buffer_size  Requested memory allocation for work requests. Note
@@ -324,7 +333,8 @@ public:
      *                     non-negative) or letting other code run on the
      *                     thread (if @a comp_vector is negative).
      *
-     * @throws std::invalid_argument If any element of @a endpoints is not an IPv4 multicast address
+     * @throws std::invalid_argument If any element of @a endpoints is specified and is not
+     *                               an IPv4 address
      * @throws std::invalid_argument If @a interface_address is not an IPv4 address
      */
     udp_ibv_reader(

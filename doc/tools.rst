@@ -44,7 +44,7 @@ tuning that allow for exploration.
 mcdump
 ------
 mcdump is a tool similar to tcpdump_, but specialised for high-speed capture of
-multicast UDP traffic using hardware that supports the Infiniband Verbs API. It
+UDP traffic using hardware that supports the Infiniband Verbs API. It
 has only been tested on Mellanox ConnectX-3 and ConnectX-5 NICs. Like gulp_, it
 uses a separate thread for disk I/O and CPU core affinity to achieve reliable
 performance. With a sufficiently fast disk subsystem, it is able to capture
@@ -77,6 +77,11 @@ multicast group *yy.yy.yy.yy* on UDP port *zzzz*. mcdump will take care of
 subscribing to the multicast group. Note that only IPv4 is supported. Capture
 continues until interrupted by :kbd:`Ctrl-C`. You can also list more
 :samp:`{group}:{port}` pairs, which will all stored in the same pcap file.
+
+While originally written for multicast, mcdump also supports unicast. An IP
+address must still be provided; usually it will be the same as the interface
+address, but it could be a different address if the interface has multiple IP
+addresses.
 
 You can also specify ``-`` in place of the filename to suppress the write to
 file. This is useful to simply count the bytes/packets received without being
@@ -115,7 +120,7 @@ Limitations
   detected at compile time. Otherwise, all packets have a zero timestamp in the
   file.
 
-- Only IPv4 multicast is supported.
+- Only IPv4 is supported.
 
 - It is not optimised for small packets (below about 1KB). Packet capture rates
   top out around 6Mpps for current hardware.

@@ -1,4 +1,4 @@
-# Copyright 2015, 2017-2019 SKA South Africa
+# Copyright 2015, 2017-2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -42,7 +42,7 @@ def get_args():
 
     group = parser.add_argument_group('Protocol options')
     group.add_argument('--tcp', action='store_true', help='Receive data over TCP instead of UDP')
-    group.add_argument('--bind', type=str, default='', help='Interface address for multicast')
+    group.add_argument('--bind', type=str, default='', help='Interface address')
     group.add_argument('--pyspead', action='store_true', help='Be bug-compatible with PySPEAD')
     group.add_argument('--joint', action='store_true', help='Treat all sources as a single stream')
     group.add_argument('--packet', type=int, default=spead2.recv.Stream.DEFAULT_UDP_MAX_SIZE,
@@ -156,10 +156,8 @@ def main():
                 if args.tcp:
                     stream.add_tcp_reader(port, args.packet, args.buffer, host)
                 elif 'ibv' in args and args.ibv:
-                    if host is None:
-                        raise ValueError('a multicast group is required when using --ibv')
                     ibv_endpoints.append((host, port))
-                elif args.bind and host:
+                elif args.bind:
                     stream.add_udp_reader(host, port, args.packet, args.buffer, args.bind)
                 else:
                     stream.add_udp_reader(port, args.packet, args.buffer, host)

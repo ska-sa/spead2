@@ -3,10 +3,19 @@ Changelog
 
 .. rubric:: Development version
 
+- Support unicast receive with ibverbs acceleration (including in
+  :program:`mcdump`).
+- Fix :program:`spead2_recv` listening only on loopback when given just a port
+  number.
+- Support unicast addresses in a few APIs that previously only accepted
+  multicast addresses; in most cases the unicast address must match the
+  interface address.
 - Add missing ``<map>`` include to ``<spead2/recv_heap.h>``.
 - Show the values of immediate items in :program:`spead2_recv`.
 - Fix occasional crash when using thread pool with more than one thread
   together with ibverbs.
+- Fix bug in mcdump causing it to hang if the arguments couldn't be parsed
+  (only happened when capturing to file).
 
 .. rubric:: 2.0.2
 

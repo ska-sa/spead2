@@ -8,9 +8,9 @@ of libibverbs.
 
 There are a number of limitations in the current implementation:
 
- - Only IPv4 is supported
- - VLAN tagging, IP optional headers, and IP fragmentation are not supported
- - Only multicast is supported.
+ - Only IPv4 is supported.
+ - VLAN tagging, IP optional headers, and IP fragmentation are not supported.
+ - For sending, only multicast is supported.
 
 Within these limitations, it is quite easy to take advantage of this faster
 code path. The main difficulty is that one *must* specify the IP address of
@@ -55,7 +55,11 @@ The ibverbs API can be used programmatically by using an extra method of
       place of `endpoints`.
 
       :param list endpoints: List of 2-tuples, each containing a
-        hostname/IP address the multicast group and the UDP port number.
+        hostname/IP address and the UDP port number. The address may be either
+        unicast or multicast, but in the former case there must be
+        an interface with that IP address (usually it will be the same as
+        `interface_address`, but this is not required as an interface may have
+        multiple IP addresses).
       :param str interface_address: Hostname/IP address of the interface which
         will be subscribed
       :param int max_size: Maximum packet size that will be accepted
