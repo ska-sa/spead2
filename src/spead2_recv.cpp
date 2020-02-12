@@ -445,8 +445,15 @@ int main(int argc, const char **argv)
     }
     signals.cancel();
     spead2::recv::stream_stats stats;
-    for (const auto &ptr : streams)
+    for (auto &ptr : streams)
+    {
+        /* Even though we've seen the stop condition, if we don't explicitly
+         * stop the stream then a race condition means we might not see the
+         * last batch of statistics updates.
+         */
+        ptr->stop();
         stats += ptr->get_stats();
+    }
 
     std::cout << "Received " << n_complete << " heaps\n";
 #define REPORT_STAT(field) (std::cout << #field ": " << stats.field << '\n')
