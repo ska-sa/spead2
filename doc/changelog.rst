@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 2.1.0
 
 - Support unicast receive with ibverbs acceleration (including in
   :program:`mcdump`).
