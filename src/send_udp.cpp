@@ -248,7 +248,7 @@ udp_stream::udp_stream(
         auto &hdr = msgvec[i].msg_hdr;
         hdr.msg_name = (void *) this->endpoint.data();
         hdr.msg_namelen = this->endpoint.size();
-    }   
+    }
 #endif // SPEAD2_USE_SENDMMSG
 }
 
