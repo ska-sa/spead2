@@ -111,6 +111,7 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
            Use the overload that doesn't take a `buffer_size` or `bind_hostname`.
 
    .. py:method:: add_udp_reader(multicast_group, port, max_size=DEFAULT_UDP_MAX_SIZE, buffer_size=DEFAULT_UDP_BUFFER_SIZE, interface_address)
+      :noindex:
 
       Feed data from a UDP port (IPv4 only). This is intended for use with
       multicast, but it will also accept a unicast address as long as it is the
@@ -126,6 +127,7 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
         will be subscribed, or the empty string to let the OS decide.
 
    .. py:method:: add_udp_reader(multicast_group, port, max_size=DEFAULT_UDP_MAX_SIZE, buffer_size=DEFAULT_UDP_BUFFER_SIZE, interface_index)
+      :noindex:
 
       Feed data from a UDP port with multicast (IPv6 only).
 
@@ -153,6 +155,7 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
         first IP address found by resolving the given hostname.
 
    .. py:method:: add_tcp_reader(acceptor, max_size=DEFAULT_TCP_MAX_SIZE)
+      :noindex:
 
       Receive data over TCP/IP. This is similar to the previous overload, but
       takes a user-provided socket, which must already be listening for
