@@ -165,7 +165,6 @@ SPEAD2_ARG_WITH(
 ### Determine libraries to link against
 
 LIBS="-lboost_system -lpthread -ldl"
-AS_IF([test "x$SPEAD2_USE_IBV" = "x1"], [LIBS="$LIBS"])
 AS_IF([test "x$SPEAD2_USE_PCAP" = "x1"], [LIBS="-lpcap $LIBS"])
 
 ### Build variants
