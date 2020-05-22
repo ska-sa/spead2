@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2015, 2017, 2019 SKA South Africa
+# Copyright 2015, 2017, 2019-2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -15,13 +15,15 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import print_function
-from setuptools import setup, find_packages, Extension
-from setuptools.command.build_ext import build_ext
 import glob
 import os
 import os.path
 import subprocess
+
+from setuptools import setup, find_packages, Extension
+from setuptools.command.build_ext import build_ext
+
+import pybind11
 
 
 def find_version():
@@ -121,13 +123,6 @@ if not rtd:
         raise SystemExit("configure not found. Either download a release " +
                          "from https://pypi.python.org/pypi/spead2 or run " +
                          "./bootstrap.sh if not using a release.")
-    if not os.path.exists(os.path.join(
-            os.path.dirname(__file__),
-            '3rdparty', 'pybind11', 'include', 'pybind11', 'pybind11.h')):
-        raise SystemExit("pybind11 not found. Either download a release " +
-                         "from https://pypi.python.org/pypi/spead2 or run " +
-                         "git submodule update --init --recursive if not " +
-                         "using a release.")
 
     libraries = ['boost_system']
 
@@ -140,7 +135,7 @@ if not rtd:
                      glob.glob('src/py_*.cpp')),
             depends=glob.glob('include/spead2/*.h'),
             language='c++',
-            include_dirs=['include', '3rdparty/pybind11/include'],
+            include_dirs=['include', pybind11.get_include()],
             extra_compile_args=['-std=c++11', '-g0', '-fvisibility=hidden'],
             libraries=libraries)
     ]
