@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: 2.1.1
+
+- Update pybind to 2.5.0.
+- Fix compilation against latest rdma-core.
+- Some documentation cleanup.
+
 .. rubric:: 2.1.0
 
 - Support unicast receive with ibverbs acceleration (including in
