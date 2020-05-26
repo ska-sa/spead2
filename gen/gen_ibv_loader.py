@@ -132,6 +132,10 @@ HEADER = PREFIX + '''\
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
 
+{% for node in nodes -%}
+#undef {{ node.name }}
+{% endfor %}
+
 namespace spead2
 {
 
