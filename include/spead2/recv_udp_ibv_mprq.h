@@ -1,4 +1,4 @@
-/* Copyright 2019 SKA South Africa
+/* Copyright 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -25,7 +25,7 @@
 # define _GNU_SOURCE
 #endif
 #include <spead2/common_features.h>
-#if SPEAD2_USE_IBV_MPRQ
+#if SPEAD2_USE_MLX5DV
 #include <infiniband/verbs.h>
 #include <rdma/rdma_cma.h>
 
@@ -57,11 +57,8 @@ private:
     friend class detail::udp_ibv_reader_base<udp_ibv_mprq_reader>;
 
     // All the data structures required by ibverbs
-    ibv_exp_res_domain_t res_domain;
-    ibv_exp_wq_t wq;
-    ibv_exp_rwq_ind_table_t rwq_ind_table;
-    ibv_exp_cq_family_v1_t cq_intf;
-    ibv_exp_wq_family_t wq_intf;
+    ibv_wq_t wq;
+    ibv_rwq_ind_table_t rwq_ind_table;
     ibv_qp_t qp;
     ibv_mr_t mr;
 

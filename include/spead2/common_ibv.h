@@ -36,8 +36,8 @@
 
 #if SPEAD2_USE_IBV
 
-#if SPEAD2_USE_IBV_EXP
-# include <infiniband/verbs_exp.h>
+#if SPEAD2_USE_MLX5DV
+# include <infiniband/mlx5dv.h>
 #endif
 
 namespace spead2
@@ -120,23 +120,23 @@ struct ibv_flow_deleter
     }
 };
 
+struct ibv_wq_deleter
+{
+    void operator()(ibv_wq *wq)
+    {
+        ibv_destroy_wq(wq);
+    }
+};
+
+struct ibv_rwq_ind_table_deleter
+{
+    void operator()(ibv_rwq_ind_table *table)
+    {
+        ibv_destroy_rwq_ind_table(table);
+    }
+};
+
 #if SPEAD2_USE_IBV_MPRQ
-
-struct ibv_exp_wq_deleter
-{
-    void operator()(ibv_exp_wq *wq)
-    {
-        ibv_exp_destroy_wq(wq);
-    }
-};
-
-struct ibv_exp_rwq_ind_table_deleter
-{
-    void operator()(ibv_exp_rwq_ind_table *table)
-    {
-        ibv_exp_destroy_rwq_ind_table(table);
-    }
-};
 
 class ibv_intf_deleter
 {
@@ -146,16 +146,6 @@ private:
 public:
     explicit ibv_intf_deleter(struct ibv_context *context = nullptr) noexcept;
     void operator()(void *intf);
-};
-
-class ibv_exp_res_domain_deleter
-{
-private:
-    struct ibv_context *context;
-
-public:
-    explicit ibv_exp_res_domain_deleter(struct ibv_context *context = nullptr) noexcept;
-    void operator()(ibv_exp_res_domain *res_domain);
 };
 
 #endif
@@ -175,9 +165,11 @@ public:
     rdma_cm_id_t(const rdma_event_channel_t &cm_id, void *context, rdma_port_space ps);
 
     void bind_addr(const boost::asio::ip::address &addr);
-    ibv_device_attr query_device() const;
-#if SPEAD2_USE_IBV_EXP
-    ibv_exp_device_attr exp_query_device() const;
+    ibv_device_attr query_device() const;  // for backwards compatibility
+    ibv_device_attr_ex query_device_ex(const ibv_query_device_ex_input *input = nullptr) const;
+#if SPEAD2_USE_MLX5DV
+    bool mlx5dv_is_supported() const;
+    mlx5dv_context mlx5dv_query_device() const;
 #endif
 };
 
@@ -243,9 +235,7 @@ class ibv_qp_t : public std::unique_ptr<ibv_qp, detail::ibv_qp_deleter>
 public:
     ibv_qp_t() = default;
     ibv_qp_t(const ibv_pd_t &pd, ibv_qp_init_attr *init_attr);
-#if SPEAD2_USE_IBV_MPRQ
-    ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_exp_qp_init_attr *init_attr);
-#endif
+    ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_qp_init_attr_ex *init_attr);
 
     void modify(ibv_qp_attr *attr, int attr_mask);
     void modify(ibv_qp_state qp_state);
@@ -311,13 +301,13 @@ public:
     ibv_exp_cq_family_v1_t(const rdma_cm_id_t &cm_id, const ibv_cq_t &cq);
 };
 
-class ibv_exp_wq_t : public std::unique_ptr<ibv_exp_wq, detail::ibv_exp_wq_deleter>
+class ibv_wq_t : public std::unique_ptr<ibv_wq, detail::ibv_wq_deleter>
 {
 public:
-    ibv_exp_wq_t() = default;
-    ibv_exp_wq_t(const rdma_cm_id_t &cm_id, ibv_exp_wq_init_attr *attr);
+    ibv_wq_t() = default;
+    ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr);
 
-    void modify(ibv_exp_wq_state state);
+    void modify(ibv_wq_state state);
 };
 
 class ibv_exp_wq_family_t : public std::unique_ptr<ibv_exp_wq_family, detail::ibv_intf_deleter>
@@ -327,25 +317,18 @@ public:
     ibv_exp_wq_family_t(const rdma_cm_id_t &cm_id, const ibv_exp_wq_t &wq);
 };
 
-class ibv_exp_rwq_ind_table_t : public std::unique_ptr<ibv_exp_rwq_ind_table, detail::ibv_exp_rwq_ind_table_deleter>
+#endif // SPEAD2_USE_IBV_MPRQ
+
+class ibv_rwq_ind_table_t : public std::unique_ptr<ibv_rwq_ind_table, detail::ibv_rwq_ind_table_deleter>
 {
 public:
-    ibv_exp_rwq_ind_table_t() = default;
-    ibv_exp_rwq_ind_table_t(const rdma_cm_id_t &cm_id, ibv_exp_rwq_ind_table_init_attr *attr);
+    ibv_rwq_ind_table_t() = default;
+    ibv_rwq_ind_table_t(const rdma_cm_id_t &cm_id, ibv_rwq_ind_table_init_attr *attr);
 };
 
 /// Construct a table with a single entry
-ibv_exp_rwq_ind_table_t create_rwq_ind_table(
-    const rdma_cm_id_t &cm_id, const ibv_pd_t &pd, const ibv_exp_wq_t &wq);
-
-class ibv_exp_res_domain_t : public std::unique_ptr<ibv_exp_res_domain, detail::ibv_exp_res_domain_deleter>
-{
-public:
-    ibv_exp_res_domain_t() = default;
-    ibv_exp_res_domain_t(const rdma_cm_id_t &cm_id, ibv_exp_res_domain_init_attr *attr);
-};
-
-#endif // SPEAD2_USE_IBV_MPRQ
+ibv_rwq_ind_table_t create_rwq_ind_table(
+    const rdma_cm_id_t &cm_id, const ibv_pd_t &pd, const ibv_wq_t &wq);
 
 } // namespace spead2
 

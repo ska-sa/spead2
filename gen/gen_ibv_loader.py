@@ -225,8 +225,8 @@ void ibv_loader_init()
 
 } // namespace spead2
 
-/* Wrappers in the global namespace. This is needed because ibv_exp_create_qp
- * calls ibv_create_qp, and so we need to provide an implementation.
+/* Wrappers in the global namespace. This is needed because some functions
+ * call others, and so we need to provide an implementation.
  */
 {% for node in nodes if node.name in ['ibv_create_qp'] %}
 {{ node | gen }}

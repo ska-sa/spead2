@@ -1,4 +1,4 @@
-# Copyright 2016, 2017, 2019 SKA South Africa
+# Copyright 2016, 2017, 2019-2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -62,30 +62,13 @@ SPEAD2_ARG_WITH(
 )
 
 SPEAD2_ARG_WITH(
-    [ibv_exp],
-    [AS_HELP_STRING([--without-ibv-exp], [Do not use verbs_exp.h, even if detected])],
-    [SPEAD2_USE_IBV_EXP],
-    [SPEAD2_USE_IBV_EXP=1
+    [mlx5dv],
+    [AS_HELP_STRING([--without-mlx5dv], [Do not use mlx5dv.h, even if detected])],
+    [SPEAD2_USE_MLX5DV],
+    [SPEAD2_USE_MLX5DV=1
      SPEAD2_CHECK_HEADER(
-        [infiniband/verbs_exp.h], [ibverbs], [ibv_exp_create_cq(NULL, 0, NULL, NULL, 0, NULL)],
-        [], [SPEAD2_USE_IBV_EXP=0])
-    ]
-)
-
-SPEAD2_ARG_WITH(
-    [ibv_mprq],
-    [AS_HELP_STRING([--without-ibv-mprq], [Do not use multi-packet receive queues, even if detected])],
-    [SPEAD2_USE_IBV_MPRQ],
-    [SPEAD2_USE_IBV_MPRQ=1
-     SPEAD2_CHECK_FEATURE(
-        [ibv_mprq], [multi-packet receive queue], [infiniband/verbs_exp.h], [ibverbs],
-        [ibv_exp_cq_family_v1 *cq_intf;
-         ibv_exp_wq_family *wq_intf;
-         ibv_exp_qp_init_attr attr;
-         ibv_exp_query_intf(NULL, NULL, NULL);
-         ibv_exp_create_wq(NULL, NULL);
-         ibv_exp_create_rwq_ind_table(NULL, NULL);],
-        [], [SPEAD2_USE_IBV_MPRQ=0])
+        [infiniband/mlx5dv.h], [ibverbs], [mlx5dv_create_cq(NULL, NULL, NULL)],
+        [], [SPEAD2_USE_MLX5DV=0])
     ]
 )
 
@@ -99,7 +82,6 @@ SPEAD2_ARG_WITH(
         [], [SPEAD2_USE_PCAP=0])
     ]
 )
-
 
 SPEAD2_ARG_WITH(
     [recvmmsg],
@@ -195,7 +177,7 @@ AM_CONDITIONAL([OPTIMIZED], [test "x$enable_optimized" != "xno"])
 AM_CONDITIONAL([COVERAGE], [test "x$enable_coverage" = "xyes"])
 AM_CONDITIONAL([LTO], [test "x$enable_lto" = "xyes"])
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
-AM_CONDITIONAL([SPEAD2_USE_IBV_EXP], [test "x$SPEAD2_USE_IBV_EXP" = "x1"])
+AM_CONDITIONAL([SPEAD2_USE_MLX5DV], [test "x$SPEAD2_USE_MLX5DV" = "x1"])
 AM_CONDITIONAL([SPEAD2_USE_PCAP], [test "x$SPEAD2_USE_PCAP" = "x1"])
 
 AC_CONFIG_FILES([Makefile
