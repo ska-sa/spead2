@@ -51,24 +51,25 @@ SPEAD2_ARG_WITH(
     [ibv],
     [AS_HELP_STRING([--without-ibv], [Do not use libibverbs and librdmacm, even if detected])],
     [SPEAD2_USE_IBV],
-    [SPEAD2_USE_IBV=1
-     SPEAD2_CHECK_LIB(
-        [infiniband/verbs.h], [ibverbs], [ibv_create_flow(NULL, NULL)],
-        [], [SPEAD2_USE_IBV=0])
-     SPEAD2_CHECK_LIB(
-        [rdma/rdma_cma.h], [rdmacm], [rdma_create_event_channel()],
-        [], [SPEAD2_USE_IBV=0])
-    ]
+    [PKG_CHECK_MODULES([IBV], [libibverbs librdmacm], [SPEAD2_USE_IBV=1], [])]
 )
 
 SPEAD2_ARG_WITH(
     [mlx5dv],
     [AS_HELP_STRING([--without-mlx5dv], [Do not use mlx5dv.h, even if detected])],
     [SPEAD2_USE_MLX5DV],
-    [SPEAD2_USE_MLX5DV=1
-     SPEAD2_CHECK_HEADER(
-        [infiniband/mlx5dv.h], [ibverbs], [mlx5dv_create_cq(NULL, NULL, NULL)],
-        [], [SPEAD2_USE_MLX5DV=0])
+    [PKG_CHECK_MODULES(MLX5DV, [libmlx5],
+        [spead2_save_CXXFLAGS="$CXXFLAGS"
+         spead2_save_LIBS="$LIBS"
+         CXXFLAGS="$CXXFLAGS $MLX5DV_CFLAGS"
+         LIBS="$LIBS $MLX5DV_LIBS"
+         SPEAD2_CHECK_HEADER(
+            [infiniband/mlx5dv.h], [], [mlx5dv_create_cq(NULL, NULL, NULL)],
+            [SPEAD2_USE_MLX5DV=1], [])
+         CXXFLAGS="$spead2_save_CXXFLAGS"
+         LIBS="$spead2_save_LIBS"
+        ],
+        [])
     ]
 )
 
@@ -76,11 +77,7 @@ SPEAD2_ARG_WITH(
     [pcap],
     [AS_HELP_STRING([--without-pcap], [Do not use pcap, even if detected])],
     [SPEAD2_USE_PCAP],
-    [SPEAD2_USE_PCAP=1
-     SPEAD2_CHECK_HEADER(
-        [pcap/pcap.h], [pcap], [pcap_open_offline(NULL, NULL)],
-        [], [SPEAD2_USE_PCAP=0])
-    ]
+    [PKG_CHECK_MODULES([PCAP], [libpcap], [SPEAD2_USE_PCAP=1], [])]
 )
 
 SPEAD2_ARG_WITH(
@@ -144,10 +141,16 @@ SPEAD2_ARG_WITH(
     )]
 )
 
-### Determine libraries to link against
+### Determine libraries to link against and include paths
 
 LIBS="-lboost_system -lpthread -ldl"
-AS_IF([test "x$SPEAD2_USE_PCAP" = "x1"], [LIBS="-lpcap $LIBS"])
+AS_IF([test "x$SPEAD2_USE_PCAP" = "x1"], [
+    LIBS="$PCAP_LIBS $LIBS"
+    CXXFLAGS="$PCAP_CFLAGS $CXXFLAGS"
+])
+AS_IF([test "x$SPEAD2_USE_IBV" = "x1"], [
+    CXXFLAGS="$IBV_CFLAGS $CXXFLAGS"
+])
 
 ### Build variants
 
