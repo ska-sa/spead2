@@ -282,25 +282,6 @@ std::vector<ibv_flow_t> create_flows(
     const ibv_qp_t &qp, const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     int port_num);
 
-#if SPEAD2_USE_IBV_MPRQ
-
-class ibv_exp_query_intf_error_category : public std::error_category
-{
-public:
-    virtual const char *name() const noexcept override;
-    virtual std::string message(int condition) const override;
-    virtual std::error_condition default_error_condition(int condition) const noexcept override;
-};
-
-std::error_category &ibv_exp_query_intf_category();
-
-class ibv_exp_cq_family_v1_t : public std::unique_ptr<ibv_exp_cq_family_v1, detail::ibv_intf_deleter>
-{
-public:
-    ibv_exp_cq_family_v1_t() = default;
-    ibv_exp_cq_family_v1_t(const rdma_cm_id_t &cm_id, const ibv_cq_t &cq);
-};
-
 class ibv_wq_t : public std::unique_ptr<ibv_wq, detail::ibv_wq_deleter>
 {
 public:
@@ -310,15 +291,6 @@ public:
     void modify(ibv_wq_state state);
 };
 
-class ibv_exp_wq_family_t : public std::unique_ptr<ibv_exp_wq_family, detail::ibv_intf_deleter>
-{
-public:
-    ibv_exp_wq_family_t() = default;
-    ibv_exp_wq_family_t(const rdma_cm_id_t &cm_id, const ibv_exp_wq_t &wq);
-};
-
-#endif // SPEAD2_USE_IBV_MPRQ
-
 class ibv_rwq_ind_table_t : public std::unique_ptr<ibv_rwq_ind_table, detail::ibv_rwq_ind_table_deleter>
 {
 public:
@@ -327,8 +299,7 @@ public:
 };
 
 /// Construct a table with a single entry
-ibv_rwq_ind_table_t create_rwq_ind_table(
-    const rdma_cm_id_t &cm_id, const ibv_pd_t &pd, const ibv_wq_t &wq);
+ibv_rwq_ind_table_t create_rwq_ind_table(const rdma_cm_id_t &cm_id, const ibv_wq_t &wq);
 
 } // namespace spead2
 

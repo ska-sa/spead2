@@ -111,7 +111,7 @@ ibv_device_attr_ex rdma_cm_id_t::query_device_ex(const struct ibv_query_device_e
         input = &dummy_input;
     }
     std::memset(&attr, 0, sizeof(attr));
-    int status = ibv_exp_query_device(get()->verbs, input, &attr);
+    int status = ibv_query_device_ex(get()->verbs, input, &attr);
     if (status != 0)
         throw_errno("ibv_query_device_ex failed", status);
     return attr;
@@ -238,31 +238,6 @@ ibv_cq_t::ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context)
     reset(cq);
 }
 
-#if SPEAD2_USE_IBV_EXP
-ibv_cq_t::ibv_cq_t(
-    const rdma_cm_id_t &cm_id, int cqe, void *context,
-    const ibv_comp_channel_t &comp_channel, int comp_vector,
-    ibv_exp_cq_init_attr *attr)
-{
-    errno = 0;
-    ibv_cq *cq = ibv_exp_create_cq(cm_id->verbs, cqe, context, comp_channel.get(), comp_vector, attr);
-    if (!cq)
-        throw_errno("ibv_create_cq failed");
-    reset(cq);
-}
-
-ibv_cq_t::ibv_cq_t(
-    const rdma_cm_id_t &cm_id, int cqe, void *context,
-    ibv_exp_cq_init_attr *attr)
-{
-    errno = 0;
-    ibv_cq *cq = ibv_exp_create_cq(cm_id->verbs, cqe, context, nullptr, 0, attr);
-    if (!cq)
-        throw_errno("ibv_create_cq failed");
-    reset(cq);
-}
-#endif // SPEAD2_USE_IBV_EXP
-
 void ibv_cq_t::req_notify(bool solicited_only)
 {
     assert(get());
@@ -279,17 +254,6 @@ int ibv_cq_t::poll(int num_entries, ibv_wc *wc)
         throw_errno("ibv_poll_cq failed");
     return received;
 }
-
-#if SPEAD2_USE_IBV_EXP
-int ibv_cq_t::poll(int num_entries, ibv_exp_wc *wc)
-{
-    assert(get());
-    int received = ibv_exp_poll_cq(get(), num_entries, wc, sizeof(wc[0]));
-    if (received < 0)
-        throw_errno("ibv_exp_poll_cq failed");
-    return received;
-}
-#endif
 
 void ibv_cq_t::ack_events(unsigned int nevents)
 {
@@ -318,9 +282,9 @@ ibv_qp_t::ibv_qp_t(const ibv_pd_t &pd, ibv_qp_init_attr *init_attr)
 ibv_qp_t::ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_qp_init_attr_ex *init_attr)
 {
     errno = 0;
-    ibv_qp *qp = ibv_exp_create_qp(cm_id->verbs, init_attr);
+    ibv_qp *qp = ibv_create_qp_ex(cm_id->verbs, init_attr);
     if (!qp)
-        throw_errno("ibv_exp_create_qp failed");
+        throw_errno("ibv_create_qp_ex failed");
     reset(qp);
 }
 
@@ -580,13 +544,11 @@ ibv_rwq_ind_table_t::ibv_rwq_ind_table_t(const rdma_cm_id_t &cm_id, ibv_rwq_ind_
     reset(table);
 }
 
-ibv_rwq_ind_table_t create_rwq_ind_table(
-    const rdma_cm_id_t &cm_id, const ibv_pd_t &pd, const ibv_wq_t &wq)
+ibv_rwq_ind_table_t create_rwq_ind_table(const rdma_cm_id_t &cm_id, const ibv_wq_t &wq)
 {
     ibv_rwq_ind_table_init_attr attr;
     ibv_wq *tbl[1] = {wq.get()};
     std::memset(&attr, 0, sizeof(attr));
-    attr.pd = pd.get();
     attr.log_ind_tbl_size = 0;
     attr.ind_tbl = tbl;
     return ibv_rwq_ind_table_t(cm_id, &attr);
