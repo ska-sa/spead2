@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: 2.1.2
+
+- Make verbs acceleration work when run against MLNX OFED 5.x, including with
+  Python wheels. Note that it will not use multi-packet receive queues, so
+  receive performance may still be better on MLNX OFED 4.9.
+
 .. rubric:: 2.1.1
 
 - Update pybind to 2.5.0.
