@@ -370,7 +370,13 @@ ibv_qp_t::ibv_qp_t(const ibv_pd_t &pd, ibv_qp_init_attr *init_attr)
     errno = 0;
     ibv_qp *qp = ibv_create_qp(pd.get(), init_attr);
     if (!qp)
-        throw_errno("ibv_create_qp failed");
+    {
+        if (errno == EINVAL && init_attr->qp_type == IBV_QPT_RAW_PACKET)
+            throw_errno(
+                "ibv_create_qp failed (could be a permission problem - do you have CAP_NET_RAW?)");
+        else
+            throw_errno("ibv_create_qp failed");
+    }
     reset(qp);
 }
 
