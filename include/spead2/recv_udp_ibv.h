@@ -377,7 +377,8 @@ struct reader_factory<udp_ibv_reader>
         }
         catch (std::system_error &e)
         {
-            if (e.code() != std::errc::not_supported)
+            if (e.code() != std::errc::not_supported                // ENOTSUP
+                && e.code() != std::errc::function_not_supported)   // ENOSYS
                 throw;
             log_debug("Multi-packet receive queues not supported (%1%), falling back", e.what());
             return std::unique_ptr<reader>(new udp_ibv_reader(

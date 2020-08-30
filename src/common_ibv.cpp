@@ -23,6 +23,7 @@
 #include <cerrno>
 #include <cstring>
 #include <cassert>
+#include <cstdlib>
 #include <memory>
 #include <algorithm>
 #include <system_error>
@@ -65,6 +66,79 @@ void ibv_exp_res_domain_deleter::operator()(ibv_exp_res_domain *res_domain)
 }
 
 #endif
+
+/* At some point (I think v12 or v13) rdma-core changed the ABI for
+ * ibv_create_flow, and the backwards-compatibility shim in place was
+ * flawed and only fixed in v30. See
+ * https://github.com/linux-rdma/rdma-core/commit/88789b7.
+ *
+ * We can work around it by mimicking the internals of verbs.h and
+ * selecting the correct slot.
+ */
+struct verbs_context_fixed
+{
+    int (*ibv_destroy_flow)(ibv_flow *flow);
+    int (*old_ibv_destroy_flow)(ibv_flow *flow);
+    ibv_flow * (*ibv_create_flow)(ibv_qp *qp, ibv_flow_attr *flow_attr);
+    ibv_flow * (*old_ibv_create_flow)(ibv_qp *qp, ibv_flow_attr *flow_attr);
+    void (*padding[6])(void);
+    std::uint64_t has_comp_mask;
+    std::size_t sz;
+    ibv_context context;
+};
+
+// Returns the wrapping verbs_context_fixed if it seems like there is one,
+// otherwise NULL.
+static const verbs_context_fixed *get_verbs_context_fixed(ibv_context *ctx)
+{
+    if (!ctx || ctx->abi_compat != __VERBS_ABI_IS_EXTENDED)
+        return NULL;
+    const verbs_context_fixed *vctx = (const verbs_context_fixed *)(
+        (const char *)(ctx) - offsetof(verbs_context_fixed, context));
+    if (vctx->sz >= sizeof(*vctx))
+        return vctx;
+    else
+        return NULL;
+}
+
+static ibv_flow *wrap_ibv_create_flow(ibv_qp *qp, ibv_flow_attr *flow_attr)
+{
+    errno = 0;
+    ibv_flow *flow = ibv_create_flow(qp, flow_attr);
+    if (!flow && (errno == 0 || errno == EOPNOTSUPP))
+    {
+        const verbs_context_fixed *vctx = get_verbs_context_fixed(qp->context);
+        if (!vctx->old_ibv_create_flow && vctx->ibv_create_flow)
+            flow = vctx->ibv_create_flow(qp, flow_attr);
+        else if (errno == 0)
+            errno = EOPNOTSUPP;  // old versions of ibv_create_flow neglect to set errno
+    }
+    return flow;
+}
+
+static int wrap_ibv_destroy_flow(ibv_flow *flow)
+{
+    errno = 0;
+    int result = ibv_destroy_flow(flow);
+    /* While ibv_destroy_flow is supposed to return an errno on failure, the
+     * header files have in the past returned negated error numbers.
+     */
+    if (result != 0)
+    {
+        if (std::abs(result) == ENOSYS || std::abs(result) == EOPNOTSUPP)
+        {
+            const verbs_context_fixed *vctx = get_verbs_context_fixed(flow->context);
+            if (!vctx->old_ibv_destroy_flow && vctx->ibv_destroy_flow)
+                result = vctx->ibv_destroy_flow(flow);
+        }
+    }
+    return result;
+}
+
+void ibv_flow_deleter::operator()(ibv_flow *flow)
+{
+    wrap_ibv_destroy_flow(flow);
+}
 
 } // namespace detail
 
@@ -296,7 +370,13 @@ ibv_qp_t::ibv_qp_t(const ibv_pd_t &pd, ibv_qp_init_attr *init_attr)
     errno = 0;
     ibv_qp *qp = ibv_create_qp(pd.get(), init_attr);
     if (!qp)
-        throw_errno("ibv_create_qp failed");
+    {
+        if (errno == EINVAL && init_attr->qp_type == IBV_QPT_RAW_PACKET)
+            throw_errno(
+                "ibv_create_qp failed (could be a permission problem - do you have CAP_NET_RAW?)");
+        else
+            throw_errno("ibv_create_qp failed");
+    }
     reset(qp);
 }
 
@@ -365,8 +445,7 @@ void ibv_qp_t::post_send(ibv_send_wr *wr)
 
 ibv_flow_t::ibv_flow_t(const ibv_qp_t &qp, ibv_flow_attr *flow_attr)
 {
-    errno = 0;
-    ibv_flow *flow = ibv_create_flow(qp.get(), flow_attr);
+    ibv_flow *flow = detail::wrap_ibv_create_flow(qp.get(), flow_attr);
     if (!flow)
         throw_errno("ibv_create_flow failed");
     reset(flow);
