@@ -1,2 +1,3 @@
 common_loader_ibv.h
+common_loader_mlx5dv.h
 common_loader_rdmacm.h

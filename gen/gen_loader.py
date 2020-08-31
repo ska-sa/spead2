@@ -94,6 +94,15 @@ void rdma_destroy_event_channel(struct rdma_event_channel *channel);
 int rdma_destroy_id(struct rdma_cm_id *id);
 '''
 
+MLX5DV_DECLS = '''
+typedef int bool;
+
+bool mlx5dv_is_supported(struct ibv_device *device);
+
+int mlx5dv_query_device(struct ibv_context *ctx_in,
+                        struct mlx5dv_context *attrs_out);
+'''
+
 
 class RenameVisitor(c_ast.NodeVisitor):
     """Renames a function in the AST.
@@ -211,15 +220,18 @@ class Library:
 def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument('type', choices=['header', 'cxx'])
-    parser.add_argument('library', choices=['rdmacm', 'ibv'])
+    parser.add_argument('library', choices=['rdmacm', 'ibv', 'mlx5dv'])
     args = parser.parse_args()
 
     if args.library == 'rdmacm':
         lib = Library('rdmacm', ['rdma/rdma_cma.h'], 'librdmacm.so.1', 'SPEAD2_USE_IBV',
                       RDMACM_DECLS)
-    else:
+    elif args.library == 'ibv':
         lib = Library('ibv', ['infiniband/verbs.h'], 'libibverbs.so.1', 'SPEAD2_USE_IBV',
                       IBV_DECLS, ['ibv_create_qp', 'ibv_query_device'])
+    else:
+        lib = Library('mlx5dv', ['infiniband/mlx5dv.h'], 'libmlx5.so.1', 'SPEAD2_USE_MLX5DV',
+                      MLX5DV_DECLS)
 
     if args.type == 'header':
         print(lib.header())

@@ -20,6 +20,7 @@ nobase_include_HEADERS = \
 	spead2/common_features.h \
 	spead2/common_flavour.h \
 	spead2/common_loader_ibv.h \
+	spead2/common_loader_mlx5dv.h \
 	spead2/common_loader_rdmacm.h \
 	spead2/common_loader_utils.h \
 	spead2/common_ibv.h \

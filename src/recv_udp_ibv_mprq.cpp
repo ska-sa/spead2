@@ -48,19 +48,16 @@ static ibv_qp_t create_qp(const rdma_cm_id_t &cm_id,
      * work, but I don't really know what I'm doing so it might be horrible.
      */
     uint8_t toeplitz_key[40] = {};
-    ibv_rx_hash_conf hash_conf;
-    memset(&hash_conf, 0, sizeof(hash_conf));
-    hash_conf.rx_hash_function = IBV_RX_HASH_FUNC_TOEPLITZ;
-    hash_conf.rx_hash_key_len = sizeof(toeplitz_key);
-    hash_conf.rx_hash_key = toeplitz_key;
-    hash_conf.rx_hash_fields_mask = 0;
 
     ibv_qp_init_attr_ex attr;
     memset(&attr, 0, sizeof(attr));
     attr.qp_type = IBV_QPT_RAW_PACKET;
     attr.pd = pd.get();
     attr.rwq_ind_tbl = ind_table.get();
-    attr.rx_hash_conf = &hash_conf;
+    attr.rx_hash_conf.rx_hash_function = IBV_RX_HASH_FUNC_TOEPLITZ;
+    attr.rx_hash_conf.rx_hash_key_len = sizeof(toeplitz_key);
+    attr.rx_hash_conf.rx_hash_key = toeplitz_key;
+    attr.rx_hash_conf.rx_hash_fields_mask = 0;
     return ibv_qp_t(cm_id, &attr);
 }
 

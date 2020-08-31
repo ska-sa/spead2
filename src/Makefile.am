@@ -53,6 +53,7 @@ spead2_unittest_LDADD = -lboost_unit_test_framework $(LDADD)
 libspead2_a_SOURCES = \
 	common_flavour.cpp \
 	common_loader_ibv.cpp \
+	common_loader_mlx5dv.cpp \
 	common_loader_rdmacm.cpp \
 	common_loader_utils.cpp \
 	common_ibv.cpp \

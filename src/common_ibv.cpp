@@ -42,19 +42,6 @@ namespace spead2
 namespace detail
 {
 
-#if SPEAD2_USE_IBV_MPRQ
-ibv_intf_deleter::ibv_intf_deleter(struct ibv_context *context) noexcept : context(context) {}
-
-void ibv_intf_deleter::operator()(void *intf)
-{
-    assert(context);
-    struct ibv_exp_release_intf_params params;
-    std::memset(&params, 0, sizeof(params));
-    ibv_exp_release_intf(context, intf, &params);
-}
-
-#endif
-
 /* At some point (I think v12 or v13) rdma-core changed the ABI for
  * ibv_create_flow, and the backwards-compatibility shim in place was
  * flawed and only fixed in v30. See
@@ -193,9 +180,14 @@ ibv_device_attr_ex rdma_cm_id_t::query_device_ex(const struct ibv_query_device_e
 bool rdma_cm_id_t::mlx5dv_is_supported() const
 {
     assert(get());
-    // TODO: mlx5dv_is_supported is a recent addition and might not be
-    // defined.
-    return spead2::mlx5dv_is_supported(get()->verbs->device);
+    try
+    {
+        return spead2::mlx5dv_is_supported(get()->verbs->device);
+    }
+    catch (std::system_error &)
+    {
+        return false;
+    }
 }
 
 mlx5dv_context rdma_cm_id_t::mlx5dv_query_device() const
