@@ -25,6 +25,7 @@
 # define _GNU_SOURCE
 #endif
 #include <spead2/common_features.h>
+#include <spead2/common_logging.h>
 #include <spead2/common_loader_rdmacm.h>
 #include <spead2/common_loader_ibv.h>
 #include <spead2/common_loader_mlx5dv.h>
@@ -205,21 +206,77 @@ public:
     ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context);
     ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context,
              const ibv_comp_channel_t &comp_channel, int comp_vector);
-#if SPEAD2_USE_IBV_EXP
-    ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context,
-             ibv_exp_cq_init_attr *attr);
-    ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context,
-             const ibv_comp_channel_t &comp_channel, int comp_vector,
-             ibv_exp_cq_init_attr *attr);
-#endif
 
     void req_notify(bool solicited_only);
     int poll(int num_entries, ibv_wc *wc);
     void ack_events(unsigned int nevents);
+};
 
-#if SPEAD2_USE_IBV_EXP
-    int poll(int num_entries, ibv_exp_wc *wc);
-#endif
+class ibv_cq_ex_t : public ibv_cq_t
+{
+public:
+    ibv_cq_ex_t() = default;
+    ibv_cq_ex_t(const rdma_cm_id_t &cm_id, ibv_cq_init_attr_ex *cq_attr);
+
+    ibv_cq_ex *get() const
+    {
+        return (ibv_cq_ex *) ibv_cq_t::get();
+    }
+
+    ibv_cq_ex *operator->() const
+    {
+        return get();
+    }
+
+    /* RAII wrapper around ibv_start_poll / ibv_next_poll / ibv_end_poll.
+     * It's implemented inline for efficiency. Note that it does NOT take
+     * ownership of the CQ: the caller must keep the CQ alive.
+     */
+    class poller
+    {
+    private:
+        ibv_cq_ex *cq;
+        bool more = false;
+
+    public:
+        poller(const ibv_cq_ex_t &cq, ibv_poll_cq_attr *attr)
+            : cq(cq.get())
+        {
+            assert(this->cq);
+            int result = ibv_start_poll(this->cq, attr);
+            if (result == 0)
+                more = true;
+            else if (result == ENOENT)
+                this->cq = NULL;    // indicates that destructor should not ibv_end_poll
+            else if (result != ENOENT)
+                throw_errno("ibv_start_poll failed", result);
+        }
+
+        ~poller()
+        {
+            if (cq)
+                ibv_end_poll(cq);
+        }
+
+        void next()
+        {
+            assert(more);
+            int result = ibv_next_poll(cq);
+            if (result == ENOENT)
+                more = false;
+            else if (result != 0)
+                throw_errno("ibv_next_poll failed", result);
+        }
+
+        explicit operator bool() const { return more; }
+    };
+
+    /* Errors other than ENOENT become exceptions, but ENOENT is returned as-is
+     * because it's part of the normal flow.
+     */
+    int start_poll(ibv_poll_cq_attr *attr);
+    int next_poll();
+    void end_poll();
 };
 
 class ibv_pd_t : public std::unique_ptr<ibv_pd, detail::ibv_pd_deleter>
@@ -286,6 +343,9 @@ class ibv_wq_t : public std::unique_ptr<ibv_wq, detail::ibv_wq_deleter>
 public:
     ibv_wq_t() = default;
     ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr);
+#if SPEAD2_USE_MLX5DV
+    ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr);
+#endif
 
     void modify(ibv_wq_state state);
 };

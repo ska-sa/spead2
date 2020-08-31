@@ -197,7 +197,7 @@ mlx5dv_context rdma_cm_id_t::mlx5dv_query_device() const
     std::memset(&attr, 0, sizeof(attr));
     // TODO: set other flags if they're defined (will require configure-time
     // detection).
-    attr.comp_mask = MLX5DV_CONTEXT_MASK_STRIDING_RQ;
+    attr.comp_mask = MLX5DV_CONTEXT_MASK_STRIDING_RQ | MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE;
     int status = spead2::mlx5dv_query_device(get()->verbs, &attr);
     if (status != 0)
         throw_errno("mlx5dv_query_device failed", status);
@@ -578,6 +578,16 @@ ibv_wq_t::ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr)
         throw_errno("ibv_create_wq failed");
     reset(wq);
 }
+
+#if SPEAD2_USE_MLX5DV
+ibv_wq_t::ibv_wq_t(const rdmacm_id_t &cm_id, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr)
+{
+    ibv_wq *wq = mlx5dv_create_wq(cm_id->verbs, attr, mlx5_attr);
+    if (!wq)
+        throw_errno("mlx5dv_create_wq failed");
+    reset(wq);
+}
+#endif
 
 void ibv_wq_t::modify(ibv_wq_state state)
 {

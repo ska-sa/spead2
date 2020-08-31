@@ -61,6 +61,7 @@ private:
     ibv_rwq_ind_table_t rwq_ind_table;
     ibv_qp_t qp;
     ibv_mr_t mr;
+    ibv_cq_ex_t recv_cq;
 
     /// Data buffer for all the packets
     memory_allocator::pointer buffer;

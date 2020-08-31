@@ -88,12 +88,12 @@ udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add
     const int max_iter = 256;
     ibv_poll_cq_attr attr;
     memset(&attr, 0, sizeof(attr));
-    int status = recv_cq.start_poll(&attr);
-    if (status == ENOENT)
+    ibv_cq_ex_t::poller poller(recv_cq, &attr);
+    if (!poller)
         return poll_result::drained;
 
     poll_result result = poll_result::partial;
-    for (int iter = 0; iter < max_iter; iter++)
+    for (int iter = 0; iter < max_iter && poller; iter++)
     {
         if (recv_cq->status != IBV_WC_SUCCESS)
         {
@@ -101,8 +101,8 @@ udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add
         }
         else
         {
-            len = ibv_wc_read_byte_len(cq.get());
-            uint32_t offset = ???;
+            uint32_t len = ibv_wc_read_byte_len(recv_cq.get());
+            uint32_t offset = 0;   // TODO: need to figure out how to determine this
             const void *ptr = reinterpret_cast<void *>(buffer.get() + (wqe_start + offset));
 
             // Sanity checks
@@ -123,21 +123,15 @@ udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add
                 log_warning(e.what());
             }
         }
-        if (???)
+        if (0)   // TODO: need to know how to determine that we're on to the next WR
         {
             post_wr(wqe_start);
             wqe_start += wqe_size;
             if (wqe_start == buffer_size)
                 wqe_start = 0;
         }
-        status = recv_cq.next_poll();
-        if (status == ENOENT)
-        {
-            result = poll_result::drained;
-            break;
-        }
+        poller.next();
     }
-    recv_cq.end_poll();  // TODO: create a RAII wrapper
     return result;
 }
 
@@ -157,9 +151,12 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     : udp_ibv_reader_base<udp_ibv_mprq_reader>(
         owner, endpoints, interface_address, max_size, comp_vector, max_poll)
 {
-    mlx5dv_device_attr device_attr = cm_id.exp_query_device();
-    if (!(device_attr.comp_mask & IBV_EXP_DEVICE_ATTR_MP_RQ)
-        || !(device_attr.mp_rq_caps.supported_qps & IBV_EXP_MP_RQ_SUP_TYPE_WQ_RQ))
+    if (!cm_id.mlx5dv_is_supported())
+        throw std::system_error(std::make_error_code(std::errc::not_supported),
+                                "device does not support mlx5dv API");
+    mlx5dv_context mlx5dv_attr = cm_id.mlx5dv_query_device();
+    if (!(mlx5dv_attr.flags & MLX5DV_CONTEXT_FLAGS_MPW_ALLOWED)
+        || !ibv_is_qpt_supported(mlx5dv_attr.striding_rq_caps.supported_qpts, IBV_QPT_RAW_PACKET))
         throw std::system_error(std::make_error_code(std::errc::not_supported),
                                 "device does not support multi-packet receive queues");
 
@@ -169,12 +166,12 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     attr.comp_mask = MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ;
     attr.striding_rq_attrs.single_stride_log_num_of_bytes =
         clamp(6,
-              device_attr.mp_rq_caps.min_single_stride_log_num_of_bytes,
-              device_attr.mp_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes per stride
+              mlx5dv_attr.striding_rq_caps.min_single_stride_log_num_of_bytes,
+              mlx5dv_attr.striding_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes per stride
     attr.striding_rq_attrs.single_wqe_log_num_of_strides =
-        clamp(20 - wq_attr.mp_rq.single_stride_log_num_of_bytes,
-              device_attr.mp_rq_caps.min_single_wqe_log_num_of_strides,
-              device_attr.mp_rq_caps.max_single_wqe_log_num_of_strides);    // 1MB per WQE
+        clamp(20 - attr.striding_rq_attrs.single_stride_log_num_of_bytes,
+              mlx5dv_attr.striding_rq_caps.min_single_wqe_log_num_of_strides,
+              mlx5dv_attr.striding_rq_caps.max_single_wqe_log_num_of_strides);    // 1MB per WQE
     int log_wqe_size = attr.striding_rq_attrs.single_stride_log_num_of_bytes
         + attr.striding_rq_attrs.single_wqe_log_num_of_strides;
     wqe_size = std::size_t(1) << log_wqe_size;
@@ -183,6 +180,7 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
 
     bool reduced = false;
     std::size_t strides = buffer_size >> attr.striding_rq_attrs.single_stride_log_num_of_bytes;
+    ibv_device_attr device_attr = cm_id.query_device();
     if (std::size_t(device_attr.max_cqe) < strides)
     {
         strides = device_attr.max_cqe;
@@ -204,30 +202,28 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
 
     ibv_cq_init_attr_ex cq_attr;
     memset(&cq_attr, 0, sizeof(cq_attr));
+    cq_attr.cqe = strides;
     if (comp_vector >= 0)
-        recv_cq = ibv_cq_t(cm_id, strides, nullptr,
-                           comp_channel, comp_vector % cm_id->verbs->num_comp_vectors,
-                           &cq_attr);
-    else
-        recv_cq = ibv_cq_t(cm_id, strides, nullptr, &cq_attr);
-    cq_intf = ibv_exp_cq_family_v1_t(cm_id, recv_cq);
+    {
+        cq_attr.channel = comp_channel.get();
+        cq_attr.comp_vector = comp_vector % cm_id->verbs->num_comp_vectors;
+    }
+    recv_cq = ibv_cq_ex_t(cm_id, &cq_attr);
 
-    wq_attr.mp_rq.use_shift = IBV_EXP_MP_RQ_NO_SHIFT;
-    wq_attr.wq_type = IBV_EXP_WQT_RQ;
-    wq_attr.max_recv_wr = wqe;
-    wq_attr.max_recv_sge = 1;
+    ibv_wq_init_attr wq_attr;
+    memset(&wq_attr, 0, sizeof(wq_attr));
+    wq_attr.wq_type = IBV_WQT_RQ;
+    wq_attr.max_wr = wqe;
+    wq_attr.max_sge = 1;
     wq_attr.pd = pd.get();
-    wq_attr.cq = recv_cq.get();
-    wq_attr.res_domain = res_domain.get();
-    wq_attr.comp_mask = IBV_EXP_CREATE_WQ_MP_RQ | IBV_EXP_CREATE_WQ_RES_DOMAIN;
-    // TODO: investigate IBV_EXP_CREATE_WQ_FLAG_DELAY_DROP to reduce dropped
-    // packets.
-    wq = ibv_exp_wq_t(cm_id, &wq_attr);
-    wq_intf = ibv_exp_wq_family_t(cm_id, wq);
+    wq_attr.cq = ibv_cq_ex_to_cq(recv_cq.get());
+    // TODO: investigate IBV_WQ_FLAGS_DELAY_DROP to reduce dropped
+    // packets and IBV_WQ_FLAGS_CVLAN_STRIPPING to remove VLAN tags.
+    wq = ibv_wq_t(cm_id, &wq_attr, &attr);
 
-    rwq_ind_table = create_rwq_ind_table(cm_id, pd, wq);
-    qp = create_qp(cm_id, pd, recv_cq, rwq_ind_table, res_domain);
-    wq.modify(IBV_EXP_WQS_RDY);
+    rwq_ind_table = create_rwq_ind_table(cm_id, wq);
+    qp = create_qp(cm_id, pd, rwq_ind_table);
+    wq.modify(IBV_WQS_RDY);
 
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(buffer_size, nullptr);

@@ -75,7 +75,6 @@ protected:
     ibv_comp_channel_t comp_channel;
     boost::asio::posix::stream_descriptor comp_channel_wrapper;
     std::vector<ibv_flow_t> flows;
-    ibv_cq_t recv_cq;
 
     ///< Maximum supported packet size
     const std::size_t max_size;
@@ -151,7 +150,9 @@ void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_cod
             while (comp_channel.get_event(&event_cq, &event_context))
             {
                 // TODO: defer acks until shutdown
-                recv_cq.ack_events(1);
+                // TODO: make both cases use ibv_cq_ex_t so that recv_cq can
+                // move back into base.
+                static_cast<Derived *>(this)->recv_cq.ack_events(1);
             }
         }
         if (state.is_stopped())
@@ -173,7 +174,7 @@ void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_cod
                          * before req_notify_cq, failing to trigger a
                          * notification.
                          */
-                        recv_cq.req_notify(false);
+                        static_cast<Derived *>(this)->recv_cq.req_notify(false);
                         need_poll = false;
                     }
                 }
@@ -246,6 +247,7 @@ private:
     ibv_cq_t send_cq;
     ibv_qp_t qp;
     ibv_mr_t mr;
+    ibv_cq_t recv_cq;
 
     ///< Number of packets that can be queued
     const std::size_t n_slots;
