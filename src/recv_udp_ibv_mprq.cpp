@@ -52,6 +52,7 @@ static ibv_qp_t create_qp(const rdma_cm_id_t &cm_id,
     ibv_qp_init_attr_ex attr;
     memset(&attr, 0, sizeof(attr));
     attr.qp_type = IBV_QPT_RAW_PACKET;
+    attr.comp_mask = IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_IND_TABLE | IBV_QP_INIT_ATTR_RX_HASH;
     attr.pd = pd.get();
     attr.rwq_ind_tbl = ind_table.get();
     attr.rx_hash_conf.rx_hash_function = IBV_RX_HASH_FUNC_TOEPLITZ;
