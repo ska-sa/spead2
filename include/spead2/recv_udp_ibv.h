@@ -369,7 +369,7 @@ struct reader_factory<udp_ibv_reader>
          * bad idea if any of them are rvalue references. But the constructors
          * we're forwarding to don't have any.
          */
-#if SPEAD2_USE_IBV_MPRQ
+#if SPEAD2_USE_MLX5DV
         try
         {
             std::unique_ptr<reader> reader(new udp_ibv_mprq_reader(

@@ -325,6 +325,15 @@ void ibv_cq_t::ack_events(unsigned int nevents)
     ibv_ack_cq_events(get(), nevents);
 }
 
+ibv_cq_ex_t::ibv_cq_ex_t(const rdma_cm_id_t &cm_id, ibv_cq_init_attr_ex *cq_attr)
+{
+    errno = 0;
+    ibv_cq_ex *cq = ibv_create_cq_ex(cm_id->verbs, cq_attr);
+    if (!cq)
+        throw_errno("ibv_create_cq_ex failed");
+    reset(ibv_cq_ex_to_cq(cq));
+}
+
 ibv_pd_t::ibv_pd_t(const rdma_cm_id_t &cm_id)
 {
     errno = 0;
@@ -486,91 +495,6 @@ std::vector<ibv_flow_t> create_flows(
     return flows;
 }
 
-#if SPEAD2_USE_IBV_MPRQ
-
-const char *ibv_exp_query_intf_error_category::name() const noexcept
-{
-    return "ibv_exp_query_intf";
-}
-
-std::string ibv_exp_query_intf_error_category::message(int condition) const
-{
-    switch (condition)
-    {
-    case IBV_EXP_INTF_STAT_OK:
-        return "OK";
-    case IBV_EXP_INTF_STAT_VENDOR_NOT_SUPPORTED:
-        return "The provided 'vendor_guid' is not supported";
-    case IBV_EXP_INTF_STAT_INTF_NOT_SUPPORTED:
-        return "The provided 'intf' is not supported";
-    case IBV_EXP_INTF_STAT_VERSION_NOT_SUPPORTED:
-        return "The provided 'intf_version' is not supported";
-    case IBV_EXP_INTF_STAT_INVAL_PARARM:
-        return "General invalid parameter";
-    case IBV_EXP_INTF_STAT_INVAL_OBJ_STATE:
-        return "QP is not in INIT, RTR or RTS state";
-    case IBV_EXP_INTF_STAT_INVAL_OBJ:
-        return "Mismatch between the provided 'obj'(CQ/QP/WQ) and requested 'intf'";
-    case IBV_EXP_INTF_STAT_FLAGS_NOT_SUPPORTED:
-        return "The provided set of 'flags' is not supported";
-    case IBV_EXP_INTF_STAT_FAMILY_FLAGS_NOT_SUPPORTED:
-        return "The provided set of 'family_flags' is not supported";
-    default:
-        return "Unknown error";
-    }
-}
-
-std::error_condition ibv_exp_query_intf_error_category::default_error_condition(int condition) const noexcept
-{
-    switch (condition)
-    {
-    case IBV_EXP_INTF_STAT_VENDOR_NOT_SUPPORTED:
-    case IBV_EXP_INTF_STAT_INTF_NOT_SUPPORTED:
-    case IBV_EXP_INTF_STAT_VERSION_NOT_SUPPORTED:
-    case IBV_EXP_INTF_STAT_FLAGS_NOT_SUPPORTED:
-    case IBV_EXP_INTF_STAT_FAMILY_FLAGS_NOT_SUPPORTED:
-        return std::errc::not_supported;
-    case IBV_EXP_INTF_STAT_INVAL_PARARM:
-    case IBV_EXP_INTF_STAT_INVAL_OBJ_STATE:
-    case IBV_EXP_INTF_STAT_INVAL_OBJ:
-        return std::errc::invalid_argument;
-    default:
-        return std::error_condition(condition, *this);
-    }
-}
-
-std::error_category &ibv_exp_query_intf_category()
-{
-    static ibv_exp_query_intf_error_category category;
-    return category;
-}
-
-static void *query_intf(const rdma_cm_id_t &cm_id, ibv_exp_query_intf_params *params)
-{
-    ibv_exp_query_intf_status status;
-    void *intf = ibv_exp_query_intf(cm_id->verbs, params, &status);
-    if (status != IBV_EXP_INTF_STAT_OK)
-    {
-        std::error_code code(status, ibv_exp_query_intf_category());
-        throw std::system_error(code, "ibv_exp_query_intf failed");
-    }
-    return intf;
-}
-
-ibv_exp_cq_family_v1_t::ibv_exp_cq_family_v1_t(const rdma_cm_id_t &cm_id, const ibv_cq_t &cq)
-    : std::unique_ptr<ibv_exp_cq_family_v1, detail::ibv_intf_deleter>(
-        nullptr, detail::ibv_intf_deleter(cm_id->verbs))
-{
-    ibv_exp_query_intf_params params;
-    std::memset(&params, 0, sizeof(params));
-    params.intf_scope = IBV_EXP_INTF_GLOBAL;
-    params.intf = IBV_EXP_INTF_CQ;
-    params.intf_version = 1;
-    params.obj = cq.get();
-    void *intf = query_intf(cm_id, &params);
-    reset(static_cast<ibv_exp_cq_family_v1 *>(intf));
-}
-
 ibv_wq_t::ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr)
 {
     ibv_wq *wq = ibv_create_wq(cm_id->verbs, attr);
@@ -580,7 +504,7 @@ ibv_wq_t::ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr)
 }
 
 #if SPEAD2_USE_MLX5DV
-ibv_wq_t::ibv_wq_t(const rdmacm_id_t &cm_id, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr)
+ibv_wq_t::ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr)
 {
     ibv_wq *wq = mlx5dv_create_wq(cm_id->verbs, attr, mlx5_attr);
     if (!wq)
@@ -594,26 +518,11 @@ void ibv_wq_t::modify(ibv_wq_state state)
     ibv_wq_attr wq_attr;
     std::memset(&wq_attr, 0, sizeof(wq_attr));
     wq_attr.wq_state = state;
-    wq_attr.attr_mask = IBV_EXP_WQ_ATTR_STATE;
+    wq_attr.attr_mask = IBV_WQ_ATTR_STATE;
     int status = ibv_modify_wq(get(), &wq_attr);
     if (status != 0)
         throw_errno("ibv_modify_wq failed", status);
 }
-
-ibv_exp_wq_family_t::ibv_exp_wq_family_t(const rdma_cm_id_t &cm_id, const ibv_exp_wq_t &wq)
-    : std::unique_ptr<ibv_exp_wq_family, detail::ibv_intf_deleter>(
-        nullptr, detail::ibv_intf_deleter(cm_id->verbs))
-{
-    ibv_exp_query_intf_params params;
-    std::memset(&params, 0, sizeof(params));
-    params.intf_scope = IBV_EXP_INTF_GLOBAL;
-    params.intf = IBV_EXP_INTF_WQ;
-    params.obj = wq.get();
-    void *intf = query_intf(cm_id, &params);
-    reset(static_cast<ibv_exp_wq_family *>(intf));
-}
-
-#endif // SPEAD2_USE_IBV_MPRQ
 
 ibv_rwq_ind_table_t::ibv_rwq_ind_table_t(const rdma_cm_id_t &cm_id, ibv_rwq_ind_table_init_attr *attr)
 {

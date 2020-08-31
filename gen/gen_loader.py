@@ -101,6 +101,10 @@ bool mlx5dv_is_supported(struct ibv_device *device);
 
 int mlx5dv_query_device(struct ibv_context *ctx_in,
                         struct mlx5dv_context *attrs_out);
+
+struct ibv_wq *mlx5dv_create_wq(struct ibv_context *context,
+                                struct ibv_wq_init_attr *wq_init_attr,
+                                struct mlx5dv_wq_init_attr *mlx5_wq_attr);
 '''
 
 

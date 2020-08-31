@@ -136,20 +136,6 @@ struct ibv_rwq_ind_table_deleter
     }
 };
 
-#if SPEAD2_USE_IBV_MPRQ
-
-class ibv_intf_deleter
-{
-private:
-    struct ibv_context *context;
-
-public:
-    explicit ibv_intf_deleter(struct ibv_context *context = nullptr) noexcept;
-    void operator()(void *intf);
-};
-
-#endif
-
 } // namespace detail
 
 class rdma_event_channel_t : public std::unique_ptr<rdma_event_channel, detail::rdma_event_channel_deleter>
