@@ -47,11 +47,20 @@ SPEAD2_CHECK_HEADER([boost/asio.hpp], [boost_system,pthread], [boost::asio::io_s
 
 ### Optional libraries/features
 
+# pkg-config files for libibverbs are quite new, so fall back to searching
+# system paths.
 SPEAD2_ARG_WITH(
     [ibv],
     [AS_HELP_STRING([--without-ibv], [Do not use libibverbs and librdmacm, even if detected])],
     [SPEAD2_USE_IBV],
-    [PKG_CHECK_MODULES([IBV], [libibverbs librdmacm], [SPEAD2_USE_IBV=1], [])]
+    [PKG_CHECK_MODULES([IBV], [libibverbs librdmacm], [SPEAD2_USE_IBV=1],
+        [SPEAD2_CHECK_LIB(
+         [infiniband/verbs.h], [ibverbs], [ibv_create_flow(NULL, NULL)],
+         [SPEAD2_USE_IBV=1
+          IBV_CFLAGS=""
+         ], [:])
+        ])
+    ]
 )
 
 SPEAD2_ARG_WITH(
@@ -59,17 +68,14 @@ SPEAD2_ARG_WITH(
     [AS_HELP_STRING([--without-mlx5dv], [Do not use mlx5dv.h, even if detected])],
     [SPEAD2_USE_MLX5DV],
     [PKG_CHECK_MODULES(MLX5DV, [libmlx5],
-        [spead2_save_CXXFLAGS="$CXXFLAGS"
-         spead2_save_LIBS="$LIBS"
-         CXXFLAGS="$CXXFLAGS $MLX5DV_CFLAGS"
-         LIBS="$LIBS $MLX5DV_LIBS"
-         SPEAD2_CHECK_HEADER(
+        [SPEAD2_CHECK_HEADER(
             [infiniband/mlx5dv.h], [], [mlx5dv_create_cq(NULL, NULL, NULL)],
-            [SPEAD2_USE_MLX5DV=1], [])
-         CXXFLAGS="$spead2_save_CXXFLAGS"
-         LIBS="$spead2_save_LIBS"
+            [SPEAD2_USE_MLX5DV=1], [], [], ["$MLX5DV_CFLAGS"], ["$MLX5DV_LIBS"])
         ],
-        [])
+        [SPEAD2_CHECK_HEADER(
+            [infiniband/mlx5dv.h], [mlx5], [mlx5dv_create_cq(NULL, NULL, NULL)],
+            [SPEAD2_USE_MLX5DV=1], [])
+        ])
     ]
 )
 
@@ -77,7 +83,16 @@ SPEAD2_ARG_WITH(
     [pcap],
     [AS_HELP_STRING([--without-pcap], [Do not use pcap, even if detected])],
     [SPEAD2_USE_PCAP],
-    [PKG_CHECK_MODULES([PCAP], [libpcap], [SPEAD2_USE_PCAP=1], [])]
+    [PKG_CHECK_MODULES([PCAP], [libpcap], [SPEAD2_USE_PCAP=1],
+        [SPEAD2_CHECK_HEADER(
+            [pcap/pcap.h], [pcap], [pcap_open_offline(NULL, NULL)],
+            [SPEAD2_USE_PCAP=1
+             PCAP_CFLAGS=""
+             PCAP_LIBS="-lpcap"
+            ],
+            [])
+        ])
+    ]
 )
 
 SPEAD2_ARG_WITH(
