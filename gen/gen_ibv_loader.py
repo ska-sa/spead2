@@ -226,9 +226,13 @@ void ibv_loader_init()
 } // namespace spead2
 
 /* Wrappers in the global namespace. This is needed because some functions
- * call others, and so we need to provide an implementation.
+ * call others, and so we need to provide an implementation. We limit it
+ * to functions where this is known to be an issue, because the header
+ * doesn't always match the man page even though there is binary
+ * compatibility (e.g. on LP64 systems, unsigned long and unsigned long long
+ * are both 64-bit but are considered different types).
  */
-{% for node in nodes if node.name in ['ibv_create_qp'] %}
+{% for node in nodes if node.name in ['ibv_create_qp', 'ibv_query_device'] %}
 {{ node | gen }}
 {
     return spead2::{{ node.name }}({{ node | args | join(', ') }});
