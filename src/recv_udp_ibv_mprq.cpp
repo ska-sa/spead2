@@ -76,9 +76,9 @@ void udp_ibv_mprq_reader::post_wr(std::size_t offset)
     wr.num_sge = 1;
 
     ibv_recv_wr *bad_wr;
-    int status = ibv_post_recv(qp.get(), &wr, &bad_wr);
+    int status = ibv_post_wq_recv(wq.get(), &wr, &bad_wr);
     if (status != 0)
-        throw_errno("recv_burst failed", status);
+        throw_errno("ibv_post_wq_recv failed", status);
 }
 
 udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add_packet_state &state)
