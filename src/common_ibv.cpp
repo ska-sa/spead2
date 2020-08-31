@@ -363,7 +363,13 @@ ibv_qp_t::ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_qp_init_attr_ex *init_attr)
     errno = 0;
     ibv_qp *qp = ibv_create_qp_ex(cm_id->verbs, init_attr);
     if (!qp)
-        throw_errno("ibv_create_qp_ex failed");
+    {
+        if (errno == EINVAL && init_attr->qp_type == IBV_QPT_RAW_PACKET)
+            throw_errno(
+                "ibv_create_qp_ex failed (could be a permission problem - do you have CAP_NET_RAW?)");
+        else
+            throw_errno("ibv_create_qp_ex failed");
+    }
     reset(qp);
 }
 
