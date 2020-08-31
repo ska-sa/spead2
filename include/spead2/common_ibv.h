@@ -25,7 +25,8 @@
 # define _GNU_SOURCE
 #endif
 #include <spead2/common_features.h>
-#include <spead2/common_ibv_loader.h>
+#include <spead2/common_loader_rdmacm.h>
+#include <spead2/common_loader_ibv.h>
 #include <memory>
 #include <vector>
 #include <cstdint>

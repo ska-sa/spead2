@@ -1,4 +1,4 @@
-/* Copyright 2019 SKA South Africa
+/* Copyright 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -23,56 +23,54 @@
 #endif
 #include <spead2/common_features.h>
 
-#if SPEAD2_USE_IBV
-
 #include <string>
 #include <exception>
 #include <system_error>
 #include <dlfcn.h>
-#include <spead2/common_ibv_loader_utils.h>
+#include <spead2/common_loader_utils.h>
 #include <spead2/common_logging.h>
 
 namespace spead2
 {
 
-const char *ibv_loader_error_category::name() const noexcept
+const char *loader_error_category::name() const noexcept
 {
-    return "ibv_loader";
+    return "loader";
 }
 
-std::string ibv_loader_error_category::message(int condition) const
+std::string loader_error_category::message(int condition) const
 {
-    switch (ibv_loader_error(condition))
+    switch (loader_error(condition))
     {
-        case ibv_loader_error::LIBRARY_ERROR:
+        case loader_error::LIBRARY_ERROR:
             return "library could not be loaded";
-        case ibv_loader_error::SYMBOL_ERROR:
+        case loader_error::SYMBOL_ERROR:
             return "symbol could not be loaded";
-        case ibv_loader_error::NO_INIT:
-            return "ibv_loader_init was not called";
+        case loader_error::NO_INIT:
+            return "loader_init was not called";
         default:
             return "unknown error";  // unreachable
     }
 }
 
-std::error_condition ibv_loader_error_category::default_error_condition(int condition) const noexcept
+std::error_condition loader_error_category::default_error_condition(int condition) const noexcept
 {
-    switch (ibv_loader_error(condition))
+    switch (loader_error(condition))
     {
-        case ibv_loader_error::LIBRARY_ERROR:
+        case loader_error::LIBRARY_ERROR:
             return std::errc::no_such_file_or_directory;
-        case ibv_loader_error::SYMBOL_ERROR:
+        case loader_error::SYMBOL_ERROR:
             return std::errc::not_supported;
-        case ibv_loader_error::NO_INIT:
+        case loader_error::NO_INIT:
             return std::errc::state_not_recoverable;
         default:
             return std::errc::not_supported;  // unreachable
     }
 }
 
-std::error_category &ibv_loader_category()
+std::error_category &loader_category()
 {
-    static ibv_loader_error_category category;
+    static loader_error_category category;
     return category;
 }
 
@@ -81,7 +79,7 @@ dl_handle::dl_handle(const char *filename)
     handle = dlopen(filename, RTLD_NOW | RTLD_LOCAL);
     if (!handle)
     {
-        std::error_code code((int) ibv_loader_error::LIBRARY_ERROR, ibv_loader_category());
+        std::error_code code((int) loader_error::LIBRARY_ERROR, loader_category());
         throw std::system_error(code, std::string("Could not open ") + filename + ": " + dlerror());
     }
 }
@@ -108,23 +106,10 @@ void *dl_handle::sym(const char *name)
     void *ret = dlsym(handle, name);
     if (!ret)
     {
-        std::error_code code((int) ibv_loader_error::SYMBOL_ERROR, ibv_loader_category());
+        std::error_code code((int) loader_error::SYMBOL_ERROR, loader_category());
         throw std::system_error(code, std::string("Symbol ") + name + " not found: " + dlerror());
     }
     return ret;
 }
 
-void ibv_loader_stub(std::exception_ptr init_result)
-{
-    if (init_result)
-        std::rethrow_exception(init_result);
-    else
-    {
-        std::error_code code((int) ibv_loader_error::NO_INIT, ibv_loader_category());
-        throw std::system_error(code, "ibv_loader_init was not called");
-    }
-}
-
 }  // namespace spead2
-
-#endif // SPEAD2_USE_IBV

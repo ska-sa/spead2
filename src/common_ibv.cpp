@@ -132,7 +132,6 @@ void ibv_flow_deleter::operator()(ibv_flow *flow)
 
 rdma_event_channel_t::rdma_event_channel_t()
 {
-    ibv_loader_init();
     errno = 0;
     rdma_event_channel *event_channel = rdma_create_event_channel();
     if (!event_channel)
@@ -142,7 +141,6 @@ rdma_event_channel_t::rdma_event_channel_t()
 
 rdma_cm_id_t::rdma_cm_id_t(const rdma_event_channel_t &event_channel, void *context, rdma_port_space ps)
 {
-    ibv_loader_init();
     rdma_cm_id *cm_id = nullptr;
     errno = 0;
     int status = rdma_create_id(event_channel.get(), &cm_id, context, ps);

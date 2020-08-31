@@ -3,7 +3,8 @@ global-include aclocal.m4
 exclude src/common_features.h
 exclude .gitignore
 include configure
-include include/spead2/common_ibv_loader.h
+include include/spead2/common_loader_ibv.h
+include include/spead2/common_loader_rdmacm.h
 graft 3rdparty
 graft build-aux
 prune doc/_build

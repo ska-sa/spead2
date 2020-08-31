@@ -1,5 +1,6 @@
 *.o
-common_ibv_loader.cpp
+common_loader_ibv.cpp
+common_loader_rdmacm.cpp
 spead2_bench
 spead2_recv
 spead2_send
