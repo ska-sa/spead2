@@ -126,6 +126,8 @@ static std::size_t compute_n_slots(const rdma_cm_id_t &cm_id, std::size_t buffer
 {
     bool reduced = false;
     ibv_device_attr attr = cm_id.query_device();
+    if (!(attr.device_cap_flags & IBV_DEVICE_MANAGED_FLOW_STEERING))
+        throw std::invalid_argument("This device does not support flow steering");
     if (attr.max_mr_size < max_raw_size)
         throw std::invalid_argument("Packet size is larger than biggest MR supported by device");
     if (attr.max_mr_size < buffer_size)

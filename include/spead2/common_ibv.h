@@ -114,10 +114,7 @@ struct ibv_comp_channel_deleter
 
 struct ibv_flow_deleter
 {
-    void operator()(ibv_flow *flow)
-    {
-        ibv_destroy_flow(flow);
-    }
+    void operator()(ibv_flow *flow);
 };
 
 struct ibv_wq_deleter

@@ -176,7 +176,7 @@ special kernel drivers and setup, have limitations in what networking features
 they can support, and require the application to specify which network device
 to use.
 
-Currently only one kernel bypass API is supported: `ibverbs <py-ibverbs>`.
+Currently only one kernel bypass API is supported: `ibverbs <py-ibverbs>`_.
 
 Memory allocation
 ^^^^^^^^^^^^^^^^^

@@ -3,8 +3,7 @@ Support for ibverbs
 Receiver performance can be significantly improved by using the Infiniband
 Verbs API instead of the BSD sockets API. This is currently only tested on
 Linux with Mellanox ConnectX®-3 and ConnectX®-5 NICs. It depends on device
-managed flow steering (DMFS), which may require using the Mellanox OFED version
-of libibverbs.
+managed flow steering (DMFS).
 
 There are a number of limitations in the current implementation:
 
@@ -13,26 +12,23 @@ There are a number of limitations in the current implementation:
  - For sending, only multicast is supported.
 
 Within these limitations, it is quite easy to take advantage of this faster
-code path. The main difficulty is that one *must* specify the IP address of
-the interface that will send or receive the packets. The netifaces_ module can
+code path. The main difficulties are that one *must* specify the IP address of
+the interface that will send or receive the packets, and that the
+``CAP_NET_RAW`` capability may be needed. The netifaces_ module can
 help find the IP address for an interface by name.
 
 .. _netifaces: https://pypi.python.org/pypi/netifaces
 
 System configuration
 --------------------
-It is likely that some system configuration will be needed to allow this mode
-to work correctly. For ConnectX®-3, add the following to
-:file:`/etc/modprobe.d/mlnx.conf`::
+
+ConnectX®-3
+^^^^^^^^^^^
+Add the following to :file:`/etc/modprobe.d/mlnx.conf`::
 
    options ib_uverbs disable_raw_qp_enforcement=1
    options mlx4_core fast_drop=1
    options mlx4_core log_num_mgm_entry_size=-1
-
-For more information, see the `libvma documentation`_. For ConnectX®-4/5, only
-the first of these lines is required.
-
-.. _libvma documentation: https://github.com/Mellanox/libvma
 
 .. note::
 
@@ -42,6 +38,20 @@ the first of these lines is required.
    number of multicast groups.
 
    .. _manual: http://www.mellanox.com/related-docs/prod_software/Mellanox_EN_for_Linux_User_Manual_v4_3.pdf
+
+ConnectX®-4+, MLNX OFED up to 4.9
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Add the following to :file:`/etc/modprobe.d/mlnx.conf`::
+
+   options ib_uverbs disable_raw_qp_enforcement=1
+
+All other cases
+^^^^^^^^^^^^^^^
+No system configuration is needed, but the ``CAP_NET_RAW`` capability is
+required. Running as root will achieve this; a full discussion of Linux
+capabilities is beyond the scope of this manual.
+For more information, see the `libvma documentation`_. For ConnectX®-4/5, only
+the first of these lines is required.
 
 Receiving
 ---------
@@ -81,10 +91,10 @@ The ibverbs API can be used programmatically by using an extra method of
         non-negative) or letting other code run on the
         thread (if `comp_vector` is negative).
 
-If supported by the NIC, the receive code will automatically use a
-"multi-packet receive queue", which allows each packet to consume only the
-amount of space needed in the buffer. This is not supported by all NICs (for
-example, ConnectX-3 does not, but ConnectX-5 does). When in use, the
+If supported by the NIC and the drivers, the receive code will automatically
+use a "multi-packet receive queue", which allows each packet to consume only
+the amount of space needed in the buffer. This is currently only supported on
+ConnectX®-4+ with MLNX OFED drivers prior to 5.0. When in use, the
 `max_size` parameter has little impact on performance, and is used only to
 reject larger packets.
 
@@ -96,7 +106,7 @@ efficiency by keeping data more-or-less contiguous.
 
 Environment variables
 ^^^^^^^^^^^^^^^^^^^^^
-An existing application can be forced to use ibverbs for all multicast IPv4
+An existing application can be forced to use ibverbs for all IPv4
 readers, by setting the environment variable :envvar:`SPEAD2_IBV_INTERFACE` to the IP
 address of the interface to receive the packets. Note that calls to
 :py:meth:`spead2.recv.Stream.add_udp_reader` that pass an explicit interface
