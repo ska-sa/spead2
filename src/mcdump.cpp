@@ -449,13 +449,7 @@ protected:
     spead2::ibv_pd_t pd;
     const chunking_scheme chunking;
 
-#if SPEAD2_USE_IBV_EXP
     bool timestamp_support = false;
-    // To convert HW timestamps to nanoseconds
-    double hca_ns_per_clock = 0.0;
-    std::uint64_t timestamp_subtract = 0; // initial HW timestamp in ticks
-    std::uint64_t timestamp_add = 0;      // initial system timestamp in ns
-#endif
 
     ringbuffer ring;
     ringbuffer free_ring;
@@ -649,49 +643,10 @@ capture_base::~capture_base()
 
 void capture_base::init_timestamp_support()
 {
-#if SPEAD2_USE_IBV_EXP
-    timestamp_support = true;
-    // Get tick rate of the HW timestamp counter
-    {
-        ibv_exp_device_attr device_attr = {};
-        device_attr.comp_mask = IBV_EXP_DEVICE_ATTR_WITH_HCA_CORE_CLOCK;
-        int ret = ibv_exp_query_device(cm_id->verbs, &device_attr);
-        /* There is some confusion about the units of hca_core_clock. Mellanox
-         * documentation indicates it is in MHz
-         * (http://www.mellanox.com/related-docs/prod_software/Mellanox_OFED_Linux_User_Manual_v4.1.pdf)
-         * but their implementation in OFED 4.1 returns kHz. We work in kHz but if
-         * if the value is suspiciously small (< 10 MHz) we assume the units were MHz.
-         */
-        if (device_attr.hca_core_clock < 10000)
-            device_attr.hca_core_clock *= 1000;
-        if (ret == 0 && (device_attr.comp_mask & IBV_EXP_DEVICE_ATTR_WITH_HCA_CORE_CLOCK))
-            hca_ns_per_clock = 1e6 / device_attr.hca_core_clock;
-        else
-        {
-            spead2::log_warning("could not query hca_core_clock: timestamps disabled");
-            timestamp_support = false;
-        }
-    }
-    // Get current value of HW timestamp counter, to subtract
-    if (timestamp_support)
-    {
-        ibv_exp_values values = {};
-        values.comp_mask = IBV_EXP_VALUES_HW_CLOCK;
-        int ret = ibv_exp_query_values(cm_id->verbs, IBV_EXP_VALUES_HW_CLOCK, &values);
-        if (ret == 0 && (values.comp_mask & IBV_EXP_VALUES_HW_CLOCK))
-        {
-            timestamp_subtract = values.hwclock;
-            timespec now;
-            clock_gettime(CLOCK_REALTIME, &now);
-            timestamp_add = now.tv_sec * std::uint64_t(1000000000) + now.tv_nsec;
-        }
-        else
-        {
-            spead2::log_warning("could not query current HW time: timestamps disabled");
-            timestamp_support = false;
-        }
-    }
-#endif
+    ibv_device_attr_ex device_attr;
+    int ret = ibv_query_device_ex(cm_id->verbs, NULL, &device_attr);
+    timestamp_support =
+        ret == 0 && device_attr.completion_timestamp_mask > 0 && device_attr.hca_core_clock > 0;
 }
 
 static boost::asio::ip::udp::endpoint make_endpoint(const std::string &s)
@@ -795,7 +750,7 @@ void capture_base::run()
 class capture : public capture_base
 {
 private:
-    spead2::ibv_cq_t cq;
+    spead2::ibv_cq_ex_t cq;
     spead2::ibv_qp_t qp;
 
     virtual void network_thread() override;
@@ -812,23 +767,20 @@ capture::capture(const options &opts)
     : capture_base(opts, sizes)
 {
     std::uint32_t n_slots = chunking.n_chunks * chunking.max_records;
-#if SPEAD2_USE_IBV_EXP
-    ibv_exp_cq_init_attr cq_attr = {};
-    if (timestamp_support)
-        cq_attr.flags |= IBV_EXP_CQ_TIMESTAMP;
-    cq_attr.comp_mask = IBV_EXP_CQ_INIT_ATTR_FLAGS;
-    cq = spead2::ibv_cq_t(cm_id, n_slots, nullptr, &cq_attr);
-#else
-    cq = spead2::ibv_cq_t(cm_id, n_slots, nullptr);
-#endif
+    ibv_cq_init_attr_ex cq_attr = {};
+    cq_attr.cqe = n_slots;
+    cq_attr.wc_flags = IBV_WC_EX_WITH_BYTE_LEN | IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK;
+    cq_attr.flags = IBV_CREATE_CQ_ATTR_SINGLE_THREADED;
+    cq_attr.comp_mask = IBV_CQ_INIT_ATTR_MASK_FLAGS;
+    cq = spead2::ibv_cq_ex_t(cm_id, &cq_attr);
 
     ibv_qp_init_attr qp_attr = {};
-    qp_attr.send_cq = cq.get();
-    qp_attr.recv_cq = cq.get();
+    qp_attr.send_cq = ibv_cq_ex_to_cq(cq.get());
+    qp_attr.recv_cq = ibv_cq_ex_to_cq(cq.get());
     qp_attr.qp_type = IBV_QPT_RAW_PACKET;
-    qp_attr.cap.max_send_wr = 1;
+    qp_attr.cap.max_send_wr = 0;
     qp_attr.cap.max_recv_wr = n_slots;
-    qp_attr.cap.max_send_sge = 1;
+    qp_attr.cap.max_send_sge = 0;
     qp_attr.cap.max_recv_sge = 1;
     qp = spead2::ibv_qp_t(pd, &qp_attr);
     qp.modify(IBV_QPS_INIT, cm_id->port_num);
@@ -885,11 +837,6 @@ void capture::network_thread()
     start_time = std::chrono::high_resolution_clock::now();
     last_report = start_time;
     const std::size_t max_records = chunking.max_records;
-#if SPEAD2_USE_IBV_EXP
-    std::unique_ptr<ibv_exp_wc[]> wc(new ibv_exp_wc[max_records]);
-#else
-    std::unique_ptr<ibv_wc[]> wc(new ibv_wc[max_records]);
-#endif
     int until_get_time = GET_TIME_RATE;
     std::uint64_t remaining_count = opts.count;
     while (!stop.load() && remaining_count > 0)
@@ -900,30 +847,28 @@ void capture::network_thread()
             expect = remaining_count;
         while (!stop.load() && expect > 0)
         {
-            int n = cq.poll(expect, wc.get());
-            packets += n;
-            for (int i = 0; i < n; i++)
+            ibv_poll_cq_attr poll_attr = {};
+            spead2::ibv_cq_ex_t::poller poller(cq, &poll_attr);
+            while (poller)
             {
-                if (wc[i].status != IBV_WC_SUCCESS)
+                if (cq->status != IBV_WC_SUCCESS)
                 {
                     spead2::log_warning("failed WR %1%: %2% (vendor_err: %3%)",
-                                        wc[i].wr_id, wc[i].status, wc[i].vendor_err);
+                                        cq->wr_id, cq->status, ibv_wc_read_vendor_err(cq.get()));
                     errors++;
-                    packets--;
                 }
                 else
                 {
-                    std::size_t idx = wc[i].wr_id;
+                    packets++;
+                    std::size_t idx = cq->wr_id;
                     assert(idx == c.n_records);
                     record_header &record = c.entries[idx].record;
-                    record.incl_len = wc[i].byte_len;
-                    record.orig_len = wc[i].byte_len;
-#if SPEAD2_USE_IBV_EXP
-                    if (timestamp_support && (wc[i].exp_wc_flags & IBV_EXP_WC_WITH_TIMESTAMP))
+                    std::uint32_t byte_len = ibv_wc_read_byte_len(cq.get());
+                    record.incl_len = byte_len;
+                    record.orig_len = byte_len;
+                    if (timestamp_support)
                     {
-                        std::uint64_t ticks = wc[i].timestamp - timestamp_subtract;
-                        std::uint64_t ns = std::uint64_t(ticks * hca_ns_per_clock);
-                        ns += timestamp_add;
+                        std::uint64_t ns = ibv_wc_read_completion_wallclock_ns(cq.get());
                         record.ts_sec = ns / 1000000000;
                         record.ts_nsec = ns % 1000000000;
                     }
@@ -932,27 +877,30 @@ void capture::network_thread()
                         record.ts_sec = 0;
                         record.ts_nsec = 0;
                     }
-#endif
-                    c.iov[2 * idx + 1].iov_len = wc[i].byte_len;
+                    c.iov[2 * idx + 1].iov_len = byte_len;
                     c.n_records++;
-                    c.n_bytes += wc[i].byte_len + sizeof(record_header);
-                    bytes += wc[i].byte_len;
+                    c.n_bytes += byte_len + sizeof(record_header);
+                    bytes += byte_len;
                 }
-            }
-            expect -= n;
-            until_get_time -= n + 1;
-            if (until_get_time <= 0)
-            {
-                until_get_time = GET_TIME_RATE;
-                if (!opts.quiet)
+                expect--;
+                until_get_time--;
+                if (until_get_time <= 0)
                 {
-                    time_point now = std::chrono::high_resolution_clock::now();
-                    if (now - last_report >= std::chrono::seconds(1))
-                        report_rates(now);
+                    until_get_time = GET_TIME_RATE;
+                    if (!opts.quiet)
+                    {
+                        time_point now = std::chrono::high_resolution_clock::now();
+                        if (now - last_report >= std::chrono::seconds(1))
+                            report_rates(now);
+                    }
                 }
+                if (remaining_count != std::numeric_limits<std::uint64_t>::max())
+                    remaining_count--;
+                if (stop.load() || expect == 0)
+                    break;
+                else
+                    poller.next();
             }
-            if (remaining_count != std::numeric_limits<std::uint64_t>::max())
-                remaining_count -= n;
         }
         c.full = c.n_records == max_records;
         chunk_ready(std::move(c));
