@@ -1,4 +1,4 @@
-# Copyright 2016 SKA South Africa
+# Copyright 2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -15,20 +15,12 @@
 
 #serial 1
 
-# SPEAD2_ARG_WITH(ARG, HELP, VAR, TEST)
-# ----------------------------------------
-AC_DEFUN([SPEAD2_ARG_WITH],
-         [AS_VAR_PUSHDEF(var, [$3])
-          AS_VAR_PUSHDEF(wvar, [with_$1])
-          AS_VAR_SET([var], [0])
-          AC_ARG_WITH([$1], [$2], [], [AS_VAR_SET([wvar], [check])])
-          AS_VAR_IF([wvar], [no], [],
-              [$4
-               AS_VAR_IF([wvar], [check], [],
-                   [AS_VAR_IF([var], [0],
-                        [AC_MSG_ERROR([--with-$1 was specified but not found])])])
-              ])
-          AC_SUBST($3)
-          AS_VAR_POPDEF([var])
-          AS_VAR_POPDEF([wvar])
-        ])
+# SPEAD2_PRINT_FEATURE(PREFIX, TEST)
+# ---------------------------------
+AC_DEFUN([SPEAD2_PRINT_FEATURE],
+         [AS_IF([$2], [echo "    $1: yes"], [echo "    $1: no"])])
+
+# SPEAD2_PRINT_CONDITION(PREFIX, CONDITIONAL)
+# --------------------------------------
+AC_DEFUN([SPEAD2_PRINT_CONDITION],
+         [AM_COND_IF([$2], [echo "    $1: yes"], [echo "    $1: no"])])

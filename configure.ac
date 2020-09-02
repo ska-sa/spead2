@@ -205,3 +205,26 @@ AC_CONFIG_FILES([Makefile
                  include/spead2/common_features.h
                  spead2.pc])
 AC_OUTPUT
+
+echo "Compilation options:"
+echo ""
+SPEAD2_PRINT_CONDITION([debug symbols], [DEBUG_SYMBOLS])
+SPEAD2_PRINT_CONDITION([debug logging], [DEBUG_LOG])
+SPEAD2_PRINT_CONDITION([compiler optimization], [OPTIMIZED])
+SPEAD2_PRINT_CONDITION([link-time optimization], [LTO])
+SPEAD2_PRINT_CONDITION([coverage], [COVERAGE])
+SPEAD2_PRINT_FEATURE([MOVNTDQ instruction], [test "x$SPEAD2_USE_MOVNTDQ" = "x1"])
+echo ""
+echo "System calls:"
+echo ""
+SPEAD2_PRINT_FEATURE([recvmmsg], [test "x$SPEAD2_USE_RECVMMSG" = "x1"])
+SPEAD2_PRINT_FEATURE([sendmmsg], [test "x$SPEAD2_USE_SENDMMSG" = "x1"])
+SPEAD2_PRINT_FEATURE([eventfd], [test "x$SPEAD2_USE_EVENTFD" = "x1"])
+SPEAD2_PRINT_FEATURE([POSIX semaphores], [test "x$SPEAD2_USE_POSIX_SEMAPHORES" = "x1"])
+echo ""
+echo "Libraries:"
+echo ""
+SPEAD2_PRINT_CONDITION([ibverbs], [SPEAD2_USE_IBV])
+SPEAD2_PRINT_CONDITION([mlx5dv], [SPEAD2_USE_MLX5DV])
+SPEAD2_PRINT_CONDITION([pcap], [SPEAD2_USE_PCAP])
+echo ""
