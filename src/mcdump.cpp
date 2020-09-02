@@ -884,22 +884,23 @@ void capture::network_thread()
                 }
                 expect--;
                 until_get_time--;
-                if (until_get_time <= 0)
-                {
-                    until_get_time = GET_TIME_RATE;
-                    if (!opts.quiet)
-                    {
-                        time_point now = std::chrono::high_resolution_clock::now();
-                        if (now - last_report >= std::chrono::seconds(1))
-                            report_rates(now);
-                    }
-                }
                 if (remaining_count != std::numeric_limits<std::uint64_t>::max())
                     remaining_count--;
                 if (stop.load() || expect == 0)
                     break;
                 else
                     poller.next();
+            }
+            until_get_time--;
+            if (until_get_time <= 0)
+            {
+                until_get_time = GET_TIME_RATE;
+                if (!opts.quiet)
+                {
+                    time_point now = std::chrono::high_resolution_clock::now();
+                    if (now - last_report >= std::chrono::seconds(1))
+                        report_rates(now);
+                }
             }
         }
         c.full = c.n_records == max_records;
