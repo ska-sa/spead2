@@ -80,6 +80,9 @@ private:
     create_qp(const ibv_pd_t &pd, const ibv_cq_t &send_cq, const ibv_cq_t &recv_cq,
               std::size_t n_slots);
 
+    /// Modify the QP with a rate limit, returning true on success
+    static bool setup_hw_rate(const ibv_qp_t &qp, const stream_config &config);
+
     /// Clear out the completion queue and return slots to available
     void reap();
 

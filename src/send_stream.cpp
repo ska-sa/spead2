@@ -238,7 +238,7 @@ stream_impl_base::~stream_impl_base()
 
 void stream_impl_base::enable_hw_rate()
 {
-    assert(config.allow_hw_rate);
+    assert(config.get_allow_hw_rate());
     hw_rate = true;
 }
 

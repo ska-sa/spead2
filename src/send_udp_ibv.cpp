@@ -1,4 +1,4 @@
-/* Copyright 2016, 2019 SKA South Africa
+/* Copyright 2016, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -46,11 +46,55 @@ ibv_qp_t udp_ibv_stream::create_qp(
     attr.recv_cq = recv_cq.get();
     attr.qp_type = IBV_QPT_RAW_PACKET;
     attr.cap.max_send_wr = n_slots;
-    attr.cap.max_recv_wr = 1;
+    attr.cap.max_recv_wr = 0;
     attr.cap.max_send_sge = 1;
-    attr.cap.max_recv_sge = 1;
+    attr.cap.max_recv_sge = 0;
     attr.sq_sig_all = true;
     return ibv_qp_t(pd, &attr);
+}
+
+bool udp_ibv_stream::setup_hw_rate(const ibv_qp_t &qp, const stream_config &config)
+{
+    ibv_device_attr_ex attr;
+    if (ibv_query_device_ex(qp->context, nullptr, &attr) != 0)
+    {
+        log_debug("Not using HW rate limiting because ibv_query_device_ex failed");
+        return false;
+    }
+    if (!ibv_is_qpt_supported(attr.packet_pacing_caps.supported_qpts, IBV_QPT_RAW_PACKET)
+        || attr.packet_pacing_caps.qp_rate_limit_max == 0)
+    {
+        log_debug("Not using HW rate limiting because it is not supported by the device");
+        return false;
+    }
+    // User rate is Bps, for UDP payload. Convert to rate for Ethernet frames, in kbps.
+    std::size_t frame_size = config.get_max_packet_size() + 42;
+    double overhead = double(frame_size) / config.get_max_packet_size();
+    double rate_kbps = config.get_rate() * 8e-3 * overhead;
+    if (rate_kbps < attr.packet_pacing_caps.qp_rate_limit_min
+        || rate_kbps > attr.packet_pacing_caps.qp_rate_limit_max)
+    {
+        log_debug("Not using HW rate limiting because the HW does not support the rate");
+        return false;
+    }
+
+    ibv_qp_rate_limit_attr limit_attr = {};
+    limit_attr.rate_limit = rate_kbps;
+    limit_attr.typical_pkt_sz = frame_size;
+    /* Using config.get_max_burst_size() would cause much longer bursts than
+     * necessary if the user did not explicitly turn down the default.
+     * Experience with ConnectX-5 shows that it can limit bursts to a single
+     * packet with little loss in rate accuracy. If max_burst_sz is set to less
+     * than typical_pkt_size it is ignored and a default is used.
+     */
+    limit_attr.max_burst_sz = frame_size;
+    if (ibv_modify_qp_rate_limit(qp.get(), &limit_attr) != 0)
+    {
+        log_debug("Not using HW rate limiting because ibv_modify_qp_rate_limit failed");
+        return false;
+    }
+
+    return true;
 }
 
 void udp_ibv_stream::reap()
@@ -219,6 +263,12 @@ udp_ibv_stream::udp_ibv_stream(
     qp.modify(IBV_QPS_INIT, cm_id->port_num);
     qp.modify(IBV_QPS_RTR);
     qp.modify(IBV_QPS_RTS);
+
+    if (config.get_allow_hw_rate() && config.get_rate() > 0.0)
+    {
+        if (setup_hw_rate(qp, config))
+            enable_hw_rate();
+    }
 
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(max_raw_size * n_slots, nullptr);
