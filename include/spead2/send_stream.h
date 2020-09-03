@@ -365,7 +365,10 @@ private:
         if (state == state_t::SENDING)
             process_results();
         else if (state == state_t::QUEUED)
-            update_send_time_empty();
+        {
+            if (!hw_rate)
+                update_send_time_empty();
+        }
         assert(active == queue_head);
 
         if (must_sleep())
