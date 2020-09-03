@@ -97,12 +97,13 @@ bool udp_ibv_stream::setup_hw_rate(const ibv_qp_t &qp, const stream_config &conf
     return true;
 }
 
-void udp_ibv_stream::reap()
+void udp_ibv_stream::reap(bool all)
 {
     constexpr int BATCH = 16;
     ibv_wc wc[BATCH];
     int done;
-    while ((done = send_cq.poll(BATCH, wc)) > 0)
+    while ((all || available.size() < n_current_packets)
+           && (done = send_cq.poll(BATCH, wc)) > 0)
     {
         for (int i = 0; i < done; i++)
         {
@@ -120,7 +121,7 @@ bool udp_ibv_stream::make_space()
 {
     for (int i = 0; i < max_poll; i++)
     {
-        reap();
+        reap(false);
         if (available.size() >= n_current_packets)
             return true;
     }
@@ -155,7 +156,7 @@ bool udp_ibv_stream::make_space()
          * leaves us with an unwanted req_notify which will lead to a
          * spurious event later, but that is harmless.
          */
-        reap();
+        reap(false);
         if (available.size() >= n_current_packets)
             return true;
         comp_channel_wrapper.async_read_some(boost::asio::null_buffers(), rerun);
@@ -314,7 +315,7 @@ udp_ibv_stream::~udp_ibv_stream()
      */
     flush();
     while (available.size() < n_slots)
-        reap();
+        reap(true);
 }
 
 } // namespace send
