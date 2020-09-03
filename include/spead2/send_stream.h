@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019 SKA South Africa
+/* Copyright 2015, 2017, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -55,6 +55,7 @@ public:
     static constexpr std::size_t default_max_heaps = 4;
     static constexpr std::size_t default_burst_size = 65536;
     static constexpr double default_burst_rate_ratio = 1.05;
+    static constexpr bool default_allow_hw_rate = true;
 
     void set_max_packet_size(std::size_t max_packet_size);
     std::size_t get_max_packet_size() const { return max_packet_size; }
@@ -66,6 +67,8 @@ public:
     std::size_t get_max_heaps() const { return max_heaps; }
     void set_burst_rate_ratio(double burst_rate_ratio);
     double get_burst_rate_ratio() const { return burst_rate_ratio; }
+    void set_allow_hw_rate(bool allow_hw_rate);
+    bool get_allow_hw_rate() const { return allow_hw_rate; }
 
     /// Get product of rate and burst_rate_ratio
     double get_burst_rate() const;
@@ -75,7 +78,8 @@ public:
         double rate = 0.0,
         std::size_t burst_size = default_burst_size,
         std::size_t max_heaps = default_max_heaps,
-        double burst_rate_ratio = default_burst_rate_ratio);
+        double burst_rate_ratio = default_burst_rate_ratio,
+        bool allow_hw_rate = default_allow_hw_rate);
 
 private:
     std::size_t max_packet_size = default_max_packet_size;
@@ -83,6 +87,7 @@ private:
     std::size_t burst_size = default_burst_size;
     std::size_t max_heaps = default_max_heaps;
     double burst_rate_ratio = default_burst_rate_ratio;
+    bool allow_hw_rate = false;
 };
 
 /**
