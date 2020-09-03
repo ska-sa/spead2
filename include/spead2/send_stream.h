@@ -235,6 +235,8 @@ private:
     timer_type::time_point send_time_burst;
     /// Time at which next burst should be sent, considering the average rate
     timer_type::time_point send_time;
+    /// If true, rate_bytes is never incremented and hence we never sleep
+    bool hw_rate = false;
     /// Number of bytes sent since send_time and sent_time_burst were updated
     std::uint64_t rate_bytes = 0;
     /// Heap cnt for the next heap to send
@@ -305,6 +307,14 @@ private:
 protected:
     stream_impl_base(io_service_ref io_service, const stream_config &config, std::size_t max_current_packets);
     virtual ~stream_impl_base() override;
+
+    /**
+     * Derived class calls to indicate that it will take care of rate limiting in hardware.
+     *
+     * This must be called from the constructor as it is not thread-safe. The
+     * caller must only call this if the stream config enabled HW rate limiting.
+     */
+    void enable_hw_rate();
 
 public:
     virtual void set_cnt_sequence(item_pointer_t next, item_pointer_t step) override;

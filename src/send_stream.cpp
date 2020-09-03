@@ -207,7 +207,8 @@ void stream_impl_base::load_packets(std::size_t tail)
         data.last = !gen->has_next_packet();
         data.item = cur;
         data.result = boost::system::error_code();
-        rate_bytes += data.size;
+        if (!hw_rate)
+            rate_bytes += data.size;
         n_current_packets++;
         if (data.last)
             next_active();
@@ -233,6 +234,12 @@ stream_impl_base::~stream_impl_base()
 {
     for (std::size_t i = queue_head; i != queue_tail; i = next_queue_slot(i))
         get_queue(i)->~queue_item();
+}
+
+void stream_impl_base::enable_hw_rate()
+{
+    assert(config.allow_hw_rate);
+    hw_rate = true;
 }
 
 void stream_impl_base::set_cnt_sequence(item_pointer_t next, item_pointer_t step)
