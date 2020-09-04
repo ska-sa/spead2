@@ -684,7 +684,7 @@ py::module register_module(py::module &parent)
         .def("__next__", &packet_generator_next);
 
     py::class_<stream_config>(m, "StreamConfig")
-        .def(py::init<std::size_t, double, std::size_t, std::size_t, double>(),
+        .def(py::init<std::size_t, double, std::size_t, std::size_t, double, bool>(),
              "max_packet_size"_a = stream_config::default_max_packet_size,
              "rate"_a = 0.0,
              "burst_size"_a = stream_config::default_burst_size,
