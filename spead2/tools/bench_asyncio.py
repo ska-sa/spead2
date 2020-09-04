@@ -178,7 +178,8 @@ async def measure_connection_once(args, rate, num_heaps, required_heaps):
         burst_size=args.burst,
         rate=rate,
         max_heaps=args.heaps,
-        burst_rate_ratio=args.burst_rate_ratio)
+        burst_rate_ratio=args.burst_rate_ratio,
+        allow_hw_rate=args.allow_hw_rate)
     host = args.host
     if args.multicast is not None:
         host = args.multicast
@@ -292,6 +293,8 @@ def main():
     group.add_argument('--burst-rate-ratio', metavar='RATIO', type=float,
                        default=spead2.send.StreamConfig.DEFAULT_BURST_RATE_RATIO,
                        help='Hard rate limit, relative to nominal rate [%(default)s]')
+    group.add_argument('--no-hw-rate', dest='allow_hw_rate', action='store_false',
+                       help='Do not use hardware rate limiting')
     if hasattr(spead2.send, 'UdpIbvStream'):
         group.add_argument('--send-ibv', type=str, metavar='ADDRESS',
                            help='Use ibverbs with this interface address [no]')
