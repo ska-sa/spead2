@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019 SKA South Africa
+/* Copyright 2015, 2017, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -31,6 +31,7 @@ constexpr std::size_t stream_config::default_max_packet_size;
 constexpr std::size_t stream_config::default_max_heaps;
 constexpr std::size_t stream_config::default_burst_size;
 constexpr double stream_config::default_burst_rate_ratio;
+constexpr bool stream_config::default_allow_hw_rate;
 
 void stream_config::set_max_packet_size(std::size_t max_packet_size)
 {
@@ -64,6 +65,11 @@ void stream_config::set_burst_rate_ratio(double burst_rate_ratio)
     this->burst_rate_ratio = burst_rate_ratio;
 }
 
+void stream_config::set_allow_hw_rate(bool allow_hw_rate)
+{
+    this->allow_hw_rate = allow_hw_rate;
+}
+
 double stream_config::get_burst_rate() const
 {
     return rate * burst_rate_ratio;
@@ -74,13 +80,15 @@ stream_config::stream_config(
     double rate,
     std::size_t burst_size,
     std::size_t max_heaps,
-    double burst_rate_ratio)
+    double burst_rate_ratio,
+    bool allow_hw_rate)
 {
     set_max_packet_size(max_packet_size);
     set_rate(rate);
     set_burst_size(burst_size);
     set_max_heaps(max_heaps);
     set_burst_rate_ratio(burst_rate_ratio);
+    set_allow_hw_rate(allow_hw_rate);
 }
 
 
@@ -199,7 +207,8 @@ void stream_impl_base::load_packets(std::size_t tail)
         data.last = !gen->has_next_packet();
         data.item = cur;
         data.result = boost::system::error_code();
-        rate_bytes += data.size;
+        if (!hw_rate)
+            rate_bytes += data.size;
         n_current_packets++;
         if (data.last)
             next_active();
@@ -225,6 +234,12 @@ stream_impl_base::~stream_impl_base()
 {
     for (std::size_t i = queue_head; i != queue_tail; i = next_queue_slot(i))
         get_queue(i)->~queue_item();
+}
+
+void stream_impl_base::enable_hw_rate()
+{
+    assert(config.get_allow_hw_rate());
+    hw_rate = true;
 }
 
 void stream_impl_base::set_cnt_sequence(item_pointer_t next, item_pointer_t step)

@@ -1,4 +1,4 @@
-# Copyright 2015, 2017, 2019 SKA South Africa
+# Copyright 2015, 2017, 2019-2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -79,6 +79,8 @@ def get_args():
     group.add_argument('--burst-rate-ratio', metavar='RATIO', type=float,
                        default=spead2.send.StreamConfig.DEFAULT_BURST_RATE_RATIO,
                        help='Hard rate limit, relative to --rate [%(default)s]')
+    group.add_argument('--no-hw-rate', dest='allow_hw_rate', action='store_false',
+                       help='Do not use hardware rate limiting')
     group.add_argument('--max-heaps', metavar='HEAPS', type=int,
                        default=spead2.send.StreamConfig.DEFAULT_MAX_HEAPS,
                        help='Maximum heaps in flight')
@@ -173,7 +175,8 @@ async def async_main():
         burst_size=args.burst,
         rate=args.rate * 10**9 / 8,
         burst_rate_ratio=args.burst_rate_ratio,
-        max_heaps=args.max_heaps)
+        max_heaps=args.max_heaps,
+        allow_hw_rate=args.allow_hw_rate)
     if args.tcp:
         stream = await spead2.send.asyncio.TcpStream.connect(
             thread_pool, args.host, args.port, config, args.buffer, args.bind)

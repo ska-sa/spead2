@@ -63,6 +63,7 @@ struct options
     std::size_t recv_buffer = spead2::recv::udp_reader::default_buffer_size;
     std::size_t burst_size = spead2::send::stream_config::default_burst_size;
     double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
+    bool no_hw_rate = false;
     std::size_t heaps = spead2::recv::stream_base::default_max_heaps;
     std::size_t ring_heaps = spead2::recv::ring_stream_base::default_ring_heaps;
     std::size_t mem_max_free = 12;
@@ -145,6 +146,7 @@ static options parse_args(int argc, const char **argv, command_mode mode)
             ("recv-buffer", make_opt(opts.recv_buffer), "Socket buffer size (receiver)")
             ("burst", make_opt(opts.burst_size), "Send burst size")
             ("burst-rate-ratio", make_opt(opts.burst_rate_ratio), "Hard rate limit, relative to the nominal rate")
+            ("no-hw-rate", po::bool_switch(&opts.no_hw_rate)->default_value(opts.no_hw_rate), "Do not use hardware rate limiting")
             ("multicast", make_opt(opts.multicast), "Multicast group to use, instead of unicast")
 #if SPEAD2_USE_IBV
             ("send-ibv", make_opt(opts.send_ibv_if), "Interface address for ibverbs (sender)")
@@ -330,6 +332,7 @@ static std::pair<bool, double> measure_connection_once(
             << opts.recv_buffer << ' '
             << opts.burst_size << ' '
             << opts.burst_rate_ratio << ' '
+            << int(opts.no_hw_rate) << ' '
             << opts.heaps << ' '
             << opts.ring_heaps << ' '
             << opts.mem_max_free << ' '
@@ -350,7 +353,8 @@ static std::pair<bool, double> measure_connection_once(
         spead2::thread_pool thread_pool;
         spead2::flavour flavour(4, 64, opts.heap_address_bits);
         spead2::send::stream_config config(
-            opts.packet_size, rate, opts.burst_size, opts.heaps, opts.burst_rate_ratio);
+            opts.packet_size, rate, opts.burst_size, opts.heaps, opts.burst_rate_ratio,
+            !opts.no_hw_rate);
 
         /* Build the heaps */
         std::vector<spead2::send::heap> heaps;
@@ -675,6 +679,7 @@ static void main_slave(int argc, const char **argv)
                     >> opts.recv_buffer
                     >> opts.burst_size
                     >> opts.burst_rate_ratio
+                    >> opts.no_hw_rate
                     >> opts.heaps
                     >> opts.ring_heaps
                     >> opts.mem_max_free
