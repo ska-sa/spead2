@@ -525,7 +525,7 @@ void ibv_wq_t::modify(ibv_wq_state state)
 ibv_wq_mprq_t::ibv_wq_mprq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr)
     : attr(mlx5_attr->striding_rq_attrs)
 {
-    assert(mlx5_attr & MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ);
+    assert(mlx5_attr->comp_mask & MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ);
     ibv_wq *wq = mlx5dv_create_wq(cm_id->verbs, attr, mlx5_attr);
     if (!wq)
         throw_errno("mlx5dv_create_wq failed");

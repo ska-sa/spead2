@@ -199,6 +199,7 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     ibv_cq_init_attr_ex cq_attr;
     memset(&cq_attr, 0, sizeof(cq_attr));
     cq_attr.cqe = strides;
+    cq_attr.wc_flags = IBV_WC_EX_WITH_BYTE_LEN;
     if (comp_vector >= 0)
     {
         cq_attr.channel = comp_channel.get();
