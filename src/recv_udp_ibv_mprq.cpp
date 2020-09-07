@@ -65,20 +65,10 @@ static ibv_qp_t create_qp(const rdma_cm_id_t &cm_id,
 void udp_ibv_mprq_reader::post_wr(std::size_t offset)
 {
     ibv_sge sge;
-    memset(&sge, 0, sizeof(sge));
     sge.addr = (uintptr_t) &buffer[offset];
     sge.length = wqe_size;
     sge.lkey = mr->lkey;
-
-    ibv_recv_wr wr;
-    memset(&wr, 0, sizeof(wr));
-    wr.sg_list = &sge;
-    wr.num_sge = 1;
-
-    ibv_recv_wr *bad_wr;
-    int status = ibv_post_wq_recv(wq.get(), &wr, &bad_wr);
-    if (status != 0)
-        throw_errno("ibv_post_wq_recv failed", status);
+    wq.post_recv(&sge);
 }
 
 udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add_packet_state &state)
@@ -102,34 +92,39 @@ udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add
         }
         else
         {
-            uint32_t len = ibv_wc_read_byte_len(recv_cq.get());
-            uint32_t offset = 0;   // TODO: need to figure out how to determine this
-            const void *ptr = reinterpret_cast<void *>(buffer.get() + (wqe_start + offset));
+            uint32_t len, offset;
+            int flags;
+            wq.read_wc(recv_cq, len, offset, flags);
 
-            // Sanity checks
-            try
+            if (!(flags & ibv_wq_mprq_t::FLAG_FILLER))
             {
-                packet_buffer payload = udp_from_ethernet(const_cast<void *>(ptr), len);
-                bool stopped = process_one_packet(state,
-                                                  payload.data(), payload.size(), max_size);
-                if (stopped)
-                    return poll_result::stopped;
+                const void *ptr = reinterpret_cast<void *>(buffer.get() + (wqe_start + offset));
+
+                // Sanity checks
+                try
+                {
+                    packet_buffer payload = udp_from_ethernet(const_cast<void *>(ptr), len);
+                    bool stopped = process_one_packet(state,
+                                                      payload.data(), payload.size(), max_size);
+                    if (stopped)
+                        return poll_result::stopped;
+                }
+                catch (packet_type_error &e)
+                {
+                    log_warning(e.what());
+                }
+                catch (std::length_error &e)
+                {
+                    log_warning(e.what());
+                }
             }
-            catch (packet_type_error &e)
+            if (flags & ibv_wq_mprq_t::FLAG_LAST)
             {
-                log_warning(e.what());
+                post_wr(wqe_start);
+                wqe_start += wqe_size;
+                if (wqe_start == buffer_size)
+                    wqe_start = 0;
             }
-            catch (std::length_error &e)
-            {
-                log_warning(e.what());
-            }
-        }
-        if (0)   // TODO: need to know how to determine that we're on to the next WR
-        {
-            post_wr(wqe_start);
-            wqe_start += wqe_size;
-            if (wqe_start == buffer_size)
-                wqe_start = 0;
         }
         poller.next();
     }
@@ -220,7 +215,7 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     wq_attr.cq = ibv_cq_ex_to_cq(recv_cq.get());
     // TODO: investigate IBV_WQ_FLAGS_DELAY_DROP to reduce dropped
     // packets and IBV_WQ_FLAGS_CVLAN_STRIPPING to remove VLAN tags.
-    wq = ibv_wq_t(cm_id, &wq_attr, &attr);
+    wq = ibv_wq_mprq_t(cm_id, &wq_attr, &attr);
 
     rwq_ind_table = create_rwq_ind_table(cm_id, wq);
     qp = create_qp(cm_id, pd, rwq_ind_table);
