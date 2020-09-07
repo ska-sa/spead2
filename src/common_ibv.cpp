@@ -558,9 +558,15 @@ void ibv_wq_mprq_t::post_recv(ibv_sge *sge)
     wqe->dseg.lkey = htobe32(sge->lkey);
     wqe->dseg.addr = htobe64(sge->addr);
     head++;
-    // Update the doorbell to tell the HW about the new entry
-    std::atomic_thread_fence(std::memory_order_release);
-    *rwq.dbrec = htobe32(head & 0xffff);
+    /* Update the doorbell to tell the HW about the new entry. This must
+     * be ordered after the writes to the buffer, so we hope that any
+     * sensible platform will make std::atomic_uint32_t just a wrapper
+     * around a uint32_t.
+     */
+    static_assert(sizeof(std::atomic_uint32_t) == sizeof(std::uint32_t),
+                  "std::atomic_uint32_t has the wrong size");
+    std::atomic<std::uint32_t> *dbrec = reinterpret_cast<std::atomic<std::uint32_t> *>(rwq.dbrec);
+    dbrec->store(htobe32(head & 0xffff), std::memory_order_release);
 }
 
 void ibv_wq_mprq_t::read_wc(const ibv_cq_ex_t &cq, std::uint32_t &byte_len,
