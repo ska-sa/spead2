@@ -73,70 +73,94 @@ void udp_ibv_mprq_reader::post_wr(std::size_t offset)
 
 udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add_packet_state &state)
 {
-    /* Bound the number of times to receive packets, to avoid live-locking the
-     * receive queue if we're getting packets as fast as we can process them.
-     */
-    const int max_iter = 256;
-    ibv_poll_cq_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    ibv_cq_ex_t::poller poller(recv_cq, &attr);
-    if (!poller)
-        return poll_result::drained;
+    poll_result result;
+    std::size_t consumed = 0;     // Number of work requests that need to be reposted
+    std::size_t orig_wqe_start = wqe_start;
 
-    int iter = 0;
-    while (true)
     {
-        if (recv_cq->status != IBV_WC_SUCCESS)
-        {
-            log_warning("Work Request failed with code %1%", recv_cq->status);
-        }
-        else
-        {
-            uint32_t len, offset;
-            int flags;
-            wq.read_wc(recv_cq, len, offset, flags);
-
-            if (!(flags & ibv_wq_mprq_t::FLAG_FILLER))
-            {
-                const void *ptr = reinterpret_cast<void *>(buffer.get() + (wqe_start + offset));
-
-                // Sanity checks
-                try
-                {
-                    packet_buffer payload = udp_from_ethernet(const_cast<void *>(ptr), len);
-                    bool stopped = process_one_packet(state,
-                                                      payload.data(), payload.size(), max_size);
-                    if (stopped)
-                        return poll_result::stopped;
-                }
-                catch (packet_type_error &e)
-                {
-                    log_warning(e.what());
-                }
-                catch (std::length_error &e)
-                {
-                    log_warning(e.what());
-                }
-            }
-            if (flags & ibv_wq_mprq_t::FLAG_LAST)
-            {
-                // TODO: this has the potential to overflow the CQ, because they're
-                // not removed from the CQ until we destroy the poller. We should
-                // defer posting new work until we've finished the polling.
-                post_wr(wqe_start);
-                wqe_start += wqe_size;
-                if (wqe_start == buffer_size)
-                    wqe_start = 0;
-            }
-        }
-
-        iter++;
-        if (iter >= max_iter)
-            return poll_result::partial;
-        poller.next();
+        /* Bound the number of times to receive packets, to avoid live-locking the
+         * receive queue if we're getting packets as fast as we can process them.
+         */
+        const int max_iter = 256;
+        ibv_poll_cq_attr attr;
+        memset(&attr, 0, sizeof(attr));
+        ibv_cq_ex_t::poller poller(recv_cq, &attr);
         if (!poller)
             return poll_result::drained;
+
+        int iter = 0;
+        while (true)
+        {
+            if (recv_cq->status != IBV_WC_SUCCESS)
+            {
+                log_warning("Work Request failed with code %1%", recv_cq->status);
+            }
+            else
+            {
+                uint32_t len, offset;
+                int flags;
+                wq.read_wc(recv_cq, len, offset, flags);
+
+                if (!(flags & ibv_wq_mprq_t::FLAG_FILLER))
+                {
+                    const void *ptr = reinterpret_cast<void *>(buffer.get() + (wqe_start + offset));
+
+                    // Sanity checks
+                    try
+                    {
+                        packet_buffer payload = udp_from_ethernet(const_cast<void *>(ptr), len);
+                        bool stopped = process_one_packet(state,
+                                                          payload.data(), payload.size(), max_size);
+                        if (stopped)
+                            return poll_result::stopped;
+                    }
+                    catch (packet_type_error &e)
+                    {
+                        log_warning(e.what());
+                    }
+                    catch (std::length_error &e)
+                    {
+                        log_warning(e.what());
+                    }
+                }
+                if (flags & ibv_wq_mprq_t::FLAG_LAST)
+                {
+                    /* Re-posting the work requests is deferred until the
+                     * poller is closed, to avoid overflowing the CQ (because
+                     * the HW only sees the entries as consumed once we close
+                     * the poller).
+                     */
+                    consumed++;
+                    wqe_start += wqe_size;
+                    if (wqe_start == buffer_size)
+                        wqe_start = 0;
+                }
+            }
+
+            iter++;
+            if (iter >= max_iter)
+            {
+                result = poll_result::partial;
+                break;
+            }
+            poller.next();
+            if (!poller)
+            {
+                result = poll_result::drained;
+                break;
+            }
+        }
     }
+    // Now that the poller is closed, the CQEs have been consumed, so we can safely
+    // add new work requests without risk of overflowing the CQ.
+    for (std::size_t i = 0; i < consumed; i++)
+    {
+        post_wr(orig_wqe_start);
+        orig_wqe_start += wqe_size;
+        if (orig_wqe_start == buffer_size)
+            orig_wqe_start = 0;
+    }
+    return result;
 }
 
 static int clamp(int x, int low, int high)
