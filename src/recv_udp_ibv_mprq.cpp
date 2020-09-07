@@ -83,8 +83,8 @@ udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add
     if (!poller)
         return poll_result::drained;
 
-    poll_result result = poll_result::partial;
-    for (int iter = 0; iter < max_iter && poller; iter++)
+    int iter = 0;
+    while (true)
     {
         if (recv_cq->status != IBV_WC_SUCCESS)
         {
@@ -120,15 +120,23 @@ udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add
             }
             if (flags & ibv_wq_mprq_t::FLAG_LAST)
             {
+                // TODO: this has the potential to overflow the CQ, because they're
+                // not removed from the CQ until we destroy the poller. We should
+                // defer posting new work until we've finished the polling.
                 post_wr(wqe_start);
                 wqe_start += wqe_size;
                 if (wqe_start == buffer_size)
                     wqe_start = 0;
             }
         }
+
+        iter++;
+        if (iter >= max_iter)
+            return poll_result::partial;
         poller.next();
+        if (!poller)
+            return poll_result::drained;
     }
-    return result;
 }
 
 static int clamp(int x, int low, int high)
