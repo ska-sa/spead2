@@ -8,5 +8,5 @@ Description: Library for sending and receiving data in the SPEAD protocol
 Version: @PACKAGE_VERSION@
 Libs: -L${libdir} -lspead2
 Libs.private: @LIBS@
-Cflags: -I${includedir}
+Cflags: @SPEAD2_CFLAGS@ -I${includedir}
 URL: https://github.com/ska-sa/spead2

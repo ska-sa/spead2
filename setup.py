@@ -57,15 +57,15 @@ class BuildExt(build_ext):
     def run(self):
         self.mkpath(self.build_temp)
         subprocess.check_call(os.path.abspath('configure'), cwd=self.build_temp)
-        # Ugly hack to add libraries conditional on configure result
-        have_pcap = False
-        with open(os.path.join(self.build_temp, 'include', 'spead2', 'common_features.h')) as f:
+        config = {}
+        with open(os.path.join(self.build_temp, 'python-build.cfg')) as f:
             for line in f:
-                if line.strip() == '#define SPEAD2_USE_PCAP 1':
-                    have_pcap = True
+                if line.strip():
+                    name, value = line.split('=', 1)
+                    config[name.strip()] = value.strip()
         for extension in self.extensions:
-            if have_pcap:
-                extension.libraries.extend(['pcap'])
+            extension.extra_compile_args.extend(config['CFLAGS'].split())
+            extension.extra_link_args.extend(config['LIBS'].split())
             if self.coverage:
                 extension.extra_compile_args.extend(['-g', '--coverage'])
                 extension.libraries.extend(['gcov'])
@@ -124,8 +124,6 @@ if not rtd:
                          "from https://pypi.python.org/pypi/spead2 or run " +
                          "./bootstrap.sh if not using a release.")
 
-    libraries = ['boost_system']
-
     extensions = [
         Extension(
             '_spead2',
@@ -136,8 +134,7 @@ if not rtd:
             depends=glob.glob('include/spead2/*.h'),
             language='c++',
             include_dirs=['include', pybind11.get_include()],
-            extra_compile_args=['-std=c++11', '-g0', '-fvisibility=hidden'],
-            libraries=libraries)
+            extra_compile_args=['-std=c++11', '-g0', '-fvisibility=hidden'])
     ]
 else:
     extensions = []

@@ -159,13 +159,19 @@ SPEAD2_ARG_WITH(
 ### Determine libraries to link against and include paths
 
 LIBS="-lboost_system -lpthread -ldl"
+SPEAD2_CFLAGS=""
 AS_IF([test "x$SPEAD2_USE_PCAP" = "x1"], [
     LIBS="$PCAP_LIBS $LIBS"
-    CXXFLAGS="$PCAP_CFLAGS $CXXFLAGS"
+    SPEAD2_CFLAGS="$PCAP_CFLAGS $SPEAD2_CFLAGS"
 ])
 AS_IF([test "x$SPEAD2_USE_IBV" = "x1"], [
-    CXXFLAGS="$IBV_CFLAGS $CXXFLAGS"
+    SPEAD2_CFLAGS="$IBV_CFLAGS $SPEAD2_CFLAGS"
 ])
+AS_IF([test "x$SPEAD2_USE_MLX5DV" = "x1"], [
+    SPEAD2_CFLAGS="$MLX5DV_CFLAGS $SPEAD2_CFLAGS"
+])
+CXXFLAGS="$SPEAD2_CFLAGS $CXXFLAGS"
+AC_SUBST(SPEAD2_CFLAGS)
 
 ### Build variants
 
@@ -203,7 +209,8 @@ AC_CONFIG_FILES([Makefile
                  examples/Makefile
                  include/Makefile
                  include/spead2/common_features.h
-                 spead2.pc])
+                 spead2.pc
+                 python-build.cfg])
 AC_OUTPUT
 
 echo "Compilation options:"
