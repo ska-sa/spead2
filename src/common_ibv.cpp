@@ -43,10 +43,9 @@ namespace spead2
 namespace detail
 {
 
-/* At some point (I think v12 or v13) rdma-core changed the ABI for
- * ibv_create_flow, and the backwards-compatibility shim in place was
- * flawed and only fixed in v30. See
- * https://github.com/linux-rdma/rdma-core/commit/88789b7.
+/* While compilation requires a relatively modern rdma-core, at runtime we
+ * may be linked to an old version. The ABI for ibv_create_flow and
+ * ibv_destroy_flow changed at around v12 or v13.
  *
  * We can work around it by mimicking the internals of verbs.h and
  * selecting the correct slot.
@@ -84,8 +83,8 @@ static ibv_flow *wrap_ibv_create_flow(ibv_qp *qp, ibv_flow_attr *flow_attr)
     if (!flow && (errno == 0 || errno == EOPNOTSUPP))
     {
         const verbs_context_fixed *vctx = get_verbs_context_fixed(qp->context);
-        if (!vctx->old_ibv_create_flow && vctx->ibv_create_flow)
-            flow = vctx->ibv_create_flow(qp, flow_attr);
+        if (vctx->old_ibv_create_flow && !vctx->ibv_create_flow)
+            flow = vctx->old_ibv_create_flow(qp, flow_attr);
         else if (errno == 0)
             errno = EOPNOTSUPP;  // old versions of ibv_create_flow neglect to set errno
     }
@@ -104,8 +103,8 @@ static int wrap_ibv_destroy_flow(ibv_flow *flow)
         if (std::abs(result) == ENOSYS || std::abs(result) == EOPNOTSUPP)
         {
             const verbs_context_fixed *vctx = get_verbs_context_fixed(flow->context);
-            if (!vctx->old_ibv_destroy_flow && vctx->ibv_destroy_flow)
-                result = vctx->ibv_destroy_flow(flow);
+            if (vctx->old_ibv_destroy_flow && !vctx->ibv_destroy_flow)
+                result = vctx->old_ibv_destroy_flow(flow);
         }
     }
     return result;
