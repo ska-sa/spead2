@@ -57,7 +57,7 @@ private:
     friend class detail::udp_ibv_reader_base<udp_ibv_mprq_reader>;
 
     // All the data structures required by ibverbs
-    ibv_wq_t wq;
+    ibv_wq_mprq_t wq;
     ibv_rwq_ind_table_t rwq_ind_table;
     ibv_qp_t qp;
     ibv_mr_t mr;

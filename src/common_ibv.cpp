@@ -25,6 +25,7 @@
 #include <cassert>
 #include <cstdlib>
 #include <memory>
+#include <atomic>
 #include <algorithm>
 #include <system_error>
 #include <boost/asio.hpp>
@@ -509,16 +510,6 @@ ibv_wq_t::ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr)
     reset(wq);
 }
 
-#if SPEAD2_USE_MLX5DV
-ibv_wq_t::ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr)
-{
-    ibv_wq *wq = mlx5dv_create_wq(cm_id->verbs, attr, mlx5_attr);
-    if (!wq)
-        throw_errno("mlx5dv_create_wq failed");
-    reset(wq);
-}
-#endif
-
 void ibv_wq_t::modify(ibv_wq_state state)
 {
     ibv_wq_attr wq_attr;
@@ -529,6 +520,81 @@ void ibv_wq_t::modify(ibv_wq_state state)
     if (status != 0)
         throw_errno("ibv_modify_wq failed", status);
 }
+
+#if SPEAD2_USE_MLX5DV
+ibv_wq_mprq_t::ibv_wq_mprq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr)
+    : stride_size(1U << mlx5_attr->striding_rq_attrs.single_stride_log_num_of_bytes),
+    n_strides(1U << mlx5_attr->striding_rq_attrs.single_wqe_log_num_of_strides),
+    data_offset(mlx5_attr->striding_rq_attrs.two_byte_shift_en ? 2 : 0)
+{
+    assert(mlx5_attr->comp_mask & MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ);
+    ibv_wq *wq = mlx5dv_create_wq(cm_id->verbs, attr, mlx5_attr);
+    if (!wq)
+        throw_errno("mlx5dv_create_wq failed");
+    mlx5dv_obj obj;
+    obj.rwq.in = wq;
+    obj.rwq.out = &rwq;
+    int ret = mlx5dv_init_obj(&obj, MLX5DV_OBJ_RWQ);
+    if (ret != 0)
+    {
+        ibv_destroy_wq(wq);
+        throw_errno("mlx5dv_init_obj failed", ret);
+    }
+    if (rwq.stride != sizeof(mlx5_mprq_wqe))
+    {
+        ibv_destroy_wq(wq);
+        throw_errno("multi-packet receive queue has unexpected stride", EOPNOTSUPP);
+    }
+    reset(wq);
+}
+
+void ibv_wq_mprq_t::post_recv(ibv_sge *sge)
+{
+    if (head - tail >= rwq.wqe_cnt)
+        throw_errno("Multi-packet receive queue is full", ENOMEM);
+
+    int ind = head & (rwq.wqe_cnt - 1);
+    mlx5_mprq_wqe *wqe = (mlx5_mprq_wqe *) rwq.buf + ind;
+    memset(&wqe->nseg, 0, sizeof(wqe->nseg));
+    wqe->dseg.byte_count = htobe32(sge->length);
+    wqe->dseg.lkey = htobe32(sge->lkey);
+    wqe->dseg.addr = htobe64(sge->addr);
+    head++;
+    /* Update the doorbell to tell the HW about the new entry. This must
+     * be ordered after the writes to the buffer, so we hope that any
+     * sensible platform will make std::atomic_uint32_t just a wrapper
+     * around a uint32_t.
+     */
+    static_assert(sizeof(std::atomic_uint32_t) == sizeof(std::uint32_t),
+                  "std::atomic_uint32_t has the wrong size");
+    std::atomic<std::uint32_t> *dbrec = reinterpret_cast<std::atomic<std::uint32_t> *>(rwq.dbrec);
+    dbrec->store(htobe32(head & 0xffff), std::memory_order_release);
+}
+
+void ibv_wq_mprq_t::read_wc(const ibv_cq_ex_t &cq, std::uint32_t &byte_len,
+                            std::uint32_t &offset, int &flags) noexcept
+{
+    /* This is actually a packed field: lower 16 bytes are the byte count,
+     * top bit is the "filler" flag, remaining bits are the number of
+     * strides consumed.
+     */
+    std::uint32_t byte_cnt = ibv_wc_read_byte_len(cq.get());
+    byte_len = (byte_cnt & 0xffff) - data_offset;
+    offset = tail_strides * stride_size + data_offset;
+    tail_strides += (byte_cnt >> 16) & 0x7fff;
+    flags = 0;
+    if (tail_strides >= n_strides)
+    {
+        assert(tail_strides <= n_strides);
+        flags |= FLAG_LAST;
+        tail++;
+        tail_strides = 0;
+    }
+    if (byte_cnt & 0x80000000)
+        flags |= FLAG_FILLER;
+}
+
+#endif // SPEAD2_USE_MLX5DV
 
 ibv_rwq_ind_table_t::ibv_rwq_ind_table_t(const rdma_cm_id_t &cm_id, ibv_rwq_ind_table_init_attr *attr)
 {

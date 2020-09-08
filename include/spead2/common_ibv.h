@@ -222,47 +222,57 @@ public:
     {
     private:
         ibv_cq_ex *cq;
-        bool more = false;
+        bool active = false;
 
     public:
-        poller(const ibv_cq_ex_t &cq, ibv_poll_cq_attr *attr)
+        poller(const ibv_cq_ex_t &cq)
             : cq(cq.get())
         {
             assert(this->cq);
-            int result = ibv_start_poll(this->cq, attr);
-            if (result == 0)
-                more = true;
-            else if (result == ENOENT)
-                this->cq = NULL;    // indicates that destructor should not ibv_end_poll
-            else if (result != ENOENT)
-                throw_errno("ibv_start_poll failed", result);
+        }
+
+        bool next()
+        {
+            if (!active)
+            {
+                ibv_poll_cq_attr attr = {};
+                int result = ibv_start_poll(cq, &attr);
+                if (result == 0)
+                {
+                    active = true;
+                    return true;
+                }
+                else if (result == ENOENT)
+                    return false;
+                else
+                    throw_errno("ibv_start_poll failed", result);
+            }
+            else
+            {
+                int result = ibv_next_poll(cq);
+                if (result == 0)
+                    return true;
+                else if (result == ENOENT)
+                    return false;
+                else
+                    throw_errno("ibv_next_poll failed", result);
+            }
+        }
+
+        void stop()
+        {
+            if (active)
+            {
+                ibv_end_poll(cq);
+                active = false;
+            }
         }
 
         ~poller()
         {
-            if (cq)
-                ibv_end_poll(cq);
+            stop();
         }
-
-        void next()
-        {
-            assert(more);
-            int result = ibv_next_poll(cq);
-            if (result == ENOENT)
-                more = false;
-            else if (result != 0)
-                throw_errno("ibv_next_poll failed", result);
-        }
-
-        explicit operator bool() const { return more; }
     };
-
-    /* Errors other than ENOENT become exceptions, but ENOENT is returned as-is
-     * because it's part of the normal flow.
-     */
-    int start_poll(ibv_poll_cq_attr *attr);
-    int next_poll();
-    void end_poll();
 };
 
 class ibv_pd_t : public std::unique_ptr<ibv_pd, detail::ibv_pd_deleter>
@@ -329,12 +339,59 @@ class ibv_wq_t : public std::unique_ptr<ibv_wq, detail::ibv_wq_deleter>
 public:
     ibv_wq_t() = default;
     ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr);
-#if SPEAD2_USE_MLX5DV
-    ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr);
-#endif
 
     void modify(ibv_wq_state state);
 };
+
+#if SPEAD2_USE_MLX5DV
+/**
+ * Support for multi-packet receive queues (MPRQs) on mlx5. At this time (Sep
+ * 2020), libmlx5 doesn't support them through the standard verbs functions. We
+ * thus have to directly construct the low-level data structures for the
+ * hardware, and decode information stored in the completion entries.
+ *
+ * This is somewhat fragile, because we're not taking over management of the
+ * completion queue, and the completion queue code assumes it is working with
+ * a normal work queue. Examining the code shows that it is probably safe,
+ * provided that
+ * - Only a single thread is accessing these data structures at a time (this
+ *   class does no locking.
+ * - There is no inline data in the CQE (I don't know how to ensure that).
+ *
+ * The @a mlx5_attr must specify @c MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ.
+ */
+class ibv_wq_mprq_t : public ibv_wq_t
+{
+private:
+    mlx5dv_rwq rwq;
+    /// Total number of entries posted
+    std::uint32_t head = 0;
+    /// Total number of entries fully consumed
+    std::uint32_t tail = 0;
+    /// Number of strides consumed from the tail entry
+    std::uint32_t tail_strides = 0;
+    /// Size of each stride in bytes
+    std::uint32_t stride_size = 0;
+    /// Number of strides per work queue entry
+    std::uint32_t n_strides = 0;
+    /// Offset of actual packet data within its first stride
+    std::int32_t data_offset = 0;
+public:
+    static constexpr int FLAG_LAST = 1;    ///< This is the last CQE for the WQE
+    static constexpr int FLAG_FILLER = 2;  ///< This is a filler CQE rather than a packet
+
+    ibv_wq_mprq_t() = default;
+    ibv_wq_mprq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr);
+
+    void post_recv(ibv_sge *sge);
+
+    /**
+     * Get completion information. Call this function from inside
+     * ibv_start_poll/ibv_end_poll, exactly once for each completion.
+     */
+    void read_wc(const ibv_cq_ex_t &cq, std::uint32_t &byte_len, std::uint32_t &offset, int &flags) noexcept;
+};
+#endif // SPEAD2_USE_MLX5DV
 
 class ibv_rwq_ind_table_t : public std::unique_ptr<ibv_rwq_ind_table, detail::ibv_rwq_ind_table_deleter>
 {

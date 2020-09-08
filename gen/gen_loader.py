@@ -96,6 +96,7 @@ int rdma_destroy_id(struct rdma_cm_id *id);
 
 MLX5DV_DECLS = '''
 typedef int bool;
+typedef unsigned long uint64_t;
 
 bool mlx5dv_is_supported(struct ibv_device *device);
 
@@ -105,6 +106,8 @@ int mlx5dv_query_device(struct ibv_context *ctx_in,
 struct ibv_wq *mlx5dv_create_wq(struct ibv_context *context,
                                 struct ibv_wq_init_attr *wq_init_attr,
                                 struct mlx5dv_wq_init_attr *mlx5_wq_attr);
+
+int mlx5dv_init_obj(struct mlx5dv_obj *obj, uint64_t obj_type);
 '''
 
 

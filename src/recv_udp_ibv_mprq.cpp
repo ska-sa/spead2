@@ -65,20 +65,10 @@ static ibv_qp_t create_qp(const rdma_cm_id_t &cm_id,
 void udp_ibv_mprq_reader::post_wr(std::size_t offset)
 {
     ibv_sge sge;
-    memset(&sge, 0, sizeof(sge));
     sge.addr = (uintptr_t) &buffer[offset];
     sge.length = wqe_size;
     sge.lkey = mr->lkey;
-
-    ibv_recv_wr wr;
-    memset(&wr, 0, sizeof(wr));
-    wr.sg_list = &sge;
-    wr.num_sge = 1;
-
-    ibv_recv_wr *bad_wr;
-    int status = ibv_post_wq_recv(wq.get(), &wr, &bad_wr);
-    if (status != 0)
-        throw_errno("ibv_post_wq_recv failed", status);
+    wq.post_recv(&sge);
 }
 
 udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add_packet_state &state)
@@ -87,23 +77,24 @@ udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add
      * receive queue if we're getting packets as fast as we can process them.
      */
     const int max_iter = 256;
-    ibv_poll_cq_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    ibv_cq_ex_t::poller poller(recv_cq, &attr);
-    if (!poller)
-        return poll_result::drained;
+    ibv_cq_ex_t::poller poller(recv_cq);
 
-    poll_result result = poll_result::partial;
-    for (int iter = 0; iter < max_iter && poller; iter++)
+    for (int iter = 0; iter < max_iter; iter++)
     {
+        if (!poller.next())
+            return poll_result::drained;
         if (recv_cq->status != IBV_WC_SUCCESS)
         {
             log_warning("Work Request failed with code %1%", recv_cq->status);
+            continue;
         }
-        else
+
+        std::uint32_t len, offset;
+        int flags;
+        wq.read_wc(recv_cq, len, offset, flags);
+
+        if (!(flags & ibv_wq_mprq_t::FLAG_FILLER))
         {
-            uint32_t len = ibv_wc_read_byte_len(recv_cq.get());
-            uint32_t offset = 0;   // TODO: need to figure out how to determine this
             const void *ptr = reinterpret_cast<void *>(buffer.get() + (wqe_start + offset));
 
             // Sanity checks
@@ -124,16 +115,20 @@ udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add
                 log_warning(e.what());
             }
         }
-        if (0)   // TODO: need to know how to determine that we're on to the next WR
+        if (flags & ibv_wq_mprq_t::FLAG_LAST)
         {
+            /* Temporary stop the poller so that we release the CQ entries
+             * we've consumed so far. Not doing this risks an overflow if
+             * packets are very small.
+             */
+            poller.stop();
             post_wr(wqe_start);
             wqe_start += wqe_size;
             if (wqe_start == buffer_size)
                 wqe_start = 0;
         }
-        poller.next();
     }
-    return result;
+    return poll_result::partial;
 }
 
 static int clamp(int x, int low, int high)
@@ -156,12 +151,12 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
         throw std::system_error(std::make_error_code(std::errc::not_supported),
                                 "device does not support mlx5dv API");
     mlx5dv_context mlx5dv_attr = cm_id.mlx5dv_query_device();
-    if (!(mlx5dv_attr.flags & MLX5DV_CONTEXT_FLAGS_MPW_ALLOWED)
+    if (!(mlx5dv_attr.comp_mask & MLX5DV_CONTEXT_MASK_STRIDING_RQ)
+        || !(mlx5dv_attr.flags & MLX5DV_CONTEXT_FLAGS_MPW_ALLOWED)
         || !ibv_is_qpt_supported(mlx5dv_attr.striding_rq_caps.supported_qpts, IBV_QPT_RAW_PACKET))
         throw std::system_error(std::make_error_code(std::errc::not_supported),
                                 "device does not support multi-packet receive queues");
 
-    // TODO: adjust stride parameters based on device info
     mlx5dv_wq_init_attr attr;
     memset(&attr, 0, sizeof(attr));
     attr.comp_mask = MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ;
@@ -204,6 +199,7 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     ibv_cq_init_attr_ex cq_attr;
     memset(&cq_attr, 0, sizeof(cq_attr));
     cq_attr.cqe = strides;
+    cq_attr.wc_flags = IBV_WC_EX_WITH_BYTE_LEN;
     if (comp_vector >= 0)
     {
         cq_attr.channel = comp_channel.get();
@@ -220,7 +216,7 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     wq_attr.cq = ibv_cq_ex_to_cq(recv_cq.get());
     // TODO: investigate IBV_WQ_FLAGS_DELAY_DROP to reduce dropped
     // packets and IBV_WQ_FLAGS_CVLAN_STRIPPING to remove VLAN tags.
-    wq = ibv_wq_t(cm_id, &wq_attr, &attr);
+    wq = ibv_wq_mprq_t(cm_id, &wq_attr, &attr);
 
     rwq_ind_table = create_rwq_ind_table(cm_id, wq);
     qp = create_qp(cm_id, pd, rwq_ind_table);

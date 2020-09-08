@@ -760,7 +760,7 @@ private:
     static chunking_scheme sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id);
 
 public:
-    capture(const options &opts);
+    explicit capture(const options &opts);
 };
 
 capture::capture(const options &opts)
@@ -769,7 +769,9 @@ capture::capture(const options &opts)
     std::uint32_t n_slots = chunking.n_chunks * chunking.max_records;
     ibv_cq_init_attr_ex cq_attr = {};
     cq_attr.cqe = n_slots;
-    cq_attr.wc_flags = IBV_WC_EX_WITH_BYTE_LEN | IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK;
+    cq_attr.wc_flags = IBV_WC_EX_WITH_BYTE_LEN;
+    if (timestamp_support)
+        cq_attr.wc_flags |= IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK;
     cq_attr.flags = IBV_CREATE_CQ_ATTR_SINGLE_THREADED;
     cq_attr.comp_mask = IBV_CQ_INIT_ATTR_MASK_FLAGS;
     cq = spead2::ibv_cq_ex_t(cm_id, &cq_attr);
@@ -839,6 +841,7 @@ void capture::network_thread()
     const std::size_t max_records = chunking.max_records;
     int until_get_time = GET_TIME_RATE;
     std::uint64_t remaining_count = opts.count;
+    spead2::ibv_cq_ex_t::poller poller(cq);
     while (!stop.load() && remaining_count > 0)
     {
         chunk c = free_ring.pop();
@@ -847,9 +850,7 @@ void capture::network_thread()
             expect = remaining_count;
         while (!stop.load() && expect > 0)
         {
-            ibv_poll_cq_attr poll_attr = {};
-            spead2::ibv_cq_ex_t::poller poller(cq, &poll_attr);
-            while (poller)
+            if (poller.next())
             {
                 if (cq->status != IBV_WC_SUCCESS)
                 {
@@ -883,17 +884,13 @@ void capture::network_thread()
                     bytes += byte_len;
                 }
                 expect--;
-                until_get_time--;
                 if (remaining_count != std::numeric_limits<std::uint64_t>::max())
                     remaining_count--;
-                if (stop.load() || expect == 0)
-                    break;
-                else
-                    poller.next();
             }
             until_get_time--;
             if (until_get_time <= 0)
             {
+                poller.stop();   // Unlocks the CQ
                 until_get_time = GET_TIME_RATE;
                 if (!opts.quiet)
                 {
@@ -903,6 +900,7 @@ void capture::network_thread()
                 }
             }
         }
+        poller.stop();   // Release the CQ entries to the HW
         c.full = c.n_records == max_records;
         chunk_ready(std::move(c));
     }
@@ -930,17 +928,14 @@ void capture::init_record(chunk &c, std::size_t idx)
     c.iov[2 * idx + 1].iov_base = (void *) ptr;
 }
 
-#if SPEAD2_USE_IBV_MPRQ
+#if SPEAD2_USE_MLX5DV
 
 class capture_mprq : public capture_base
 {
 private:
-    spead2::ibv_exp_res_domain_t res_domain;
-    spead2::ibv_cq_t cq;
-    spead2::ibv_exp_cq_family_v1_t cq_intf;
-    spead2::ibv_exp_wq_t wq;
-    spead2::ibv_exp_wq_family_t wq_intf;
-    spead2::ibv_exp_rwq_ind_table_t rwq_ind_table;
+    spead2::ibv_cq_ex_t cq;
+    spead2::ibv_wq_mprq_t wq;
+    spead2::ibv_rwq_ind_table_t rwq_ind_table;
     spead2::ibv_qp_t qp;
 
     virtual void network_thread() override;
@@ -950,7 +945,7 @@ private:
     static chunking_scheme sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id);
 
 public:
-    capture_mprq(const options &opts);
+    explicit capture_mprq(const options &opts);
 };
 
 static int log2i(std::size_t value)
@@ -967,59 +962,48 @@ capture_mprq::capture_mprq(const options &opts)
 {
     const std::size_t max_cqe = chunking.max_records * chunking.n_chunks;
 
-    ibv_exp_res_domain_init_attr res_domain_attr = {};
-    res_domain_attr.comp_mask = IBV_EXP_RES_DOMAIN_THREAD_MODEL | IBV_EXP_RES_DOMAIN_MSG_MODEL;
-    res_domain_attr.thread_model = IBV_EXP_THREAD_UNSAFE;
-    res_domain_attr.msg_model = IBV_EXP_MSG_HIGH_BW;
-    res_domain = spead2::ibv_exp_res_domain_t(cm_id, &res_domain_attr);
-
-    ibv_exp_cq_init_attr cq_attr = {};
+    ibv_cq_init_attr_ex cq_attr = {};
+    cq_attr.cqe = max_cqe;
+    cq_attr.wc_flags = IBV_WC_EX_WITH_BYTE_LEN;
     if (timestamp_support)
-        cq_attr.flags |= IBV_EXP_CQ_TIMESTAMP;
-    cq_attr.res_domain = res_domain.get();
-    cq_attr.comp_mask = IBV_EXP_CQ_INIT_ATTR_FLAGS | IBV_EXP_CQ_INIT_ATTR_RES_DOMAIN;
-    cq = spead2::ibv_cq_t(cm_id, max_cqe, nullptr, &cq_attr);
-    cq_intf = spead2::ibv_exp_cq_family_v1_t(cm_id, cq);
+        cq_attr.wc_flags |= IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK;
+    cq_attr.flags = IBV_CREATE_CQ_ATTR_SINGLE_THREADED;
+    cq_attr.comp_mask = IBV_CQ_INIT_ATTR_MASK_FLAGS;
+    cq = spead2::ibv_cq_ex_t(cm_id, &cq_attr);
 
-    ibv_exp_wq_init_attr wq_attr = {};
+    ibv_wq_init_attr wq_attr = {};
     std::size_t stride = chunking.chunk_size / chunking.max_records;
-    wq_attr.mp_rq.single_stride_log_num_of_bytes = log2i(stride);
-    wq_attr.mp_rq.single_wqe_log_num_of_strides = log2i(chunking.max_records);
-    wq_attr.mp_rq.use_shift = IBV_EXP_MP_RQ_NO_SHIFT;
-    wq_attr.wq_type = IBV_EXP_WQT_RQ;
-    wq_attr.max_recv_wr = chunking.n_chunks;
-    wq_attr.max_recv_sge = 1;
+    wq_attr.wq_type = IBV_WQT_RQ;
+    wq_attr.max_wr = chunking.n_chunks;
+    wq_attr.max_sge = 1;
     wq_attr.pd = pd.get();
-    wq_attr.cq = cq.get();
-    wq_attr.res_domain = res_domain.get();
-    wq_attr.comp_mask = IBV_EXP_CREATE_WQ_MP_RQ | IBV_EXP_CREATE_WQ_RES_DOMAIN;
-    wq = spead2::ibv_exp_wq_t(cm_id, &wq_attr);
-    wq_intf = spead2::ibv_exp_wq_family_t(cm_id, wq);
+    wq_attr.cq = ibv_cq_ex_to_cq(cq.get());
+    mlx5dv_wq_init_attr mlx5_wq_attr = {};
+    mlx5_wq_attr.comp_mask = MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ;
+    mlx5_wq_attr.striding_rq_attrs.single_stride_log_num_of_bytes = log2i(stride);
+    mlx5_wq_attr.striding_rq_attrs.single_wqe_log_num_of_strides = log2i(chunking.max_records);
+    mlx5_wq_attr.striding_rq_attrs.two_byte_shift_en = 0;
+    wq = spead2::ibv_wq_mprq_t(cm_id, &wq_attr, &mlx5_wq_attr);
 
-    rwq_ind_table = spead2::create_rwq_ind_table(cm_id, pd, wq);
+    rwq_ind_table = spead2::create_rwq_ind_table(cm_id, wq);
 
     /* ConnectX-5 only seems to work with Toeplitz hashing. This code seems to
      * work, but I don't really know what I'm doing so it might be horrible.
      */
     uint8_t toeplitz_key[40] = {};
-    ibv_exp_rx_hash_conf hash_conf = {};
-    hash_conf.rx_hash_function = IBV_EXP_RX_HASH_FUNC_TOEPLITZ;
-    hash_conf.rx_hash_key_len = sizeof(toeplitz_key);
-    hash_conf.rx_hash_key = toeplitz_key;
-    hash_conf.rx_hash_fields_mask = 0;
-    hash_conf.rwq_ind_tbl = rwq_ind_table.get();
 
-    ibv_exp_qp_init_attr qp_attr = {};
+    ibv_qp_init_attr_ex qp_attr = {};
     qp_attr.qp_type = IBV_QPT_RAW_PACKET;
     qp_attr.pd = pd.get();
-    qp_attr.res_domain = res_domain.get();
-    qp_attr.rx_hash_conf = &hash_conf;
-    qp_attr.port_num = cm_id->port_num;
-    qp_attr.comp_mask = IBV_EXP_QP_INIT_ATTR_PD | IBV_EXP_QP_INIT_ATTR_RX_HASH
-        | IBV_EXP_QP_INIT_ATTR_PORT | IBV_EXP_QP_INIT_ATTR_RES_DOMAIN;
+    qp_attr.rwq_ind_tbl = rwq_ind_table.get();
+    qp_attr.rx_hash_conf.rx_hash_function = IBV_RX_HASH_FUNC_TOEPLITZ;
+    qp_attr.rx_hash_conf.rx_hash_key_len = sizeof(toeplitz_key);
+    qp_attr.rx_hash_conf.rx_hash_key = toeplitz_key;
+    qp_attr.rx_hash_conf.rx_hash_fields_mask = 0;
+    qp_attr.comp_mask = IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_IND_TABLE | IBV_QP_INIT_ATTR_RX_HASH;
     qp = spead2::ibv_qp_t(cm_id, &qp_attr);
 
-    wq.modify(IBV_EXP_WQS_RDY);
+    wq.modify(IBV_WQS_RDY);
 }
 
 static int clamp(int x, int low, int high)
@@ -1029,9 +1013,14 @@ static int clamp(int x, int low, int high)
 
 chunking_scheme capture_mprq::sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id)
 {
-    ibv_exp_device_attr attr = cm_id.exp_query_device();
-    if (!(attr.comp_mask & IBV_EXP_DEVICE_ATTR_MP_RQ)
-        || !(attr.mp_rq_caps.supported_qps & IBV_EXP_MP_RQ_SUP_TYPE_WQ_RQ))
+    ibv_device_attr attr = cm_id.query_device();
+    if (!cm_id.mlx5dv_is_supported())
+        throw std::system_error(std::make_error_code(std::errc::not_supported),
+                                "device does not support mlx5dv API");
+    mlx5dv_context mlx5dv_attr = cm_id.mlx5dv_query_device();
+    if (!(mlx5dv_attr.comp_mask & MLX5DV_CONTEXT_MASK_STRIDING_RQ)
+        || !(mlx5dv_attr.flags & MLX5DV_CONTEXT_FLAGS_MPW_ALLOWED)
+        || !ibv_is_qpt_supported(mlx5dv_attr.striding_rq_caps.supported_qpts, IBV_QPT_RAW_PACKET))
         throw std::system_error(std::make_error_code(std::errc::not_supported),
                                 "device does not support multi-packet receive queues");
 
@@ -1041,12 +1030,12 @@ chunking_scheme capture_mprq::sizes(const options &opts, const spead2::rdma_cm_i
      */
     std::size_t log_stride_bytes =
         clamp(6,
-              attr.mp_rq_caps.min_single_stride_log_num_of_bytes,
-              attr.mp_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes
+              mlx5dv_attr.striding_rq_caps.min_single_stride_log_num_of_bytes,
+              mlx5dv_attr.striding_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes
     std::size_t log_strides_per_chunk =
         clamp(21 - log_stride_bytes,
-              attr.mp_rq_caps.min_single_wqe_log_num_of_strides,
-              attr.mp_rq_caps.max_single_wqe_log_num_of_strides);    // 2MB chunks
+              mlx5dv_attr.striding_rq_caps.min_single_wqe_log_num_of_strides,
+              mlx5dv_attr.striding_rq_caps.max_single_wqe_log_num_of_strides);    // 2MB chunks
     std::size_t max_records = 1 << log_strides_per_chunk;
     std::size_t chunk_size = max_records << log_stride_bytes;
     std::size_t n_chunks = opts.net_buffer / chunk_size;
@@ -1085,52 +1074,54 @@ void capture_mprq::network_thread()
     const std::size_t max_records = chunking.max_records;
     int until_get_time = GET_TIME_RATE;
     std::uint64_t remaining_count = opts.count;
+    spead2::ibv_cq_ex_t::poller poller(cq);
     while (!stop.load() && remaining_count > 0)
     {
         chunk c = free_ring.pop();
         while (!stop.load() && remaining_count > 0 && !c.full)
         {
-            std::uint32_t offset;
-            std::uint32_t flags;
-            std::uint64_t timestamp;
-            std::int32_t len = cq_intf->poll_length_flags_mp_rq_ts(
-                cq.get(), &offset, &flags, &timestamp);
-            if (len < 0)
+            if (poller.next())
             {
-                // Error condition.
-                ibv_wc wc;
-                ibv_poll_cq(cq.get(), 1, &wc);
-                spead2::log_warning("failed WR %1%: %2% (vendor_err: %3%)",
-                                    wc.wr_id, wc.status, wc.vendor_err);
-                errors++;
-            }
-            else if (len > 0)
-            {
-                packets++;
-                if (remaining_count != std::numeric_limits<std::uint64_t>::max())
-                    remaining_count--;
-                std::size_t idx = c.n_records;
-                record_header &record = c.entries[idx].record;
-                record.incl_len = (len <= opts.snaplen) ? len : opts.snaplen;
-                record.orig_len = len;
-                if (timestamp_support && (flags & IBV_EXP_CQ_RX_WITH_TIMESTAMP))
+                if (cq->status != IBV_WC_SUCCESS)
                 {
-                    std::uint64_t ticks = timestamp - timestamp_subtract;
-                    std::uint64_t ns = std::uint64_t(ticks * hca_ns_per_clock);
-                    ns += timestamp_add;
-                    record.ts_sec = ns / 1000000000;
-                    record.ts_nsec = ns % 1000000000;
+                    spead2::log_warning("failed WR: %1% (vendor_err: %2%)",
+                                        cq->status, ibv_wc_read_vendor_err(cq.get()));
+                    errors++;
                 }
                 else
                 {
-                    record.ts_sec = 0;
-                    record.ts_nsec = 0;
+                    std::uint32_t len, offset;
+                    int flags;
+                    wq.read_wc(cq, len, offset, flags);
+                    if (!(flags & spead2::ibv_wq_mprq_t::FLAG_FILLER))
+                    {
+                        packets++;
+                        if (remaining_count != std::numeric_limits<std::uint64_t>::max())
+                            remaining_count--;
+                        std::size_t idx = c.n_records;
+                        record_header &record = c.entries[idx].record;
+                        record.incl_len = (len <= opts.snaplen) ? len : opts.snaplen;
+                        record.orig_len = len;
+                        if (timestamp_support)
+                        {
+                            std::uint64_t ns = ibv_wc_read_completion_wallclock_ns(cq.get());
+                            record.ts_sec = ns / 1000000000;
+                            record.ts_nsec = ns % 1000000000;
+                        }
+                        else
+                        {
+                            record.ts_sec = 0;
+                            record.ts_nsec = 0;
+                        }
+                        c.iov[2 * idx + 1].iov_base = &c.storage[offset];
+                        c.iov[2 * idx + 1].iov_len = record.incl_len;
+                        c.n_records++;
+                        c.n_bytes += len + sizeof(record_header);
+                        bytes += len;
+                    }
+                    if (flags & spead2::ibv_wq_mprq_t::FLAG_LAST)
+                        c.full = true;
                 }
-                c.iov[2 * idx + 1].iov_base = &c.storage[offset];
-                c.iov[2 * idx + 1].iov_len = record.incl_len;
-                c.n_records++;
-                c.n_bytes += len + sizeof(record_header);
-                bytes += len;
             }
             until_get_time--;
             if (until_get_time <= 0)
@@ -1144,9 +1135,8 @@ void capture_mprq::network_thread()
                         report_rates(now);
                 }
             }
-            if (flags & IBV_EXP_CQ_RX_MULTI_PACKET_LAST_V1)
-                c.full = true;
         }
+        poller.stop();
         chunk_ready(std::move(c));
     }
 }
@@ -1158,9 +1148,7 @@ void capture_mprq::post_chunk(chunk &c)
     sge.addr = (uintptr_t) c.storage.get();
     sge.length = chunking.chunk_size;
     sge.lkey = c.storage_mr->lkey;
-    int status = wq_intf->recv_burst(wq.get(), &sge, 1);
-    if (status != 0)
-        spead2::throw_errno("recv_burst failed", status);
+    wq.post_recv(&sge);
 }
 
 void capture_mprq::init_record(chunk &c, std::size_t idx)
@@ -1169,7 +1157,7 @@ void capture_mprq::init_record(chunk &c, std::size_t idx)
     c.iov[2 * idx].iov_len = sizeof(record_header);
 }
 
-#endif // SPEAD2_USE_IBV_MPRQ
+#endif // SPEAD2_USE_MLX5DV
 
 int main(int argc, const char **argv)
 {
@@ -1179,7 +1167,7 @@ int main(int argc, const char **argv)
         options opts = parse_args(argc, argv);
         std::unique_ptr<capture_base> cap;
 
-#if SPEAD2_USE_IBV_MPRQ
+#if SPEAD2_USE_MLX5DV
         try
         {
             cap.reset(new capture_mprq(opts));
