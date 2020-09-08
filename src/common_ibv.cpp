@@ -523,7 +523,9 @@ void ibv_wq_t::modify(ibv_wq_state state)
 
 #if SPEAD2_USE_MLX5DV
 ibv_wq_mprq_t::ibv_wq_mprq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr)
-    : attr(mlx5_attr->striding_rq_attrs)
+    : stride_size(1U << mlx5_attr->striding_rq_attrs.single_stride_log_num_of_bytes),
+    n_strides(1U << mlx5_attr->striding_rq_attrs.single_wqe_log_num_of_strides),
+    data_offset(mlx5_attr->striding_rq_attrs.two_byte_shift_en ? 2 : 0)
 {
     assert(mlx5_attr->comp_mask & MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ);
     ibv_wq *wq = mlx5dv_create_wq(cm_id->verbs, attr, mlx5_attr);
@@ -577,15 +579,13 @@ void ibv_wq_mprq_t::read_wc(const ibv_cq_ex_t &cq, std::uint32_t &byte_len,
      * strides consumed.
      */
     std::uint32_t byte_cnt = ibv_wc_read_byte_len(cq.get());
-    byte_len = byte_cnt & 0xffff;
-    offset = tail_strides << attr.single_stride_log_num_of_bytes;
-    if (attr.two_byte_shift_en)
-        offset += 2;
+    byte_len = (byte_cnt & 0xffff) - data_offset;
+    offset = tail_strides * stride_size + data_offset;
     tail_strides += (byte_cnt >> 16) & 0x7fff;
     flags = 0;
-    if (tail_strides >> attr.single_wqe_log_num_of_strides)
+    if (tail_strides >= n_strides)
     {
-        assert(tail_strides == (1U << attr.single_wqe_log_num_of_strides));
+        assert(tail_strides <= n_strides);
         flags |= FLAG_LAST;
         tail++;
         tail_strides = 0;

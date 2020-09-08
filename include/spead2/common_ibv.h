@@ -370,8 +370,12 @@ private:
     std::uint32_t tail = 0;
     /// Number of strides consumed from the tail entry
     std::uint32_t tail_strides = 0;
-    /// Copy of the striding attributes provided to the constructor
-    mlx5dv_striding_rq_init_attr attr;
+    /// Size of each stride in bytes
+    std::uint32_t stride_size = 0;
+    /// Number of strides per work queue entry
+    std::uint32_t n_strides = 0;
+    /// Offset of actual packet data within its first stride
+    std::int32_t data_offset = 0;
 public:
     static constexpr int FLAG_LAST = 1;    ///< This is the last CQE for the WQE
     static constexpr int FLAG_FILLER = 2;  ///< This is a filler CQE rather than a packet
