@@ -222,39 +222,56 @@ public:
     {
     private:
         ibv_cq_ex *cq;
-        bool more = false;
+        bool active = false;
 
     public:
-        poller(const ibv_cq_ex_t &cq, ibv_poll_cq_attr *attr)
+        poller(const ibv_cq_ex_t &cq)
             : cq(cq.get())
         {
             assert(this->cq);
-            int result = ibv_start_poll(this->cq, attr);
-            if (result == 0)
-                more = true;
-            else if (result == ENOENT)
-                this->cq = NULL;    // indicates that destructor should not ibv_end_poll
-            else if (result != ENOENT)
-                throw_errno("ibv_start_poll failed", result);
+        }
+
+        bool next()
+        {
+            if (!active)
+            {
+                ibv_poll_cq_attr attr = {};
+                int result = ibv_start_poll(cq, &attr);
+                if (result == 0)
+                {
+                    active = true;
+                    return true;
+                }
+                else if (result == ENOENT)
+                    return false;
+                else
+                    throw_errno("ibv_start_poll failed", result);
+            }
+            else
+            {
+                int result = ibv_next_poll(cq);
+                if (result == 0)
+                    return true;
+                else if (result == ENOENT)
+                    return false;
+                else
+                    throw_errno("ibv_next_poll failed", result);
+            }
+        }
+
+        void stop()
+        {
+            if (active)
+            {
+                ibv_end_poll(cq);
+                active = false;
+            }
         }
 
         ~poller()
         {
-            if (cq)
-                ibv_end_poll(cq);
+            stop();
         }
-
-        void next()
-        {
-            assert(more);
-            int result = ibv_next_poll(cq);
-            if (result == ENOENT)
-                more = false;
-            else if (result != 0)
-                throw_errno("ibv_next_poll failed", result);
-        }
-
-        explicit operator bool() const { return more; }
     };
 
     /* Errors other than ENOENT become exceptions, but ENOENT is returned as-is

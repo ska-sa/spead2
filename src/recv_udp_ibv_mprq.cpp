@@ -73,94 +73,62 @@ void udp_ibv_mprq_reader::post_wr(std::size_t offset)
 
 udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add_packet_state &state)
 {
-    poll_result result;
-    std::size_t consumed = 0;     // Number of work requests that need to be reposted
-    std::size_t orig_wqe_start = wqe_start;
+    /* Bound the number of times to receive packets, to avoid live-locking the
+     * receive queue if we're getting packets as fast as we can process them.
+     */
+    const int max_iter = 256;
+    ibv_cq_ex_t::poller poller(recv_cq);
 
+    for (int iter = 0; iter < max_iter; iter++)
     {
-        /* Bound the number of times to receive packets, to avoid live-locking the
-         * receive queue if we're getting packets as fast as we can process them.
-         */
-        const int max_iter = 256;
-        ibv_poll_cq_attr attr;
-        memset(&attr, 0, sizeof(attr));
-        ibv_cq_ex_t::poller poller(recv_cq, &attr);
-        if (!poller)
+        if (!poller.next())
             return poll_result::drained;
-
-        int iter = 0;
-        while (true)
+        if (recv_cq->status != IBV_WC_SUCCESS)
         {
-            if (recv_cq->status != IBV_WC_SUCCESS)
-            {
-                log_warning("Work Request failed with code %1%", recv_cq->status);
-            }
-            else
-            {
-                uint32_t len, offset;
-                int flags;
-                wq.read_wc(recv_cq, len, offset, flags);
+            log_warning("Work Request failed with code %1%", recv_cq->status);
+            continue;
+        }
 
-                if (!(flags & ibv_wq_mprq_t::FLAG_FILLER))
-                {
-                    const void *ptr = reinterpret_cast<void *>(buffer.get() + (wqe_start + offset));
+        std::uint32_t len, offset;
+        int flags;
+        wq.read_wc(recv_cq, len, offset, flags);
 
-                    // Sanity checks
-                    try
-                    {
-                        packet_buffer payload = udp_from_ethernet(const_cast<void *>(ptr), len);
-                        bool stopped = process_one_packet(state,
-                                                          payload.data(), payload.size(), max_size);
-                        if (stopped)
-                            return poll_result::stopped;
-                    }
-                    catch (packet_type_error &e)
-                    {
-                        log_warning(e.what());
-                    }
-                    catch (std::length_error &e)
-                    {
-                        log_warning(e.what());
-                    }
-                }
-                if (flags & ibv_wq_mprq_t::FLAG_LAST)
-                {
-                    /* Re-posting the work requests is deferred until the
-                     * poller is closed, to avoid overflowing the CQ (because
-                     * the HW only sees the entries as consumed once we close
-                     * the poller).
-                     */
-                    consumed++;
-                    wqe_start += wqe_size;
-                    if (wqe_start == buffer_size)
-                        wqe_start = 0;
-                }
-            }
+        if (!(flags & ibv_wq_mprq_t::FLAG_FILLER))
+        {
+            const void *ptr = reinterpret_cast<void *>(buffer.get() + (wqe_start + offset));
 
-            iter++;
-            if (iter >= max_iter)
+            // Sanity checks
+            try
             {
-                result = poll_result::partial;
-                break;
+                packet_buffer payload = udp_from_ethernet(const_cast<void *>(ptr), len);
+                bool stopped = process_one_packet(state,
+                                                  payload.data(), payload.size(), max_size);
+                if (stopped)
+                    return poll_result::stopped;
             }
-            poller.next();
-            if (!poller)
+            catch (packet_type_error &e)
             {
-                result = poll_result::drained;
-                break;
+                log_warning(e.what());
+            }
+            catch (std::length_error &e)
+            {
+                log_warning(e.what());
             }
         }
+        if (flags & ibv_wq_mprq_t::FLAG_LAST)
+        {
+            /* Temporary stop the poller so that we release the CQ entries
+             * we've consumed so far. Not doing this risks an overflow if
+             * packets are very small.
+             */
+            poller.stop();
+            post_wr(wqe_start);
+            wqe_start += wqe_size;
+            if (wqe_start == buffer_size)
+                wqe_start = 0;
+        }
     }
-    // Now that the poller is closed, the CQEs have been consumed, so we can safely
-    // add new work requests without risk of overflowing the CQ.
-    for (std::size_t i = 0; i < consumed; i++)
-    {
-        post_wr(orig_wqe_start);
-        orig_wqe_start += wqe_size;
-        if (orig_wqe_start == buffer_size)
-            orig_wqe_start = 0;
-    }
-    return result;
+    return poll_result::partial;
 }
 
 static int clamp(int x, int low, int high)
@@ -183,12 +151,12 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
         throw std::system_error(std::make_error_code(std::errc::not_supported),
                                 "device does not support mlx5dv API");
     mlx5dv_context mlx5dv_attr = cm_id.mlx5dv_query_device();
-    if (!(mlx5dv_attr.flags & MLX5DV_CONTEXT_FLAGS_MPW_ALLOWED)
+    if (!(mlx5dv_attr.comp_mask & MLX5DV_CONTEXT_MASK_STRIDING_RQ)
+        || !(mlx5dv_attr.flags & MLX5DV_CONTEXT_FLAGS_MPW_ALLOWED)
         || !ibv_is_qpt_supported(mlx5dv_attr.striding_rq_caps.supported_qpts, IBV_QPT_RAW_PACKET))
         throw std::system_error(std::make_error_code(std::errc::not_supported),
                                 "device does not support multi-packet receive queues");
 
-    // TODO: adjust stride parameters based on device info
     mlx5dv_wq_init_attr attr;
     memset(&attr, 0, sizeof(attr));
     attr.comp_mask = MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ;
