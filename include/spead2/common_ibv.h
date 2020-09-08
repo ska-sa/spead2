@@ -273,13 +273,6 @@ public:
             stop();
         }
     };
-
-    /* Errors other than ENOENT become exceptions, but ENOENT is returned as-is
-     * because it's part of the normal flow.
-     */
-    int start_poll(ibv_poll_cq_attr *attr);
-    int next_poll();
-    void end_poll();
 };
 
 class ibv_pd_t : public std::unique_ptr<ibv_pd, detail::ibv_pd_deleter>
