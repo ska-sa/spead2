@@ -11,7 +11,7 @@ for d in /opt/python/cp{35,36,37,38,39}*; do
     echo "[build_ext]" > setup.cfg
     echo "split_debug = /output" >> setup.cfg
     $d/bin/pip wheel --no-deps -v .
-    auditwheel repair --plat manylinux2010_x86_64 -w /output spead2-*-`basename $d`-linux_*.whl
+    auditwheel repair --plat manylinux2014_x86_64 -w /output spead2-*-`basename $d`-linux_*.whl
 done
 cd /output
 tar -Jcvf spead2-$version-debug.tar.xz _spead2*.debug
