@@ -31,9 +31,9 @@ addons:
       - gcc
       - g++
       - clang
-      - libboost-system1.58-dev
-      - libboost-test1.58-dev
-      - libboost-program-options1.58-dev
+      - libboost-system-dev
+      - libboost-test-dev
+      - libboost-program-options-dev
       - libpcap-dev
       - python3-dev
       - python3-pip
