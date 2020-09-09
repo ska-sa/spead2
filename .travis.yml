@@ -8,34 +8,34 @@ matrix:
   include:
     - os: linux
       sudo: false
-      dist: xenial
+      dist: bionic
       env: COVERAGE=yes
         TEST_PYTHON=yes PYTHON=python3 CC="gcc"
         TEST_CXX=yes CXX="g++"
         RECVMMSG=yes SENDMMSG=yes EVENTFD=yes IBV=yes PCAP=yes
     - os: linux
       sudo: false
-      dist: xenial
+      dist: bionic
       env: TEST_CXX=yes CXX="ccache g++" RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes
     - os: linux
       sudo: false
-      dist: xenial
+      dist: bionic
       env: TEST_CXX=yes CXX="ccache g++"
     - os: linux
       sudo: false
-      dist: xenial
+      dist: bionic
       env: TEST_CXX=yes CXX="ccache clang++ -Qunused-arguments" RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes
     - os: linux
       sudo: false
-      dist: xenial
+      dist: bionic
       env: TEST_CXX=yes CXX="ccache clang++ -Qunused-arguments"
     - os: linux
       sudo: false
-      dist: xenial
+      dist: bionic
       env: TEST_PYTHON=yes PYTHON=python3 CC="ccache gcc" CXX="g++"
     - os: linux
       sudo: false
-      dist: xenial
+      dist: bionic
       env: TEST_PYTHON=yes PYTHON=python3 CC="clang" CXX="clang++"
     - os: osx
       osx_image: xcode9.4
