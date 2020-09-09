@@ -55,7 +55,7 @@ SPEAD2_ARG_WITH(
     [SPEAD2_USE_IBV],
     [PKG_CHECK_MODULES([IBV], [libibverbs librdmacm], [SPEAD2_USE_IBV=1],
         [SPEAD2_CHECK_LIB(
-         [infiniband/verbs.h], [ibverbs], [ibv_create_flow(NULL, NULL)],
+         [infiniband/verbs.h], [ibverbs], [ibv_create_wq(NULL, NULL)],
          [SPEAD2_USE_IBV=1
           IBV_CFLAGS=""
          ], [:])
