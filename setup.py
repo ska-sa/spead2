@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import configparser
 import glob
 import os
 import os.path
@@ -57,15 +58,11 @@ class BuildExt(build_ext):
     def run(self):
         self.mkpath(self.build_temp)
         subprocess.check_call(os.path.abspath('configure'), cwd=self.build_temp)
-        config = {}
-        with open(os.path.join(self.build_temp, 'python-build.cfg')) as f:
-            for line in f:
-                if line.strip():
-                    name, value = line.split('=', 1)
-                    config[name.strip()] = value.strip()
+        config = configparser.ConfigParser()
+        config.read(os.path.join(self.build_temp, 'python-build.cfg'))
         for extension in self.extensions:
-            extension.extra_compile_args.extend(config['CFLAGS'].split())
-            extension.extra_link_args.extend(config['LIBS'].split())
+            extension.extra_compile_args.extend(config['compiler']['CFLAGS'].split())
+            extension.extra_link_args.extend(config['compiler']['LIBS'].split())
             if self.coverage:
                 extension.extra_compile_args.extend(['-g', '--coverage'])
                 extension.libraries.extend(['gcov'])
