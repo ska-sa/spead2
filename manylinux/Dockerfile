@@ -25,9 +25,5 @@ RUN cp /usr/share/aclocal/pkg.m4 /usr/local/share/aclocal/
 
 ENV CPATH=/opt/boost_1_74_0/include LIBRARY_PATH=/opt/boost_1_74_0/lib
 
-COPY requirements.txt /tmp/spead2/requirements.txt
-COPY manylinux/install_requirements.sh /tmp/spead2/manylinux/install_requirements.sh
-RUN /tmp/spead2/manylinux/install_requirements.sh
-
 COPY . /tmp/spead2
 RUN /tmp/spead2/manylinux/generate_wheels.sh
