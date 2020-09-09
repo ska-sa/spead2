@@ -14,6 +14,7 @@ if [ "$TEST_CXX" = "yes" ]; then
         --with-sendmmsg="${SENDMMSG:-no}" \
         --with-eventfd="${EVENTFD:-no}" \
         --with-ibv="${IBV:-no}" \
+        --with-mlx5dv="${MLX5DV:-no}" \
         --with-pcap="${PCAP:-no}" \
         --enable-coverage="${COVERAGE:-no}" \
         --disable-optimized \
