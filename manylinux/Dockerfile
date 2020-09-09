@@ -1,8 +1,7 @@
 FROM quay.io/pypa/manylinux2014_x86_64
 
 RUN yum install -y \
-        wget libpcap libpcap-devel libnl python-devel libnl-devel \
-        valgrind-devel redhat-rpm-config rpm-build \
+        wget libpcap libpcap-devel python-devel \
         cmake3 ninja-build pandoc libnl3-devel
 
 RUN wget https://ufpr.dl.sourceforge.net/project/boost/boost/1.74.0/boost_1_74_0.tar.bz2 -O /tmp/boost_1_74_0.tar.bz2
