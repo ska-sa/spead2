@@ -158,9 +158,9 @@ static ibv_qp_t create_qp(
     attr.send_cq = send_cq.get();
     attr.recv_cq = recv_cq.get();
     attr.qp_type = IBV_QPT_RAW_PACKET;
-    attr.cap.max_send_wr = 1;
+    attr.cap.max_send_wr = 0;
     attr.cap.max_recv_wr = n_slots;
-    attr.cap.max_send_sge = 1;
+    attr.cap.max_send_sge = 0;
     attr.cap.max_recv_sge = 1;
     return ibv_qp_t(pd, &attr);
 }
