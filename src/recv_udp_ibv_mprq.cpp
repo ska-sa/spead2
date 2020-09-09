@@ -205,6 +205,8 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
         cq_attr.channel = comp_channel.get();
         cq_attr.comp_vector = comp_vector % cm_id->verbs->num_comp_vectors;
     }
+    cq_attr.flags = IBV_CREATE_CQ_ATTR_SINGLE_THREADED;
+    cq_attr.comp_mask = IBV_CQ_INIT_ATTR_MASK_FLAGS;
     recv_cq = ibv_cq_ex_t(cm_id, &cq_attr);
 
     ibv_wq_init_attr wq_attr;
