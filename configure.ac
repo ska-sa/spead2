@@ -49,6 +49,7 @@ SPEAD2_CHECK_HEADER([boost/asio.hpp], [boost_system,pthread], [boost::asio::io_s
 
 # pkg-config files for libibverbs are quite new, so fall back to searching
 # system paths.
+IBV_CFLAGS=""
 SPEAD2_ARG_WITH(
     [ibv],
     [AS_HELP_STRING([--without-ibv], [Do not use libibverbs and librdmacm, even if detected])],
@@ -57,12 +58,12 @@ SPEAD2_ARG_WITH(
         [SPEAD2_CHECK_LIB(
          [infiniband/verbs.h], [ibverbs], [ibv_create_wq(NULL, NULL)],
          [SPEAD2_USE_IBV=1
-          IBV_CFLAGS=""
          ], [:])
         ])
     ]
 )
 
+MLX5DV_CFLAGS=""
 SPEAD2_ARG_WITH(
     [mlx5dv],
     [AS_HELP_STRING([--without-mlx5dv], [Do not use mlx5dv.h, even if detected])],
@@ -79,6 +80,21 @@ SPEAD2_ARG_WITH(
     ]
 )
 AS_IF([test "x$SPEAD2_USE_IBV" = "x0"], [SPEAD2_USE_MLX5DV=0])
+
+SPEAD2_ARG_WITH(
+    [ibv-hw-rate-limit],
+    [AS_HELP_STRING([--without-ibv-hw-rate-limit], [Disable ibverbs hardware rate limiting])],
+    [SPEAD2_USE_IBV_HW_RATE_LIMIT],
+    [SPEAD2_CHECK_FEATURE(
+        [ibv_modify_qp_rate_limit],
+        [ibv_modify_qp_rate_limit],
+        [infiniband/verbs.h], [],
+        [ibv_modify_qp_rate_limit(NULL, NULL)],
+        [SPEAD2_USE_IBV_HW_RATE_LIMIT=1], [],
+        [], ["$IBV_CFLAGS"], [])
+    ]
+)
+AS_IF([test "x$SPEAD2_USE_IBV" = "x0"], [SPEAD2_USE_IBV_HW_RATE_LIMIT=0])
 
 SPEAD2_ARG_WITH(
     [pcap],
@@ -202,8 +218,6 @@ AM_CONDITIONAL([OPTIMIZED], [test "x$enable_optimized" != "xno"])
 AM_CONDITIONAL([COVERAGE], [test "x$enable_coverage" = "xyes"])
 AM_CONDITIONAL([LTO], [test "x$enable_lto" = "xyes"])
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
-AM_CONDITIONAL([SPEAD2_USE_MLX5DV], [test "x$SPEAD2_USE_MLX5DV" = "x1"])
-AM_CONDITIONAL([SPEAD2_USE_PCAP], [test "x$SPEAD2_USE_PCAP" = "x1"])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
@@ -232,7 +246,8 @@ SPEAD2_PRINT_FEATURE([POSIX semaphores], [test "x$SPEAD2_USE_POSIX_SEMAPHORES" =
 echo ""
 echo "Libraries:"
 echo ""
-SPEAD2_PRINT_CONDITION([ibverbs], [SPEAD2_USE_IBV])
-SPEAD2_PRINT_CONDITION([mlx5dv], [SPEAD2_USE_MLX5DV])
-SPEAD2_PRINT_CONDITION([pcap], [SPEAD2_USE_PCAP])
+SPEAD2_PRINT_FEATURE([ibverbs], [test "x$SPEAD2_USE_IBV" = "x1"])
+SPEAD2_PRINT_FEATURE([ibverbs HW rate limit], [test "x$SPEAD2_USE_IBV_HW_RATE_LIMIT" = "x1"])
+SPEAD2_PRINT_FEATURE([mlx5dv], [test "x$SPEAD2_USE_MLX5DV" = "x1"])
+SPEAD2_PRINT_FEATURE([pcap], [test "x$SPEAD2_USE_PCAP" = "x1"])
 echo ""

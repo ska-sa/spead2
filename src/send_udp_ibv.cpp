@@ -55,6 +55,7 @@ ibv_qp_t udp_ibv_stream::create_qp(
 
 bool udp_ibv_stream::setup_hw_rate(const ibv_qp_t &qp, const stream_config &config)
 {
+#if SPEAD2_USE_IBV_HW_RATE_LIMIT
     ibv_device_attr_ex attr;
     if (ibv_query_device_ex(qp->context, nullptr, &attr) != 0)
     {
@@ -95,6 +96,10 @@ bool udp_ibv_stream::setup_hw_rate(const ibv_qp_t &qp, const stream_config &conf
     }
 
     return true;
+#else
+    log_debug("Not using HW rate limiting because support was not found at compile time");
+    return false;
+#endif
 }
 
 void udp_ibv_stream::reap(bool all)

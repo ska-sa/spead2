@@ -11,10 +11,15 @@ jobs:
     - env: COVERAGE=yes
         TEST_PYTHON=yes PYTHON=python3 CC="gcc"
         TEST_CXX=yes CXX="g++"
-        RECVMMSG=yes SENDMMSG=yes EVENTFD=yes IBV=yes MLX5DV=yes PCAP=yes
-    - env: TEST_CXX=yes CXX="ccache g++" RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes MLX5DV=yes
+        RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes MLX5DV=yes IBV_HW_RATE_LIMIT=yes
+      dist: focal
     - env: TEST_CXX=yes CXX="ccache g++"
-    - env: TEST_CXX=yes CXX="ccache clang++ -Qunused-arguments" RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes MLX5DV=yes
+        RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes MLX5DV=yes IBV_HW_RATE_LIMIT=yes
+      dist: focal
+    - env: TEST_CXX=yes CXX="ccache g++"
+    - env: TEST_CXX=yes CXX="ccache clang++ -Qunused-arguments"
+        RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes MLX5DV=yes IBV_HW_RATE_LIMIT=yes
+      dist: focal
     - env: TEST_CXX=yes CXX="ccache clang++ -Qunused-arguments"
     - env: TEST_PYTHON=yes PYTHON=python3 CC="ccache gcc" CXX="g++"
     - env: TEST_PYTHON=yes PYTHON=python3 CC="clang" CXX="clang++"
