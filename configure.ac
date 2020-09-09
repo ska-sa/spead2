@@ -78,6 +78,7 @@ SPEAD2_ARG_WITH(
         ])
     ]
 )
+AS_IF([test "x$SPEAD2_USE_IBV" = "x0"], [SPEAD2_USE_MLX5DV=0])
 
 SPEAD2_ARG_WITH(
     [pcap],
