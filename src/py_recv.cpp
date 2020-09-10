@@ -190,23 +190,11 @@ public:
         std::uint16_t port,
         std::size_t max_size,
         std::size_t buffer_size,
-        const std::string &bind_hostname,
-        const boost::optional<socket_wrapper<boost::asio::ip::udp::socket>> &socket)
+        const std::string &bind_hostname)
     {
-        if (!socket)
-        {
-            py::gil_scoped_release gil;
-            auto endpoint = make_endpoint<boost::asio::ip::udp>(bind_hostname, port);
-            emplace_reader<udp_reader>(endpoint, max_size, buffer_size);
-        }
-        else
-        {
-            deprecation_warning("passing unbound socket plus port is deprecated");
-            auto asio_socket = socket->copy(get_io_service());
-            py::gil_scoped_release gil;
-            auto endpoint = make_endpoint<boost::asio::ip::udp>(bind_hostname, port);
-            emplace_reader<udp_reader>(std::move(asio_socket), endpoint, max_size, buffer_size);
-        }
+        py::gil_scoped_release gil;
+        auto endpoint = make_endpoint<boost::asio::ip::udp>(bind_hostname, port);
+        emplace_reader<udp_reader>(endpoint, max_size, buffer_size);
     }
 
     void add_udp_reader_socket(
@@ -417,8 +405,7 @@ py::module register_module(py::module &parent)
               "port"_a,
               "max_size"_a = udp_reader::default_max_size,
               "buffer_size"_a = udp_reader::default_buffer_size,
-              "bind_hostname"_a = std::string(),
-              "socket"_a = py::none())
+              "bind_hostname"_a = std::string())
         .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_socket),
               "socket"_a,
               "max_size"_a = udp_reader::default_max_size)

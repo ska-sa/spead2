@@ -87,16 +87,6 @@ udp_reader::udp_reader(
     enqueue_receive();
 }
 
-udp_reader::udp_reader(
-    stream &owner,
-    boost::asio::ip::udp::socket &&socket,
-    const boost::asio::ip::udp::endpoint &endpoint,
-    std::size_t max_size,
-    std::size_t buffer_size)
-    : udp_reader(owner, bind_socket(std::move(socket), endpoint, buffer_size), max_size)
-{
-}
-
 static boost::asio::ip::udp::socket make_bound_v4_socket(
     boost::asio::io_service &io_service,
     const boost::asio::ip::udp::endpoint &endpoint,
@@ -359,17 +349,6 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
 {
     return std::unique_ptr<reader>(new udp_reader(
             owner, endpoint, max_size, buffer_size, interface_index));
-}
-
-std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
-    stream &owner,
-    boost::asio::ip::udp::socket &&socket,
-    const boost::asio::ip::udp::endpoint &endpoint,
-    std::size_t max_size,
-    std::size_t buffer_size)
-{
-    return std::unique_ptr<reader>(new udp_reader(
-            owner, std::move(socket), endpoint, max_size, buffer_size));
 }
 
 std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
