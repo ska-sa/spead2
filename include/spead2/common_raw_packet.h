@@ -100,6 +100,10 @@ public:
 #define SPEAD2_DECLARE_FIELD(offset, type, name, transform) \
         type name() const { return BOOST_PP_CAT(get, transform)<type>(offset); } \
         void name(const type &value) { BOOST_PP_CAT(set, transform)<type>(offset, value); }
+#define SPEAD2_DECLARE_FIELD_BE(offset, type, name) \
+        SPEAD2_DECLARE_FIELD(offset, type, name, _be) \
+        type BOOST_PP_CAT(name, _be)() const { return get<type>(offset); } \
+        void BOOST_PP_CAT(name, _be)(const type &value) { set<type>(offset, value); }
 
 class udp_packet : public packet_buffer
 {
@@ -110,10 +114,10 @@ public:
     udp_packet() = default;
     udp_packet(void *ptr, std::size_t size);
 
-    SPEAD2_DECLARE_FIELD(0, std::uint16_t, source_port, _be)
-    SPEAD2_DECLARE_FIELD(2, std::uint16_t, destination_port, _be)
-    SPEAD2_DECLARE_FIELD(4, std::uint16_t, length, _be)
-    SPEAD2_DECLARE_FIELD(6, std::uint16_t, checksum, _be)
+    SPEAD2_DECLARE_FIELD_BE(0, std::uint16_t, source_port)
+    SPEAD2_DECLARE_FIELD_BE(2, std::uint16_t, destination_port)
+    SPEAD2_DECLARE_FIELD_BE(4, std::uint16_t, length)
+    SPEAD2_DECLARE_FIELD_BE(6, std::uint16_t, checksum)
 
     packet_buffer payload() const;
 };
@@ -144,12 +148,12 @@ public:
 
     SPEAD2_DECLARE_FIELD(0,  std::uint8_t,  version_ihl,)
     SPEAD2_DECLARE_FIELD(1,  std::uint8_t,  dscp_ecn,)
-    SPEAD2_DECLARE_FIELD(2,  std::uint16_t, total_length, _be)
-    SPEAD2_DECLARE_FIELD(4,  std::uint16_t, identification, _be)
-    SPEAD2_DECLARE_FIELD(6,  std::uint16_t, flags_frag_off, _be)
+    SPEAD2_DECLARE_FIELD_BE(2,  std::uint16_t, total_length)
+    SPEAD2_DECLARE_FIELD_BE(4,  std::uint16_t, identification)
+    SPEAD2_DECLARE_FIELD_BE(6,  std::uint16_t, flags_frag_off)
     SPEAD2_DECLARE_FIELD(8,  std::uint8_t,  ttl,)
     SPEAD2_DECLARE_FIELD(9,  std::uint8_t,  protocol,)
-    SPEAD2_DECLARE_FIELD(10, std::uint16_t, checksum, _be)
+    SPEAD2_DECLARE_FIELD_BE(10, std::uint16_t, checksum)
     SPEAD2_DECLARE_FIELD(12, boost::asio::ip::address_v4, source_address, _ip)
     SPEAD2_DECLARE_FIELD(16, boost::asio::ip::address_v4, destination_address, _ip)
 
@@ -177,7 +181,7 @@ public:
 
     SPEAD2_DECLARE_FIELD(0, mac_address, destination_mac,)
     SPEAD2_DECLARE_FIELD(6, mac_address, source_mac,)
-    SPEAD2_DECLARE_FIELD(12, std::uint16_t, ethertype, _be)
+    SPEAD2_DECLARE_FIELD_BE(12, std::uint16_t, ethertype)
     // TODO: Handle VLAN tags
 
     ipv4_packet payload_ipv4() const;
