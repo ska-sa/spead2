@@ -185,7 +185,7 @@ packet_buffer udp_packet::payload() const
     std::size_t len = length();
     if (len > size() || len < min_size)
         throw std::length_error("length header is invalid");
-    return packet_buffer(data() + min_size, length() - min_size);
+    return packet_buffer(data() + min_size, len - min_size);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -238,7 +238,7 @@ udp_packet ipv4_packet::payload_udp() const
         throw std::length_error("ihl header is invalid");
     if (len > size() || len < h)
         throw std::length_error("length header is invalid");
-    return udp_packet(data() + h, total_length() - h);
+    return udp_packet(data() + h, len - h);
 }
 
 /////////////////////////////////////////////////////////////////////////////
