@@ -3,7 +3,7 @@ Changelog
 
 .. rubric:: Development version
 
-The `ibverbs <py-ibverbs>`_ acceleration has been substantially modified to use a
+The :doc:`ibverbs <py-ibverbs>` acceleration has been substantially modified to use a
 newer version of rdma-core. It will no longer compile against versions of
 MLNX-OFED prior to 5.0. Compiled code (such as Python wheels) will still run
 against old versions of MLNX-OFED, but extension features such as multi-packet
