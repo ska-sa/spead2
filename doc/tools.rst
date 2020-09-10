@@ -17,7 +17,7 @@ and run
 
 .. code-block:: sh
 
-   spead2_bench.py slave <port>
+   spead2_bench.py agent <port>
 
 Then, on the sender, run
 
