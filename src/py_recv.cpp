@@ -168,12 +168,6 @@ public:
         return get_ringbuffer().get_data_sem().get_fd();
     }
 
-    void set_memory_pool(std::shared_ptr<memory_pool> pool)
-    {
-        py::gil_scoped_release gil;
-        ring_stream::set_memory_allocator(std::move(pool));
-    }
-
     void set_memory_allocator(std::shared_ptr<memory_allocator> allocator)
     {
         py::gil_scoped_release gil;
@@ -399,8 +393,6 @@ py::module register_module(py::module &parent)
         .def("get_nowait", SPEAD2_PTMF(ring_stream_wrapper, get_nowait))
         .def("set_memory_allocator", SPEAD2_PTMF(ring_stream_wrapper, set_memory_allocator),
              "allocator"_a)
-        .def("set_memory_pool", SPEAD2_PTMF(ring_stream_wrapper, set_memory_pool),
-             "pool"_a)
         .def("set_memcpy", SPEAD2_PTMF(ring_stream_wrapper, set_memcpy), "id"_a)
         .def_property("stop_on_stop_item",
                       /* SPEAD2_PTMF doesn't work here because the functions

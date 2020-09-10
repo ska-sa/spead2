@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017-2019 SKA South Africa
+/* Copyright 2015, 2017-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -142,11 +142,6 @@ void stream_base::unlink_entry(queue_entry *entry)
     }
     *prev = entry->next;
     entry->next = INVALID_ENTRY;
-}
-
-void stream_base::set_memory_pool(std::shared_ptr<memory_pool> pool)
-{
-    set_memory_allocator(std::move(pool));
 }
 
 void stream_base::set_memory_allocator(std::shared_ptr<memory_allocator> allocator)

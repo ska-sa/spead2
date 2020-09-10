@@ -313,13 +313,6 @@ public:
     virtual ~stream_base();
 
     /**
-     * Set a pool to use for allocating heap memory.
-     *
-     * @deprecated Use @ref spead2::recv::stream_base::set_memory_allocator instead.
-     */
-    void set_memory_pool(std::shared_ptr<memory_pool> pool);
-
-    /**
      * Set an allocator to use for allocating heap memory.
      */
     void set_memory_allocator(std::shared_ptr<memory_allocator> allocator);
@@ -413,7 +406,6 @@ protected:
 public:
     using stream_base::get_bug_compat;
     using stream_base::default_max_heaps;
-    using stream_base::set_memory_pool;
     using stream_base::set_memory_allocator;
     using stream_base::set_memcpy;
     using stream_base::set_stop_on_stop_item;
