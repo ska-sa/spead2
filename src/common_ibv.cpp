@@ -578,10 +578,16 @@ void ibv_wq_mprq_t::read_wc(const ibv_cq_ex_t &cq, std::uint32_t &byte_len,
      * strides consumed.
      */
     std::uint32_t byte_cnt = ibv_wc_read_byte_len(cq.get());
+    std::uint32_t strides = byte_cnt >> 16;
     byte_len = (byte_cnt & 0xffff) - data_offset;
     offset = tail_strides * stride_size + data_offset;
-    tail_strides += (byte_cnt >> 16) & 0x7fff;
     flags = 0;
+    if (strides & 0x8000)
+    {
+        strides -= 0x8000;
+        flags |= FLAG_FILLER;
+    }
+    tail_strides += strides;
     if (tail_strides >= n_strides)
     {
         assert(tail_strides <= n_strides);
@@ -589,8 +595,6 @@ void ibv_wq_mprq_t::read_wc(const ibv_cq_ex_t &cq, std::uint32_t &byte_len,
         tail++;
         tail_strides = 0;
     }
-    if (byte_cnt & 0x80000000)
-        flags |= FLAG_FILLER;
 }
 
 #endif // SPEAD2_USE_MLX5DV
