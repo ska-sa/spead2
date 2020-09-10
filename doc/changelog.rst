@@ -1,6 +1,29 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+The `ibverbs <py-ibverbs>`_ acceleration has been substantially modified to use a
+newer version of rdma-core. It will no longer compile against versions of
+MLNX-OFED prior to 5.0. Compiled code (such as Python wheels) will still run
+against old versions of MLNX-OFED, but extension features such as multi-packet
+receive queues and packet timestamps will not work. It is recommended that if
+you are using ibverbs acceleration with older MLNX-OFED drivers that you stick
+with spead2 2.x until you're able to upgrade the drivers and spead2
+simultaneously.
+
+Other changes:
+
+- Support hardware send rate limiting when using ibverbs.
+- Discover libibverbs and pcap using pkg-config where possible.
+- Make :program:`configure` print out the configuration that will be compiled.
+- Update the Python wheels to use manylinux2014. This uses a newer compiler
+  (potentially giving better performance) and supports :c:func:`sendmmsg`.
+- Add wheels for Python 3.9.
+- A number of deprecated functions have been removed.
+- Avoid ibverbs code creating a send queue for receiver or vice versa.
+- Rename ``slave`` option to :program:`spead2_bench` to ``agent``.
+
 .. rubric:: 2.1.2
 
 - Make verbs acceleration work when run against MLNX OFED 5.x, including with
