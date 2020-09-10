@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019 SKA South Africa
+/* Copyright 2015, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -208,25 +208,6 @@ udp_stream::udp_stream(
                  endpoint, config, buffer_size)
 {
 }
-
-#if BOOST_VERSION < 107000
-udp_stream::udp_stream(
-    boost::asio::ip::udp::socket &&socket,
-    const boost::asio::ip::udp::endpoint &endpoint,
-    const stream_config &config,
-    std::size_t buffer_size)
-    : udp_stream(socket.get_io_service(), std::move(socket), endpoint, config, buffer_size)
-{
-}
-
-udp_stream::udp_stream(
-    boost::asio::ip::udp::socket &&socket,
-    const boost::asio::ip::udp::endpoint &endpoint,
-    const stream_config &config)
-    : udp_stream(socket.get_io_service(), std::move(socket), endpoint, config)
-{
-}
-#endif
 
 udp_stream::udp_stream(
     io_service_ref io_service,

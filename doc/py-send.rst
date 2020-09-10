@@ -206,13 +206,6 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
      size cannot be set due to OS limits.
-   :param socket.socket socket: This socket is used rather
-     than a new one. The socket must not be connected. The caller must
-     not use this socket any further, although it is not necessary to keep
-     it alive. This is mainly useful for fine-tuning socket options.
-
-   .. deprecated:: 1.9
-      Use the overload that does not take `buffer_size`.
 
 TCP
 ^^^

@@ -94,17 +94,13 @@ class UdpStream(_UdpStream, _SyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  hostname: _PybindStr, port: int,
-                 config: StreamConfig,
-                 buffer_size: int, socket: socket.socket) -> None: ...
-    @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: _PybindStr, port: int,
                  config: StreamConfig = ...,
                  buffer_size: int = ..., interface_address: _PybindStr = ...) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  hostname: _PybindStr, port: int,
                  config: StreamConfig,
+                 buffer_size: int,
                  ttl: int) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
