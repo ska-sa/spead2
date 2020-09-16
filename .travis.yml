@@ -36,6 +36,7 @@ addons:
       - gcc
       - g++
       - clang
+      - lcov
       - libboost-system-dev
       - libboost-test-dev
       - libboost-program-options-dev
@@ -51,5 +52,5 @@ script:
 after_success:
   - |
     if [ "$COVERAGE" = "yes" ]; then
-      ./venv/bin/coveralls --include src --include include/spead2 --gcov-options '\-lp'
+      ./.travis/coverage.sh
     fi
