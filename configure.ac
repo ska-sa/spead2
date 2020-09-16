@@ -139,7 +139,8 @@ SPEAD2_ARG_WITH(
         [pthread_setaffinity_np],
         [pthread.h],
         [pthread],
-        [pthread_setaffinity_np(pthread_self(), 0, (cpu_set_t *) NULL)],
+        [cpu_set_t cpuset = {};
+         pthread_setaffinity_np(pthread_self(), 0, &cpuset)],
         [SPEAD2_USE_PTHREAD_SETAFFINITY_NP=1], []
     )]
 )
@@ -168,7 +169,8 @@ SPEAD2_ARG_WITH(
          #if !defined(_POSIX_SEMAPHORES) || _POSIX_SEMAPHORES < 0
          # error "POSIX semaphores marked unsupported"
          #endif
-         sem_init(NULL, 0, 0)],
+         sem_t sem;
+         sem_init(&sem, 0, 0)],
         [SPEAD2_USE_POSIX_SEMAPHORES=1], []
     )]
 )
