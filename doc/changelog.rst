@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 3.0.0b1
 
 The :doc:`ibverbs <py-ibverbs>` acceleration has been substantially modified to use a
 newer version of rdma-core. It will no longer compile against versions of
