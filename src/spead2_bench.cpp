@@ -63,6 +63,7 @@ struct options
     std::size_t recv_buffer = spead2::recv::udp_reader::default_buffer_size;
     std::size_t burst_size = spead2::send::stream_config::default_burst_size;
     double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
+    bool no_hw_rate = false;
     std::size_t heaps = spead2::recv::stream_base::default_max_heaps;
     std::size_t ring_heaps = spead2::recv::ring_stream_base::default_ring_heaps;
     std::size_t mem_max_free = 12;
@@ -93,7 +94,7 @@ struct options
 enum class command_mode
 {
     MASTER,
-    SLAVE,
+    AGENT,
     MEM
 };
 
@@ -110,8 +111,8 @@ static void usage(std::ostream &o, const po::options_description &desc, command_
     case command_mode::MASTER:
         o << "Usage: spead2_bench master <host> <port> [options]\n";
         break;
-    case command_mode::SLAVE:
-        o << "Usage: spead2_bench slave <port>\n";
+    case command_mode::AGENT:
+        o << "Usage: spead2_bench agent <port>\n";
         break;
     case command_mode::MEM:
         o << "Usage spead2_bench mem [options]\n";
@@ -145,6 +146,7 @@ static options parse_args(int argc, const char **argv, command_mode mode)
             ("recv-buffer", make_opt(opts.recv_buffer), "Socket buffer size (receiver)")
             ("burst", make_opt(opts.burst_size), "Send burst size")
             ("burst-rate-ratio", make_opt(opts.burst_rate_ratio), "Hard rate limit, relative to the nominal rate")
+            ("no-hw-rate", po::bool_switch(&opts.no_hw_rate)->default_value(opts.no_hw_rate), "Do not use hardware rate limiting")
             ("multicast", make_opt(opts.multicast), "Multicast group to use, instead of unicast")
 #if SPEAD2_USE_IBV
             ("send-ibv", make_opt(opts.send_ibv_if), "Interface address for ibverbs (sender)")
@@ -160,7 +162,7 @@ static options parse_args(int argc, const char **argv, command_mode mode)
     }
     desc.add_options()
         ("help,h", "Show help text");
-    if (mode == command_mode::MASTER || mode == command_mode::SLAVE)
+    if (mode == command_mode::MASTER || mode == command_mode::AGENT)
     {
         hidden.add_options()
             ("port", po::value<std::string>(&opts.port));
@@ -175,7 +177,7 @@ static options parse_args(int argc, const char **argv, command_mode mode)
         positional.add("host", 1);
         positional.add("port", 1);
         break;
-    case command_mode::SLAVE:
+    case command_mode::AGENT:
         positional.add("port", 1);
         break;
     case command_mode::MEM:
@@ -195,7 +197,7 @@ static options parse_args(int argc, const char **argv, command_mode mode)
             usage(std::cout, desc, mode);
             std::exit(0);
         }
-        if ((mode == command_mode::MASTER || mode == command_mode::SLAVE)
+        if ((mode == command_mode::MASTER || mode == command_mode::AGENT)
             && !vm.count("port"))
         {
             throw po::error("too few positional options have been specified on the command line");
@@ -330,6 +332,7 @@ static std::pair<bool, double> measure_connection_once(
             << opts.recv_buffer << ' '
             << opts.burst_size << ' '
             << opts.burst_rate_ratio << ' '
+            << int(opts.no_hw_rate) << ' '
             << opts.heaps << ' '
             << opts.ring_heaps << ' '
             << opts.mem_max_free << ' '
@@ -350,7 +353,8 @@ static std::pair<bool, double> measure_connection_once(
         spead2::thread_pool thread_pool;
         spead2::flavour flavour(4, 64, opts.heap_address_bits);
         spead2::send::stream_config config(
-            opts.packet_size, rate, opts.burst_size, opts.heaps, opts.burst_rate_ratio);
+            opts.packet_size, rate, opts.burst_size, opts.heaps, opts.burst_rate_ratio,
+            !opts.no_hw_rate);
 
         /* Build the heaps */
         std::vector<spead2::send::heap> heaps;
@@ -535,7 +539,7 @@ static void emplace_udp_reader(Stream &stream, const boost::asio::ip::udp::endpo
             endpoint, interface_address, opts.packet_size, opts.recv_buffer,
             opts.recv_ibv_comp_vector, opts.recv_ibv_max_poll);
 #else
-        std::cerr << "--recv-ibv passed but slave does not support ibv\n";
+        std::cerr << "--recv-ibv passed but agent does not support ibv\n";
         std::exit(1);
 #endif
     }
@@ -633,16 +637,16 @@ public:
     }
 };
 
-static void main_slave(int argc, const char **argv)
+static void main_agent(int argc, const char **argv)
 {
     using asio::ip::tcp;
     using asio::ip::udp;
-    options slave_opts = parse_args(argc, argv, command_mode::SLAVE);
+    options agent_opts = parse_args(argc, argv, command_mode::AGENT);
     spead2::thread_pool thread_pool;
 
     /* Look up the bind address for the control socket */
     tcp::resolver tcp_resolver(thread_pool.get_io_service());
-    tcp::resolver::query tcp_query("0.0.0.0", slave_opts.port);
+    tcp::resolver::query tcp_query("0.0.0.0", agent_opts.port);
     tcp::endpoint tcp_endpoint = *tcp_resolver.resolve(tcp_query);
     tcp::acceptor acceptor(thread_pool.get_io_service(), tcp_endpoint);
     while (true)
@@ -675,6 +679,7 @@ static void main_slave(int argc, const char **argv)
                     >> opts.recv_buffer
                     >> opts.burst_size
                     >> opts.burst_rate_ratio
+                    >> opts.no_hw_rate
                     >> opts.heaps
                     >> opts.ring_heaps
                     >> opts.mem_max_free
@@ -690,7 +695,7 @@ static void main_slave(int argc, const char **argv)
                 udp::resolver::query query(
                     !opts.multicast.empty() ? opts.multicast :
                     !opts.recv_ibv_if.empty() ? opts.recv_ibv_if : "0.0.0.0",
-                    slave_opts.port);
+                    agent_opts.port);
                 udp::endpoint endpoint = *resolver.resolve(query);
                 if (opts.ring)
                     connection.reset(new recv_connection_ring(opts));
@@ -789,8 +794,8 @@ int main(int argc, const char **argv)
 {
     if (argc >= 2 && argv[1] == std::string("master"))
         main_master(argc - 1, argv + 1);
-    else if (argc >= 2 && argv[1] == std::string("slave"))
-        main_slave(argc - 1, argv + 1);
+    else if (argc >= 2 && argv[1] == std::string("agent"))
+        main_agent(argc - 1, argv + 1);
     else if (argc >= 2 && argv[1] == std::string("mem"))
         main_mem(argc - 1, argv + 1);
     else
@@ -798,7 +803,7 @@ int main(int argc, const char **argv)
         std::cerr << "Usage:\n"
             << "    spead2_bench master <host> <port> [options]\n"
             << "OR\n"
-            << "    spead2_bench slave <port> [options]\n"
+            << "    spead2_bench agent <port> [options]\n"
             << "OR\n"
             << "    spead2_bench mem [options]\n";
         return 2;

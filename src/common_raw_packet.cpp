@@ -184,8 +184,8 @@ packet_buffer udp_packet::payload() const
 {
     std::size_t len = length();
     if (len > size() || len < min_size)
-        throw std::length_error("length header is invalid");
-    return packet_buffer(data() + min_size, length() - min_size);
+        throw std::length_error("UDP length header is invalid");
+    return packet_buffer(data() + min_size, len - min_size);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -217,7 +217,7 @@ void ipv4_packet::update_checksum()
 bool ipv4_packet::is_fragment() const
 {
     // If either the more fragments flag is set, or we have a non-zero offset
-    return flags_frag_off() & (flag_more_fragments | 0x1fff);
+    return flags_frag_off_be() & htobe(std::uint16_t(flag_more_fragments | 0x1fff));
 }
 
 std::size_t ipv4_packet::header_length() const
@@ -234,11 +234,11 @@ udp_packet ipv4_packet::payload_udp() const
 {
     std::size_t h = header_length();
     std::size_t len = total_length();
-    if (h > size() || h < min_size)
-        throw std::length_error("ihl header is invalid");
+    if (h < min_size)
+        throw std::length_error("IPv4 ihl header is invalid");
     if (len > size() || len < h)
-        throw std::length_error("length header is invalid");
-    return udp_packet(data() + h, total_length() - h);
+        throw std::length_error("IPv4 length header is invalid");
+    return udp_packet(data() + h, len - h);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -261,7 +261,7 @@ ipv4_packet ethernet_frame::payload_ipv4() const
 packet_buffer udp_from_ethernet(void *ptr, size_t size)
 {
     ethernet_frame eth(ptr, size);
-    if (eth.ethertype() != ipv4_packet::ethertype)
+    if (eth.ethertype_be() != htobe(ipv4_packet::ethertype))
         throw packet_type_error("Frame has wrong ethernet type (VLAN tagging?), discarding");
     else
     {

@@ -1,42 +1,28 @@
 language: generic
+os: linux
+dist: bionic
 cache:
   ccache: true
   pip: true
   directories:
     - $HOME/.ccache
-matrix:
+jobs:
   include:
-    - os: linux
-      sudo: false
-      dist: xenial
-      env: COVERAGE=yes
+    - env: COVERAGE=yes
         TEST_PYTHON=yes PYTHON=python3 CC="gcc"
         TEST_CXX=yes CXX="g++"
-        RECVMMSG=yes SENDMMSG=yes EVENTFD=yes IBV=yes PCAP=yes
-    - os: linux
-      sudo: false
-      dist: xenial
-      env: TEST_CXX=yes CXX="ccache g++" RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes
-    - os: linux
-      sudo: false
-      dist: xenial
-      env: TEST_CXX=yes CXX="ccache g++"
-    - os: linux
-      sudo: false
-      dist: xenial
-      env: TEST_CXX=yes CXX="ccache clang++ -Qunused-arguments" RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes
-    - os: linux
-      sudo: false
-      dist: xenial
-      env: TEST_CXX=yes CXX="ccache clang++ -Qunused-arguments"
-    - os: linux
-      sudo: false
-      dist: xenial
-      env: TEST_PYTHON=yes PYTHON=python3 CC="ccache gcc" CXX="g++"
-    - os: linux
-      sudo: false
-      dist: xenial
-      env: TEST_PYTHON=yes PYTHON=python3 CC="clang" CXX="clang++"
+        RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes MLX5DV=yes IBV_HW_RATE_LIMIT=yes
+      dist: focal
+    - env: TEST_CXX=yes CXX="ccache g++"
+        RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes MLX5DV=yes IBV_HW_RATE_LIMIT=yes
+      dist: focal
+    - env: TEST_CXX=yes CXX="ccache g++"
+    - env: TEST_CXX=yes CXX="ccache clang++ -Qunused-arguments"
+        RECVMMSG=yes SENDMMSG=yes EVENTFD=yes PCAP=yes IBV=yes MLX5DV=yes IBV_HW_RATE_LIMIT=yes
+      dist: focal
+    - env: TEST_CXX=yes CXX="ccache clang++ -Qunused-arguments"
+    - env: TEST_PYTHON=yes PYTHON=python3 CC="ccache gcc" CXX="g++"
+    - env: TEST_PYTHON=yes PYTHON=python3 CC="clang" CXX="clang++"
     - os: osx
       osx_image: xcode9.4
       env: TEST_CXX=yes CXX="clang++"
@@ -50,9 +36,10 @@ addons:
       - gcc
       - g++
       - clang
-      - libboost-system1.58-dev
-      - libboost-test1.58-dev
-      - libboost-program-options1.58-dev
+      - lcov
+      - libboost-system-dev
+      - libboost-test-dev
+      - libboost-program-options-dev
       - libpcap-dev
       - python3-dev
       - python3-pip
@@ -65,5 +52,5 @@ script:
 after_success:
   - |
     if [ "$COVERAGE" = "yes" ]; then
-      ./venv/bin/coveralls --include src --include include/spead2 --gcov-options '\-lp'
+      ./.travis/coverage.sh
     fi

@@ -14,6 +14,8 @@ if [ "$TEST_CXX" = "yes" ]; then
         --with-sendmmsg="${SENDMMSG:-no}" \
         --with-eventfd="${EVENTFD:-no}" \
         --with-ibv="${IBV:-no}" \
+        --with-ibv-hw-rate-limit="${IBV_HW_RATE_LIMIT:-no}" \
+        --with-mlx5dv="${MLX5DV:-no}" \
         --with-pcap="${PCAP:-no}" \
         --enable-coverage="${COVERAGE:-no}" \
         --disable-optimized \
@@ -30,9 +32,8 @@ if [ "$TEST_PYTHON" = "yes" ]; then
     if [ "$COVERAGE" = "yes" ]; then
         echo '[build_ext]' > setup.cfg
         echo 'coverage = yes' >> setup.cfg
-        # pip's build isolation prevents us getting .gcno files, so build with setuptools
-        pip install pybind11==2.5.0
-        CC="$CC -Werror" python ./setup.py install
+        # pip's build isolation prevents us getting .gcno files, so build in place
+        CC="$CC -Werror" pip install -v -e .
     else
         CC="$CC -Werror" pip install -v .
     fi

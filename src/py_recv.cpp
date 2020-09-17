@@ -168,12 +168,6 @@ public:
         return get_ringbuffer().get_data_sem().get_fd();
     }
 
-    void set_memory_pool(std::shared_ptr<memory_pool> pool)
-    {
-        py::gil_scoped_release gil;
-        ring_stream::set_memory_allocator(std::move(pool));
-    }
-
     void set_memory_allocator(std::shared_ptr<memory_allocator> allocator)
     {
         py::gil_scoped_release gil;
@@ -196,23 +190,11 @@ public:
         std::uint16_t port,
         std::size_t max_size,
         std::size_t buffer_size,
-        const std::string &bind_hostname,
-        const boost::optional<socket_wrapper<boost::asio::ip::udp::socket>> &socket)
+        const std::string &bind_hostname)
     {
-        if (!socket)
-        {
-            py::gil_scoped_release gil;
-            auto endpoint = make_endpoint<boost::asio::ip::udp>(bind_hostname, port);
-            emplace_reader<udp_reader>(endpoint, max_size, buffer_size);
-        }
-        else
-        {
-            deprecation_warning("passing unbound socket plus port is deprecated");
-            auto asio_socket = socket->copy(get_io_service());
-            py::gil_scoped_release gil;
-            auto endpoint = make_endpoint<boost::asio::ip::udp>(bind_hostname, port);
-            emplace_reader<udp_reader>(std::move(asio_socket), endpoint, max_size, buffer_size);
-        }
+        py::gil_scoped_release gil;
+        auto endpoint = make_endpoint<boost::asio::ip::udp>(bind_hostname, port);
+        emplace_reader<udp_reader>(endpoint, max_size, buffer_size);
     }
 
     void add_udp_reader_socket(
@@ -399,8 +381,6 @@ py::module register_module(py::module &parent)
         .def("get_nowait", SPEAD2_PTMF(ring_stream_wrapper, get_nowait))
         .def("set_memory_allocator", SPEAD2_PTMF(ring_stream_wrapper, set_memory_allocator),
              "allocator"_a)
-        .def("set_memory_pool", SPEAD2_PTMF(ring_stream_wrapper, set_memory_pool),
-             "pool"_a)
         .def("set_memcpy", SPEAD2_PTMF(ring_stream_wrapper, set_memcpy), "id"_a)
         .def_property("stop_on_stop_item",
                       /* SPEAD2_PTMF doesn't work here because the functions
@@ -425,8 +405,7 @@ py::module register_module(py::module &parent)
               "port"_a,
               "max_size"_a = udp_reader::default_max_size,
               "buffer_size"_a = udp_reader::default_buffer_size,
-              "bind_hostname"_a = std::string(),
-              "socket"_a = py::none())
+              "bind_hostname"_a = std::string())
         .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_socket),
               "socket"_a,
               "max_size"_a = udp_reader::default_max_size)

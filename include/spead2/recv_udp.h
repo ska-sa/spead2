@@ -154,30 +154,6 @@ public:
     /**
      * Constructor using an existing socket. This allows socket options (e.g.,
      * multicast subscriptions) to be fine-tuned by the caller. The socket
-     * should not be bound. Note that there is no special handling for
-     * multicast addresses here.
-     *
-     * @deprecated Use the variant taking a pre-bound socket instead.
-     *
-     * @param owner        Owning stream
-     * @param socket       Existing socket which will be taken over. It must
-     *                     use the same I/O service as @a owner.
-     * @param endpoint     Address on which to listen
-     * @param max_size     Maximum packet size that will be accepted.
-     * @param buffer_size  Requested socket buffer size. Note that the
-     *                     operating system might not allow a buffer size
-     *                     as big as the default.
-     */
-    udp_reader(
-        stream &owner,
-        boost::asio::ip::udp::socket &&socket,
-        const boost::asio::ip::udp::endpoint &endpoint,
-        std::size_t max_size = default_max_size,
-        std::size_t buffer_size = default_buffer_size);
-
-    /**
-     * Constructor using an existing socket. This allows socket options (e.g.,
-     * multicast subscriptions) to be fine-tuned by the caller. The socket
      * must already be bound to the desired endpoint. There is no special
      * handling of multicast subscriptions or socket buffer sizes here.
      *
@@ -220,13 +196,6 @@ struct reader_factory<udp_reader>
         std::size_t max_size,
         std::size_t buffer_size,
         unsigned int interface_index);
-
-    static std::unique_ptr<reader> make_reader(
-        stream &owner,
-        boost::asio::ip::udp::socket &&socket,
-        const boost::asio::ip::udp::endpoint &endpoint,
-        std::size_t max_size = udp_reader::default_max_size,
-        std::size_t buffer_size = udp_reader::default_buffer_size);
 
     static std::unique_ptr<reader> make_reader(
         stream &owner,

@@ -1,4 +1,4 @@
-# Copyright 2016, 2017, 2019 SKA South Africa
+# Copyright 2016, 2017, 2019-2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -47,59 +47,70 @@ SPEAD2_CHECK_HEADER([boost/asio.hpp], [boost_system,pthread], [boost::asio::io_s
 
 ### Optional libraries/features
 
+# pkg-config files for libibverbs are quite new, so fall back to searching
+# system paths.
+IBV_CFLAGS=""
 SPEAD2_ARG_WITH(
     [ibv],
     [AS_HELP_STRING([--without-ibv], [Do not use libibverbs and librdmacm, even if detected])],
     [SPEAD2_USE_IBV],
-    [SPEAD2_USE_IBV=1
-     SPEAD2_CHECK_LIB(
-        [infiniband/verbs.h], [ibverbs], [ibv_create_flow(NULL, NULL)],
-        [], [SPEAD2_USE_IBV=0])
-     SPEAD2_CHECK_LIB(
-        [rdma/rdma_cma.h], [rdmacm], [rdma_create_event_channel()],
-        [], [SPEAD2_USE_IBV=0])
+    [PKG_CHECK_MODULES([IBV], [libibverbs librdmacm], [SPEAD2_USE_IBV=1],
+        [SPEAD2_CHECK_LIB(
+         [infiniband/verbs.h], [ibverbs], [ibv_create_wq(NULL, NULL)],
+         [SPEAD2_USE_IBV=1
+         ], [:])
+        ])
     ]
 )
 
+MLX5DV_CFLAGS=""
 SPEAD2_ARG_WITH(
-    [ibv_exp],
-    [AS_HELP_STRING([--without-ibv-exp], [Do not use verbs_exp.h, even if detected])],
-    [SPEAD2_USE_IBV_EXP],
-    [SPEAD2_USE_IBV_EXP=1
-     SPEAD2_CHECK_HEADER(
-        [infiniband/verbs_exp.h], [ibverbs], [ibv_exp_create_cq(NULL, 0, NULL, NULL, 0, NULL)],
-        [], [SPEAD2_USE_IBV_EXP=0])
+    [mlx5dv],
+    [AS_HELP_STRING([--without-mlx5dv], [Do not use mlx5dv.h, even if detected])],
+    [SPEAD2_USE_MLX5DV],
+    [PKG_CHECK_MODULES(MLX5DV, [libmlx5],
+        [SPEAD2_CHECK_HEADER(
+            [infiniband/mlx5dv.h], [], [mlx5dv_create_cq(NULL, NULL, NULL)],
+            [SPEAD2_USE_MLX5DV=1], [], [], ["$MLX5DV_CFLAGS"], ["$MLX5DV_LIBS"])
+        ],
+        [SPEAD2_CHECK_HEADER(
+            [infiniband/mlx5dv.h], [mlx5], [mlx5dv_create_cq(NULL, NULL, NULL)],
+            [SPEAD2_USE_MLX5DV=1], [])
+        ])
     ]
 )
+AS_IF([test "x$SPEAD2_USE_IBV" = "x0"], [SPEAD2_USE_MLX5DV=0])
 
 SPEAD2_ARG_WITH(
-    [ibv_mprq],
-    [AS_HELP_STRING([--without-ibv-mprq], [Do not use multi-packet receive queues, even if detected])],
-    [SPEAD2_USE_IBV_MPRQ],
-    [SPEAD2_USE_IBV_MPRQ=1
-     SPEAD2_CHECK_FEATURE(
-        [ibv_mprq], [multi-packet receive queue], [infiniband/verbs_exp.h], [ibverbs],
-        [ibv_exp_cq_family_v1 *cq_intf;
-         ibv_exp_wq_family *wq_intf;
-         ibv_exp_qp_init_attr attr;
-         ibv_exp_query_intf(NULL, NULL, NULL);
-         ibv_exp_create_wq(NULL, NULL);
-         ibv_exp_create_rwq_ind_table(NULL, NULL);],
-        [], [SPEAD2_USE_IBV_MPRQ=0])
+    [ibv-hw-rate-limit],
+    [AS_HELP_STRING([--without-ibv-hw-rate-limit], [Disable ibverbs hardware rate limiting])],
+    [SPEAD2_USE_IBV_HW_RATE_LIMIT],
+    [SPEAD2_CHECK_FEATURE(
+        [ibv_modify_qp_rate_limit],
+        [ibv_modify_qp_rate_limit],
+        [infiniband/verbs.h], [],
+        [ibv_modify_qp_rate_limit(NULL, NULL)],
+        [SPEAD2_USE_IBV_HW_RATE_LIMIT=1], [],
+        [], ["$IBV_CFLAGS"], [])
     ]
 )
+AS_IF([test "x$SPEAD2_USE_IBV" = "x0"], [SPEAD2_USE_IBV_HW_RATE_LIMIT=0])
 
 SPEAD2_ARG_WITH(
     [pcap],
     [AS_HELP_STRING([--without-pcap], [Do not use pcap, even if detected])],
     [SPEAD2_USE_PCAP],
-    [SPEAD2_USE_PCAP=1
-     SPEAD2_CHECK_HEADER(
-        [pcap/pcap.h], [pcap], [pcap_open_offline(NULL, NULL)],
-        [], [SPEAD2_USE_PCAP=0])
+    [PKG_CHECK_MODULES([PCAP], [libpcap], [SPEAD2_USE_PCAP=1],
+        [SPEAD2_CHECK_HEADER(
+            [pcap/pcap.h], [pcap], [pcap_open_offline(NULL, NULL)],
+            [SPEAD2_USE_PCAP=1
+             PCAP_CFLAGS=""
+             PCAP_LIBS="-lpcap"
+            ],
+            [])
+        ])
     ]
 )
-
 
 SPEAD2_ARG_WITH(
     [recvmmsg],
@@ -128,7 +139,8 @@ SPEAD2_ARG_WITH(
         [pthread_setaffinity_np],
         [pthread.h],
         [pthread],
-        [pthread_setaffinity_np(pthread_self(), 0, (cpu_set_t *) NULL)],
+        [cpu_set_t cpuset = {};
+         pthread_setaffinity_np(pthread_self(), 0, &cpuset)],
         [SPEAD2_USE_PTHREAD_SETAFFINITY_NP=1], []
     )]
 )
@@ -157,15 +169,28 @@ SPEAD2_ARG_WITH(
          #if !defined(_POSIX_SEMAPHORES) || _POSIX_SEMAPHORES < 0
          # error "POSIX semaphores marked unsupported"
          #endif
-         sem_init(NULL, 0, 0)],
+         sem_t sem;
+         sem_init(&sem, 0, 0)],
         [SPEAD2_USE_POSIX_SEMAPHORES=1], []
     )]
 )
 
-### Determine libraries to link against
+### Determine libraries to link against and include paths
 
 LIBS="-lboost_system -lpthread -ldl"
-AS_IF([test "x$SPEAD2_USE_PCAP" = "x1"], [LIBS="-lpcap $LIBS"])
+SPEAD2_CFLAGS=""
+AS_IF([test "x$SPEAD2_USE_PCAP" = "x1"], [
+    LIBS="$PCAP_LIBS $LIBS"
+    SPEAD2_CFLAGS="$PCAP_CFLAGS $SPEAD2_CFLAGS"
+])
+AS_IF([test "x$SPEAD2_USE_IBV" = "x1"], [
+    SPEAD2_CFLAGS="$IBV_CFLAGS $SPEAD2_CFLAGS"
+])
+AS_IF([test "x$SPEAD2_USE_MLX5DV" = "x1"], [
+    SPEAD2_CFLAGS="$MLX5DV_CFLAGS $SPEAD2_CFLAGS"
+])
+CXXFLAGS="$SPEAD2_CFLAGS $CXXFLAGS"
+AC_SUBST(SPEAD2_CFLAGS)
 
 ### Build variants
 
@@ -195,13 +220,36 @@ AM_CONDITIONAL([OPTIMIZED], [test "x$enable_optimized" != "xno"])
 AM_CONDITIONAL([COVERAGE], [test "x$enable_coverage" = "xyes"])
 AM_CONDITIONAL([LTO], [test "x$enable_lto" = "xyes"])
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
-AM_CONDITIONAL([SPEAD2_USE_IBV_EXP], [test "x$SPEAD2_USE_IBV_EXP" = "x1"])
-AM_CONDITIONAL([SPEAD2_USE_PCAP], [test "x$SPEAD2_USE_PCAP" = "x1"])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  examples/Makefile
                  include/Makefile
                  include/spead2/common_features.h
-                 spead2.pc])
+                 spead2.pc
+                 python-build.cfg])
 AC_OUTPUT
+
+echo "Compilation options:"
+echo ""
+SPEAD2_PRINT_CONDITION([debug symbols], [DEBUG_SYMBOLS])
+SPEAD2_PRINT_CONDITION([debug logging], [DEBUG_LOG])
+SPEAD2_PRINT_CONDITION([compiler optimization], [OPTIMIZED])
+SPEAD2_PRINT_CONDITION([link-time optimization], [LTO])
+SPEAD2_PRINT_CONDITION([coverage], [COVERAGE])
+SPEAD2_PRINT_FEATURE([MOVNTDQ instruction], [test "x$SPEAD2_USE_MOVNTDQ" = "x1"])
+echo ""
+echo "System calls:"
+echo ""
+SPEAD2_PRINT_FEATURE([recvmmsg], [test "x$SPEAD2_USE_RECVMMSG" = "x1"])
+SPEAD2_PRINT_FEATURE([sendmmsg], [test "x$SPEAD2_USE_SENDMMSG" = "x1"])
+SPEAD2_PRINT_FEATURE([eventfd], [test "x$SPEAD2_USE_EVENTFD" = "x1"])
+SPEAD2_PRINT_FEATURE([POSIX semaphores], [test "x$SPEAD2_USE_POSIX_SEMAPHORES" = "x1"])
+echo ""
+echo "Libraries:"
+echo ""
+SPEAD2_PRINT_FEATURE([ibverbs], [test "x$SPEAD2_USE_IBV" = "x1"])
+SPEAD2_PRINT_FEATURE([ibverbs HW rate limit], [test "x$SPEAD2_USE_IBV_HW_RATE_LIMIT" = "x1"])
+SPEAD2_PRINT_FEATURE([mlx5dv], [test "x$SPEAD2_USE_MLX5DV" = "x1"])
+SPEAD2_PRINT_FEATURE([pcap], [test "x$SPEAD2_USE_PCAP" = "x1"])
+echo ""

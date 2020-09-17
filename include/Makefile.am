@@ -19,9 +19,11 @@ nobase_include_HEADERS = \
 	spead2/common_endian.h \
 	spead2/common_features.h \
 	spead2/common_flavour.h \
+	spead2/common_loader_ibv.h \
+	spead2/common_loader_mlx5dv.h \
+	spead2/common_loader_rdmacm.h \
+	spead2/common_loader_utils.h \
 	spead2/common_ibv.h \
-	spead2/common_ibv_loader.h \
-	spead2/common_ibv_loader_utils.h \
 	spead2/common_inproc.h \
 	spead2/common_logging.h \
 	spead2/common_memcpy.h \

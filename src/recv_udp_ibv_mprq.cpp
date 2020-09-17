@@ -1,4 +1,4 @@
-/* Copyright 2019 SKA South Africa
+/* Copyright 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -22,7 +22,7 @@
 # define _GNU_SOURCE
 #endif
 #include <spead2/common_features.h>
-#if SPEAD2_USE_IBV_MPRQ
+#if SPEAD2_USE_MLX5DV
 #include <algorithm>
 #include <cstdint>
 #include <cstddef>
@@ -42,44 +42,33 @@ namespace recv
 
 static ibv_qp_t create_qp(const rdma_cm_id_t &cm_id,
                           const ibv_pd_t &pd,
-                          const ibv_cq_t &cq,
-                          const ibv_exp_rwq_ind_table_t &ind_table,
-                          const ibv_exp_res_domain_t &res_domain)
+                          const ibv_rwq_ind_table_t &ind_table)
 {
     /* ConnectX-5 only seems to work with Toeplitz hashing. This code seems to
      * work, but I don't really know what I'm doing so it might be horrible.
      */
     uint8_t toeplitz_key[40] = {};
-    ibv_exp_rx_hash_conf hash_conf;
-    memset(&hash_conf, 0, sizeof(hash_conf));
-    hash_conf.rx_hash_function = IBV_EXP_RX_HASH_FUNC_TOEPLITZ;
-    hash_conf.rx_hash_key_len = sizeof(toeplitz_key);
-    hash_conf.rx_hash_key = toeplitz_key;
-    hash_conf.rx_hash_fields_mask = 0;
-    hash_conf.rwq_ind_tbl = ind_table.get();
 
-    ibv_exp_qp_init_attr attr;
+    ibv_qp_init_attr_ex attr;
     memset(&attr, 0, sizeof(attr));
     attr.qp_type = IBV_QPT_RAW_PACKET;
+    attr.comp_mask = IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_IND_TABLE | IBV_QP_INIT_ATTR_RX_HASH;
     attr.pd = pd.get();
-    attr.res_domain = res_domain.get();
-    attr.rx_hash_conf = &hash_conf;
-    attr.port_num = cm_id->port_num;
-    attr.comp_mask = IBV_EXP_QP_INIT_ATTR_PD | IBV_EXP_QP_INIT_ATTR_RX_HASH
-        | IBV_EXP_QP_INIT_ATTR_PORT | IBV_EXP_QP_INIT_ATTR_RES_DOMAIN;
+    attr.rwq_ind_tbl = ind_table.get();
+    attr.rx_hash_conf.rx_hash_function = IBV_RX_HASH_FUNC_TOEPLITZ;
+    attr.rx_hash_conf.rx_hash_key_len = sizeof(toeplitz_key);
+    attr.rx_hash_conf.rx_hash_key = toeplitz_key;
+    attr.rx_hash_conf.rx_hash_fields_mask = 0;
     return ibv_qp_t(cm_id, &attr);
 }
 
 void udp_ibv_mprq_reader::post_wr(std::size_t offset)
 {
     ibv_sge sge;
-    memset(&sge, 0, sizeof(sge));
     sge.addr = (uintptr_t) &buffer[offset];
     sge.length = wqe_size;
     sge.lkey = mr->lkey;
-    int status = wq_intf->recv_burst(wq.get(), &sge, 1);
-    if (status != 0)
-        throw_errno("recv_burst failed", status);
+    wq.post_recv(&sge);
 }
 
 udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add_packet_state &state)
@@ -88,19 +77,23 @@ udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add
      * receive queue if we're getting packets as fast as we can process them.
      */
     const int max_iter = 256;
+    ibv_cq_ex_t::poller poller(recv_cq);
+
     for (int iter = 0; iter < max_iter; iter++)
     {
-        uint32_t offset;
-        uint32_t flags;
-        int32_t len = cq_intf->poll_length_flags_mp_rq(recv_cq.get(), &offset, &flags);
-        if (len < 0)
+        if (!poller.next())
+            return poll_result::drained;
+        if (recv_cq->status != IBV_WC_SUCCESS)
         {
-            // Error condition.
-            ibv_wc wc;
-            ibv_poll_cq(recv_cq.get(), 1, &wc);
-            log_warning("Work Request failed with code %1%", wc.status);
+            log_warning("Work Request failed with code %1%", recv_cq->status);
+            continue;
         }
-        else if (len > 0)
+
+        std::uint32_t len, offset;
+        int flags;
+        wq.read_wc(recv_cq, len, offset, flags);
+
+        if (!(flags & ibv_wq_mprq_t::FLAG_FILLER))
         {
             const void *ptr = reinterpret_cast<void *>(buffer.get() + (wqe_start + offset));
 
@@ -122,15 +115,18 @@ udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add
                 log_warning(e.what());
             }
         }
-        if (flags & IBV_EXP_CQ_RX_MULTI_PACKET_LAST_V1)
+        if (flags & ibv_wq_mprq_t::FLAG_LAST)
         {
+            /* Temporary stop the poller so that we release the CQ entries
+             * we've consumed so far. Not doing this risks an overflow if
+             * packets are very small.
+             */
+            poller.stop();
             post_wr(wqe_start);
             wqe_start += wqe_size;
             if (wqe_start == buffer_size)
                 wqe_start = 0;
         }
-        if (len == 0 && flags == 0)
-            return poll_result::drained;
     }
     return poll_result::partial;
 }
@@ -151,43 +147,42 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     : udp_ibv_reader_base<udp_ibv_mprq_reader>(
         owner, endpoints, interface_address, max_size, comp_vector, max_poll)
 {
-    ibv_exp_device_attr device_attr = cm_id.exp_query_device();
-    if (!(device_attr.comp_mask & IBV_EXP_DEVICE_ATTR_MP_RQ)
-        || !(device_attr.mp_rq_caps.supported_qps & IBV_EXP_MP_RQ_SUP_TYPE_WQ_RQ))
+    if (!cm_id.mlx5dv_is_supported())
+        throw std::system_error(std::make_error_code(std::errc::not_supported),
+                                "device does not support mlx5dv API");
+    mlx5dv_context mlx5dv_attr = cm_id.mlx5dv_query_device();
+    if (!(mlx5dv_attr.comp_mask & MLX5DV_CONTEXT_MASK_STRIDING_RQ)
+        || !(mlx5dv_attr.flags & MLX5DV_CONTEXT_FLAGS_MPW_ALLOWED)
+        || !ibv_is_qpt_supported(mlx5dv_attr.striding_rq_caps.supported_qpts, IBV_QPT_RAW_PACKET))
         throw std::system_error(std::make_error_code(std::errc::not_supported),
                                 "device does not support multi-packet receive queues");
 
-    ibv_exp_res_domain_init_attr res_domain_attr;
-    memset(&res_domain_attr, 0, sizeof(res_domain_attr));
-    res_domain_attr.comp_mask = IBV_EXP_RES_DOMAIN_THREAD_MODEL | IBV_EXP_RES_DOMAIN_MSG_MODEL;
-    res_domain_attr.thread_model = IBV_EXP_THREAD_UNSAFE;
-    res_domain_attr.msg_model = IBV_EXP_MSG_HIGH_BW;
-    res_domain = ibv_exp_res_domain_t(cm_id, &res_domain_attr);
-
-    // TODO: adjust stride parameters based on device info
-    ibv_exp_wq_init_attr wq_attr;
-    memset(&wq_attr, 0, sizeof(wq_attr));
-    wq_attr.mp_rq.single_stride_log_num_of_bytes =
+    mlx5dv_wq_init_attr attr;
+    memset(&attr, 0, sizeof(attr));
+    attr.comp_mask = MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ;
+    attr.striding_rq_attrs.single_stride_log_num_of_bytes =
         clamp(6,
-              device_attr.mp_rq_caps.min_single_stride_log_num_of_bytes,
-              device_attr.mp_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes per stride
-    wq_attr.mp_rq.single_wqe_log_num_of_strides =
-        clamp(20 - wq_attr.mp_rq.single_stride_log_num_of_bytes,
-              device_attr.mp_rq_caps.min_single_wqe_log_num_of_strides,
-              device_attr.mp_rq_caps.max_single_wqe_log_num_of_strides);    // 1MB per WQE
-    int log_wqe_size = wq_attr.mp_rq.single_stride_log_num_of_bytes + wq_attr.mp_rq.single_wqe_log_num_of_strides;
+              mlx5dv_attr.striding_rq_caps.min_single_stride_log_num_of_bytes,
+              mlx5dv_attr.striding_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes per stride
+    attr.striding_rq_attrs.single_wqe_log_num_of_strides =
+        clamp(20 - attr.striding_rq_attrs.single_stride_log_num_of_bytes,
+              mlx5dv_attr.striding_rq_caps.min_single_wqe_log_num_of_strides,
+              mlx5dv_attr.striding_rq_caps.max_single_wqe_log_num_of_strides);    // 1MB per WQE
+    int log_wqe_size = attr.striding_rq_attrs.single_stride_log_num_of_bytes
+        + attr.striding_rq_attrs.single_wqe_log_num_of_strides;
     wqe_size = std::size_t(1) << log_wqe_size;
     if (buffer_size < 2 * wqe_size)
         buffer_size = 2 * wqe_size;
 
     bool reduced = false;
-    std::size_t strides = buffer_size >> wq_attr.mp_rq.single_stride_log_num_of_bytes;
+    std::size_t strides = buffer_size >> attr.striding_rq_attrs.single_stride_log_num_of_bytes;
+    ibv_device_attr device_attr = cm_id.query_device();
     if (std::size_t(device_attr.max_cqe) < strides)
     {
         strides = device_attr.max_cqe;
         reduced = true;
     }
-    std::size_t wqe = strides >> wq_attr.mp_rq.single_wqe_log_num_of_strides;
+    std::size_t wqe = strides >> attr.striding_rq_attrs.single_wqe_log_num_of_strides;
     if (std::size_t(device_attr.max_qp_wr) < wqe)
     {
         wqe = device_attr.max_qp_wr;
@@ -201,34 +196,33 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
         log_warning("Reducing buffer to %1% to accommodate device limits", buffer_size);
     this->buffer_size = buffer_size;
 
-    ibv_exp_cq_init_attr cq_attr;
+    ibv_cq_init_attr_ex cq_attr;
     memset(&cq_attr, 0, sizeof(cq_attr));
-    cq_attr.comp_mask = IBV_EXP_CQ_INIT_ATTR_RES_DOMAIN;
-    cq_attr.res_domain = res_domain.get();
+    cq_attr.cqe = strides;
+    cq_attr.wc_flags = IBV_WC_EX_WITH_BYTE_LEN;
     if (comp_vector >= 0)
-        recv_cq = ibv_cq_t(cm_id, strides, nullptr,
-                           comp_channel, comp_vector % cm_id->verbs->num_comp_vectors,
-                           &cq_attr);
-    else
-        recv_cq = ibv_cq_t(cm_id, strides, nullptr, &cq_attr);
-    cq_intf = ibv_exp_cq_family_v1_t(cm_id, recv_cq);
+    {
+        cq_attr.channel = comp_channel.get();
+        cq_attr.comp_vector = comp_vector % cm_id->verbs->num_comp_vectors;
+    }
+    cq_attr.flags = IBV_CREATE_CQ_ATTR_SINGLE_THREADED;
+    cq_attr.comp_mask = IBV_CQ_INIT_ATTR_MASK_FLAGS;
+    recv_cq = ibv_cq_ex_t(cm_id, &cq_attr);
 
-    wq_attr.mp_rq.use_shift = IBV_EXP_MP_RQ_NO_SHIFT;
-    wq_attr.wq_type = IBV_EXP_WQT_RQ;
-    wq_attr.max_recv_wr = wqe;
-    wq_attr.max_recv_sge = 1;
+    ibv_wq_init_attr wq_attr;
+    memset(&wq_attr, 0, sizeof(wq_attr));
+    wq_attr.wq_type = IBV_WQT_RQ;
+    wq_attr.max_wr = wqe;
+    wq_attr.max_sge = 1;
     wq_attr.pd = pd.get();
-    wq_attr.cq = recv_cq.get();
-    wq_attr.res_domain = res_domain.get();
-    wq_attr.comp_mask = IBV_EXP_CREATE_WQ_MP_RQ | IBV_EXP_CREATE_WQ_RES_DOMAIN;
-    // TODO: investigate IBV_EXP_CREATE_WQ_FLAG_DELAY_DROP to reduce dropped
-    // packets.
-    wq = ibv_exp_wq_t(cm_id, &wq_attr);
-    wq_intf = ibv_exp_wq_family_t(cm_id, wq);
+    wq_attr.cq = ibv_cq_ex_to_cq(recv_cq.get());
+    // TODO: investigate IBV_WQ_FLAGS_DELAY_DROP to reduce dropped
+    // packets and IBV_WQ_FLAGS_CVLAN_STRIPPING to remove VLAN tags.
+    wq = ibv_wq_mprq_t(cm_id, &wq_attr, &attr);
 
-    rwq_ind_table = create_rwq_ind_table(cm_id, pd, wq);
-    qp = create_qp(cm_id, pd, recv_cq, rwq_ind_table, res_domain);
-    wq.modify(IBV_EXP_WQS_RDY);
+    rwq_ind_table = create_rwq_ind_table(cm_id, wq);
+    qp = create_qp(cm_id, pd, rwq_ind_table);
+    wq.modify(IBV_WQS_RDY);
 
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(buffer_size, nullptr);

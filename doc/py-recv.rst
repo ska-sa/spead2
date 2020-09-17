@@ -101,14 +101,6 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
       :param str bind_hostname: If specified, the socket will be bound to the
         first IP address found by resolving the given hostname. If this is a
         multicast group, then it will also subscribe to this multicast group.
-      :param socket.socket socket: If specified, this socket is used rather
-        than a new one. The socket must be open but unbound. The caller must
-        not use this socket any further, although it is not necessary to keep
-        it alive. This is mainly useful for fine-tuning socket options such
-        as multicast subscriptions.
-
-        .. deprecated:: 1.9
-           Use the overload that doesn't take a `buffer_size` or `bind_hostname`.
 
    .. py:method:: add_udp_reader(multicast_group, port, max_size=DEFAULT_UDP_MAX_SIZE, buffer_size=DEFAULT_UDP_BUFFER_SIZE, interface_address)
       :noindex:

@@ -25,7 +25,10 @@
 # define _GNU_SOURCE
 #endif
 #include <spead2/common_features.h>
-#include <spead2/common_ibv_loader.h>
+#include <spead2/common_logging.h>
+#include <spead2/common_loader_rdmacm.h>
+#include <spead2/common_loader_ibv.h>
+#include <spead2/common_loader_mlx5dv.h>
 #include <memory>
 #include <vector>
 #include <cstdint>
@@ -36,8 +39,8 @@
 
 #if SPEAD2_USE_IBV
 
-#if SPEAD2_USE_IBV_EXP
-# include <infiniband/verbs_exp.h>
+#if SPEAD2_USE_MLX5DV
+# include <infiniband/mlx5dv.h>
 #endif
 
 namespace spead2
@@ -117,45 +120,21 @@ struct ibv_flow_deleter
     void operator()(ibv_flow *flow);
 };
 
-#if SPEAD2_USE_IBV_MPRQ
-
-struct ibv_exp_wq_deleter
+struct ibv_wq_deleter
 {
-    void operator()(ibv_exp_wq *wq)
+    void operator()(ibv_wq *wq)
     {
-        ibv_exp_destroy_wq(wq);
+        ibv_destroy_wq(wq);
     }
 };
 
-struct ibv_exp_rwq_ind_table_deleter
+struct ibv_rwq_ind_table_deleter
 {
-    void operator()(ibv_exp_rwq_ind_table *table)
+    void operator()(ibv_rwq_ind_table *table)
     {
-        ibv_exp_destroy_rwq_ind_table(table);
+        ibv_destroy_rwq_ind_table(table);
     }
 };
-
-class ibv_intf_deleter
-{
-private:
-    struct ibv_context *context;
-
-public:
-    explicit ibv_intf_deleter(struct ibv_context *context = nullptr) noexcept;
-    void operator()(void *intf);
-};
-
-class ibv_exp_res_domain_deleter
-{
-private:
-    struct ibv_context *context;
-
-public:
-    explicit ibv_exp_res_domain_deleter(struct ibv_context *context = nullptr) noexcept;
-    void operator()(ibv_exp_res_domain *res_domain);
-};
-
-#endif
 
 } // namespace detail
 
@@ -172,9 +151,11 @@ public:
     rdma_cm_id_t(const rdma_event_channel_t &cm_id, void *context, rdma_port_space ps);
 
     void bind_addr(const boost::asio::ip::address &addr);
-    ibv_device_attr query_device() const;
-#if SPEAD2_USE_IBV_EXP
-    ibv_exp_device_attr exp_query_device() const;
+    ibv_device_attr query_device() const;  // for backwards compatibility
+    ibv_device_attr_ex query_device_ex(const ibv_query_device_ex_input *input = nullptr) const;
+#if SPEAD2_USE_MLX5DV
+    bool mlx5dv_is_supported() const;
+    mlx5dv_context mlx5dv_query_device() const;
 #endif
 };
 
@@ -211,21 +192,87 @@ public:
     ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context);
     ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context,
              const ibv_comp_channel_t &comp_channel, int comp_vector);
-#if SPEAD2_USE_IBV_EXP
-    ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context,
-             ibv_exp_cq_init_attr *attr);
-    ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context,
-             const ibv_comp_channel_t &comp_channel, int comp_vector,
-             ibv_exp_cq_init_attr *attr);
-#endif
 
     void req_notify(bool solicited_only);
     int poll(int num_entries, ibv_wc *wc);
     void ack_events(unsigned int nevents);
+};
 
-#if SPEAD2_USE_IBV_EXP
-    int poll(int num_entries, ibv_exp_wc *wc);
-#endif
+class ibv_cq_ex_t : public ibv_cq_t
+{
+public:
+    ibv_cq_ex_t() = default;
+    ibv_cq_ex_t(const rdma_cm_id_t &cm_id, ibv_cq_init_attr_ex *cq_attr);
+
+    ibv_cq_ex *get() const
+    {
+        return (ibv_cq_ex *) ibv_cq_t::get();
+    }
+
+    ibv_cq_ex *operator->() const
+    {
+        return get();
+    }
+
+    /* RAII wrapper around ibv_start_poll / ibv_next_poll / ibv_end_poll.
+     * It's implemented inline for efficiency. Note that it does NOT take
+     * ownership of the CQ: the caller must keep the CQ alive.
+     */
+    class poller
+    {
+    private:
+        ibv_cq_ex *cq;
+        bool active = false;
+
+    public:
+        poller(const ibv_cq_ex_t &cq)
+            : cq(cq.get())
+        {
+            assert(this->cq);
+        }
+
+        bool next()
+        {
+            if (!active)
+            {
+                ibv_poll_cq_attr attr = {};
+                int result = ibv_start_poll(cq, &attr);
+                if (result == 0)
+                {
+                    active = true;
+                    return true;
+                }
+                else if (result == ENOENT)
+                    return false;
+                else
+                    throw_errno("ibv_start_poll failed", result);
+            }
+            else
+            {
+                int result = ibv_next_poll(cq);
+                if (result == 0)
+                    return true;
+                else if (result == ENOENT)
+                    return false;
+                else
+                    throw_errno("ibv_next_poll failed", result);
+            }
+        }
+
+        void stop()
+        {
+            if (active)
+            {
+                ibv_end_poll(cq);
+                active = false;
+            }
+        }
+
+        ~poller()
+        {
+            stop();
+        }
+    };
 };
 
 class ibv_pd_t : public std::unique_ptr<ibv_pd, detail::ibv_pd_deleter>
@@ -240,9 +287,7 @@ class ibv_qp_t : public std::unique_ptr<ibv_qp, detail::ibv_qp_deleter>
 public:
     ibv_qp_t() = default;
     ibv_qp_t(const ibv_pd_t &pd, ibv_qp_init_attr *init_attr);
-#if SPEAD2_USE_IBV_MPRQ
-    ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_exp_qp_init_attr *init_attr);
-#endif
+    ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_qp_init_attr_ex *init_attr);
 
     void modify(ibv_qp_attr *attr, int attr_mask);
     void modify(ibv_qp_state qp_state);
@@ -289,60 +334,74 @@ std::vector<ibv_flow_t> create_flows(
     const ibv_qp_t &qp, const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     int port_num);
 
-#if SPEAD2_USE_IBV_MPRQ
-
-class ibv_exp_query_intf_error_category : public std::error_category
+class ibv_wq_t : public std::unique_ptr<ibv_wq, detail::ibv_wq_deleter>
 {
 public:
-    virtual const char *name() const noexcept override;
-    virtual std::string message(int condition) const override;
-    virtual std::error_condition default_error_condition(int condition) const noexcept override;
+    ibv_wq_t() = default;
+    ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr);
+
+    void modify(ibv_wq_state state);
 };
 
-std::error_category &ibv_exp_query_intf_category();
-
-class ibv_exp_cq_family_v1_t : public std::unique_ptr<ibv_exp_cq_family_v1, detail::ibv_intf_deleter>
+#if SPEAD2_USE_MLX5DV
+/**
+ * Support for multi-packet receive queues (MPRQs) on mlx5. At this time (Sep
+ * 2020), libmlx5 doesn't support them through the standard verbs functions. We
+ * thus have to directly construct the low-level data structures for the
+ * hardware, and decode information stored in the completion entries.
+ *
+ * This is somewhat fragile, because we're not taking over management of the
+ * completion queue, and the completion queue code assumes it is working with
+ * a normal work queue. Examining the code shows that it is probably safe,
+ * provided that
+ * - Only a single thread is accessing these data structures at a time (this
+ *   class does no locking.
+ * - There is no inline data in the CQE (I don't know how to ensure that).
+ *
+ * The @a mlx5_attr must specify @c MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ.
+ */
+class ibv_wq_mprq_t : public ibv_wq_t
 {
+private:
+    mlx5dv_rwq rwq;
+    /// Total number of entries posted
+    std::uint32_t head = 0;
+    /// Total number of entries fully consumed
+    std::uint32_t tail = 0;
+    /// Number of strides consumed from the tail entry
+    std::uint32_t tail_strides = 0;
+    /// Size of each stride in bytes
+    std::uint32_t stride_size = 0;
+    /// Number of strides per work queue entry
+    std::uint32_t n_strides = 0;
+    /// Offset of actual packet data within its first stride
+    std::int32_t data_offset = 0;
 public:
-    ibv_exp_cq_family_v1_t() = default;
-    ibv_exp_cq_family_v1_t(const rdma_cm_id_t &cm_id, const ibv_cq_t &cq);
+    static constexpr int FLAG_LAST = 1;    ///< This is the last CQE for the WQE
+    static constexpr int FLAG_FILLER = 2;  ///< This is a filler CQE rather than a packet
+
+    ibv_wq_mprq_t() = default;
+    ibv_wq_mprq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr);
+
+    void post_recv(ibv_sge *sge);
+
+    /**
+     * Get completion information. Call this function from inside
+     * ibv_start_poll/ibv_end_poll, exactly once for each completion.
+     */
+    void read_wc(const ibv_cq_ex_t &cq, std::uint32_t &byte_len, std::uint32_t &offset, int &flags) noexcept;
 };
+#endif // SPEAD2_USE_MLX5DV
 
-class ibv_exp_wq_t : public std::unique_ptr<ibv_exp_wq, detail::ibv_exp_wq_deleter>
+class ibv_rwq_ind_table_t : public std::unique_ptr<ibv_rwq_ind_table, detail::ibv_rwq_ind_table_deleter>
 {
 public:
-    ibv_exp_wq_t() = default;
-    ibv_exp_wq_t(const rdma_cm_id_t &cm_id, ibv_exp_wq_init_attr *attr);
-
-    void modify(ibv_exp_wq_state state);
-};
-
-class ibv_exp_wq_family_t : public std::unique_ptr<ibv_exp_wq_family, detail::ibv_intf_deleter>
-{
-public:
-    ibv_exp_wq_family_t() = default;
-    ibv_exp_wq_family_t(const rdma_cm_id_t &cm_id, const ibv_exp_wq_t &wq);
-};
-
-class ibv_exp_rwq_ind_table_t : public std::unique_ptr<ibv_exp_rwq_ind_table, detail::ibv_exp_rwq_ind_table_deleter>
-{
-public:
-    ibv_exp_rwq_ind_table_t() = default;
-    ibv_exp_rwq_ind_table_t(const rdma_cm_id_t &cm_id, ibv_exp_rwq_ind_table_init_attr *attr);
+    ibv_rwq_ind_table_t() = default;
+    ibv_rwq_ind_table_t(const rdma_cm_id_t &cm_id, ibv_rwq_ind_table_init_attr *attr);
 };
 
 /// Construct a table with a single entry
-ibv_exp_rwq_ind_table_t create_rwq_ind_table(
-    const rdma_cm_id_t &cm_id, const ibv_pd_t &pd, const ibv_exp_wq_t &wq);
-
-class ibv_exp_res_domain_t : public std::unique_ptr<ibv_exp_res_domain, detail::ibv_exp_res_domain_deleter>
-{
-public:
-    ibv_exp_res_domain_t() = default;
-    ibv_exp_res_domain_t(const rdma_cm_id_t &cm_id, ibv_exp_res_domain_init_attr *attr);
-};
-
-#endif // SPEAD2_USE_IBV_MPRQ
+ibv_rwq_ind_table_t create_rwq_ind_table(const rdma_cm_id_t &cm_id, const ibv_wq_t &wq);
 
 } // namespace spead2
 

@@ -13,6 +13,7 @@ Makefile.in
 /config.sub
 /configure
 /spead2.pc
+/python-build.cfg
 /wheelhouse
 /debug-symbols
 .deps

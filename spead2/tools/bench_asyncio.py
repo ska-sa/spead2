@@ -1,4 +1,4 @@
-# Copyright 2015, 2017, 2019 SKA South Africa
+# Copyright 2015, 2017, 2019-2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -42,7 +42,7 @@ import spead2.send
 import spead2.send.asyncio
 
 
-class SlaveConnection:
+class AgentConnection:
     def __init__(self, reader, writer):
         self.reader = reader
         self.writer = writer
@@ -97,7 +97,7 @@ class SlaveConnection:
                                 args.packet, args.recv_buffer,
                                 args.recv_ibv_vector, args.recv_ibv_max_poll)
                         except AttributeError:
-                            logging.error('--recv-ibv passed but slave does not support ibv')
+                            logging.error('--recv-ibv passed but agent does not support ibv')
                             sys.exit(1)
                     else:
                         stream.add_udp_reader(args.port, args.packet, args.recv_buffer,
@@ -128,16 +128,16 @@ class SlaveConnection:
             traceback.print_exc()
 
 
-async def slave_connection(reader, writer):
+async def agent_connection(reader, writer):
     try:
-        conn = SlaveConnection(reader, writer)
+        conn = AgentConnection(reader, writer)
         await conn.run_control()
     except Exception:
         traceback.print_exc()
 
 
-async def run_slave(args):
-    server = await asyncio.start_server(slave_connection, port=args.port)
+async def run_agent(args):
+    server = await asyncio.start_server(agent_connection, port=args.port)
     await server.wait_closed()
 
 
@@ -178,7 +178,8 @@ async def measure_connection_once(args, rate, num_heaps, required_heaps):
         burst_size=args.burst,
         rate=rate,
         max_heaps=args.heaps,
-        burst_rate_ratio=args.burst_rate_ratio)
+        burst_rate_ratio=args.burst_rate_ratio,
+        allow_hw_rate=args.allow_hw_rate)
     host = args.host
     if args.multicast is not None:
         host = args.multicast
@@ -292,6 +293,8 @@ def main():
     group.add_argument('--burst-rate-ratio', metavar='RATIO', type=float,
                        default=spead2.send.StreamConfig.DEFAULT_BURST_RATE_RATIO,
                        help='Hard rate limit, relative to nominal rate [%(default)s]')
+    group.add_argument('--no-hw-rate', dest='allow_hw_rate', action='store_false',
+                       help='Do not use hardware rate limiting')
     if hasattr(spead2.send, 'UdpIbvStream'):
         group.add_argument('--send-ibv', type=str, metavar='ADDRESS',
                            help='Use ibverbs with this interface address [no]')
@@ -326,15 +329,15 @@ def main():
                        help='Initial free memory buffers [%(default)s]')
     master.add_argument('host')
     master.add_argument('port', type=int)
-    slave = subparsers.add_parser('slave')
-    slave.add_argument('port', type=int)
+    agent = subparsers.add_parser('agent')
+    agent.add_argument('port', type=int)
 
     args = parser.parse_args()
     logging.basicConfig(level=getattr(logging, args.log.upper()))
     if 'host' in args:
         task = run_master(args)
     else:
-        task = run_slave(args)
+        task = run_agent(args)
     task = asyncio.ensure_future(task)
     asyncio.get_event_loop().run_until_complete(task)
     task.result()

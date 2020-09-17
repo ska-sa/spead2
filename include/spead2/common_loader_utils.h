@@ -1,4 +1,4 @@
-/* Copyright 2019 SKA South Africa
+/* Copyright 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -18,15 +18,13 @@
  * @file
  */
 
-#ifndef SPEAD2_COMMON_IBV_LOADER_UTILS_H
-#define SPEAD2_COMMON_IBV_LOADER_UTILS_H
+#ifndef SPEAD2_COMMON_LOADER_UTILS_H
+#define SPEAD2_COMMON_LOADER_UTILS_H
 
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
 #include <spead2/common_features.h>
-
-#if SPEAD2_USE_IBV
 
 #include <string>
 #include <system_error>
@@ -35,14 +33,14 @@
 namespace spead2
 {
 
-enum class ibv_loader_error : int
+enum class loader_error : int
 {
     LIBRARY_ERROR,
     SYMBOL_ERROR,
     NO_INIT
 };
 
-class ibv_loader_error_category : public std::error_category
+class loader_error_category : public std::error_category
 {
 public:
     virtual const char *name() const noexcept override;
@@ -50,9 +48,7 @@ public:
     virtual std::error_condition default_error_condition(int condition) const noexcept override;
 };
 
-std::error_category &ibv_loader_category();
-
-[[noreturn]] void ibv_loader_stub(std::exception_ptr init_result);
+std::error_category &loader_category();
 
 class dl_handle
 {
@@ -68,5 +64,4 @@ public:
 
 } // namespace spead2
 
-#endif // SPEAD2_USE_IBV
-#endif // SPEAD2_COMMON_IBV_LOADER_UTILS_H
+#endif // SPEAD2_COMMON_LOADER_UTILS_H

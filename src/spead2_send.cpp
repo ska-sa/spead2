@@ -1,4 +1,4 @@
-/* Copyright 2016, 2017, 2019 SKA South Africa
+/* Copyright 2016, 2017, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -55,6 +55,7 @@ struct options
     std::size_t burst = spead2::send::stream_config::default_burst_size;
     double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
     std::size_t max_heaps = spead2::send::stream_config::default_max_heaps;
+    bool no_hw_rate = false;
     double rate = 0.0;
     int ttl = 1;
 #if SPEAD2_USE_IBV
@@ -105,6 +106,7 @@ static options parse_args(int argc, const char **argv)
         ("buffer", make_opt_no_default(opts.buffer), "Socket buffer size")
         ("burst", make_opt(opts.burst), "Burst size")
         ("burst-rate-ratio", make_opt(opts.burst_rate_ratio), "Hard rate limit, relative to --rate")
+        ("no-hw-rate", make_opt(opts.no_hw_rate), "Do not use hardware rate limiting")
         ("max-heaps", make_opt(opts.max_heaps), "Maximum heaps in flight")
         ("rate", make_opt(opts.rate), "Transmission rate bound (Gb/s)")
         ("ttl", make_opt(opts.ttl), "TTL for multicast target")
@@ -322,7 +324,7 @@ int main(int argc, const char **argv)
     spead2::thread_pool thread_pool(1);
     spead2::send::stream_config config(
         opts.packet, opts.rate * 1000 * 1000 * 1000 / 8, opts.burst,
-        opts.max_heaps, opts.burst_rate_ratio);
+        opts.max_heaps, opts.burst_rate_ratio, !opts.no_hw_rate);
     std::unique_ptr<spead2::send::stream> stream;
     auto &io_service = thread_pool.get_io_service();
     boost::asio::ip::address interface_address;

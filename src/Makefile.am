@@ -1,4 +1,4 @@
-# Copyright 2016 SKA South Africa
+# Copyright 2016, 2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -52,9 +52,11 @@ spead2_unittest_LDADD = -lboost_unit_test_framework $(LDADD)
 
 libspead2_a_SOURCES = \
 	common_flavour.cpp \
+	common_loader_ibv.cpp \
+	common_loader_mlx5dv.cpp \
+	common_loader_rdmacm.cpp \
+	common_loader_utils.cpp \
 	common_ibv.cpp \
-	common_ibv_loader.cpp \
-	common_ibv_loader_utils.cpp \
 	common_inproc.cpp \
 	common_logging.cpp \
 	common_memcpy.cpp \
