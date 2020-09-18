@@ -64,8 +64,8 @@ struct options
     std::size_t burst_size = spead2::send::stream_config::default_burst_size;
     double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
     bool no_hw_rate = false;
-    std::size_t heaps = spead2::recv::stream_base::default_max_heaps;
-    std::size_t ring_heaps = spead2::recv::ring_stream_base::default_ring_heaps;
+    std::size_t heaps = spead2::recv::stream_config::default_max_heaps;
+    std::size_t ring_heaps = spead2::recv::ring_stream_config::default_heaps;
     std::size_t mem_max_free = 12;
     std::size_t mem_initial = 8;
 
@@ -518,6 +518,18 @@ protected:
     {
     }
 
+    static spead2::recv::stream_config make_config(
+        const options &opts,
+        std::shared_ptr<spead2::memory_allocator> memory_allocator)
+    {
+        spead2::recv::stream_config config;
+        config.set_max_heaps(opts.heaps);
+        config.set_memory_allocator(std::move(memory_allocator));
+        if (opts.memcpy_nt)
+            config.set_memcpy(spead2::MEMCPY_NONTEMPORAL);
+        return config;
+    }
+
 public:
     virtual std::int64_t stop(bool force) = 0;
     virtual void emplace_udp_reader(const boost::asio::ip::udp::endpoint &endpoint,
@@ -552,15 +564,13 @@ static void emplace_udp_reader(Stream &stream, const boost::asio::ip::udp::endpo
 
 class recv_connection_callback : public recv_connection
 {
+private:
     recv_stream stream;
 
 public:
     explicit recv_connection_callback(const options &opts)
-        : recv_connection(opts), stream(thread_pool, 0, opts.heaps)
+        : recv_connection(opts), stream(thread_pool, make_config(opts, memory_pool))
     {
-        stream.set_memory_allocator(memory_pool);
-        if (opts.memcpy_nt)
-            stream.set_memcpy(spead2::MEMCPY_NONTEMPORAL);
     }
 
     template<typename Reader, typename... Args>
@@ -591,17 +601,23 @@ public:
 
 class recv_connection_ring : public recv_connection
 {
+private:
     spead2::recv::ring_stream<> stream;
     std::thread consumer;
     std::int64_t num_heaps = 0;
 
+    static spead2::recv::ring_stream_config make_ring_config(const options &opts)
+    {
+        spead2::recv::ring_stream_config ring_config;
+        ring_config.set_heaps(opts.ring_heaps);
+        return ring_config;
+    }
+
 public:
     explicit recv_connection_ring(const options &opts)
-        : recv_connection(opts), stream(thread_pool, 0, opts.heaps, opts.ring_heaps)
+        : recv_connection(opts),
+        stream(thread_pool, make_config(opts, memory_pool), make_ring_config(opts))
     {
-        stream.set_memory_allocator(memory_pool);
-        if (opts.memcpy_nt)
-            stream.set_memcpy(spead2::MEMCPY_NONTEMPORAL);
         consumer = std::thread([this] ()
         {
             try

@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019 SKA South Africa
+/* Copyright 2015, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -34,16 +34,44 @@ namespace spead2
 namespace recv
 {
 
+/// Parameters for configuring @ref ring_stream.
+class ring_stream_config
+{
+public:
+    static constexpr std::size_t default_heaps = 4;
+
+private:
+    std::size_t heaps = default_heaps;
+    bool contiguous_only = true;
+
+public:
+    /// Set capacity of the ring buffer
+    void set_heaps(std::size_t heaps);
+    /// Get capacity of the ring buffer
+    std::size_t get_heaps() const { return heaps; }
+
+    /// Set whether only contiguous heaps are pushed to the ring buffer
+    void set_contiguous_only(bool contiguous_only);
+    /// Get whether only contiguous heaps are pushed to the ring buffer
+    bool get_contiguous_only() const { return contiguous_only; }
+};
+
 /**
  * Base class for ring_stream containing only the parts that are independent of
  * the ringbuffer class.
  */
 class ring_stream_base : public stream
 {
-public:
-    static constexpr std::size_t default_ring_heaps = 4;
+private:
+    const ring_stream_config ring_config;
 
-    using stream::stream;
+public:
+    ring_stream_base(
+        io_service_ref io_service,
+        const stream_config &config = stream_config(),
+        const ring_stream_config &ring_config = ring_stream_config());
+
+    const ring_stream_config &get_ring_config() { return ring_config; }
 };
 
 /**
@@ -62,7 +90,6 @@ class ring_stream : public ring_stream_base
 {
 private:
     Ringbuffer ready_heaps;
-    bool contiguous_only;
 
     virtual void heap_ready(live_heap &&) override;
 
@@ -71,17 +98,13 @@ public:
      * Constructor.
      *
      * @param io_service       I/O service (also used by the readers).
-     * @param bug_compat       Bug compatibility flags for interpreting heaps
-     * @param max_heaps        Number of partial heaps to keep around
-     * @param ring_heaps       Capacity of the ringbuffer
-     * @param contiguous_only  If true, only contiguous heaps are pushed to the ring buffer
+     * @param config           Stream configuration
+     * @param ring_config      Ringbuffer configuration
      */
     explicit ring_stream(
         io_service_ref io_service,
-        bug_compat_mask bug_compat = 0,
-        std::size_t max_heaps = default_max_heaps,
-        std::size_t ring_heaps = default_ring_heaps,
-        bool contiguous_only = true);
+        const stream_config &config = stream_config(),
+        const ring_stream_config &ring_config = ring_stream_config());
 
     virtual ~ring_stream() override;
 
@@ -135,12 +158,10 @@ public:
 template<typename Ringbuffer>
 ring_stream<Ringbuffer>::ring_stream(
     io_service_ref io_service,
-    bug_compat_mask bug_compat,
-    std::size_t max_heaps,
-    std::size_t ring_heaps,
-    bool contiguous_only)
-    : ring_stream_base(std::move(io_service), bug_compat, max_heaps), ready_heaps(ring_heaps),
-    contiguous_only(contiguous_only)
+    const stream_config &config,
+    const ring_stream_config &ring_config)
+    : ring_stream_base(std::move(io_service), config, ring_config),
+    ready_heaps(ring_config.get_heaps())
 {
 }
 
@@ -158,7 +179,7 @@ ring_stream<Ringbuffer>::~ring_stream()
 template<typename Ringbuffer>
 void ring_stream<Ringbuffer>::heap_ready(live_heap &&h)
 {
-    if (!contiguous_only || h.is_contiguous())
+    if (!get_ring_config().get_contiguous_only() || h.is_contiguous())
     {
         try
         {

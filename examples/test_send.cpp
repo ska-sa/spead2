@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -34,7 +34,7 @@ int main()
     udp::resolver::query query("127.0.0.1", "8888");
     auto it = resolver.resolve(query);
     spead2::send::udp_stream stream(tp.get_io_service(), *it, spead2::send::stream_config(9000, 0));
-    spead2::flavour f(spead2::maximum_version, 64, 48, spead2::BUG_COMPAT_PYSPEAD_0_5_2);
+    spead2::flavour f(spead2::maximum_version, 64, 48, 0);
 
     spead2::send::heap h(f);
     std::int32_t value1 = spead2::htobe(std::uint32_t(0xEADBEEF));

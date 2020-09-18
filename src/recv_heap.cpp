@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019 SKA South Africa
+/* Copyright 2015, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -302,7 +302,10 @@ void descriptor_stream::heap_ready(live_heap &&h)
 
 std::vector<descriptor> heap::get_descriptors() const
 {
-    descriptor_stream s(get_flavour().get_bug_compat(), 1);
+    stream_config config;
+    config.set_bug_compat(get_flavour().get_bug_compat());
+    config.set_max_heaps(1);
+    descriptor_stream s(config);
     for (const item &item : get_items())
     {
         if (item.id == DESCRIPTOR_ID)

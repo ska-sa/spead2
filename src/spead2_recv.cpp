@@ -52,8 +52,8 @@ struct options
     std::size_t packet;
     std::size_t buffer;
     int threads = 1;
-    std::size_t heaps = spead2::recv::stream::default_max_heaps;
-    std::size_t ring_heaps = spead2::recv::ring_stream_base::default_ring_heaps;
+    std::size_t heaps = spead2::recv::stream_config::default_max_heaps;
+    std::size_t ring_heaps = spead2::recv::ring_stream_config::default_heaps;
     bool mem_pool = false;
     std::size_t mem_lower = 16384;
     std::size_t mem_upper = 32 * 1024 * 1024;
@@ -290,20 +290,26 @@ static std::unique_ptr<spead2::recv::stream> make_stream(
     using asio::ip::tcp;
 
     std::unique_ptr<spead2::recv::stream> stream;
-    spead2::bug_compat_mask bug_compat = opts.pyspead ? spead2::BUG_COMPAT_PYSPEAD_0_5_2 : 0;
-    if (opts.ring)
-        stream.reset(new spead2::recv::ring_stream<>(thread_pool, bug_compat, opts.heaps, opts.ring_heaps));
-    else
-        stream.reset(new callback_stream(opts, thread_pool, bug_compat, opts.heaps));
-
+    spead2::recv::stream_config config;
+    config.set_bug_compat(opts.pyspead ? spead2::BUG_COMPAT_PYSPEAD_0_5_2 : 0);
     if (opts.mem_pool)
     {
         std::shared_ptr<spead2::memory_pool> pool = std::make_shared<spead2::memory_pool>(
             opts.mem_lower, opts.mem_upper, opts.mem_max_free, opts.mem_initial);
-        stream->set_memory_allocator(pool);
+        config.set_memory_allocator(pool);
     }
     if (opts.memcpy_nt)
-        stream->set_memcpy(spead2::MEMCPY_NONTEMPORAL);
+        config.set_memcpy(spead2::MEMCPY_NONTEMPORAL);
+
+    if (opts.ring)
+    {
+        spead2::recv::ring_stream_config ring_config;
+        ring_config.set_heaps(opts.ring_heaps);
+        stream.reset(new spead2::recv::ring_stream<>(thread_pool, config, ring_config));
+    }
+    else
+        stream.reset(new callback_stream(opts, thread_pool, config));
+
 #if SPEAD2_USE_IBV
     std::vector<udp::endpoint> ibv_endpoints;
 #endif

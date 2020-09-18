@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -19,6 +19,7 @@
  */
 
 #include <cstddef>
+#include <utility>
 #include <spead2/recv_ring_stream.h>
 
 namespace spead2
@@ -26,7 +27,28 @@ namespace spead2
 namespace recv
 {
 
-constexpr std::size_t ring_stream_base::default_ring_heaps;
+constexpr std::size_t ring_stream_config::default_heaps;
+
+void ring_stream_config::set_heaps(std::size_t heaps)
+{
+    if (heaps == 0)
+        throw std::invalid_argument("heaps must be at least 1");
+    this->heaps = heaps;
+}
+
+void ring_stream_config::set_contiguous_only(bool contiguous_only)
+{
+    this->contiguous_only = contiguous_only;
+}
+
+ring_stream_base::ring_stream_base(
+    io_service_ref io_service,
+    const stream_config &config,
+    const ring_stream_config &ring_config)
+    : stream(std::move(io_service), config),
+    ring_config(ring_config)
+{
+}
 
 } // namespace recv
 } // namespace spead2

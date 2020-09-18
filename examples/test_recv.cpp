@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -109,7 +109,7 @@ void show_heap(const spead2::recv::heap &fheap)
 static void run_trivial()
 {
     spead2::thread_pool worker;
-    trivial_stream stream(worker, spead2::BUG_COMPAT_PYSPEAD_0_5_2);
+    trivial_stream stream(worker);
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
     stream.emplace_reader<spead2::recv::udp_reader>(
         endpoint, spead2::recv::udp_reader::default_max_size, 1024 * 1024);
@@ -120,8 +120,9 @@ static void run_ringbuffered()
 {
     spead2::thread_pool worker;
     std::shared_ptr<spead2::memory_pool> pool = std::make_shared<spead2::memory_pool>(16384, 26214400, 12, 8);
-    spead2::recv::ring_stream<> stream(worker, spead2::BUG_COMPAT_PYSPEAD_0_5_2);
-    stream.set_memory_allocator(pool);
+    spead2::recv::stream_config config;
+    config.set_memory_allocator(pool);
+    spead2::recv::ring_stream<> stream(worker, config);
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
     stream.emplace_reader<spead2::recv::udp_reader>(
         endpoint, spead2::recv::udp_reader::default_max_size, 8 * 1024 * 1024);

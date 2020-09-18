@@ -57,7 +57,7 @@ stream_stats &stream_stats::operator+=(const stream_stats &other)
     return *this;
 }
 
-constexpr std::size_t stream_base::default_max_heaps;
+constexpr std::size_t stream_config::default_max_heaps;
 
 static std::size_t compute_bucket_count(std::size_t max_heaps)
 {
@@ -88,19 +88,84 @@ static int compute_bucket_shift(std::size_t bucket_count)
          func(allocation.get() + packet.payload_offset, packet.payload, packet.payload_length); \
      }))
 
-stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
-    : queue_storage(new storage_type[max_heaps]),
-    bucket_count(compute_bucket_count(max_heaps)),
-    bucket_shift(compute_bucket_shift(bucket_count)),
-    buckets(new queue_entry *[bucket_count]),
-    head(0),
-    max_heaps(max_heaps), bug_compat(bug_compat),
-    memcpy(SPEAD2_ADAPT_MEMCPY(std::memcpy, )),
+stream_config::stream_config()
+    : memcpy(SPEAD2_ADAPT_MEMCPY(std::memcpy, )),
     allocator(std::make_shared<memory_allocator>())
+{
+}
+
+void stream_config::set_max_heaps(std::size_t max_heaps)
 {
     if (max_heaps == 0)
         throw std::invalid_argument("max_heaps cannot be 0");
-    for (std::size_t i = 0; i < max_heaps; i++)
+    this->max_heaps = max_heaps;
+}
+
+void stream_config::set_bug_compat(bug_compat_mask bug_compat)
+{
+    if (bug_compat & ~BUG_COMPAT_PYSPEAD_0_5_2)
+        throw std::invalid_argument("unknown compatibility bits in bug_compat");
+    this->bug_compat = bug_compat;
+}
+
+void stream_config::set_memory_allocator(std::shared_ptr<memory_allocator> allocator)
+{
+    this->allocator = std::move(allocator);
+}
+
+void stream_config::set_memcpy(packet_memcpy_function memcpy)
+{
+    this->memcpy = memcpy;
+}
+
+void stream_config::set_memcpy(memcpy_function memcpy)
+{
+    set_memcpy(SPEAD2_ADAPT_MEMCPY(memcpy, memcpy));
+}
+
+void stream_config::set_memcpy(memcpy_function_id id)
+{
+    /* We adapt each case to the packet_memcpy signature rather than using the
+     * generic wrapping in the memcpy_function overload. This ensures that
+     * there is only one level of indirect function call instead of two.
+     */
+    switch (id)
+    {
+    case MEMCPY_STD:
+        set_memcpy(SPEAD2_ADAPT_MEMCPY(std::memcpy, ));
+        break;
+    case MEMCPY_NONTEMPORAL:
+        set_memcpy(SPEAD2_ADAPT_MEMCPY(spead2::memcpy_nontemporal, ));
+        break;
+    default:
+        throw std::invalid_argument("Unknown memcpy function");
+    }
+}
+
+void stream_config::set_stop_on_stop_item(bool stop)
+{
+    stop_on_stop_item = stop;
+}
+
+void stream_config::set_allow_unsized_heaps(bool allow)
+{
+    allow_unsized_heaps = allow;
+}
+
+void stream_config::set_allow_out_of_order(bool allow)
+{
+    allow_out_of_order = allow;
+}
+
+stream_base::stream_base(const stream_config &config)
+    : queue_storage(new storage_type[config.get_max_heaps()]),
+    bucket_count(compute_bucket_count(config.get_max_heaps())),
+    bucket_shift(compute_bucket_shift(bucket_count)),
+    buckets(new queue_entry *[bucket_count]),
+    head(0),
+    config(config)
+{
+    for (std::size_t i = 0; i < config.get_max_heaps(); i++)
         cast(i)->next = INVALID_ENTRY;
     for (std::size_t i = 0; i < bucket_count; i++)
         buckets[i] = NULL;
@@ -108,7 +173,7 @@ stream_base::stream_base(bug_compat_mask bug_compat, std::size_t max_heaps)
 
 stream_base::~stream_base()
 {
-    for (std::size_t i = 0; i < max_heaps; i++)
+    for (std::size_t i = 0; i < get_config().get_max_heaps(); i++)
     {
         queue_entry *entry = cast(i);
         if (entry->next != INVALID_ENTRY)
@@ -144,74 +209,9 @@ void stream_base::unlink_entry(queue_entry *entry)
     entry->next = INVALID_ENTRY;
 }
 
-void stream_base::set_memory_allocator(std::shared_ptr<memory_allocator> allocator)
-{
-    std::lock_guard<std::mutex> lock(config_mutex);
-    this->allocator = std::move(allocator);
-}
-
-void stream_base::set_memcpy(packet_memcpy_function memcpy)
-{
-    std::lock_guard<std::mutex> lock(config_mutex);
-    this->memcpy = memcpy;
-}
-
-void stream_base::set_memcpy(memcpy_function memcpy)
-{
-    set_memcpy(SPEAD2_ADAPT_MEMCPY(memcpy, memcpy));
-}
-
-void stream_base::set_memcpy(memcpy_function_id id)
-{
-    /* We adapt each case to the packet_memcpy signature rather than using the
-     * generic wrapping in the memcpy_function overload. This ensures that
-     * there is only one level of indirect function call instead of two.
-     */
-    switch (id)
-    {
-    case MEMCPY_STD:
-        set_memcpy(SPEAD2_ADAPT_MEMCPY(std::memcpy, ));
-        break;
-    case MEMCPY_NONTEMPORAL:
-        set_memcpy(SPEAD2_ADAPT_MEMCPY(spead2::memcpy_nontemporal, ));
-        break;
-    default:
-        throw std::invalid_argument("Unknown memcpy function");
-    }
-}
-
-void stream_base::set_stop_on_stop_item(bool stop)
-{
-    std::lock_guard<std::mutex> lock(config_mutex);
-    stop_on_stop_item = stop;
-}
-
-bool stream_base::get_stop_on_stop_item() const
-{
-    std::lock_guard<std::mutex> lock(config_mutex);
-    return stop_on_stop_item;
-}
-
-void stream_base::set_allow_unsized_heaps(bool allow)
-{
-    std::lock_guard<std::mutex> lock(config_mutex);
-    allow_unsized_heaps = allow;
-}
-
-bool stream_base::get_allow_unsized_heaps() const
-{
-    std::lock_guard<std::mutex> lock(config_mutex);
-    return allow_unsized_heaps;
-}
-
 stream_base::add_packet_state::add_packet_state(stream_base &owner)
     : owner(owner), lock(owner.queue_mutex)
 {
-    std::lock_guard<std::mutex> config_lock(owner.config_mutex);
-    allocator = owner.allocator;
-    memcpy = owner.memcpy;
-    stop_on_stop_item = owner.stop_on_stop_item;
-    allow_unsized_heaps = owner.allow_unsized_heaps;
 }
 
 stream_base::add_packet_state::~add_packet_state()
@@ -230,9 +230,10 @@ stream_base::add_packet_state::~add_packet_state()
 
 bool stream_base::add_packet(add_packet_state &state, const packet_header &packet)
 {
+    const stream_config &config = state.owner.get_config();
     assert(!stopped);
     state.packets++;
-    if (packet.heap_length < 0 && !state.allow_unsized_heaps)
+    if (packet.heap_length < 0 && !config.get_allow_unsized_heaps())
     {
         log_info("packet rejected because it has no HEAP_LEN");
         return false;
@@ -265,7 +266,7 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
     {
         // Never seen this heap before. Evict the old one in its slot,
         // if any. Note: not safe to dereference h just anywhere here!
-        if (++head == max_heaps)
+        if (++head == config.get_max_heaps())
             head = 0;
         entry = cast(head);
         if (entry->next != INVALID_ENTRY)
@@ -277,16 +278,16 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
         }
         entry->next = buckets[bucket_id];
         buckets[bucket_id] = entry;
-        new (&entry->heap) live_heap(packet, bug_compat);
+        new (&entry->heap) live_heap(packet, config.get_bug_compat());
     }
 
     live_heap *h = &entry->heap;
     bool result = false;
     bool end_of_stream = false;
-    if (h->add_packet(packet, state.memcpy, *state.allocator))
+    if (h->add_packet(packet, config.get_memcpy(), *config.get_memory_allocator()))
     {
         result = true;
-        end_of_stream = state.stop_on_stop_item && h->is_end_of_stream();
+        end_of_stream = config.get_stop_on_stop_item() && h->is_end_of_stream();
         if (h->is_complete())
         {
             unlink_entry(entry);
@@ -306,6 +307,7 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
 
 void stream_base::flush_unlocked()
 {
+    const std::size_t max_heaps = get_config().get_max_heaps();
     std::size_t n_flushed = 0;
     for (std::size_t i = 0; i < max_heaps; i++)
     {
@@ -358,8 +360,8 @@ stream_stats stream_base::get_stats() const
 }
 
 
-stream::stream(io_service_ref io_service, bug_compat_mask bug_compat, std::size_t max_heaps)
-    : stream_base(bug_compat, max_heaps),
+stream::stream(io_service_ref io_service, const stream_config &config)
+    : stream_base(config),
     thread_pool_holder(std::move(io_service).get_shared_thread_pool()),
     io_service(*io_service)
 {

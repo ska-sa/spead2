@@ -94,6 +94,88 @@ struct stream_stats
 };
 
 /**
+ * Parameters for a receive stream.
+ */
+class stream_config
+{
+public:
+    static constexpr std::size_t default_max_heaps = 4;
+
+private:
+    /// Maximum number of live heaps permitted
+    std::size_t max_heaps = default_max_heaps;
+    /// Protocol bugs to be compatible with
+    bug_compat_mask bug_compat = 0;
+
+    /// Function used to copy heap payloads
+    packet_memcpy_function memcpy;
+    /// Memory allocator used by heaps.
+    std::shared_ptr<memory_allocator> allocator;
+    /// Whether to stop when a stream control stop item is received
+    bool stop_on_stop_item = true;
+    /// Whether to permit packets that don't have HEAP_LENGTH item
+    bool allow_unsized_heaps = true;
+    /// Whether to accept packets out-of-order for a single heap
+    bool allow_out_of_order = false;
+
+public:
+    stream_config();
+
+    /**
+     * Set maximum number of partial heaps that can be live at one time.
+     * This affects how intermingled heaps can be (due to out-of-order packet
+     * delivery) before heaps get dropped.
+     */
+    void set_max_heaps(std::size_t max_heaps);
+    /// Get maximum number of partial heaps that can be live at one time.
+    std::size_t get_max_heaps() const { return max_heaps; }
+
+    /// Set an allocator to use for allocating heap memory.
+    void set_memory_allocator(std::shared_ptr<memory_allocator> allocator);
+    /// Get allocator for allocating heap memory.
+    std::shared_ptr<memory_allocator> get_memory_allocator() const
+    {
+        return allocator;
+    }
+
+    /// Set an alternative memcpy function for copying heap payload.
+    void set_memcpy(packet_memcpy_function memcpy);
+
+    /// Set an alternative memcpy function for copying heap payload.
+    void set_memcpy(memcpy_function memcpy);
+
+    /// Set builtin memcpy function to use for copying heap payload.
+    void set_memcpy(memcpy_function_id id);
+
+    /// Get memcpy function for copying heap payload.
+    packet_memcpy_function get_memcpy() const { return memcpy; }
+
+    /// Set whether to stop the stream when a stop item is received.
+    void set_stop_on_stop_item(bool stop);
+
+    /// Get whether to stop the stream when a stop item is received.
+    bool get_stop_on_stop_item() const { return stop_on_stop_item; }
+
+    /// Set whether to allow heaps without HEAP_LENGTH
+    void set_allow_unsized_heaps(bool allow);
+
+    /// Get whether to allow heaps without HEAP_LENGTH
+    bool get_allow_unsized_heaps() const { return allow_unsized_heaps; }
+
+    /// Set whether to allow out-of-order packets within a heap
+    void set_allow_out_of_order(bool allow);
+
+    /// Get whether to allow out-of-order packets within a heap
+    bool get_allow_out_of_order() const { return allow_out_of_order; }
+
+    /// Set bug compatibility flags.
+    void set_bug_compat(bug_compat_mask bug_compat);
+
+    /// Get bug compatibility flags.
+    bug_compat_mask get_bug_compat() const { return bug_compat; }
+};
+
+/**
  * Encapsulation of a SPEAD stream. Packets are fed in through @ref add_packet.
  * The base class does nothing with heaps; subclasses will typically override
  * @ref heap_ready and @ref stop_received to do further processing.
@@ -103,8 +185,10 @@ struct stream_stats
  * - They are known to be complete (a heap length header is present and all the
  *   corresponding payload has been received); or
  * - Too many heaps are live: the one with the lowest ID is aged out, even if
- *   incomplete
- * - The stream is stopped
+ *   incomplete; or
+ * - @c allow_out_of_order is false and we have received a packet from the
+ *   heap that is not the next expected one; or
+ * - The stream is stopped.
  *
  * This class is @em not thread-safe. Almost all use cases (possibly excluding
  * testing) will derive from @ref stream.
@@ -135,14 +219,10 @@ struct stream_stats
  * this must not block other functions. Thus, several mutexes are involved:
  *   - @ref queue_mutex: protects values only used by @ref add_packet. This
  *     may be locked for long periods.
- *   - @ref config_mutex: protects configuration. The protected values are
- *     copied into @ref add_packet_state prior to adding a batch of packets.
- *     It is mostly locked for reads.
  *   - @ref stats_mutex: protects stream statistics, and is mostly locked for
  *     writes (assuming the user is only occasionally checking the stats).
  *
- * While holding @ref config_mutex or @ref stats_mutex it is illegal to lock
- * any of the other mutexes.
+ * While holding @ref stats_mutex it is illegal to lock any other mutexes.
  *
  * The public interface takes care of locking the appropriate mutexes. The
  * private member functions generally expect the caller to take locks.
@@ -179,10 +259,8 @@ private:
     /// Position of the most recently added heap
     std::size_t head;
 
-    /// Maximum number of live heaps permitted.
-    const std::size_t max_heaps;
-    /// Protocol bugs to be compatible with
-    const bug_compat_mask bug_compat;
+    /// Stream configuration
+    const stream_config config;
 
     /**
      * Mutex protecting the state of the queue. This includes
@@ -192,25 +270,6 @@ private:
      * - @ref stopped
      */
     mutable std::mutex queue_mutex;
-
-    /**
-     * Mutex protecting configuration. This includes
-     * - @ref allocator
-     * - @ref memcpy
-     * - @ref stop_on_stop_item
-     * - @ref allow_unsized_heaps
-     */
-    mutable std::mutex config_mutex;
-
-    /// Function used to copy heap payloads
-    packet_memcpy_function memcpy;
-    /// Whether to stop when a stream control stop item is received
-    bool stop_on_stop_item = true;
-    /// Whether to permit packets that don't have HEAP_LENGTH item
-    bool allow_unsized_heaps = true;
-
-    /// Memory allocator used by heaps.
-    std::shared_ptr<memory_allocator> allocator;
 
     /// @ref stop_received has been called, either externally or by stream control
     bool stopped = false;
@@ -272,11 +331,6 @@ public:
         stream_base &owner;
         std::lock_guard<std::mutex> lock;    ///< Holds a lock on the owner's @ref queue_mutex
 
-        // Copied from the stream, but unencumbered by locks/atomics
-        packet_memcpy_function memcpy;
-        std::shared_ptr<memory_allocator> allocator;
-        bool stop_on_stop_item;
-        bool allow_unsized_heaps;
         // Updates to the statistics
         std::uint64_t packets = 0;
         std::uint64_t complete_heaps = 0;
@@ -301,44 +355,16 @@ public:
         bool add_packet(const packet_header &packet) { return owner.add_packet(*this, packet); }
     };
 
-    static constexpr std::size_t default_max_heaps = 4;
-
     /**
      * Constructor.
      *
-     * @param bug_compat   Protocol bugs to have compatibility with
-     * @param max_heaps    Maximum number of live (in-flight) heaps held in the stream
+     * @param config       Stream configuration
      */
-    explicit stream_base(bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
+    explicit stream_base(const stream_config &config = stream_config());
     virtual ~stream_base();
 
-    /**
-     * Set an allocator to use for allocating heap memory.
-     */
-    void set_memory_allocator(std::shared_ptr<memory_allocator> allocator);
-
-    /// Set an alternative memcpy function for copying heap payload
-    void set_memcpy(packet_memcpy_function memcpy);
-
-    /// Set an alternative memcpy function for copying heap payload
-    void set_memcpy(memcpy_function memcpy);
-
-    /// Set builtin memcpy function to use for copying payload
-    void set_memcpy(memcpy_function_id id);
-
-    /// Set whether to stop the stream when a stop item is received
-    void set_stop_on_stop_item(bool stop);
-
-    /// Get whether to stop the stream when a stop item is received
-    bool get_stop_on_stop_item() const;
-
-    /// Set whether to allow heaps without HEAP_LENGTH
-    void set_allow_unsized_heaps(bool allow);
-
-    /// Get whether to allow heaps without HEAP_LENGTH
-    bool get_allow_unsized_heaps() const;
-
-    bug_compat_mask get_bug_compat() const { return bug_compat; }
+    /// Get the stream's configuration
+    const stream_config &get_config() const { return config; }
 
     /// Flush the collection of live heaps, passing them to @ref heap_ready.
     void flush();
@@ -404,17 +430,10 @@ protected:
     void stop_impl();
 
 public:
-    using stream_base::get_bug_compat;
-    using stream_base::default_max_heaps;
-    using stream_base::set_memory_allocator;
-    using stream_base::set_memcpy;
-    using stream_base::set_stop_on_stop_item;
-    using stream_base::get_stop_on_stop_item;
-    using stream_base::set_allow_unsized_heaps;
-    using stream_base::get_allow_unsized_heaps;
+    using stream_base::get_config;
     using stream_base::get_stats;
 
-    explicit stream(io_service_ref io_service, bug_compat_mask bug_compat = 0, std::size_t max_heaps = default_max_heaps);
+    explicit stream(io_service_ref io_service, const stream_config &config = stream_config());
     virtual ~stream() override;
 
     boost::asio::io_service &get_io_service() { return io_service; }
