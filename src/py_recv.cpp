@@ -397,7 +397,7 @@ py::module register_module(py::module &parent)
         .def(py::self + py::self)
         .def(py::self += py::self);
     py::class_<stream_config>(m, "StreamConfig")
-        .def(py::init<>())
+        .def(py::init(&data_class_constructor<stream_config>))
         .def_property("max_heaps",
                       SPEAD2_PTMF(stream_config, get_max_heaps),
                       SPEAD2_PTMF(stream_config, set_max_heaps))
@@ -431,7 +431,7 @@ py::module register_module(py::module &parent)
                       SPEAD2_PTMF(stream_config, set_allow_out_of_order))
         .def_readonly_static("DEFAULT_MAX_HEAPS", &stream_config::default_max_heaps);
     py::class_<ring_stream_config_wrapper>(m, "RingStreamConfig")
-        .def(py::init<>())
+        .def(py::init(&data_class_constructor<ring_stream_config_wrapper>))
         .def_property("heaps",
                       SPEAD2_PTMF(ring_stream_config_wrapper, get_heaps),
                       SPEAD2_PTMF(ring_stream_config_wrapper, set_heaps))

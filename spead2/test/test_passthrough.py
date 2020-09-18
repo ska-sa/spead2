@@ -197,8 +197,7 @@ class BaseTestPassthrough:
         should override this.
         """
         thread_pool = spead2.ThreadPool(2)
-        recv_config = spead2.recv.StreamConfig()
-        recv_config.memcpy = memcpy
+        recv_config = spead2.recv.StreamConfig(memcpy=memcpy)
         if allocator is not None:
             recv_config.memory_allocator = allocator
         receiver = spead2.recv.Stream(thread_pool, recv_config)
@@ -394,8 +393,7 @@ class TestPassthroughMem(BaseTestPassthrough):
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
         sender.send_heap(gen.get_end())
-        recv_config = spead2.recv.StreamConfig()
-        recv_config.memcpy = memcpy
+        recv_config = spead2.recv.StreamConfig(memcpy=memcpy)
         if allocator is not None:
             recv_config.memory_allocator = allocator
         receiver = spead2.recv.Stream(thread_pool, recv_config)
@@ -429,10 +427,9 @@ class TestAllocators(BaseTestPassthrough):
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
         sender.send_heap(gen.get_end())
-        recv_config = spead2.recv.StreamConfig()
+        recv_config = spead2.recv.StreamConfig(memcpy=memcpy)
         if allocator is not None:
             recv_config.memory_allocator = allocator
-        recv_config.memcpy = memcpy
         receiver = spead2.recv.Stream(thread_pool, recv_config)
         receiver.add_buffer_reader(sender.getvalue())
         received_item_group = spead2.ItemGroup()

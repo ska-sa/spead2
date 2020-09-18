@@ -35,8 +35,7 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
 
     async def transmit_item_group_async(self, item_group, memcpy, allocator, new_order='='):
         thread_pool = spead2.ThreadPool(2)
-        recv_config = spead2.recv.StreamConfig()
-        recv_config.memcpy = memcpy
+        recv_config = spead2.recv.StreamConfig(memcpy=memcpy)
         if allocator is not None:
             recv_config.memory_allocator = allocator
         receiver = spead2.recv.asyncio.Stream(thread_pool, recv_config, loop=self.loop)

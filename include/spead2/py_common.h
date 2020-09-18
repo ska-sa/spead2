@@ -114,6 +114,18 @@ boost::asio::ip::address make_address_no_release(
 void deprecation_warning(const char *msg);
 
 /**
+ * A constructor that takes kwargs and calls setattr with each.
+ */
+template<typename T>
+T *data_class_constructor(pybind11::kwargs kwargs)
+{
+    pybind11::object self = pybind11::cast(new T());
+    for (const auto &item : kwargs)
+        pybind11::setattr(self, item.first, item.second);
+    return pybind11::cast<T *>(self);
+}
+
+/**
  * Helper to ensure that an asynchronous class is stopped when the module is
  * unloaded. A class that launches work asynchronously should contain one of
  * these as a member. It is initialised with a function object that stops the
