@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Text, Union, Iterator, Optional, overload
+from typing import Text, Union, Iterator, Optional, ClassVar, overload
 import socket
 
 import spead2
@@ -37,46 +37,23 @@ class PacketGenerator:
     def __iter__(self) -> Iterator[bytes]: ...
 
 class StreamConfig:
-    DEFAULT_MAX_PACKET_SIZE: int = ...
-    DEFAULT_MAX_HEAPS: int = ...
-    DEFAULT_BURST_SIZE: int = ...
-    DEFAULT_BURST_RATE_RATIO: float = ...
-    DEFAULT_ALLOW_HW_RATE: bool = ...
+    DEFAULT_MAX_PACKET_SIZE: ClassVar[int]
+    DEFAULT_MAX_HEAPS: ClassVar[int]
+    DEFAULT_BURST_SIZE: ClassVar[int]
+    DEFAULT_BURST_RATE_RATIO: ClassVar[float]
+    DEFAULT_ALLOW_HW_RATE: ClassVar[bool]
+
+    max_packet_size: int
+    rate: float
+    burst_size: int
+    max_heaps: int
+    burst_rate_ratio: float
+    allow_hw_rate: bool
 
     def __init__(self, max_packet_size: int = ..., rate: float = ...,
                  burst_size: int = ..., max_heaps: int = ...,
                  burst_rate_ratio: float = ...,
                  allow_hw_rate: bool = ...) -> None: ...
-
-    @property
-    def max_packet_size(self) -> int: ...
-    @max_packet_size.setter
-    def max_packet_size(self, value: int) -> None: ...
-
-    @property
-    def rate(self) -> float: ...
-    @rate.setter
-    def rate(self, value: float) -> None: ...
-
-    @property
-    def burst_size(self) -> int: ...
-    @burst_size.setter
-    def burst_size(self, value: int) -> None: ...
-
-    @property
-    def max_heaps(self) -> int: ...
-    @max_heaps.setter
-    def max_heaps(self, value: int) -> None: ...
-
-    @property
-    def burst_rate_ratio(self) -> float: ...
-    @burst_rate_ratio.setter
-    def burst_rate_ratio(self, value: float) -> None: ...
-
-    @property
-    def allow_hw_rate(self) -> bool: ...
-    @allow_hw_rate.setter
-    def allow_hw_rate(self, value: bool) -> None: ...
 
     @property
     def burst_rate(self) -> float: ...
@@ -88,7 +65,7 @@ class _SyncStream(_Stream):
     def send_heap(self, heap: Heap, cnt: int = ...) -> None: ...
 
 class _UdpStream:
-    DEFAULT_BUFFER_SIZE: int = ...
+    DEFAULT_BUFFER_SIZE: ClassVar[int]
 
 class UdpStream(_UdpStream, _SyncStream):
     @overload
@@ -118,8 +95,8 @@ class UdpStream(_UdpStream, _SyncStream):
                  config: StreamConfig = ...) -> None: ...
 
 class _UdpIbvStream:
-    DEFAULT_BUFFER_SIZE: int = ...
-    DEFAULT_MAX_POLL: int = ...
+    DEFAULT_BUFFER_SIZE: ClassVar[int]
+    DEFAULT_MAX_POLL: ClassVar[int]
 
 class UdpIbvStream(_UdpIbvStream, _SyncStream):
     def __init__(self, thread_pool: spead2.ThreadPool,
@@ -130,7 +107,7 @@ class UdpIbvStream(_UdpIbvStream, _SyncStream):
                  comp_vector: int = ..., max_pool: int = ...) -> None: ...
 
 class _TcpStream:
-    DEFAULT_BUFFER_SIZE: int = ...
+    DEFAULT_BUFFER_SIZE: ClassVar[int]
 
 class TcpStream(_TcpStream, _SyncStream):
     @overload
