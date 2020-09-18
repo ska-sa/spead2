@@ -54,6 +54,6 @@ Immediate values are treated as items with heap_address_bits/8
 bytes, in the order they appeared in the original packet.
 """
 
-from spead2._spead2.recv import (
-    StreamConfig, RingStreamConfig, Stream, Heap, IncompleteHeap    # noqa: F401
+from spead2._spead2.recv import (           # noqa: F401
+    StreamConfig, RingStreamConfig, Stream, Heap, IncompleteHeap
 )
