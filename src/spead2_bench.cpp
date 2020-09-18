@@ -352,9 +352,13 @@ static std::pair<bool, double> measure_connection_once(
         /* Construct the stream */
         spead2::thread_pool thread_pool;
         spead2::flavour flavour(4, 64, opts.heap_address_bits);
-        spead2::send::stream_config config(
-            opts.packet_size, rate, opts.burst_size, opts.heaps, opts.burst_rate_ratio,
-            !opts.no_hw_rate);
+        spead2::send::stream_config config;
+        config.set_max_packet_size(opts.packet_size);
+        config.set_rate(rate);
+        config.set_burst_size(opts.burst_size);
+        config.set_max_heaps(opts.heaps);
+        config.set_burst_rate_ratio(opts.burst_rate_ratio);
+        config.set_allow_hw_rate(!opts.no_hw_rate);
 
         /* Build the heaps */
         std::vector<spead2::send::heap> heaps;

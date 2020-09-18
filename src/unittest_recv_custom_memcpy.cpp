@@ -64,10 +64,9 @@ BOOST_AUTO_TEST_CASE(test_reverse)
     // Set up receiver
     thread_pool tp;
     std::shared_ptr<inproc_queue> queue = std::make_shared<inproc_queue>();
-    spead2::recv::stream_config config;
-    config.set_allow_unsized_heaps(false);
-    config.set_memcpy(reverse_memcpy);
-    spead2::recv::ring_stream<> recv_stream(tp, config);
+    spead2::recv::ring_stream<> recv_stream(
+        tp,
+        spead2::recv::stream_config().set_allow_unsized_heaps(false).set_memcpy(reverse_memcpy));
     recv_stream.emplace_reader<spead2::recv::inproc_reader>(queue);
 
     // Set up sender and send the heap

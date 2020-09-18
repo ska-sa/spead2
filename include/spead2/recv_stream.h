@@ -126,12 +126,12 @@ public:
      * This affects how intermingled heaps can be (due to out-of-order packet
      * delivery) before heaps get dropped.
      */
-    void set_max_heaps(std::size_t max_heaps);
+    stream_config &set_max_heaps(std::size_t max_heaps);
     /// Get maximum number of partial heaps that can be live at one time.
     std::size_t get_max_heaps() const { return max_heaps; }
 
     /// Set an allocator to use for allocating heap memory.
-    void set_memory_allocator(std::shared_ptr<memory_allocator> allocator);
+    stream_config &set_memory_allocator(std::shared_ptr<memory_allocator> allocator);
     /// Get allocator for allocating heap memory.
     std::shared_ptr<memory_allocator> get_memory_allocator() const
     {
@@ -139,37 +139,37 @@ public:
     }
 
     /// Set an alternative memcpy function for copying heap payload.
-    void set_memcpy(packet_memcpy_function memcpy);
+    stream_config &set_memcpy(packet_memcpy_function memcpy);
 
     /// Set an alternative memcpy function for copying heap payload.
-    void set_memcpy(memcpy_function memcpy);
+    stream_config &set_memcpy(memcpy_function memcpy);
 
     /// Set builtin memcpy function to use for copying heap payload.
-    void set_memcpy(memcpy_function_id id);
+    stream_config &set_memcpy(memcpy_function_id id);
 
     /// Get memcpy function for copying heap payload.
     packet_memcpy_function get_memcpy() const { return memcpy; }
 
     /// Set whether to stop the stream when a stop item is received.
-    void set_stop_on_stop_item(bool stop);
+    stream_config & set_stop_on_stop_item(bool stop);
 
     /// Get whether to stop the stream when a stop item is received.
     bool get_stop_on_stop_item() const { return stop_on_stop_item; }
 
     /// Set whether to allow heaps without HEAP_LENGTH
-    void set_allow_unsized_heaps(bool allow);
+    stream_config &set_allow_unsized_heaps(bool allow);
 
     /// Get whether to allow heaps without HEAP_LENGTH
     bool get_allow_unsized_heaps() const { return allow_unsized_heaps; }
 
     /// Set whether to allow out-of-order packets within a heap
-    void set_allow_out_of_order(bool allow);
+    stream_config &set_allow_out_of_order(bool allow);
 
     /// Get whether to allow out-of-order packets within a heap
     bool get_allow_out_of_order() const { return allow_out_of_order; }
 
     /// Set bug compatibility flags.
-    void set_bug_compat(bug_compat_mask bug_compat);
+    stream_config &set_bug_compat(bug_compat_mask bug_compat);
 
     /// Get bug compatibility flags.
     bug_compat_mask get_bug_compat() const { return bug_compat; }

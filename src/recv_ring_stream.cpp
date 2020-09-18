@@ -29,16 +29,18 @@ namespace recv
 
 constexpr std::size_t ring_stream_config::default_heaps;
 
-void ring_stream_config::set_heaps(std::size_t heaps)
+ring_stream_config &ring_stream_config::set_heaps(std::size_t heaps)
 {
     if (heaps == 0)
         throw std::invalid_argument("heaps must be at least 1");
     this->heaps = heaps;
+    return *this;
 }
 
-void ring_stream_config::set_contiguous_only(bool contiguous_only)
+ring_stream_config &ring_stream_config::set_contiguous_only(bool contiguous_only)
 {
     this->contiguous_only = contiguous_only;
+    return *this;
 }
 
 ring_stream_base::ring_stream_base(

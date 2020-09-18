@@ -33,41 +33,47 @@ constexpr std::size_t stream_config::default_burst_size;
 constexpr double stream_config::default_burst_rate_ratio;
 constexpr bool stream_config::default_allow_hw_rate;
 
-void stream_config::set_max_packet_size(std::size_t max_packet_size)
+stream_config &stream_config::set_max_packet_size(std::size_t max_packet_size)
 {
     // TODO: validate here instead rather than waiting until packet_generator
     this->max_packet_size = max_packet_size;
+    return *this;
 }
 
-void stream_config::set_rate(double rate)
+stream_config &stream_config::set_rate(double rate)
 {
     if (rate < 0.0 || !std::isfinite(rate))
         throw std::invalid_argument("rate must be non-negative");
     this->rate = rate;
+    return *this;
 }
 
-void stream_config::set_max_heaps(std::size_t max_heaps)
+stream_config &stream_config::set_max_heaps(std::size_t max_heaps)
 {
     if (max_heaps == 0)
         throw std::invalid_argument("max_heaps must be positive");
     this->max_heaps = max_heaps;
+    return *this;
 }
 
-void stream_config::set_burst_size(std::size_t burst_size)
+stream_config &stream_config::set_burst_size(std::size_t burst_size)
 {
     this->burst_size = burst_size;
+    return *this;
 }
 
-void stream_config::set_burst_rate_ratio(double burst_rate_ratio)
+stream_config &stream_config::set_burst_rate_ratio(double burst_rate_ratio)
 {
     if (burst_rate_ratio < 1.0 || !std::isfinite(burst_rate_ratio))
         throw std::invalid_argument("burst rate ratio must be at least 1.0 and finite");
     this->burst_rate_ratio = burst_rate_ratio;
+    return *this;
 }
 
-void stream_config::set_allow_hw_rate(bool allow_hw_rate)
+stream_config &stream_config::set_allow_hw_rate(bool allow_hw_rate)
 {
     this->allow_hw_rate = allow_hw_rate;
+    return *this;
 }
 
 double stream_config::get_burst_rate() const

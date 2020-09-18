@@ -98,33 +98,37 @@ stream_config::stream_config()
 {
 }
 
-void stream_config::set_max_heaps(std::size_t max_heaps)
+stream_config &stream_config::set_max_heaps(std::size_t max_heaps)
 {
     if (max_heaps == 0)
         throw std::invalid_argument("max_heaps cannot be 0");
     this->max_heaps = max_heaps;
+    return *this;
 }
 
-void stream_config::set_bug_compat(bug_compat_mask bug_compat)
+stream_config &stream_config::set_bug_compat(bug_compat_mask bug_compat)
 {
     if (bug_compat & ~BUG_COMPAT_PYSPEAD_0_5_2)
         throw std::invalid_argument("unknown compatibility bits in bug_compat");
     this->bug_compat = bug_compat;
+    return *this;
 }
 
-void stream_config::set_memory_allocator(std::shared_ptr<memory_allocator> allocator)
+stream_config &stream_config::set_memory_allocator(std::shared_ptr<memory_allocator> allocator)
 {
     this->allocator = std::move(allocator);
+    return *this;
 }
 
-void stream_config::set_memcpy(packet_memcpy_function memcpy)
+stream_config &stream_config::set_memcpy(packet_memcpy_function memcpy)
 {
     this->memcpy = memcpy;
+    return *this;
 }
 
-void stream_config::set_memcpy(memcpy_function memcpy)
+stream_config &stream_config::set_memcpy(memcpy_function memcpy)
 {
-    set_memcpy(
+    return set_memcpy(
         packet_memcpy_function([memcpy](
             const spead2::memory_allocator::pointer &allocation, const packet_header &packet)
         {
@@ -133,7 +137,7 @@ void stream_config::set_memcpy(memcpy_function memcpy)
     );
 }
 
-void stream_config::set_memcpy(memcpy_function_id id)
+stream_config &stream_config::set_memcpy(memcpy_function_id id)
 {
     /* We adapt each case to the packet_memcpy signature rather than using the
      * generic wrapping in the memcpy_function overload. This ensures that
@@ -152,21 +156,25 @@ void stream_config::set_memcpy(memcpy_function_id id)
     default:
         throw std::invalid_argument("Unknown memcpy function");
     }
+    return *this;
 }
 
-void stream_config::set_stop_on_stop_item(bool stop)
+stream_config &stream_config::set_stop_on_stop_item(bool stop)
 {
     stop_on_stop_item = stop;
+    return *this;
 }
 
-void stream_config::set_allow_unsized_heaps(bool allow)
+stream_config &stream_config::set_allow_unsized_heaps(bool allow)
 {
     allow_unsized_heaps = allow;
+    return *this;
 }
 
-void stream_config::set_allow_out_of_order(bool allow)
+stream_config &stream_config::set_allow_out_of_order(bool allow)
 {
     allow_out_of_order = allow;
+    return *this;
 }
 
 stream_base::stream_base(const stream_config &config)

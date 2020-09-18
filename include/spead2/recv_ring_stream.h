@@ -46,12 +46,12 @@ private:
 
 public:
     /// Set capacity of the ring buffer
-    void set_heaps(std::size_t heaps);
+    ring_stream_config &set_heaps(std::size_t heaps);
     /// Get capacity of the ring buffer
     std::size_t get_heaps() const { return heaps; }
 
     /// Set whether only contiguous heaps are pushed to the ring buffer
-    void set_contiguous_only(bool contiguous_only);
+    ring_stream_config &set_contiguous_only(bool contiguous_only);
     /// Get whether only contiguous heaps are pushed to the ring buffer
     bool get_contiguous_only() const { return contiguous_only; }
 };

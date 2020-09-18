@@ -120,9 +120,9 @@ static void run_ringbuffered()
 {
     spead2::thread_pool worker;
     std::shared_ptr<spead2::memory_pool> pool = std::make_shared<spead2::memory_pool>(16384, 26214400, 12, 8);
-    spead2::recv::stream_config config;
-    config.set_memory_allocator(pool);
-    spead2::recv::ring_stream<> stream(worker, config);
+    spead2::recv::ring_stream<> stream(
+        worker,
+        spead2::recv::stream_config().set_memory_allocator(pool));
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
     stream.emplace_reader<spead2::recv::udp_reader>(
         endpoint, spead2::recv::udp_reader::default_max_size, 8 * 1024 * 1024);
