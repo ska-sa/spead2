@@ -1,4 +1,4 @@
-# Copyright 2018-2019 SKA South Africa
+# Copyright 2018-2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -35,10 +35,11 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
 
     async def transmit_item_group_async(self, item_group, memcpy, allocator, new_order='='):
         thread_pool = spead2.ThreadPool(2)
-        receiver = spead2.recv.asyncio.Stream(thread_pool, loop=self.loop)
-        receiver.set_memcpy(memcpy)
+        recv_config = spead2.recv.StreamConfig()
+        recv_config.memcpy = memcpy
         if allocator is not None:
-            receiver.set_memory_allocator(allocator)
+            recv_config.memory_allocator = allocator
+        receiver = spead2.recv.asyncio.Stream(thread_pool, recv_config, loop=self.loop)
         await self.prepare_receiver(receiver)
         sender = await self.prepare_sender(thread_pool)
         gen = spead2.send.HeapGenerator(item_group)

@@ -1,4 +1,4 @@
-# Copyright 2015, 2017, 2019 SKA South Africa
+# Copyright 2015, 2017, 2019-2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -189,13 +189,18 @@ class TestDecode:
         Keyword arguments are passed to the receiver constructor.
         """
         thread_pool = spead2.ThreadPool()
-        stop_on_stop_item = kwargs.pop('stop_on_stop_item', None)
-        allow_unsized_heaps = kwargs.pop('allow_unsized_heaps', None)
-        stream = recv.Stream(thread_pool, self.flavour.bug_compat, **kwargs)
-        if stop_on_stop_item is not None:
-            stream.stop_on_stop_item = stop_on_stop_item
-        if allow_unsized_heaps is not None:
-            stream.allow_unsized_heaps = allow_unsized_heaps
+        config = recv.StreamConfig()
+        ring_config = recv.RingStreamConfig()
+        config.bug_compat = self.flavour.bug_compat
+        for key in ['stop_on_stop_item', 'allow_unsized_heaps']:
+            if key in kwargs:
+                setattr(config, key, kwargs.pop(key))
+        for key in ['contiguous_only', 'incomplete_keep_payload_ranges']:
+            if key in kwargs:
+                setattr(ring_config, key, kwargs.pop(key))
+        if kwargs:
+            raise ValueError('Unexpected keyword arguments ({})'.format(kwargs))
+        stream = recv.Stream(thread_pool, config, ring_config)
         stream.add_buffer_reader(data)
         return list(stream)
 
@@ -659,8 +664,9 @@ class TestStream:
 
     def test_max_heaps_zero(self):
         """Constructing a stream with max_heaps=0 raises ValueError"""
+        config = spead2.recv.StreamConfig()
         with assert_raises(ValueError):
-            spead2.recv.Stream(spead2.ThreadPool(), max_heaps=0)
+            config.max_heaps = 0
 
     def test_full_stop(self):
         """Must be able to stop even if the consumer is not consuming
@@ -674,7 +680,9 @@ class TestStream:
         gen = send.HeapGenerator(ig)
         for i in range(10):
             sender.send_heap(gen.get_heap(data='all'))
-        receiver = spead2.recv.Stream(thread_pool, ring_heaps=4)
+        recv_ring_config = spead2.recv.RingStreamConfig()
+        recv_ring_config.heaps = 4
+        receiver = spead2.recv.Stream(thread_pool, ring_config=recv_ring_config)
         receiver.add_buffer_reader(sender.getvalue())
         # Wait for the ring buffer to block
         while receiver.stats.worker_blocked == 0:

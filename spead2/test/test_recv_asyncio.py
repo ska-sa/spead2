@@ -33,8 +33,9 @@ class TestRecvAsyncio(asynctest.TestCase):
         sender.send_heap(ig.get_end())
         queue.stop()
         heaps = []
-        receiver = spead2.recv.asyncio.Stream(tp)
-        receiver.stop_on_stop_item = False
+        recv_config = spead2.recv.StreamConfig()
+        recv_config.stop_on_stop_item = False
+        receiver = spead2.recv.asyncio.Stream(tp, recv_config)
         receiver.add_inproc_reader(queue)
         async for heap in receiver:
             heaps.append(heap)

@@ -1,4 +1,4 @@
-# Copyright 2015, 2019 SKA South Africa
+# Copyright 2015, 2019-2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -197,10 +197,11 @@ class BaseTestPassthrough:
         should override this.
         """
         thread_pool = spead2.ThreadPool(2)
-        receiver = spead2.recv.Stream(thread_pool)
-        receiver.set_memcpy(memcpy)
+        recv_config = spead2.recv.StreamConfig()
+        recv_config.memcpy = memcpy
         if allocator is not None:
-            receiver.set_memory_allocator(allocator)
+            recv_config.memory_allocator = allocator
+        receiver = spead2.recv.Stream(thread_pool, recv_config)
         self.prepare_receiver(receiver)
         sender = self.prepare_sender(thread_pool)
         gen = spead2.send.HeapGenerator(item_group)
@@ -393,10 +394,11 @@ class TestPassthroughMem(BaseTestPassthrough):
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
         sender.send_heap(gen.get_end())
-        receiver = spead2.recv.Stream(thread_pool)
-        receiver.set_memcpy(memcpy)
+        recv_config = spead2.recv.StreamConfig()
+        recv_config.memcpy = memcpy
         if allocator is not None:
-            receiver.set_memory_allocator(allocator)
+            recv_config.memory_allocator = allocator
+        receiver = spead2.recv.Stream(thread_pool, recv_config)
         receiver.add_buffer_reader(sender.getvalue())
         received_item_group = spead2.ItemGroup()
         for heap in receiver:
@@ -427,10 +429,11 @@ class TestAllocators(BaseTestPassthrough):
         gen = spead2.send.HeapGenerator(item_group)
         sender.send_heap(gen.get_heap())
         sender.send_heap(gen.get_end())
-        receiver = spead2.recv.Stream(thread_pool)
+        recv_config = spead2.recv.StreamConfig()
         if allocator is not None:
-            receiver.set_memory_allocator(allocator)
-        receiver.set_memcpy(memcpy)
+            recv_config.memory_allocator = allocator
+        recv_config.memcpy = memcpy
+        receiver = spead2.recv.Stream(thread_pool, recv_config)
         receiver.add_buffer_reader(sender.getvalue())
         received_item_group = spead2.ItemGroup()
         for heap in receiver:

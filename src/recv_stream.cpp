@@ -82,14 +82,18 @@ static int compute_bucket_shift(std::size_t bucket_count)
     return shift;
 }
 
-#define SPEAD2_ADAPT_MEMCPY(func, capture) \
-    (packet_memcpy_function([capture](const spead2::memory_allocator::pointer &allocation, const packet_header &packet) \
-     { \
-         func(allocation.get() + packet.payload_offset, packet.payload, packet.payload_length); \
-     }))
+static void packet_memcpy_std(const spead2::memory_allocator::pointer &allocation, const packet_header &packet)
+{
+    std::memcpy(allocation.get() + packet.payload_offset, packet.payload, packet.payload_length);
+}
+
+static void packet_memcpy_nontemporal(const spead2::memory_allocator::pointer &allocation, const packet_header &packet)
+{
+    spead2::memcpy_nontemporal(allocation.get() + packet.payload_offset, packet.payload, packet.payload_length);
+}
 
 stream_config::stream_config()
-    : memcpy(SPEAD2_ADAPT_MEMCPY(std::memcpy, )),
+    : memcpy(packet_memcpy_std),
     allocator(std::make_shared<memory_allocator>())
 {
 }
@@ -120,22 +124,30 @@ void stream_config::set_memcpy(packet_memcpy_function memcpy)
 
 void stream_config::set_memcpy(memcpy_function memcpy)
 {
-    set_memcpy(SPEAD2_ADAPT_MEMCPY(memcpy, memcpy));
+    set_memcpy(
+        packet_memcpy_function([memcpy](
+            const spead2::memory_allocator::pointer &allocation, const packet_header &packet)
+        {
+            memcpy(allocation.get() + packet.payload_offset, packet.payload, packet.payload_length);
+        })
+    );
 }
 
 void stream_config::set_memcpy(memcpy_function_id id)
 {
     /* We adapt each case to the packet_memcpy signature rather than using the
      * generic wrapping in the memcpy_function overload. This ensures that
-     * there is only one level of indirect function call instead of two.
+     * there is only one level of indirect function call instead of two. It
+     * also makes it possible to reverse the mapping by comparing function
+     * pointers.
      */
     switch (id)
     {
     case MEMCPY_STD:
-        set_memcpy(SPEAD2_ADAPT_MEMCPY(std::memcpy, ));
+        set_memcpy(packet_memcpy_std);
         break;
     case MEMCPY_NONTEMPORAL:
-        set_memcpy(SPEAD2_ADAPT_MEMCPY(spead2::memcpy_nontemporal, ));
+        set_memcpy(packet_memcpy_nontemporal);
         break;
     default:
         throw std::invalid_argument("Unknown memcpy function");

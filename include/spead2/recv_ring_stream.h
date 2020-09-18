@@ -71,7 +71,7 @@ public:
         const stream_config &config = stream_config(),
         const ring_stream_config &ring_config = ring_stream_config());
 
-    const ring_stream_config &get_ring_config() { return ring_config; }
+    const ring_stream_config &get_ring_config() const { return ring_config; }
 };
 
 /**
