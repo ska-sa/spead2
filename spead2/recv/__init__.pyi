@@ -19,7 +19,7 @@ import socket
 import spead2
 from spead2 import _PybindStr
 
-class RawItem(object):
+class RawItem:
     @property
     def id(self) -> int: ...
     @property
@@ -27,7 +27,7 @@ class RawItem(object):
     @property
     def immediate_value(self) -> int: ...
 
-class _HeapBase(object):
+class _HeapBase:
     @property
     def cnt(self) -> int: ...
     @property
@@ -47,7 +47,7 @@ class IncompleteHeap(_HeapBase):
     @property
     def payload_ranges(self) -> List[Tuple[int, int]]: ...
 
-class StreamStats(object):
+class StreamStats:
     heaps: int
     incomplete_heaps_evicted: int
     incomplete_Heaps_flushed: int
@@ -60,13 +60,13 @@ class StreamStats(object):
     def __add__(self, other: StreamStats) -> StreamStats: ...
     def __iadd__(self, other: StreamStats) -> None: ...
 
-class Ringbuffer(object):
+class Ringbuffer:
     def size(self) -> int: ...
     def capacity(self) -> int: ...
 
 # We make a dummy _Stream base class because mypy objects to the async stream
 # type overloading get as a coroutine.
-class _Stream(object):
+class _Stream:
     DEFAULT_UDP_IBV_MAX_SIZE: int = ...
     DEFAULT_UDP_IBV_BUFFER_SIZE: int = ...
     DEFAULT_UDP_IBV_MAX_POLL: int = ...

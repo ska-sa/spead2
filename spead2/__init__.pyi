@@ -58,7 +58,7 @@ class Stopped(RuntimeError):
 class Empty(RuntimeError):
     pass
 
-class Flavour(object):
+class Flavour:
     @overload
     def __init__(self, version: int, item_pointer_bits : int,
                  heap_address_bits: int, bug_compat: int = ...) -> None: ...
@@ -75,13 +75,13 @@ class Flavour(object):
     @property
     def bug_compat(self) -> int: ...
 
-class ThreadPool(object):
+class ThreadPool:
     @overload
     def __init__(self, threads: int = ...) -> None: ...
     @overload
     def __init__(self, threads: int, affinity: List[int]) -> None: ...
 
-class MemoryAllocator(object):
+class MemoryAllocator:
     def __init__(self) -> None: ...
 
 class MmapAllocator(MemoryAllocator):
@@ -99,11 +99,11 @@ class MemoryPool(MemoryAllocator):
     @warn_on_empty.setter
     def warn_on_empty(self, value: bool) -> None: ...
 
-class InprocQueue(object):
+class InprocQueue:
     def __init__(self) -> None: ...
     def stop(self) -> None: ...
 
-class RawDescriptor(object):
+class RawDescriptor:
     @property
     def id(self) -> int: ...
     @id.setter
@@ -134,13 +134,13 @@ class RawDescriptor(object):
     @numpy_header.setter
     def numpy_header(self, value: bytes) -> None: ...
 
-class IbvContext(object):
+class IbvContext:
     def __init__(self, interface_address: _PybindStr) -> None: ...
     def reset(self) -> None: ...
 
 def parse_range_list(ranges: str) -> List[int]: ...
 
-class Descriptor(object):
+class Descriptor:
     id: int
     name: str
     description: str
@@ -179,7 +179,7 @@ class Item(Descriptor):
     # typing has no buffer protocol ABC (https://bugs.python.org/issue27501)
     def to_buffer(self) -> Any: ...
 
-class ItemGroup(object):
+class ItemGroup:
     def __init__(self) -> None: ...
     def add_item(self, id: Optional[int], name: str, description: str,
                  shape: Sequence[Optional[int]], dtype: Optional[np.dtype] = None,
