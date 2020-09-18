@@ -73,13 +73,7 @@ public:
     /// Get product of rate and burst_rate_ratio
     double get_burst_rate() const;
 
-    explicit stream_config(
-        std::size_t max_packet_size = default_max_packet_size,
-        double rate = 0.0,
-        std::size_t burst_size = default_burst_size,
-        std::size_t max_heaps = default_max_heaps,
-        double burst_rate_ratio = default_burst_rate_ratio,
-        bool allow_hw_rate = default_allow_hw_rate);
+    stream_config();
 
 private:
     std::size_t max_packet_size = default_max_packet_size;
@@ -87,7 +81,7 @@ private:
     std::size_t burst_size = default_burst_size;
     std::size_t max_heaps = default_max_heaps;
     double burst_rate_ratio = default_burst_rate_ratio;
-    bool allow_hw_rate = false;
+    bool allow_hw_rate = default_allow_hw_rate;
 };
 
 /**

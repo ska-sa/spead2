@@ -322,9 +322,13 @@ int main(int argc, const char **argv)
     options opts = parse_args(argc, argv);
 
     spead2::thread_pool thread_pool(1);
-    spead2::send::stream_config config(
-        opts.packet, opts.rate * 1000 * 1000 * 1000 / 8, opts.burst,
-        opts.max_heaps, opts.burst_rate_ratio, !opts.no_hw_rate);
+    spead2::send::stream_config config;
+    config.set_max_packet_size(opts.packet);
+    config.set_rate(opts.rate * 1000 * 1000 * 1000 / 8);
+    config.set_burst_size(opts.burst);
+    config.set_max_heaps(opts.max_heaps);
+    config.set_burst_rate_ratio(opts.burst_rate_ratio);
+    config.set_allow_hw_rate(!opts.no_hw_rate);
     std::unique_ptr<spead2::send::stream> stream;
     auto &io_service = thread_pool.get_io_service();
     boost::asio::ip::address interface_address;

@@ -81,20 +81,8 @@ double stream_config::get_burst_rate() const
     return rate * burst_rate_ratio;
 }
 
-stream_config::stream_config(
-    std::size_t max_packet_size,
-    double rate,
-    std::size_t burst_size,
-    std::size_t max_heaps,
-    double burst_rate_ratio,
-    bool allow_hw_rate)
+stream_config::stream_config()
 {
-    set_max_packet_size(max_packet_size);
-    set_rate(rate);
-    set_burst_size(burst_size);
-    set_max_heaps(max_heaps);
-    set_burst_rate_ratio(burst_rate_ratio);
-    set_allow_hw_rate(allow_hw_rate);
 }
 
 

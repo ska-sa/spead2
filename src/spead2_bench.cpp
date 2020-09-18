@@ -748,8 +748,9 @@ static void build_streambuf(std::streambuf &streambuf, const options &opts, std:
 {
     spead2::thread_pool thread_pool;
     spead2::flavour flavour(4, 64, opts.heap_address_bits);
-    spead2::send::stream_config config(opts.packet_size);
-    spead2::send::streambuf_stream stream(thread_pool.get_io_service(), streambuf, config);
+    spead2::send::streambuf_stream stream(
+        thread_pool.get_io_service(), streambuf,
+        spead2::send::stream_config().set_max_packet_size(opts.packet_size));
     spead2::send::heap heap(flavour), end_heap(flavour);
     std::vector<std::uint8_t> data(opts.heap_size);
     heap.add_item(0x1234, data, false);

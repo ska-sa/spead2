@@ -50,7 +50,7 @@ class StreamConfig:
     burst_rate_ratio: float
     allow_hw_rate: bool
 
-    def __init__(self, max_packet_size: int = ..., rate: float = ...,
+    def __init__(self, *, max_packet_size: int = ..., rate: float = ...,
                  burst_size: int = ..., max_heaps: int = ...,
                  burst_rate_ratio: float = ...,
                  allow_hw_rate: bool = ...) -> None: ...
