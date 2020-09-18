@@ -731,7 +731,7 @@ class TestRingStreamConfig:
     def test_heaps_zero(self):
         """Constructing a config with heaps=0 raises ValueError"""
         with assert_raises(ValueError):
-            recv.StreamConfig(heaps=0)
+            recv.RingStreamConfig(heaps=0)
 
 
 class TestStream:
