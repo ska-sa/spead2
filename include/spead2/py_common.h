@@ -297,6 +297,24 @@ struct PTMFWrapperGen
         }
     };
 
+    template<Return (Class::*Ptr)(Args...)>
+    struct PTMFWrapperVoid
+    {
+        typedef void result_type;
+        void operator()(T &obj, Args... args) const
+        {
+            // Pragmas are to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
+            (obj.*Ptr)(std::forward<Args>(args)...);
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+        }
+    };
+
     template<Return (Class::*Ptr)(Args...) const>
     struct PTMFWrapperConst
     {
@@ -308,7 +326,25 @@ struct PTMFWrapperGen
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
-            return (obj.*Ptr)(std::forward<Args>(args)...);
+            return static_cast<Return>((obj.*Ptr)(std::forward<Args>(args)...));
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+        }
+    };
+
+    template<Return (Class::*Ptr)(Args...) const>
+    struct PTMFWrapperConstVoid
+    {
+        typedef void result_type;
+        void operator()(const T &obj, Args... args) const
+        {
+            // Pragmas are to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
+            static_cast<Return>((obj.*Ptr)(std::forward<Args>(args)...));
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif
@@ -318,11 +354,17 @@ struct PTMFWrapperGen
     template<Return (Class::*Ptr)(Args...)>
     static constexpr PTMFWrapper<Ptr> make_wrapper() noexcept { return PTMFWrapper<Ptr>(); }
 
+    template<Return (Class::*Ptr)(Args...)>
+    static constexpr PTMFWrapperVoid<Ptr> make_wrapper_void() noexcept { return PTMFWrapperVoid<Ptr>(); }
+
     template<Return (Class::*Ptr)(Args...) const>
     static constexpr PTMFWrapperConst<Ptr> make_wrapper() noexcept { return PTMFWrapperConst<Ptr>(); }
+
+    template<Return (Class::*Ptr)(Args...) const>
+    static constexpr PTMFWrapperConstVoid<Ptr> make_wrapper_void() noexcept { return PTMFWrapperConstVoid<Ptr>(); }
 };
 
-// This function is never defined, and is only used as a helper for decltype
+// These function are never defined, and is only used as a helper for decltype
 template<typename T, typename Return, typename Class, typename... Args>
 PTMFWrapperGen<T, Return, Class, Args...> ptmf_wrapper_type(Return (Class::*ptmf)(Args...));
 template<typename T, typename Return, typename Class, typename... Args>
@@ -330,6 +372,9 @@ PTMFWrapperGen<T, Return, Class, Args...> ptmf_wrapper_type(Return (Class::*ptmf
 
 #define SPEAD2_PTMF(Class, Func) \
     (decltype(::spead2::detail::ptmf_wrapper_type<Class>(&Class::Func))::template make_wrapper<&Class::Func>())
+// Discards the return value - useful for setters where the C++ function returns *this
+#define SPEAD2_PTMF_VOID(Class, Func) \
+    (decltype(::spead2::detail::ptmf_wrapper_type<Class>(&Class::Func))::template make_wrapper_void<&Class::Func>())
 
 } // namespace detail
 

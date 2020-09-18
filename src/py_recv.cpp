@@ -419,28 +419,28 @@ py::module register_module(py::module &parent)
              [](stream_config &self, int id) { self.set_memcpy(memcpy_function_id(id)); })
         .def_property("memory_allocator",
                       SPEAD2_PTMF(stream_config, get_memory_allocator),
-                      SPEAD2_PTMF(stream_config, set_memory_allocator))
+                      SPEAD2_PTMF_VOID(stream_config, set_memory_allocator))
         .def_property("stop_on_stop_item",
                       SPEAD2_PTMF(stream_config, get_stop_on_stop_item),
-                      SPEAD2_PTMF(stream_config, set_stop_on_stop_item))
+                      SPEAD2_PTMF_VOID(stream_config, set_stop_on_stop_item))
         .def_property("allow_unsized_heaps",
                       SPEAD2_PTMF(stream_config, get_allow_unsized_heaps),
-                      SPEAD2_PTMF(stream_config, set_allow_unsized_heaps))
+                      SPEAD2_PTMF_VOID(stream_config, set_allow_unsized_heaps))
         .def_property("allow_out_of_order",
                       SPEAD2_PTMF(stream_config, get_allow_out_of_order),
-                      SPEAD2_PTMF(stream_config, set_allow_out_of_order))
+                      SPEAD2_PTMF_VOID(stream_config, set_allow_out_of_order))
         .def_readonly_static("DEFAULT_MAX_HEAPS", &stream_config::default_max_heaps);
     py::class_<ring_stream_config_wrapper>(m, "RingStreamConfig")
         .def(py::init(&data_class_constructor<ring_stream_config_wrapper>))
         .def_property("heaps",
                       SPEAD2_PTMF(ring_stream_config_wrapper, get_heaps),
-                      SPEAD2_PTMF(ring_stream_config_wrapper, set_heaps))
+                      SPEAD2_PTMF_VOID(ring_stream_config_wrapper, set_heaps))
         .def_property("contiguous_only",
                       SPEAD2_PTMF(ring_stream_config_wrapper, get_contiguous_only),
-                      SPEAD2_PTMF(ring_stream_config_wrapper, set_contiguous_only))
+                      SPEAD2_PTMF_VOID(ring_stream_config_wrapper, set_contiguous_only))
         .def_property("incomplete_keep_payload_ranges",
                       SPEAD2_PTMF(ring_stream_config_wrapper, get_incomplete_keep_payload_ranges),
-                      SPEAD2_PTMF(ring_stream_config_wrapper, set_incomplete_keep_payload_ranges))
+                      SPEAD2_PTMF_VOID(ring_stream_config_wrapper, set_incomplete_keep_payload_ranges))
         .def_readonly_static("DEFAULT_HEAPS", &ring_stream_config_wrapper::default_heaps);
     py::class_<ring_stream_wrapper> stream_class(m, "Stream");
     stream_class

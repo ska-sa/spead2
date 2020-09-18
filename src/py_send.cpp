@@ -666,22 +666,22 @@ py::module register_module(py::module &parent)
         .def(py::init(&data_class_constructor<stream_config>))
         .def_property("max_packet_size",
                       SPEAD2_PTMF(stream_config, get_max_packet_size),
-                      SPEAD2_PTMF(stream_config, set_max_packet_size))
+                      SPEAD2_PTMF_VOID(stream_config, set_max_packet_size))
         .def_property("rate",
                       SPEAD2_PTMF(stream_config, get_rate),
-                      SPEAD2_PTMF(stream_config, set_rate))
+                      SPEAD2_PTMF_VOID(stream_config, set_rate))
         .def_property("burst_size",
                       SPEAD2_PTMF(stream_config, get_burst_size),
-                      SPEAD2_PTMF(stream_config, set_burst_size))
+                      SPEAD2_PTMF_VOID(stream_config, set_burst_size))
         .def_property("max_heaps",
                       SPEAD2_PTMF(stream_config, get_max_heaps),
-                      SPEAD2_PTMF(stream_config, set_max_heaps))
+                      SPEAD2_PTMF_VOID(stream_config, set_max_heaps))
         .def_property("burst_rate_ratio",
                       SPEAD2_PTMF(stream_config, get_burst_rate_ratio),
-                      SPEAD2_PTMF(stream_config, set_burst_rate_ratio))
+                      SPEAD2_PTMF_VOID(stream_config, set_burst_rate_ratio))
         .def_property("allow_hw_rate",
                       SPEAD2_PTMF(stream_config, get_allow_hw_rate),
-                      SPEAD2_PTMF(stream_config, set_allow_hw_rate))
+                      SPEAD2_PTMF_VOID(stream_config, set_allow_hw_rate))
         .def_property_readonly("burst_rate",
                                SPEAD2_PTMF(stream_config, get_burst_rate))
         .def_readonly_static("DEFAULT_MAX_PACKET_SIZE", &stream_config::default_max_packet_size)
