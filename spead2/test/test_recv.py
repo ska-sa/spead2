@@ -655,16 +655,90 @@ class TestDecode:
         assert_equal(0, len(heaps))
 
 
+class TestStreamConfig:
+    """Tests for :class:`spead2.recv.StreamConfig`."""
+
+    def test_default_construct(self):
+        config = recv.StreamConfig()
+        assert_equal(recv.StreamConfig.DEFAULT_MAX_HEAPS, config.max_heaps)
+        assert_equal(0, config.bug_compat)
+        assert_equal(spead2.MEMCPY_STD, config.memcpy)
+        assert_equal(True, config.stop_on_stop_item)
+        assert_equal(True, config.allow_unsized_heaps)
+        assert_equal(False, config.allow_out_of_order)
+
+    def test_set_get(self):
+        config = recv.StreamConfig()
+        config.max_heaps = 5
+        config.bug_compat = spead2.BUG_COMPAT_PYSPEAD_0_5_2
+        config.memcpy = spead2.MEMCPY_NONTEMPORAL
+        config.stop_on_stop_item = False
+        config.allow_unsized_heaps = False
+        config.allow_out_of_order = True
+        config.memory_allocator = allocator = spead2.MmapAllocator()
+        assert_equal(5, config.max_heaps)
+        assert_equal(spead2.BUG_COMPAT_PYSPEAD_0_5_2, config.bug_compat)
+        assert_equal(spead2.MEMCPY_NONTEMPORAL, config.memcpy)
+        assert_equal(allocator, config.memory_allocator)
+        assert_equal(False, config.stop_on_stop_item)
+        assert_equal(False, config.allow_unsized_heaps)
+        assert_equal(True, config.allow_out_of_order)
+
+    def test_kwargs_construct(self):
+        config = recv.StreamConfig(
+            max_heaps=5,
+            bug_compat=spead2.BUG_COMPAT_PYSPEAD_0_5_2,
+            memcpy=spead2.MEMCPY_NONTEMPORAL,
+            stop_on_stop_item=False,
+            allow_unsized_heaps=False,
+            allow_out_of_order=True
+        )
+        assert_equal(5, config.max_heaps)
+        assert_equal(spead2.BUG_COMPAT_PYSPEAD_0_5_2, config.bug_compat)
+        assert_equal(spead2.MEMCPY_NONTEMPORAL, config.memcpy)
+        assert_equal(False, config.stop_on_stop_item)
+        assert_equal(False, config.allow_unsized_heaps)
+        assert_equal(True, config.allow_out_of_order)
+
+    def test_max_heaps_zero(self):
+        """Constructing a config with max_heaps=0 raises ValueError"""
+        with assert_raises(ValueError):
+            recv.StreamConfig(max_heaps=0)
+
+    def test_bad_bug_compat(self):
+        with assert_raises(ValueError):
+            recv.StreamConfig(bug_compat=0xff)
+
+
+class TestRingStreamConfig:
+    """Tests for :class:`spead2.recv.StreamConfig`."""
+
+    def test_default_construct(self):
+        config = recv.RingStreamConfig()
+        assert_equal(recv.RingStreamConfig.DEFAULT_HEAPS, config.heaps)
+        assert_equal(True, config.contiguous_only)
+        assert_equal(False, config.incomplete_keep_payload_ranges)
+
+    def test_set_get(self):
+        config = recv.RingStreamConfig()
+        config.heaps = 5
+        config.contiguous_only = False
+        config.incomplete_keep_payload_ranges = True
+        assert_equal(5, config.heaps)
+        assert_equal(False, config.contiguous_only)
+        assert_equal(True, config.incomplete_keep_payload_ranges)
+
+    def test_heaps_zero(self):
+        """Constructing a config with heaps=0 raises ValueError"""
+        with assert_raises(ValueError):
+            recv.StreamConfig(heaps=0)
+
+
 class TestStream:
     """Tests for the stream API"""
 
     def __init__(self):
         self.flavour = FLAVOUR
-
-    def test_max_heaps_zero(self):
-        """Constructing a stream with max_heaps=0 raises ValueError"""
-        with assert_raises(ValueError):
-            spead2.recv.StreamConfig(max_heaps=0)
 
     def test_full_stop(self):
         """Must be able to stop even if the consumer is not consuming
