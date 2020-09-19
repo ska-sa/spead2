@@ -65,12 +65,12 @@ class StreamConfig:
     max_heaps: int
     bug_compat: int
     memcpy: int
-    allocator: spead2.MemoryAllocator
+    memory_allocator: spead2.MemoryAllocator
     stop_on_stop_item: bool
     allow_unsized_heaps: bool
     allow_out_of_order: bool
     def __init__(self, *, max_heaps: int = ..., bug_compat: int = ...,
-                 memcpy: int = ..., allocator: spead2.MemoryAllocator = ...,
+                 memcpy: int = ..., memory_allocator: spead2.MemoryAllocator = ...,
                  stop_on_stop_item: bool = ..., allow_unsized_heaps: bool = ...,
                  allow_out_of_order: bool = ...) -> None: ...
 
