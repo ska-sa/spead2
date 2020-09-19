@@ -121,7 +121,15 @@ T *data_class_constructor(pybind11::kwargs kwargs)
 {
     pybind11::object self = pybind11::cast(new T());
     for (const auto &item : kwargs)
-        pybind11::setattr(self, item.first, item.second);
+    {
+        if (pybind11::hasattr(self, item.first))
+            pybind11::setattr(self, item.first, item.second);
+        else
+        {
+            PyErr_SetString(PyExc_TypeError, "got an unexpected keyword argument");
+            throw pybind11::error_already_set();
+        }
+    }
     return pybind11::cast<T *>(self);
 }
 

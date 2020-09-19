@@ -709,6 +709,10 @@ class TestStreamConfig:
         with assert_raises(ValueError):
             recv.StreamConfig(bug_compat=0xff)
 
+    def test_bad_kwarg(self):
+        with assert_raises(TypeError):
+            recv.StreamConfig(not_valid_arg=1)
+
 
 class TestRingStreamConfig:
     """Tests for :class:`spead2.recv.StreamConfig`."""
