@@ -38,6 +38,9 @@ optionally override :cpp:func:`stop_received`.
 Note that some public functions are incorrectly listed as protected below due
 to limitations of the documentation tools.
 
+.. doxygenclass:: spead2::recv::stream_config
+   :members:
+
 .. doxygenclass:: spead2::recv::stream
    :members:
 
@@ -51,6 +54,9 @@ from this ring buffer in a loop. The template parameter selects the ringbuffer
 implementation. The default is a good light-weight choice, but if you need to
 use :cpp:func:`select`-like functions to wait for data, you can use
 :cpp:class:`spead2::ringbuffer\<spead2::recv::live_heap, spead2::semaphore_fd, spead2::semaphore>`.
+
+.. doxygenclass:: spead2::recv::ring_stream_config
+   :members:
 
 .. doxygenclass:: spead2::recv::ring_stream
    :members: ring_stream, pop, try_pop, pop_live, try_pop_live
@@ -79,7 +85,7 @@ new allocators can be created by subclassing :cpp:class:`spead2::memory_allocato
 For an allocator set on a stream, a pointer to a
 :cpp:class:`spead2::recv::packet_header` is passed as a hint to the allocator,
 allowing memory to be placed according to information in the packet. Note that
-for unreliable transport this could be any packet from the heap, and you should
+for unreliable transports this could be any packet from the heap, and you should
 not rely on it being the initial packet.
 
 .. doxygenclass:: spead2::memory_allocator

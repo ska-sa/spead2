@@ -35,6 +35,64 @@ normally passed to :py:meth:`spead2.ItemGroup.update`.
   :py:exc:`ValueError` exceptions. Robust code should thus be prepared to
   catch exceptions from heap processing.
 
+Configuration
+^^^^^^^^^^^^^
+Once a stream is constructed, the configuration cannot be changed. The configuration is
+captured in two classes, :py:class:`~spead2.recv.StreamConfig` and
+:py:class:`~spead2.recv.RingStreamConfig`. The split is a reflection of the C++
+API and not particularly relevant in Python. The configuration options can
+either be passed to the constructors (as keyword arguments) or set as
+properties after construction.
+
+.. py:class:: spead2.recv.StreamConfig(**kwargs)
+
+   :param int max_heaps:
+     The number of partial heaps that can be live at one time.
+     This affects how intermingled heaps can be (due to out-of-order packet
+     delivery) before heaps get dropped.
+   :param int bug_compat:
+     Bug compatibility flags (see :ref:`py-flavour`)
+   :param int memcpy:
+     Set the method used to copy data from the network to the heap. The
+     default is :py:const:`~spead2.MEMCPY_STD`. This can be changed to
+     :py:const:`~spead2.MEMCPY_NONTEMPORAL`, which writes to the destination with a
+     non-temporal cache hint (if SSE2 is enabled at compile time). This can
+     improve performance with large heaps if the data is not going to be used
+     immediately, by reducing cache pollution. Be careful when benchmarking:
+     receiving heaps will generally appear faster, but it can slow down
+     subsequent processing of the heap because it will not be cached.
+   :param memory_allocator:
+     Set the memory allocator for a stream. See
+     :ref:`py-memory-allocators` for details.
+   :type memory_allocator: :py:class:`spead2.MemoryAllocator`
+   :param bool stop_on_stop_item:
+     By default, a heap containing a stream control stop item will terminate
+     the stream (and that heap is discarded). In some cases it is useful to
+     keep the stream object alive and ready to receive a following stream.
+     Setting this attribute to ``False`` will disable this special
+     treatment. Such heaps can then be detected with
+     :meth:`~spead2.recv.Heap.is_end_of_stream`.
+   :param bool allow_unsized_heaps:
+     By default, spead2 caters for heaps without a `HEAP_LEN` item, and will
+     dynamically extend the memory allocation as data arrives. However, this
+     can be expensive, and ideally senders should include this item. Setting
+     this attribute to ``False`` will cause packets without this item to be
+     rejected.
+   :raises ValueError: if `max_heaps` is zero.
+
+.. py:class:: spead2.recv.RingStreamConfig(**kwargs)
+
+   :param int ring_heaps: The capacity of the ring buffer between the network
+     threads and the consumer. Increasing this may reduce lock contention at
+     the cost of more memory usage.
+   :param bool contiguous_only: If set to ``False``, incomplete heaps will be
+     included in the stream as instances of :py:class:`.IncompleteHeap`. By
+     default they are discarded and a warning is printed.
+   :param bool incomplete_keep_payload_ranges: If set to ``True``, it is
+     possible to retrieve information about which parts of the payload arrived
+     in incomplete heaps, using :py:meth:`.IncompleteHeap.payload_ranges`.
+   :raises ValueError: if `ring_heaps` is zero.
+
 Blocking receive
 ^^^^^^^^^^^^^^^^
 To do blocking receive, create a :py:class:`spead2.recv.Stream`, and add
@@ -44,46 +102,22 @@ transports to it with :py:meth:`~spead2.recv.Stream.add_buffer_reader`,
 :py:meth:`~spead2.recv.Stream.add_udp_pcap_file_reader`. Then either iterate over
 it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
-.. py:class:: spead2.recv.Stream(thread_pool, bug_compat=0, max_heaps=4, ring_heaps=4, contiguous_only=True, incomplete_keep_payload_ranges=False)
+.. py:class:: spead2.recv.Stream(thread_pool, stream_config=StreamConfig(), ring_config=RingStreamConfig())
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
-   :param int bug_compat: Bug compatibility flags (see :ref:`py-flavour`)
-   :param int max_heaps: The number of partial heaps that can be live at one
-     time. This affects how intermingled heaps can be (due to out-of-order
-     packet delivery) before heaps get dropped.
-   :param int ring_heaps: The capacity of the ring buffer between the network
-     threads and the consumer. Increasing this may reduce lock contention at
-     the cost of more memory usage.
-   :param bool contiguous_only: If set to ``False``, incomplete heaps will be
-     included in the stream as instances of :py:class:`.IncompleteHeap`. By default
-     they are discarded and a warning is printed.
-   :param bool incomplete_keep_payload_ranges: If set to ``True``, it is
-     possible to retrieve information about which parts of the payload arrived
-     in incomplete heaps, using :py:meth:`.IncompleteHeap.payload_ranges`.
-   :raises ValueError: if `max_heaps` is zero.
+   :param config: Stream configuration
+   :type config: :py:class:`spead2.recv.StreamConfig`
+   :param ring_config: Ringbuffer configuration
+   :type ring_config: :py:class:`spead2.recv.RingStreamConfig`
 
-   .. py:method:: set_memory_allocator(allocator)
+   .. py:attribute:: config
 
-      Set or change the memory allocator for a stream. See
-      :ref:`py-memory-allocators` for details.
+      Stream configuration passed to the constructor (read-only)
 
-      :param allocator: New memory allocator
-      :type allocator: :py:class:`spead2.MemoryAllocator`
+   .. py:attribute:: ring_config
 
-   .. py:method:: set_memcpy(id)
-
-      Set the method used to copy data from the network to the heap. The
-      default is :py:const:`MEMCPY_STD`. This can be changed to
-      :py:const:`MEMCPY_NONTEMPORAL`, which writes to the destination with a
-      non-temporal cache hint (if SSE2 is enabled at compile time). This can
-      improve performance with large heaps if the data is not going to be used
-      immediately, by reducing cache pollution. Be careful when benchmarking:
-      receiving heaps will generally appear faster, but it can slow down
-      subsequent processing of the heap because it will not be cached.
-
-      :param id: Identifier for the copy function
-      :type id: {:py:const:`MEMCPY_STD`, :py:const:`MEMCPY_NONTEMPORAL`}
+      Ringbuffer configuration passed to the constructor (read-only)
 
    .. py:method:: add_buffer_reader(buffer)
 
@@ -201,29 +235,12 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
 
       The internal ringbuffer of the stream (see Statistics_).
 
-   .. py:attribute:: stop_on_stop_item
-
-      By default, a heap containing a stream control stop item will terminate
-      the stream (and that heap is discarded). In some cases it is useful to
-      keep the stream object alive and ready to receive a following stream.
-      Setting this attribute to ``False`` will disable this special
-      treatment. Such heaps can then be detected with
-      :meth:`~spead2.recv.Heap.is_end_of_stream`.
-
-   .. py:attribute:: allow_unsized_heaps
-
-      By default, spead2 caters for heaps without a `HEAP_LEN` item, and will
-      dynamically extend the memory allocation as data arrives. However, this
-      can be expensive, and ideally senders should include this item. Setting
-      this attribute to ``False`` will cause packets without this item to be
-      rejected.
-
 Asynchronous receive
 ^^^^^^^^^^^^^^^^^^^^
 Asynchronous I/O is supported through Python's :py:mod:`asyncio` module. It can
 be combined with other asynchronous I/O frameworks like twisted_ and Tornado_.
 
-.. py:class:: spead2.recv.asyncio.Stream(\*args, \*\*kwargs, loop=None)
+.. py:class:: spead2.recv.asyncio.Stream(*args, **kwargs, loop=None)
 
    See :py:class:`spead2.recv.Stream` (the base class) for other constructor
    arguments.
@@ -309,10 +326,10 @@ being captured and stored indefinitely rather than processed and released.
 Incomplete Heaps
 ^^^^^^^^^^^^^^^^
 By default, an incomplete heap (one for which some but not all of the packets
-were received) are simply dropped and a warning is printed. Advanced users
+were received) is simply dropped and a warning is printed. Advanced users
 might need finer control, such as recording metrics about the number of these
 heaps. To do so, set `contiguous_only` to ``False`` when constructing the
-stream. The stream will then yield instances of :py:class:`IncompleteHeap`.
+stream. The stream will then yield instances of :py:class:`.IncompleteHeap`.
 
 .. py:class:: spead2.recv.IncompleteHeap
 
