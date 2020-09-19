@@ -16,6 +16,7 @@ Contents:
    cpp
    perf
    tools
+   migrate-3
    changelog
    license
 
