@@ -48,6 +48,9 @@ namespace spead2
 namespace send
 {
 
+/**
+ * Configuration for send streams.
+ */
 class stream_config
 {
 public:
@@ -57,17 +60,29 @@ public:
     static constexpr double default_burst_rate_ratio = 1.05;
     static constexpr bool default_allow_hw_rate = true;
 
+    /// Set maximum packet size to use (only counts the UDP payload, not L1-4 headers).
     stream_config &set_max_packet_size(std::size_t max_packet_size);
+    /// Get maximum packet size to use.
     std::size_t get_max_packet_size() const { return max_packet_size; }
+    /// Set maximum transmit rate to use, in bytes per second.
     stream_config &set_rate(double rate);
+    /// Get maximum transmit rate to use, in bytes per second.
     double get_rate() const { return rate; }
+    /// Set maximum size of a burst, in bytes.
     stream_config &set_burst_size(std::size_t burst_size);
+    /// Get maximum size of a burst, in bytes.
     std::size_t get_burst_size() const { return burst_size; }
+    /// Set maximum number of in-flight heaps.
     stream_config &set_max_heaps(std::size_t max_heaps);
+    /// Get maximum number of in-flight heaps.
     std::size_t get_max_heaps() const { return max_heaps; }
+    /// Set maximum increase in transmit rate for catching up.
     stream_config &set_burst_rate_ratio(double burst_rate_ratio);
+    /// Get maximum increase in transmit rate for catching up.
     double get_burst_rate_ratio() const { return burst_rate_ratio; }
+    /// Set whether to allow hardware rate limiting.
     stream_config &set_allow_hw_rate(bool allow_hw_rate);
+    /// Get whether to allow hardware rate limiting.
     bool get_allow_hw_rate() const { return allow_hw_rate; }
 
     /// Get product of rate and burst_rate_ratio

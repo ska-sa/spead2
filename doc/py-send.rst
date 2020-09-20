@@ -10,7 +10,7 @@ each, rather than a generic `Stream` class. Because there is common
 configuration between the stream classes, configuration is encapsulated in a
 :py:class:`spead2.send.StreamConfig`.
 
-.. py:class:: spead2.send.StreamConfig(max_packet_size=1472, rate=0.0, burst_size=65536, max_heaps=4, burst_rate_ratio=1.05)
+.. py:class:: spead2.send.StreamConfig(*, max_packet_size=1472, rate=0.0, burst_size=65536, max_heaps=4, burst_rate_ratio=1.05)
 
    :param int max_packet_size: Heaps will be split into packets of at most this size.
    :param double rate: Target transmission rate, in bytes per second, or 0
@@ -135,6 +135,7 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
      :ref:`routing`).
 
 .. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, ttl)
+   :noindex:
 
    Stream using UDP, with multicast TTL. Note that the regular constructor will
    also work with multicast, but does not give any control over the TTL.
@@ -150,6 +151,7 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
    :param int ttl: Multicast TTL
 
 .. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config=spead2.send.StreamConfig(), buffer_size=524288, ttl, interface_address)
+   :noindex:
 
    Stream using UDP, with multicast TTL and interface address (IPv4 only).
 
@@ -166,6 +168,7 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
      to send the data
 
 .. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, ttl, interface_index)
+   :noindex:
 
    Stream using UDP, with multicast TTL and interface index (IPv6 only).
 
@@ -182,6 +185,7 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
      data
 
 .. py:class:: spead2.send.UdpStream(thread_pool, socket, hostname, port, config=spead2.send.StreamConfig())
+   :noindex:
 
    Stream using UDP, with a pre-existing socket. The socket is duplicated by
    the stream, so the original can be closed immediately to free up a file
@@ -197,6 +201,7 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
    :type config: :py:class:`spead2.send.StreamConfig`
 
 .. py:class:: spead2.send.UdpStream(thread_pool, hostname, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, socket)
+   :noindex:
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
@@ -215,7 +220,7 @@ multiple threads all call :py:meth:`~spead2.send.AbstractStream.send_heap` at
 the same time, they can exceed the configured `max_heaps` and heaps will be dropped.
 
 Because spead2 was originally designed for UDP, the default packet size in
-:py:class:`~.StreamConfig` is quite small. Performance can be improved by
+:py:class:`~spead2.send.StreamConfig` is quite small. Performance can be improved by
 increasing it (but be sure the receiver is configured to handle larger packets).
 
 .. py:class:: spead2.send.TcpStream(thread_pool, hostname, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, interface_address='')
@@ -232,6 +237,7 @@ increasing it (but be sure the receiver is configured to handle larger packets).
      :ref:`routing`).
 
 .. py:class:: spead2.send.TcpStream(thread_pool, socket, config=spead2.send.StreamConfig())
+   :noindex:
 
    Stream using an existing socket. The socket must already be connected to the
    peer, and the user is responsible for setting any desired socket options. The socket
