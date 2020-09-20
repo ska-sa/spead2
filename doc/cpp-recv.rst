@@ -59,7 +59,7 @@ use :cpp:func:`select`-like functions to wait for data, you can use
    :members:
 
 .. doxygenclass:: spead2::recv::ring_stream
-   :members: ring_stream, pop, try_pop, pop_live, try_pop_live
+   :members: ring_stream, pop, try_pop, pop_live, try_pop_live, get_ring_config
 
 Readers
 -------
