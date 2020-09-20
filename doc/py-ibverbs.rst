@@ -53,6 +53,8 @@ capabilities is beyond the scope of this manual.
 For more information, see the `libvma documentation`_. For ConnectX®-4/5, only
 the first of these lines is required.
 
+.. _libvma documentation: https://docs.mellanox.com/category/vma
+
 Receiving
 ---------
 The ibverbs API can be used programmatically by using an extra method of
