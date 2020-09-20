@@ -16,6 +16,7 @@
 from __future__ import division, print_function
 import binascii
 import gc
+import math
 import struct
 import time
 import threading
@@ -441,6 +442,51 @@ class TestEncode:
         packets = self.flavour.items_to_bytes([item1, item2], [], max_packet_size=72,
                                               repeat_pointers=True)
         assert_equal(hexlify(expected), hexlify(packets))
+
+
+class TestStreamConfig:
+    def test_default_construct(self):
+        config = send.StreamConfig()
+        assert_equal(config.DEFAULT_MAX_PACKET_SIZE, config.max_packet_size)
+        assert_equal(0.0, config.rate)
+        assert_equal(config.DEFAULT_BURST_SIZE, config.burst_size)
+        assert_equal(config.DEFAULT_MAX_HEAPS, config.max_heaps)
+        assert_equal(config.DEFAULT_BURST_RATE_RATIO, config.burst_rate_ratio)
+        assert_equal(config.DEFAULT_ALLOW_HW_RATE, config.allow_hw_rate)
+
+    def test_setters(self):
+        config = send.StreamConfig()
+        config.max_packet_size = 1234
+        config.rate = 1e9
+        config.burst_size = 12345
+        config.max_heaps = 5
+        config.burst_rate_ratio = 1.5
+        config.allow_hw_rate = False
+        assert_equal(1234, config.max_packet_size)
+        assert_equal(1e9, config.rate)
+        assert_equal(12345, config.burst_size)
+        assert_equal(5, config.max_heaps)
+        assert_equal(1.5, config.burst_rate_ratio)
+        assert_equal(False, config.allow_hw_rate)
+        assert_equal(1.5e9, config.burst_rate)
+
+    def test_construct_kwargs(self):
+        config = send.StreamConfig(max_packet_size=1234, max_heaps=5)
+        assert_equal(1234, config.max_packet_size)
+        assert_equal(5, config.max_heaps)
+        assert_equal(0.0, config.rate)
+
+    def test_bad_rate(self):
+        with assert_raises(ValueError):
+            send.StreamConfig(rate=-1.0)
+        with assert_raises(ValueError):
+            send.StreamConfig(rate=math.nan)
+
+    def test_bad_max_heaps(self):
+        with assert_raises(TypeError):
+            send.StreamConfig(max_heaps=-1)
+        with assert_raises(ValueError):
+            send.StreamConfig(max_heaps=0)
 
 
 class TestStream:
