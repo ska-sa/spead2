@@ -182,10 +182,12 @@ public:
      * - duplicate packet
      * - inconsistent heap length
      * - payload range is beyond the heap length
+     * - allow_out_of_order is false and this isn't the next packet for the heap
      */
     bool add_packet(const packet_header &packet,
                     const packet_memcpy_function &packet_memcpy,
-                    memory_allocator &allocator);
+                    memory_allocator &allocator,
+                    bool allow_out_of_order);
     /// True if the heap is complete
     bool is_complete() const;
     /// True if the heap is contiguous

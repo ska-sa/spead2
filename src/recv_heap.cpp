@@ -324,7 +324,14 @@ incomplete_heap::incomplete_heap(live_heap &&h, bool keep_payload, bool keep_pay
 {
     load(std::move(h), false, keep_payload);
     if (keep_payload_ranges)
+    {
         payload_ranges = std::move(h.payload_ranges);
+        if (payload_ranges.empty() && received_length > 0)
+        {
+            // In-order mode doesn't use payload_ranges, so we have to synthesize it
+            payload_ranges.emplace(0, received_length);
+        }
+    }
     // Reset h so that it still satisfies its invariants
     h.reset();
 }

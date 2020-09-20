@@ -152,7 +152,8 @@ void live_heap::add_pointers(std::size_t n, const std::uint8_t *pointers)
 
 bool live_heap::add_packet(const packet_header &packet,
                            const packet_memcpy_function &packet_memcpy,
-                           memory_allocator &allocator)
+                           memory_allocator &allocator,
+                           bool allow_out_of_order)
 {
     /* It's important that these initial checks can't fail for a
      * just-constructed live heap, because otherwise an initial_packet could
@@ -179,8 +180,25 @@ bool live_heap::add_packet(const packet_header &packet,
     }
 
     // Packet seems sane, check if we've already seen it, and if not, insert it
-    bool new_packet = add_payload_range(packet.payload_offset,
-                                        packet.payload_offset + packet.payload_length);
+    bool new_packet;
+    if (allow_out_of_order)
+    {
+        new_packet = add_payload_range(packet.payload_offset,
+                                       packet.payload_offset + packet.payload_length);
+    }
+    else if (packet.payload_offset == received_length)
+        new_packet = true;
+    else
+    {
+        if (packet.payload_offset < received_length)
+            log_warning("packet rejected because it is out-of-order in the heap "
+                        "(you might need to set allow_out_of_order to false in the stream config)");
+        else
+            log_debug("packet rejected because there is a gap in the heap and "
+                      "allow_out_of_order is false");
+        new_packet = false;
+    }
+
     if (!new_packet)
         return false;
 

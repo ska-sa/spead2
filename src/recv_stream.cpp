@@ -284,8 +284,19 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
 
     if (!entry)
     {
-        // Never seen this heap before. Evict the old one in its slot,
-        // if any. Note: not safe to dereference h just anywhere here!
+        /* Never seen this heap before. Evict the old one in its slot,
+         * if any. However, if we're in in-order mode, only accept the
+         * packet if it is supposed to be at the start of the heap.
+         *
+         * Note: not safe to dereference h just anywhere here!
+         */
+        if (!config.get_allow_out_of_order() && packet.payload_offset != 0)
+        {
+            log_debug("packet rejected because there is a gap in the heap and "
+                      "allow_out_of_order is false");
+            return false;
+        }
+
         if (++head == config.get_max_heaps())
             head = 0;
         entry = cast(head);
@@ -304,7 +315,8 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
     live_heap *h = &entry->heap;
     bool result = false;
     bool end_of_stream = false;
-    if (h->add_packet(packet, config.get_memcpy(), *config.get_memory_allocator()))
+    if (h->add_packet(packet, config.get_memcpy(), *config.get_memory_allocator(),
+                      config.get_allow_out_of_order()))
     {
         result = true;
         end_of_stream = config.get_stop_on_stop_item() && h->is_end_of_stream();
