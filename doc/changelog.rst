@@ -1,6 +1,13 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+Version 3.0 contains a number of breaking API changes. For details of these, please refer
+to :doc:`migrate-3`.
+
+Additionally, refer to the changes for 3.0.0b1 below.
+
 .. rubric:: 3.0.0b1
 
 The :doc:`ibverbs <py-ibverbs>` acceleration has been substantially modified to use a
