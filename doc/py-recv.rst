@@ -90,7 +90,7 @@ properties after construction.
      the cost of more memory usage.
    :param bool contiguous_only: If set to ``False``, incomplete heaps will be
      included in the stream as instances of :py:class:`.IncompleteHeap`. By
-     default they are discarded and a warning is printed.
+     default they are discarded. See :ref:`py-incomplete-heaps` for details.
    :param bool incomplete_keep_payload_ranges: If set to ``True``, it is
      possible to retrieve information about which parts of the payload arrived
      in incomplete heaps, using :py:meth:`.IncompleteHeap.payload_ranges`.
@@ -359,13 +359,16 @@ being captured and stored indefinitely rather than processed and released.
       Whether to issue a warning if the memory pool becomes empty and needs to
       allocate new memory on request. It defaults to true.
 
+.. _py-incomplete-heaps:
+
 Incomplete Heaps
 ^^^^^^^^^^^^^^^^
 By default, an incomplete heap (one for which some but not all of the packets
 were received) is simply dropped and a warning is printed. Advanced users
 might need finer control, such as recording metrics about the number of these
-heaps. To do so, set `contiguous_only` to ``False`` when constructing the
-stream. The stream will then yield instances of :py:class:`.IncompleteHeap`.
+heaps. To do so, set `contiguous_only` to ``False`` in the
+:py:class:`~spead2.recv.RingStreamConfig`. The stream will then yield
+instances of :py:class:`.IncompleteHeap`.
 
 .. py:class:: spead2.recv.IncompleteHeap
 
@@ -389,8 +392,12 @@ stream. The stream will then yield instances of :py:class:`.IncompleteHeap`.
 
       A list of pairs of heap offsets. Each pair is a range of bytes that was
       received. This is only non-empty if `incomplete_keep_payload_ranges` was
-      passed to the stream constructor; otherwise the information is dropped
-      to save memory.
+      set in the :py:class:`~spead2.recv.RingStreamConfig`; otherwise the
+      information is dropped to save memory.
+
+      When using this, you should also set `allow_out_of_order` to ``True`` in
+      the :py:class:`~spead2.recv.StreamConfig`, as otherwise any data after
+      the first lost packet is discarded.
 
    .. py:function:: is_start_of_stream()
 
