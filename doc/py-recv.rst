@@ -78,6 +78,9 @@ properties after construction.
      can be expensive, and ideally senders should include this item. Setting
      this attribute to ``False`` will cause packets without this item to be
      rejected.
+   :param bool allow_out_of_order:
+     Whether to allow packets within a heap to be received out-of-order. See
+     :ref:`py-packet-ordering` for details.
    :raises ValueError: if `max_heaps` is zero.
 
 .. py:class:: spead2.recv.RingStreamConfig(**kwargs)
@@ -263,6 +266,39 @@ be combined with other asynchronous I/O frameworks like twisted_ and Tornado_.
 
 The stream is also asynchronously iterable, i.e., can be used in an ``async
 for`` loop to iterate over the heaps.
+
+.. _py-packet-ordering:
+
+Packet ordering
+^^^^^^^^^^^^^^^
+SPEAD is typically carried over UDP, and by its nature, UDP allows packets to
+be reordered. Packets may also arrive interleaved if they are produced by
+multiple senders. We consider two sorts of packet ordering issues:
+
+1. Re-ordering within a heap. By default, spead2 assumes that all the packets
+   that form a heap will arrive in order, and discards any packet that does
+   not have the expected payload offset. In most networks this is a safe
+   assumption provided that all the packets originate from the same sender (IP
+   address and port number) and have the same destination.
+
+   If this assumption is not appropriate, it can be changed with the
+   :py:attr:`allow_out_of_order` attribute of
+   :py:class:`spead2.recv.StreamConfig`. This has minimal impact when packets
+   do in fact arrive in order, but reassembling arbitrarily ordered packets
+   can be expensive. Allowing for out-of-order arrival also makes handling
+   lost packets more expensive (because one must cater for them arriving
+   later), which can lead to a feedback loop as this more expensive processing
+   can lead to further packet loss.
+
+2. Interleaving of packets from different heaps. This is always supported, but
+   to a bounded degree so that lost packets don't lead to heaps being kept
+   around indefinitely in the hope that the packet may arrive. The
+   :py:attr:`max_heaps` attribute of :py:class:`spead2.recv.StreamConfig`
+   determines the amount of overlap allowed: once a packet in heap :math:`n`
+   is observed, it is assumed that heap :math:`n - \text{max_heaps}` is
+   complete. When there are many producers it will likely to be necessary to
+   increase this value. Larger values increase the memory usage for partial
+   heaps, and have a small performance impact.
 
 .. _py-memory-allocators:
 

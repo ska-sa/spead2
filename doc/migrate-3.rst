@@ -71,3 +71,10 @@ a "fluent" style e.g.:
 .. code:: c++
 
    spead2::send::stream_config().set_max_packet_size(9172).set_rate(1e6)
+
+Out-of-order packets
+--------------------
+In prior versions of spead2, the packets forming a single heap could be
+received in any order. Starting with version 3, the default is to assume that
+packets arrive in order. Refer to :ref:`py-packet-ordering` for more
+details.
