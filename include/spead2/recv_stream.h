@@ -133,7 +133,7 @@ public:
     /// Set an allocator to use for allocating heap memory.
     stream_config &set_memory_allocator(std::shared_ptr<memory_allocator> allocator);
     /// Get allocator for allocating heap memory.
-    std::shared_ptr<memory_allocator> get_memory_allocator() const
+    const std::shared_ptr<memory_allocator> &get_memory_allocator() const
     {
         return allocator;
     }
