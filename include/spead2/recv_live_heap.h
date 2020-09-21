@@ -140,6 +140,10 @@ private:
      * of that contiguous region. Since packets are expected to arrive
      * more-or-less in order (or more-or-less in order for each of a small
      * number of streams) the map is not expected to grow large.
+     *
+     * It is only used when the stream is constructed with
+     * allow_out_of_order=true. When it is false, the received range is
+     * assumed to be [0, received_length).
      */
     std::map<s_item_pointer_t, s_item_pointer_t> payload_ranges;
 
