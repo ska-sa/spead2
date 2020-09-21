@@ -191,7 +191,7 @@ class TestDecode:
         thread_pool = spead2.ThreadPool()
         config = recv.StreamConfig(bug_compat=self.flavour.bug_compat)
         ring_config = recv.RingStreamConfig()
-        for key in ['stop_on_stop_item', 'allow_unsized_heaps']:
+        for key in ['stop_on_stop_item', 'allow_unsized_heaps', 'allow_out_of_order']:
             if key in kwargs:
                 setattr(config, key, kwargs.pop(key))
         for key in ['contiguous_only', 'incomplete_keep_payload_ranges']:
@@ -392,7 +392,7 @@ class TestDecode:
         item = self.data_to_item(packet, 0x1234)
         assert_equal(expected, item.value)
 
-    def test_duplicates(self):
+    def test_duplicate_item_pointers(self):
         payload = bytearray(64)
         payload[:] = range(64)
         packets = [
@@ -423,6 +423,62 @@ class TestDecode:
         assert_false(items[1].is_immediate)
         assert_equal(payload, bytearray(items[1]))
 
+    def test_out_of_order_packets(self):
+        payload = bytearray(64)
+        payload[:] = range(64)
+        packets = [
+            self.flavour.make_packet([
+                Item(spead2.HEAP_CNT_ID, 1, True),
+                Item(spead2.PAYLOAD_OFFSET_ID, 32, True),
+                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
+                Item(spead2.HEAP_LENGTH_ID, 64, True),
+                Item(0x1600, 12345, True),
+                Item(0x5000, 0, False, offset=0)], payload[32 : 64]),
+            self.flavour.make_packet([
+                Item(spead2.HEAP_CNT_ID, 1, True),
+                Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
+                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
+                Item(spead2.HEAP_LENGTH_ID, 64, True)], payload[0 : 32])
+        ]
+        heaps = self.data_to_heaps(b''.join(packets), allow_out_of_order=True)
+        assert_equal(1, len(heaps))
+        items = heaps[0].get_items()
+        assert_equal(2, len(items))
+        items.sort(key=lambda item: item.id)
+        assert_equal(0x1600, items[0].id)
+        assert_true(items[0].is_immediate)
+        assert_equal(12345, items[0].immediate_value)
+        assert_equal(0x5000, items[1].id)
+        assert_false(items[1].is_immediate)
+        assert_equal(payload, bytearray(items[1]))
+
+    def test_out_of_order_disallowed(self):
+        payload = bytearray(64)
+        payload[:] = range(64)
+        packets = [
+            self.flavour.make_packet([
+                Item(spead2.HEAP_CNT_ID, 1, True),
+                Item(spead2.PAYLOAD_OFFSET_ID, 32, True),
+                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
+                Item(spead2.HEAP_LENGTH_ID, 64, True),
+                Item(0x1600, 12345, True),
+                Item(0x5000, 0, False, offset=0)], payload[32 : 64]),
+            self.flavour.make_packet([
+                Item(spead2.HEAP_CNT_ID, 1, True),
+                Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
+                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
+                Item(spead2.HEAP_LENGTH_ID, 64, True)], payload[0 : 32])
+        ]
+        heaps = self.data_to_heaps(b''.join(packets),
+                                   contiguous_only=False,
+                                   incomplete_keep_payload_ranges=True)
+        assert_equal(1, len(heaps))
+        items = heaps[0].get_items()
+        assert_equal([], items)
+        assert_equal(64, heaps[0].heap_length)
+        assert_equal(32, heaps[0].received_length)
+        assert_equal([(0, 32)], heaps[0].payload_ranges)
+
     def test_incomplete_heaps(self):
         payload = bytearray(64)
         payload[:] = range(64)
@@ -442,7 +498,8 @@ class TestDecode:
         ]
         heaps = self.data_to_heaps(b''.join(packets),
                                    contiguous_only=False,
-                                   incomplete_keep_payload_ranges=True)
+                                   incomplete_keep_payload_ranges=True,
+                                   allow_out_of_order=True)
         assert_equal(1, len(heaps))
         assert_is_instance(heaps[0], recv.IncompleteHeap)
         items = heaps[0].get_items()
