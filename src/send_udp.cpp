@@ -68,7 +68,7 @@ void udp_stream::send_packets(std::size_t first)
     {
         // First try to send synchronously, to reduce overheads from callbacks etc
         boost::system::error_code ec;
-        transmit_item &current = current_packets[idx];
+        transmit_packet &current = current_packets[idx];
         boost::asio::ip::udp::endpoint endpoint = endpoints[current.item->substream_index];
         socket.send_to(current.pkt.buffers, endpoint, 0, ec);
         if (ec == boost::asio::error::would_block)
