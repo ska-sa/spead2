@@ -192,9 +192,17 @@ void udp_ibv_stream::async_send_packets()
             std::size_t payload_size = current_packet.size;
             ipv4_packet ipv4 = s->frame.payload_ipv4();
             ipv4.total_length(payload_size + udp_packet::min_size + ipv4.header_length());
-            ipv4.update_checksum();
             udp_packet udp = ipv4.payload_udp();
             udp.length(payload_size + udp_packet::min_size);
+            if (get_num_substreams() > 1)
+            {
+                const std::size_t substream_index = current_packet.item->substream_index;
+                const auto &endpoint = endpoints[substream_index];
+                s->frame.destination_mac(mac_addresses[substream_index]);
+                ipv4.destination_address(endpoint.address().to_v4());
+                udp.destination_port(endpoint.port());
+            }
+            ipv4.update_checksum();
             packet_buffer payload = udp.payload();
             boost::asio::buffer_copy(boost::asio::mutable_buffer(payload), current_packet.pkt.buffers);
             s->sge.length = payload_size + (payload.data() - s->frame.data());
@@ -234,16 +242,39 @@ udp_ibv_stream::udp_ibv_stream(
     int ttl,
     int comp_vector,
     int max_poll)
+    : udp_ibv_stream(
+        std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>{endpoint},
+        config, interface_address, buffer_size, ttl, comp_vector, max_poll)
+{
+}
+
+udp_ibv_stream::udp_ibv_stream(
+    io_service_ref io_service,
+    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+    const stream_config &config,
+    const boost::asio::ip::address &interface_address,
+    std::size_t buffer_size,
+    int ttl,
+    int comp_vector,
+    int max_poll)
     : stream_impl<udp_ibv_stream>(std::move(io_service), config,
                                   std::max(std::size_t(1), calc_n_slots(config, buffer_size) / 2)),
     n_slots(calc_n_slots(config, buffer_size)),
-    socket(get_io_service(), endpoint.protocol()),
+    socket(get_io_service(), boost::asio::ip::udp::v4()),
+    endpoints(endpoints),
     cm_id(event_channel, nullptr, RDMA_PS_UDP),
     comp_channel_wrapper(get_io_service()),
     max_poll(max_poll)
 {
-    if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
-        throw std::invalid_argument("endpoint is not an IPv4 multicast address");
+    if (endpoints.empty())
+        throw std::invalid_argument("endpoints is empty");
+    mac_addresses.reserve(endpoints.size());
+    for (const auto &endpoint : endpoints)
+    {
+        if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
+            throw std::invalid_argument("endpoint is not an IPv4 multicast address");
+        mac_addresses.push_back(multicast_mac(endpoint.address()));
+    }
     if (!interface_address.is_v4())
         throw std::invalid_argument("interface address is not an IPv4 address");
     if (max_poll <= 0)
@@ -280,7 +311,8 @@ udp_ibv_stream::udp_ibv_stream(
     buffer = allocator->allocate(max_raw_size * n_slots, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
     slots.reset(new slot[n_slots]);
-    mac_address destination_mac = multicast_mac(endpoint.address());
+    // We fill in the destination details for the first endpoint. If there are
+    // multiple endpoints, they'll get updated for each packet.
     mac_address source_mac = interface_mac(interface_address);
     for (std::size_t i = 0; i < n_slots; i++)
     {
@@ -291,7 +323,7 @@ udp_ibv_stream::udp_ibv_stream(
         slots[i].wr.num_sge = 1;
         slots[i].wr.opcode = IBV_WR_SEND;
         slots[i].wr.wr_id = i;
-        slots[i].frame.destination_mac(destination_mac);
+        slots[i].frame.destination_mac(mac_addresses[0]);
         slots[i].frame.source_mac(source_mac);
         slots[i].frame.ethertype(ipv4_packet::ethertype);
         ipv4_packet ipv4 = slots[i].frame.payload_ipv4();
@@ -302,10 +334,10 @@ udp_ibv_stream::udp_ibv_stream(
         ipv4.ttl(ttl);
         ipv4.protocol(udp_packet::protocol);
         ipv4.source_address(interface_address.to_v4());
-        ipv4.destination_address(endpoint.address().to_v4());
+        ipv4.destination_address(endpoints[0].address().to_v4());
         udp_packet udp = ipv4.payload_udp();
         udp.source_port(socket.local_endpoint().port());
-        udp.destination_port(endpoint.port());
+        udp.destination_port(endpoints[0].port());
         udp.length(config.get_max_packet_size() + udp_packet::min_size);
         udp.checksum(0);
         available.push_back(&slots[i]);

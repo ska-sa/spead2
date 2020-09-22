@@ -61,8 +61,9 @@ private:
 
     const std::size_t n_slots;
     boost::asio::ip::udp::socket socket; // used only to assign a source UDP port
-    boost::asio::ip::udp::endpoint endpoint;
     boost::asio::ip::udp::endpoint source;
+    const std::vector<boost::asio::ip::udp::endpoint> endpoints;
+    std::vector<mac_address> mac_addresses; ///< MAC addresses corresponding to endpoints
     memory_allocator::pointer buffer;
     rdma_event_channel_t event_channel;
     rdma_cm_id_t cm_id;
@@ -143,7 +144,43 @@ public:
         int comp_vector = 0,
         int max_poll = default_max_poll);
 
-    std::size_t get_num_substreams() const { return 1; }
+    /**
+     * Constructor with multiple substreams.
+     *
+     * @param io_service   I/O service for sending data
+     * @param endpoints    Multicast groups and ports
+     * @param config       Stream configuration
+     * @param interface_address   Address of the outgoing interface
+     * @param buffer_size  Socket buffer size (0 for OS default)
+     * @param ttl          Maximum number of hops
+     * @param comp_vector  Completion channel vector (interrupt) for asynchronous operation, or
+     *                     a negative value to poll continuously. Polling
+     *                     should not be used if there are other users of the
+     *                     thread pool. If a non-negative value is provided, it
+     *                     is taken modulo the number of available completion
+     *                     vectors. This allows a number of readers to be
+     *                     assigned sequential completion vectors and have them
+     *                     load-balanced, without concern for the number
+     *                     available.
+     * @param max_poll     Maximum number of times to poll in a row, without
+     *                     waiting for an interrupt (if @a comp_vector is
+     *                     non-negative) or letting other code run on the
+     *                     thread (if @a comp_vector is negative).
+     *
+     * @throws std::invalid_argument if @a endpoint is not an IPv4 multicast address
+     * @throws std::invalid_argument if @a interface_address is not an IPv4 address
+     */
+    udp_ibv_stream(
+        io_service_ref io_service,
+        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+        const stream_config &config,
+        const boost::asio::ip::address &interface_address,
+        std::size_t buffer_size = default_buffer_size,
+        int ttl = 1,
+        int comp_vector = 0,
+        int max_poll = default_max_poll);
+
+    std::size_t get_num_substreams() const { return endpoints.size(); }
 
     virtual ~udp_ibv_stream();
 };
