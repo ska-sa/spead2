@@ -15,7 +15,7 @@
 
 import asyncio
 import socket
-from typing import Optional, overload
+from typing import List, Optional, overload
 
 import spead2
 import spead2.send
@@ -103,6 +103,7 @@ class UdpStream(spead2.send._UdpStream, _AsyncStream):
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
+                 socket: socket.socket,
                  endpoints: _EndpointList,
                  config: spead2.send.StreamConfig = ...,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
@@ -111,7 +112,7 @@ class UdpIbvStream(spead2.send._UdpIbvStream, _AsyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  multicast_group: _PybindStr, port: int,
-                 config: StreamConfig,
+                 config: spead2.send.StreamConfig,
                  interface_address: _PybindStr,
                  buffer_size: int = ..., ttl: int = ...,
                  comp_vector: int = ..., max_pool: int = ...,
@@ -120,7 +121,7 @@ class UdpIbvStream(spead2.send._UdpIbvStream, _AsyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  endpoints: _EndpointList,
-                 config: StreamConfig,
+                 config: spead2.send.StreamConfig,
                  interface_address: _PybindStr,
                  buffer_size: int = ..., ttl: int = ...,
                  comp_vector: int = ..., max_pool: int = ...,

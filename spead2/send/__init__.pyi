@@ -13,7 +13,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Text, Union, Iterator, Iterable, Optional, Sequence, ClassVar, overload
+from typing import (
+    Text, Union, List, Tuple, Iterator, Iterable, Optional, Sequence, ClassVar, overload
+)
 import socket
 
 import spead2
