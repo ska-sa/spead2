@@ -387,7 +387,7 @@ static std::pair<bool, double> measure_connection_once(
 #endif
         {
             stream.reset(new spead2::send::udp_stream(
-                thread_pool.get_io_service(), endpoint, config, opts.send_buffer));
+                thread_pool.get_io_service(), {endpoint}, config, opts.send_buffer));
         }
         sender s(*stream, heaps, opts);
         transferred = s.run();

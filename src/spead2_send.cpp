@@ -366,21 +366,21 @@ int main(int argc, const char **argv)
             {
                 if (endpoint.address().is_v4())
                     stream.reset(new spead2::send::udp_stream(
-                            io_service, endpoint, config, opts.buffer,
+                            io_service, {endpoint}, config, opts.buffer,
                             opts.ttl, interface_address));
                 else
                 {
                     if (!opts.bind.empty())
                         std::cerr << "--bind is not yet supported for IPv6 multicast, ignoring\n";
                     stream.reset(new spead2::send::udp_stream(
-                            io_service, endpoint, config, opts.buffer,
+                            io_service, {endpoint}, config, opts.buffer,
                             opts.ttl));
                 }
             }
             else
             {
                 stream.reset(new spead2::send::udp_stream(
-                        io_service, endpoint, config, opts.buffer, interface_address));
+                        io_service, {endpoint}, config, opts.buffer, interface_address));
             }
         }
     }

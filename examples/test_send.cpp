@@ -34,7 +34,7 @@ int main()
     udp::resolver::query query("127.0.0.1", "8888");
     auto it = resolver.resolve(query);
     spead2::send::udp_stream stream(
-        tp.get_io_service(), *it,
+        tp.get_io_service(), {*it},
         spead2::send::stream_config().set_max_packet_size(9000));
     spead2::flavour f(spead2::maximum_version, 64, 48, 0);
 
