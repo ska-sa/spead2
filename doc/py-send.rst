@@ -82,6 +82,20 @@ is paired with one heap generator, a convenience class
 
       Convenience method to add an end-of-stream item.
 
+.. _py-substreams:
+
+Substreams
+----------
+For some transport types it is possible to create a stream with multiple
+"substreams". Each substream typically has a separate destination address, but
+all the heaps within the stream are sent in order and the stream configuration
+(including the rate limits) apply to the stream as a whole. Using substreams
+rather than independent streams gives better control over the overall
+transmission rate, and uses fewer system resources.
+
+When sending a heap, and optional parameter called `substream_index` selects
+the substream that will be used.
+
 Blocking send
 -------------
 
@@ -91,7 +105,7 @@ implement the following interface, although this base class does not actually ex
 
 .. py:class:: spead2.send.AbstractStream()
 
-   .. py:method:: send_heap(heap, cnt=-1)
+   .. py:method:: send_heap(heap, cnt=-1, substream_index=0)
 
       Sends a :py:class:`spead2.send.Heap` to the peer, and wait for
       completion. There is currently no indication of whether it successfully
@@ -101,6 +115,8 @@ implement the following interface, although this base class does not actually ex
       modified by calling :py:meth:`set_cnt_sequence`). If a non-negative value
       is specified for `cnt`, it is used instead. It is the user's
       responsibility to avoid collisions.
+
+      See :ref:`py-substreams` for a description of `substream_index`.
 
    .. py:method:: set_cnt_sequence(next, step)
 
@@ -293,7 +309,7 @@ following abstract interface (the class does not actually exist):
 
 .. class:: spead2.send.asyncio.AbstractStream()
 
-   .. py:method:: async_send_heap(heap, cnt=-1, loop=None)
+   .. py:method:: async_send_heap(heap, cnt=-1, substream_index=0, *, loop=None)
 
       Send a heap asynchronously. Note that this is *not* a coroutine:
       it returns a future. Adding the heap to the queue is done
