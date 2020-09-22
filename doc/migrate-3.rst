@@ -72,6 +72,15 @@ a "fluent" style e.g.:
 
    spead2::send::stream_config().set_max_packet_size(9172).set_rate(1e6)
 
+Querying the queue of an in-process stream
+------------------------------------------
+Due to the new support for :ref:`py-substreams`, an in-process send stream an
+now have multiple queues. The :attr:`spead2.send.InprocStream.queue` attribute
+has thus been removed, and replaced with
+:attr:`~spead2.send.InprocStream.queues`. Similarly, the C++
+:cpp:func:`spead2::send::inproc_stream::get_queue` has been replaced by
+:cpp:func:`~spead2::send::inproc_stream::get_queues`.
+
 Out-of-order packets
 --------------------
 In prior versions of spead2, the packets forming a single heap could be

@@ -1,4 +1,4 @@
-/* Copyright 2018, 2019 SKA South Africa
+/* Copyright 2018-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -22,6 +22,7 @@
 #define SPEAD2_SEND_INPROC_H
 
 #include <cstddef>
+#include <vector>
 #include <utility>
 #include <memory>
 #include <boost/asio.hpp>
@@ -48,7 +49,7 @@ class inproc_stream : public stream_impl<inproc_stream>
 {
 private:
     friend class stream_impl<inproc_stream>;
-    std::shared_ptr<inproc_queue> queue;
+    std::vector<std::shared_ptr<inproc_queue>> queues;
 
     void async_send_packets();
 
@@ -59,10 +60,16 @@ public:
         std::shared_ptr<inproc_queue> queue,
         const stream_config &config = stream_config());
 
-    /// Get the underlying storage queue
-    std::shared_ptr<inproc_queue> get_queue() const;
+    /// Constructor, supporting multiple queues (and hence substreams)
+    inproc_stream(
+        io_service_ref io_service,
+        const std::vector<std::shared_ptr<inproc_queue>> &queues,
+        const stream_config &config = stream_config());
 
-    std::size_t get_num_substreams() const { return 1; }
+    /// Get the underlying storage queue
+    const std::vector<std::shared_ptr<inproc_queue>> &get_queues() const;
+
+    std::size_t get_num_substreams() const { return queues.size(); }
 
     virtual ~inproc_stream();
 };

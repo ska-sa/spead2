@@ -139,7 +139,11 @@ class TcpStream(spead2.send._TcpStream, _AsyncStream):
 
 
 class InprocStream(spead2.send._InprocStream, _AsyncStream):
+    @overload
     def __init__(self, thread_pool: spead2.ThreadPool, queue: spead2.InprocQueue,
                  config: spead2.send.StreamConfig = ...,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
-
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool, queues: List[spead2.InprocQueue],
+                 config: spead2.send.StreamConfig = ...,
+                 *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...

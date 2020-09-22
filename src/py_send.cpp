@@ -692,7 +692,9 @@ static py::class_<T> inproc_stream_register(py::module &m, const char *name)
     return py::class_<T>(m, name)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::shared_ptr<inproc_queue>, const stream_config &>(),
              "thread_pool"_a, "queue"_a, "config"_a = stream_config())
-        .def_property_readonly("queue", SPEAD2_PTMF(T, get_queue));
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::shared_ptr<inproc_queue>> &, const stream_config &>(),
+             "thread_pool"_a, "queues"_a, "config"_a = stream_config())
+        .def_property_readonly("queues", SPEAD2_PTMF(T, get_queues));
 }
 
 template<typename T>

@@ -165,16 +165,23 @@ class TestPassthroughTcpCustomSocket(BaseTestPassthroughAsync):
         return sender
 
 
-class TestPassthroughInproc(BaseTestPassthroughAsync):
-    async def prepare_receiver(self, receiver):
-        receiver.add_inproc_reader(self._queue)
+class TestPassthroughInproc(BaseTestPassthroughSubstreamsAsync):
+    async def prepare_receivers(self, receivers):
+        assert len(receivers) == len(self._queues)
+        for receiver, queue in zip(receivers, self._queues):
+            receiver.add_inproc_reader(queue)
 
-    async def prepare_sender(self, thread_pool):
-        return spead2.send.asyncio.InprocStream(thread_pool, self._queue, loop=self.loop)
+    async def prepare_senders(self, thread_pool, n):
+        assert n == len(self._queues)
+        if n == 1:
+            return spead2.send.asyncio.InprocStream(thread_pool, self._queues[0], loop=self.loop)
+        else:
+            return spead2.send.asyncio.InprocStream(thread_pool, self._queues, loop=self.loop)
 
     async def transmit_item_groups_async(self, item_groups, memcpy, allocator, new_order='='):
-        self._queue = spead2.InprocQueue()
+        self._queues = [spead2.InprocQueue() for ig in item_groups]
         ret = await super(TestPassthroughInproc, self).transmit_item_groups_async(
             item_groups, memcpy, allocator, new_order)
-        self._queue.stop()
+        for queue in self._queues:
+            queue.stop()
         return ret

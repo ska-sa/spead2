@@ -40,18 +40,18 @@ Sending
        Indicate end-of-stream to receivers. It is an error to add any more
        packets after this.
 
-.. py:class:: spead2.send.InprocStream(thread_pool, queue, config)
+.. py:class:: spead2.send.InprocStream(thread_pool, queues, config)
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
-   :param queue: Queue holding the generated packets
-   :type queue: :py:class:`spead2.InprocQueue`
+   :param queues: Queues holding the generated packets (one per substream).
+   :type queue: List[:py:class:`spead2.InprocQueue`]
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
 
-   .. py:attribute:: queue
+   .. py:attribute:: queues
 
-      Get the queue passed to the constructor.
+      Get the queues passed to the constructor.
 
 .. autoclass:: spead2.send.asyncio.InprocStream(thread_pool, queue, config)
 

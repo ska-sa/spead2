@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Text, Union, Iterator, Iterable, Optional, ClassVar, overload
+from typing import Text, Union, Iterator, Iterable, Optional, Sequence, ClassVar, overload
 import socket
 
 import spead2
@@ -169,10 +169,14 @@ class BytesStream(_BytesStream, _SyncStream):
 
 class _InprocStream:
     @property
-    def queue(self) -> spead2.InprocQueue: ...
+    def queues(self) -> Sequence[spead2.InprocQueue]: ...
 
 class InprocStream(_InprocStream, _SyncStream):
+    @overload
     def __init__(self, thread_pool: spead2.ThreadPool, queue: spead2.InprocQueue,
+                 config: StreamConfig = ...) -> None: ...
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool, queues: List[spead2.InprocQueue],
                  config: StreamConfig = ...) -> None: ...
 
 class HeapGenerator:

@@ -525,16 +525,23 @@ class TestPassthroughMem(BaseTestPassthrough):
         return [received_item_group]
 
 
-class TestPassthroughInproc(BaseTestPassthrough):
-    def prepare_receiver(self, receiver):
-        receiver.add_inproc_reader(self._queue)
+class TestPassthroughInproc(BaseTestPassthroughSubstreams):
+    def prepare_receivers(self, receivers):
+        assert len(receivers) == len(self._queues)
+        for receiver, queue in zip(receivers, self._queues):
+            receiver.add_inproc_reader(queue)
 
-    def prepare_sender(self, thread_pool):
-        return spead2.send.InprocStream(thread_pool, self._queue)
+    def prepare_senders(self, thread_pool, n):
+        assert n == len(self._queues)
+        if n == 1:
+            return spead2.send.InprocStream(thread_pool, self._queues[0])
+        else:
+            return spead2.send.InprocStream(thread_pool, self._queues)
 
     def transmit_item_groups(self, item_groups, memcpy, allocator, new_order='='):
-        self._queue = spead2.InprocQueue()
+        self._queues = [spead2.InprocQueue() for ig in item_groups]
         ret = super().transmit_item_groups(
             item_groups, memcpy, allocator, new_order)
-        self._queue.stop()
+        for queue in self._queues:
+            queue.stop()
         return ret

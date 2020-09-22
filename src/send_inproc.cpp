@@ -1,4 +1,4 @@
-/* Copyright 2018, 2019 SKA South Africa
+/* Copyright 2018-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -48,10 +48,11 @@ void inproc_stream::async_send_packets()
 {
     for (std::size_t i = 0; i < n_current_packets; i++)
     {
-        inproc_queue::packet dup = detail::copy_packet(current_packets[i].pkt);
+        const auto &current = current_packets[i];
+        inproc_queue::packet dup = detail::copy_packet(current.pkt);
         try
         {
-            queue->buffer.push(std::move(dup));
+            queues[current.item->substream_index]->buffer.push(std::move(dup));
             current_packets[i].result = boost::system::error_code();
         }
         catch (ringbuffer_stopped &)
@@ -67,8 +68,19 @@ inproc_stream::inproc_stream(
     std::shared_ptr<inproc_queue> queue,
     const stream_config &config)
     : stream_impl<inproc_stream>(std::move(io_service), config, 1),
-    queue(std::move(queue))
+    queues{std::move(queue)}
 {
+}
+
+inproc_stream::inproc_stream(
+    io_service_ref io_service,
+    const std::vector<std::shared_ptr<inproc_queue>> &queues,
+    const stream_config &config)
+    : stream_impl<inproc_stream>(std::move(io_service), config, 1),
+    queues(queues)
+{
+    if (queues.empty())
+        throw std::invalid_argument("queues is empty");
 }
 
 inproc_stream::~inproc_stream()
@@ -76,9 +88,9 @@ inproc_stream::~inproc_stream()
     flush();
 }
 
-std::shared_ptr<inproc_queue> inproc_stream::get_queue() const
+const std::vector<std::shared_ptr<inproc_queue>> &inproc_stream::get_queues() const
 {
-    return queue;
+    return queues;
 }
 
 } // namespace send
