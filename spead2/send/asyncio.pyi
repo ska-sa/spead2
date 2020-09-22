@@ -21,12 +21,15 @@ import spead2
 import spead2.send
 
 from spead2 import _PybindStr
+from spead2.send import _EndpointList
 
 class _AsyncStream(spead2.send._Stream):
     @property
     def fd(self) -> int: ...
     def flush(self) -> None: ...
     def async_send_heap(self, heap: spead2.send.Heap, cnt: int = ...,
+                        substream_index: int = ...,
+                        *,
                         loop: Optional[asyncio.AbstractEventLoop] = None) -> asyncio.Future[int]: ...
     async def async_flush(self) -> None: ...
 
@@ -51,19 +54,56 @@ class UdpStream(spead2.send._UdpStream, _AsyncStream):
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: _PybindStr, port: int,
+                 multicast_group: _PybindStr, port: int,
                  config: spead2.send.StreamConfig,
                  ttl: int, interface_address: _PybindStr,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: _PybindStr, port: int,
+                 multicast_group: _PybindStr, port: int,
                  config: spead2.send.StreamConfig,
                  ttl: int, interface_index: int,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  socket: socket.socket, hostname: _PybindStr, port: int,
+                 config: spead2.send.StreamConfig = ...,
+                 *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
+
+    # Endpoint list variants
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool,
+                 endpoints: _EndpointList,
+                 config: spead2.send.StreamConfig,
+                 buffer_size: int, socket: socket.socket,
+                 *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool,
+                 endpoints: _EndpointList,
+                 config: spead2.send.StreamConfig = ...,
+                 buffer_size: int = ..., interface_address: _PybindStr = ...,
+                 *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool,
+                 endpoints: _EndpointList,
+                 config: spead2.send.StreamConfig,
+                 ttl: int,
+                 *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool,
+                 endpoints: _EndpointList,
+                 config: spead2.send.StreamConfig,
+                 ttl: int, interface_address: _PybindStr,
+                 *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool,
+                 endpoints: _EndpointList,
+                 config: spead2.send.StreamConfig,
+                 ttl: int, interface_index: int,
+                 *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool,
+                 endpoints: _EndpointList,
                  config: spead2.send.StreamConfig = ...,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
 

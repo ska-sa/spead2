@@ -13,11 +13,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Text, Union, Iterator, Optional, ClassVar, overload
+from typing import Text, Union, Iterator, Iterable, Optional, ClassVar, overload
 import socket
 
 import spead2
 from spead2 import _PybindStr
+
+_EndpointList = List[Tuple[str, int]]
 
 class Heap:
     def __init__(self, flavour: spead2.Flavour) -> None: ...
@@ -62,7 +64,7 @@ class _Stream:
     def set_cnt_sequence(self, next: int, step: int) -> None: ...
 
 class _SyncStream(_Stream):
-    def send_heap(self, heap: Heap, cnt: int = ...) -> None: ...
+    def send_heap(self, heap: Heap, cnt: int = ..., substream_index = ...) -> None: ...
 
 class _UdpStream:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
@@ -81,18 +83,47 @@ class UdpStream(_UdpStream, _SyncStream):
                  ttl: int) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: _PybindStr, port: int,
+                 multicast_group: _PybindStr, port: int,
                  config: StreamConfig,
                  ttl: int, interface_address: _PybindStr) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: _PybindStr, port: int,
+                 multicast_group: _PybindStr, port: int,
                  config: StreamConfig,
                  ttl: int, interface_index: int) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  socket: socket.socket, hostname: _PybindStr, port: int,
                  config: StreamConfig = ...) -> None: ...
+
+    # Endpoint list variants
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool,
+                 endpoints: _EndpointList,
+                 config: StreamConfig = ...,
+                 buffer_size: int = ..., interface_address: _PybindStr = ...) -> None: ...
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool,
+                 endpoints: _EndpointList,
+                 config: StreamConfig,
+                 buffer_size: int,
+                 ttl: int) -> None: ...
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool,
+                 endpoints: _EndpointList,
+                 config: StreamConfig,
+                 ttl: int, interface_address: _PybindStr) -> None: ...
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool,
+                 endpoints: _EndpointList,
+                 config: StreamConfig,
+                 ttl: int, interface_index: int) -> None: ...
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool,
+                 socket: socket.socket,
+                 endpoints: _EndpointList,
+                 config: StreamConfig = ...) -> None: ...
+
 
 class _UdpIbvStream:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
