@@ -281,12 +281,11 @@ class BaseTestPassthroughSubstreams(BaseTestPassthrough):
     """Tests for send stream classes that support multiple substreams."""
 
     def test_substreams(self):
-        n = 4
         item_groups = []
         for i in range(4):
             ig = spead2.ItemGroup()
             ig.add_item(id=0x2345, name='int', description='an integer',
-                     shape=(), format=[('i', 32)], value=i)
+                        shape=(), format=[('i', 32)], value=i)
             item_groups.append(ig)
         self._test_item_groups(item_groups)
 
