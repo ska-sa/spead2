@@ -42,26 +42,6 @@ namespace send
 
 class udp_stream : public stream_impl<udp_stream>
 {
-public:
-    /**
-     * Helper class for specifying list of destinations.
-     *
-     * It is not intended to be used directly, but is public as it may be
-     * useful in wrappers. It may be removed in a future release. User
-     * code should pass either a single endpoint or a vector of endpoints.
-     */
-    struct destinations
-    {
-        std::vector<boost::asio::ip::udp::endpoint> endpoints;
-
-        destinations(std::vector<boost::asio::ip::udp::endpoint> endpoints);
-
-        // Templating allows basic_resolver_entry for example
-        template<typename T, typename = typename std::enable_if<std::is_convertible<T, boost::asio::ip::udp::endpoint>::value>::type>
-        destinations(const T &endpoint)
-            : destinations(std::vector<boost::asio::ip::udp::endpoint>{endpoint}) {}
-    };
-
 private:
     friend class stream_impl<udp_stream>;
     boost::asio::ip::udp::socket socket;
@@ -79,12 +59,12 @@ private:
 #endif
 
     /**
-     * Constructor used to implement most other destructors.
+     * Constructor used to implement most other constructors.
      */
     udp_stream(
         io_service_ref io_service,
         boost::asio::ip::udp::socket &&socket,
-        destinations &&endpoints,
+        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const stream_config &config,
         std::size_t buffer_size);
 
@@ -110,7 +90,7 @@ public:
      */
     udp_stream(
         io_service_ref io_service,
-        destinations &&endpoints,
+        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size,
         const boost::asio::ip::address &interface_address = boost::asio::ip::address());
@@ -123,7 +103,7 @@ public:
     udp_stream(
         io_service_ref io_service,
         boost::asio::ip::udp::socket &&socket,
-        destinations &&endpoints,
+        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const stream_config &config = stream_config());
 
     /**
@@ -135,11 +115,13 @@ public:
      * @param buffer_size  Socket buffer size (0 for OS default)
      * @param ttl          Maximum number of hops
      *
-     * @throws std::invalid_argument if @a endpoint is not a multicast address
+     * @throws std::invalid_argument if any element of @a endpoints is not a multicast address
+     * @throws std::invalid_argument if the elements of @a endpoints do not all have the same protocol
+     * @throws std::invalid_argument if @a endpoints is empty
      */
     udp_stream(
         io_service_ref io_service,
-        destinations &&endpoints,
+        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl);
@@ -155,12 +137,13 @@ public:
      * @param ttl          Maximum number of hops
      * @param interface_address   Address of the outgoing interface
      *
-     * @throws std::invalid_argument if @a endpoint is not an IPv4 multicast address
+     * @throws std::invalid_argument if any element of @a endpoint is not an IPv4 multicast address
+     * @throws std::invalid_argument if @a endpoints is empty
      * @throws std::invalid_argument if @a interface_address is not an IPv4 address
      */
     udp_stream(
         io_service_ref io_service,
-        destinations &&endpoints,
+        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl,
@@ -177,17 +160,35 @@ public:
      * @param ttl          Maximum number of hops
      * @param interface_index   Index of the outgoing interface
      *
-     * @throws std::invalid_argument if @a endpoint is not an IPv6 multicast address
+     * @throws std::invalid_argument if any element of @a endpoints is not an IPv6 multicast address
+     * @throws std::invalid_argument if @a endpoints is empty
      *
      * @see if_nametoindex(3)
      */
     udp_stream(
         io_service_ref io_service,
-        destinations &&endpoints,
+        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl,
         unsigned int interface_index);
+
+    /// Backwards-compatibility constructor with a single endpoint
+    template<typename... Args>
+    udp_stream(
+        io_service_ref io_service,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        Args&&... args)
+        : udp_stream(std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>{endpoint}, std::forward<Args>(args)...) {}
+
+    /// Backwards-compatibility constructor with a socket and a single endpoint
+    template<typename... Args>
+    udp_stream(
+        io_service_ref io_service,
+        boost::asio::ip::udp::socket &&socket,
+        const boost::asio::ip::udp::endpoint &endpoint,
+        Args&&... args)
+        : udp_stream(std::move(io_service), std::move(socket), std::vector<boost::asio::ip::udp::endpoint>{endpoint}, std::forward<Args>(args)...) {}
 
     std::size_t get_num_substreams() const { return endpoints.size(); }
 
