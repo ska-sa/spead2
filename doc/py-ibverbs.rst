@@ -127,14 +127,13 @@ of :py:class:`spead2.send.UdpStream`. It has a different constructor, but the
 same methods. There is also a :py:class:`spead2.send.asyncio.UdpIbvStream`
 class, analogous to :py:class:`spead2.send.asyncio.UdpStream`.
 
-.. py:class:: spead2.send.UdpIbvStream(thread_pool, multicast_group, port, config, interface_address, buffer_size, ttl=1, comp_vector=0, max_poll=DEFAULT_MAX_POLL)
+.. py:class:: spead2.send.UdpIbvStream(thread_pool, endpoints, config, interface_address, buffer_size, ttl=1, comp_vector=0, max_poll=DEFAULT_MAX_POLL)
 
    Create a multicast IPv4 UDP stream using the ibverbs API
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
-   :param str multicast_group: Multicast group hostname/IP address
-   :param int port: Destination port
+   :param List[Tuple[str, int]] endpoints: Peer endpoints (one per substream)
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param str interface_address: Hostname/IP address of the interface which

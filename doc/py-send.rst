@@ -137,12 +137,15 @@ UDP
 
 Note that since UDP is an unreliable protocol, there is no guarantee that packets arrive.
 
-.. py:class:: spead2.send.UdpStream(thread_pool, hostname, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, interface_address='')
+For each constructor overload, the `endpoints` parameter can also be replaced
+by two parameters that contain the hostname/IP address and port for a single
+substream (for backwards compatibility).
+
+.. py:class:: spead2.send.UdpStream(thread_pool, endpoints, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, interface_address='')
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
-   :param str hostname: Peer hostname
-   :param int port: Peer port
+   :param List[Tuple[str, int]] endpoints: Peer endpoints (one per substream)
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
@@ -150,7 +153,7 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
    :param str interface_address: Source hostname/IP address (see tips about
      :ref:`routing`).
 
-.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, ttl)
+.. py:class:: spead2.send.UdpStream(thread_pool, endpoints, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, ttl)
    :noindex:
 
    Stream using UDP, with multicast TTL. Note that the regular constructor will
@@ -158,23 +161,21 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
-   :param str multicast_group: Multicast group hostname/IP address
-   :param int port: Destination port
+   :param List[Tuple[str, int]] endpoints: Peer endpoints (one per substream)
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
      size cannot be set due to OS limits.
    :param int ttl: Multicast TTL
 
-.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config=spead2.send.StreamConfig(), buffer_size=524288, ttl, interface_address)
+.. py:class:: spead2.send.UdpStream(thread_pool, endpoints, config=spead2.send.StreamConfig(), buffer_size=524288, ttl, interface_address)
    :noindex:
 
    Stream using UDP, with multicast TTL and interface address (IPv4 only).
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
-   :param str multicast_group: Multicast group hostname/IP address
-   :param int port: Destination port
+   :param List[Tuple[str, int]] endpoints: Peer endpoints (one per substream)
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
@@ -183,15 +184,14 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
    :param str interface_address: Hostname/IP address of the interface on which
      to send the data
 
-.. py:class:: spead2.send.UdpStream(thread_pool, multicast_group, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, ttl, interface_index)
+.. py:class:: spead2.send.UdpStream(thread_pool, endpoints, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, ttl, interface_index)
    :noindex:
 
    Stream using UDP, with multicast TTL and interface index (IPv6 only).
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
-   :param str multicast_group: Multicast group hostname/IP address
-   :param int port: Destination port
+   :param List[Tuple[str, int]] endpoints: Peer endpoints (one per substream)
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
@@ -200,7 +200,7 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
    :param str interface_index: Index of the interface on which to send the
      data
 
-.. py:class:: spead2.send.UdpStream(thread_pool, socket, hostname, port, config=spead2.send.StreamConfig())
+.. py:class:: spead2.send.UdpStream(thread_pool, socket, endpoints, config=spead2.send.StreamConfig())
    :noindex:
 
    Stream using UDP, with a pre-existing socket. The socket is duplicated by
@@ -211,18 +211,16 @@ Note that since UDP is an unreliable protocol, there is no guarantee that packet
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
    :param socket.socket socket: UDP socket
-   :param str hostname: Peer hostname
-   :param int port: Peer port
+   :param List[Tuple[str, int]] endpoints: Peer endpoints (one per substream)
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
 
-.. py:class:: spead2.send.UdpStream(thread_pool, hostname, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, socket)
+.. py:class:: spead2.send.UdpStream(thread_pool, endpoints, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, socket)
    :noindex:
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
-   :param str hostname: Peer hostname
-   :param int port: Peer port
+   :param List[Tuple[str, int]] endpoints: Peer endpoints (one per substream)
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
