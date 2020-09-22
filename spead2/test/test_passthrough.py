@@ -435,7 +435,7 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
                 buffer_size=0, ttl=0, interface_index=interface_index)
 
 
-class TestPassthroughUdpIbv(BaseTestPassthrough):
+class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
     is_lossy = True
     MCAST_GROUP = '239.255.88.88'
 
@@ -456,14 +456,22 @@ class TestPassthroughUdpIbv(BaseTestPassthrough):
     def teardown(self):
         self._extra_context.reset()
 
-    def prepare_receiver(self, receiver):
-        receiver.add_udp_ibv_reader([(self.MCAST_GROUP, 8886)], self._interface_address())
+    def prepare_receivers(self, receivers):
+        for i, receiver in enumerate(receivers):
+            receiver.add_udp_ibv_reader([(self.MCAST_GROUP, 8876 + i)], self._interface_address())
 
-    def prepare_sender(self, thread_pool):
-        return spead2.send.UdpIbvStream(
-            thread_pool, self.MCAST_GROUP, 8886,
-            spead2.send.StreamConfig(rate=1e7),
-            self._interface_address())
+    def prepare_senders(self, thread_pool, n):
+        if n == 1:
+            return spead2.send.UdpIbvStream(
+                thread_pool, self.MCAST_GROUP, 8876,
+                spead2.send.StreamConfig(rate=1e7),
+                self._interface_address())
+        else:
+            return spead2.send.UdpIbvStream(
+                thread_pool,
+                [(self.MCAST_GROUP, 8876 + i) for i in range(n)],
+                spead2.send.StreamConfig(rate=1e7),
+                self._interface_address())
 
 
 class TestPassthroughTcp(BaseTestPassthrough):
