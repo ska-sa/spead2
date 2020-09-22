@@ -235,7 +235,9 @@ class BaseTestPassthrough:
             for item_group in item_groups
         ]
         if len(item_groups) != 1:
-            for i, gen in enumerate(gens):
+            # Use reversed order so that if everything is actually going
+            # through the same transport it will get picked up.
+            for i, gen in reversed(list(enumerate(gens))):
                 sender.send_heap(gen.get_heap(), substream_index=i)
             for i, gen in enumerate(gens):
                 sender.send_heap(gen.get_end(), substream_index=i)
