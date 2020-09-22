@@ -42,10 +42,30 @@ namespace send
 
 class udp_stream : public stream_impl<udp_stream>
 {
+public:
+    /**
+     * Helper class for specifying list of destinations.
+     *
+     * It is not intended to be used directly, but is public as it may be
+     * useful in wrappers. It may be removed in a future release. User
+     * code should pass either a single endpoint or a vector of endpoints.
+     */
+    struct destinations
+    {
+        std::vector<boost::asio::ip::udp::endpoint> endpoints;
+
+        destinations(std::vector<boost::asio::ip::udp::endpoint> endpoints);
+
+        // Templating allows basic_resolver_entry for example
+        template<typename T, typename = typename std::enable_if<std::is_convertible<T, boost::asio::ip::udp::endpoint>::value>::type>
+        destinations(const T &endpoint)
+            : destinations(std::vector<boost::asio::ip::udp::endpoint>{endpoint}) {}
+    };
+
 private:
     friend class stream_impl<udp_stream>;
     boost::asio::ip::udp::socket socket;
-    boost::asio::ip::udp::endpoint endpoint;
+    std::vector<boost::asio::ip::udp::endpoint> endpoints;
 
     /// Implements async_send_packets, starting from @a first
     void send_packets(std::size_t first);
@@ -64,7 +84,7 @@ private:
     udp_stream(
         io_service_ref io_service,
         boost::asio::ip::udp::socket &&socket,
-        const boost::asio::ip::udp::endpoint &endpoint,
+        destinations &&endpoints,
         const stream_config &config,
         std::size_t buffer_size);
 
@@ -80,7 +100,7 @@ public:
      * that the multicast-specific constructors do.
      *
      * @param io_service   I/O service for sending data
-     * @param endpoint     Destination address and port
+     * @param endpoints    Destination address and port for each substream
      * @param config       Stream configuration
      * @param buffer_size  Socket buffer size (0 for OS default)
      * @param interface_address   Source address
@@ -90,7 +110,7 @@ public:
      */
     udp_stream(
         io_service_ref io_service,
-        const boost::asio::ip::udp::endpoint &endpoint,
+        destinations &&endpoints,
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size,
         const boost::asio::ip::address &interface_address = boost::asio::ip::address());
@@ -103,14 +123,14 @@ public:
     udp_stream(
         io_service_ref io_service,
         boost::asio::ip::udp::socket &&socket,
-        const boost::asio::ip::udp::endpoint &endpoint,
+        destinations &&endpoints,
         const stream_config &config = stream_config());
 
     /**
      * Constructor with multicast hop count.
      *
      * @param io_service   I/O service for sending data
-     * @param endpoint     Multicast group and port
+     * @param endpoints    Multicast group and port for each substream
      * @param config       Stream configuration
      * @param buffer_size  Socket buffer size (0 for OS default)
      * @param ttl          Maximum number of hops
@@ -119,7 +139,7 @@ public:
      */
     udp_stream(
         io_service_ref io_service,
-        const boost::asio::ip::udp::endpoint &endpoint,
+        destinations &&endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl);
@@ -129,7 +149,7 @@ public:
      * (IPv4 only).
      *
      * @param io_service   I/O service for sending data
-     * @param endpoint     Multicast group and port
+     * @param endpoints    Multicast group and port for each substream
      * @param config       Stream configuration
      * @param buffer_size  Socket buffer size (0 for OS default)
      * @param ttl          Maximum number of hops
@@ -140,7 +160,7 @@ public:
      */
     udp_stream(
         io_service_ref io_service,
-        const boost::asio::ip::udp::endpoint &endpoint,
+        destinations &&endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl,
@@ -151,7 +171,7 @@ public:
      * (IPv6 only).
      *
      * @param io_service   I/O service for sending data
-     * @param endpoint     Multicast group and port
+     * @param endpoints    Multicast group and port for each substream
      * @param config       Stream configuration
      * @param buffer_size  Socket buffer size (0 for OS default)
      * @param ttl          Maximum number of hops
@@ -163,11 +183,13 @@ public:
      */
     udp_stream(
         io_service_ref io_service,
-        const boost::asio::ip::udp::endpoint &endpoint,
+        destinations &&endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl,
         unsigned int interface_index);
+
+    std::size_t get_num_substreams() const { return endpoints.size(); }
 
     virtual ~udp_stream();
 };

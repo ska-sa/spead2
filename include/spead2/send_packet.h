@@ -55,7 +55,7 @@ struct packet
 class packet_generator
 {
 private:
-    // 8 bytes header, item pointerh for heap cnt, heap size, payload offset, payload size
+    // 8 bytes header, item pointers for heap cnt, heap size, payload offset, payload size
     static constexpr std::size_t prefix_size = 8 + 4 * sizeof(item_pointer_t);
 
     const heap &h;

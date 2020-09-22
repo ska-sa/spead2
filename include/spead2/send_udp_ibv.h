@@ -143,6 +143,8 @@ public:
         int comp_vector = 0,
         int max_poll = default_max_poll);
 
+    std::size_t get_num_substreams() const { return 1; }
+
     virtual ~udp_ibv_stream();
 };
 

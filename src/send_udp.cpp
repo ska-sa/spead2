@@ -29,6 +29,16 @@ namespace send
 
 constexpr std::size_t udp_stream::default_buffer_size;
 
+udp_stream::destinations::destinations(std::vector<boost::asio::ip::udp::endpoint> endpoints)
+    : endpoints(std::move(endpoints))
+{
+    if (this->endpoints.empty())
+        throw std::invalid_argument("Endpoint list must be non-empty");
+    for (std::size_t i = 1; i < this->endpoints.size(); i++)
+        if (this->endpoints[i].protocol() != this->endpoints[0].protocol())
+            throw std::invalid_argument("Mixed protocols are not supported");
+}
+
 void udp_stream::send_packets(std::size_t first)
 {
 #if SPEAD2_USE_SENDMMSG
@@ -61,7 +71,9 @@ void udp_stream::send_packets(std::size_t first)
     {
         // First try to send synchronously, to reduce overheads from callbacks etc
         boost::system::error_code ec;
-        socket.send_to(current_packets[idx].pkt.buffers, endpoint, 0, ec);
+        transmit_item &current = current_packets[idx];
+        boost::asio::ip::udp::endpoint endpoint = endpoints[current.item->substream_index];
+        socket.send_to(current.pkt.buffers, endpoint, 0, ec);
         if (ec == boost::asio::error::would_block)
         {
             // Socket buffer is full, fall back to asynchronous
@@ -70,12 +82,12 @@ void udp_stream::send_packets(std::size_t first)
                 current_packets[idx].result = ec;
                 send_packets(idx + 1);
             };
-            socket.async_send_to(current_packets[idx].pkt.buffers, endpoint, handler);
+            socket.async_send_to(current.pkt.buffers, endpoint, handler);
             return;
         }
         else
         {
-            current_packets[idx].result = ec;
+            current.result = ec;
         }
     }
 #endif
@@ -98,9 +110,14 @@ void udp_stream::async_send_packets()
     std::size_t offset = 0;
     for (std::size_t i = 0; i < n_current_packets; i++)
     {
-        msgvec[i].msg_hdr.msg_iov = &msg_iov[offset];
-        msgvec[i].msg_hdr.msg_iovlen = current_packets[i].pkt.buffers.size();
-        offset += msgvec[i].msg_hdr.msg_iovlen;
+        auto &hdr = msgvec[i].msg_hdr;
+        hdr.msg_iov = &msg_iov[offset];
+        hdr.msg_iovlen = current_packets[i].pkt.buffers.size();
+        offset += hdr.msg_iovlen;
+
+        const auto &endpoint = endpoints[current_packets[i].item->substream_index];
+        hdr.msg_name = (void *) endpoint.data();
+        hdr.msg_namelen = endpoint.size();
     }
 #endif
     send_packets(0);
@@ -119,39 +136,41 @@ static boost::asio::ip::udp::socket make_socket(
 
 udp_stream::udp_stream(
     io_service_ref io_service,
-    const boost::asio::ip::udp::endpoint &endpoint,
+    destinations &&endpoints,
     const stream_config &config,
     std::size_t buffer_size,
     const boost::asio::ip::address &interface_address)
     : udp_stream(std::move(io_service),
-                 make_socket(*io_service, endpoint.protocol(), interface_address),
-                 endpoint, config, buffer_size)
+                 make_socket(*io_service, endpoints.endpoints[0].protocol(), interface_address),
+                 std::move(endpoints), config, buffer_size)
 {
 }
 
 static boost::asio::ip::udp::socket make_multicast_socket(
     boost::asio::io_service &io_service,
-    const boost::asio::ip::udp::endpoint &endpoint,
+    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     int ttl)
 {
-    if (!endpoint.address().is_multicast())
-        throw std::invalid_argument("endpoint is not a multicast address");
-    boost::asio::ip::udp::socket socket(io_service, endpoint.protocol());
+    for (const auto &endpoint : endpoints)
+        if (!endpoint.address().is_multicast())
+            throw std::invalid_argument("endpoint is not a multicast address");
+    boost::asio::ip::udp::socket socket(io_service, endpoints[0].protocol());
     socket.set_option(boost::asio::ip::multicast::hops(ttl));
     return socket;
 }
 
 static boost::asio::ip::udp::socket make_multicast_v4_socket(
     boost::asio::io_service &io_service,
-    const boost::asio::ip::udp::endpoint &endpoint,
+    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     int ttl,
     const boost::asio::ip::address &interface_address)
 {
-    if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
-        throw std::invalid_argument("endpoint is not an IPv4 multicast address");
+    for (const auto &endpoint : endpoints)
+        if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
+            throw std::invalid_argument("endpoint is not an IPv4 multicast address");
     if (!interface_address.is_unspecified() && !interface_address.is_v4())
         throw std::invalid_argument("interface address is not an IPv4 address");
-    boost::asio::ip::udp::socket socket(io_service, endpoint.protocol());
+    boost::asio::ip::udp::socket socket(io_service, boost::asio::ip::udp::v4());
     socket.set_option(boost::asio::ip::multicast::hops(ttl));
     if (!interface_address.is_unspecified())
         socket.set_option(boost::asio::ip::multicast::outbound_interface(interface_address.to_v4()));
@@ -160,12 +179,13 @@ static boost::asio::ip::udp::socket make_multicast_v4_socket(
 
 static boost::asio::ip::udp::socket make_multicast_v6_socket(
     boost::asio::io_service &io_service,
-    const boost::asio::ip::udp::endpoint &endpoint,
+    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     int ttl, unsigned int interface_index)
 {
-    if (!endpoint.address().is_v6() || !endpoint.address().is_multicast())
-        throw std::invalid_argument("endpoint is not an IPv4 multicast address");
-    boost::asio::ip::udp::socket socket(io_service, endpoint.protocol());
+    for (const auto &endpoint : endpoints)
+        if (!endpoint.address().is_v6() || !endpoint.address().is_multicast())
+            throw std::invalid_argument("endpoint is not an IPv4 multicast address");
+    boost::asio::ip::udp::socket socket(io_service, boost::asio::ip::udp::v6());
     socket.set_option(boost::asio::ip::multicast::hops(ttl));
     socket.set_option(boost::asio::ip::multicast::outbound_interface(interface_index));
     return socket;
@@ -173,50 +193,50 @@ static boost::asio::ip::udp::socket make_multicast_v6_socket(
 
 udp_stream::udp_stream(
     io_service_ref io_service,
-    const boost::asio::ip::udp::endpoint &endpoint,
+    destinations &&endpoints,
     const stream_config &config,
     std::size_t buffer_size,
     int ttl)
     : udp_stream(std::move(io_service),
-                 make_multicast_socket(*io_service, endpoint, ttl),
-                 endpoint, config, buffer_size)
+                 make_multicast_socket(*io_service, endpoints.endpoints, ttl),
+                 std::move(endpoints), config, buffer_size)
 {
 }
 
 udp_stream::udp_stream(
     io_service_ref io_service,
-    const boost::asio::ip::udp::endpoint &endpoint,
+    destinations &&endpoints,
     const stream_config &config,
     std::size_t buffer_size,
     int ttl,
     const boost::asio::ip::address &interface_address)
     : udp_stream(std::move(io_service),
-                 make_multicast_v4_socket(*io_service, endpoint, ttl, interface_address),
-                 endpoint, config, buffer_size)
+                 make_multicast_v4_socket(*io_service, endpoints.endpoints, ttl, interface_address),
+                 std::move(endpoints), config, buffer_size)
 {
 }
 
 udp_stream::udp_stream(
     io_service_ref io_service,
-    const boost::asio::ip::udp::endpoint &endpoint,
+    destinations &&endpoints,
     const stream_config &config,
     std::size_t buffer_size,
     int ttl,
     unsigned int interface_index)
     : udp_stream(std::move(io_service),
-                 make_multicast_v6_socket(*io_service, endpoint, ttl, interface_index),
-                 endpoint, config, buffer_size)
+                 make_multicast_v6_socket(*io_service, endpoints.endpoints, ttl, interface_index),
+                 std::move(endpoints), config, buffer_size)
 {
 }
 
 udp_stream::udp_stream(
     io_service_ref io_service,
     boost::asio::ip::udp::socket &&socket,
-    const boost::asio::ip::udp::endpoint &endpoint,
+    destinations &&endpoints,
     const stream_config &config,
     std::size_t buffer_size)
     : stream_impl<udp_stream>(std::move(io_service), config, batch_size),
-    socket(std::move(socket)), endpoint(endpoint)
+    socket(std::move(socket)), endpoints(std::move(endpoints.endpoints))
 {
     if (!socket_uses_io_service(this->socket, get_io_service()))
         throw std::invalid_argument("I/O service does not match the socket's I/O service");
@@ -224,21 +244,15 @@ udp_stream::udp_stream(
     this->socket.non_blocking(true);
 #if SPEAD2_USE_SENDMMSG
     std::memset(&msgvec, 0, sizeof(msgvec));
-    for (std::size_t i = 0; i < batch_size; i++)
-    {
-        auto &hdr = msgvec[i].msg_hdr;
-        hdr.msg_name = (void *) this->endpoint.data();
-        hdr.msg_namelen = this->endpoint.size();
-    }
 #endif // SPEAD2_USE_SENDMMSG
 }
 
 udp_stream::udp_stream(
     io_service_ref io_service,
     boost::asio::ip::udp::socket &&socket,
-    const boost::asio::ip::udp::endpoint &endpoint,
+    destinations &&endpoint,
     const stream_config &config)
-    : udp_stream(io_service, std::move(socket), endpoint, config, 0)
+    : udp_stream(io_service, std::move(socket), std::move(endpoint), config, 0)
 {
 }
 

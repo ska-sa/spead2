@@ -150,10 +150,16 @@ public:
      * contribute to a single stream and must keep their heap cnts disjoint,
      * which the automatic assignment would not do.
      *
+     * Some streams may contain multiple substreams, each with a different
+     * destination. In this case, @a substream_index selects the substream to
+     * use.
+     *
      * @retval  false  If the heap was immediately discarded
      * @retval  true   If the heap was enqueued
      */
-    virtual bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt = -1) = 0;
+    virtual bool async_send_heap(const heap &h, completion_handler handler,
+                                 s_item_pointer_t cnt = -1,
+                                 std::size_t substream_index = 0) = 0;
 
     /**
      * Block until all enqueued heaps have been sent. This function is
@@ -190,12 +196,14 @@ private:
     {
         const heap &h;
         item_pointer_t cnt;
-        completion_handler handler;
+        std::size_t substream_index;
         item_pointer_t bytes_sent = 0;
+        completion_handler handler;
 
         queue_item() = default;
-        queue_item(const heap &h, item_pointer_t cnt, completion_handler &&handler) noexcept
-            : h(std::move(h)), cnt(cnt), handler(std::move(handler))
+        queue_item(const heap &h, item_pointer_t cnt, std::size_t substream_index,
+                   completion_handler &&handler) noexcept
+            : h(h), cnt(cnt), substream_index(substream_index), handler(std::move(handler))
         {
         }
     };
@@ -426,7 +434,9 @@ protected:
     using stream_impl_base::stream_impl_base;
 
 public:
-    virtual bool async_send_heap(const heap &h, completion_handler handler, s_item_pointer_t cnt = -1) override
+    virtual bool async_send_heap(const heap &h, completion_handler handler,
+                                 s_item_pointer_t cnt = -1,
+                                 std::size_t substream_index = 0) override
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
         std::size_t new_tail = next_queue_slot(queue_tail);
@@ -450,9 +460,16 @@ public:
             get_io_service().post(std::bind(handler, boost::asio::error::invalid_argument, 0));
             return false;
         }
+        if (substream_index >= static_cast<Derived *>(this)->get_num_substreams())
+        {
+            lock.unlock();
+            log_warning("async_send_heap: dropping heap because substream index is out of range");
+            get_io_service().post(std::bind(handler, boost::asio::error::invalid_argument, 0));
+            return false;
+        }
 
         // Construct in place
-        new (get_queue(queue_tail)) queue_item(h, cnt, std::move(handler));
+        new (get_queue(queue_tail)) queue_item(h, cnt, substream_index, std::move(handler));
         queue_tail = new_tail;
 
         bool empty = (state == state_t::EMPTY);
