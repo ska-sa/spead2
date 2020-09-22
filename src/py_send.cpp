@@ -24,6 +24,7 @@
 #include <boost/optional.hpp>
 #include <stdexcept>
 #include <mutex>
+#include <vector>
 #include <utility>
 #include <memory>
 #include <unistd.h>
@@ -407,8 +408,25 @@ public:
         int ttl,
         int comp_vector,
         int max_poll)
-        : Base(std::move(pool),
+        : Base(pool,
                make_endpoint<boost::asio::ip::udp>(pool->get_io_service(), multicast_group, port),
+               config,
+               make_address(pool->get_io_service(), interface_address),
+               buffer_size, ttl, comp_vector, max_poll)
+    {
+    }
+
+    udp_ibv_stream_wrapper(
+        std::shared_ptr<thread_pool> pool,
+        const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
+        const stream_config &config,
+        const std::string &interface_address,
+        std::size_t buffer_size,
+        int ttl,
+        int comp_vector,
+        int max_poll)
+        : Base(pool,
+               make_endpoints<boost::asio::ip::udp>(pool->get_io_service(), endpoints),
                config,
                make_address(pool->get_io_service(), interface_address),
                buffer_size, ttl, comp_vector, max_poll)
@@ -501,6 +519,14 @@ static py::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
     return py::class_<T>(m, name)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::string, std::size_t, int, int, int>(),
              "thread_pool"_a, "multicast_group"_a, "port"_a,
+             "config"_a = stream_config(),
+             "interface_address"_a,
+             "buffer_size"_a = T::default_buffer_size,
+             "ttl"_a = 1,
+             "comp_vector"_a = 0,
+             "max_poll"_a = T::default_max_poll)
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::pair<std::string, std::uint16_t>> &, const stream_config &, std::string, std::size_t, int, int, int>(),
+             "thread_pool"_a, "endpoints"_a,
              "config"_a = stream_config(),
              "interface_address"_a,
              "buffer_size"_a = T::default_buffer_size,

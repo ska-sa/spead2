@@ -184,10 +184,10 @@ try:
         ----------
         thread_pool : :py:class:`spead2.ThreadPool`
             Thread pool handling the I/O
-        multicast_group : str
-            IP address (or DNS name) of multicast group to join
-        port : int
-            Peer port
+        endpoints : List[Tuple[str, int]]
+            Destinations to transmit to. For backwards compatibility, one can
+            also provide a single address and port as two separate
+            parameters.
         config : :py:class:`spead2.send.StreamConfig`
             Stream configuration
         interface_address : str
