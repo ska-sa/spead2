@@ -123,7 +123,7 @@ public:
     using Base::Base;
 
     /// Sends heap synchronously
-    item_pointer_t send_heap(const heap_wrapper &h, s_item_pointer_t cnt = -1)
+    item_pointer_t send_heap(const heap_wrapper &h, s_item_pointer_t cnt = -1, std::size_t substream_index = 0)
     {
         /* The semaphore state needs to be in shared_ptr because if we are
          * interrupted and throw an exception, it still needs to exist until
@@ -135,7 +135,7 @@ public:
             state->ec = ec;
             state->bytes_transferred = bytes_transferred;
             state->sem.put();
-        }, cnt);
+        }, cnt, substream_index);
         semaphore_get(state->sem);
         if (state->ec)
             throw boost_io_error(state->ec);
@@ -179,7 +179,8 @@ public:
 
     int get_fd() const { return sem.get_fd(); }
 
-    bool async_send_heap_obj(py::object h, py::object callback, s_item_pointer_t cnt = -1)
+    bool async_send_heap_obj(py::object h, py::object callback,
+                             s_item_pointer_t cnt = -1, std::size_t substream_index = 0)
     {
         /* Normally the callback should not refer to this, since it could have
          * been reaped by the time the callback occurs. We rely on Python to
@@ -205,7 +206,7 @@ public:
             }
             if (was_empty)
                 sem.put();
-        }, cnt);
+        }, cnt, substream_index);
     }
 
     void process_callbacks()
@@ -274,20 +275,30 @@ static typename Protocol::endpoint make_endpoint(
     return typename Protocol::endpoint(make_address(io_service, hostname), port);
 }
 
+template<typename Protocol>
+static std::vector<typename Protocol::endpoint> make_endpoints(
+    boost::asio::io_service &io_service, const std::vector<std::pair<std::string, std::uint16_t>> &endpoints)
+{
+    std::vector<typename Protocol::endpoint> out;
+    out.reserve(endpoints.size());
+    for (const auto &ep : endpoints)
+        out.push_back(make_endpoint<Protocol>(io_service, ep.first, ep.second));
+    return out;
+}
+
 template<typename Base>
 class udp_stream_wrapper : public Base
 {
 public:
     udp_stream_wrapper(
         io_service_ref io_service,
-        const std::string &hostname,
-        std::uint16_t port,
+        const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         const std::string &interface_address)
         : Base(
-            std::move(io_service),
-            make_endpoint<boost::asio::ip::udp>(*io_service, hostname, port),
+            io_service,
+            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
             config, buffer_size,
             make_address(*io_service, interface_address))
     {
@@ -295,29 +306,27 @@ public:
 
     udp_stream_wrapper(
         io_service_ref io_service,
-        const std::string &multicast_group,
-        std::uint16_t port,
+        const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl)
         : Base(
-            std::move(io_service),
-            make_endpoint<boost::asio::ip::udp>(*io_service, multicast_group, port),
+            io_service,
+            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
             config, buffer_size, ttl)
     {
     }
 
     udp_stream_wrapper(
         io_service_ref io_service,
-        const std::string &multicast_group,
-        std::uint16_t port,
+        const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl,
         const std::string &interface_address)
         : Base(
-            std::move(io_service),
-            make_endpoint<boost::asio::ip::udp>(*io_service, multicast_group, port),
+            io_service,
+            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
             config, buffer_size, ttl,
             interface_address.empty() ?
                 boost::asio::ip::address() :
@@ -327,15 +336,14 @@ public:
 
     udp_stream_wrapper(
         io_service_ref io_service,
-        const std::string &multicast_group,
-        std::uint16_t port,
+        const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl,
         unsigned int interface_index)
         : Base(
-            std::move(io_service),
-            make_endpoint<boost::asio::ip::udp>(*io_service, multicast_group, port),
+            io_service,
+            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
             config, buffer_size, ttl, interface_index)
     {
     }
@@ -343,14 +351,43 @@ public:
     udp_stream_wrapper(
         io_service_ref io_service,
         const socket_wrapper<boost::asio::ip::udp::socket> &socket,
-        const std::string &hostname,
-        std::uint16_t port,
+        const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config)
         : Base(
-            std::move(io_service),
+            io_service,
             socket.copy(*io_service),
-            make_endpoint<boost::asio::ip::udp>(*io_service, hostname, port),
+            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
             config)
+    {
+    }
+
+    // Convert old-style hostname, port args to vector
+    template<typename... Args>
+    udp_stream_wrapper(
+        io_service_ref io_service,
+        const std::string &hostname,
+        std::uint16_t port,
+        Args&&... args)
+        : udp_stream_wrapper(
+            io_service,
+            std::vector<std::pair<std::string, std::uint16_t>>{{hostname, port}},
+            std::forward<Args>(args)...)
+    {
+    }
+
+    // Convert old-style hostname, port args to vector
+    template<typename... Args>
+    udp_stream_wrapper(
+        io_service_ref io_service,
+        const socket_wrapper<boost::asio::ip::udp::socket> &socket,
+        const std::string &hostname,
+        std::uint16_t port,
+        Args&&... args)
+        : udp_stream_wrapper(
+            std::move(io_service),
+            socket,
+            std::vector<std::pair<std::string, std::uint16_t>>{{hostname, port}},
+            std::forward<Args>(args)...)
     {
     }
 };
@@ -400,6 +437,32 @@ static py::class_<T> udp_stream_register(py::module &m, const char *name)
     using namespace pybind11::literals;
 
     return py::class_<T>(m, name)
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::pair<std::string, std::uint16_t>> &, const stream_config &, std::size_t, std::string>(),
+             "thread_pool"_a, "endpoints"_a,
+             "config"_a = stream_config(),
+             "buffer_size"_a = T::default_buffer_size,
+             "interface_address"_a = std::string())
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::pair<std::string, std::uint16_t>> &, const stream_config &, std::size_t, int>(),
+             "thread_pool"_a, "endpoints"_a,
+             "config"_a = stream_config(),
+             "buffer_size"_a = T::default_buffer_size,
+             "ttl"_a)
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::pair<std::string, std::uint16_t>> &, const stream_config &, std::size_t, int, std::string>(),
+             "thread_pool"_a, "endpoints"_a,
+             "config"_a = stream_config(),
+             "buffer_size"_a = T::default_buffer_size,
+             "ttl"_a,
+             "interface_address"_a)
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::pair<std::string, std::uint16_t>> &, const stream_config &, std::size_t, int, unsigned int>(),
+             "thread_pool"_a, "endpoints"_a,
+             "config"_a = stream_config(),
+             "buffer_size"_a = T::default_buffer_size,
+             "ttl"_a,
+             "interface_index"_a)
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>, const socket_wrapper<boost::asio::ip::udp::socket> &, const std::vector<std::pair<std::string, std::uint16_t>> &, const stream_config &>(),
+             "thread_pool"_a, "socket"_a, "endpoints"_a,
+             "config"_a = stream_config())
+
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, std::string>(),
              "thread_pool"_a, "hostname"_a, "port"_a,
              "config"_a = stream_config(),
@@ -425,6 +488,7 @@ static py::class_<T> udp_stream_register(py::module &m, const char *name)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const socket_wrapper<boost::asio::ip::udp::socket> &, std::string, std::uint16_t, const stream_config &>(),
              "thread_pool"_a, "socket"_a, "hostname"_a, "port"_a,
              "config"_a = stream_config())
+
         .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size);
 }
 
@@ -619,7 +683,8 @@ static void sync_stream_register(py::class_<T> &stream_class)
     using namespace pybind11::literals;
     stream_register(stream_class);
     stream_class.def("send_heap", SPEAD2_PTMF(T, send_heap),
-                     "heap"_a, "cnt"_a = s_item_pointer_t(-1));
+                     "heap"_a, "cnt"_a = s_item_pointer_t(-1),
+                     "substream_index"_a = std::size_t(0));
 }
 
 template<typename T>
@@ -630,7 +695,8 @@ static void async_stream_register(py::class_<T> &stream_class)
     stream_class
         .def_property_readonly("fd", SPEAD2_PTMF(T, get_fd))
         .def("async_send_heap", SPEAD2_PTMF(T, async_send_heap_obj),
-             "heap"_a, "callback"_a, "cnt"_a = s_item_pointer_t(-1))
+             "heap"_a, "callback"_a, "cnt"_a = s_item_pointer_t(-1),
+             "substream_index"_a = std::size_t(0))
         .def("flush", SPEAD2_PTMF(T, flush))
         .def("process_callbacks", SPEAD2_PTMF(T, process_callbacks));
 }

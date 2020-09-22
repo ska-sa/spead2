@@ -36,7 +36,7 @@ def _wrap_class(name, base_class):
             self._active = 0
             self._last_queued_future = None
 
-        def async_send_heap(self, heap, cnt=-1, loop=None):
+        def async_send_heap(self, heap, cnt=-1, substream_index=0, *, loop=None):
             """Send a heap asynchronously. Note that this is *not* a coroutine:
             it returns a future. Adding the heap to the queue is done
             synchronously, to ensure proper ordering.
@@ -47,6 +47,8 @@ def _wrap_class(name, base_class):
                 Heap to send
             cnt : int, optional
                 Heap cnt to send (defaults to auto-incrementing)
+            substream_index : int, optional
+                Substream on which to send the heap
             loop : :py:class:`asyncio.BaseEventLoop`, optional
                 Event loop to use, overriding the constructor.
             """
@@ -64,7 +66,7 @@ def _wrap_class(name, base_class):
                 if self._active == 0:
                     self._loop.remove_reader(self.fd)
                     self._last_queued_future = None  # Purely to free the memory
-            queued = super().async_send_heap(heap, callback, cnt)
+            queued = super().async_send_heap(heap, callback, cnt, substream_index)
             if self._active == 0:
                 self._loop.add_reader(self.fd, self.process_callbacks)
             self._active += 1
