@@ -50,10 +50,13 @@ namespace detail
 
 boost::asio::ip::tcp::socket make_socket(
     const io_service_ref &io_service,
-    const boost::asio::ip::tcp::endpoint &endpoint,
+    const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
     std::size_t buffer_size,
     const boost::asio::ip::address &interface_address)
 {
+    if (endpoints.size() != 1)
+        throw std::invalid_argument("endpoints must contain exactly one element");
+    const boost::asio::ip::tcp::endpoint &endpoint = endpoints[0];
     boost::asio::ip::tcp::socket socket(*io_service, endpoint.protocol());
     if (!interface_address.is_unspecified())
         socket.bind(boost::asio::ip::tcp::endpoint(interface_address, 0));

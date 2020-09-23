@@ -481,7 +481,7 @@ class TestPassthroughTcp(BaseTestPassthrough):
         receiver.add_tcp_reader(8887, bind_hostname="127.0.0.1")
 
     def prepare_sender(self, thread_pool):
-        return spead2.send.TcpStream(thread_pool, "127.0.0.1", 8887)
+        return spead2.send.TcpStream(thread_pool, [("127.0.0.1", 8887)])
 
 
 class TestPassthroughTcpCustomSocket(BaseTestPassthrough):

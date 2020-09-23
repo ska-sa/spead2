@@ -554,8 +554,22 @@ public:
         const stream_config &config,
         std::size_t buffer_size,
         const std::string &interface_address)
-        : Base(std::move(io_service), connect_handler,
+        : Base(io_service, std::forward<ConnectHandler>(connect_handler),
                make_endpoint<boost::asio::ip::tcp>(*io_service, hostname, port),
+               config, buffer_size, make_address(*io_service, interface_address))
+    {
+    }
+
+    template<typename ConnectHandler>
+    tcp_stream_wrapper(
+        ConnectHandler&& connect_handler,
+        io_service_ref io_service,
+        const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
+        const stream_config &config,
+        std::size_t buffer_size,
+        const std::string &interface_address)
+        : Base(io_service, std::forward<ConnectHandler>(connect_handler),
+               make_endpoints<boost::asio::ip::tcp>(*io_service, endpoints),
                config, buffer_size, make_address(*io_service, interface_address))
     {
     }
@@ -564,7 +578,7 @@ public:
         io_service_ref io_service,
         const socket_wrapper<boost::asio::ip::tcp::socket> &socket,
         const stream_config &config)
-        : Base(std::move(io_service), socket.copy(*io_service), config)
+        : Base(io_service, socket.copy(*io_service), config)
     {
     }
 };
@@ -594,6 +608,15 @@ static py::class_<typename Registrar::stream_type> tcp_stream_register(py::modul
             const stream_config &, std::size_t, const std::string &>(
         class_,
         "thread_pool"_a, "hostname"_a, "port"_a,
+        "config"_a = stream_config(),
+        "buffer_size"_a = T::default_buffer_size,
+        "interface_address"_a = "");
+    Registrar::template apply<
+            std::shared_ptr<thread_pool_wrapper>,
+            const std::vector<std::pair<std::string, std::uint16_t>> &,
+            const stream_config &, std::size_t, const std::string &>(
+        class_,
+        "thread_pool"_a, "endpoints"_a,
         "config"_a = stream_config(),
         "buffer_size"_a = T::default_buffer_size,
         "interface_address"_a = "");

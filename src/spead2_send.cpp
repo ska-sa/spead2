@@ -352,7 +352,7 @@ int main(int argc, const char **argv)
         interface_address = boost::asio::ip::address::from_string(opts.bind);
 
     if (opts.tcp) {
-        tcp::endpoint endpoint = get_endpoints<tcp>(io_service, opts)[0];
+        std::vector<tcp::endpoint> endpoints = get_endpoints<tcp>(io_service, opts);
         auto promise = std::promise<void>();
         auto connect_handler = [&promise] (const boost::system::error_code &e) {
             if (e)
@@ -361,7 +361,7 @@ int main(int argc, const char **argv)
                 promise.set_value();
         };
         stream.reset(new spead2::send::tcp_stream(
-                    io_service, connect_handler, endpoint, config, opts.buffer, interface_address));
+                    io_service, connect_handler, endpoints, config, opts.buffer, interface_address));
         promise.get_future().get();
     }
     else

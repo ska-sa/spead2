@@ -192,7 +192,7 @@ async def async_main():
         allow_hw_rate=args.allow_hw_rate)
     if args.tcp:
         stream = await spead2.send.asyncio.TcpStream.connect(
-            thread_pool, args.destination[0], args.destination[1], config, args.buffer, args.bind)
+            thread_pool, args.destination, config, args.buffer, args.bind)
     elif 'ibv' in args and args.ibv:
         stream = spead2.send.asyncio.UdpIbvStream(
             thread_pool, args.destination, config, args.bind,

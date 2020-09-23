@@ -23,6 +23,7 @@
 #define SPEAD2_SEND_TCP_H
 
 #include <boost/asio.hpp>
+#include <vector>
 #include <utility>
 #include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
@@ -39,7 +40,7 @@ namespace detail
 
 boost::asio::ip::tcp::socket make_socket(
     const io_service_ref &io_service,
-    const boost::asio::ip::tcp::endpoint &endpoint,
+    const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
     std::size_t buffer_size,
     const boost::asio::ip::address &interface_address);
 
@@ -72,7 +73,7 @@ public:
      * @param connect_handler  Callback when connection is established. It is called
      *                     with a @c boost::system::error_code to indicate whether
      *                     connection was successful.
-     * @param endpoint     Destination host and port
+     * @param endpoints    Destination host and port (must contain exactly one element)
      * @param config       Stream configuration
      * @param buffer_size  Socket buffer size (0 for OS default)
      * @param interface_address   Source address
@@ -84,20 +85,39 @@ public:
     tcp_stream(
         io_service_ref io_service,
         ConnectHandler &&connect_handler,
-        const boost::asio::ip::tcp::endpoint &endpoint,
+        const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size,
         const boost::asio::ip::address &interface_address = boost::asio::ip::address())
         : stream_impl(std::move(io_service), config, 1),
-        socket(detail::make_socket(get_io_service(), endpoint, buffer_size, interface_address))
+        socket(detail::make_socket(get_io_service(), endpoints, buffer_size, interface_address))
     {
-        socket.async_connect(endpoint,
+        socket.async_connect(endpoints[0],
             [this, connect_handler] (const boost::system::error_code &ec)
             {
                 if (!ec)
                     connected.store(true);
                 connect_handler(ec);
             });
+    }
+
+    /**
+     * Backwards-compatibility constructor.
+     */
+    template<typename ConnectHandler>
+    tcp_stream(
+        io_service_ref io_service,
+        ConnectHandler &&connect_handler,
+        const boost::asio::ip::tcp::endpoint &endpoint,
+        const stream_config &config = stream_config(),
+        std::size_t buffer_size = default_buffer_size,
+        const boost::asio::ip::address &interface_address = boost::asio::ip::address())
+        : tcp_stream(
+            std::move(io_service),
+            std::forward<ConnectHandler>(connect_handler),
+            std::vector<boost::asio::ip::tcp::endpoint>{endpoint},
+            config, buffer_size, interface_address)
+    {
     }
 
     /**
