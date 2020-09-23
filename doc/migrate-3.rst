@@ -95,3 +95,13 @@ In prior versions of spead2, the packets forming a single heap could be
 received in any order. Starting with version 3, the default is to assume that
 packets arrive in order. Refer to :ref:`py-packet-ordering` for more
 details.
+
+Removal of deprecated functionality
+-----------------------------------
+The following functions were deprecated in version 2 and have been removed in version 3:
+
+- C++ stream constructors that specified a socket but not an :cpp:class:`!io_service`
+  (they could not be supported with Boost 1.70 onwards).
+- Stream constructors that took both an existing (but unconnected) socket and a
+  buffer size or a port to bind to. The caller should instead bind the socket
+  (if receiving) and set any desired buffer size socket option.
