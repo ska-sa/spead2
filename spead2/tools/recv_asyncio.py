@@ -52,9 +52,9 @@ def get_args():
     group.add_argument('--buffer', type=int, help='Socket buffer size')
     group.add_argument('--threads', type=int, default=1,
                        help='Number of worker threads [%(default)s]')
-    group.add_argument('--heaps', type=int, default=spead2.recv.Stream.DEFAULT_MAX_HEAPS,
+    group.add_argument('--heaps', type=int, default=spead2.recv.StreamConfig.DEFAULT_MAX_HEAPS,
                        help='Maximum number of in-flight heaps [%(default)s]')
-    group.add_argument('--ring-heaps', type=int, default=spead2.recv.Stream.DEFAULT_RING_HEAPS,
+    group.add_argument('--ring-heaps', type=int, default=spead2.recv.RingStreamConfig.DEFAULT_HEAPS,
                        help='Ring buffer capacity in heaps [%(default)s]')
     group.add_argument('--mem-pool', action='store_true', help='Use a memory pool')
     group.add_argument('--mem-lower', type=int, default=16384,
@@ -132,12 +132,14 @@ async def run_stream(stream, name, args):
 
 def main():
     def make_stream(sources):
-        bug_compat = spead2.BUG_COMPAT_PYSPEAD_0_5_2 if args.pyspead else 0
-        stream = spead2.recv.asyncio.Stream(thread_pool, bug_compat, args.heaps, args.ring_heaps)
+        config = spead2.recv.StreamConfig()
+        config.bug_compat = spead2.BUG_COMPAT_PYSPEAD_0_5_2 if args.pyspead else 0
         if memory_pool is not None:
-            stream.set_memory_allocator(memory_pool)
+            config.memory_allocator = memory_pool
         if args.memcpy_nt:
-            stream.set_memcpy(spead2.MEMCPY_NONTEMPORAL)
+            config.memcpy = spead2.MEMCPY_NONTEMPORAL
+        stream = spead2.recv.asyncio.Stream(
+            thread_pool, config, spead2.recv.RingStreamConfig(heaps=args.ring_heaps))
         ibv_endpoints = []
         for source in sources:
             try:
