@@ -32,10 +32,16 @@ import spead2.send
 import spead2.send.asyncio
 
 
+def parse_endpoint(endpoint):
+    if ':' not in endpoint:
+        raise ValueError('destination must have the form <host>:<port>')
+    host, port = endpoint.rsplit(':', 1)
+    return (host, int(port))
+
+
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('host')
-    parser.add_argument('port', type=int)
+    parser.add_argument('destination', type=parse_endpoint, nargs='+', metavar='HOST:PORT')
 
     group = parser.add_argument_group('Data options')
     group.add_argument('--heap-size', metavar='BYTES', type=int, default=4194304,
@@ -101,6 +107,8 @@ def get_args():
         parser.error('--ibv requires --bind')
     if args.tcp and args.ibv:
         parser.error('--ibv and --tcp are incompatible')
+    if args.tcp and len(args.destination) > 1:
+        parser.error('only one destination is supported with TCP')
     if args.buffer is None:
         if args.tcp:
             args.buffer = spead2.send.asyncio.TcpStream.DEFAULT_BUFFER_SIZE
@@ -118,8 +126,12 @@ async def run(item_group, stream, args):
     if args.heaps is None:
         rep = itertools.repeat(False)
     else:
-        rep = itertools.chain(itertools.repeat(False, args.heaps), [True])
-    for is_end in rep:
+        rep = itertools.chain(
+            itertools.repeat(False, args.heaps),
+            itertools.repeat(True, len(args.destination))
+        )
+    n_substreams = stream.num_substreams
+    for i, is_end in enumerate(rep):
         if len(tasks) >= args.max_heaps:
             try:
                 n_bytes += await tasks.popleft()
@@ -127,11 +139,12 @@ async def run(item_group, stream, args):
                 n_errors += 1
                 last_error = error
         if is_end:
-            task = asyncio.ensure_future(stream.async_send_heap(item_group.get_end()))
+            heap = item_group.get_end()
         else:
-            for item in item_group.values():
-                item.version += 1
-            task = asyncio.ensure_future(stream.async_send_heap(item_group.get_heap()))
+            heap = item_group.get_heap(
+                descriptors='all' if i < n_substreams else 'none',
+                data='all')
+        task = asyncio.ensure_future(stream.async_send_heap(heap, substream_index=i % n_substreams))
         tasks.append(task)
     while len(tasks) > 0:
         try:
@@ -179,10 +192,10 @@ async def async_main():
         allow_hw_rate=args.allow_hw_rate)
     if args.tcp:
         stream = await spead2.send.asyncio.TcpStream.connect(
-            thread_pool, args.host, args.port, config, args.buffer, args.bind)
+            thread_pool, args.destination[0], args.destination[1], config, args.buffer, args.bind)
     elif 'ibv' in args and args.ibv:
         stream = spead2.send.asyncio.UdpIbvStream(
-            thread_pool, args.host, args.port, config, args.bind,
+            thread_pool, args.destination, config, args.bind,
             args.buffer, args.ttl or 1, args.ibv_vector, args.ibv_max_poll)
     else:
         kwargs = {}
@@ -191,7 +204,7 @@ async def async_main():
         if args.bind:
             kwargs['interface_address'] = args.bind
         stream = spead2.send.asyncio.UdpStream(
-            thread_pool, args.host, args.port, config, args.buffer, **kwargs)
+            thread_pool, args.destination, config, args.buffer, **kwargs)
 
     await run(item_group, stream, args)
 
