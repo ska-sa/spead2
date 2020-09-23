@@ -87,3 +87,10 @@ In prior versions of spead2, the packets forming a single heap could be
 received in any order. Starting with version 3, the default is to assume that
 packets arrive in order. Refer to :ref:`py-packet-ordering` for more
 details.
+
+Command line for spead2_send
+----------------------------
+The :program:`spead2_send` and :program:`spead2_send.py` example programs now
+take the destination in the form :samp:`{host}:{port}` instead of
+:samp:`{host} {port}`. This change is to allow them to more naturally support
+multiple destinations for multiple substreams.
