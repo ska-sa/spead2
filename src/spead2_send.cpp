@@ -68,7 +68,7 @@ struct options
 
 static void usage(std::ostream &o, const po::options_description &desc)
 {
-    o << "Usage: spead2_send [options] <host> <port>\n";
+    o << "Usage: spead2_send [options] <host>:<port> [<host>:<port> ...]\n";
     o << desc;
 }
 
