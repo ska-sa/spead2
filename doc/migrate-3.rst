@@ -72,14 +72,22 @@ a "fluent" style e.g.:
 
    spead2::send::stream_config().set_max_packet_size(9172).set_rate(1e6)
 
-Querying the queue of an in-process stream
-------------------------------------------
-Due to the new support for :ref:`py-substreams`, an in-process send stream an
-now have multiple queues. The :attr:`spead2.send.InprocStream.queue` attribute
-has thus been removed, and replaced with
-:attr:`~spead2.send.InprocStream.queues`. Similarly, the C++
-:cpp:func:`spead2::send::inproc_stream::get_queue` has been replaced by
-:cpp:func:`~spead2::send::inproc_stream::get_queues`.
+Substreams
+----------
+A new feature is the ability to create a send stream with multiple destinations
+and select the destination on a per-heap basis (see :ref:`py-substreams` for
+more information). Supporting this cleanly required a number of changes:
+
+- The :attr:`spead2.send.InprocStream.queue` attribute has been removed, and replaced with
+  :attr:`~spead2.send.InprocStream.queues`. Similarly, the C++
+  :cpp:func:`spead2::send::inproc_stream::get_queue` has been replaced by
+  :cpp:func:`~spead2::send::inproc_stream::get_queues`.
+- The constructors for most send stream types now accept a list of endpoints
+  (or queues) rather than a single endpoint (queue). The old constructors are
+  still supported for backwards compatibility, but are deprecated.
+- The :program:`spead2_send` and :program:`spead2_send.py` example programs now
+  take the destination in the form :samp:`{host}:{port}` instead of
+  :samp:`{host} {port}`, and support multiple destinations.
 
 Out-of-order packets
 --------------------
@@ -87,10 +95,3 @@ In prior versions of spead2, the packets forming a single heap could be
 received in any order. Starting with version 3, the default is to assume that
 packets arrive in order. Refer to :ref:`py-packet-ordering` for more
 details.
-
-Command line for spead2_send
-----------------------------
-The :program:`spead2_send` and :program:`spead2_send.py` example programs now
-take the destination in the form :samp:`{host}:{port}` instead of
-:samp:`{host} {port}`. This change is to allow them to more naturally support
-multiple destinations for multiple substreams.
