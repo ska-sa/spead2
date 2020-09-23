@@ -100,19 +100,6 @@ public:
             });
     }
 
-#if BOOST_VERSION < 107000
-    /**
-     * Constructor using an existing socket. The socket must be connected.
-     *
-     * @deprecated This constructor is not supported from Boost 1.70 onwards,
-     * and will be removed entirely in a future release. Use the constructor with
-     * an explicit @a io_service.
-     */
-    tcp_stream(
-        boost::asio::ip::tcp::socket &&socket,
-        const stream_config &config = stream_config());
-#endif
-
     /**
      * Constructor using an existing socket. The socket must be connected.
      */
