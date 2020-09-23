@@ -116,10 +116,6 @@ These options are important for performance:
 Limitations
 ^^^^^^^^^^^
 
-- Timestamps are only collected if Mellanox extensions to the verbs API are
-  detected at compile time. Otherwise, all packets have a zero timestamp in the
-  file.
-
 - Only IPv4 is supported.
 
 - It is not optimised for small packets (below about 1KB). Packet capture rates
