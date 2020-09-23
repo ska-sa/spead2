@@ -148,7 +148,7 @@ static options parse_args(int argc, const char **argv)
             std::exit(0);
         }
         if (!vm.count("source"))
-            throw po::error("At least one port is required");
+            throw po::error("At least one source is required");
         opts.sources = vm["source"].as<std::vector<std::string>>();
         if (!vm.count("packet"))
         {

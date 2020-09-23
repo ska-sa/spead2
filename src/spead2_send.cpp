@@ -63,8 +63,7 @@ struct options
     int ibv_comp_vector = 0;
     int ibv_max_poll = spead2::send::udp_ibv_stream::default_max_poll;
 #endif
-    std::string host;
-    std::string port;
+    std::vector<std::string> dest;
 };
 
 static void usage(std::ostream &o, const po::options_description &desc)
@@ -117,15 +116,13 @@ static options parse_args(int argc, const char **argv)
 #endif
     ;
     hidden.add_options()
-        ("host", make_opt_no_default(opts.host), "Destination host")
-        ("port", make_opt_no_default(opts.port), "Destination port")
+        ("destination", make_opt_no_default(opts.dest)->composing(), "Destination host:port")
     ;
     all.add(desc);
     all.add(hidden);
 
     po::positional_options_description positional;
-    positional.add("host", 1);
-    positional.add("port", 1);
+    positional.add("destination", -1);
     try
     {
         po::variables_map vm;
@@ -140,8 +137,10 @@ static options parse_args(int argc, const char **argv)
             usage(std::cout, desc);
             std::exit(0);
         }
-        if (!vm.count("host") || !vm.count("port"))
-            throw po::error("too few positional options have been specified on the command line");
+        if (!vm.count("destination"))
+            throw po::error("at least one destination is required");
+        if (opts.dest.size() > 1 && opts.tcp)
+            throw po::error("only one destination is supported with TCP");
         if (!vm.count("buffer"))
         {
             if (opts.tcp)
@@ -171,6 +170,7 @@ class sender
 private:
     spead2::send::stream &stream;
     const std::size_t max_heaps;
+    const std::size_t n_substreams;
     const std::int64_t n_heaps;
     const spead2::flavour flavour;
 
@@ -195,8 +195,9 @@ public:
 
 sender::sender(spead2::send::stream &stream, const options &opts)
     : stream(stream),
-    max_heaps((opts.heaps < 0 || std::uint64_t(opts.heaps) >= opts.max_heaps)
-              ? opts.max_heaps : opts.heaps + 1),
+    max_heaps((opts.heaps < 0 || std::uint64_t(opts.heaps) + opts.dest.size() > opts.max_heaps)
+              ? opts.max_heaps : opts.heaps + opts.dest.size()),
+    n_substreams(opts.dest.size()),
     n_heaps(opts.heaps),
     flavour(spead2::maximum_version, 64, opts.addr_bits,
             opts.pyspead ? spead2::BUG_COMPAT_PYSPEAD_0_5_2 : 0),
@@ -239,9 +240,9 @@ sender::sender(spead2::send::stream &stream, const options &opts)
 
 const spead2::send::heap &sender::get_heap(std::uint64_t idx) const noexcept
 {
-    if (idx == 0)
+    if (idx < n_substreams)
         return first_heap;
-    else if (n_heaps >= 0 && idx == std::uint64_t(n_heaps))
+    else if (n_heaps >= 0 && idx >= std::uint64_t(n_heaps))
         return last_heap;
     else
         return heaps[idx % max_heaps];
@@ -258,11 +259,14 @@ void sender::callback(std::uint64_t idx, const boost::system::error_code &ec, st
         return;
     }
 
-    if (n_heaps == -1 || std::uint64_t(n_heaps) - idx >= max_heaps)
+    idx += max_heaps;
+    if (n_heaps == -1 || idx < std::uint64_t(n_heaps) + n_substreams)
     {
-        idx += max_heaps;
-        stream.async_send_heap(get_heap(idx), [this, idx] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
-            callback(idx, ec, bytes_transferred); });
+        stream.async_send_heap(
+            get_heap(idx),
+            [this, idx] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
+                callback(idx, ec, bytes_transferred);
+            }, -1, idx % n_substreams);
     }
     else
         done_sem.put();
@@ -280,8 +284,11 @@ std::uint64_t sender::run()
      */
     stream.get_io_service().post([this] {
         for (int i = 0; i < max_heaps; i++)
-            stream.async_send_heap(get_heap(i), [this, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
-                callback(i, ec, bytes_transferred); });
+            stream.async_send_heap(
+                get_heap(i),
+                [this, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
+                    callback(i, ec, bytes_transferred);
+                }, -1, i % n_substreams);
     });
     for (int i = 0; i < max_heaps; i++)
         semaphore_get(done_sem);
@@ -308,13 +315,22 @@ static int run(spead2::send::stream &stream, const options &opts)
 }
 
 template <typename Proto>
-static boost::asio::ip::basic_endpoint<Proto> get_endpoint(
+static std::vector<boost::asio::ip::basic_endpoint<Proto>> get_endpoints(
     boost::asio::io_service &io_service, const options &opts)
 {
     typedef boost::asio::ip::basic_resolver<Proto> resolver_type;
     resolver_type resolver(io_service);
-    typename resolver_type::query query(opts.host, opts.port);
-    return *resolver.resolve(query);
+    std::vector<boost::asio::ip::basic_endpoint<Proto>> ans;
+    ans.reserve(opts.dest.size());
+    for (const std::string &dest : opts.dest)
+    {
+        auto colon = dest.rfind(':');
+        if (colon == std::string::npos)
+            throw std::runtime_error("Destination '" + dest + "' does not have the format host:port");
+        typename resolver_type::query query(dest.substr(0, colon), dest.substr(colon + 1));
+        ans.push_back(*resolver.resolve(query));
+    }
+    return ans;
 }
 
 int main(int argc, const char **argv)
@@ -336,7 +352,7 @@ int main(int argc, const char **argv)
         interface_address = boost::asio::ip::address::from_string(opts.bind);
 
     if (opts.tcp) {
-        tcp::endpoint endpoint = get_endpoint<tcp>(io_service, opts);
+        tcp::endpoint endpoint = get_endpoints<tcp>(io_service, opts)[0];
         auto promise = std::promise<void>();
         auto connect_handler = [&promise] (const boost::system::error_code &e) {
             if (e)
@@ -350,37 +366,37 @@ int main(int argc, const char **argv)
     }
     else
     {
-        udp::endpoint endpoint = get_endpoint<udp>(io_service, opts);
+        std::vector<udp::endpoint> endpoints = get_endpoints<udp>(io_service, opts);
 #if SPEAD2_USE_IBV
         if (opts.ibv)
         {
             stream.reset(new spead2::send::udp_ibv_stream(
-                    io_service, endpoint, config,
+                    io_service, endpoints, config,
                     interface_address, opts.buffer, opts.ttl,
                     opts.ibv_comp_vector, opts.ibv_max_poll));
         }
         else
 #endif
         {
-            if (endpoint.address().is_multicast())
+            if (endpoints[0].address().is_multicast())
             {
-                if (endpoint.address().is_v4())
+                if (endpoints[0].address().is_v4())
                     stream.reset(new spead2::send::udp_stream(
-                            io_service, {endpoint}, config, opts.buffer,
+                            io_service, endpoints, config, opts.buffer,
                             opts.ttl, interface_address));
                 else
                 {
                     if (!opts.bind.empty())
                         std::cerr << "--bind is not yet supported for IPv6 multicast, ignoring\n";
                     stream.reset(new spead2::send::udp_stream(
-                            io_service, {endpoint}, config, opts.buffer,
+                            io_service, endpoints, config, opts.buffer,
                             opts.ttl));
                 }
             }
             else
             {
                 stream.reset(new spead2::send::udp_stream(
-                        io_service, {endpoint}, config, opts.buffer, interface_address));
+                        io_service, endpoints, config, opts.buffer, interface_address));
             }
         }
     }
