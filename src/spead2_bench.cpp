@@ -371,6 +371,7 @@ static std::pair<bool, double> measure_connection_once(
         heaps.back().add_end();
 
         /* Send the heaps */
+        std::vector<boost::asio::ip::udp::endpoint> endpoints{endpoint};
         auto start = std::chrono::high_resolution_clock::now();
         std::int64_t transferred;
         std::unique_ptr<spead2::send::stream> stream;
@@ -380,14 +381,14 @@ static std::pair<bool, double> measure_connection_once(
             boost::asio::ip::address interface_address =
                 boost::asio::ip::address::from_string(opts.send_ibv_if);
             stream.reset(new spead2::send::udp_ibv_stream(
-                thread_pool.get_io_service(), endpoint, config, interface_address,
+                thread_pool.get_io_service(), endpoints, config, interface_address,
                 opts.send_buffer, 1, opts.send_ibv_comp_vector, opts.send_ibv_max_poll));
         }
         else
 #endif
         {
             stream.reset(new spead2::send::udp_stream(
-                thread_pool.get_io_service(), {endpoint}, config, opts.send_buffer));
+                thread_pool.get_io_service(), endpoints, config, opts.send_buffer));
         }
         sender s(*stream, heaps, opts);
         transferred = s.run();

@@ -109,7 +109,7 @@ public:
     static constexpr int default_max_poll = 10;
 
     /**
-     * Constructor.
+     * Backwards-compatibility constructor (taking only a single endpoint).
      *
      * @param io_service   I/O service for sending data
      * @param endpoint     Multicast group and port
@@ -134,6 +134,7 @@ public:
      * @throws std::invalid_argument if @a endpoint is not an IPv4 multicast address
      * @throws std::invalid_argument if @a interface_address is not an IPv4 address
      */
+    SPEAD2_DEPRECATED("use a vector of endpoints")
     udp_ibv_stream(
         io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
@@ -145,7 +146,7 @@ public:
         int max_poll = default_max_poll);
 
     /**
-     * Constructor with multiple substreams.
+     * Constructor.
      *
      * @param io_service   I/O service for sending data
      * @param endpoints    Multicast groups and ports

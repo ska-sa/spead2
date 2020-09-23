@@ -105,6 +105,7 @@ public:
      * Backwards-compatibility constructor.
      */
     template<typename ConnectHandler>
+    SPEAD2_DEPRECATED("use a vector of endpoints")
     tcp_stream(
         io_service_ref io_service,
         ConnectHandler &&connect_handler,

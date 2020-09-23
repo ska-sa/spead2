@@ -33,6 +33,16 @@
 #define SPEAD2_MAX_LOG_LEVEL (spead2::log_level::info)
 #endif
 
+// It's nominally a C++14 feature, but both GCC and Clang support it in C++11 mode
+#if defined(__has_cpp_attribute)
+# if __has_cpp_attribute(deprecated)
+#  define SPEAD2_DEPRECATED(msg) [[deprecated(msg)]]
+# endif
+#endif
+#ifndef SPEAD2_DEPRECATED
+# define SPEAD2_DEPRECATED(msg)
+#endif
+
 /**
  * SPEAD protocol sending and receiving. All SPEAD-64-* flavours are
  * supported.

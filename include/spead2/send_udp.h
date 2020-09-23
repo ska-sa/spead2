@@ -25,6 +25,7 @@
 # define _GNU_SOURCE
 #endif
 #include <spead2/common_features.h>
+#include <spead2/common_defines.h>
 #if SPEAD2_USE_SENDMMSG
 # include <sys/socket.h>
 # include <sys/types.h>
@@ -175,6 +176,7 @@ public:
 
     /// Backwards-compatibility constructor with a single endpoint
     template<typename... Args>
+    SPEAD2_DEPRECATED("use a vector of endpoints")
     udp_stream(
         io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
@@ -183,6 +185,7 @@ public:
 
     /// Backwards-compatibility constructor with a socket and a single endpoint
     template<typename... Args>
+    SPEAD2_DEPRECATED("use a vector of endpoints")
     udp_stream(
         io_service_ref io_service,
         boost::asio::ip::udp::socket &&socket,

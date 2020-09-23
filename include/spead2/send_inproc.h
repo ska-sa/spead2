@@ -54,13 +54,14 @@ private:
     void async_send_packets();
 
 public:
-    /// Constructor
+    /// Backwards-compatibility constructor (taking only a single queue)
+    SPEAD2_DEPRECATED("use a vector of queues")
     inproc_stream(
         io_service_ref io_service,
         std::shared_ptr<inproc_queue> queue,
         const stream_config &config = stream_config());
 
-    /// Constructor, supporting multiple queues (and hence substreams)
+    /// Constructor
     inproc_stream(
         io_service_ref io_service,
         const std::vector<std::shared_ptr<inproc_queue>> &queues,
