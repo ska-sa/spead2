@@ -185,11 +185,11 @@ async def measure_connection_once(args, rate, num_heaps, required_heaps):
         host = args.multicast
     if 'send_ibv' in args and args.send_ibv is not None:
         stream = spead2.send.asyncio.UdpIbvStream(
-            thread_pool, host, args.port, config, args.send_ibv, args.send_buffer,
+            thread_pool, [(host, args.port)], config, args.send_ibv, args.send_buffer,
             1, args.send_ibv_vector, args.send_ibv_max_poll)
     else:
         stream = spead2.send.asyncio.UdpStream(
-            thread_pool, host, args.port, config, args.send_buffer)
+            thread_pool, [(host, args.port)], config, args.send_buffer)
     item_group = spead2.send.ItemGroup(
         flavour=spead2.Flavour(4, 64, args.addr_bits, 0))
     item_group.add_item(id=None, name='Test item',
