@@ -121,7 +121,10 @@ private:
     };
 
 public:
+#pragma GCC diagnostic push   // There are deprecated constructors
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     using Base::Base;
+#pragma GCC diagnostic pop
 
     /// Sends heap synchronously
     item_pointer_t send_heap(const heap_wrapper &h, s_item_pointer_t cnt = -1, std::size_t substream_index = 0)
@@ -176,7 +179,10 @@ private:
     asyncio_stream_wrapper(const asyncio_stream_wrapper &) = delete;
     asyncio_stream_wrapper &operator=(const asyncio_stream_wrapper &) = delete;
 public:
+#pragma GCC diagnostic push   // There are deprecated constructors
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     using Base::Base;
+#pragma GCC diagnostic pop
 
     int get_fd() const { return sem.get_fd(); }
 
@@ -374,6 +380,7 @@ public:
             std::vector<std::pair<std::string, std::uint16_t>>{{hostname, port}},
             std::forward<Args>(args)...)
     {
+        deprecation_warning("pass a list of (hostname, port) tuples");
     }
 
     // Convert old-style hostname, port args to vector
@@ -390,6 +397,7 @@ public:
             std::vector<std::pair<std::string, std::uint16_t>>{{hostname, port}},
             std::forward<Args>(args)...)
     {
+        deprecation_warning("pass a list of (hostname, port) tuples");
     }
 };
 
@@ -414,6 +422,7 @@ public:
                make_address(pool->get_io_service(), interface_address),
                buffer_size, ttl, comp_vector, max_poll)
     {
+        deprecation_warning("pass a list of (hostname, port) tuples");
     }
 
     udp_ibv_stream_wrapper(
@@ -558,6 +567,7 @@ public:
                make_endpoint<boost::asio::ip::tcp>(*io_service, hostname, port),
                config, buffer_size, make_address(*io_service, interface_address))
     {
+        deprecation_warning("pass a list of (hostname, port) tuples");
     }
 
     template<typename ConnectHandler>
@@ -713,7 +723,14 @@ static py::class_<T> inproc_stream_register(py::module &m, const char *name)
 {
     using namespace pybind11::literals;
     return py::class_<T>(m, name)
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::shared_ptr<inproc_queue>, const stream_config &>(),
+        .def(py::init(
+                [](std::shared_ptr<thread_pool_wrapper> io_service,
+                   std::shared_ptr<inproc_queue> queue,
+                   const stream_config &config)
+                {
+                    deprecation_warning("pass a list of queues");
+                    return new T(std::move(io_service), std::move(queue), config);
+                }),
              "thread_pool"_a, "queue"_a, "config"_a = stream_config())
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::shared_ptr<inproc_queue>> &, const stream_config &>(),
              "thread_pool"_a, "queues"_a, "config"_a = stream_config())
