@@ -132,6 +132,10 @@ implement the following interface, although this base class does not actually ex
       If the computed cnt overflows the number of bits available, the
       bottom-most bits are taken.
 
+   .. py:attribute:: num_substreams
+
+      Number of substreams in this stream (read-only).
+
 UDP
 ^^^
 

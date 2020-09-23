@@ -162,6 +162,11 @@ public:
                                  std::size_t substream_index = 0) = 0;
 
     /**
+     * Get the number of substreams in this stream.
+     */
+    virtual std::size_t get_num_substreams() const = 0;
+
+    /**
      * Block until all enqueued heaps have been sent. This function is
      * thread-safe, but can be live-locked if more heaps are added while it is
      * running.

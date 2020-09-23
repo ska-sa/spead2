@@ -190,7 +190,7 @@ public:
         Args&&... args)
         : udp_stream(std::move(io_service), std::move(socket), std::vector<boost::asio::ip::udp::endpoint>{endpoint}, std::forward<Args>(args)...) {}
 
-    std::size_t get_num_substreams() const { return endpoints.size(); }
+    virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
 
     virtual ~udp_stream();
 };

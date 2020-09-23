@@ -701,8 +701,10 @@ template<typename T>
 static void stream_register(py::class_<T> &stream_class)
 {
     using namespace pybind11::literals;
-    stream_class.def("set_cnt_sequence", SPEAD2_PTMF(T, set_cnt_sequence),
-                     "next"_a, "step"_a);
+    stream_class
+        .def("set_cnt_sequence", SPEAD2_PTMF(T, set_cnt_sequence),
+             "next"_a, "step"_a)
+        .def_property_readonly("num_substreams", SPEAD2_PTMF(T, get_num_substreams));
 }
 
 template<typename T>

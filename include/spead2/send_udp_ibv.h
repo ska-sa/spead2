@@ -180,7 +180,7 @@ public:
         int comp_vector = 0,
         int max_poll = default_max_poll);
 
-    std::size_t get_num_substreams() const { return endpoints.size(); }
+    virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
 
     virtual ~udp_ibv_stream();
 };

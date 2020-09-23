@@ -69,7 +69,7 @@ public:
     /// Get the underlying storage queue
     const std::vector<std::shared_ptr<inproc_queue>> &get_queues() const;
 
-    std::size_t get_num_substreams() const { return queues.size(); }
+    virtual std::size_t get_num_substreams() const override final { return queues.size(); }
 
     virtual ~inproc_stream();
 };

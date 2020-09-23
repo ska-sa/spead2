@@ -121,7 +121,7 @@ public:
         boost::asio::ip::tcp::socket &&socket,
         const stream_config &config = stream_config());
 
-    std::size_t get_num_substreams() const { return 1; }
+    virtual std::size_t get_num_substreams() const override final { return 1; }
 
     virtual ~tcp_stream();
 };
