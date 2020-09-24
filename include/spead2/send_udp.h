@@ -33,6 +33,7 @@
 #include <boost/asio.hpp>
 #include <utility>
 #include <vector>
+#include <initializer_list>
 #include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
 
@@ -192,6 +193,24 @@ public:
         const boost::asio::ip::udp::endpoint &endpoint,
         Args&&... args)
         : udp_stream(std::move(io_service), std::move(socket), std::vector<boost::asio::ip::udp::endpoint>{endpoint}, std::forward<Args>(args)...) {}
+
+    /* Force an initializer list to forward to the vector version (without this,
+     * a singleton initializer list forwards to the scalar version).
+     */
+    template<typename... Args>
+    udp_stream(
+        io_service_ref io_service,
+        std::initializer_list<boost::asio::ip::udp::endpoint> endpoints,
+        Args&&... args)
+        : udp_stream(std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>(endpoints), std::forward<Args>(args)...) {}
+
+    template<typename... Args>
+    udp_stream(
+        io_service_ref io_service,
+        boost::asio::ip::udp::socket &&socket,
+        std::initializer_list<boost::asio::ip::udp::endpoint> endpoints,
+        Args&&... args)
+        : udp_stream(std::move(io_service), std::move(socket), std::vector<boost::asio::ip::udp::endpoint>(endpoints), std::forward<Args>(args)...) {}
 
     virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
 

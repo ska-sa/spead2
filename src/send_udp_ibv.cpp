@@ -250,6 +250,21 @@ udp_ibv_stream::udp_ibv_stream(
 
 udp_ibv_stream::udp_ibv_stream(
     io_service_ref io_service,
+    std::initializer_list<boost::asio::ip::udp::endpoint> endpoints,
+    const stream_config &config,
+    const boost::asio::ip::address &interface_address,
+    std::size_t buffer_size,
+    int ttl,
+    int comp_vector,
+    int max_poll)
+    : udp_ibv_stream(
+        std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>(endpoints),
+        config, interface_address, buffer_size, ttl, comp_vector, max_poll)
+{
+}
+
+udp_ibv_stream::udp_ibv_stream(
+    io_service_ref io_service,
     const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     const stream_config &config,
     const boost::asio::ip::address &interface_address,

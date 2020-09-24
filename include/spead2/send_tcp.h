@@ -25,6 +25,7 @@
 #include <boost/asio.hpp>
 #include <vector>
 #include <utility>
+#include <initializer_list>
 #include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
 #include <spead2/common_endian.h>
@@ -117,6 +118,25 @@ public:
             std::move(io_service),
             std::forward<ConnectHandler>(connect_handler),
             std::vector<boost::asio::ip::tcp::endpoint>{endpoint},
+            config, buffer_size, interface_address)
+    {
+    }
+
+    /* Force an initializer list to forward to the vector version (without this,
+     * a singleton initializer list forwards to the scalar version).
+     */
+    template<typename ConnectHandler>
+    tcp_stream(
+        io_service_ref io_service,
+        ConnectHandler &&connect_handler,
+        std::initializer_list<boost::asio::ip::tcp::endpoint> endpoints,
+        const stream_config &config = stream_config(),
+        std::size_t buffer_size = default_buffer_size,
+        const boost::asio::ip::address &interface_address = boost::asio::ip::address())
+        : tcp_stream(
+            std::move(io_service),
+            std::forward<ConnectHandler>(connect_handler),
+            std::vector<boost::asio::ip::tcp::endpoint>(endpoints),
             config, buffer_size, interface_address)
     {
     }

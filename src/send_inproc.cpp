@@ -74,6 +74,17 @@ inproc_stream::inproc_stream(
 
 inproc_stream::inproc_stream(
     io_service_ref io_service,
+    std::initializer_list<std::shared_ptr<inproc_queue>> queues,
+    const stream_config &config)
+    : inproc_stream(
+        std::move(io_service),
+        std::vector<std::shared_ptr<inproc_queue>>(queues),
+        config)
+{
+}
+
+inproc_stream::inproc_stream(
+    io_service_ref io_service,
     const std::vector<std::shared_ptr<inproc_queue>> &queues,
     const stream_config &config)
     : stream_impl<inproc_stream>(std::move(io_service), config, 1),

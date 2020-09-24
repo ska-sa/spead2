@@ -25,6 +25,7 @@
 #include <vector>
 #include <utility>
 #include <memory>
+#include <initializer_list>
 #include <boost/asio.hpp>
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_ringbuffer.h>
@@ -54,6 +55,12 @@ private:
     void async_send_packets();
 
 public:
+    /// Constructor
+    inproc_stream(
+        io_service_ref io_service,
+        const std::vector<std::shared_ptr<inproc_queue>> &queues,
+        const stream_config &config = stream_config());
+
     /// Backwards-compatibility constructor (taking only a single queue)
     SPEAD2_DEPRECATED("use a vector of queues")
     inproc_stream(
@@ -61,10 +68,12 @@ public:
         std::shared_ptr<inproc_queue> queue,
         const stream_config &config = stream_config());
 
-    /// Constructor
+    /* Force an initializer list to forward to the vector version (without this,
+     * a singleton initializer list forwards to the scalar version).
+     */
     inproc_stream(
         io_service_ref io_service,
-        const std::vector<std::shared_ptr<inproc_queue>> &queues,
+        std::initializer_list<std::shared_ptr<inproc_queue>> queues,
         const stream_config &config = stream_config());
 
     /// Get the underlying storage queue

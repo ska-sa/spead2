@@ -31,6 +31,7 @@
 #include <utility>
 #include <vector>
 #include <memory>
+#include <initializer_list>
 #include <boost/noncopyable.hpp>
 #include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
@@ -174,6 +175,19 @@ public:
     udp_ibv_stream(
         io_service_ref io_service,
         const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+        const stream_config &config,
+        const boost::asio::ip::address &interface_address,
+        std::size_t buffer_size = default_buffer_size,
+        int ttl = 1,
+        int comp_vector = 0,
+        int max_poll = default_max_poll);
+
+    /* Force an initializer list to forward to the vector version (without this,
+     * a singleton initializer list forwards to the scalar version).
+     */
+    udp_ibv_stream(
+        io_service_ref io_service,
+        std::initializer_list<boost::asio::ip::udp::endpoint> endpoints,
         const stream_config &config,
         const boost::asio::ip::address &interface_address,
         std::size_t buffer_size = default_buffer_size,

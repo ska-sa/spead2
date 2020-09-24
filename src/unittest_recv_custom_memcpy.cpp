@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(test_reverse)
     recv_stream.emplace_reader<spead2::recv::inproc_reader>(queue);
 
     // Set up sender and send the heap
-    spead2::send::inproc_stream send_stream(tp, std::vector<std::shared_ptr<inproc_queue>>{queue});
+    spead2::send::inproc_stream send_stream(tp, {queue});
     flavour f(4, 64, 48);
     spead2::send::heap send_heap(f);
     spead2::send::heap stop_heap(f);
