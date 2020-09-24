@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2015 SKA South Africa
+# Copyright 2015, 2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -22,13 +22,12 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-items = []
-
 thread_pool = spead2.ThreadPool()
-stream = spead2.recv.Stream(thread_pool, spead2.BUG_COMPAT_PYSPEAD_0_5_2)
+stream = spead2.recv.Stream(
+    thread_pool,
+    spead2.recv.StreamConfig(memory_allocator=spead2.MemoryPool(16384, 26214400, 12, 8))
+)
 del thread_pool
-pool = spead2.MemoryPool(16384, 26214400, 12, 8)
-stream.set_memory_allocator(pool)
 if 0:
     with open('junkspeadfile', 'rb') as f:
         text = f.read()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2015, 2019 SKA South Africa
+# Copyright 2015, 2019-2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -33,7 +33,7 @@ stream = spead2.send.asyncio.UdpStream(
 del thread_pool  # Make sure this doesn't crash anything
 
 shape = (40, 50)
-ig = spead2.send.ItemGroup(flavour=spead2.Flavour(4, 64, 48, spead2.BUG_COMPAT_PYSPEAD_0_5_2))
+ig = spead2.send.ItemGroup(flavour=spead2.Flavour(4, 64, 48, 0))
 item = ig.add_item(0x1234, 'foo', 'a foo item', shape=shape, dtype=np.int32)
 item.value = np.zeros(shape, np.int32)
 futures = [
