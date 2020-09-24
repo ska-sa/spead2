@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO)
 
 thread_pool = spead2.ThreadPool()
 stream = spead2.send.asyncio.UdpStream(
-    thread_pool, "127.0.0.1", 8888, spead2.send.StreamConfig(rate=1e7))
+    thread_pool, [("127.0.0.1", 8888)], spead2.send.StreamConfig(rate=1e7))
 del thread_pool  # Make sure this doesn't crash anything
 
 shape = (40, 50)
