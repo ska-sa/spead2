@@ -95,10 +95,8 @@ UdpStream.__doc__ = \
     ----------
     thread_pool : :py:class:`spead2.ThreadPool`
         Thread pool handling the I/O
-    hostname : str
-        Peer hostname
-    port : int
-        Peer port
+    endpoints : List[Tuple[str, int]]
+        Peer endpoints (one per substreams).
     config : :py:class:`spead2.send.StreamConfig`
         Stream configuration
     buffer_size : int
@@ -167,7 +165,7 @@ InprocStream.__doc__ = \
     ----------
     thread_pool : :py:class:`spead2.ThreadPool`
         Thread pool handling the I/O
-    queue : :py:class:`spead2.InprocQueue`
+    queues : List[:py:class:`spead2.InprocQueue`]
         Queue holding the data in flight
     config : :py:class:`spead2.send.StreamConfig`
         Stream configuration

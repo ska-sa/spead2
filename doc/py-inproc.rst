@@ -45,7 +45,7 @@ Sending
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
    :param queues: Queues holding the generated packets (one per substream).
-   :type queue: List[:py:class:`spead2.InprocQueue`]
+   :type queues: List[:py:class:`spead2.InprocQueue`]
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
 
@@ -53,7 +53,7 @@ Sending
 
       Get the queues passed to the constructor.
 
-.. autoclass:: spead2.send.asyncio.InprocStream(thread_pool, queue, config)
+.. autoclass:: spead2.send.asyncio.InprocStream(thread_pool, queues, config)
 
    An asynchronous version of :py:class:`spead2.send.InprocStream`. Refer to
    :ref:`asynchronous-send` for general details about asynchronous transport.

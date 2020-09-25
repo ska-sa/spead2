@@ -241,12 +241,16 @@ Because spead2 was originally designed for UDP, the default packet size in
 :py:class:`~spead2.send.StreamConfig` is quite small. Performance can be improved by
 increasing it (but be sure the receiver is configured to handle larger packets).
 
-.. py:class:: spead2.send.TcpStream(thread_pool, hostname, port, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, interface_address='')
+TCP/IP is also a connection-oriented protocol, and does not support substreams. The
+`endpoints` must therefore contain exactly one endpoint (it takes a list for
+consistency with :class:`~spead2.send.UdpStream`).
+
+.. py:class:: spead2.send.TcpStream(thread_pool, endpoints, config=spead2.send.StreamConfig(), buffer_size=DEFAULT_BUFFER_SIZE, interface_address='')
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
-   :param str hostname: Peer hostname
-   :param int port: Peer port
+   :param endpoints: Peer endpoint (must contain exactly one element).
+   :type endpoints: List[Tuple[str, int]]
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
