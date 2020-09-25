@@ -3,8 +3,15 @@ Changelog
 
 .. rubric:: Development version
 
-Version 3.0 contains a number of breaking API changes. For details of these, please refer
-to :doc:`migrate-3`.
+Version 3.0 contains a number of breaking API changes. For information on
+updating your existing code, refer to :doc:`migrate-3`.
+
+New features:
+
+- Support multiple "substreams" in a send stream (see :ref:`py-substreams`).
+- Reduce overhead for dealing with incomplete heaps.
+- Add C++ preprocessor defines for the version number.
+- Change code examples to use standard SPEAD rather than PySPEAD bug compatibility.
 
 Additionally, refer to the changes for 3.0.0b1 below.
 
