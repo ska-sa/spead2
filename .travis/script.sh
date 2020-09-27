@@ -37,7 +37,7 @@ if [ "$TEST_PYTHON" = "yes" ]; then
     else
         CC="$CC -Werror" pip install -v .
     fi
-    pytest -v spead2/test
+    pytest
     for test in test_logging_shutdown test_running_thread_pool test_running_stream; do
         echo "Running shutdown test $test"
         python -c "import spead2.test.shutdown; spead2.test.shutdown.$test()"
