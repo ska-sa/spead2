@@ -21,8 +21,7 @@ import sys
 
 import numpy as np
 import netifaces
-from nose.tools import assert_equal, assert_raises, timed
-from nose.plugins.skip import SkipTest
+import pytest
 
 import spead2
 import spead2.send
@@ -30,17 +29,17 @@ import spead2.recv
 
 
 def _assert_items_equal(item1, item2):
-    assert_equal(item1.id, item2.id)
-    assert_equal(item1.name, item2.name)
-    assert_equal(item1.description, item2.description)
-    assert_equal(item1.shape, item2.shape)
-    assert_equal(item1.format, item2.format)
+    assert item1.id == item2.id
+    assert item1.name == item2.name
+    assert item1.description == item2.description
+    assert item1.shape == item2.shape
+    assert item1.format == item2.format
     # Byte order need not match, provided that values are received correctly
     if item1.dtype is not None and item2.dtype is not None:
-        assert_equal(item1.dtype.newbyteorder('<'), item2.dtype.newbyteorder('<'))
+        assert item1.dtype.newbyteorder('<') == item2.dtype.newbyteorder('<')
     else:
-        assert_equal(item1.dtype, item2.dtype)
-    assert_equal(item1.order, item2.order)
+        assert item1.dtype == item2.dtype
+    assert item1.order == item2.order
     # Comparing arrays has many issues. Convert them to lists where appropriate
     value1 = item1.value
     value2 = item2.value
@@ -48,24 +47,16 @@ def _assert_items_equal(item1, item2):
         value1 = value1.tolist()
     if hasattr(value2, 'tolist'):
         value2 = value2.tolist()
-    assert_equal(value1, value2)
+    assert value1 == value2
 
 
 def assert_item_groups_equal(item_group1, item_group2):
-    assert_equal(sorted(item_group1.keys()), sorted(item_group2.keys()))
+    assert sorted(item_group1.keys()) == sorted(item_group2.keys())
     for key in item_group1.keys():
         _assert_items_equal(item_group1[key], item_group2[key])
 
 
-def timed_class(cls):
-    """Class decorator version of `nose.tools.timed`"""
-    for key in cls.__dict__:
-        if key.startswith('test_'):
-            setattr(cls, key, timed(2)(getattr(cls, key)))
-    return cls
-
-
-@timed_class
+@pytest.mark.timeout(5)
 class BaseTestPassthrough:
     """Tests common to all transports and libraries"""
 
@@ -75,25 +66,25 @@ class BaseTestPassthrough:
     @classmethod
     def check_ipv6(cls):
         if not socket.has_ipv6:
-            raise SkipTest('platform does not support IPv6')
+            pytest.skip('platform does not support IPv6')
         # Travis build systems fail to bind to an IPv6 address
         sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         try:
             sock.bind(("::1", 8888))
         except OSError:
-            raise SkipTest('platform cannot bind IPv6 localhost address')
+            pytest.skip('platform cannot bind IPv6 localhost address')
         finally:
             sock.close()
 
     def _test_item_groups(self, item_groups,
                           memcpy=spead2.MEMCPY_STD, allocator=None, new_order='='):
         received_item_groups = self.transmit_item_groups(item_groups, memcpy, allocator, new_order)
-        assert_equal(len(received_item_groups), len(item_groups))
+        assert len(received_item_groups) == len(item_groups)
         for received_item_group, item_group in zip(received_item_groups, item_groups):
             assert_item_groups_equal(item_group, received_item_group)
             for item in received_item_group.values():
                 if item.dtype is not None:
-                    assert_equal(item.value.dtype, item.value.dtype.newbyteorder(new_order))
+                    assert item.value.dtype == item.value.dtype.newbyteorder(new_order)
 
     def _test_item_group(self, item_group,
                          memcpy=spead2.MEMCPY_STD, allocator=None, new_order='='):
@@ -123,7 +114,7 @@ class BaseTestPassthrough:
         # macOS doesn't have a big enough socket buffer to reliably transmit
         # the whole thing over UDP.
         if self.is_lossy and sys.platform == 'darwin':
-            raise SkipTest("macOS can't reliably handle large heaps over UDP")
+            pytest.skip("macOS can't reliably handle large heaps over UDP")
         ig = spead2.send.ItemGroup()
         data = np.random.randn(100, 200)
         ig.add_item(id=0x2345, name='name', description='description',
@@ -269,12 +260,12 @@ class BaseTestPassthrough:
 
     def prepare_receivers(self, receivers):
         """Generate receivers to use in the test."""
-        assert_equal(1, len(receivers))
+        assert len(receivers) == 1
         self.prepare_receiver(receivers[0])
 
     def prepare_senders(self, thread_pool, n):
         """Generate a sender to use in the test, with `n` substreams."""
-        assert_equal(1, n)
+        assert n == 1
         return self.prepare_sender(thread_pool)
 
 
@@ -318,12 +309,12 @@ class TestPassthroughUdp(BaseTestPassthroughSubstreams):
                 buffer_size=0)
 
     def test_empty_endpoints(self):
-        with assert_raises(ValueError):
+        with pytest.raises(ValueError):
             spead2.send.UdpStream(
                 spead2.ThreadPool(), [], spead2.send.StreamConfig(rate=1e7))
 
     def test_mixed_protocols(self):
-        with assert_raises(ValueError):
+        with pytest.raises(ValueError):
             spead2.send.UdpStream(
                 spead2.ThreadPool(),
                 [('127.0.0.1', 8888), ('::1', 8888)],
@@ -365,7 +356,7 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreams):
             recv_sock.close()   # spead2 duplicates the socket
 
     def prepare_senders(self, thread_pool, n):
-        assert_equal(n, len(self._ports))
+        assert len(self._ports) == n
         send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         if n == 1:
             sender = spead2.send.UdpStream(
@@ -414,7 +405,7 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
             for addr in addrs:
                 if addr['addr'] != '::1':
                     return socket.if_nametoindex(iface)
-        raise SkipTest('could not find suitable interface for test')
+        pytest.skip('could not find suitable interface for test')
 
     def prepare_receivers(self, receivers):
         interface_index = self.get_interface_index()
@@ -443,7 +434,7 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
     def _interface_address(self):
         ifaddr = os.getenv('SPEAD2_TEST_IBV_INTERFACE_ADDRESS')
         if not ifaddr:
-            raise SkipTest('Envar SPEAD2_TEST_IBV_INTERFACE_ADDRESS not set')
+            pytest.skip('Envar SPEAD2_TEST_IBV_INTERFACE_ADDRESS not set')
         return ifaddr
 
     def setup(self):
@@ -451,7 +442,7 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
         # device contexts. The sender and receiver end up sharing one, so we
         # need to explicitly create another.
         if not hasattr(spead2, 'IbvContext'):
-            raise SkipTest('IBV support not compiled in')
+            pytest.skip('IBV support not compiled in')
         self._extra_context = spead2.IbvContext(self._interface_address())
 
     def teardown(self):
@@ -509,7 +500,7 @@ class TestPassthroughTcp6(BaseTestPassthrough):
 
 class TestPassthroughMem(BaseTestPassthrough):
     def transmit_item_groups(self, item_groups, memcpy, allocator, new_order='='):
-        assert_equal(1, len(item_groups))
+        assert len(item_groups) == 1
         thread_pool = spead2.ThreadPool(2)
         sender = spead2.send.BytesStream(thread_pool)
         gen = spead2.send.HeapGenerator(item_groups[0])
