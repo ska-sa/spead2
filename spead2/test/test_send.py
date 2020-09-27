@@ -1,4 +1,4 @@
-# Copyright 2015, 2019 SKA South Africa
+# Copyright 2015, 2019-2020 SKA South Africa
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -22,9 +22,7 @@ import threading
 import weakref
 
 import numpy as np
-from nose.tools import (
-    assert_equal, assert_is_none, assert_is_not_none, assert_false,
-    assert_raises)
+import pytest
 
 import spead2
 import spead2.send as send
@@ -128,7 +126,7 @@ class TestEncode:
                 struct.pack('B', 0)])
         ]
         packet = self.flavour.items_to_bytes([])
-        assert_equal(hexlify(expected), hexlify(packet))
+        assert hexlify(packet) == hexlify(expected)
 
     def test_lifetime(self):
         """Heap must hold references to item values"""
@@ -140,12 +138,12 @@ class TestEncode:
         heap.add_item(item)
         del item
         packets = list(send.PacketGenerator(heap, 0x123456, 1472))   # noqa: F841
-        assert_is_not_none(weak())
+        assert weak() is not None
         del heap
         # pypy needs multiple gc passes to wind it all up
         for i in range(10):
             gc.collect()
-        assert_is_none(weak())
+        assert weak() is None
 
     def make_descriptor_numpy(self, id, name, description, shape, dtype_str, fortran_order):
         payload_fields = [
@@ -226,7 +224,7 @@ class TestEncode:
                            shape=shape, dtype=np.uint16)
         item.value = data
         packet = self.flavour.items_to_bytes([item])
-        assert_equal(hexlify(expected), hexlify(packet))
+        assert hexlify(packet) == hexlify(expected)
 
     def test_numpy_noncontiguous(self):
         """A numpy item with a discontiguous item value is sent correctly"""
@@ -250,14 +248,14 @@ class TestEncode:
                            shape=shape, dtype=np.uint16)
         item.value = data
         packet = self.flavour.items_to_bytes([item], [])
-        assert_equal(hexlify(expected), hexlify(packet))
+        assert hexlify(packet) == hexlify(expected)
 
     def test_numpy_fortran_order(self):
         """A numpy item with Fortran-order descriptor must be sent in Fortran order"""
         id = 0x2345
         shape = (2, 3)
         data = np.array([[6, 7, 8], [10, 11, 12000]], order='F')
-        assert_false(data.flags.c_contiguous)
+        assert data.flags.c_contiguous is False
         payload_fields = [
             self.make_descriptor_numpy(id, 'name', 'description', shape, '<u2', True),
             struct.pack('<6H', 6, 10, 7, 11, 8, 12000)
@@ -280,7 +278,7 @@ class TestEncode:
                            shape=shape, dtype=np.uint16, order='F')
         item.value = data
         packet = self.flavour.items_to_bytes([item])
-        assert_equal(hexlify(expected), hexlify(packet))
+        assert hexlify(packet) == hexlify(expected)
 
     def test_fallback_types(self):
         """Send an array with mixed types and strange packing"""
@@ -310,7 +308,7 @@ class TestEncode:
                            shape=shape, format=format)
         item.value = data
         packet = self.flavour.items_to_bytes([item])
-        assert_equal(hexlify(expected), hexlify(packet))
+        assert hexlify(packet) == hexlify(expected)
 
     def test_small_fixed(self):
         """Sending a small item with fixed shape must use an immediate."""
@@ -332,7 +330,7 @@ class TestEncode:
                            shape=(), format=[('u', 16)])
         item.value = data
         packet = self.flavour.items_to_bytes([item], [])
-        assert_equal(hexlify(expected), hexlify(packet))
+        assert hexlify(packet) == hexlify(expected)
 
     def test_small_variable(self):
         """Sending a small item with dynamic shape must not use an immediate."""
@@ -355,17 +353,17 @@ class TestEncode:
                            shape=shape, format=[('u', 8)])
         item.value = data
         packet = self.flavour.items_to_bytes([item], [])
-        assert_equal(hexlify(expected), hexlify(packet))
+        assert hexlify(packet) == hexlify(expected)
 
     def test_numpy_zero_length(self):
         """A zero-length numpy type raises :exc:`ValueError`"""
-        with assert_raises(ValueError):
+        with pytest.raises(ValueError):
             spead2.Item(id=0x2345, name='name', description='description',
                         shape=(), dtype=np.str_)
 
     def test_fallback_zero_length(self):
         """A zero-length type raises :exc:`ValueError`"""
-        with assert_raises(ValueError):
+        with pytest.raises(ValueError):
             spead2.Item(id=0x2345, name='name', description='description',
                         shape=(), format=[('u', 0)])
 
@@ -386,7 +384,7 @@ class TestEncode:
         heap = send.Heap(self.flavour)
         heap.add_start()
         packet = list(send.PacketGenerator(heap, 0x123456, 1500))
-        assert_equal(hexlify(expected), hexlify(packet))
+        assert hexlify(packet) == hexlify(expected)
 
     def test_end(self):
         """Tests sending an end-of-stream marker."""
@@ -405,7 +403,7 @@ class TestEncode:
         heap = send.Heap(self.flavour)
         heap.add_end()
         packet = list(send.PacketGenerator(heap, 0x123456, 1500))
-        assert_equal(hexlify(expected), hexlify(packet))
+        assert hexlify(packet) == hexlify(expected)
 
     def test_replicate_pointers(self):
         """Tests sending a heap with replicate_pointers set to true"""
@@ -440,18 +438,18 @@ class TestEncode:
         ]
         packets = self.flavour.items_to_bytes([item1, item2], [], max_packet_size=72,
                                               repeat_pointers=True)
-        assert_equal(hexlify(expected), hexlify(packets))
+        assert hexlify(packets) == hexlify(expected)
 
 
 class TestStreamConfig:
     def test_default_construct(self):
         config = send.StreamConfig()
-        assert_equal(config.DEFAULT_MAX_PACKET_SIZE, config.max_packet_size)
-        assert_equal(0.0, config.rate)
-        assert_equal(config.DEFAULT_BURST_SIZE, config.burst_size)
-        assert_equal(config.DEFAULT_MAX_HEAPS, config.max_heaps)
-        assert_equal(config.DEFAULT_BURST_RATE_RATIO, config.burst_rate_ratio)
-        assert_equal(config.DEFAULT_ALLOW_HW_RATE, config.allow_hw_rate)
+        assert config.max_packet_size == config.DEFAULT_MAX_PACKET_SIZE
+        assert config.rate == 0.0
+        assert config.burst_size == config.DEFAULT_BURST_SIZE
+        assert config.max_heaps == config.DEFAULT_MAX_HEAPS
+        assert config.burst_rate_ratio == config.DEFAULT_BURST_RATE_RATIO
+        assert config.allow_hw_rate == config.DEFAULT_ALLOW_HW_RATE
 
     def test_setters(self):
         config = send.StreamConfig()
@@ -461,30 +459,30 @@ class TestStreamConfig:
         config.max_heaps = 5
         config.burst_rate_ratio = 1.5
         config.allow_hw_rate = False
-        assert_equal(1234, config.max_packet_size)
-        assert_equal(1e9, config.rate)
-        assert_equal(12345, config.burst_size)
-        assert_equal(5, config.max_heaps)
-        assert_equal(1.5, config.burst_rate_ratio)
-        assert_equal(False, config.allow_hw_rate)
-        assert_equal(1.5e9, config.burst_rate)
+        assert config.max_packet_size == 1234
+        assert config.rate == 1e9
+        assert config.burst_size == 12345
+        assert config.max_heaps == 5
+        assert config.burst_rate_ratio == 1.5
+        assert config.allow_hw_rate is False
+        assert config.burst_rate == 1.5e9
 
     def test_construct_kwargs(self):
         config = send.StreamConfig(max_packet_size=1234, max_heaps=5)
-        assert_equal(1234, config.max_packet_size)
-        assert_equal(5, config.max_heaps)
-        assert_equal(0.0, config.rate)
+        assert config.max_packet_size == 1234
+        assert config.max_heaps == 5
+        assert config.rate == 0.0
 
     def test_bad_rate(self):
-        with assert_raises(ValueError):
+        with pytest.raises(ValueError):
             send.StreamConfig(rate=-1.0)
-        with assert_raises(ValueError):
+        with pytest.raises(ValueError):
             send.StreamConfig(rate=math.nan)
 
     def test_bad_max_heaps(self):
-        with assert_raises(TypeError):
+        with pytest.raises(TypeError):
             send.StreamConfig(max_heaps=-1)
-        with assert_raises(ValueError):
+        with pytest.raises(ValueError):
             send.StreamConfig(max_heaps=0)
 
 
@@ -516,7 +514,8 @@ class TestStream:
         # There shouldn't be room now. The sleep is an ugly hack to wait for
         # the threads to enqueue their heaps.
         time.sleep(0.05)
-        assert_raises(IOError, self.stream.send_heap, self.heap)
+        with pytest.raises(IOError):
+            self.stream.send_heap(self.heap)
 
     def test_send_error(self):
         """An error in sending must be reported."""
@@ -525,7 +524,8 @@ class TestStream:
         stream = send.UdpStream(
             spead2.ThreadPool(), "localhost", 8888,
             send.StreamConfig(max_packet_size=100000), buffer_size=0)
-        assert_raises(IOError, stream.send_heap, self.heap)
+        with pytest.raises(IOError):
+            stream.send_heap(self.heap)
 
     def test_send_explicit_cnt(self):
         """An explicit set heap ID must be respected, and not increment the
@@ -557,18 +557,18 @@ class TestStream:
                 self.flavour.make_address(spead2.NULL_ID, 0),
                 struct.pack('B', 0)
             ])
-        assert_equal(hexlify(expected), hexlify(self.stream.getvalue()))
+        assert hexlify(self.stream.getvalue()) == hexlify(expected)
 
     def test_invalid_cnt(self):
         """An explicit heap ID that overflows must raise an error."""
         ig = send.ItemGroup(flavour=self.flavour)
-        with assert_raises(IOError):
+        with pytest.raises(IOError):
             self.stream.send_heap(ig.get_start(), 2**48)
 
 
 class TestTcpStream:
     def test_failed_connect(self):
-        with assert_raises(IOError):
+        with pytest.raises(IOError):
             send.TcpStream(spead2.ThreadPool(), '127.0.0.1', 8887)
 
 
@@ -581,4 +581,5 @@ class TestInprocStream:
     def test_stopped_queue(self):
         self.queue.stop()
         ig = spead2.send.ItemGroup()
-        assert_raises(IOError, self.stream.send_heap, ig.get_end())
+        with pytest.raises(IOError):
+            self.stream.send_heap(ig.get_end())
