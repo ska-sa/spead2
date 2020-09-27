@@ -30,10 +30,12 @@ from . import test_passthrough
 
 class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
     def transmit_item_groups(self, item_groups, memcpy, allocator, new_order='='):
-        self.loop = asyncio.new_event_loop()
-        ret = self.loop.run_until_complete(
-            self.transmit_item_groups_async(item_groups, memcpy, allocator, new_order))
-        self.loop.close()
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(
+                self.transmit_item_groups_async(item_groups, memcpy, allocator, new_order))
+        finally:
+            loop.close()
         return ret
 
     async def transmit_item_groups_async(self, item_groups, memcpy, allocator, new_order='='):
@@ -43,7 +45,7 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
         if allocator is not None:
             recv_config.memory_allocator = allocator
         receivers = [
-            spead2.recv.asyncio.Stream(spead2.ThreadPool(), recv_config, loop=self.loop)
+            spead2.recv.asyncio.Stream(spead2.ThreadPool(), recv_config)
             for i in range(len(item_groups))
         ]
         await self.prepare_receivers(receivers)
@@ -103,13 +105,13 @@ class TestPassthroughUdp(BaseTestPassthroughSubstreamsAsync):
             return spead2.send.asyncio.UdpStream(
                 thread_pool, "localhost", 8888,
                 spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0, loop=self.loop)
+                buffer_size=0)
         else:
             return spead2.send.asyncio.UdpStream(
                 thread_pool,
                 [("localhost", 8888 + i) for i in range(n)],
                 spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0, loop=self.loop)
+                buffer_size=0)
 
 
 class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreamsAsync):
@@ -127,12 +129,12 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreamsAsync):
         if n == 1:
             stream = spead2.send.asyncio.UdpStream(
                 thread_pool, sock, '127.0.0.1', self._ports[0],
-                spead2.send.StreamConfig(rate=1e7), loop=self.loop)
+                spead2.send.StreamConfig(rate=1e7))
         else:
             stream = spead2.send.asyncio.UdpStream(
                 thread_pool, sock,
                 [('127.0.0.1', port) for port in self._ports],
-                spead2.send.StreamConfig(rate=1e7), loop=self.loop)
+                spead2.send.StreamConfig(rate=1e7))
         sock.close()
         return stream
 
@@ -143,7 +145,7 @@ class TestPassthroughTcp(BaseTestPassthroughAsync):
 
     async def prepare_sender(self, thread_pool):
         sender = await spead2.send.asyncio.TcpStream.connect(
-            thread_pool, "127.0.0.1", 8888, loop=self.loop)
+            thread_pool, "127.0.0.1", 8888)
         return sender
 
 
@@ -160,9 +162,9 @@ class TestPassthroughTcpCustomSocket(BaseTestPassthroughAsync):
     async def prepare_sender(self, thread_pool):
         sock = socket.socket()
         sock.setblocking(False)
-        await self.loop.sock_connect(sock, ('127.0.0.1', self._port))
+        await asyncio.get_event_loop().sock_connect(sock, ('127.0.0.1', self._port))
         sender = spead2.send.asyncio.TcpStream(
-            thread_pool, sock, loop=self.loop)
+            thread_pool, sock)
         sock.close()
         return sender
 
@@ -176,9 +178,9 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreamsAsync):
     async def prepare_senders(self, thread_pool, n):
         assert n == len(self._queues)
         if n == 1:
-            return spead2.send.asyncio.InprocStream(thread_pool, self._queues[0], loop=self.loop)
+            return spead2.send.asyncio.InprocStream(thread_pool, self._queues[0])
         else:
-            return spead2.send.asyncio.InprocStream(thread_pool, self._queues, loop=self.loop)
+            return spead2.send.asyncio.InprocStream(thread_pool, self._queues)
 
     async def transmit_item_groups_async(self, item_groups, memcpy, allocator, new_order='='):
         self._queues = [spead2.InprocQueue() for ig in item_groups]

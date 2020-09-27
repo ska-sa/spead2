@@ -28,14 +28,11 @@ from spead2._spead2.send import InprocStreamAsyncio as _InprocStreamAsyncio
 def _wrap_class(name, base_class):
     class Wrapped(base_class):
         def __init__(self, *args, **kwargs):
-            self._loop = kwargs.pop('loop', None)
             super().__init__(*args, **kwargs)
-            if self._loop is None:
-                self._loop = asyncio.get_event_loop()
             self._active = 0
             self._last_queued_future = None
 
-        def async_send_heap(self, heap, cnt=-1, substream_index=0, *, loop=None):
+        def async_send_heap(self, heap, cnt=-1, substream_index=0):
             """Send a heap asynchronously. Note that this is *not* a coroutine:
             it returns a future. Adding the heap to the queue is done
             synchronously, to ensure proper ordering.
@@ -48,13 +45,10 @@ def _wrap_class(name, base_class):
                 Heap cnt to send (defaults to auto-incrementing)
             substream_index : int, optional
                 Substream on which to send the heap
-            loop : :py:class:`asyncio.BaseEventLoop`, optional
-                Event loop to use, overriding the constructor.
             """
 
-            if loop is None:
-                loop = self._loop
-            future = asyncio.Future(loop=self._loop)
+            future = asyncio.Future()
+            loop = asyncio.get_event_loop()
 
             def callback(exc, bytes_transferred):
                 if exc is not None:
@@ -63,11 +57,11 @@ def _wrap_class(name, base_class):
                     future.set_result(bytes_transferred)
                 self._active -= 1
                 if self._active == 0:
-                    self._loop.remove_reader(self.fd)
+                    loop.remove_reader(self.fd)
                     self._last_queued_future = None  # Purely to free the memory
             queued = super().async_send_heap(heap, callback, cnt, substream_index)
             if self._active == 0:
-                self._loop.add_reader(self.fd, self.process_callbacks)
+                loop.add_reader(self.fd, self.process_callbacks)
             self._active += 1
             if queued:
                 self._last_queued_future = future
@@ -101,8 +95,6 @@ UdpStream.__doc__ = \
     buffer_size : int
         Socket buffer size. A warning is logged if this size cannot be set due
         to OS limits.
-    loop : :py:class:`asyncio.BaseEventLoop`, optional
-        Event loop to use (defaults to ``asyncio.get_event_loop()``)
     """
 
 _TcpStreamBase = _wrap_class('TcpStream', _TcpStreamAsyncio)
@@ -132,10 +124,8 @@ class TcpStream(_TcpStreamBase):
         The arguments are the same as for the constructor of
         :py:class:`spead2.send.TcpStream`.
         """
-        loop = kwargs.get('loop')
-        if loop is None:
-            loop = asyncio.get_event_loop()
-        future = asyncio.Future(loop=loop)
+        future = asyncio.Future()
+        loop = asyncio.get_event_loop()
 
         def callback(arg):
             if not future.done():
@@ -209,8 +199,6 @@ try:
             waiting for an interrupt (if `comp_vector` is
             non-negative) or letting other code run on the
             thread (if `comp_vector` is negative).
-        loop : :py:class:`asyncio.BaseEventLoop`, optional
-            Event loop to use (defaults to ``asyncio.get_event_loop()``)
         """
 
 except ImportError:

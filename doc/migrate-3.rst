@@ -96,6 +96,13 @@ received in any order. Starting with version 3, the default is to assume that
 packets arrive in order. Refer to :ref:`py-packet-ordering` for more
 details.
 
+Loop argument to asyncio functions
+----------------------------------
+The Python asyncio-based classes and functions no longer take a `loop`
+argument. As of Python 3.6 (which is now the minimum supported version),
+:py:func:`asyncio.get_event_loop` returns the executing event loop, so there
+is no need to pass the loop explicitly.
+
 Removal of deprecated functionality
 -----------------------------------
 The following functions were deprecated in version 2 and have been removed in version 3:

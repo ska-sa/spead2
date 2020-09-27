@@ -50,29 +50,21 @@ class Stream(spead2.recv.Stream):
     The futures store a singleton list containing the heap rather than the heap
     itself. This allows the reference to the heap to be explicitly cleared so
     that the heap can be garbage collected sooner.
-
-    Parameters
-    ----------
-    loop : event loop, optional
-        Default event loop
     """
 
     def __init__(self, *args, **kwargs):
-        self._loop = kwargs.pop('loop', None)
-        if self._loop is None:
-            self._loop = asyncio.get_event_loop()
         super().__init__(*args, **kwargs)
         self._waiters = collections.deque()
         self._listening = False
 
     def _start_listening(self):
         if not self._listening:
-            self._loop.add_reader(self.fd, self._ready_callback)
+            asyncio.get_event_loop().add_reader(self.fd, self._ready_callback)
             self._listening = True
 
     def _stop_listening(self):
         if self._listening:
-            self._loop.remove_reader(self.fd)
+            asyncio.get_event_loop().remove_reader(self.fd)
             self._listening = False
 
     def _clear_done_waiters(self):
@@ -104,10 +96,8 @@ class Stream(spead2.recv.Stream):
         self = None
         waiter = None
 
-    async def get(self, loop=None):
+    async def get(self):
         """Coroutine that waits for a heap to become available and returns it."""
-        if loop is None:
-            loop = self._loop
         self._clear_done_waiters()
         if not self._waiters:
             # If something is available directly, we can avoid going back to
@@ -119,10 +109,10 @@ class Stream(spead2.recv.Stream):
             else:
                 # Give the event loop a chance to run. This ensures that a
                 # heap-processing loop cannot live-lock the event loop.
-                await asyncio.sleep(0, loop=loop)
+                await asyncio.sleep(0)
                 return heap
 
-        waiter = asyncio.Future(loop=loop)
+        waiter = asyncio.Future()
         self._waiters.append(waiter)
         self._start_listening()
         try:
