@@ -37,14 +37,10 @@ if [ "$TEST_PYTHON" = "yes" ]; then
     else
         CC="$CC -Werror" pip install -v .
     fi
-    # Avoid running nosetests from installation directory, to avoid picking up
-    # things from the local tree that aren't installed.
-    pushd /
-    nosetests --with-ignore-docstring -v spead2
+    pytest -v spead2/test
     for test in test_logging_shutdown test_running_thread_pool test_running_stream; do
         echo "Running shutdown test $test"
         python -c "import spead2.test.shutdown; spead2.test.shutdown.$test()"
     done
-    popd
     flake8
 fi

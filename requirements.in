@@ -2,7 +2,8 @@ asynctest
 flake8
 netifaces
 numpy
-nose
-nose-ignore-docstring
 pycparser
 jinja2
+pytest
+pytest-asyncio
+pytest-timeout

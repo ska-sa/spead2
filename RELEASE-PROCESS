@@ -6,8 +6,8 @@
 - Check that Travis successfully tested the release
 - Run ./mkwheels.sh
 - Run ./setup.py sdist
-- Install the sdist and check that it passes nosetests
-- Install a wheel and check that it passes nosetests
+- Install the sdist and check that it passes pytest
+- Install a wheel and check that it passes pytest
 - Tag the release, git push --tags
 - Upload the sdist and wheels to PyPI with twine
 - Upload the sdist and debug symbols to github

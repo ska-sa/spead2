@@ -165,11 +165,11 @@ setup(
     ],
     tests_require=[
         'netifaces',
-        'nose',
-        'asynctest'
+        'pytest',
+        'pytest-asyncio',
+        'pytest-timeout'
     ],
     python_requires='>=3.6',
-    test_suite='nose.collector',
     packages=find_packages(),
     package_data={'': ['py.typed', '*.pyi']},
     entry_points={
