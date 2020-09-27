@@ -18,8 +18,6 @@
 import socket
 import asyncio
 
-from nose.tools import assert_equal
-
 import spead2
 import spead2.send
 import spead2.recv.asyncio
@@ -36,7 +34,6 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
                 self.transmit_item_groups_async(item_groups, memcpy, allocator, new_order))
         finally:
             loop.close()
-        return ret
 
     async def transmit_item_groups_async(self, item_groups, memcpy, allocator, new_order='='):
         if self.requires_ipv6:
@@ -77,12 +74,12 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
 
     async def prepare_receivers(self, receivers):
         """Generate receivers to use in the test."""
-        assert_equal(1, len(receivers))
+        assert len(receivers) == 1
         await self.prepare_receiver(receivers[0])
 
     async def prepare_senders(self, thread_pool, n):
         """Generate a sender to use in the test, with `n` substreams."""
-        assert_equal(1, n)
+        assert n == 1
         return await self.prepare_sender(thread_pool)
 
 
