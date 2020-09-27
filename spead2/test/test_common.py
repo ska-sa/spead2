@@ -15,8 +15,6 @@
 
 """Tests for parts of spead2 that are shared between send and receive"""
 
-from __future__ import division, print_function
-
 import numpy as np
 from nose.tools import (
     assert_equal, assert_greater, assert_raises, assert_true, assert_false,

@@ -227,7 +227,7 @@ class Descriptor:
                 fields.append('S1')
             else:
                 if code not in ['u', 'i', 'b']:
-                    raise ValueError('illegal format ({}, {})'.format(code, length))
+                    raise ValueError(f'illegal format ({code}, {length})')
                 fields.append('O')
         return _np.dtype(','.join(fields))
 
@@ -460,12 +460,12 @@ class Item(Descriptor):
                 if code == 'u':
                     raw = int(field)
                     if raw < 0 or raw >= (1 << length):
-                        raise ValueError('{} is out of range for u{}'.format(raw, length))
+                        raise ValueError(f'{raw} is out of range for u{length}')
                 elif code == 'i':
                     top_bit = 1 << (length - 1)
                     raw = int(field)
                     if raw < -top_bit or raw >= top_bit:
-                        raise ValueError('{} is out of range for i{}'.format(field, length))
+                        raise ValueError(f'{field} is out of range for i{length}')
                     # convert to 2's complement
                     if raw < 0:
                         raw += 2 * top_bit
@@ -584,7 +584,7 @@ class Item(Descriptor):
             value = [self.value[i : i + 1] for i in range(len(self.value))]
         value = _np.array(value, dtype=self._internal_dtype, order=self.order, copy=False)
         if not self.compatible_shape(value.shape):
-            raise ValueError('Value has shape {}, expected {}'.format(value.shape, self.shape))
+            raise ValueError(f'Value has shape {value.shape}, expected {self.shape}')
         return value
 
     def to_buffer(self):

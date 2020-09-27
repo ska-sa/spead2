@@ -20,7 +20,7 @@ def test_logging_shutdown():
     # Set a log level that won't actually display the messages.
     logging.basicConfig(level=logging.ERROR)
     for i in range(20000):
-        spead2._spead2.log_info('Test message {}'.format(i))
+        spead2._spead2.log_info(f'Test message {i}')
 
 
 def test_running_thread_pool():

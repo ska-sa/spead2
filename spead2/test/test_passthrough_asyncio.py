@@ -182,7 +182,7 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreamsAsync):
 
     async def transmit_item_groups_async(self, item_groups, memcpy, allocator, new_order='='):
         self._queues = [spead2.InprocQueue() for ig in item_groups]
-        ret = await super(TestPassthroughInproc, self).transmit_item_groups_async(
+        ret = await super().transmit_item_groups_async(
             item_groups, memcpy, allocator, new_order)
         for queue in self._queues:
             queue.stop()

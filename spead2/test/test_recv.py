@@ -13,7 +13,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import division, print_function
 import socket
 import struct
 import time
@@ -198,7 +197,7 @@ class TestDecode:
             if key in kwargs:
                 setattr(ring_config, key, kwargs.pop(key))
         if kwargs:
-            raise ValueError('Unexpected keyword arguments ({})'.format(kwargs))
+            raise ValueError(f'Unexpected keyword arguments ({kwargs})')
         stream = recv.Stream(thread_pool, config, ring_config)
         stream.add_buffer_reader(data)
         return list(stream)
@@ -274,7 +273,7 @@ class TestDecode:
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_string', 'a byte string', [('c', 8)], [None]),
-                Item(0x1234, 'Hello world'.encode('ascii'))
+                Item(0x1234, b'Hello world')
             ])
         item = self.data_to_item(packet, 0x1234)
         assert_equal('Hello world', item.value)
@@ -539,7 +538,7 @@ class TestDecode:
             [
                 self.flavour.make_plain_descriptor(
                     0x1234, 'test_string', 'a byte string', [('c', 8)], [None]),
-                Item(0x1234, 'Hello world'.encode('ascii'))
+                Item(0x1234, b'Hello world')
             ])
         heaps = self.data_to_heaps(packet1 + packet2, stop_on_stop_item=False)
         assert_equal(2, len(heaps))

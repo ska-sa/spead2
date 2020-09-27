@@ -16,7 +16,6 @@
 """
 Integration between spead2.send and asyncio
 """
-from __future__ import absolute_import
 
 import asyncio
 

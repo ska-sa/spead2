@@ -99,7 +99,7 @@ async def run_stream(stream, name, args):
                 if num_heaps == args.max_heaps:
                     break
                 heap = await stream.get()
-                print("Received heap {} on stream {}".format(heap.cnt, name))
+                print(f"Received heap {heap.cnt} on stream {name}")
                 num_heaps += 1
                 try:
                     if args.descriptors:
@@ -118,9 +118,9 @@ async def run_stream(stream, name, args):
                         else:
                             print(key)
                 except ValueError as e:
-                    print("Error raised processing heap: {}".format(e))
+                    print(f"Error raised processing heap: {e}")
             except (spead2.Stopped, asyncio.CancelledError):
-                print("Shutting down stream {} after {} heaps".format(name, num_heaps))
+                print(f"Shutting down stream {name} after {num_heaps} heaps")
                 stats = stream.stats
                 for key in dir(stats):
                     if not key.startswith('_'):

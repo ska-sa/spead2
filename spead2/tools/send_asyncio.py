@@ -174,7 +174,7 @@ async def async_main():
         descriptor_frequency=args.descriptors,
         flavour=spead2.Flavour(4, 64, args.addr_bits, bug_compat))
     for i in range(args.items):
-        item_group.add_item(id=None, name='Test item {}'.format(i),
+        item_group.add_item(id=None, name=f'Test item {i}',
                             description='A test item with arbitrary value',
                             shape=(elements,), dtype=dtype,
                             value=np.zeros((elements,), dtype=dtype))

@@ -15,7 +15,6 @@
 
 """Test that data can be passed over the SPEAD protocol using the various transports."""
 
-from __future__ import division, print_function
 import os
 import socket
 import sys
@@ -81,7 +80,7 @@ class BaseTestPassthrough:
         sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
         try:
             sock.bind(("::1", 8888))
-        except IOError:
+        except OSError:
             raise SkipTest('platform cannot bind IPv6 localhost address')
         finally:
             sock.close()
@@ -207,7 +206,7 @@ class BaseTestPassthrough:
         """
         ig = spead2.send.ItemGroup()
         for i in range(50):
-            name = 'test item {}'.format(i)
+            name = f'test item {i}'
             ig.add_item(id=0x2345 + i, name=name, description=name,
                         shape=(), format=[('u', 40)], value=0x12345 * i)
         self._test_item_group(ig)

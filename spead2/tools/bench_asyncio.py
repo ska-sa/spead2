@@ -263,7 +263,7 @@ async def run_master(args):
     if args.quiet:
         print(rate_gbps)
     else:
-        print("Sustainable rate: {:.3f} Gbps".format(rate_gbps))
+        print(f"Sustainable rate: {rate_gbps:.3f} Gbps")
 
 
 def main():
