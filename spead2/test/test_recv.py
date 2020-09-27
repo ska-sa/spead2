@@ -179,7 +179,7 @@ FLAVOUR = Flavour(48)
 class TestDecode:
     """Various types of descriptors must be correctly interpreted to decode data"""
 
-    def __init__(self):
+    def setup(self):
         self.flavour = FLAVOUR
 
     def data_to_heaps(self, data, **kwargs):
@@ -795,9 +795,9 @@ class TestRingStreamConfig:
 
 
 class TestStream:
-    """Tests for the stream API"""
+    """Tests for the stream API."""
 
-    def __init__(self):
+    def setup(self):
         self.flavour = FLAVOUR
 
     def test_full_stop(self):
