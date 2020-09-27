@@ -168,7 +168,7 @@ setup(
         'nose',
         'asynctest'
     ],
-    python_requires='>=3.5',
+    python_requires='>=3.6',
     test_suite='nose.collector',
     packages=find_packages(),
     package_data={'': ['py.typed', '*.pyi']},
