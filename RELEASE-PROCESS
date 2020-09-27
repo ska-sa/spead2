@@ -1,6 +1,6 @@
 - pip install setuptools_git
 - Update version number in doc/changelog.rst
-- Update version number in spead2/_version.py
+- Update version number in src/spead2/_version.py
 - ./bootstrap.sh
 - Check that .pyi stubs have been updated
 - Check that Travis successfully tested the release

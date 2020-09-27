@@ -3,7 +3,7 @@ set -e
 
 cd /tmp/spead2
 mkdir -p /output
-version="$(sed 's/.*"\(.*\)"/\1/' spead2/_version.py)"
+version="$(sed 's/.*"\(.*\)"/\1/' src/spead2/_version.py)"
 for d in /opt/python/cp{35,36,37,38,39}*; do
     git clean -xdf
     $d/bin/pip install jinja2==2.10.1 pycparser==2.19   # For bootstrap

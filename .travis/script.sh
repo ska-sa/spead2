@@ -40,7 +40,7 @@ if [ "$TEST_PYTHON" = "yes" ]; then
     pytest
     for test in test_logging_shutdown test_running_thread_pool test_running_stream; do
         echo "Running shutdown test $test"
-        python -c "import spead2.test.shutdown; spead2.test.shutdown.$test()"
+        python -c "import tests.shutdown; tests.shutdown.$test()"
     done
     flake8
 fi

@@ -31,7 +31,7 @@ def find_version():
     # Cannot simply import it, since that tries to import spead2 as well, which
     # isn't built yet.
     globals_ = {}
-    with open(os.path.join(os.path.dirname(__file__), 'spead2', '_version.py')) as f:
+    with open(os.path.join(os.path.dirname(__file__), 'src', 'spead2', '_version.py')) as f:
         code = f.read()
     exec(code, globals_)
     return globals_['__version__']
@@ -170,7 +170,8 @@ setup(
         'pytest-timeout'
     ],
     python_requires='>=3.6',
-    packages=find_packages(),
+    packages=find_packages('src'),
+    package_dir={'': 'src'},
     package_data={'': ['py.typed', '*.pyi']},
     entry_points={
         'console_scripts': [

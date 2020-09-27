@@ -7,7 +7,6 @@ include configure
 include include/spead2/common_loader_ibv.h
 include include/spead2/common_loader_mlx5dv.h
 include include/spead2/common_loader_rdmacm.h
-graft 3rdparty
 graft build-aux
 prune doc/_build
 prune doc/doxygen
