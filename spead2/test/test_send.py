@@ -110,7 +110,7 @@ def offset_generator(fields):
 class TestEncode:
     """Test heap encoding of various data"""
 
-    def __init__(self):
+    def setup(self):
         self.flavour = Flavour(4, 64, 48, 0)
 
     def test_empty(self):
