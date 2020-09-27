@@ -18,9 +18,7 @@ import struct
 import time
 
 import numpy as np
-from nose.tools import (
-    assert_equal, assert_in, assert_is_instance,
-    assert_true, assert_false, assert_raises, assert_logs)
+import pytest
 
 import spead2
 import spead2.recv as recv
@@ -207,11 +205,11 @@ class TestDecode:
         from which the items are extracted.
         """
         heaps = self.data_to_heaps(data)
-        assert_equal(1, len(heaps))
+        assert len(heaps) == 1
         ig = spead2.ItemGroup()
         ig.update(heaps[0])
         for name, item in ig.items():
-            assert_equal(name, item.name)
+            assert item.name == name
         return ig
 
     def data_to_item(self, data, expected_id):
@@ -219,8 +217,8 @@ class TestDecode:
         with a single item, which is returned.
         """
         ig = self.data_to_ig(data)
-        assert_equal(1, len(ig))
-        assert_in(expected_id, ig)
+        assert len(ig) == 1
+        assert expected_id in ig
         return ig[expected_id]
 
     def test_scalar_int(self):
@@ -232,8 +230,8 @@ class TestDecode:
                 Item(0x1234, struct.pack('>i', -123456789))
             ])
         item = self.data_to_item(packet, 0x1234)
-        assert_is_instance(item.value, np.int32)
-        assert_equal(-123456789, item.value)
+        assert isinstance(item.value, np.int32)
+        assert item.value == -123456789
 
     def test_scalar_int_immediate(self):
         packet = self.flavour.make_packet_heap(
@@ -245,7 +243,7 @@ class TestDecode:
             ])
         item = self.data_to_item(packet, 0x1234)
         assert isinstance(item.value, np.uint32)
-        assert_equal(0x12345678, item.value)
+        assert item.value == 0x12345678
 
     def test_scalar_int_immediate_fastpath(self):
         packet = self.flavour.make_packet_heap(
@@ -262,10 +260,10 @@ class TestDecode:
                 Item(0x1236, 0x9234567890AB, True)
             ])
         ig = self.data_to_ig(packet)
-        assert_equal(3, len(ig))
-        assert_equal(0x9234567890AB, ig[0x1234].value)
-        assert_equal(0x1234567890AB, ig[0x1235].value)
-        assert_equal(-0x6DCBA9876F55, ig[0x1236].value)
+        assert len(ig) == 3
+        assert ig[0x1234].value == 0x9234567890AB
+        assert ig[0x1235].value == 0x1234567890AB
+        assert ig[0x1236].value == -0x6DCBA9876F55
 
     def test_string(self):
         packet = self.flavour.make_packet_heap(
@@ -276,7 +274,7 @@ class TestDecode:
                 Item(0x1234, b'Hello world')
             ])
         item = self.data_to_item(packet, 0x1234)
-        assert_equal('Hello world', item.value)
+        assert item.value == 'Hello world'
 
     def test_array(self):
         packet = self.flavour.make_packet_heap(
@@ -300,7 +298,7 @@ class TestDecode:
             ])
         item = self.data_to_item(packet, 0x1234)
         dtype = np.dtype('=f4,i1')
-        assert_equal(dtype, item.value.dtype)
+        assert item.value.dtype == dtype
         expected = np.array([(1.5, 1), (2.5, 2), (4.5, -4)], dtype=dtype)
         np.testing.assert_equal(expected, item.value)
 
@@ -319,12 +317,12 @@ class TestDecode:
                 Item(0x1234, send.data)
             ])
         item = self.data_to_item(packet, 0x1234)
-        assert_equal(expected.dtype, item.value.dtype)
+        assert item.value.dtype == expected.dtype
         np.testing.assert_equal(expected, item.value)
 
     def test_array_numpy_fortran(self):
         expected = np.array([[1.25, 1.75], [2.25, 2.5]], dtype=np.float64).T
-        assert_false(expected.flags.c_contiguous)
+        assert not expected.flags.c_contiguous
         send = expected
         if self.flavour.bug_compat & spead2.BUG_COMPAT_SWAP_ENDIAN:
             send = expected.byteswap()
@@ -338,7 +336,7 @@ class TestDecode:
                 Item(0x1234, np.ravel(send, 'K').data)
             ])
         item = self.data_to_item(packet, 0x1234)
-        assert_equal(expected.dtype, item.value.dtype)
+        assert item.value.dtype == expected.dtype
         np.testing.assert_equal(expected, item.value)
 
     def test_fallback_uint(self):
@@ -389,7 +387,7 @@ class TestDecode:
                 Item(0x1234, b'\x12\x34\x56\x78\x90\xAB')
             ])
         item = self.data_to_item(packet, 0x1234)
-        assert_equal(expected, item.value)
+        assert item.value == expected
 
     def test_duplicate_item_pointers(self):
         payload = bytearray(64)
@@ -411,16 +409,16 @@ class TestDecode:
                 Item(0x5000, 0, False, offset=0)], payload[32 : 64])
         ]
         heaps = self.data_to_heaps(b''.join(packets))
-        assert_equal(1, len(heaps))
+        assert len(heaps) == 1
         items = heaps[0].get_items()
-        assert_equal(2, len(items))
+        assert len(items) == 2
         items.sort(key=lambda item: item.id)
-        assert_equal(0x1600, items[0].id)
-        assert_true(items[0].is_immediate)
-        assert_equal(12345, items[0].immediate_value)
-        assert_equal(0x5000, items[1].id)
-        assert_false(items[1].is_immediate)
-        assert_equal(payload, bytearray(items[1]))
+        assert items[0].id == 0x1600
+        assert items[0].is_immediate is True
+        assert items[0].immediate_value == 12345
+        assert items[1].id == 0x5000
+        assert items[1].is_immediate is False
+        assert bytearray(items[1]) == payload
 
     def test_out_of_order_packets(self):
         payload = bytearray(64)
@@ -440,16 +438,16 @@ class TestDecode:
                 Item(spead2.HEAP_LENGTH_ID, 64, True)], payload[0 : 32])
         ]
         heaps = self.data_to_heaps(b''.join(packets), allow_out_of_order=True)
-        assert_equal(1, len(heaps))
+        assert len(heaps) == 1
         items = heaps[0].get_items()
-        assert_equal(2, len(items))
+        assert len(items) == 2
         items.sort(key=lambda item: item.id)
-        assert_equal(0x1600, items[0].id)
-        assert_true(items[0].is_immediate)
-        assert_equal(12345, items[0].immediate_value)
-        assert_equal(0x5000, items[1].id)
-        assert_false(items[1].is_immediate)
-        assert_equal(payload, bytearray(items[1]))
+        assert items[0].id == 0x1600
+        assert items[0].is_immediate is True
+        assert items[0].immediate_value == 12345
+        assert items[1].id == 0x5000
+        assert items[1].is_immediate is False
+        assert bytearray(items[1]) == payload
 
     def test_out_of_order_disallowed(self):
         payload = bytearray(64)
@@ -471,12 +469,12 @@ class TestDecode:
         heaps = self.data_to_heaps(b''.join(packets),
                                    contiguous_only=False,
                                    incomplete_keep_payload_ranges=True)
-        assert_equal(1, len(heaps))
+        assert len(heaps) == 1
         items = heaps[0].get_items()
-        assert_equal([], items)
-        assert_equal(64, heaps[0].heap_length)
-        assert_equal(32, heaps[0].received_length)
-        assert_equal([(0, 32)], heaps[0].payload_ranges)
+        assert items == []
+        assert heaps[0].heap_length == 64
+        assert heaps[0].received_length == 32
+        assert heaps[0].payload_ranges == [(0, 32)]
 
     def test_incomplete_heaps(self):
         payload = bytearray(64)
@@ -499,35 +497,35 @@ class TestDecode:
                                    contiguous_only=False,
                                    incomplete_keep_payload_ranges=True,
                                    allow_out_of_order=True)
-        assert_equal(1, len(heaps))
-        assert_is_instance(heaps[0], recv.IncompleteHeap)
+        assert len(heaps) == 1
+        assert isinstance(heaps[0], recv.IncompleteHeap)
         items = heaps[0].get_items()
-        assert_equal(1, len(items))   # Addressed item must be excluded
-        assert_equal(0x1600, items[0].id)
-        assert_equal(96, heaps[0].heap_length)
-        assert_equal(39, heaps[0].received_length)
-        assert_equal([(5, 12), (32, 64)], heaps[0].payload_ranges)
+        assert len(items) == 1        # Addressed item must be excluded
+        assert items[0].id == 0x1600
+        assert heaps[0].heap_length == 96
+        assert heaps[0].received_length == 39
+        assert heaps[0].payload_ranges == [(5, 12), (32, 64)]
 
     def test_is_start_of_stream(self):
         packet = self.flavour.make_packet_heap(
             1,
             [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_START, immediate=True)])
         heaps = self.data_to_heaps(packet)
-        assert_true(heaps[0].is_start_of_stream())
+        assert heaps[0].is_start_of_stream() is True
 
         packet = self.flavour.make_packet_heap(
             1,
             [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_DESCRIPTOR_REISSUE, immediate=True)])
         heaps = self.data_to_heaps(packet)
-        assert_false(heaps[0].is_start_of_stream())
+        assert heaps[0].is_start_of_stream() is False
 
     def test_is_end_of_stream(self):
         packet = self.flavour.make_packet_heap(
             1,
             [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_STOP, immediate=True)])
         heaps = self.data_to_heaps(packet, stop_on_stop_item=False)
-        assert_true(heaps[0].is_end_of_stream())
-        assert_false(heaps[0].is_start_of_stream())
+        assert heaps[0].is_end_of_stream() is True
+        assert heaps[0].is_start_of_stream() is False
 
     def test_no_stop_on_stop_item(self):
         packet1 = self.flavour.make_packet_heap(
@@ -541,11 +539,11 @@ class TestDecode:
                 Item(0x1234, b'Hello world')
             ])
         heaps = self.data_to_heaps(packet1 + packet2, stop_on_stop_item=False)
-        assert_equal(2, len(heaps))
+        assert len(heaps) == 2
         ig = spead2.ItemGroup()
         ig.update(heaps[0])
         ig.update(heaps[1])
-        assert_equal('Hello world', ig['test_string'].value)
+        assert ig['test_string'].value == 'Hello world'
 
     def test_size_mismatch(self):
         packet = self.flavour.make_packet_heap(
@@ -556,9 +554,10 @@ class TestDecode:
                 Item(0x1234, b'\0' * 99)
             ])
         heaps = self.data_to_heaps(packet)
-        assert_equal(1, len(heaps))
+        assert len(heaps) == 1
         ig = spead2.ItemGroup()
-        assert_raises(ValueError, ig.update, heaps[0])
+        with pytest.raises(ValueError):
+            ig.update(heaps[0])
 
     def test_numpy_object(self):
         """numpy dtypes can contain Python objects (by pointer). These can't be
@@ -573,9 +572,10 @@ class TestDecode:
                 Item(0x1234, b'?' * 100)
             ])
         heaps = self.data_to_heaps(packet)
-        assert_equal(1, len(heaps))
+        assert len(heaps) == 1
         ig = spead2.ItemGroup()
-        assert_raises(ValueError, ig.update, heaps[0])
+        with pytest.raises(ValueError):
+            ig.update(heaps[0])
 
     def test_numpy_zero_size(self):
         """numpy dtypes can represent zero bytes."""
@@ -588,9 +588,10 @@ class TestDecode:
                 Item(0x1234, b'')
             ])
         heaps = self.data_to_heaps(packet)
-        assert_equal(1, len(heaps))
+        assert len(heaps) == 1
         ig = spead2.ItemGroup()
-        assert_raises(ValueError, ig.update, heaps[0])
+        with pytest.raises(ValueError):
+            ig.update(heaps[0])
 
     def test_numpy_malformed(self):
         """Malformed numpy header must raise :py:exc:`ValueError`."""
@@ -602,9 +603,10 @@ class TestDecode:
                         0x1234, 'name', 'description', header)
                 ])
             heaps = self.data_to_heaps(packet)
-            assert_equal(1, len(heaps))
+            assert len(heaps) == 1
             ig = spead2.ItemGroup()
-            assert_raises(ValueError, ig.update, heaps[0])
+            with pytest.raises(ValueError):
+                ig.update(heaps[0])
         helper("{'descr': 'S1'")   # Syntax error: no closing brace
         helper("123")              # Not a dictionary
         helper("import os")        # Security check
@@ -628,7 +630,8 @@ class TestDecode:
             ])
         heaps = self.data_to_heaps(packet)
         ig = spead2.ItemGroup()
-        assert_raises(UnicodeDecodeError, ig.update, heaps[0])
+        with pytest.raises(UnicodeDecodeError):
+            ig.update(heaps[0])
 
     def test_nonascii_name(self):
         """Receiving non-ASCII characters in an item name must raise
@@ -641,7 +644,8 @@ class TestDecode:
             ])
         heaps = self.data_to_heaps(packet)
         ig = spead2.ItemGroup()
-        assert_raises(UnicodeDecodeError, ig.update, heaps[0])
+        with pytest.raises(UnicodeDecodeError):
+            ig.update(heaps[0])
 
     def test_nonascii_description(self):
         """Receiving non-ASCII characters in an item description must raise
@@ -654,7 +658,8 @@ class TestDecode:
             ])
         heaps = self.data_to_heaps(packet)
         ig = spead2.ItemGroup()
-        assert_raises(UnicodeDecodeError, ig.update, heaps[0])
+        with pytest.raises(UnicodeDecodeError):
+            ig.update(heaps[0])
 
     def test_no_heap_size(self):
         """Heap consisting of packets with no heap size items must work.
@@ -676,12 +681,12 @@ class TestDecode:
                 Item(spead2.PAYLOAD_LENGTH_ID, 32, True)
             ], payload2)
         heaps = self.data_to_heaps(packet1 + packet2)
-        assert_equal(1, len(heaps))
+        assert len(heaps) == 1
         raw_items = heaps[0].get_items()
-        assert_equal(1, len(raw_items))
-        assert_equal(payload1 + payload2, bytearray(raw_items[0]))
+        assert len(raw_items) == 1
+        assert bytearray(raw_items[0]) == payload1 + payload2
 
-    def test_disallow_unsized_heaps(self):
+    def test_disallow_unsized_heaps(self, caplog):
         """Packets without heap length rejected if disallowed"""
         packet = self.flavour.make_packet(
             [
@@ -690,12 +695,12 @@ class TestDecode:
                 Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
                 Item(spead2.PAYLOAD_LENGTH_ID, 64, True)
             ], bytes(np.arange(0, 64, dtype=np.uint8).data))
-        with assert_logs('spead2', 'INFO') as cm:
+        with caplog.at_level('INFO', 'spead2'):
             heaps = self.data_to_heaps(packet, allow_unsized_heaps=False)
             # Logging is asynchronous, so we have to give it a bit of time
             time.sleep(0.1)
-        assert_equal(cm.output, ['INFO:spead2:packet rejected because it has no HEAP_LEN'])
-        assert_equal(0, len(heaps))
+        assert caplog.messages == ['packet rejected because it has no HEAP_LEN']
+        assert len(heaps) == 0
 
     def test_bad_offset(self):
         """Heap with out-of-range offset should be dropped"""
@@ -708,7 +713,7 @@ class TestDecode:
                 Item(0x1000, None, False, offset=65)
             ], b'\0' * 64)
         heaps = self.data_to_heaps(packet)
-        assert_equal(0, len(heaps))
+        assert len(heaps) == 0
 
 
 class TestStreamConfig:
@@ -716,12 +721,12 @@ class TestStreamConfig:
 
     def test_default_construct(self):
         config = recv.StreamConfig()
-        assert_equal(recv.StreamConfig.DEFAULT_MAX_HEAPS, config.max_heaps)
-        assert_equal(0, config.bug_compat)
-        assert_equal(spead2.MEMCPY_STD, config.memcpy)
-        assert_equal(True, config.stop_on_stop_item)
-        assert_equal(True, config.allow_unsized_heaps)
-        assert_equal(False, config.allow_out_of_order)
+        assert config.max_heaps == recv.StreamConfig.DEFAULT_MAX_HEAPS
+        assert config.bug_compat == 0
+        assert config.memcpy == spead2.MEMCPY_STD
+        assert config.stop_on_stop_item is True
+        assert config.allow_unsized_heaps is True
+        assert config.allow_out_of_order is False
 
     def test_set_get(self):
         config = recv.StreamConfig()
@@ -732,13 +737,13 @@ class TestStreamConfig:
         config.allow_unsized_heaps = False
         config.allow_out_of_order = True
         config.memory_allocator = allocator = spead2.MmapAllocator()
-        assert_equal(5, config.max_heaps)
-        assert_equal(spead2.BUG_COMPAT_PYSPEAD_0_5_2, config.bug_compat)
-        assert_equal(spead2.MEMCPY_NONTEMPORAL, config.memcpy)
-        assert_equal(allocator, config.memory_allocator)
-        assert_equal(False, config.stop_on_stop_item)
-        assert_equal(False, config.allow_unsized_heaps)
-        assert_equal(True, config.allow_out_of_order)
+        assert config.max_heaps == 5
+        assert config.bug_compat == spead2.BUG_COMPAT_PYSPEAD_0_5_2
+        assert config.memcpy == spead2.MEMCPY_NONTEMPORAL
+        assert config.memory_allocator is allocator
+        assert config.stop_on_stop_item is False
+        assert config.allow_unsized_heaps is False
+        assert config.allow_out_of_order is True
 
     def test_kwargs_construct(self):
         config = recv.StreamConfig(
@@ -749,24 +754,24 @@ class TestStreamConfig:
             allow_unsized_heaps=False,
             allow_out_of_order=True
         )
-        assert_equal(5, config.max_heaps)
-        assert_equal(spead2.BUG_COMPAT_PYSPEAD_0_5_2, config.bug_compat)
-        assert_equal(spead2.MEMCPY_NONTEMPORAL, config.memcpy)
-        assert_equal(False, config.stop_on_stop_item)
-        assert_equal(False, config.allow_unsized_heaps)
-        assert_equal(True, config.allow_out_of_order)
+        assert config.max_heaps == 5
+        assert config.bug_compat == spead2.BUG_COMPAT_PYSPEAD_0_5_2
+        assert config.memcpy == spead2.MEMCPY_NONTEMPORAL
+        assert config.stop_on_stop_item is False
+        assert config.allow_unsized_heaps is False
+        assert config.allow_out_of_order is True
 
     def test_max_heaps_zero(self):
         """Constructing a config with max_heaps=0 raises ValueError"""
-        with assert_raises(ValueError):
+        with pytest.raises(ValueError):
             recv.StreamConfig(max_heaps=0)
 
     def test_bad_bug_compat(self):
-        with assert_raises(ValueError):
+        with pytest.raises(ValueError):
             recv.StreamConfig(bug_compat=0xff)
 
     def test_bad_kwarg(self):
-        with assert_raises(TypeError):
+        with pytest.raises(TypeError):
             recv.StreamConfig(not_valid_arg=1)
 
 
@@ -775,22 +780,22 @@ class TestRingStreamConfig:
 
     def test_default_construct(self):
         config = recv.RingStreamConfig()
-        assert_equal(recv.RingStreamConfig.DEFAULT_HEAPS, config.heaps)
-        assert_equal(True, config.contiguous_only)
-        assert_equal(False, config.incomplete_keep_payload_ranges)
+        assert config.heaps == recv.RingStreamConfig.DEFAULT_HEAPS
+        assert config.contiguous_only is True
+        assert config.incomplete_keep_payload_ranges is False
 
     def test_set_get(self):
         config = recv.RingStreamConfig()
         config.heaps = 5
         config.contiguous_only = False
         config.incomplete_keep_payload_ranges = True
-        assert_equal(5, config.heaps)
-        assert_equal(False, config.contiguous_only)
-        assert_equal(True, config.incomplete_keep_payload_ranges)
+        assert config.heaps == 5
+        assert config.contiguous_only is False
+        assert config.incomplete_keep_payload_ranges is True
 
     def test_heaps_zero(self):
         """Constructing a config with heaps=0 raises ValueError"""
-        with assert_raises(ValueError):
+        with pytest.raises(ValueError):
             recv.RingStreamConfig(heaps=0)
 
 
@@ -820,18 +825,18 @@ class TestStream:
             time.sleep(0.0)
         # Can't usefully check the stats here, because they're only
         # updated at the end of a batch.
-        assert_equal(4, receiver.ringbuffer.capacity())
-        assert_equal(4, receiver.ringbuffer.size())
+        assert receiver.ringbuffer.capacity() == 4
+        assert receiver.ringbuffer.size() == 4
 
         receiver.stop()            # This unblocks all remaining heaps
         stats = receiver.stats
-        assert_equal(10, stats.heaps)
-        assert_equal(10, stats.packets)
-        assert_equal(0, stats.incomplete_heaps_evicted)
-        assert_equal(0, stats.incomplete_heaps_flushed)
-        assert_equal(1, stats.worker_blocked)
-        assert_equal(4, receiver.ringbuffer.capacity())
-        assert_equal(4, receiver.ringbuffer.size())
+        assert stats.heaps == 10
+        assert stats.packets == 10
+        assert stats.incomplete_heaps_evicted == 0
+        assert stats.incomplete_heaps_flushed == 0
+        assert stats.worker_blocked == 1
+        assert receiver.ringbuffer.capacity() == 4
+        assert receiver.ringbuffer.size() == 4
 
     def test_no_stop_heap(self):
         """A heap containing a stop is not passed to the ring"""
@@ -847,24 +852,26 @@ class TestStream:
         receiver = spead2.recv.Stream(thread_pool)
         receiver.add_buffer_reader(sender.getvalue())
         heaps = list(receiver)
-        assert_equal(1, len(heaps))
+        assert len(heaps) == 1
 
         stats = receiver.stats
-        assert_equal(1, stats.heaps)
-        assert_equal(2, stats.packets)
-        assert_equal(0, stats.incomplete_heaps_evicted)
-        assert_equal(0, stats.incomplete_heaps_flushed)
-        assert_equal(0, stats.worker_blocked)
+        assert stats.heaps == 1
+        assert stats.packets == 2
+        assert stats.incomplete_heaps_evicted == 0
+        assert stats.incomplete_heaps_flushed == 0
+        assert stats.worker_blocked == 0
 
 
 class TestUdpReader:
     def test_out_of_range_udp_port(self):
         receiver = spead2.recv.Stream(spead2.ThreadPool())
-        assert_raises(TypeError, receiver.add_udp_reader, 100000)
+        with pytest.raises(TypeError):
+            receiver.add_udp_reader(100000)
 
     def test_illegal_udp_port(self):
         receiver = spead2.recv.Stream(spead2.ThreadPool())
-        assert_raises(RuntimeError, receiver.add_udp_reader, 22)
+        with pytest.raises(RuntimeError):
+            receiver.add_udp_reader(22)
 
 
 class TestTcpReader:
@@ -902,11 +909,11 @@ class TestTcpReader:
         from which the items are extracted.
         """
         heaps = self.data_to_heaps(data)
-        assert_equal(1, len(heaps))
+        assert len(heaps) == 1
         ig = spead2.ItemGroup()
         ig.update(heaps[0])
         for name, item in ig.items():
-            assert_equal(name, item.name)
+            assert item.name == name
         return ig
 
     def data_to_item(self, data, expected_id):
@@ -914,8 +921,8 @@ class TestTcpReader:
         with a single item, which is returned.
         """
         ig = self.data_to_ig(data)
-        assert_equal(1, len(ig))
-        assert_in(expected_id, ig)
+        assert len(ig) == 1
+        assert expected_id in ig
         return ig[expected_id]
 
     def simple_packet(self):
@@ -931,8 +938,8 @@ class TestTcpReader:
         """A nonsense header followed by a normal packet"""
         data = b'deadbeef' + self.simple_packet()
         item = self.data_to_item(data, 0x1234)
-        assert_is_instance(item.value, np.uint32)
-        assert_equal(0x12345678, item.value)
+        assert isinstance(item.value, np.uint32)
+        assert item.value == 0x12345678
 
     def test_packet_too_big(self):
         """A packet that is too large (should be rejected) followed by a normal packet"""
@@ -946,23 +953,23 @@ class TestTcpReader:
             ])
         data = packet1 + self.simple_packet()
         item = self.data_to_item(data, 0x1234)
-        assert_is_instance(item.value, np.uint32)
-        assert_equal(0x12345678, item.value)
+        assert isinstance(item.value, np.uint32)
+        assert item.value == 0x12345678
 
     def test_partial_header(self):
         """Connection closed partway through a header"""
         packet = self.simple_packet()
         heaps = self.data_to_heaps(packet[:6])
-        assert_equal([], heaps)
+        assert heaps == []
 
     def test_partial_packet(self):
         """Connection closed partway through item descriptors"""
         packet = self.simple_packet()
         heaps = self.data_to_heaps(packet[:45])
-        assert_equal([], heaps)
+        assert heaps == []
 
     def test_partial_payload(self):
         """Connection closed partway through item payload"""
         packet = self.simple_packet()
         heaps = self.data_to_heaps(packet[:-1])
-        assert_equal([], heaps)
+        assert heaps == []
