@@ -18,6 +18,8 @@
 import socket
 import asyncio
 
+import pytest
+
 import spead2
 import spead2.send
 import spead2.recv.asyncio
@@ -99,10 +101,11 @@ class TestPassthroughUdp(BaseTestPassthroughSubstreamsAsync):
 
     async def prepare_senders(self, thread_pool, n):
         if n == 1:
-            return spead2.send.asyncio.UdpStream(
-                thread_pool, "localhost", 8888,
-                spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0)
+            with pytest.deprecated_call():
+                return spead2.send.asyncio.UdpStream(
+                    thread_pool, "localhost", 8888,
+                    spead2.send.StreamConfig(rate=1e7),
+                    buffer_size=0)
         else:
             return spead2.send.asyncio.UdpStream(
                 thread_pool,
@@ -124,9 +127,10 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreamsAsync):
     async def prepare_senders(self, thread_pool, n):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         if n == 1:
-            stream = spead2.send.asyncio.UdpStream(
-                thread_pool, sock, '127.0.0.1', self._ports[0],
-                spead2.send.StreamConfig(rate=1e7))
+            with pytest.deprecated_call():
+                stream = spead2.send.asyncio.UdpStream(
+                    thread_pool, sock, '127.0.0.1', self._ports[0],
+                    spead2.send.StreamConfig(rate=1e7))
         else:
             stream = spead2.send.asyncio.UdpStream(
                 thread_pool, sock,
@@ -142,7 +146,7 @@ class TestPassthroughTcp(BaseTestPassthroughAsync):
 
     async def prepare_sender(self, thread_pool):
         sender = await spead2.send.asyncio.TcpStream.connect(
-            thread_pool, "127.0.0.1", 8888)
+            thread_pool, [("127.0.0.1", 8888)])
         return sender
 
 
@@ -175,7 +179,8 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreamsAsync):
     async def prepare_senders(self, thread_pool, n):
         assert n == len(self._queues)
         if n == 1:
-            return spead2.send.asyncio.InprocStream(thread_pool, self._queues[0])
+            with pytest.deprecated_call():
+                return spead2.send.asyncio.InprocStream(thread_pool, self._queues[0])
         else:
             return spead2.send.asyncio.InprocStream(thread_pool, self._queues)
 

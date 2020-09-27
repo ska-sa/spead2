@@ -522,7 +522,7 @@ class TestStream:
         # Create a stream with a packet size that is bigger than the likely
         # MTU. It should cause an error.
         stream = send.UdpStream(
-            spead2.ThreadPool(), "localhost", 8888,
+            spead2.ThreadPool(), [("localhost", 8888)],
             send.StreamConfig(max_packet_size=100000), buffer_size=0)
         with pytest.raises(IOError):
             stream.send_heap(self.heap)
@@ -569,14 +569,14 @@ class TestStream:
 class TestTcpStream:
     def test_failed_connect(self):
         with pytest.raises(IOError):
-            send.TcpStream(spead2.ThreadPool(), '127.0.0.1', 8887)
+            send.TcpStream(spead2.ThreadPool(), [('127.0.0.1', 8887)])
 
 
 class TestInprocStream:
     def setup(self):
         self.flavour = Flavour(4, 64, 48, 0)
         self.queue = spead2.InprocQueue()
-        self.stream = send.InprocStream(spead2.ThreadPool(), self.queue)
+        self.stream = send.InprocStream(spead2.ThreadPool(), [self.queue])
 
     def test_stopped_queue(self):
         self.queue.stop()
