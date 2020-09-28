@@ -1,4 +1,3 @@
-asynctest
 flake8
 netifaces
 numpy
