@@ -36,34 +36,57 @@ static boost::asio::ip::udp get_protocol(const std::vector<boost::asio::ip::udp:
     return endpoints[0].protocol();
 }
 
+constexpr int udp_writer::max_batch;
+
 void udp_writer::wakeup()
 {
-    transmit_packet data;
-    packet_result result = get_packet(data);
-    switch (result)
+    for (int i = 0; i < max_batch; i++)
     {
-    case packet_result::SLEEP:
-    case packet_result::EMPTY:
-        return;    // base classes will wake us again when appropriate
-    case packet_result::DRAINING:
-        abort();   // unreachable: we only deal with one packet at a time
-    case packet_result::SUCCESS:
-        break;
-    }
+        transmit_packet data;
+        packet_result result = get_packet(data);
+        switch (result)
+        {
+        case packet_result::SLEEP:
+        case packet_result::EMPTY:
+            return;    // base classes will wake us again when appropriate
+        case packet_result::DRAINING:
+            abort();   // unreachable: we only deal with one packet at a time
+        case packet_result::SUCCESS:
+            break;
+        }
 
-    stream2::queue_item *item = data.item;
-    bool last = data.last;
-    auto handler = [this, item, last](const boost::system::error_code &ec, std::size_t bytes_transferred)
-    {
-        item->bytes_sent += bytes_transferred;
-        if (!item->result)
-            item->result = ec;
-        if (last)
-            heaps_completed(1);
-        wakeup();
-    };
-    socket.async_send_to(data.pkt.buffers, endpoints[data.item->substream_index],
-                         std::move(handler));
+        // First try a synchronous send
+        stream2::queue_item *item = data.item;
+        bool last = data.last;
+        const auto &endpoint = endpoints[item->substream_index];
+        boost::system::error_code ec;
+        std::size_t bytes = socket.send_to(data.pkt.buffers, endpoint, 0, ec);
+        if (ec == boost::asio::error::would_block)
+        {
+            // Socket buffer is full, so do an asynchronous send
+            auto handler = [this, item, last](const boost::system::error_code &ec, std::size_t bytes_transferred)
+            {
+                item->bytes_sent += bytes_transferred;
+                if (!item->result)
+                    item->result = ec;
+                if (last)
+                    heaps_completed(1);
+                wakeup();
+            };
+            socket.async_send_to(data.pkt.buffers, endpoints[data.item->substream_index],
+                                 std::move(handler));
+            return;
+        }
+        else
+        {
+            item->bytes_sent += bytes;
+            if (!item->result)
+                item->result = ec;
+            if (last)
+                heaps_completed(1);
+        }
+    }
+    get_io_service().post([this] () { wakeup(); });
 }
 
 udp_writer::udp_writer(

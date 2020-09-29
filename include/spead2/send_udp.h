@@ -50,6 +50,8 @@ private:
 
     virtual void wakeup() override final;
 
+    static constexpr int max_batch = 64;
+
 public:
     udp_writer(
         io_service_ref io_service,
