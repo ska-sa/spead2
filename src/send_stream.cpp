@@ -18,6 +18,8 @@
  * @file
  */
 
+#include <algorithm>
+#include <limits>
 #include <cmath>
 #include <stdexcept>
 #include <spead2/send_stream.h>
@@ -252,6 +254,275 @@ void stream_impl_base::flush()
     {
         heap_empty.wait(lock);
     }
+}
+
+///////////////////////// TODO boundary with old code
+
+void writer::set_owner(stream2 *owner)
+{
+    assert(!this->owner);
+    assert(owner);
+    this->owner = owner;
+}
+
+void writer::enable_hw_rate()
+{
+    assert(config.get_allow_hw_rate());
+    hw_rate = true;
+}
+
+writer::timer_type::time_point writer::update_send_times(timer_type::time_point now)
+{
+    std::chrono::duration<double> wait_burst(rate_bytes * seconds_per_byte_burst);
+    std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
+    send_time_burst += std::chrono::duration_cast<timer_type::clock_type::duration>(wait_burst);
+    send_time += std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
+    rate_bytes = 0;
+
+    /* send_time_burst needs to reflect the time the burst
+     * was actually sent (as well as we can estimate it), even if
+     * send_time or now is later.
+     */
+    timer_type::time_point target_time = std::max(send_time_burst, send_time);
+    send_time_burst = std::max(now, target_time);
+    return target_time;
+}
+
+void writer::update_send_time_empty()
+{
+    timer_type::time_point now = timer_type::clock_type::now();
+    // Compute what send_time would need to be to make the next packet due to be
+    // transmitted now.
+    std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
+    auto wait2 = std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
+    timer_type::time_point backdate = now - wait2;
+    send_time = std::max(send_time, backdate);
+}
+
+writer::packet_result writer::get_packet(transmit_packet &data)
+{
+    if (rate_bytes >= config.get_burst_size())
+    {
+        auto now = timer_type::clock_type::now();
+        auto target_time = update_send_times(now);
+        if (now < target_time)
+        {
+            timer.expires_at(target_time);
+            timer.async_wait(
+                [this](const boost::system::error_code &) { wakeup(); });
+            return packet_result::SLEEP;
+        }
+    }
+
+    if (active == queue_tail)
+    {
+        /* We've read up to our cached tail. See if there has been
+         * new work added in the meantime.
+         */
+        queue_tail = get_owner()->queue_tail.load(std::memory_order_acquire);
+        if (active == queue_tail)
+        {
+            std::lock_guard<std::mutex> tail_lock(get_owner()->tail_mutex);
+            /* Need to re-check before we ask to be woken up, in case a new
+             * heap was added while we waited for the lock.
+             */
+            queue_tail = get_owner()->queue_tail.load(std::memory_order_acquire);
+            if (active == queue_tail)
+            {
+                // Ok, we've really run out of new work
+                if (queue_head == queue_tail)
+                {
+                    get_owner()->need_wakeup = true;
+                    return packet_result::EMPTY;
+                }
+                else
+                    return packet_result::DRAINING;
+            }
+        }
+    }
+    stream2::queue_item *cur = get_owner()->get_queue(active);
+    if (!gen)
+        gen = boost::in_place(cur->h, cur->cnt, config.get_max_packet_size());
+    assert(gen->has_next_packet());
+
+    data.pkt = gen->next_packet();
+    data.size = boost::asio::buffer_size(data.pkt.buffers);
+    data.last = !gen->has_next_packet();
+    data.item = cur;
+    if (!hw_rate)
+        rate_bytes += data.size;
+    if (data.last)
+    {
+        active++;
+        gen = boost::none;
+    }
+    return packet_result::SUCCESS;
+}
+
+void writer::heaps_completed(std::size_t n)
+{
+    /**
+     * We have to ensure that we vacate the slots (and update the head)
+     * before we trigger any callbacks or promises, because otherwise a
+     * callback that immediately tries to enqueue new heaps might find that
+     * the queue is still full.
+     *
+     * Batching amortises the locking overhead when using small heaps. We
+     * could a single dynamically-sized batch, but that would require
+     * dynamic memory allocation to hold the handlers.
+     */
+    constexpr std::size_t max_batch = 16;
+    std::forward_list<std::promise<void>> waiters;
+    std::array<std::function<void()>, max_batch> handlers;
+    while (n > 0)
+    {
+        std::size_t batch = std::min(max_batch, n);
+        {
+            std::lock_guard<std::mutex> lock(get_owner()->head_mutex);
+            for (std::size_t i = 0; i < batch; i++)
+            {
+                stream2::queue_item *cur = get_owner()->get_queue(queue_head);
+                handlers[i] = std::bind(
+                    std::move(cur->handler), cur->result, cur->bytes_sent);
+                waiters.splice_after(waiters.before_begin(), cur->waiters);
+                cur->~queue_item();
+                queue_head++;
+            }
+            // After this, async_send_heaps is free to reuse the slots we've
+            // just vacated.
+            get_owner()->queue_head.store(queue_head, std::memory_order_release);
+        }
+        for (std::size_t i = 0; i < batch; i++)
+            get_io_service().post(std::move(handlers[i]));
+        while (!waiters.empty())
+        {
+            waiters.front().set_value();
+            waiters.pop_front();
+        }
+        n -= batch;
+    }
+}
+
+writer::writer(io_service_ref io_service, const stream_config &config)
+    : io_service(std::move(io_service)),
+    timer(*this->io_service),
+    config(config),
+    seconds_per_byte_burst(config.get_burst_rate() > 0.0 ? 1.0 / config.get_burst_rate() : 0.0),
+    seconds_per_byte(config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0)
+{
+}
+
+stream2::queue_item *stream2::get_queue(std::size_t idx)
+{
+    return reinterpret_cast<queue_item *>(queue.get() + (idx & queue_mask));
+}
+
+static std::size_t compute_queue_mask(std::size_t size)
+{
+    if (size == 0)
+        throw std::invalid_argument("max_heaps must be at least 1");
+    if (size > std::numeric_limits<std::size_t>::max() / 2 + 1)
+        throw std::invalid_argument("max_heaps is too large");
+    std::size_t p2 = 1;
+    while (p2 < size)
+        p2 <<= 1;
+    return p2 - 1;
+}
+
+// TODO: eliminate io_service from stream base class
+stream2::stream2(std::unique_ptr<writer> &&w)
+    : stream(w->get_io_service()),
+    queue_size(w->config.get_max_heaps()),
+    queue_mask(compute_queue_mask(queue_size)),
+    num_substreams(w->get_num_substreams()),
+    w(std::move(w)),
+    queue(new queue_item_storage[queue_mask + 1])
+{
+    w->set_owner(this);
+}
+
+stream2::~stream2()
+{
+    flush();
+}
+
+void stream2::set_cnt_sequence(item_pointer_t next, item_pointer_t step)
+{
+    if (step == 0)
+        throw std::invalid_argument("step cannot be 0");
+    std::unique_lock<std::mutex> lock(tail_mutex);
+    next_cnt = next;
+    step_cnt = step;
+}
+
+bool stream2::async_send_heap(const heap &h, completion_handler handler,
+                              s_item_pointer_t cnt,
+                              std::size_t substream_index)
+{
+    if (substream_index >= num_substreams)
+    {
+        log_warning("async_send_heap: dropping heap because substream index is out of range");
+        get_io_service().post(std::bind(handler, boost::asio::error::invalid_argument, 0));
+        return false;
+    }
+    item_pointer_t cnt_mask = (item_pointer_t(1) << h.get_flavour().get_heap_address_bits()) - 1;
+
+    std::unique_lock<std::mutex> lock(head_mutex);
+    std::size_t tail = queue_tail.load(std::memory_order_relaxed);
+    std::size_t head = queue_head.load(std::memory_order_acquire);
+    if (tail - head == queue_size)
+    {
+        lock.unlock();
+        log_warning("async_send_heap: dropping heap because queue is full");
+        get_io_service().post(std::bind(handler, boost::asio::error::would_block, 0));
+        return false;
+    }
+    if (cnt < 0)
+    {
+        cnt = next_cnt & cnt_mask;
+        next_cnt += step_cnt;
+    }
+    else if (item_pointer_t(cnt) > cnt_mask)
+    {
+        lock.unlock();
+        log_warning("async_send_heap: dropping heap because cnt is out of range");
+        get_io_service().post(std::bind(handler, boost::asio::error::invalid_argument, 0));
+        return false;
+    }
+
+    // Construct in place
+    new (get_queue(tail)) queue_item(h, cnt, substream_index, std::move(handler));
+    bool wakeup = need_wakeup;
+    need_wakeup = false;
+    queue_tail.store(tail + 1, std::memory_order_release);
+    lock.unlock();
+
+    if (need_wakeup)
+    {
+        w->update_send_time_empty();
+        w->wakeup();
+    }
+    return true;
+}
+
+void stream2::flush()
+{
+    std::future<void> future;
+    {
+        std::lock_guard<std::mutex> tail_lock(tail_mutex);
+        std::lock_guard<std::mutex> head_lock(head_mutex);
+        // These could probably be read with relaxed consistency because the locks
+        // ensure ordering, but this is not performance-critical.
+        std::size_t tail = queue_tail.load();
+        std::size_t head = queue_head.load();
+        if (head == tail)
+            return;
+        queue_item *item = get_queue(tail - 1);
+        item->waiters.emplace_front();
+        future = item->waiters.front().get_future();
+    }
+
+    future.wait();
 }
 
 } // namespace send

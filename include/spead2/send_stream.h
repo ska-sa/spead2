@@ -24,13 +24,16 @@
 #include <functional>
 #include <utility>
 #include <vector>
+#include <forward_list>
 #include <memory>
 #include <chrono>
 #include <mutex>
 #include <iterator>
 #include <type_traits>
 #include <condition_variable>
+#include <future>
 #include <stdexcept>
+#include <cassert>
 #include <boost/asio.hpp>
 #include <boost/asio/high_resolution_timer.hpp>
 #include <boost/system/error_code.hpp>
@@ -486,6 +489,236 @@ public:
             get_io_service().dispatch([this] { do_next(); });
         return true;
     }
+};
+
+class writer;
+
+/* TODO: replace stream once all subclasses have moved to this framework. Then
+ * also review which functions need to be virtual.
+ */
+class stream2 : public stream
+{
+    friend class writer;
+
+private:
+    struct queue_item
+    {
+        const heap &h;
+        item_pointer_t cnt;
+        std::size_t substream_index;
+        item_pointer_t bytes_sent = 0;
+        boost::system::error_code result;
+        completion_handler handler;
+        // Populated by flush(). A forward_list takes less space when not used than vector.
+        std::forward_list<std::promise<void>> waiters;
+
+        queue_item() = default;
+        queue_item(const heap &h, item_pointer_t cnt, std::size_t substream_index,
+                   completion_handler &&handler) noexcept
+            : h(h), cnt(cnt), substream_index(substream_index), handler(std::move(handler))
+        {
+        }
+    };
+
+    typedef std::aligned_storage<sizeof(queue_item), alignof(queue_item)>::type queue_item_storage;
+
+    /* Data are laid out in a manner designed to optimise the cache, which
+     * means the logically related items (such as the head and tail indices)
+     * might not be grouped together.
+     */
+
+    /* Data that's (mostly) read-only, and hence can be in shared state in both
+     * caches.
+     */
+
+    /// Semantic size of the queue
+    const std::size_t queue_size;
+    /// Bitmask to be applied to queue indices for indexing
+    const std::size_t queue_mask;
+    /// Number of substreams exposed by the writer
+    const std::size_t num_substreams;
+    /// Increment to next_cnt after each heap
+    item_pointer_t step_cnt = 1;
+    /// Writer backing the stream
+    std::unique_ptr<writer> w;
+    /**
+     * Circular queue with queue_mask + 1 slots. Items from @ref queue_head to
+     * @ref queue_tail are constructed in place. Queue indices must be
+     * interpreted mod queue_mask + 1 (a power of 2).
+     */
+    std::unique_ptr<queue_item_storage[]> queue;
+
+    // Padding to ensure that the above doesn't share a cache line with the below
+    std::uint8_t padding1[64];
+
+    /* Data that's mostly written by the stream interface, but can be read by the
+     * writer (however, when the queue empties, the writer will modify data).
+     */
+
+    /**
+     * Protects access to
+     * - writes to @ref queue_tail (but it may be *read* with atomic access)
+     * - writes to the queue slot pointed to by @ref queue_tail
+     * - @ref need_wakeup
+     * - @ref next_cnt and @ref step_cnt
+     *
+     * The writer only needs the lock for @ref need_wakeup.
+     */
+    std::mutex tail_mutex;
+    /// Position where next heap will be added
+    std::atomic<std::size_t> queue_tail{0};
+    /// Heap cnt for the next heap to send
+    item_pointer_t next_cnt = 1;
+    /// If true, the writer wants to be woken up when a new heap is added
+    bool need_wakeup = true;
+
+    // Padding to ensure that the above doesn't share a cache line with the below
+    std::uint8_t padding2[64];
+
+    /* Data that's only mostly written by the writer (apart from flush()), and
+     * may be read by the stream.
+     */
+
+    /**
+     * Protects access to
+     * - writes to @ref queue_head (but it may be *read* with atomic access)
+     * - the list of waiters in each queue item
+     *
+     * If taken together with @ref tail_mutex, @ref tail_mutex must be locked first.
+     */
+    std::mutex head_mutex;
+    /// Oldest populated slot
+    std::atomic<std::size_t> queue_head{0};
+
+    /// Access an item from the queue (takes care of masking the index)
+    queue_item *get_queue(std::size_t idx);
+
+public:
+    explicit stream2(std::unique_ptr<writer> &&w);
+    ~stream2() override;
+
+    virtual bool async_send_heap(const heap &h, completion_handler handler,
+                                 s_item_pointer_t cnt = -1,
+                                 std::size_t substream_index = 0) override final;
+
+    virtual void set_cnt_sequence(item_pointer_t next, item_pointer_t step) override final;
+    virtual void flush() override final;
+};
+
+// TODO: move to separate send_writer.h
+class writer
+{
+protected:
+    enum class packet_result
+    {
+        /**
+         * A new packet has been returned.
+         */
+        SUCCESS,
+        /**
+         * No packet because we need to sleep for rate limiting.
+         * @ref wakeup will be called when it is time to try again.
+         */
+        SLEEP,
+        /**
+         * No packet is available, but there are still live packets.
+         * Drain some of them then try again.
+         */
+        DRAINING,
+        /**
+         * The queue is completely empty. @ref wakeup will be called once
+         * a new heap is added.
+         */
+        EMPTY
+    };
+
+private:
+    friend class stream2;
+
+    typedef boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock> timer_type;
+
+    const stream_config config;    // TODO: probably doesn't need the whole thing
+    const double seconds_per_byte_burst, seconds_per_byte;
+
+    io_service_ref io_service;
+
+    timer_type timer;
+    /// Time at which next burst should be sent, considering the burst rate
+    timer_type::time_point send_time_burst;
+    /// Time at which next burst should be sent, considering the average rate
+    timer_type::time_point send_time;
+    /// If true, rate_bytes is never incremented and hence we never sleep
+    bool hw_rate = false;
+    /// Number of bytes sent since send_time and sent_time_burst were updated
+    std::uint64_t rate_bytes = 0;
+
+    // Local copies of the head/tail pointers from the owning stream,
+    // accessible without a lock.
+    std::size_t queue_head = 0, queue_tail = 0;
+    /// Entry from which we are currently getting new packets
+    std::size_t active = 0;
+    /**
+     * Packet generator for the active heap. It may be empty at any time, which
+     * indicates that it should be initialised from the heap indicated by
+     * @ref active.
+     *
+     * When non-empty, it must always have a next packet i.e. after
+     * exhausting it, it must be cleared/changed.
+     */
+    boost::optional<packet_generator> gen;
+    stream2 *owner = nullptr;
+
+    /**
+     * Update @ref send_time_burst and @ref send_time from @ref rate_bytes.
+     *
+     * @param now       Current time
+     * @returns         Time at which next packet should be sent
+     */
+    timer_type::time_point update_send_times(timer_type::time_point now);
+    /**
+     * Update @ref send_time after a period of no work.
+     *
+     * This is called by @ref stream2 when it wakes up the stream.
+     */
+    void update_send_time_empty();
+
+
+    void set_owner(stream2 *owner);
+
+    virtual void wakeup() = 0;
+
+protected:
+    struct transmit_packet
+    {
+        packet pkt;
+        std::size_t size;
+        bool last;          // if this is the last packet in the heap
+        stream2::queue_item *item;
+    };
+
+    stream2 *get_owner() const { return owner; }
+
+    /**
+     * Derived class calls to indicate that it will take care of rate limiting in hardware.
+     *
+     * This must be called from the constructor as it is not thread-safe. The
+     * caller must only call this if the stream config enabled HW rate limiting.
+     */
+    void enable_hw_rate();
+
+    packet_result get_packet(transmit_packet &data);
+
+    /// Notify the base class that @a n heaps have finished transmission.
+    void heaps_completed(std::size_t n);
+
+    writer(io_service_ref io_service, const stream_config &config);
+
+public:
+    /// Retrieve the io_service used for processing the stream
+    boost::asio::io_service &get_io_service() const { return *io_service; }
+
+    /// Number of substreams
+    virtual std::size_t get_num_substreams() const = 0;
 };
 
 } // namespace send
