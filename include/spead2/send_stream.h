@@ -731,6 +731,8 @@ protected:
     writer(io_service_ref io_service, const stream_config &config);
 
 public:
+    virtual ~writer() = default;
+
     /// Retrieve the io_service used for processing the stream
     boost::asio::io_service &get_io_service() const { return *io_service; }
 
