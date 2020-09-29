@@ -438,7 +438,7 @@ stream2::stream2(std::unique_ptr<writer> &&w)
     w(std::move(w)),
     queue(new queue_item_storage[queue_mask + 1])
 {
-    w->set_owner(this);
+    this->w->set_owner(this);
 }
 
 stream2::~stream2()
@@ -497,7 +497,7 @@ bool stream2::async_send_heap(const heap &h, completion_handler handler,
     queue_tail.store(tail + 1, std::memory_order_release);
     lock.unlock();
 
-    if (need_wakeup)
+    if (wakeup)
     {
         w->update_send_time_empty();
         w->wakeup();
@@ -523,6 +523,11 @@ void stream2::flush()
     }
 
     future.wait();
+}
+
+std::size_t stream2::get_num_substreams() const
+{
+    return num_substreams;
 }
 
 } // namespace send

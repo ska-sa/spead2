@@ -42,24 +42,28 @@ namespace spead2
 namespace send
 {
 
-class udp_stream : public stream_impl<udp_stream>
+class udp_writer : public writer
 {
 private:
-    friend class stream_impl<udp_stream>;
     boost::asio::ip::udp::socket socket;
     std::vector<boost::asio::ip::udp::endpoint> endpoints;
 
-    /// Implements async_send_packets, starting from @a first
-    void send_packets(std::size_t first);
+    virtual void wakeup() override final;
 
-    void async_send_packets();
+public:
+    udp_writer(
+        io_service_ref io_service,
+        boost::asio::ip::udp::socket &&socket,
+        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+        const stream_config &config,
+        std::size_t buffer_size);
 
-    static constexpr int batch_size = 64;
-#if SPEAD2_USE_SENDMMSG
-    struct mmsghdr msgvec[batch_size];
-    std::vector<struct iovec> msg_iov;
-#endif
+    virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
+};
 
+class udp_stream : public stream2
+{
+private:
     /**
      * Constructor used to implement most other constructors.
      */
@@ -211,10 +215,6 @@ public:
         std::initializer_list<boost::asio::ip::udp::endpoint> endpoints,
         Args&&... args)
         : udp_stream(std::move(io_service), std::move(socket), std::vector<boost::asio::ip::udp::endpoint>(endpoints), std::forward<Args>(args)...) {}
-
-    virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
-
-    virtual ~udp_stream();
 };
 
 } // namespace send

@@ -500,7 +500,8 @@ class stream2 : public stream
 {
     friend class writer;
 
-private:
+public:
+    /* Only public so that writer classes can update bytes_sent and result. */
     struct queue_item
     {
         const heap &h;
@@ -520,6 +521,7 @@ private:
         }
     };
 
+private:
     typedef std::aligned_storage<sizeof(queue_item), alignof(queue_item)>::type queue_item_storage;
 
     /* Data are laid out in a manner designed to optimise the cache, which
@@ -603,6 +605,7 @@ public:
 
     virtual void set_cnt_sequence(item_pointer_t next, item_pointer_t step) override final;
     virtual void flush() override final;
+    virtual std::size_t get_num_substreams() const override final;
 };
 
 // TODO: move to separate send_writer.h
