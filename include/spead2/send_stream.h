@@ -551,7 +551,10 @@ private:
     std::unique_ptr<queue_item_storage[]> queue;
 
     // Padding to ensure that the above doesn't share a cache line with the below
+#pragma clang diagnostic push
+#pragma clang ignored "-Wunused-private-field"
     std::uint8_t padding1[64];
+#pragma clang diagnostic pop
 
     /* Data that's mostly written by the stream interface, but can be read by the
      * writer (however, when the queue empties, the writer will modify data).
@@ -575,7 +578,10 @@ private:
     bool need_wakeup = true;
 
     // Padding to ensure that the above doesn't share a cache line with the below
+#pragma clang diagnostic push
+#pragma clang ignored "-Wunused-private-field"
     std::uint8_t padding2[64];
+#pragma clang pop
 
     /* Data that's only mostly written by the writer (apart from flush()), and
      * may be read by the stream.
