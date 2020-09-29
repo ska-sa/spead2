@@ -426,11 +426,11 @@ void writer::post_wakeup()
 }
 
 writer::writer(io_service_ref io_service, const stream_config &config)
-    : io_service(std::move(io_service)),
-    timer(*this->io_service),
-    config(config),
+    : config(config),
     seconds_per_byte_burst(config.get_burst_rate() > 0.0 ? 1.0 / config.get_burst_rate() : 0.0),
-    seconds_per_byte(config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0)
+    seconds_per_byte(config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0),
+    io_service(std::move(io_service)),
+    timer(*this->io_service)
 {
 }
 
