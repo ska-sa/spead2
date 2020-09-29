@@ -51,6 +51,13 @@ private:
     virtual void wakeup() override final;
 
     static constexpr int max_batch = 64;
+#if SPEAD2_USE_SENDMMSG
+    struct mmsghdr msgvec[max_batch];
+    std::vector<struct iovec> msg_iov;
+    transmit_packet packets[max_batch];
+
+    void send_packets(int first, int last);
+#endif
 
 public:
     udp_writer(
