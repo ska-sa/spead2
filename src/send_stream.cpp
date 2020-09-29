@@ -301,15 +301,15 @@ void writer::update_send_time_empty()
 
 writer::packet_result writer::get_packet(transmit_packet &data)
 {
+    if (must_sleep)
+        return packet_result::SLEEP;
     if (rate_bytes >= config.get_burst_size())
     {
         auto now = timer_type::clock_type::now();
         auto target_time = update_send_times(now);
         if (now < target_time)
         {
-            timer.expires_at(target_time);
-            timer.async_wait(
-                [this](const boost::system::error_code &) { wakeup(); });
+            must_sleep = true;
             return packet_result::SLEEP;
         }
     }
@@ -321,24 +321,7 @@ writer::packet_result writer::get_packet(transmit_packet &data)
          */
         queue_tail = get_owner()->queue_tail.load(std::memory_order_acquire);
         if (active == queue_tail)
-        {
-            std::lock_guard<std::mutex> tail_lock(get_owner()->tail_mutex);
-            /* Need to re-check before we ask to be woken up, in case a new
-             * heap was added while we waited for the lock.
-             */
-            queue_tail = get_owner()->queue_tail.load(std::memory_order_acquire);
-            if (active == queue_tail)
-            {
-                // Ok, we've really run out of new work
-                if (queue_head == queue_tail)
-                {
-                    get_owner()->need_wakeup = true;
-                    return packet_result::EMPTY;
-                }
-                else
-                    return packet_result::DRAINING;
-            }
-        }
+            return packet_result::EMPTY;
     }
     stream2::queue_item *cur = get_owner()->get_queue(active);
     if (!gen)
@@ -401,6 +384,45 @@ void writer::heaps_completed(std::size_t n)
         }
         n -= batch;
     }
+}
+
+void writer::sleep()
+{
+    if (must_sleep)
+    {
+        timer.expires_at(send_time_burst);
+        timer.async_wait(
+            [this](const boost::system::error_code &) {
+                must_sleep = false;
+                wakeup();
+        });
+    }
+    else
+    {
+        post_wakeup();
+    }
+}
+
+void writer::request_wakeup()
+{
+    std::size_t old_tail = queue_tail;
+    {
+        std::lock_guard<std::mutex> tail_lock(get_owner()->tail_mutex);
+        queue_tail = get_owner()->queue_tail.load(std::memory_order_acquire);
+        if (queue_tail == old_tail)
+        {
+            get_owner()->need_wakeup = true;
+            return;
+        }
+    }
+    // If we get here, new work was added since the last call to get_packet,
+    // so we must just wake ourselves up.
+    post_wakeup();
+}
+
+void writer::post_wakeup()
+{
+    get_io_service().post([this]() { wakeup(); });
 }
 
 writer::writer(io_service_ref io_service, const stream_config &config)
@@ -499,8 +521,11 @@ bool stream2::async_send_heap(const heap &h, completion_handler handler,
 
     if (wakeup)
     {
-        w->update_send_time_empty();
-        w->wakeup();
+        writer *w_ptr = w.get();
+        get_io_service().post([w_ptr]() {
+            w_ptr->update_send_time_empty();
+            w_ptr->wakeup();
+        });
     }
     return true;
 }

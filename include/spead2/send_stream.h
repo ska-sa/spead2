@@ -619,18 +619,15 @@ protected:
          */
         SUCCESS,
         /**
-         * No packet because we need to sleep for rate limiting.
-         * @ref wakeup will be called when it is time to try again.
+         * No packet because we need to sleep for rate limiting. Use
+         * @ref sleep to request that @ref wakeup be called when it is
+         * time to resume. Until that's done, @ref get_packet will continue
+         * to return @c SLEEP.
          */
         SLEEP,
         /**
-         * No packet is available, but there are still live packets.
-         * Drain some of them then try again.
-         */
-        DRAINING,
-        /**
-         * The queue is completely empty. @ref wakeup will be called once
-         * a new heap is added.
+         * There are no more packets currently available. Use @ref
+         * request_wakeup to ask to be woken when a new heap is added.
          */
         EMPTY
     };
@@ -652,6 +649,8 @@ private:
     timer_type::time_point send_time;
     /// If true, rate_bytes is never incremented and hence we never sleep
     bool hw_rate = false;
+    /// If true, we're not handing more packets until we've slept
+    bool must_sleep = false;
     /// Number of bytes sent since send_time and sent_time_burst were updated
     std::uint64_t rate_bytes = 0;
 
@@ -685,7 +684,7 @@ private:
      */
     void update_send_time_empty();
 
-
+    /// Called by stream2 constructor to set itself as owner.
     void set_owner(stream2 *owner);
 
     virtual void wakeup() = 0;
@@ -713,6 +712,21 @@ protected:
 
     /// Notify the base class that @a n heaps have finished transmission.
     void heaps_completed(std::size_t n);
+
+    /**
+     * Request @ref wakeup once the sleep time has been reached. This must
+     * be called after @ref get_packet returns @c packet_result::SLEEP.
+     */
+    void sleep();
+
+    /**
+     * Request @ref wakeup when new packets become available (new relative
+     * to the last call to @ref get_packet).
+     */
+    void request_wakeup();
+
+    /// Schedule wakeup to be called immediately.
+    void post_wakeup();
 
     writer(io_service_ref io_service, const stream_config &config);
 

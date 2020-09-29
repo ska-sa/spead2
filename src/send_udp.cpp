@@ -47,10 +47,11 @@ void udp_writer::wakeup()
         switch (result)
         {
         case packet_result::SLEEP:
+            sleep();
+            return;
         case packet_result::EMPTY:
-            return;    // base classes will wake us again when appropriate
-        case packet_result::DRAINING:
-            abort();   // unreachable: we only deal with one packet at a time
+            request_wakeup();
+            return;
         case packet_result::SUCCESS:
             break;
         }
