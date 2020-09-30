@@ -83,11 +83,11 @@ class AgentConnection:
                     thread_pool = spead2.ThreadPool()
                     memory_pool = spead2.MemoryPool(
                         args.heap_size, args.heap_size + 1024, args.mem_max_free, args.mem_initial)
-                    stream = spead2.recv.asyncio.Stream(thread_pool, 0, args.heaps,
-                                                        args.ring_heaps)
-                    stream.set_memory_allocator(memory_pool)
+                    config = spead2.recv.StreamConfig(max_heaps=args.heaps, memory_allocator=memory_pool)
                     if args.memcpy_nt:
-                        stream.set_memcpy(spead2.MEMCPY_NONTEMPORAL)
+                        config.memcpy = spead2.MEMCPY_NONTEMPORAL
+                    stream = spead2.recv.asyncio.Stream(
+                        thread_pool, config, spead2.recv.RingStreamConfig(heaps=args.ring_heaps))
                     bind_hostname = '' if args.multicast is None else args.multicast
                     if 'recv_ibv' in args and args.recv_ibv is not None:
                         try:
@@ -317,9 +317,9 @@ def main():
         group.add_argument('--recv-ibv-max-poll', type=int,
                            default=spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL,
                            help='Maximum number of times to poll in a row [%(default)s]')
-    group.add_argument('--heaps', type=int, default=spead2.recv.Stream.DEFAULT_MAX_HEAPS,
+    group.add_argument('--heaps', type=int, default=spead2.recv.StreamConfig.DEFAULT_MAX_HEAPS,
                        help='Maximum number of in-flight heaps [%(default)s]')
-    group.add_argument('--ring-heaps', type=int, default=spead2.recv.Stream.DEFAULT_RING_HEAPS,
+    group.add_argument('--ring-heaps', type=int, default=spead2.recv.RingStreamConfig.DEFAULT_HEAPS,
                        help='Ring buffer capacity in heaps [%(default)s]')
     group.add_argument('--memcpy-nt', action='store_true',
                        help='Use non-temporal memcpy [no]')
