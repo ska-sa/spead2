@@ -103,7 +103,7 @@ bool udp_ibv_writer::setup_hw_rate(const ibv_qp_t &qp, const stream_config &conf
 #endif
 }
 
-void udp_ibv_writer::reap()
+bool udp_ibv_writer::reap()
 {
     ibv_wc wc;
     int retries = max_poll;
@@ -117,7 +117,7 @@ void udp_ibv_writer::reap()
         if (done == 0)
         {
             retries--;
-            if (retries < 0)
+            if (retries <= 0)
                 break;
             else
                 continue;
@@ -150,6 +150,7 @@ void udp_ibv_writer::reap()
     }
     if (heaps > 0)
         heaps_completed(heaps);
+    return available < n_slots && retries > 0;
 }
 
 void udp_ibv_writer::wait_for_space()
@@ -175,7 +176,7 @@ void udp_ibv_writer::wait_for_space()
 
 void udp_ibv_writer::wakeup()
 {
-    reap();
+    bool more_cqe = reap();
     if (available < target_batch)
     {
         wait_for_space();
@@ -229,10 +230,27 @@ void udp_ibv_writer::wakeup()
             prev->wr.wr_id = i;
             prev->wr.send_flags = IBV_SEND_SIGNALED;
             qp.post_send(&first->wr);
+        }
+
+        if (i > 0 || more_cqe)
+        {
+            /* There may be more completions immediately available (either existing
+             * ones, or for the packets we've just posted).
+             */
             post_wakeup();
         }
         else if (available < n_slots)
+        {
+            /* We ran out of packets and completions, but we need to monitor
+             * the CQ for future completions. If the result is SLEEP then we
+             * could call sleep() instead (and ideally we'd wait for whichever
+             * happens first). However, if we get SLEEP then we're using
+             * software rate limiting, which means we're likely to see some
+             * completions before it's time to wake up again (because the
+             * hardware will complete packets at line rate).
+             */
             wait_for_space();
+        }
         else if (result == packet_result::SLEEP)
             sleep();
         else

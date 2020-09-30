@@ -91,8 +91,11 @@ private:
      * Clear out the completion queue and return slots to the queue.
      * It will stop after freeing up @ref target_batch slots or
      * find no completions @ref max_poll times.
+     *
+     * Returns @c true if there are possibly more completions still in the
+     * queue.
      */
-    void reap();
+    bool reap();
 
     /**
      * Schedule a call to wakeup when it should check for space in the buffer again.
