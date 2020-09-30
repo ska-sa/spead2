@@ -106,7 +106,6 @@ bool udp_ibv_writer::setup_hw_rate(const ibv_qp_t &qp, const stream_config &conf
 void udp_ibv_writer::reap()
 {
     ibv_wc wc;
-    int done;
     int retries = max_poll;
     int heaps = 0;
     std::size_t min_available = std::min(n_slots, available + target_batch);
@@ -183,7 +182,7 @@ void udp_ibv_writer::wakeup()
     }
     else
     {
-        int i;
+        std::size_t i;
         packet_result result;
         slot *prev = nullptr;
         slot *first = &slots[tail];
