@@ -81,7 +81,7 @@ copyright = u'2015–2018, SKA South Africa'
 def get_version():
     globals_ = {}
     root = os.path.dirname(os.path.dirname(__file__))
-    with open(os.path.join(root, 'spead2', '_version.py')) as f:
+    with open(os.path.join(root, 'src', 'spead2', '_version.py')) as f:
         code = f.read()
     exec(code, globals_)
     release = globals_['__version__']
