@@ -83,7 +83,8 @@ class AgentConnection:
                     thread_pool = spead2.ThreadPool()
                     memory_pool = spead2.MemoryPool(
                         args.heap_size, args.heap_size + 1024, args.mem_max_free, args.mem_initial)
-                    config = spead2.recv.StreamConfig(max_heaps=args.heaps, memory_allocator=memory_pool)
+                    config = spead2.recv.StreamConfig(max_heaps=args.heaps,
+                                                      memory_allocator=memory_pool)
                     if args.memcpy_nt:
                         config.memcpy = spead2.MEMCPY_NONTEMPORAL
                     stream = spead2.recv.asyncio.Stream(
