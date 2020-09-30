@@ -120,6 +120,8 @@ void udp_ibv_writer::reap()
             retries--;
             if (retries < 0)
                 break;
+            else
+                continue;
         }
 
         boost::system::error_code ec;
