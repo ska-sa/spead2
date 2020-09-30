@@ -344,6 +344,19 @@ writer::packet_result writer::get_packet(transmit_packet &data)
 
 void writer::heaps_completed(std::size_t n)
 {
+    struct bound_handler
+    {
+        stream::completion_handler handler;
+        boost::system::error_code result;
+        std::size_t bytes_transferred;
+
+        bound_handler() = default;
+        bound_handler(stream::completion_handler &&handler, const boost::system::error_code &result, std::size_t bytes_transferred)
+            : handler(std::move(handler)), result(result), bytes_transferred(bytes_transferred)
+        {
+        }
+    };
+
     /**
      * We have to ensure that we vacate the slots (and update the head)
      * before we trigger any callbacks or promises, because otherwise a
@@ -356,7 +369,7 @@ void writer::heaps_completed(std::size_t n)
      */
     constexpr std::size_t max_batch = 16;
     std::forward_list<std::promise<void>> waiters;
-    std::array<std::function<void()>, max_batch> handlers;
+    std::array<bound_handler, max_batch> handlers;
     while (n > 0)
     {
         std::size_t batch = std::min(max_batch, n);
@@ -365,7 +378,7 @@ void writer::heaps_completed(std::size_t n)
             for (std::size_t i = 0; i < batch; i++)
             {
                 stream2::queue_item *cur = get_owner()->get_queue(queue_head);
-                handlers[i] = std::bind(
+                handlers[i] = bound_handler(
                     std::move(cur->handler), cur->result, cur->bytes_sent);
                 waiters.splice_after(waiters.before_begin(), cur->waiters);
                 cur->~queue_item();
@@ -376,7 +389,7 @@ void writer::heaps_completed(std::size_t n)
             get_owner()->queue_head.store(queue_head, std::memory_order_release);
         }
         for (std::size_t i = 0; i < batch; i++)
-            get_io_service().post(std::move(handlers[i]));
+            handlers[i].handler(handlers[i].result, handlers[i].bytes_transferred);
         while (!waiters.empty())
         {
             waiters.front().set_value();
