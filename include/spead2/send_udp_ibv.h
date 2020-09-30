@@ -48,19 +48,20 @@ namespace send
  * Stream using Infiniband versions for acceleration. Only IPv4 multicast
  * with an explicit source address are supported.
  */
-class udp_ibv_stream : public stream_impl<udp_ibv_stream>
+class udp_ibv_writer : public writer
 {
 private:
-    friend class stream_impl<udp_ibv_stream>;
-
     struct slot : public boost::noncopyable
     {
         ibv_send_wr wr{};
         ibv_sge sge{};
         ethernet_frame frame;
+        stream2::queue_item *item = nullptr;
+        bool last;   ///< Last packet in the heap
     };
 
     const std::size_t n_slots;
+    const std::size_t target_batch;
     boost::asio::ip::udp::socket socket; // used only to assign a source UDP port
     boost::asio::ip::udp::endpoint source;
     const std::vector<boost::asio::ip::udp::endpoint> endpoints;
@@ -75,7 +76,8 @@ private:
     ibv_qp_t qp;
     ibv_mr_t mr;
     std::unique_ptr<slot[]> slots;
-    std::vector<slot *> available;
+    std::size_t head = 0, tail = 0;
+    std::size_t available;
     const int max_poll;
 
     static ibv_qp_t
@@ -86,23 +88,35 @@ private:
     static bool setup_hw_rate(const ibv_qp_t &qp, const stream_config &config);
 
     /**
-     * Clear out the completion queue and return slots to available.
-     *
-     * If @a all is true, keeps going as long as there are more completions.
-     * Otherwise, stops once there are at least n_current_packets slots
-     * available.
+     * Clear out the completion queue and return slots to the queue.
+     * It will stop after freeing up @ref target_batch slots or
+     * find no completions @ref max_poll times.
      */
-    void reap(bool all);
+    void reap();
 
     /**
-     * Try to reap completion events until there is enough space to send all
-     * current packets. Returns true if successful, otherwise returns false
-     * and schedules @ref async_send_packets to be called again later.
+     * Schedule a call to wakeup when it should check for space in the buffer again.
      */
-    bool make_space();
+    void wait_for_space();
 
-    void async_send_packets();
+    virtual void wakeup() override final;
 
+public:
+    udp_ibv_writer(
+        io_service_ref io_service,
+        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+        const stream_config &config,
+        const boost::asio::ip::address &interface_address,
+        std::size_t buffer_size,
+        int ttl,
+        int comp_vector,
+        int max_poll);
+
+    virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
+};
+
+class udp_ibv_stream : public stream2
+{
 public:
     /// Default send buffer size, if none is passed to the constructor
     static constexpr std::size_t default_buffer_size = 512 * 1024;
@@ -194,10 +208,6 @@ public:
         int ttl = 1,
         int comp_vector = 0,
         int max_poll = default_max_poll);
-
-    virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
-
-    virtual ~udp_ibv_stream();
 };
 
 } // namespace send
