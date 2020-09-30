@@ -111,11 +111,11 @@ private:
     io_service_ref io_service;
 
 protected:
-    typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
-
     explicit stream(io_service_ref io_service);
 
 public:
+    typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
+
     /// Retrieve the io_service used for processing the stream
     boost::asio::io_service &get_io_service() const { return *io_service; }
 
