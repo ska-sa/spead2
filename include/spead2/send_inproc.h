@@ -38,22 +38,30 @@ namespace spead2
 namespace send
 {
 
-namespace detail
-{
+class inproc_stream;
 
-/// Create a copy of a packet that owns all its own data
-inproc_queue::packet copy_packet(const packet &in);
-
-} // namespace detail
-
-class inproc_stream : public stream_impl<inproc_stream>
+class inproc_writer : public writer
 {
 private:
-    friend class stream_impl<inproc_stream>;
     std::vector<std::shared_ptr<inproc_queue>> queues;
 
-    void async_send_packets();
+    virtual void wakeup() override;
 
+public:
+    /// Constructor
+    inproc_writer(
+        io_service_ref io_service,
+        const std::vector<std::shared_ptr<inproc_queue>> &queues,
+        const stream_config &config);
+
+    /// Get the underlying storage queue
+    const std::vector<std::shared_ptr<inproc_queue>> &get_queues() const;
+
+    virtual std::size_t get_num_substreams() const override final { return queues.size(); }
+};
+
+class inproc_stream : public stream2
+{
 public:
     /// Constructor
     inproc_stream(
@@ -76,12 +84,8 @@ public:
         std::initializer_list<std::shared_ptr<inproc_queue>> queues,
         const stream_config &config = stream_config());
 
-    /// Get the underlying storage queue
+    /// Get the underlying storage queues
     const std::vector<std::shared_ptr<inproc_queue>> &get_queues() const;
-
-    virtual std::size_t get_num_substreams() const override final { return queues.size(); }
-
-    virtual ~inproc_stream();
 };
 
 } // namespace send

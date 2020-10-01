@@ -609,6 +609,10 @@ private:
     /// Access an item from the queue (takes care of masking the index)
     queue_item *get_queue(std::size_t idx);
 
+protected:
+    writer &get_writer() { return *w; }
+    const writer &get_writer() const { return *w; }
+
 public:
     explicit stream2(std::unique_ptr<writer> &&w);
     ~stream2() override;

@@ -28,10 +28,7 @@ namespace spead2
 namespace send
 {
 
-namespace detail
-{
-
-inproc_queue::packet copy_packet(const packet &in)
+static inproc_queue::packet copy_packet(const packet &in)
 {
     std::size_t size = boost::asio::buffer_size(in.buffers);
     inproc_queue::packet out;
@@ -42,33 +39,63 @@ inproc_queue::packet copy_packet(const packet &in)
     return out;
 }
 
-} // namespace detail
-
-void inproc_stream::async_send_packets()
+void inproc_writer::wakeup()
 {
-    for (std::size_t i = 0; i < n_current_packets; i++)
+    transmit_packet data;
+    switch (get_packet(data))
     {
-        const auto &current = current_packets[i];
-        inproc_queue::packet dup = detail::copy_packet(current.pkt);
-        try
-        {
-            queues[current.item->substream_index]->buffer.push(std::move(dup));
-            current_packets[i].result = boost::system::error_code();
-        }
-        catch (ringbuffer_stopped &)
-        {
-            current_packets[i].result = boost::asio::error::operation_aborted;
-        }
+    case packet_result::SLEEP:
+        sleep();
+        return;
+    case packet_result::EMPTY:
+        request_wakeup();
+        return;
+    case packet_result::SUCCESS:
+        break;
     }
-    get_io_service().post([this] { packets_handler(); });
+
+    inproc_queue::packet dup = copy_packet(data.pkt);
+    std::size_t size = dup.size;
+    stream2::queue_item *item = data.item;
+    try
+    {
+        queues[data.item->substream_index]->buffer.push(std::move(dup));
+        item->bytes_sent += size;
+    }
+    catch (ringbuffer_stopped &)
+    {
+        item->result = boost::asio::error::operation_aborted;
+    }
+    if (data.last)
+        heaps_completed(1);
+    post_wakeup();
 }
+
+const std::vector<std::shared_ptr<inproc_queue>> &inproc_writer::get_queues() const
+{
+    return queues;
+}
+
+inproc_writer::inproc_writer(
+    io_service_ref io_service,
+    const std::vector<std::shared_ptr<inproc_queue>> &queues,
+    const stream_config &config)
+    : writer(std::move(io_service), config),
+    queues(queues)
+{
+    if (queues.empty())
+        throw std::invalid_argument("queues is empty");
+}
+
 
 inproc_stream::inproc_stream(
     io_service_ref io_service,
     std::shared_ptr<inproc_queue> queue,
     const stream_config &config)
-    : stream_impl<inproc_stream>(std::move(io_service), config, 1),
-    queues{std::move(queue)}
+    : inproc_stream(
+        std::move(io_service),
+        std::vector<std::shared_ptr<inproc_queue>>{std::move(queue)},
+        config)
 {
 }
 
@@ -87,21 +114,13 @@ inproc_stream::inproc_stream(
     io_service_ref io_service,
     const std::vector<std::shared_ptr<inproc_queue>> &queues,
     const stream_config &config)
-    : stream_impl<inproc_stream>(std::move(io_service), config, 1),
-    queues(queues)
+    : stream2(std::unique_ptr<writer>(new inproc_writer(std::move(io_service), queues, config)))
 {
-    if (queues.empty())
-        throw std::invalid_argument("queues is empty");
-}
-
-inproc_stream::~inproc_stream()
-{
-    flush();
 }
 
 const std::vector<std::shared_ptr<inproc_queue>> &inproc_stream::get_queues() const
 {
-    return queues;
+    return static_cast<const inproc_writer &>(get_writer()).get_queues();
 }
 
 } // namespace send
