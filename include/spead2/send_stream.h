@@ -579,7 +579,7 @@ private:
     /// Heap cnt for the next heap to send
     item_pointer_t next_cnt = 1;
     /// If true, the writer wants to be woken up when a new heap is added
-    bool need_wakeup = true;
+    bool need_wakeup;
 
     // Padding to ensure that the above doesn't share a cache line with the below
 #ifdef __clang__
@@ -702,6 +702,12 @@ private:
     void set_owner(stream2 *owner);
 
     virtual void wakeup() = 0;
+
+    /**
+     * Called after setting the owner. The default behaviour is to call
+     * @ref request_wakeup, but it may be overridden if that is not desired.
+     */
+    virtual void start() { request_wakeup(); }
 
 protected:
     struct transmit_packet

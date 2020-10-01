@@ -474,6 +474,7 @@ stream2::stream2(std::unique_ptr<writer> &&w)
     queue(new queue_item_storage[queue_mask + 1])
 {
     this->w->set_owner(this);
+    this->w->start();
 }
 
 stream2::~stream2()

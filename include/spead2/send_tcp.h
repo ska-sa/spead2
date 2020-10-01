@@ -47,18 +47,62 @@ boost::asio::ip::tcp::socket make_socket(
 
 } // namespace detail
 
-class tcp_stream : public stream_impl<tcp_stream>
+class tcp_writer : public writer
 {
 private:
-    friend class stream_impl<tcp_stream>;
-
     /// The underlying TCP socket
     boost::asio::ip::tcp::socket socket;
-    /// Whether the underlying socket is already connected or not
-    std::atomic<bool> connected{false};
+    /// Whether we were handled an already-connected socket
+    const bool pre_connected;
+    /// Endpoint to connect to (if not pre-connected)
+    boost::asio::ip::tcp::endpoint endpoint;
+    /// Callback once connected (if not pre-connected)
+    std::function<void(const boost::system::error_code &)> connect_handler;
 
-    void async_send_packets();
+    virtual void wakeup() override final;
+    virtual void start() override final;
 
+public:
+    /**
+     * Constructor. A callback is provided to indicate when the connection is
+     * established.
+     *
+     * @warning The callback may be called before the constructor returns. The
+     * implementation of the callback needs to be prepared to handle this case.
+     *
+     * @param io_service   I/O service for sending data
+     * @param connect_handler  Callback when connection is established. It is called
+     *                     with a @c boost::system::error_code to indicate whether
+     *                     connection was successful.
+     * @param endpoints    Destination host and port (must contain exactly one element)
+     * @param config       Stream configuration
+     * @param buffer_size  Socket buffer size (0 for OS default)
+     * @param interface_address   Source address
+     *                            @verbatim embed:rst:leading-asterisks
+     *                            (see tips on :ref:`routing`)
+     *                            @endverbatim
+     */
+    tcp_writer(
+        io_service_ref io_service,
+        std::function<void(const boost::system::error_code &)> &&connect_handler,
+        const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
+        const stream_config &config,
+        std::size_t buffer_size,
+        const boost::asio::ip::address &interface_address);
+
+    /**
+     * Constructor using an existing socket. The socket must be connected.
+     */
+    tcp_writer(
+        io_service_ref io_service,
+        boost::asio::ip::tcp::socket &&socket,
+        const stream_config &config);
+
+    virtual std::size_t get_num_substreams() const override final { return 1; }
+};
+
+class tcp_stream : public stream2
+{
 public:
     /// Socket send buffer size, if none is explicitly passed to the constructor
     static constexpr std::size_t default_buffer_size = 208 * 1024;
@@ -82,25 +126,13 @@ public:
      *                            (see tips on :ref:`routing`)
      *                            @endverbatim
      */
-    template<typename ConnectHandler>
     tcp_stream(
         io_service_ref io_service,
-        ConnectHandler &&connect_handler,
+        std::function<void(const boost::system::error_code &)> &&connect_handler,
         const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size,
-        const boost::asio::ip::address &interface_address = boost::asio::ip::address())
-        : stream_impl(std::move(io_service), config, 1),
-        socket(detail::make_socket(get_io_service(), endpoints, buffer_size, interface_address))
-    {
-        socket.async_connect(endpoints[0],
-            [this, connect_handler] (const boost::system::error_code &ec)
-            {
-                if (!ec)
-                    connected.store(true);
-                connect_handler(ec);
-            });
-    }
+        const boost::asio::ip::address &interface_address = boost::asio::ip::address());
 
     /**
      * Backwards-compatibility constructor.
@@ -148,10 +180,6 @@ public:
         io_service_ref io_service,
         boost::asio::ip::tcp::socket &&socket,
         const stream_config &config = stream_config());
-
-    virtual std::size_t get_num_substreams() const override final { return 1; }
-
-    virtual ~tcp_stream();
 };
 
 } // namespace send

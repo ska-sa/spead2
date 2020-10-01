@@ -27,24 +27,6 @@ namespace spead2
 namespace send
 {
 
-void tcp_stream::async_send_packets()
-{
-    if (!connected.load())
-    {
-        current_packets[0].result = boost::asio::error::not_connected;
-        get_io_service().post([this] { packets_handler(); });
-    }
-    else
-    {
-        auto handler = [this](const boost::system::error_code &ec, std::size_t)
-        {
-            current_packets[0].result = ec;
-            packets_handler();
-        };
-        boost::asio::async_write(socket, current_packets[0].pkt.buffers, handler);
-    }
-}
-
 namespace detail
 {
 
@@ -66,23 +48,107 @@ boost::asio::ip::tcp::socket make_socket(
 
 } // namespace detail
 
-constexpr std::size_t tcp_stream::default_buffer_size;
 
-tcp_stream::tcp_stream(
+void tcp_writer::wakeup()
+{
+    transmit_packet data;
+    packet_result result = get_packet(data);
+    switch (result)
+    {
+    case packet_result::SLEEP:
+        sleep();
+        return;
+    case packet_result::EMPTY:
+        request_wakeup();
+        return;
+    case packet_result::SUCCESS:
+        break;
+    }
+
+    stream2::queue_item *item = data.item;
+    bool last = data.last;
+    auto handler = [this, item, last](const boost::system::error_code &ec, std::size_t bytes_transferred)
+    {
+        item->bytes_sent += bytes_transferred;
+        if (!item->result)
+            item->result = ec;
+        if (last)
+            heaps_completed(1);
+        wakeup();
+    };
+    socket.async_send(data.pkt.buffers, std::move(handler));
+}
+
+void tcp_writer::start()
+{
+    if (!pre_connected)
+    {
+        socket.async_connect(endpoint,
+            [this] (const boost::system::error_code &ec)
+            {
+                connect_handler(ec);
+                wakeup();
+            });
+    }
+    else
+        request_wakeup();
+}
+
+tcp_writer::tcp_writer(
+    io_service_ref io_service,
+    std::function<void(const boost::system::error_code &)> &&connect_handler,
+    const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
+    const stream_config &config,
+    std::size_t buffer_size,
+    const boost::asio::ip::address &interface_address)
+    : writer(std::move(io_service), config),
+    socket(detail::make_socket(get_io_service(), endpoints, buffer_size, interface_address)),
+    pre_connected(false),
+    endpoint(endpoints[0]),
+    connect_handler(std::move(connect_handler))
+{
+}
+
+tcp_writer::tcp_writer(
     io_service_ref io_service,
     boost::asio::ip::tcp::socket &&socket,
     const stream_config &config)
-    : stream_impl(std::move(io_service), config, 1),
+    : writer(std::move(io_service), config),
     socket(std::move(socket)),
-    connected(true)
+    pre_connected(true)
 {
     if (!socket_uses_io_service(this->socket, get_io_service()))
         throw std::invalid_argument("I/O service does not match the socket's I/O service");
 }
 
-tcp_stream::~tcp_stream()
+constexpr std::size_t tcp_stream::default_buffer_size;
+
+tcp_stream::tcp_stream(
+    io_service_ref io_service,
+    std::function<void(const boost::system::error_code &)> &&connect_handler,
+    const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
+    const stream_config &config,
+    std::size_t buffer_size,
+    const boost::asio::ip::address &interface_address)
+    : stream2(std::unique_ptr<writer>(new tcp_writer(
+        std::move(io_service),
+        std::move(connect_handler),
+        endpoints,
+        config,
+        buffer_size,
+        interface_address)))
 {
-    flush();
+}
+
+tcp_stream::tcp_stream(
+    io_service_ref io_service,
+    boost::asio::ip::tcp::socket &&socket,
+    const stream_config &config)
+    : stream2(std::unique_ptr<writer>(new tcp_writer(
+        std::move(io_service),
+        std::move(socket),
+        config)))
+{
 }
 
 } // namespace send
