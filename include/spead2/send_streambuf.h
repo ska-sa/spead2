@@ -46,7 +46,7 @@ public:
         std::streambuf &streambuf,
         const stream_config &config);
 
-    std::size_t get_num_substreams() const { return 1; }
+    virtual std::size_t get_num_substreams() const override { return 1; }
 };
 
 /**
