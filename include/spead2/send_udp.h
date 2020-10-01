@@ -34,8 +34,8 @@
 #include <utility>
 #include <vector>
 #include <initializer_list>
-#include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
+#include <spead2/send_writer.h>
 
 namespace spead2
 {

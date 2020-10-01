@@ -32,6 +32,7 @@
 #include <spead2/common_inproc.h>
 #include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
+#include <spead2/send_writer.h>
 
 namespace spead2
 {

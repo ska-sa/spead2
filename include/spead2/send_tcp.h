@@ -28,7 +28,7 @@
 #include <initializer_list>
 #include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
-#include <spead2/common_endian.h>
+#include <spead2/send_writer.h>
 #include <spead2/common_socket.h>
 
 namespace spead2

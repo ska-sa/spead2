@@ -33,8 +33,8 @@
 #include <memory>
 #include <initializer_list>
 #include <boost/noncopyable.hpp>
-#include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
+#include <spead2/send_writer.h>
 #include <spead2/common_ibv.h>
 #include <spead2/common_memory_allocator.h>
 #include <spead2/common_raw_packet.h>

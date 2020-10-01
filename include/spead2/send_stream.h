@@ -26,22 +26,14 @@
 #include <vector>
 #include <forward_list>
 #include <memory>
-#include <chrono>
 #include <mutex>
-#include <iterator>
 #include <type_traits>
-#include <condition_variable>
 #include <future>
-#include <stdexcept>
+#include <atomic>
 #include <cassert>
 #include <boost/asio.hpp>
-#include <boost/asio/high_resolution_timer.hpp>
 #include <boost/system/error_code.hpp>
-#include <boost/optional.hpp>
-#include <boost/utility/in_place_factory.hpp>
 #include <spead2/send_heap.h>
-#include <spead2/send_packet.h>
-#include <spead2/common_logging.h>
 #include <spead2/common_defines.h>
 #include <spead2/common_thread_pool.h>
 
@@ -290,144 +282,6 @@ public:
     void flush();
 
     virtual ~stream();
-};
-
-// TODO: move to separate send_writer.h
-class writer
-{
-protected:
-    enum class packet_result
-    {
-        /**
-         * A new packet has been returned.
-         */
-        SUCCESS,
-        /**
-         * No packet because we need to sleep for rate limiting. Use
-         * @ref sleep to request that @ref wakeup be called when it is
-         * time to resume. Until that's done, @ref get_packet will continue
-         * to return @c SLEEP.
-         */
-        SLEEP,
-        /**
-         * There are no more packets currently available. Use @ref
-         * request_wakeup to ask to be woken when a new heap is added.
-         */
-        EMPTY
-    };
-
-private:
-    friend class stream;
-
-    typedef boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock> timer_type;
-
-    const stream_config config;    // TODO: probably doesn't need the whole thing
-    const double seconds_per_byte_burst, seconds_per_byte;
-
-    io_service_ref io_service;
-
-    timer_type timer;
-    /// Time at which next burst should be sent, considering the burst rate
-    timer_type::time_point send_time_burst;
-    /// Time at which next burst should be sent, considering the average rate
-    timer_type::time_point send_time;
-    /// If true, rate_bytes is never incremented and hence we never sleep
-    bool hw_rate = false;
-    /// If true, we're not handing more packets until we've slept
-    bool must_sleep = false;
-    /// Number of bytes sent since send_time and sent_time_burst were updated
-    std::uint64_t rate_bytes = 0;
-
-    // Local copies of the head/tail pointers from the owning stream,
-    // accessible without a lock.
-    std::size_t queue_head = 0, queue_tail = 0;
-    /// Entry from which we are currently getting new packets
-    std::size_t active = 0;
-    /**
-     * Packet generator for the active heap. It may be empty at any time, which
-     * indicates that it should be initialised from the heap indicated by
-     * @ref active.
-     *
-     * When non-empty, it must always have a next packet i.e. after
-     * exhausting it, it must be cleared/changed.
-     */
-    boost::optional<packet_generator> gen;
-    stream *owner = nullptr;
-
-    /**
-     * Update @ref send_time_burst and @ref send_time from @ref rate_bytes.
-     *
-     * @param now       Current time
-     * @returns         Time at which next packet should be sent
-     */
-    timer_type::time_point update_send_times(timer_type::time_point now);
-    /**
-     * Update @ref send_time after a period of no work.
-     *
-     * This is called by @ref stream when it wakes up the stream.
-     */
-    void update_send_time_empty();
-
-    /// Called by stream constructor to set itself as owner.
-    void set_owner(stream *owner);
-
-    virtual void wakeup() = 0;
-
-    /**
-     * Called after setting the owner. The default behaviour is to call
-     * @ref request_wakeup, but it may be overridden if that is not desired.
-     */
-    virtual void start() { request_wakeup(); }
-
-protected:
-    struct transmit_packet
-    {
-        packet pkt;
-        std::size_t size;
-        bool last;          // if this is the last packet in the heap
-        stream::queue_item *item;
-    };
-
-    stream *get_owner() const { return owner; }
-
-    /**
-     * Derived class calls to indicate that it will take care of rate limiting in hardware.
-     *
-     * This must be called from the constructor as it is not thread-safe. The
-     * caller must only call this if the stream config enabled HW rate limiting.
-     */
-    void enable_hw_rate();
-
-    packet_result get_packet(transmit_packet &data);
-
-    /// Notify the base class that @a n heaps have finished transmission.
-    void heaps_completed(std::size_t n);
-
-    /**
-     * Request @ref wakeup once the sleep time has been reached. This must
-     * be called after @ref get_packet returns @c packet_result::SLEEP.
-     */
-    void sleep();
-
-    /**
-     * Request @ref wakeup when new packets become available (new relative
-     * to the last call to @ref get_packet).
-     */
-    void request_wakeup();
-
-    /// Schedule wakeup to be called immediately.
-    void post_wakeup();
-
-    writer(io_service_ref io_service, const stream_config &config);
-
-public:
-    virtual ~writer() = default;
-
-    /// Retrieve the io_service used for processing the stream
-    boost::asio::io_service &get_io_service() const { return *io_service; }
-
-    /// Number of substreams
-    virtual std::size_t get_num_substreams() const = 0;
 };
 
 } // namespace send
