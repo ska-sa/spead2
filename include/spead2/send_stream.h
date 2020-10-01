@@ -102,93 +102,16 @@ private:
     bool allow_hw_rate = default_allow_hw_rate;
 };
 
+class writer;
+
 /**
- * Abstract base class for streams.
+ * Stream for sending heaps, potentially to multiple destinations.
  */
 class stream
 {
-private:
-    io_service_ref io_service;
-
-protected:
-    explicit stream(io_service_ref io_service);
-
 public:
     typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
 
-    /// Retrieve the io_service used for processing the stream
-    boost::asio::io_service &get_io_service() const { return *io_service; }
-
-    /**
-     * Modify the linear sequence used to generate heap cnts. The next heap
-     * will have cnt @a next, and each following cnt will be incremented by
-     * @a step. When using this, it is the user's responsibility to ensure
-     * that the generated values remain unique. The initial state is @a next =
-     * 1, @a cnt = 1.
-     *
-     * This is useful when multiple senders will send heaps to the same
-     * receiver, and need to keep their heap cnts separate.
-     */
-    virtual void set_cnt_sequence(item_pointer_t next, item_pointer_t step) = 0;
-
-    /**
-     * Send @a h asynchronously, with @a handler called on completion. The
-     * caller must ensure that @a h remains valid (as well as any memory it
-     * points to) until @a handler is called.
-     *
-     * If this function returns @c true, then the heap has been added to the
-     * queue. The completion handlers for such heaps are guaranteed to be
-     * called in order.
-     *
-     * If this function returns @c false, the heap was rejected due to
-     * insufficient space. The handler is called as soon as possible
-     * (from a thread running the io_service), with error code @c
-     * boost::asio::error::would_block.
-     *
-     * By default the heap cnt is chosen automatically (see @ref set_cnt_sequence).
-     * An explicit value can instead be chosen by passing a non-negative value
-     * for @a cnt. When doing this, it is entirely the responsibility of the
-     * user to avoid collisions, both with other explicit values and with the
-     * automatic counter. This feature is useful when multiple senders
-     * contribute to a single stream and must keep their heap cnts disjoint,
-     * which the automatic assignment would not do.
-     *
-     * Some streams may contain multiple substreams, each with a different
-     * destination. In this case, @a substream_index selects the substream to
-     * use.
-     *
-     * @retval  false  If the heap was immediately discarded
-     * @retval  true   If the heap was enqueued
-     */
-    virtual bool async_send_heap(const heap &h, completion_handler handler,
-                                 s_item_pointer_t cnt = -1,
-                                 std::size_t substream_index = 0) = 0;
-
-    /**
-     * Get the number of substreams in this stream.
-     */
-    virtual std::size_t get_num_substreams() const = 0;
-
-    /**
-     * Block until all enqueued heaps have been sent. This function is
-     * thread-safe, but can be live-locked if more heaps are added while it is
-     * running.
-     */
-    virtual void flush() = 0;
-
-    virtual ~stream();
-};
-
-class writer;
-
-/* TODO: replace stream once all subclasses have moved to this framework. Then
- * also review which functions need to be virtual.
- */
-class stream2 : public stream
-{
-    friend class writer;
-
-public:
     /* Only public so that writer classes can update bytes_sent and result. */
     struct queue_item
     {
@@ -210,6 +133,8 @@ public:
     };
 
 private:
+    friend class writer;
+
     typedef std::aligned_storage<sizeof(queue_item), alignof(queue_item)>::type queue_item_storage;
 
     /* Data are laid out in a manner designed to optimise the cache, which
@@ -301,17 +226,70 @@ protected:
     writer &get_writer() { return *w; }
     const writer &get_writer() const { return *w; }
 
+    explicit stream(std::unique_ptr<writer> &&w);
+
 public:
-    explicit stream2(std::unique_ptr<writer> &&w);
-    ~stream2() override;
+    /// Retrieve the io_service used for processing the stream
+    boost::asio::io_service &get_io_service() const;
 
-    virtual bool async_send_heap(const heap &h, completion_handler handler,
-                                 s_item_pointer_t cnt = -1,
-                                 std::size_t substream_index = 0) override final;
+    /**
+     * Modify the linear sequence used to generate heap cnts. The next heap
+     * will have cnt @a next, and each following cnt will be incremented by
+     * @a step. When using this, it is the user's responsibility to ensure
+     * that the generated values remain unique. The initial state is @a next =
+     * 1, @a cnt = 1.
+     *
+     * This is useful when multiple senders will send heaps to the same
+     * receiver, and need to keep their heap cnts separate.
+     */
+    void set_cnt_sequence(item_pointer_t next, item_pointer_t step);
 
-    virtual void set_cnt_sequence(item_pointer_t next, item_pointer_t step) override final;
-    virtual void flush() override final;
-    virtual std::size_t get_num_substreams() const override final;
+    /**
+     * Send @a h asynchronously, with @a handler called on completion. The
+     * caller must ensure that @a h remains valid (as well as any memory it
+     * points to) until @a handler is called.
+     *
+     * If this function returns @c true, then the heap has been added to the
+     * queue. The completion handlers for such heaps are guaranteed to be
+     * called in order.
+     *
+     * If this function returns @c false, the heap was rejected due to
+     * insufficient space. The handler is called as soon as possible
+     * (from a thread running the io_service), with error code @c
+     * boost::asio::error::would_block.
+     *
+     * By default the heap cnt is chosen automatically (see @ref set_cnt_sequence).
+     * An explicit value can instead be chosen by passing a non-negative value
+     * for @a cnt. When doing this, it is entirely the responsibility of the
+     * user to avoid collisions, both with other explicit values and with the
+     * automatic counter. This feature is useful when multiple senders
+     * contribute to a single stream and must keep their heap cnts disjoint,
+     * which the automatic assignment would not do.
+     *
+     * Some streams may contain multiple substreams, each with a different
+     * destination. In this case, @a substream_index selects the substream to
+     * use.
+     *
+     * @retval  false  If the heap was immediately discarded
+     * @retval  true   If the heap was enqueued
+     */
+    bool async_send_heap(const heap &h, completion_handler handler,
+                         s_item_pointer_t cnt = -1,
+                         std::size_t substream_index = 0);
+
+    /**
+     * Get the number of substreams in this stream.
+     */
+    std::size_t get_num_substreams() const;
+
+    /**
+     * Block until all enqueued heaps have been sent. This function is
+     * thread-safe, but can be live-locked if more heaps are added while it is
+     * running.
+     */
+    void flush();
+
+    virtual ~stream();
 };
 
 // TODO: move to separate send_writer.h
@@ -339,7 +317,7 @@ protected:
     };
 
 private:
-    friend class stream2;
+    friend class stream;
 
     typedef boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock> timer_type;
 
@@ -374,7 +352,7 @@ private:
      * exhausting it, it must be cleared/changed.
      */
     boost::optional<packet_generator> gen;
-    stream2 *owner = nullptr;
+    stream *owner = nullptr;
 
     /**
      * Update @ref send_time_burst and @ref send_time from @ref rate_bytes.
@@ -386,12 +364,12 @@ private:
     /**
      * Update @ref send_time after a period of no work.
      *
-     * This is called by @ref stream2 when it wakes up the stream.
+     * This is called by @ref stream when it wakes up the stream.
      */
     void update_send_time_empty();
 
-    /// Called by stream2 constructor to set itself as owner.
-    void set_owner(stream2 *owner);
+    /// Called by stream constructor to set itself as owner.
+    void set_owner(stream *owner);
 
     virtual void wakeup() = 0;
 
@@ -407,10 +385,10 @@ protected:
         packet pkt;
         std::size_t size;
         bool last;          // if this is the last packet in the heap
-        stream2::queue_item *item;
+        stream::queue_item *item;
     };
 
-    stream2 *get_owner() const { return owner; }
+    stream *get_owner() const { return owner; }
 
     /**
      * Derived class calls to indicate that it will take care of rate limiting in hardware.

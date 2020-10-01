@@ -65,7 +65,7 @@ void tcp_writer::wakeup()
         break;
     }
 
-    stream2::queue_item *item = data.item;
+    stream::queue_item *item = data.item;
     bool last = data.last;
     auto handler = [this, item, last](const boost::system::error_code &ec, std::size_t bytes_transferred)
     {
@@ -130,7 +130,7 @@ tcp_stream::tcp_stream(
     const stream_config &config,
     std::size_t buffer_size,
     const boost::asio::ip::address &interface_address)
-    : stream2(std::unique_ptr<writer>(new tcp_writer(
+    : stream(std::unique_ptr<writer>(new tcp_writer(
         std::move(io_service),
         std::move(connect_handler),
         endpoints,
@@ -144,7 +144,7 @@ tcp_stream::tcp_stream(
     io_service_ref io_service,
     boost::asio::ip::tcp::socket &&socket,
     const stream_config &config)
-    : stream2(std::unique_ptr<writer>(new tcp_writer(
+    : stream(std::unique_ptr<writer>(new tcp_writer(
         std::move(io_service),
         std::move(socket),
         config)))

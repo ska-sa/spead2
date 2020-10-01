@@ -60,7 +60,7 @@ public:
     virtual std::size_t get_num_substreams() const override final { return queues.size(); }
 };
 
-class inproc_stream : public stream2
+class inproc_stream : public stream
 {
 public:
     /// Constructor

@@ -56,7 +56,7 @@ private:
         ibv_send_wr wr{};
         ibv_sge sge{};
         ethernet_frame frame;
-        stream2::queue_item *item = nullptr;
+        stream::queue_item *item = nullptr;
         bool last;   ///< Last packet in the heap
     };
 
@@ -118,7 +118,7 @@ public:
     virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
 };
 
-class udp_ibv_stream : public stream2
+class udp_ibv_stream : public stream
 {
 public:
     /// Default send buffer size, if none is passed to the constructor

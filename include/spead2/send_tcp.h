@@ -101,7 +101,7 @@ public:
     virtual std::size_t get_num_substreams() const override final { return 1; }
 };
 
-class tcp_stream : public stream2
+class tcp_stream : public stream
 {
 public:
     /// Socket send buffer size, if none is explicitly passed to the constructor

@@ -70,7 +70,7 @@ public:
     virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
 };
 
-class udp_stream : public stream2
+class udp_stream : public stream
 {
 private:
     /**

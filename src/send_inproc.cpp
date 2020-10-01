@@ -56,7 +56,7 @@ void inproc_writer::wakeup()
 
     inproc_queue::packet dup = copy_packet(data.pkt);
     std::size_t size = dup.size;
-    stream2::queue_item *item = data.item;
+    stream::queue_item *item = data.item;
     try
     {
         queues[data.item->substream_index]->buffer.push(std::move(dup));
@@ -114,7 +114,7 @@ inproc_stream::inproc_stream(
     io_service_ref io_service,
     const std::vector<std::shared_ptr<inproc_queue>> &queues,
     const stream_config &config)
-    : stream2(std::unique_ptr<writer>(new inproc_writer(std::move(io_service), queues, config)))
+    : stream(std::unique_ptr<writer>(new inproc_writer(std::move(io_service), queues, config)))
 {
 }
 

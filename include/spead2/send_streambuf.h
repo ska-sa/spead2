@@ -53,7 +53,7 @@ public:
  * should not be used for a blocking stream such as a wrapper around TCP,
  * because doing so will block the asio handler thread.
  */
-class streambuf_stream : public stream2
+class streambuf_stream : public stream
 {
 public:
     /// Constructor

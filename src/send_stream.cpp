@@ -88,16 +88,7 @@ stream_config::stream_config()
 }
 
 
-stream::stream(io_service_ref io_service)
-    : io_service(std::move(io_service))
-{
-}
-
-stream::~stream()
-{
-}
-
-void writer::set_owner(stream2 *owner)
+void writer::set_owner(stream *owner)
 {
     assert(!this->owner);
     assert(owner);
@@ -162,7 +153,7 @@ writer::packet_result writer::get_packet(transmit_packet &data)
         if (active == queue_tail)
             return packet_result::EMPTY;
     }
-    stream2::queue_item *cur = get_owner()->get_queue(active);
+    stream::queue_item *cur = get_owner()->get_queue(active);
     if (!gen)
         gen = boost::in_place(cur->h, cur->cnt, config.get_max_packet_size());
     assert(gen->has_next_packet());
@@ -216,7 +207,7 @@ void writer::heaps_completed(std::size_t n)
             std::lock_guard<std::mutex> lock(get_owner()->head_mutex);
             for (std::size_t i = 0; i < batch; i++)
             {
-                stream2::queue_item *cur = get_owner()->get_queue(queue_head);
+                stream::queue_item *cur = get_owner()->get_queue(queue_head);
                 handlers[i] = bound_handler(
                     std::move(cur->handler), cur->result, cur->bytes_sent);
                 waiters.splice_after(waiters.before_begin(), cur->waiters);
@@ -286,7 +277,7 @@ writer::writer(io_service_ref io_service, const stream_config &config)
 {
 }
 
-stream2::queue_item *stream2::get_queue(std::size_t idx)
+stream::queue_item *stream::get_queue(std::size_t idx)
 {
     return reinterpret_cast<queue_item *>(queue.get() + (idx & queue_mask));
 }
@@ -303,10 +294,8 @@ static std::size_t compute_queue_mask(std::size_t size)
     return p2 - 1;
 }
 
-// TODO: eliminate io_service from stream base class
-stream2::stream2(std::unique_ptr<writer> &&w)
-    : stream(w->get_io_service()),
-    queue_size(w->config.get_max_heaps()),
+stream::stream(std::unique_ptr<writer> &&w)
+    : queue_size(w->config.get_max_heaps()),
     queue_mask(compute_queue_mask(queue_size)),
     num_substreams(w->get_num_substreams()),
     w(std::move(w)),
@@ -316,12 +305,17 @@ stream2::stream2(std::unique_ptr<writer> &&w)
     this->w->start();
 }
 
-stream2::~stream2()
+stream::~stream()
 {
     flush();
 }
 
-void stream2::set_cnt_sequence(item_pointer_t next, item_pointer_t step)
+boost::asio::io_service &stream::get_io_service() const
+{
+    return w->get_io_service();
+}
+
+void stream::set_cnt_sequence(item_pointer_t next, item_pointer_t step)
 {
     if (step == 0)
         throw std::invalid_argument("step cannot be 0");
@@ -330,9 +324,9 @@ void stream2::set_cnt_sequence(item_pointer_t next, item_pointer_t step)
     step_cnt = step;
 }
 
-bool stream2::async_send_heap(const heap &h, completion_handler handler,
-                              s_item_pointer_t cnt,
-                              std::size_t substream_index)
+bool stream::async_send_heap(const heap &h, completion_handler handler,
+                             s_item_pointer_t cnt,
+                             std::size_t substream_index)
 {
     if (substream_index >= num_substreams)
     {
@@ -383,7 +377,7 @@ bool stream2::async_send_heap(const heap &h, completion_handler handler,
     return true;
 }
 
-void stream2::flush()
+void stream::flush()
 {
     std::future<void> future;
     {
@@ -403,7 +397,7 @@ void stream2::flush()
     future.wait();
 }
 
-std::size_t stream2::get_num_substreams() const
+std::size_t stream::get_num_substreams() const
 {
     return num_substreams;
 }

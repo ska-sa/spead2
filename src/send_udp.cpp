@@ -47,7 +47,7 @@ void udp_writer::send_packets(int first, int last)
     int heaps = 0;
     if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
     {
-        stream2::queue_item *item = packets[first].item;
+        stream::queue_item *item = packets[first].item;
         if (!item->result)
             item->result = boost::system::error_code(errno, boost::asio::error::get_system_category());
         heaps += packets[first].last;
@@ -57,7 +57,7 @@ void udp_writer::send_packets(int first, int last)
     {
         for (int i = 0; i < sent; i++)
         {
-            stream2::queue_item *item = packets[first].item;
+            stream::queue_item *item = packets[first].item;
             item->bytes_sent += packets[first].size;
             heaps += packets[first].last;
             first++;
@@ -153,7 +153,7 @@ void udp_writer::wakeup()
         }
 
         // First try a synchronous send
-        stream2::queue_item *item = data.item;
+        stream::queue_item *item = data.item;
         bool last = data.last;
         const auto &endpoint = endpoints[item->substream_index];
         boost::system::error_code ec;
@@ -323,7 +323,7 @@ udp_stream::udp_stream(
     const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     const stream_config &config,
     std::size_t buffer_size)
-    : stream2(std::unique_ptr<udp_writer>(new udp_writer(
+    : stream(std::unique_ptr<udp_writer>(new udp_writer(
         std::move(io_service),
         std::move(socket),
         endpoints,

@@ -83,7 +83,7 @@ streambuf_stream::streambuf_stream(
     io_service_ref io_service,
     std::streambuf &streambuf,
     const stream_config &config)
-    : stream2(std::unique_ptr<writer>(new streambuf_writer(
+    : stream(std::unique_ptr<writer>(new streambuf_writer(
         std::move(io_service), streambuf, config)))
 {
 }

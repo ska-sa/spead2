@@ -134,7 +134,7 @@ bool udp_ibv_writer::reap()
         for (int i = 0; i < batch; i++)
         {
             const slot *s = &slots[head];
-            stream2::queue_item *item = s->item;
+            stream::queue_item *item = s->item;
             if (ec)
             {
                 if (!item->result)
@@ -407,7 +407,7 @@ udp_ibv_stream::udp_ibv_stream(
     int ttl,
     int comp_vector,
     int max_poll)
-    : stream2(std::unique_ptr<writer>(new udp_ibv_writer(
+    : stream(std::unique_ptr<writer>(new udp_ibv_writer(
         std::move(io_service),
         endpoints,
         config,
