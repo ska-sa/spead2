@@ -46,7 +46,8 @@ spead2_unittest_SOURCES = \
 	unittest_recv_custom_memcpy.cpp \
 	unittest_semaphore.cpp \
 	unittest_send_heap.cpp \
-	unittest_send_streambuf.cpp
+	unittest_send_streambuf.cpp \
+	unittest_send_tcp.cpp
 spead2_unittest_CPPFLAGS = -DBOOST_TEST_DYN_LINK $(AM_CPPFLAGS)
 spead2_unittest_LDADD = -lboost_unit_test_framework $(LDADD)
 
