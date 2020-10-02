@@ -101,8 +101,6 @@ void udp_writer::send_packets(int first, int last)
     }
     else
     {
-        // TODO: extend post_wakeup to automatically consider must_sleep, so
-        // that we can skip the intermediate step when appropriate.
         post_wakeup();
     }
 }
