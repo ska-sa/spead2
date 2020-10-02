@@ -276,8 +276,9 @@ public:
 
     /**
      * Block until all enqueued heaps have been sent. This function is
-     * thread-safe, but can be live-locked if more heaps are added while it is
-     * running.
+     * thread-safe; only the heaps that were enqueued prior to calling the
+     * function are waited for. The handlers will have been called prior
+     * to this function returning.
      */
     void flush();
 
