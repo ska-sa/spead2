@@ -112,3 +112,13 @@ The following functions were deprecated in version 2 and have been removed in ve
 - Stream constructors that took both an existing (but unconnected) socket and a
   buffer size or a port to bind to. The caller should instead bind the socket
   (if receiving) and set any desired buffer size socket option.
+
+Queue depth for sending with ibverbs
+------------------------------------
+When using :doc:`ibverbs <py-ibverbs>` to send data, heaps were previously considered
+complete once the packets were submitted to the hardware. They're now only
+considered complete once the hardware has indicated completion, which allows
+for errors to be reported. While there are no breaking API changes, if the
+heaps are very small it may be necessary to increase `max_heaps` in
+:py:class:`~spead2.send.StreamConfig` so that enough heaps can be in
+flight to fully utilise the buffer.
