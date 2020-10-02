@@ -155,16 +155,6 @@ private:
      */
     std::unique_ptr<queue_item_storage[]> queue;
 
-    // Padding to ensure that the above doesn't share a cache line with the below
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-private-field"
-#endif
-    std::uint8_t padding1[detail::cache_line_size];
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
-
     /* Data that's mostly written by the stream interface, but can be read by the
      * writer (however, when the queue empties, the writer will modify data).
      */
@@ -185,16 +175,6 @@ private:
     item_pointer_t next_cnt = 1;
     /// If true, the writer wants to be woken up when a new heap is added
     bool need_wakeup;
-
-    // Padding to ensure that the above doesn't share a cache line with the below
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-private-field"
-#endif
-    std::uint8_t padding2[detail::cache_line_size];
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
 
     /* Data that's only mostly written by the writer (apart from flush()), and
      * may be read by the stream.
