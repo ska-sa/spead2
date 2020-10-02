@@ -36,6 +36,29 @@ namespace spead2
 namespace send
 {
 
+/**
+ * Back-end for a @ref stream.
+ *
+ * Each stream class will need to implement a subclass of @ref writer. At a
+ * minimum, it will need to implement @ref wakeup and @ref get_num_substreams.
+ *
+ * A writer is intended to run on an io_service. It is *not* thread-safe, so
+ * the subclass must ensure that only one handler runs at a time.
+ *
+ * The @ref wakeup handler should use @ref get_packet to try to retrieve
+ * packet(s) and send them, and should ensure that @ref heaps_completed is
+ * called after transmitting final packets of heaps. It is also responsible
+ * for updating stream::queue_item::bytes_sent and
+ * stream::queue_item::result. Depending on the last result of @ref
+ * get_packet, it should arrange for itself to be rerun by calling either
+ * @ref sleep, @ref request_wakeup or @ref post_wakeup.
+ *
+ * It is not safe to call @ref wakeup (or @ref post_wakeup) immediately after
+ * construction, because the associated stream is not yet known. If there is
+ * initialisation that has the potential to interact with the stream
+ * (including by posting a callback, which the io_service might immediately run
+ * on another thread), it should be done by overriding @ref start.
+ */
 class writer
 {
 protected:
@@ -69,6 +92,7 @@ private:
 
     io_service_ref io_service;
 
+    /// Timer for sleeping for rate limiting
     timer_type timer;
     /// Time at which next burst should be sent, considering the burst rate
     timer_type::time_point send_time_burst;
@@ -95,6 +119,10 @@ private:
      * exhausting it, it must be cleared/changed.
      */
     boost::optional<packet_generator> gen;
+    /**
+     * The stream with which we're associated. This is filled in by @ref
+     * set_owner shortly after construction.
+     */
     stream *owner = nullptr;
 
     /**
@@ -114,6 +142,9 @@ private:
     /// Called by stream constructor to set itself as owner.
     void set_owner(stream *owner);
 
+    /**
+     * Implementation of the transport. See the class documentation for details.
+     */
     virtual void wakeup() = 0;
 
     /**
@@ -141,6 +172,11 @@ protected:
      */
     void enable_hw_rate();
 
+    /**
+     * Retrieve a packet from the stream.
+     *
+     * If successful, the packet information is written into @ref data.
+     */
     packet_result get_packet(transmit_packet &data);
 
     /// Notify the base class that @a n heaps have finished transmission.

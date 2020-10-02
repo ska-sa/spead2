@@ -138,7 +138,7 @@ void writer::heaps_completed(std::size_t n)
      * the queue is still full.
      *
      * Batching amortises the locking overhead when using small heaps. We
-     * could a single dynamically-sized batch, but that would require
+     * could use a single dynamically-sized batch, but that would require
      * dynamic memory allocation to hold the handlers.
      */
     constexpr std::size_t max_batch = 16;
@@ -182,7 +182,8 @@ void writer::sleep()
             [this](const boost::system::error_code &) {
                 must_sleep = false;
                 wakeup();
-        });
+            }
+        );
     }
     else
     {
