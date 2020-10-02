@@ -20,6 +20,8 @@ Other changes:
 - :cpp:class:`spead2::send::stream::flush` now only blocks until the
   previously enqueued heaps are completed. Another thread that keeps adding
   heaps would previously have prevented it from returning.
+- The sending infrastructure has been partially rewritten, resulting in
+  performance improvements, in some cases of over 10%.
 
 Additionally, refer to the changes for 3.0.0b1 below.
 
