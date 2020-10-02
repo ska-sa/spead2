@@ -19,6 +19,7 @@
 #include <utility>
 #include <boost/asio.hpp>
 #include <spead2/send_udp.h>
+#include <spead2/send_writer.h>
 #include <spead2/common_defines.h>
 #include <spead2/common_socket.h>
 
@@ -27,14 +28,36 @@ namespace spead2
 namespace send
 {
 
-constexpr std::size_t udp_stream::default_buffer_size;
-
-static boost::asio::ip::udp get_protocol(const std::vector<boost::asio::ip::udp::endpoint> &endpoints)
+namespace
 {
-    if (endpoints.empty())
-        throw std::invalid_argument("Endpoint list must be non-empty");
-    return endpoints[0].protocol();
-}
+
+class udp_writer : public writer
+{
+private:
+    boost::asio::ip::udp::socket socket;
+    std::vector<boost::asio::ip::udp::endpoint> endpoints;
+
+    virtual void wakeup() override final;
+
+    static constexpr int max_batch = 64;
+#if SPEAD2_USE_SENDMMSG
+    struct mmsghdr msgvec[max_batch];
+    std::vector<struct iovec> msg_iov;
+    transmit_packet packets[max_batch];
+
+    void send_packets(int first, int last);
+#endif
+
+public:
+    udp_writer(
+        io_service_ref io_service,
+        boost::asio::ip::udp::socket &&socket,
+        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+        const stream_config &config,
+        std::size_t buffer_size);
+
+    virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
+};
 
 constexpr int udp_writer::max_batch;
 
@@ -211,6 +234,8 @@ udp_writer::udp_writer(
 #endif
 }
 
+} // anonymous namespace
+
 static boost::asio::ip::udp::socket make_socket(
     boost::asio::io_service &io_service,
     const boost::asio::ip::udp &protocol,
@@ -221,6 +246,15 @@ static boost::asio::ip::udp::socket make_socket(
         socket.bind(boost::asio::ip::udp::endpoint(interface_address, 0));
     return socket;
 }
+
+static boost::asio::ip::udp get_protocol(const std::vector<boost::asio::ip::udp::endpoint> &endpoints)
+{
+    if (endpoints.empty())
+        throw std::invalid_argument("Endpoint list must be non-empty");
+    return endpoints[0].protocol();
+}
+
+constexpr std::size_t udp_stream::default_buffer_size;
 
 udp_stream::udp_stream(
     io_service_ref io_service,
@@ -323,7 +357,7 @@ udp_stream::udp_stream(
     const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     const stream_config &config,
     std::size_t buffer_size)
-    : stream(std::unique_ptr<udp_writer>(new udp_writer(
+    : stream(std::unique_ptr<writer>(new udp_writer(
         std::move(io_service),
         std::move(socket),
         endpoints,

@@ -24,82 +24,13 @@
 
 #include <boost/asio.hpp>
 #include <vector>
-#include <utility>
 #include <initializer_list>
-#include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
-#include <spead2/send_writer.h>
-#include <spead2/common_socket.h>
 
 namespace spead2
 {
 namespace send
 {
-
-namespace detail
-{
-
-boost::asio::ip::tcp::socket make_socket(
-    const io_service_ref &io_service,
-    const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
-    std::size_t buffer_size,
-    const boost::asio::ip::address &interface_address);
-
-} // namespace detail
-
-class tcp_writer : public writer
-{
-private:
-    /// The underlying TCP socket
-    boost::asio::ip::tcp::socket socket;
-    /// Whether we were handled an already-connected socket
-    const bool pre_connected;
-    /// Endpoint to connect to (if not pre-connected)
-    boost::asio::ip::tcp::endpoint endpoint;
-    /// Callback once connected (if not pre-connected)
-    std::function<void(const boost::system::error_code &)> connect_handler;
-
-    virtual void wakeup() override final;
-    virtual void start() override final;
-
-public:
-    /**
-     * Constructor. A callback is provided to indicate when the connection is
-     * established.
-     *
-     * @warning The callback may be called before the constructor returns. The
-     * implementation of the callback needs to be prepared to handle this case.
-     *
-     * @param io_service   I/O service for sending data
-     * @param connect_handler  Callback when connection is established. It is called
-     *                     with a @c boost::system::error_code to indicate whether
-     *                     connection was successful.
-     * @param endpoints    Destination host and port (must contain exactly one element)
-     * @param config       Stream configuration
-     * @param buffer_size  Socket buffer size (0 for OS default)
-     * @param interface_address   Source address
-     *                            @verbatim embed:rst:leading-asterisks
-     *                            (see tips on :ref:`routing`)
-     *                            @endverbatim
-     */
-    tcp_writer(
-        io_service_ref io_service,
-        std::function<void(const boost::system::error_code &)> &&connect_handler,
-        const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
-        const stream_config &config,
-        std::size_t buffer_size,
-        const boost::asio::ip::address &interface_address);
-
-    /**
-     * Constructor using an existing socket. The socket must be connected.
-     */
-    tcp_writer(
-        io_service_ref io_service,
-        boost::asio::ip::tcp::socket &&socket,
-        const stream_config &config);
-
-    virtual std::size_t get_num_substreams() const override final { return 1; }
-};
 
 class tcp_stream : public stream
 {
@@ -137,41 +68,25 @@ public:
     /**
      * Backwards-compatibility constructor.
      */
-    template<typename ConnectHandler>
     SPEAD2_DEPRECATED("use a vector of endpoints")
     tcp_stream(
         io_service_ref io_service,
-        ConnectHandler &&connect_handler,
+        std::function<void(const boost::system::error_code &)> &&connect_handler,
         const boost::asio::ip::tcp::endpoint &endpoint,
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size,
-        const boost::asio::ip::address &interface_address = boost::asio::ip::address())
-        : tcp_stream(
-            std::move(io_service),
-            std::forward<ConnectHandler>(connect_handler),
-            std::vector<boost::asio::ip::tcp::endpoint>{endpoint},
-            config, buffer_size, interface_address)
-    {
-    }
+        const boost::asio::ip::address &interface_address = boost::asio::ip::address());
 
     /* Force an initializer list to forward to the vector version (without this,
      * a singleton initializer list forwards to the scalar version).
      */
-    template<typename ConnectHandler>
     tcp_stream(
         io_service_ref io_service,
-        ConnectHandler &&connect_handler,
+        std::function<void(const boost::system::error_code &)> &&connect_handler,
         std::initializer_list<boost::asio::ip::tcp::endpoint> endpoints,
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size,
-        const boost::asio::ip::address &interface_address = boost::asio::ip::address())
-        : tcp_stream(
-            std::move(io_service),
-            std::forward<ConnectHandler>(connect_handler),
-            std::vector<boost::asio::ip::tcp::endpoint>(endpoints),
-            config, buffer_size, interface_address)
-    {
-    }
+        const boost::asio::ip::address &interface_address = boost::asio::ip::address());
 
     /**
      * Constructor using an existing socket. The socket must be connected.

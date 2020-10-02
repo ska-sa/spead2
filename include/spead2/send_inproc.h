@@ -21,45 +21,18 @@
 #ifndef SPEAD2_SEND_INPROC_H
 #define SPEAD2_SEND_INPROC_H
 
-#include <cstddef>
 #include <vector>
-#include <utility>
 #include <memory>
 #include <initializer_list>
 #include <boost/asio.hpp>
 #include <spead2/common_thread_pool.h>
-#include <spead2/common_ringbuffer.h>
 #include <spead2/common_inproc.h>
-#include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
-#include <spead2/send_writer.h>
 
 namespace spead2
 {
 namespace send
 {
-
-class inproc_stream;
-
-class inproc_writer : public writer
-{
-private:
-    std::vector<std::shared_ptr<inproc_queue>> queues;
-
-    virtual void wakeup() override;
-
-public:
-    /// Constructor
-    inproc_writer(
-        io_service_ref io_service,
-        const std::vector<std::shared_ptr<inproc_queue>> &queues,
-        const stream_config &config);
-
-    /// Get the underlying storage queue
-    const std::vector<std::shared_ptr<inproc_queue>> &get_queues() const;
-
-    virtual std::size_t get_num_substreams() const override final { return queues.size(); }
-};
 
 class inproc_stream : public stream
 {

@@ -20,17 +20,17 @@
  */
 
 #include <stdexcept>
+#include <utility>
+#include <spead2/common_socket.h>
 #include <spead2/send_tcp.h>
+#include <spead2/send_writer.h>
 
 namespace spead2
 {
 namespace send
 {
 
-namespace detail
-{
-
-boost::asio::ip::tcp::socket make_socket(
+static boost::asio::ip::tcp::socket make_socket(
     const io_service_ref &io_service,
     const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
     std::size_t buffer_size,
@@ -46,8 +46,62 @@ boost::asio::ip::tcp::socket make_socket(
     return socket;
 }
 
-} // namespace detail
+namespace
+{
 
+class tcp_writer : public writer
+{
+private:
+    /// The underlying TCP socket
+    boost::asio::ip::tcp::socket socket;
+    /// Whether we were handled an already-connected socket
+    const bool pre_connected;
+    /// Endpoint to connect to (if not pre-connected)
+    boost::asio::ip::tcp::endpoint endpoint;
+    /// Callback once connected (if not pre-connected)
+    std::function<void(const boost::system::error_code &)> connect_handler;
+
+    virtual void wakeup() override final;
+    virtual void start() override final;
+
+public:
+    /**
+     * Constructor. A callback is provided to indicate when the connection is
+     * established.
+     *
+     * @warning The callback may be called before the constructor returns. The
+     * implementation of the callback needs to be prepared to handle this case.
+     *
+     * @param io_service   I/O service for sending data
+     * @param connect_handler  Callback when connection is established. It is called
+     *                     with a @c boost::system::error_code to indicate whether
+     *                     connection was successful.
+     * @param endpoints    Destination host and port (must contain exactly one element)
+     * @param config       Stream configuration
+     * @param buffer_size  Socket buffer size (0 for OS default)
+     * @param interface_address   Source address
+     *                            @verbatim embed:rst:leading-asterisks
+     *                            (see tips on :ref:`routing`)
+     *                            @endverbatim
+     */
+    tcp_writer(
+        io_service_ref io_service,
+        std::function<void(const boost::system::error_code &)> &&connect_handler,
+        const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
+        const stream_config &config,
+        std::size_t buffer_size,
+        const boost::asio::ip::address &interface_address);
+
+    /**
+     * Constructor using an existing socket. The socket must be connected.
+     */
+    tcp_writer(
+        io_service_ref io_service,
+        boost::asio::ip::tcp::socket &&socket,
+        const stream_config &config);
+
+    virtual std::size_t get_num_substreams() const override final { return 1; }
+};
 
 void tcp_writer::wakeup()
 {
@@ -102,7 +156,7 @@ tcp_writer::tcp_writer(
     std::size_t buffer_size,
     const boost::asio::ip::address &interface_address)
     : writer(std::move(io_service), config),
-    socket(detail::make_socket(get_io_service(), endpoints, buffer_size, interface_address)),
+    socket(make_socket(get_io_service(), endpoints, buffer_size, interface_address)),
     pre_connected(false),
     endpoint(endpoints[0]),
     connect_handler(std::move(connect_handler))
@@ -121,6 +175,8 @@ tcp_writer::tcp_writer(
         throw std::invalid_argument("I/O service does not match the socket's I/O service");
 }
 
+} // anonymous namespace
+
 constexpr std::size_t tcp_stream::default_buffer_size;
 
 tcp_stream::tcp_stream(
@@ -137,6 +193,36 @@ tcp_stream::tcp_stream(
         config,
         buffer_size,
         interface_address)))
+{
+}
+
+tcp_stream::tcp_stream(
+    io_service_ref io_service,
+    std::function<void(const boost::system::error_code &)> &&connect_handler,
+    const boost::asio::ip::tcp::endpoint &endpoint,
+    const stream_config &config,
+    std::size_t buffer_size,
+    const boost::asio::ip::address &interface_address)
+    : tcp_stream(
+        std::move(io_service),
+        std::move(connect_handler),
+        std::vector<boost::asio::ip::tcp::endpoint>{endpoint},
+        config, buffer_size, interface_address)
+{
+}
+
+tcp_stream::tcp_stream(
+    io_service_ref io_service,
+    std::function<void(const boost::system::error_code &)> &&connect_handler,
+    std::initializer_list<boost::asio::ip::tcp::endpoint> endpoints,
+    const stream_config &config,
+    std::size_t buffer_size,
+    const boost::asio::ip::address &interface_address)
+    : tcp_stream(
+        std::move(io_service),
+        std::move(connect_handler),
+        std::vector<boost::asio::ip::tcp::endpoint>(endpoints),
+        config, buffer_size, interface_address)
 {
 }
 

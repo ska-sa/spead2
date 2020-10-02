@@ -32,23 +32,6 @@ namespace spead2
 namespace send
 {
 
-class streambuf_writer : public writer
-{
-private:
-    std::streambuf &streambuf;
-
-    virtual void wakeup() override final;
-
-public:
-    /// Constructor
-    streambuf_writer(
-        io_service_ref io_service,
-        std::streambuf &streambuf,
-        const stream_config &config);
-
-    virtual std::size_t get_num_substreams() const override { return 1; }
-};
-
 /**
  * Puts packets into a streambuf (which could come from an @c ostream). This
  * should not be used for a blocking stream such as a wrapper around TCP,

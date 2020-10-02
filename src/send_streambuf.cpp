@@ -26,6 +26,26 @@ namespace spead2
 namespace send
 {
 
+namespace
+{
+
+class streambuf_writer : public writer
+{
+private:
+    std::streambuf &streambuf;
+
+    virtual void wakeup() override final;
+
+public:
+    /// Constructor
+    streambuf_writer(
+        io_service_ref io_service,
+        std::streambuf &streambuf,
+        const stream_config &config);
+
+    virtual std::size_t get_num_substreams() const override { return 1; }
+};
+
 void streambuf_writer::wakeup()
 {
     constexpr int max_batch = 64;
@@ -78,6 +98,8 @@ streambuf_writer::streambuf_writer(
     : writer(std::move(io_service), config), streambuf(streambuf)
 {
 }
+
+} // anonymous namespace
 
 streambuf_stream::streambuf_stream(
     io_service_ref io_service,

@@ -22,10 +22,14 @@
 #include <spead2/common_inproc.h>
 #include <spead2/send_packet.h>
 #include <spead2/send_inproc.h>
+#include <spead2/send_writer.h>
 
 namespace spead2
 {
 namespace send
+{
+
+namespace
 {
 
 static inproc_queue::packet copy_packet(const packet &in)
@@ -38,6 +42,26 @@ static inproc_queue::packet copy_packet(const packet &in)
     boost::asio::buffer_copy(buffer, in.buffers);
     return out;
 }
+
+class inproc_writer : public writer
+{
+private:
+    std::vector<std::shared_ptr<inproc_queue>> queues;
+
+    virtual void wakeup() override;
+
+public:
+    /// Constructor
+    inproc_writer(
+        io_service_ref io_service,
+        const std::vector<std::shared_ptr<inproc_queue>> &queues,
+        const stream_config &config);
+
+    /// Get the underlying storage queue
+    const std::vector<std::shared_ptr<inproc_queue>> &get_queues() const;
+
+    virtual std::size_t get_num_substreams() const override final { return queues.size(); }
+};
 
 void inproc_writer::wakeup()
 {
@@ -87,6 +111,7 @@ inproc_writer::inproc_writer(
         throw std::invalid_argument("queues is empty");
 }
 
+} // anonymous namespace
 
 inproc_stream::inproc_stream(
     io_service_ref io_service,

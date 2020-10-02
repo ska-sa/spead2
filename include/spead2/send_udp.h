@@ -35,40 +35,11 @@
 #include <vector>
 #include <initializer_list>
 #include <spead2/send_stream.h>
-#include <spead2/send_writer.h>
 
 namespace spead2
 {
 namespace send
 {
-
-class udp_writer : public writer
-{
-private:
-    boost::asio::ip::udp::socket socket;
-    std::vector<boost::asio::ip::udp::endpoint> endpoints;
-
-    virtual void wakeup() override final;
-
-    static constexpr int max_batch = 64;
-#if SPEAD2_USE_SENDMMSG
-    struct mmsghdr msgvec[max_batch];
-    std::vector<struct iovec> msg_iov;
-    transmit_packet packets[max_batch];
-
-    void send_packets(int first, int last);
-#endif
-
-public:
-    udp_writer(
-        io_service_ref io_service,
-        boost::asio::ip::udp::socket &&socket,
-        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-        const stream_config &config,
-        std::size_t buffer_size);
-
-    virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
-};
 
 class udp_stream : public stream
 {
