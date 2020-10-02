@@ -27,6 +27,8 @@
 #include <cassert>
 #include <utility>
 #include <memory>
+#include <algorithm>
+#include <set>
 #include <boost/noncopyable.hpp>
 #include <spead2/common_ibv.h>
 #include <spead2/common_memory_allocator.h>
@@ -44,6 +46,8 @@ namespace send
 namespace
 {
 
+static constexpr int max_sge = 4;
+
 /**
  * Stream using Infiniband Verbs for acceleration. Only IPv4 multicast
  * with an explicit source address is supported.
@@ -51,10 +55,33 @@ namespace
 class udp_ibv_writer : public writer
 {
 private:
+    struct memory_region
+    {
+        const void *ptr;
+        std::size_t size;
+        ibv_mr_t mr;
+
+        memory_region(const ibv_pd_t &pd, const void *ptr, std::size_t size);
+        memory_region(const void *ptr, std::size_t size);
+
+        bool operator<(const memory_region &other) const
+        {
+            // We order by decreasing address so that lower_bound will give us the containing region
+            return ptr > other.ptr;
+        }
+
+        bool contains(const memory_region &other) const
+        {
+            return ptr <= other.ptr
+                && static_cast<const std::uint8_t *>(ptr) + size
+                >= static_cast<const std::uint8_t *>(other.ptr) + other.size;
+        }
+    };
+
     struct slot : public boost::noncopyable
     {
         ibv_send_wr wr{};
-        ibv_sge sge{};
+        ibv_sge sge[max_sge]{};
         ethernet_frame frame;
         stream::queue_item *item = nullptr;
         bool last;   ///< Last packet in the heap
@@ -74,7 +101,8 @@ private:
     boost::asio::posix::stream_descriptor comp_channel_wrapper;
     ibv_cq_t send_cq, recv_cq;
     ibv_qp_t qp;
-    ibv_mr_t mr;
+    ibv_mr_t mr;     ///< Memory region for internal buffer
+    std::set<memory_region> memory_regions;   ///< User-registered memory regions
     std::unique_ptr<slot[]> slots;
     std::size_t head = 0, tail = 0;
     std::size_t available;
@@ -107,16 +135,23 @@ private:
 public:
     udp_ibv_writer(
         io_service_ref io_service,
-        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const stream_config &config,
-        const boost::asio::ip::address &interface_address,
-        std::size_t buffer_size,
-        int ttl,
-        int comp_vector,
-        int max_poll);
+        const udp_ibv_stream_config &udp_ibv_config);
 
     virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
 };
+
+udp_ibv_writer::memory_region::memory_region(
+    const ibv_pd_t &pd, const void *ptr, std::size_t size)
+    : ptr(ptr), size(size), mr(pd, const_cast<void *>(ptr), size, 0)
+{
+}
+
+udp_ibv_writer::memory_region::memory_region(
+    const void *ptr, std::size_t size)
+    : ptr(ptr), size(size)
+{
+}
 
 static constexpr int header_length =
     ethernet_frame::min_size + ipv4_packet::min_size + udp_packet::min_size;
@@ -131,7 +166,7 @@ ibv_qp_t udp_ibv_writer::create_qp(
     attr.qp_type = IBV_QPT_RAW_PACKET;
     attr.cap.max_send_wr = n_slots;
     attr.cap.max_recv_wr = 0;
-    attr.cap.max_send_sge = 1;
+    attr.cap.max_send_sge = max_sge;
     attr.cap.max_recv_sge = 0;
     attr.sq_sig_all = 0;
     return ibv_qp_t(pd, &attr);
@@ -224,7 +259,11 @@ bool udp_ibv_writer::reap()
                     item->result = ec;
             }
             else
-                item->bytes_sent += s->sge.length - header_length;
+            {
+                for (int j = 0; j < s->wr.num_sge; j++)
+                    item->bytes_sent += s->sge[j].length;
+                item->bytes_sent -= header_length;
+            }
             heaps += s->last;
             if (++head == n_slots)
                 head = 0;
@@ -293,8 +332,46 @@ void udp_ibv_writer::wakeup()
             }
             ipv4.update_checksum();
             packet_buffer payload = udp.payload();
-            boost::asio::buffer_copy(boost::asio::mutable_buffer(payload), data.pkt.buffers);
-            s->sge.length = payload_size + (payload.data() - s->frame.data());
+            s->wr.num_sge = 1;
+            // TODO: addr and lkey can be fixed by constructor
+            s->sge[0].addr = (uintptr_t) s->frame.data();
+            s->sge[0].lkey = mr->lkey;
+            s->sge[0].length = payload.data() - s->frame.data();
+            std::uint8_t *copy_target = payload.data();
+            for (const auto &buffer : data.pkt.buffers)
+            {
+                ibv_sge cur;
+                const uint8_t *ptr = boost::asio::buffer_cast<const uint8_t *>(buffer);
+                cur.length = boost::asio::buffer_size(buffer);
+                // Check if it belongs to a user-registered region
+                memory_region cmp(ptr, cur.length);
+                auto it = memory_regions.lower_bound(cmp);
+                if (it != memory_regions.end() && it->contains(cmp))
+                {
+                    cur.addr = (uintptr_t) ptr;
+                    cur.lkey = it->mr->lkey;  // TODO: cache the lkey to avoid pointer lookup?
+                }
+                else
+                {
+                    // We have to copy it
+                    cur.addr = (uintptr_t) copy_target;
+                    cur.lkey = mr->lkey;
+                    std::memcpy(copy_target, ptr, cur.length);
+                    copy_target += cur.length;
+                }
+                ibv_sge &prev = s->sge[s->wr.num_sge - 1];
+                if (prev.lkey == cur.lkey && prev.addr + prev.length == cur.addr)
+                {
+                    // Can merge with the previous one
+                    prev.length += cur.length;
+                }
+                else
+                {
+                    // Have to create a new one.
+                    // TODO: handle overflow
+                    s->sge[s->wr.num_sge++] = cur;
+                }
+            }
             s->wr.next = nullptr;
             s->wr.send_flags = 0;
             s->item = data.item;
@@ -357,43 +434,42 @@ static std::size_t calc_target_batch(const stream_config &config, std::size_t n_
 
 udp_ibv_writer::udp_ibv_writer(
     io_service_ref io_service,
-    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     const stream_config &config,
-    const boost::asio::ip::address &interface_address,
-    std::size_t buffer_size,
-    int ttl,
-    int comp_vector,
-    int max_poll)
+    const udp_ibv_stream_config &udp_ibv_config)
     : writer(std::move(io_service), config),
-    n_slots(calc_n_slots(config, buffer_size)),
+    n_slots(calc_n_slots(config, udp_ibv_config.get_buffer_size())),
     target_batch(calc_target_batch(config, n_slots)),
     socket(get_io_service(), boost::asio::ip::udp::v4()),
-    endpoints(endpoints),
+    endpoints(udp_ibv_config.get_endpoints()),
     cm_id(event_channel, nullptr, RDMA_PS_UDP),
     comp_channel_wrapper(get_io_service()),
     available(n_slots),
-    max_poll(max_poll)
+    max_poll(udp_ibv_config.get_max_poll())
 {
     if (endpoints.empty())
         throw std::invalid_argument("endpoints is empty");
     mac_addresses.reserve(endpoints.size());
     for (const auto &endpoint : endpoints)
-    {
-        if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
-            throw std::invalid_argument("endpoint is not an IPv4 multicast address");
         mac_addresses.push_back(multicast_mac(endpoint.address()));
-    }
-    if (!interface_address.is_v4())
-        throw std::invalid_argument("interface address is not an IPv4 address");
-    if (max_poll <= 0)
-        throw std::invalid_argument("max_poll must be positive");
+    const boost::asio::ip::address &interface_address = udp_ibv_config.get_interface_address();
+    if (interface_address.is_unspecified())
+        throw std::invalid_argument("interface address must be specified");
+    // Check that registered memory regions don't overlap
+    auto config_regions = udp_ibv_config.get_memory_regions();
+    std::sort(config_regions.begin(), config_regions.end());
+    for (std::size_t i = 1; i < config_regions.size(); i++)
+        if (static_cast<const std::uint8_t *>(config_regions[i - 1].first)
+            + config_regions[i - 1].second > config_regions[i].first)
+            throw std::invalid_argument("memory regions overlap");
+
     socket.bind(boost::asio::ip::udp::endpoint(interface_address, 0));
     // Re-compute buffer_size as a whole number of slots
     const std::size_t max_raw_size = config.get_max_packet_size() + header_length;
-    buffer_size = n_slots * max_raw_size;
+    std::size_t buffer_size = n_slots * max_raw_size;
 
     cm_id.bind_addr(interface_address);
     pd = ibv_pd_t(cm_id);
+    int comp_vector = udp_ibv_config.get_comp_vector();
     if (comp_vector >= 0)
     {
         comp_channel = ibv_comp_channel_t(cm_id);
@@ -418,6 +494,8 @@ udp_ibv_writer::udp_ibv_writer(
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(max_raw_size * n_slots, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
+    for (const auto &region : udp_ibv_config.get_memory_regions())
+        memory_regions.emplace(pd, region.first, region.second);
     slots.reset(new slot[n_slots]);
     // We fill in the destination details for the first endpoint. If there are
     // multiple endpoints, they'll get updated for each packet.
@@ -425,10 +503,8 @@ udp_ibv_writer::udp_ibv_writer(
     for (std::size_t i = 0; i < n_slots; i++)
     {
         slots[i].frame = ethernet_frame(buffer.get() + i * max_raw_size, max_raw_size);
-        slots[i].sge.addr = (uintptr_t) slots[i].frame.data();
-        slots[i].sge.lkey = mr->lkey;
-        slots[i].wr.sg_list = &slots[i].sge;
-        slots[i].wr.num_sge = 1;
+        memset(&slots[i].sge, 0, sizeof(slots[i].sge));
+        slots[i].wr.sg_list = slots[i].sge;
         slots[i].wr.opcode = IBV_WR_SEND;
         slots[i].frame.destination_mac(mac_addresses[0]);
         slots[i].frame.source_mac(source_mac);
@@ -438,7 +514,7 @@ udp_ibv_writer::udp_ibv_writer(
         // total_length will change later to the actual packet size
         ipv4.total_length(config.get_max_packet_size() + ipv4_packet::min_size + udp_packet::min_size);
         ipv4.flags_frag_off(ipv4_packet::flag_do_not_fragment);
-        ipv4.ttl(ttl);
+        ipv4.ttl(udp_ibv_config.get_ttl());
         ipv4.protocol(udp_packet::protocol);
         ipv4.source_address(interface_address.to_v4());
         ipv4.destination_address(endpoints[0].address().to_v4());
@@ -451,6 +527,97 @@ udp_ibv_writer::udp_ibv_writer(
 }
 
 } // anonymous namespace
+
+static void validate_endpoint(const boost::asio::ip::udp::endpoint &endpoint)
+{
+    if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())
+        throw std::invalid_argument("endpoint is not an IPv4 multicast address");
+}
+
+static void validate_memory_region(const udp_ibv_stream_config::memory_region &region)
+{
+    if (region.second == 0)
+        throw std::invalid_argument("memory region must have non-zero size");
+}
+
+udp_ibv_stream_config::udp_ibv_stream_config()
+    : buffer_size(udp_ibv_stream::default_buffer_size),
+    ttl(1),
+    comp_vector(0),
+    max_poll(udp_ibv_stream::default_max_poll)
+{
+}
+
+udp_ibv_stream_config &udp_ibv_stream_config::set_endpoints(
+    const std::vector<boost::asio::ip::udp::endpoint> &endpoints)
+{
+    for (const auto &endpoint : endpoints)
+        validate_endpoint(endpoint);
+    this->endpoints = endpoints;
+    return *this;
+}
+
+udp_ibv_stream_config &udp_ibv_stream_config::add_endpoint(
+    const boost::asio::ip::udp::endpoint &endpoint)
+{
+    validate_endpoint(endpoint);
+    endpoints.push_back(endpoint);
+    return *this;
+}
+
+udp_ibv_stream_config &udp_ibv_stream_config::set_interface_address(
+    const boost::asio::ip::address &interface_address)
+{
+    if (!interface_address.is_v4())
+        throw std::invalid_argument("interface address is not an IPv4 address");
+    this->interface_address = interface_address;
+    return *this;
+}
+
+udp_ibv_stream_config &udp_ibv_stream_config::set_buffer_size(std::size_t buffer_size)
+{
+    if (buffer_size == 0)
+        this->buffer_size = udp_ibv_stream::default_buffer_size;
+    else
+        this->buffer_size = buffer_size;
+    return *this;
+}
+
+udp_ibv_stream_config &udp_ibv_stream_config::set_ttl(std::uint8_t ttl)
+{
+    this->ttl = ttl;
+    return *this;
+}
+
+udp_ibv_stream_config &udp_ibv_stream_config::set_comp_vector(int comp_vector)
+{
+    this->comp_vector = comp_vector;
+    return *this;
+}
+
+udp_ibv_stream_config &udp_ibv_stream_config::set_max_poll(int max_poll)
+{
+    if (max_poll <= 1)
+        throw std::invalid_argument("max_poll must be at least 1");
+    this->max_poll = max_poll;
+    return *this;
+}
+
+udp_ibv_stream_config &udp_ibv_stream_config::set_memory_regions(const std::vector<memory_region> &memory_regions)
+{
+    for (const memory_region &region : memory_regions)
+        validate_memory_region(region);
+    this->memory_regions = memory_regions;
+    return *this;
+}
+
+udp_ibv_stream_config &udp_ibv_stream_config::add_memory_region(const void *ptr, std::size_t size)
+{
+    memory_region region(ptr, size);
+    validate_memory_region(region);
+    memory_regions.push_back(region);
+    return *this;
+}
 
 constexpr std::size_t udp_ibv_stream::default_buffer_size;
 constexpr int udp_ibv_stream::default_max_poll;
@@ -465,44 +632,25 @@ udp_ibv_stream::udp_ibv_stream(
     int comp_vector,
     int max_poll)
     : udp_ibv_stream(
-        std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>{endpoint},
-        config, interface_address, buffer_size, ttl, comp_vector, max_poll)
-{
-}
-
-udp_ibv_stream::udp_ibv_stream(
-    io_service_ref io_service,
-    std::initializer_list<boost::asio::ip::udp::endpoint> endpoints,
-    const stream_config &config,
-    const boost::asio::ip::address &interface_address,
-    std::size_t buffer_size,
-    int ttl,
-    int comp_vector,
-    int max_poll)
-    : udp_ibv_stream(
-        std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>(endpoints),
-        config, interface_address, buffer_size, ttl, comp_vector, max_poll)
-{
-}
-
-udp_ibv_stream::udp_ibv_stream(
-    io_service_ref io_service,
-    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-    const stream_config &config,
-    const boost::asio::ip::address &interface_address,
-    std::size_t buffer_size,
-    int ttl,
-    int comp_vector,
-    int max_poll)
-    : stream(std::unique_ptr<writer>(new udp_ibv_writer(
         std::move(io_service),
-        endpoints,
         config,
-        interface_address,
-        buffer_size,
-        ttl,
-        comp_vector,
-        max_poll)))
+        udp_ibv_stream_config()
+            .add_endpoint(endpoint)
+            .set_interface_address(interface_address)
+            .set_buffer_size(buffer_size)
+            .set_ttl(ttl)
+            .set_comp_vector(comp_vector)
+            .set_max_poll(max_poll)
+    )
+{
+}
+
+udp_ibv_stream::udp_ibv_stream(
+    io_service_ref io_service,
+    const stream_config &config,
+    const udp_ibv_stream_config &udp_ibv_config)
+    : stream(std::unique_ptr<writer>(new udp_ibv_writer(
+        std::move(io_service), config, udp_ibv_config)))
 {
 }
 

@@ -44,7 +44,8 @@ class heap;
  *
  * @todo Investigate whether number of new calls could be reduced by using
  * a pool for the case of packets with no item pointers other than the
- * per-packet ones.
+ * per-packet ones; or by having the caller of the packet_generator provide
+ * storage.
  */
 struct packet
 {

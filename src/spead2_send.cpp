@@ -371,9 +371,14 @@ int main(int argc, const char **argv)
         if (opts.ibv)
         {
             stream.reset(new spead2::send::udp_ibv_stream(
-                    io_service, endpoints, config,
-                    interface_address, opts.buffer, opts.ttl,
-                    opts.ibv_comp_vector, opts.ibv_max_poll));
+                    io_service, config,
+                    spead2::send::udp_ibv_stream_config()
+                        .set_endpoints(endpoints)
+                        .set_interface_address(interface_address)
+                        .set_buffer_size(opts.buffer)
+                        .set_ttl(opts.ttl)
+                        .set_comp_vector(opts.ibv_comp_vector)
+                        .set_max_poll(opts.ibv_max_poll)));
         }
         else
 #endif
