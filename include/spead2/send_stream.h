@@ -160,7 +160,7 @@ private:
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-private-field"
 #endif
-    std::uint8_t padding1[64];
+    std::uint8_t padding1[detail::cache_line_size];
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
@@ -191,7 +191,7 @@ private:
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-private-field"
 #endif
-    std::uint8_t padding2[64];
+    std::uint8_t padding2[detail::cache_line_size];
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif

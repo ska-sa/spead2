@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <spead2/common_defines.h>
 #include <spead2/common_features.h>
 #include <spead2/common_memcpy.h>
 #if SPEAD2_USE_MOVNTDQ
@@ -33,9 +34,10 @@ void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src
 #else
     char * __restrict__ dest_c = (char *) dest;
     const char * __restrict__ src_c = (const char *) src;
-    // Align the destination to a cache-line boundary, assuming 64-byte cache lines
+    // Align the destination to a cache-line boundary
     std::uintptr_t dest_i = std::uintptr_t(dest_c);
-    std::uintptr_t aligned = (dest_i + 63) & ~63;
+    constexpr unsigned int cache_line_mask = detail::cache_line_size - 1;
+    std::uintptr_t aligned = (dest_i + cache_line_mask) & ~cache_line_mask;
     std::size_t head = aligned - dest_i;
     if (head > 0)
     {
