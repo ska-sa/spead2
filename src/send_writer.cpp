@@ -76,7 +76,13 @@ void writer::update_send_time_empty()
 writer::packet_result writer::get_packet(transmit_packet &data)
 {
     if (must_sleep)
-        return packet_result::SLEEP;
+    {
+        auto now = timer_type::clock_type::now();
+        if (now < send_time_burst)
+            return packet_result::SLEEP;
+        else
+            must_sleep = false;
+    }
     if (rate_bytes >= config.get_burst_size())
     {
         auto now = timer_type::clock_type::now();
