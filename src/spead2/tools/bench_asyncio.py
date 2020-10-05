@@ -186,8 +186,16 @@ async def measure_connection_once(args, rate, num_heaps, required_heaps):
         host = args.multicast
     if 'send_ibv' in args and args.send_ibv is not None:
         stream = spead2.send.asyncio.UdpIbvStream(
-            thread_pool, [(host, args.port)], config, args.send_ibv, args.send_buffer,
-            1, args.send_ibv_vector, args.send_ibv_max_poll)
+            thread_pool,
+            config,
+            spead2.send.UdpIbvStreamConfig(
+                endpoints=[(host, args.port)],
+                interface_address=args.send_ibv,
+                buffer_size=args.send_buffer,
+                comp_vector=args.send_ibv_vector,
+                max_poll=args.send_ibv_max_poll
+            )
+        )
     else:
         stream = spead2.send.asyncio.UdpStream(
             thread_pool, [(host, args.port)], config, args.send_buffer)

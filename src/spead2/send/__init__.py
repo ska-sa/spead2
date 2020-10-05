@@ -22,7 +22,7 @@ from spead2._spead2.send import (       # noqa: F401
     StreamConfig, Heap, PacketGenerator,
     BytesStream, UdpStream, TcpStream, InprocStream)
 try:
-    from spead2._spead2.send import UdpIbvStream      # noqa: F401
+    from spead2._spead2.send import UdpIbvStream, UdpIbvStreamConfig      # noqa: F401
 except ImportError:
     pass
 

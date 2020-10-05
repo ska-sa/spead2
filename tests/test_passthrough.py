@@ -466,9 +466,12 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
         else:
             return spead2.send.UdpIbvStream(
                 thread_pool,
-                [(self.MCAST_GROUP, 8876 + i) for i in range(n)],
                 spead2.send.StreamConfig(rate=1e7),
-                self._interface_address())
+                spead2.send.UdpIbvStreamConfig(
+                    endpoints=[(self.MCAST_GROUP, 8876 + i) for i in range(n)],
+                    interface_address=self._interface_address()
+                )
+            )
 
 
 class TestPassthroughTcp(BaseTestPassthrough):
