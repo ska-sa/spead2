@@ -380,8 +380,14 @@ static std::pair<bool, double> measure_connection_once(
             boost::asio::ip::address interface_address =
                 boost::asio::ip::address::from_string(opts.send_ibv_if);
             stream.reset(new spead2::send::udp_ibv_stream(
-                thread_pool.get_io_service(), {endpoint}, config, interface_address,
-                opts.send_buffer, 1, opts.send_ibv_comp_vector, opts.send_ibv_max_poll));
+                thread_pool.get_io_service(),
+                config,
+                spead2::send::udp_ibv_stream_config()
+                    .set_endpoints({endpoint})
+                    .set_interface_address(interface_address)
+                    .set_buffer_size(opts.send_buffer)
+                    .set_comp_vector(opts.send_ibv_comp_vector)
+                    .set_max_poll(opts.send_ibv_max_poll)));
         }
         else
 #endif
