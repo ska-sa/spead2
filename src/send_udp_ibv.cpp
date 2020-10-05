@@ -338,6 +338,16 @@ void udp_ibv_writer::wakeup()
             s->sge[0].lkey = mr->lkey;
             s->sge[0].length = payload.data() - s->frame.data();
             std::uint8_t *copy_target = payload.data();
+            /* It may appear that we require strictly less than (because we're
+             * using one SGE for the IP/UDP header), but the first buffer in
+             * data.pkt.buffers will always be able to merge with it.
+             *
+             * This is a conservative estimate, because other merges are
+             * possible (particularly if not all items fall into registered
+             * ranges), but the cost of doing two passes to check for this
+             * case would be expensive.
+             */
+            bool can_skip_copy = data.pkt.buffers.size() <= max_sge;
             for (const auto &buffer : data.pkt.buffers)
             {
                 ibv_sge cur;
@@ -345,8 +355,10 @@ void udp_ibv_writer::wakeup()
                 cur.length = boost::asio::buffer_size(buffer);
                 // Check if it belongs to a user-registered region
                 memory_region cmp(ptr, cur.length);
-                auto it = memory_regions.lower_bound(cmp);
-                if (it != memory_regions.end() && it->contains(cmp))
+                std::set<memory_region>::const_iterator it;
+                if (can_skip_copy
+                    && (it = memory_regions.lower_bound(cmp)) != memory_regions.end()
+                    && it->contains(cmp))
                 {
                     cur.addr = (uintptr_t) ptr;
                     cur.lkey = it->mr->lkey;  // TODO: cache the lkey to avoid pointer lookup?
@@ -368,7 +380,6 @@ void udp_ibv_writer::wakeup()
                 else
                 {
                     // Have to create a new one.
-                    // TODO: handle overflow
                     s->sge[s->wr.num_sge++] = cur;
                 }
             }
