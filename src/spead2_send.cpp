@@ -168,11 +168,11 @@ namespace
 class sender
 {
 private:
-    spead2::send::stream &stream;
     const std::size_t max_heaps;
     const std::size_t n_substreams;
     const std::int64_t n_heaps;
     const spead2::flavour flavour;
+    const std::size_t value_size;
 
     spead2::send::heap first_heap;                           // has descriptors
     std::vector<spead2::send::heap> heaps;
@@ -186,21 +186,26 @@ private:
 
     const spead2::send::heap &get_heap(std::uint64_t idx) const noexcept;
 
-    void callback(std::uint64_t idx, const boost::system::error_code &ec, std::size_t bytes_transferred);
+    void callback(spead2::send::stream &stream,
+                  std::uint64_t idx,
+                  const boost::system::error_code &ec,
+                  std::size_t bytes_transferred);
 
 public:
-    sender(spead2::send::stream &stream, const options &opts);
-    std::uint64_t run();
+    explicit sender(const options &opts);
+    std::uint64_t run(spead2::send::stream &stream);
+
+    std::vector<std::pair<const void *, std::size_t>> memory_regions() const;
 };
 
-sender::sender(spead2::send::stream &stream, const options &opts)
-    : stream(stream),
-    max_heaps((opts.heaps < 0 || std::uint64_t(opts.heaps) + opts.dest.size() > opts.max_heaps)
-              ? opts.max_heaps : opts.heaps + opts.dest.size()),
+sender::sender(const options &opts)
+    : max_heaps((opts.heaps < 0 || std::uint64_t(opts.heaps) + opts.dest.size() > opts.max_heaps)
+                ? opts.max_heaps : opts.heaps + opts.dest.size()),
     n_substreams(opts.dest.size()),
     n_heaps(opts.heaps),
     flavour(spead2::maximum_version, 64, opts.addr_bits,
             opts.pyspead ? spead2::BUG_COMPAT_PYSPEAD_0_5_2 : 0),
+    value_size(opts.heap_size / (opts.items * sizeof(item_t)) * sizeof(item_t)),
     first_heap(flavour),
     last_heap(flavour)
 {
@@ -238,6 +243,14 @@ sender::sender(spead2::send::stream &stream, const options &opts)
     last_heap.add_end();
 }
 
+std::vector<std::pair<const void *, std::size_t>> sender::memory_regions() const
+{
+    std::vector<std::pair<const void *, std::size_t>> out;
+    for (const auto &value : values)
+        out.emplace_back(value.get(), value_size);
+    return out;
+}
+
 const spead2::send::heap &sender::get_heap(std::uint64_t idx) const noexcept
 {
     if (idx < n_substreams)
@@ -248,7 +261,10 @@ const spead2::send::heap &sender::get_heap(std::uint64_t idx) const noexcept
         return heaps[idx % max_heaps];
 }
 
-void sender::callback(std::uint64_t idx, const boost::system::error_code &ec, std::size_t bytes_transferred)
+void sender::callback(spead2::send::stream &stream,
+                      std::uint64_t idx,
+                      const boost::system::error_code &ec,
+                      std::size_t bytes_transferred)
 {
     this->bytes_transferred += bytes_transferred;
     if (ec && !error)
@@ -264,15 +280,15 @@ void sender::callback(std::uint64_t idx, const boost::system::error_code &ec, st
     {
         stream.async_send_heap(
             get_heap(idx),
-            [this, idx] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
-                callback(idx, ec, bytes_transferred);
+            [this, &stream, idx] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
+                callback(stream, idx, ec, bytes_transferred);
             }, -1, idx % n_substreams);
     }
     else
         done_sem.put();
 }
 
-std::uint64_t sender::run()
+std::uint64_t sender::run(spead2::send::stream &stream)
 {
     bytes_transferred = 0;
     error = boost::system::error_code();
@@ -282,12 +298,12 @@ std::uint64_t sender::run()
      * doesn't really matter since the heaps are all the same, but it makes it
      * a more realistic benchmark.
      */
-    stream.get_io_service().post([this] {
+    stream.get_io_service().post([this, &stream] {
         for (int i = 0; i < max_heaps; i++)
             stream.async_send_heap(
                 get_heap(i),
-                [this, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
-                    callback(i, ec, bytes_transferred);
+                [this, &stream, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
+                    callback(stream, i, ec, bytes_transferred);
                 }, -1, i % n_substreams);
     });
     for (int i = 0; i < max_heaps; i++)
@@ -299,12 +315,10 @@ std::uint64_t sender::run()
 
 } // anonymous namespace
 
-static int run(spead2::send::stream &stream, const options &opts)
+static int run(spead2::send::stream &stream, sender &s)
 {
-    sender s(stream, opts);
-
     auto start_time = std::chrono::high_resolution_clock::now();
-    std::uint64_t sent_bytes = s.run();
+    std::uint64_t sent_bytes = s.run(stream);
     auto stop_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = stop_time - start_time;
     double elapsed_s = elapsed.count();
@@ -336,6 +350,8 @@ static std::vector<boost::asio::ip::basic_endpoint<Proto>> get_endpoints(
 int main(int argc, const char **argv)
 {
     options opts = parse_args(argc, argv);
+
+    sender s(opts);
 
     spead2::thread_pool thread_pool(1);
     spead2::send::stream_config config;
@@ -378,7 +394,8 @@ int main(int argc, const char **argv)
                         .set_buffer_size(opts.buffer)
                         .set_ttl(opts.ttl)
                         .set_comp_vector(opts.ibv_comp_vector)
-                        .set_max_poll(opts.ibv_max_poll)));
+                        .set_max_poll(opts.ibv_max_poll)
+                        .set_memory_regions(s.memory_regions())));
         }
         else
 #endif
@@ -405,5 +422,5 @@ int main(int argc, const char **argv)
             }
         }
     }
-    return run(*stream, opts);
+    return run(*stream, s);
 }
