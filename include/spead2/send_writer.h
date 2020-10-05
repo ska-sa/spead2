@@ -37,7 +37,9 @@ namespace send
 {
 
 /**
- * Back-end for a @ref stream.
+ * Back-end for a @ref stream. A writer is responsible for retrieving packets
+ * and transmitting them, and calling the user-provided handlers when heaps are
+ * completed.
  *
  * Each stream class will need to implement a subclass of @ref writer. At a
  * minimum, it will need to implement @ref wakeup and @ref get_num_substreams.
