@@ -39,6 +39,9 @@ namespace spead2
 namespace send
 {
 
+/**
+ * Configuration for @ref udp_ibv_stream.
+ */
 class udp_ibv_stream_config
 {
 public:
@@ -54,30 +57,94 @@ private:
     std::vector<memory_region> memory_regions;
 
 public:
+    /**
+     * Construct with the defaults.
+     *
+     * It cannot be used as is, because the interface address and at least one
+     * endpoint must be supplied.
+     */
     udp_ibv_stream_config();
 
-    // TODO: document all of these
+    /// Get the configured endpoints
     const std::vector<boost::asio::ip::udp::endpoint> &get_endpoints() const { return endpoints; }
+    /**
+     * Set all endpoints at once. Each endpoint corresponds to a substream.
+     *
+     * @throws std::invalid_argument if any element of @a endpoints is not an IPv4 multicast address.
+     */
     udp_ibv_stream_config &set_endpoints(const std::vector<boost::asio::ip::udp::endpoint> &endpoints);
+    /**
+     * Append a single endpoint.
+     *
+     * @throws std::invalid_argument if @a endpoint is not an IPv4 multicast address.
+     */
     udp_ibv_stream_config &add_endpoint(const boost::asio::ip::udp::endpoint &endpoint);
 
+    /// Get the currently set interface address
     const boost::asio::ip::address get_interface_address() const { return interface_address; }
+    /**
+     * Set the interface address.
+     *
+     * @throws std::invalid_argument if @a interface_address is not an IPv4 address.
+     */
     udp_ibv_stream_config &set_interface_address(const boost::asio::ip::address &interface_address);
 
+    /// Get the currently configured buffer size.
     std::size_t get_buffer_size() const { return buffer_size; }
+    /**
+     * Set the buffer size.
+     *
+     * The value 0 is special and resets it to the default. The actual buffer size
+     * used may be slightly different to round it to a whole number of
+     * packet-sized slots.
+     */
     udp_ibv_stream_config &set_buffer_size(std::size_t buffer_size);
 
+    /// Get the IP TTL
     std::uint8_t get_ttl() const { return ttl; }
+    /// Set the IP TTL
     udp_ibv_stream_config &set_ttl(std::uint8_t ttl);
 
+    /// Get the completion channel vector (see @ref set_comp_vector)
     int get_comp_vector() const { return comp_vector; }
+    /**
+     * Set the completion channel vector (interrupt) for asynchronous operation.
+     * Use a negative value to poll continuously. Polling should not be used if
+     * there are other users of the thread pool. If a non-negative value is
+     * provided, it is taken modulo the number of available completion vectors.
+     * This allows a number of readers to be assigned sequential completion
+     * vectors and have them load-balanced, without concern for the number
+     * available.
+     */
     udp_ibv_stream_config &set_comp_vector(int comp_vector);
 
+    /// Get maximum number of times to poll in a row (see @ref set_max_poll)
     int get_max_poll() const { return max_poll; }
+    /**
+     * Set maximum number of times to poll in a row.
+     *
+     * If interrupts are enabled (default), it is the maximum number of times
+     * to poll before waiting for an interrupt; if they are disabled by @ref
+     * set_comp_vector, it is the number of times to poll before letting other
+     * code run on the thread.
+     *
+     * @throws std::invalid_argument if @a max_poll is zero.
+     */
     udp_ibv_stream_config &set_max_poll(int max_poll);
 
+    /// Get currently registered memory regions
     const std::vector<memory_region> &get_memory_regions() const { return memory_regions; }
+    /**
+     * Register a set of memory regions (replacing any previous). Items stored
+     * inside such pre-registered memory regions can (in most cases) be
+     * transmitted without making a copy. A memory region is defined by a
+     * start pointer and a size in bytes.
+     *
+     * Memory regions must not overlap; this is only validating when constructing
+     * the stream.
+     */
     udp_ibv_stream_config &set_memory_regions(const std::vector<memory_region> &memory_regions);
+    /// Append a memory region (see @ref set_memory_regions)
     udp_ibv_stream_config &add_memory_region(const void *ptr, std::size_t size);
 };
 
@@ -92,25 +159,7 @@ public:
     /**
      * Backwards-compatibility constructor (taking only a single endpoint).
      *
-     * @param io_service   I/O service for sending data
-     * @param endpoint     Multicast group and port
-     * @param config       Stream configuration
-     * @param interface_address   Address of the outgoing interface
-     * @param buffer_size  Socket buffer size (0 for OS default)
-     * @param ttl          Maximum number of hops
-     * @param comp_vector  Completion channel vector (interrupt) for asynchronous operation, or
-     *                     a negative value to poll continuously. Polling
-     *                     should not be used if there are other users of the
-     *                     thread pool. If a non-negative value is provided, it
-     *                     is taken modulo the number of available completion
-     *                     vectors. This allows a number of readers to be
-     *                     assigned sequential completion vectors and have them
-     *                     load-balanced, without concern for the number
-     *                     available.
-     * @param max_poll     Maximum number of times to poll in a row, without
-     *                     waiting for an interrupt (if @a comp_vector is
-     *                     non-negative) or letting other code run on the
-     *                     thread (if @a comp_vector is negative).
+     * Refer to @ref udp_ibv_stream_config for an explanation of the arguments.
      *
      * @throws std::invalid_argument if @a endpoint is not an IPv4 multicast address
      * @throws std::invalid_argument if @a interface_address is not an IPv4 address
@@ -133,7 +182,9 @@ public:
      * @param config       Common stream configuration
      * @param udp_ibv_config  Class-specific stream configuration
      *
-     * @throws std::invalid_argument if udp_ibv_config does not have all fields set.
+     * @throws std::invalid_argument if @a udp_ibv_config does not an interface address set.
+     * @throws std::invalid_argument if @a udp_ibv_config does not have any endpoints set.
+     * @throws std::invalid_argument if memory regions overlap.
      */
     udp_ibv_stream(
         io_service_ref io_service,
