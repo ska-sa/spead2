@@ -153,16 +153,6 @@ packet_buffer::packet_buffer(void *ptr, std::size_t size)
 {
 }
 
-std::uint8_t *packet_buffer::data() const
-{
-    return ptr;
-}
-
-std::size_t packet_buffer::size() const
-{
-    return length;
-}
-
 packet_buffer::operator boost::asio::mutable_buffer() const
 {
     return boost::asio::mutable_buffer(ptr, length);
