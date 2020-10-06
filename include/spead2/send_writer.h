@@ -37,7 +37,9 @@ namespace send
 {
 
 /**
- * Back-end for a @ref stream.
+ * Back-end for a @ref stream. A writer is responsible for retrieving packets
+ * and transmitting them, and calling the user-provided handlers when heaps are
+ * completed.
  *
  * Each stream class will need to implement a subclass of @ref writer. At a
  * minimum, it will need to implement @ref wakeup and @ref get_num_substreams.
@@ -100,7 +102,7 @@ private:
     timer_type::time_point send_time;
     /// If true, rate_bytes is never incremented and hence we never sleep
     bool hw_rate = false;
-    /// If true, we're not handing more packets until we've slept
+    /// If true, we're not handling more packets until we've slept
     bool must_sleep = false;
     /// Number of bytes sent since send_time and sent_time_burst were updated
     std::uint64_t rate_bytes = 0;
