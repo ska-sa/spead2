@@ -108,7 +108,7 @@ class UdpStream(spead2.send._UdpStream, _AsyncStream):
                  config: spead2.send.StreamConfig = ...,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
 
-class UdpIbvStream(spead2.send._UdpIbvStream, _AsyncStream):
+class UdpIbvStream(_AsyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  multicast_group: _PybindStr, port: int,
