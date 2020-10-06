@@ -203,7 +203,8 @@ async def async_main():
                 buffer_size=args.buffer,
                 ttl=args.ttl or 1,
                 comp_vector=args.ibv_vector,
-                max_poll=args.ibv_max_poll
+                max_poll=args.ibv_max_poll,
+                memory_regions=[item.value for item in item_group.values()]
             )
         )
     else:
