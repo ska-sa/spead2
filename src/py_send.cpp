@@ -542,10 +542,10 @@ static py::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
              "thread_pool"_a, "multicast_group"_a, "port"_a,
              "config"_a = stream_config(),
              "interface_address"_a,
-             "buffer_size"_a = T::default_buffer_size,
+             "buffer_size"_a = udp_ibv_stream_config::default_buffer_size,
              "ttl"_a = 1,
              "comp_vector"_a = 0,
-             "max_poll"_a = T::default_max_poll)
+             "max_poll"_a = udp_ibv_stream_config::default_max_poll)
         .def(py::init([](std::shared_ptr<thread_pool_wrapper> thread_pool,
                          const stream_config &config,
                          udp_ibv_stream_config_wrapper &udp_ibv_config_wrapper)
@@ -575,9 +575,7 @@ static py::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
             }),
             "thread_pool"_a,
             "config"_a = stream_config(),
-            "udp_ibv_config"_a)
-        .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size)
-        .def_readonly_static("DEFAULT_MAX_POLL", &T::default_max_poll);
+            "udp_ibv_config"_a);
 }
 #endif
 
@@ -886,7 +884,10 @@ py::module register_module(py::module &parent)
                       SPEAD2_PTMF_VOID(udp_ibv_stream_config_wrapper, set_comp_vector))
         .def_property("max_poll",
                       SPEAD2_PTMF(udp_ibv_stream_config_wrapper, get_max_poll),
-                      SPEAD2_PTMF_VOID(udp_ibv_stream_config_wrapper, set_max_poll));
+                      SPEAD2_PTMF_VOID(udp_ibv_stream_config_wrapper, set_max_poll))
+        .def_readonly_static("DEFAULT_BUFFER_SIZE", &udp_ibv_stream_config_wrapper::default_buffer_size)
+        .def_readonly_static("DEFAULT_MAX_POLL", &udp_ibv_stream_config_wrapper::default_max_poll);
+
     {
         auto stream_class = udp_ibv_stream_register<udp_ibv_stream_wrapper<stream_wrapper<udp_ibv_stream>>>(m, "UdpIbvStream");
         sync_stream_register(stream_class);

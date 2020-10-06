@@ -99,7 +99,7 @@ def get_args():
         group.add_argument('--ibv-vector', type=int, default=0, metavar='N',
                            help='Completion vector, or -1 to use polling [%(default)s]')
         group.add_argument('--ibv-max-poll', type=int,
-                           default=spead2.send.UdpIbvStream.DEFAULT_MAX_POLL,
+                           default=spead2.send.UdpIbvStreamConfig.DEFAULT_MAX_POLL,
                            help='Maximum number of times to poll in a row [%(default)s]')
 
     args = parser.parse_args()

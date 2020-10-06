@@ -73,7 +73,7 @@ struct options
     int send_ibv_comp_vector = 0;
     int send_ibv_max_poll =
 #if SPEAD2_USE_IBV
-        spead2::send::udp_ibv_stream::default_max_poll;
+        spead2::send::udp_ibv_stream_config::default_max_poll;
 #else
         0;
 #endif

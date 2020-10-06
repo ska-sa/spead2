@@ -553,11 +553,10 @@ static void validate_memory_region(const udp_ibv_stream_config::memory_region &r
         throw std::invalid_argument("memory region must have non-zero size");
 }
 
+constexpr std::size_t udp_ibv_stream_config::default_buffer_size;
+constexpr int udp_ibv_stream_config::default_max_poll;
+
 udp_ibv_stream_config::udp_ibv_stream_config()
-    : buffer_size(udp_ibv_stream::default_buffer_size),
-    ttl(1),
-    comp_vector(0),
-    max_poll(udp_ibv_stream::default_max_poll)
 {
 }
 
@@ -590,7 +589,7 @@ udp_ibv_stream_config &udp_ibv_stream_config::set_interface_address(
 udp_ibv_stream_config &udp_ibv_stream_config::set_buffer_size(std::size_t buffer_size)
 {
     if (buffer_size == 0)
-        this->buffer_size = udp_ibv_stream::default_buffer_size;
+        this->buffer_size = default_buffer_size;
     else
         this->buffer_size = buffer_size;
     return *this;
@@ -631,9 +630,6 @@ udp_ibv_stream_config &udp_ibv_stream_config::add_memory_region(const void *ptr,
     memory_regions.push_back(region);
     return *this;
 }
-
-constexpr std::size_t udp_ibv_stream::default_buffer_size;
-constexpr int udp_ibv_stream::default_max_poll;
 
 udp_ibv_stream::udp_ibv_stream(
     io_service_ref io_service,

@@ -61,7 +61,7 @@ struct options
 #if SPEAD2_USE_IBV
     bool ibv = false;
     int ibv_comp_vector = 0;
-    int ibv_max_poll = spead2::send::udp_ibv_stream::default_max_poll;
+    int ibv_max_poll = spead2::send::udp_ibv_stream_config::default_max_poll;
 #endif
     std::vector<std::string> dest;
 };
@@ -145,6 +145,10 @@ static options parse_args(int argc, const char **argv)
         {
             if (opts.tcp)
                 opts.buffer = spead2::send::tcp_stream::default_buffer_size;
+#if SPEAD2_USE_IBV
+            else if (opts.ibv)
+                opts.buffer = spead2::send::udp_ibv_stream_config::default_buffer_size;
+#endif
             else
                 opts.buffer = spead2::send::udp_stream::default_buffer_size;
         }

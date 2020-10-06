@@ -310,7 +310,7 @@ def main():
         group.add_argument('--send-ibv-vector', type=int, default=0, metavar='N',
                            help='Completion vector, or -1 to use polling [%(default)s]')
         group.add_argument('--send-ibv-max-poll', type=int,
-                           default=spead2.send.UdpIbvStream.DEFAULT_MAX_POLL,
+                           default=spead2.send.UdpIbvStreamConfig.DEFAULT_MAX_POLL,
                            help='Maximum number of times to poll in a row [%(default)s]')
     group = master.add_argument_group('receiver options')
     group.add_argument('--recv-affinity', type=spead2.parse_range_list,

@@ -591,10 +591,10 @@ class TestUdpIbvStreamConfig:
         config = spead2.send.UdpIbvStreamConfig()
         assert config.endpoints == []
         assert config.interface_address == ''
-        assert config.buffer_size == spead2.send.UdpIbvStream.DEFAULT_BUFFER_SIZE
+        assert config.buffer_size == spead2.send.UdpIbvStreamConfig.DEFAULT_BUFFER_SIZE
         assert config.ttl == 1
         assert config.comp_vector == 0
-        assert config.max_poll == spead2.send.UdpIbvStream.DEFAULT_MAX_POLL
+        assert config.max_poll == spead2.send.UdpIbvStreamConfig.DEFAULT_MAX_POLL
         assert config.memory_regions == []
 
     def test_kwargs_construct(self):
@@ -619,7 +619,7 @@ class TestUdpIbvStreamConfig:
     def test_default_buffer_size(self):
         config = spead2.send.UdpIbvStreamConfig()
         config.buffer_size = 0
-        assert config.buffer_size == spead2.send.UdpIbvStream.DEFAULT_BUFFER_SIZE
+        assert config.buffer_size == spead2.send.UdpIbvStreamConfig.DEFAULT_BUFFER_SIZE
 
     def test_bad_max_poll(self):
         config = spead2.send.UdpIbvStreamConfig()

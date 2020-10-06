@@ -72,6 +72,14 @@ a "fluent" style e.g.:
 
    spead2::send::stream_config().set_max_packet_size(9172).set_rate(1e6)
 
+For :ref:`py-ibverbs` ibverbs streams the changes are more significant. There
+is now a :py:class:`spead2.send.UdpIbvStreamConfig` class that works similarly
+to :py:class:`spead2.send.StreamConfig`, but configures properties specific to
+the ibverbs stream. The old constructor is still available (but deprecated);
+however, the constants :py:data:`.UdpIbvStream.DEFAULT_BUFFER_SIZE` and
+:py:data:`.UdpIbvStream.DEFAULT_MAX_POLL` have moved to the
+:class:`~spead2.send.UdpIbvStreamConfig` class.
+
 Substreams
 ----------
 A new feature is the ability to create a send stream with multiple destinations

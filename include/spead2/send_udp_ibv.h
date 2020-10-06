@@ -47,13 +47,18 @@ class udp_ibv_stream_config
 public:
     typedef std::pair<const void *, std::size_t> memory_region;
 
+    /// Default send buffer size
+    static constexpr std::size_t default_buffer_size = 512 * 1024;
+    /// Default number of times to poll in a row
+    static constexpr int default_max_poll = 10;
+
 private:
     std::vector<boost::asio::ip::udp::endpoint> endpoints;
     boost::asio::ip::address interface_address;
-    std::size_t buffer_size;
-    std::uint8_t ttl;
-    int comp_vector;
-    int max_poll;
+    std::size_t buffer_size = default_buffer_size;
+    std::uint8_t ttl = 1;
+    int comp_vector = 0;
+    int max_poll = default_max_poll;
     std::vector<memory_region> memory_regions;
 
 public:
@@ -151,11 +156,6 @@ public:
 class udp_ibv_stream : public stream
 {
 public:
-    /// Default send buffer size, if none is passed to the constructor
-    static constexpr std::size_t default_buffer_size = 512 * 1024;
-    /// Number of times to poll in a row, if none is explicitly passed to the constructor
-    static constexpr int default_max_poll = 10;
-
     /**
      * Backwards-compatibility constructor (taking only a single endpoint).
      *
@@ -170,10 +170,10 @@ public:
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         const boost::asio::ip::address &interface_address,
-        std::size_t buffer_size = default_buffer_size,
+        std::size_t buffer_size = udp_ibv_stream_config::default_buffer_size,
         int ttl = 1,
         int comp_vector = 0,
-        int max_poll = default_max_poll);
+        int max_poll = udp_ibv_stream_config::default_max_poll);
 
     /**
      * Constructor.
