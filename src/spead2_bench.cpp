@@ -387,7 +387,8 @@ static std::pair<bool, double> measure_connection_once(
                     .set_interface_address(interface_address)
                     .set_buffer_size(opts.send_buffer)
                     .set_comp_vector(opts.send_ibv_comp_vector)
-                    .set_max_poll(opts.send_ibv_max_poll)));
+                    .set_max_poll(opts.send_ibv_max_poll)
+                    .add_memory_region(data.data(), data.size() * sizeof(data[0]))));
         }
         else
 #endif
