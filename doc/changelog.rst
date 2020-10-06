@@ -10,6 +10,8 @@ Other changes:
 
 - Support multiple "substreams" in a send stream (see :ref:`py-substreams`).
 - Reduce overhead for dealing with incomplete heaps.
+- Allow ibverbs senders to register memory regions for zero-copy
+  transmission.
 - Add C++ preprocessor defines for the version number.
 - Drop support for Python 3.5, which is end-of-life.
 - Change code examples to use standard SPEAD rather than PySPEAD bug
@@ -20,8 +22,10 @@ Other changes:
 - :cpp:class:`spead2::send::stream::flush` now only blocks until the
   previously enqueued heaps are completed. Another thread that keeps adding
   heaps would previously have prevented it from returning.
-- The sending infrastructure has been partially rewritten, resulting in
-  performance improvements, in some cases of over 10%.
+- Partially rewrite the sending infrastructure, resulting in performance
+  improvements, in some cases of over 10%.
+- Setting a buffer size of 0 for a :py:class:`~spead2.send.UdpIbvStream` now
+  uses the default buffer size, instead of a 1-packet buffer.
 
 Additionally, refer to the changes for 3.0.0b1 below.
 
