@@ -452,7 +452,7 @@ udp_ibv_writer::udp_ibv_writer(
     target_batch(calc_target_batch(config, n_slots)),
     socket(get_io_service(), boost::asio::ip::udp::v4()),
     endpoints(udp_ibv_config.get_endpoints()),
-    cm_id(event_channel, nullptr, RDMA_PS_UDP),
+    event_channel(nullptr),
     comp_channel_wrapper(get_io_service()),
     available(n_slots),
     max_poll(udp_ibv_config.get_max_poll())
@@ -478,6 +478,8 @@ udp_ibv_writer::udp_ibv_writer(
     const std::size_t max_raw_size = config.get_max_packet_size() + header_length;
     std::size_t buffer_size = n_slots * max_raw_size;
 
+    event_channel = rdma_event_channel_t();
+    cm_id = rdma_cm_id_t(event_channel, nullptr, RDMA_PS_UDP);
     cm_id.bind_addr(interface_address);
     pd = ibv_pd_t(cm_id);
     int comp_vector = udp_ibv_config.get_comp_vector();
