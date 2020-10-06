@@ -569,6 +569,7 @@ static py::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
                         buffer_infos.back().ptr,
                         buffer_infos.back().itemsize * buffer_infos.back().size);
                 }
+                udp_ibv_config.set_memory_regions(regions);
 
                 return new T(std::move(thread_pool), config, udp_ibv_config, std::move(buffer_infos));
             }),
