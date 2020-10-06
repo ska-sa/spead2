@@ -461,11 +461,12 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
         # The buffer size is deliberately reduced so that we test the
         # wrapping once the buffer has been used up
         if n == 1:
-            return spead2.send.UdpIbvStream(
-                thread_pool, self.MCAST_GROUP, 8876,
-                spead2.send.StreamConfig(rate=1e7),
-                self._interface_address(),
-                buffer_size=64 * 1024)
+            with pytest.deprecated_call():
+                return spead2.send.UdpIbvStream(
+                    thread_pool, self.MCAST_GROUP, 8876,
+                    spead2.send.StreamConfig(rate=1e7),
+                    self._interface_address(),
+                    buffer_size=64 * 1024)
         else:
             return spead2.send.UdpIbvStream(
                 thread_pool,
