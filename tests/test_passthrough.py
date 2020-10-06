@@ -473,7 +473,7 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
                 )
             )
 
-    @pytest.mark.parametrize('num_items', [1, 3, 4, 10])
+    @pytest.mark.parametrize('num_items', [0, 1, 3, 4, 10])
     def test_memory_regions(self, num_items):
         receiver = spead2.recv.Stream(spead2.ThreadPool(), spead2.recv.StreamConfig())
         receiver.add_udp_ibv_reader([(self.MCAST_GROUP, 8876)], self._interface_address())
