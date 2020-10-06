@@ -473,6 +473,33 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
                 )
             )
 
+    @pytest.mark.parametrize('num_items', [1, 3, 4, 10])
+    def test_memory_regions(self, num_items):
+        receiver = spead2.recv.Stream(spead2.ThreadPool(), spead2.recv.StreamConfig())
+        receiver.add_udp_ibv_reader([(self.MCAST_GROUP, 8876)], self._interface_address())
+
+        ig = spead2.send.ItemGroup()
+        data = [np.random.randn(50) for i in range(num_items)]
+        for i in range(num_items):
+            ig.add_item(id=0x2345 + i, name=f'name {i}', description=f'description {i}',
+                        shape=data[i].shape, dtype=data[i].dtype, value=data[i])
+        sender = spead2.send.UdpIbvStream(
+            spead2.ThreadPool(),
+            spead2.send.StreamConfig(rate=1e7),
+            spead2.send.UdpIbvStreamConfig(
+                endpoints=[(self.MCAST_GROUP, 8876)],
+                interface_address=self._interface_address(),
+                memory_regions=data
+            )
+        )
+        sender.send_heap(ig.get_heap())
+        sender.send_heap(ig.get_end())
+
+        recv_ig = spead2.ItemGroup()
+        for heap in receiver:
+            recv_ig.update(heap)
+        assert_item_groups_equal(ig, recv_ig)
+
 
 class TestPassthroughTcp(BaseTestPassthrough):
     def prepare_receiver(self, receiver):
