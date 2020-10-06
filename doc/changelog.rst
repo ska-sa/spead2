@@ -26,6 +26,7 @@ Other changes:
   improvements, in some cases of over 10%.
 - Setting a buffer size of 0 for a :py:class:`~spead2.send.UdpIbvStream` now
   uses the default buffer size, instead of a 1-packet buffer.
+- Fix :program:`spead2_bench.py` ignoring the :opt:`--send-affinity` option.
 
 Additionally, refer to the changes for 3.0.0b1 below.
 
