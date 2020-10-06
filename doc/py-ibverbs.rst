@@ -160,9 +160,9 @@ configuration:
 
    The constructor arguments are also instance attributes. Note that
    they are implemented as properties that return copies of the state, which
-   means that modifying `endpoints` or `memory_regions` will not have any
-   effect as only the copy will be modified. The entire list must be assigned
-   to update it.
+   means that mutating `endpoints` or `memory_regions` (for example, with
+   :py:meth:`~list.append`) will not have any effect as only the copy will be
+   modified. The entire list must be assigned to update it.
 
 .. py:class:: spead2.send.UdpIbvStream(thread_pool, config, udp_ibv_config)
 
