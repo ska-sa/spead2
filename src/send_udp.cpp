@@ -19,6 +19,7 @@
 #include <utility>
 #include <boost/asio.hpp>
 #include <spead2/send_udp.h>
+#include <spead2/send_writer.h>
 #include <spead2/common_defines.h>
 #include <spead2/common_socket.h>
 
@@ -27,98 +28,211 @@ namespace spead2
 namespace send
 {
 
-constexpr std::size_t udp_stream::default_buffer_size;
-
-static boost::asio::ip::udp get_protocol(const std::vector<boost::asio::ip::udp::endpoint> &endpoints)
+namespace
 {
-    if (endpoints.empty())
-        throw std::invalid_argument("Endpoint list must be non-empty");
-    return endpoints[0].protocol();
-}
 
-void udp_stream::send_packets(std::size_t first)
+class udp_writer : public writer
 {
+private:
+    boost::asio::ip::udp::socket socket;
+    std::vector<boost::asio::ip::udp::endpoint> endpoints;
+
+    virtual void wakeup() override final;
+
+    static constexpr int max_batch = 64;
 #if SPEAD2_USE_SENDMMSG
-    // Try synchronous send
-    if (first < n_current_packets)
+    struct mmsghdr msgvec[max_batch];
+    std::vector<struct iovec> msg_iov;
+    transmit_packet packets[max_batch];
+
+    void send_packets(int first, int last);
+#endif
+
+public:
+    udp_writer(
+        io_service_ref io_service,
+        boost::asio::ip::udp::socket &&socket,
+        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+        const stream_config &config,
+        std::size_t buffer_size);
+
+    virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
+};
+
+constexpr int udp_writer::max_batch;
+
+#if SPEAD2_USE_SENDMMSG
+
+void udp_writer::send_packets(int first, int last)
+{
+    // Try sending
+    int sent = sendmmsg(socket.native_handle(), msgvec + first, last - first, MSG_DONTWAIT);
+    int heaps = 0;
+    if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
     {
-        int sent = sendmmsg(socket.native_handle(), msgvec + first, n_current_packets - first, MSG_DONTWAIT);
-        if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
+        stream::queue_item *item = packets[first].item;
+        if (!item->result)
+            item->result = boost::system::error_code(errno, boost::asio::error::get_system_category());
+        heaps += packets[first].last;
+        first++;
+    }
+    else if (sent > 0)
+    {
+        for (int i = 0; i < sent; i++)
         {
-            current_packets[first].result = boost::system::error_code(errno, boost::asio::error::get_system_category());
+            stream::queue_item *item = packets[first].item;
+            item->bytes_sent += packets[first].size;
+            heaps += packets[first].last;
             first++;
         }
-        else if (sent > 0)
-        {
-            for (int i = 0; i < sent; i++)
-                current_packets[first + i].result = boost::system::error_code();
-            first += sent;
-        }
-        if (first < n_current_packets)
-        {
-            socket.async_send(boost::asio::null_buffers(), [this, first](const boost::system::error_code &ec, std::size_t)
-            {
-                send_packets(first);
-            });
-            return;
-        }
     }
-#else
-    for (std::size_t idx = first; idx < n_current_packets; idx++)
+
+    if (heaps > 0)
+        heaps_completed(heaps);
+    if (first < last)
     {
-        // First try to send synchronously, to reduce overheads from callbacks etc
+        // We didn't manage to send it all: schedule a new attempt once there is
+        // buffer space.
+        socket.async_send(
+            boost::asio::null_buffers(),
+            [this, first, last](const boost::system::error_code &, std::size_t) {
+                send_packets(first, last);
+            });
+    }
+    else
+    {
+        post_wakeup();
+    }
+}
+
+void udp_writer::wakeup()
+{
+    packet_result result = get_packet(packets[0]);
+    switch (result)
+    {
+    case packet_result::SLEEP:
+        sleep();
+        return;
+    case packet_result::EMPTY:
+        request_wakeup();
+        return;
+    case packet_result::SUCCESS:
+        break;
+    }
+
+    // We have at least one packet to send. See if we can get some more.
+    int n;
+    std::size_t n_iov = packets[0].pkt.buffers.size();
+    for (n = 1; n < max_batch; n++)
+    {
+        result = get_packet(packets[n]);
+        if (result != packet_result::SUCCESS)
+            break;
+        n_iov += packets[n].pkt.buffers.size();
+    }
+
+    msg_iov.resize(n_iov);
+    std::size_t offset = 0;
+    for (int i = 0; i < n; i++)
+    {
+        auto &hdr = msgvec[i].msg_hdr;
+        hdr.msg_iov = &msg_iov[offset];
+        hdr.msg_iovlen = packets[i].pkt.buffers.size();
+        for (const auto &buffer : packets[i].pkt.buffers)
+        {
+            msg_iov[offset].iov_base = const_cast<void *>(
+                boost::asio::buffer_cast<const void *>(buffer));
+            msg_iov[offset].iov_len = boost::asio::buffer_size(buffer);
+            offset++;
+        }
+        const auto &endpoint = endpoints[packets[i].item->substream_index];
+        hdr.msg_name = (void *) endpoint.data();
+        hdr.msg_namelen = endpoint.size();
+    }
+
+    send_packets(0, n);
+}
+
+#else // SPEAD2_USE_SENDMMSG
+
+void udp_writer::wakeup()
+{
+    for (int i = 0; i < max_batch; i++)
+    {
+        transmit_packet data;
+        packet_result result = get_packet(data);
+        switch (result)
+        {
+        case packet_result::SLEEP:
+            sleep();
+            return;
+        case packet_result::EMPTY:
+            request_wakeup();
+            return;
+        case packet_result::SUCCESS:
+            break;
+        }
+
+        // First try a synchronous send
+        stream::queue_item *item = data.item;
+        bool last = data.last;
+        const auto &endpoint = endpoints[item->substream_index];
         boost::system::error_code ec;
-        transmit_packet &current = current_packets[idx];
-        boost::asio::ip::udp::endpoint endpoint = endpoints[current.item->substream_index];
-        socket.send_to(current.pkt.buffers, endpoint, 0, ec);
+        std::size_t bytes = socket.send_to(data.pkt.buffers, endpoint, 0, ec);
         if (ec == boost::asio::error::would_block)
         {
-            // Socket buffer is full, fall back to asynchronous
-            auto handler = [this, idx](const boost::system::error_code &ec, std::size_t bytes_transferred)
+            // Socket buffer is full, so do an asynchronous send
+            auto handler = [this, item, last](const boost::system::error_code &ec, std::size_t bytes_transferred)
             {
-                current_packets[idx].result = ec;
-                send_packets(idx + 1);
+                item->bytes_sent += bytes_transferred;
+                if (!item->result)
+                    item->result = ec;
+                if (last)
+                    heaps_completed(1);
+                wakeup();
             };
-            socket.async_send_to(current.pkt.buffers, endpoint, handler);
+            socket.async_send_to(data.pkt.buffers, endpoints[data.item->substream_index],
+                                 std::move(handler));
             return;
         }
         else
         {
-            current.result = ec;
+            item->bytes_sent += bytes;
+            if (!item->result)
+                item->result = ec;
+            if (last)
+                heaps_completed(1);
         }
     }
-#endif
-
-    get_io_service().post([this] { packets_handler(); });
+    post_wakeup();
 }
 
-void udp_stream::async_send_packets()
+#endif // !SPEAD2_USE_SENDMMSG
+
+udp_writer::udp_writer(
+    io_service_ref io_service,
+    boost::asio::ip::udp::socket &&socket,
+    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+    const stream_config &config,
+    std::size_t buffer_size)
+    : writer(std::move(io_service), config),
+    socket(std::move(socket)),
+    endpoints(endpoints)
 {
+    if (!socket_uses_io_service(this->socket, get_io_service()))
+        throw std::invalid_argument("I/O service does not match the socket's I/O service");
+    auto protocol = this->socket.local_endpoint().protocol();
+    for (const auto &endpoint : endpoints)
+        if (endpoint.protocol() != protocol)
+            throw std::invalid_argument("Endpoint does not match protocol of the socket");
+    set_socket_send_buffer_size(this->socket, buffer_size);
+    this->socket.non_blocking(true);
 #if SPEAD2_USE_SENDMMSG
-    msg_iov.clear();
-    for (std::size_t i = 0; i < n_current_packets; i++)
-        for (const auto &buffer : current_packets[i].pkt.buffers)
-        {
-            msg_iov.push_back(iovec{const_cast<void *>(boost::asio::buffer_cast<const void *>(buffer)),
-                                    boost::asio::buffer_size(buffer)});
-        }
-    // Assigning msgvec must be done in a second pass, because appending to
-    // msg_iov invalidates references.
-    std::size_t offset = 0;
-    for (std::size_t i = 0; i < n_current_packets; i++)
-    {
-        auto &hdr = msgvec[i].msg_hdr;
-        hdr.msg_iov = &msg_iov[offset];
-        hdr.msg_iovlen = current_packets[i].pkt.buffers.size();
-        offset += hdr.msg_iovlen;
-
-        const auto &endpoint = endpoints[current_packets[i].item->substream_index];
-        hdr.msg_name = (void *) endpoint.data();
-        hdr.msg_namelen = endpoint.size();
-    }
+    std::memset(&msgvec, 0, sizeof(msgvec));
 #endif
-    send_packets(0);
 }
+
+} // anonymous namespace
 
 static boost::asio::ip::udp::socket make_socket(
     boost::asio::io_service &io_service,
@@ -130,6 +244,15 @@ static boost::asio::ip::udp::socket make_socket(
         socket.bind(boost::asio::ip::udp::endpoint(interface_address, 0));
     return socket;
 }
+
+static boost::asio::ip::udp get_protocol(const std::vector<boost::asio::ip::udp::endpoint> &endpoints)
+{
+    if (endpoints.empty())
+        throw std::invalid_argument("Endpoint list must be non-empty");
+    return endpoints[0].protocol();
+}
+
+constexpr std::size_t udp_stream::default_buffer_size;
 
 udp_stream::udp_stream(
     io_service_ref io_service,
@@ -232,20 +355,13 @@ udp_stream::udp_stream(
     const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     const stream_config &config,
     std::size_t buffer_size)
-    : stream_impl<udp_stream>(std::move(io_service), config, batch_size),
-    socket(std::move(socket)), endpoints(endpoints)
+    : stream(std::unique_ptr<writer>(new udp_writer(
+        std::move(io_service),
+        std::move(socket),
+        endpoints,
+        config,
+        buffer_size)))
 {
-    if (!socket_uses_io_service(this->socket, get_io_service()))
-        throw std::invalid_argument("I/O service does not match the socket's I/O service");
-    auto protocol = this->socket.local_endpoint().protocol();
-    for (const auto &endpoint : endpoints)
-        if (endpoint.protocol() != protocol)
-            throw std::invalid_argument("Endpoint does not match protocol of the socket");
-    set_socket_send_buffer_size(this->socket, buffer_size);
-    this->socket.non_blocking(true);
-#if SPEAD2_USE_SENDMMSG
-    std::memset(&msgvec, 0, sizeof(msgvec));
-#endif // SPEAD2_USE_SENDMMSG
 }
 
 udp_stream::udp_stream(
@@ -255,11 +371,6 @@ udp_stream::udp_stream(
     const stream_config &config)
     : udp_stream(io_service, std::move(socket), endpoints, config, 0)
 {
-}
-
-udp_stream::~udp_stream()
-{
-    flush();
 }
 
 } // namespace send

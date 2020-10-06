@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019 SKA South Africa
+/* Copyright 2015, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -25,6 +25,7 @@
 #include <functional>
 #include <boost/asio.hpp>
 #include <spead2/send_stream.h>
+#include <spead2/send_writer.h>
 
 namespace spead2
 {
@@ -36,24 +37,14 @@ namespace send
  * should not be used for a blocking stream such as a wrapper around TCP,
  * because doing so will block the asio handler thread.
  */
-class streambuf_stream : public stream_impl<streambuf_stream>
+class streambuf_stream : public stream
 {
-private:
-    friend class stream_impl<streambuf_stream>;
-    std::streambuf &streambuf;
-
-    void async_send_packets();
-
 public:
     /// Constructor
     streambuf_stream(
         io_service_ref io_service,
         std::streambuf &streambuf,
         const stream_config &config = stream_config());
-
-    std::size_t get_num_substreams() const { return 1; }
-
-    virtual ~streambuf_stream();
 };
 
 } // namespace send

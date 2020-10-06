@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019 SKA South Africa
+/* Copyright 2015, 2019-2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -26,36 +26,88 @@ namespace spead2
 namespace send
 {
 
-void streambuf_stream::async_send_packets()
+namespace
 {
-    for (std::size_t i = 0; i < n_current_packets; i++)
+
+class streambuf_writer : public writer
+{
+private:
+    std::streambuf &streambuf;
+
+    virtual void wakeup() override final;
+
+public:
+    /// Constructor
+    streambuf_writer(
+        io_service_ref io_service,
+        std::streambuf &streambuf,
+        const stream_config &config);
+
+    virtual std::size_t get_num_substreams() const override { return 1; }
+};
+
+void streambuf_writer::wakeup()
+{
+    constexpr int max_batch = 64;
+    int heaps = 0;
+    packet_result result;
+    for (int i = 0; i < max_batch; i++)
     {
-        current_packets[i].result = boost::system::error_code();
-        for (const auto &buffer : current_packets[i].pkt.buffers)
+        transmit_packet data;
+        result = get_packet(data);
+        if (result != packet_result::SUCCESS)
+            break;
+
+        for (const auto &buffer : data.pkt.buffers)
         {
             std::size_t buffer_size = boost::asio::buffer_size(buffer);
             std::size_t written = streambuf.sputn(boost::asio::buffer_cast<const char *>(buffer), buffer_size);
+            data.item->bytes_sent += written;
             if (written != buffer_size)
             {
-                current_packets[i].result = boost::asio::error::eof;
+                if (!data.item->result)
+                    data.item->result = boost::asio::error::eof;
                 break;
             }
         }
+        if (data.last)
+            heaps++;
     }
-    get_io_service().post([this] { packets_handler(); });
+
+    if (heaps > 0)
+        heaps_completed(heaps);
+
+    switch (result)
+    {
+    case packet_result::SLEEP:
+        sleep();
+        break;
+    case packet_result::EMPTY:
+        request_wakeup();
+        break;
+    case packet_result::SUCCESS:
+        post_wakeup();
+        break;
+    }
 }
+
+streambuf_writer::streambuf_writer(
+    io_service_ref io_service,
+    std::streambuf &streambuf,
+    const stream_config &config)
+    : writer(std::move(io_service), config), streambuf(streambuf)
+{
+}
+
+} // anonymous namespace
 
 streambuf_stream::streambuf_stream(
     io_service_ref io_service,
     std::streambuf &streambuf,
     const stream_config &config)
-    : stream_impl<streambuf_stream>(std::move(io_service), config, 64), streambuf(streambuf)
+    : stream(std::unique_ptr<writer>(new streambuf_writer(
+        std::move(io_service), streambuf, config)))
 {
-}
-
-streambuf_stream::~streambuf_stream()
-{
-    flush();
 }
 
 } // namespace send

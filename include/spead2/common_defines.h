@@ -1,4 +1,4 @@
-/* Copyright 2015 SKA South Africa
+/* Copyright 2015, 2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -130,6 +130,18 @@ struct descriptor
 
 static constexpr int minimum_version = 4;
 static constexpr int maximum_version = 4;
+
+namespace detail
+{
+    /**
+     * Best guess at size of a cache line.
+     *
+     * This could in future be replaced by
+     * std::hardware_destructive_interference_size, but that requires C++17 and
+     * even then neither Clang nor GCC implement it at the time of writing.
+     */
+    static constexpr int cache_line_size = 64;
+}
 
 } // namespace spead2
 

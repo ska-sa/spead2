@@ -12,7 +12,16 @@ Other changes:
 - Reduce overhead for dealing with incomplete heaps.
 - Add C++ preprocessor defines for the version number.
 - Drop support for Python 3.5, which is end-of-life.
-- Change code examples to use standard SPEAD rather than PySPEAD bug compatibility.
+- Change code examples to use standard SPEAD rather than PySPEAD bug
+  compatibility.
+- Change :cpp:class:`spead2::send::streambuf_stream` so that when the
+  streambuf only partially writes a packet, the partial byte count is
+  included in the count returned to the callback.
+- :cpp:class:`spead2::send::stream::flush` now only blocks until the
+  previously enqueued heaps are completed. Another thread that keeps adding
+  heaps would previously have prevented it from returning.
+- The sending infrastructure has been partially rewritten, resulting in
+  performance improvements, in some cases of over 10%.
 
 Additionally, refer to the changes for 3.0.0b1 below.
 

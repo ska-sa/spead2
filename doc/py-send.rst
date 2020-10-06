@@ -93,7 +93,7 @@ all the heaps within the stream are sent in order and the stream configuration
 rather than independent streams gives better control over the overall
 transmission rate, and uses fewer system resources.
 
-When sending a heap, and optional parameter called `substream_index` selects
+When sending a heap, an optional parameter called `substream_index` selects
 the substream that will be used.
 
 Blocking send

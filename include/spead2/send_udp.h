@@ -34,7 +34,6 @@
 #include <utility>
 #include <vector>
 #include <initializer_list>
-#include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
 
 namespace spead2
@@ -42,24 +41,9 @@ namespace spead2
 namespace send
 {
 
-class udp_stream : public stream_impl<udp_stream>
+class udp_stream : public stream
 {
 private:
-    friend class stream_impl<udp_stream>;
-    boost::asio::ip::udp::socket socket;
-    std::vector<boost::asio::ip::udp::endpoint> endpoints;
-
-    /// Implements async_send_packets, starting from @a first
-    void send_packets(std::size_t first);
-
-    void async_send_packets();
-
-    static constexpr int batch_size = 64;
-#if SPEAD2_USE_SENDMMSG
-    struct mmsghdr msgvec[batch_size];
-    std::vector<struct iovec> msg_iov;
-#endif
-
     /**
      * Constructor used to implement most other constructors.
      */
@@ -211,10 +195,6 @@ public:
         std::initializer_list<boost::asio::ip::udp::endpoint> endpoints,
         Args&&... args)
         : udp_stream(std::move(io_service), std::move(socket), std::vector<boost::asio::ip::udp::endpoint>(endpoints), std::forward<Args>(args)...) {}
-
-    virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
-
-    virtual ~udp_stream();
 };
 
 } // namespace send

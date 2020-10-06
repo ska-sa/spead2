@@ -69,7 +69,7 @@ BOOST_AUTO_TEST_CASE(send_fail)
     stream.async_send_heap(h, handler);
     auto result = result_promise.get_future().get();
     BOOST_CHECK_EQUAL(result.first, boost::asio::error::eof);
-    BOOST_CHECK_EQUAL(result.second, 0);
+    BOOST_CHECK_EQUAL(result.second, 20);
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // streambuf

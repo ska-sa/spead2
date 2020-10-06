@@ -24,20 +24,104 @@
 #include <spead2/common_features.h>
 #if SPEAD2_USE_IBV
 
+#include <cassert>
+#include <utility>
+#include <memory>
+#include <boost/noncopyable.hpp>
+#include <spead2/common_ibv.h>
+#include <spead2/common_memory_allocator.h>
 #include <spead2/common_raw_packet.h>
+#include <spead2/common_logging.h>
 #include <spead2/send_udp_ibv.h>
+#include <spead2/send_stream.h>
+#include <spead2/send_writer.h>
 
 namespace spead2
 {
 namespace send
 {
 
-constexpr std::size_t udp_ibv_stream::default_buffer_size;
-constexpr int udp_ibv_stream::default_max_poll;
+namespace
+{
+
+/**
+ * Stream using Infiniband Verbs for acceleration. Only IPv4 multicast
+ * with an explicit source address is supported.
+ */
+class udp_ibv_writer : public writer
+{
+private:
+    struct slot : public boost::noncopyable
+    {
+        ibv_send_wr wr{};
+        ibv_sge sge{};
+        ethernet_frame frame;
+        stream::queue_item *item = nullptr;
+        bool last;   ///< Last packet in the heap
+    };
+
+    const std::size_t n_slots;
+    const std::size_t target_batch;
+    boost::asio::ip::udp::socket socket; // used only to assign a source UDP port
+    boost::asio::ip::udp::endpoint source;
+    const std::vector<boost::asio::ip::udp::endpoint> endpoints;
+    std::vector<mac_address> mac_addresses; ///< MAC addresses corresponding to endpoints
+    memory_allocator::pointer buffer;
+    rdma_event_channel_t event_channel;
+    rdma_cm_id_t cm_id;
+    ibv_pd_t pd;
+    ibv_comp_channel_t comp_channel;
+    boost::asio::posix::stream_descriptor comp_channel_wrapper;
+    ibv_cq_t send_cq, recv_cq;
+    ibv_qp_t qp;
+    ibv_mr_t mr;
+    std::unique_ptr<slot[]> slots;
+    std::size_t head = 0, tail = 0;
+    std::size_t available;
+    const int max_poll;
+
+    static ibv_qp_t
+    create_qp(const ibv_pd_t &pd, const ibv_cq_t &send_cq, const ibv_cq_t &recv_cq,
+              std::size_t n_slots);
+
+    /// Modify the QP with a rate limit, returning true on success
+    static bool setup_hw_rate(const ibv_qp_t &qp, const stream_config &config);
+
+    /**
+     * Clear out the completion queue and return slots to the queue.
+     * It will stop after freeing up @ref target_batch slots or
+     * find no completions @ref max_poll times.
+     *
+     * Returns @c true if there are possibly more completions still in the
+     * queue.
+     */
+    bool reap();
+
+    /**
+     * Schedule a call to wakeup when it should check for space in the buffer again.
+     */
+    void wait_for_space();
+
+    virtual void wakeup() override final;
+
+public:
+    udp_ibv_writer(
+        io_service_ref io_service,
+        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+        const stream_config &config,
+        const boost::asio::ip::address &interface_address,
+        std::size_t buffer_size,
+        int ttl,
+        int comp_vector,
+        int max_poll);
+
+    virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
+};
+
 static constexpr int header_length =
     ethernet_frame::min_size + ipv4_packet::min_size + udp_packet::min_size;
 
-ibv_qp_t udp_ibv_stream::create_qp(
+ibv_qp_t udp_ibv_writer::create_qp(
     const ibv_pd_t &pd, const ibv_cq_t &send_cq, const ibv_cq_t &recv_cq, std::size_t n_slots)
 {
     ibv_qp_init_attr attr;
@@ -49,11 +133,11 @@ ibv_qp_t udp_ibv_stream::create_qp(
     attr.cap.max_recv_wr = 0;
     attr.cap.max_send_sge = 1;
     attr.cap.max_recv_sge = 0;
-    attr.sq_sig_all = true;
+    attr.sq_sig_all = 0;
     return ibv_qp_t(pd, &attr);
 }
 
-bool udp_ibv_stream::setup_hw_rate(const ibv_qp_t &qp, const stream_config &config)
+bool udp_ibv_writer::setup_hw_rate(const ibv_qp_t &qp, const stream_config &config)
 {
 #if SPEAD2_USE_IBV_HW_RATE_LIMIT
     ibv_device_attr_ex attr;
@@ -102,101 +186,106 @@ bool udp_ibv_stream::setup_hw_rate(const ibv_qp_t &qp, const stream_config &conf
 #endif
 }
 
-void udp_ibv_stream::reap(bool all)
+bool udp_ibv_writer::reap()
 {
-    constexpr int BATCH = 16;
-    ibv_wc wc[BATCH];
-    int done;
-    while ((all || available.size() < n_current_packets)
-           && (done = send_cq.poll(BATCH, wc)) > 0)
+    ibv_wc wc;
+    int retries = max_poll;
+    int heaps = 0;
+    std::size_t min_available = std::min(n_slots, available + target_batch);
+    // TODO: this could probably be faster with the cq_ex polling API
+    // because it could avoid locking.
+    while (available < min_available)
     {
-        for (int i = 0; i < done; i++)
+        int done = send_cq.poll(1, &wc);
+        if (done == 0)
         {
-            if (wc[i].status != IBV_WC_SUCCESS)
-            {
-                log_warning("Work Request failed with code %1%", wc[i].status);
-            }
-            slot *s = &slots[wc[i].wr_id];
-            available.push_back(s);
+            retries--;
+            if (retries <= 0)
+                break;
+            else
+                continue;
         }
+
+        boost::system::error_code ec;
+        if (wc.status != IBV_WC_SUCCESS)
+        {
+            log_warning("Work Request failed with code %1%", wc.status);
+            // TODO: create some mapping from ibv_wc_status to system error codes
+            ec = boost::system::error_code(EIO, boost::asio::error::get_system_category());
+        }
+        int batch = wc.wr_id;
+        for (int i = 0; i < batch; i++)
+        {
+            const slot *s = &slots[head];
+            stream::queue_item *item = s->item;
+            if (ec)
+            {
+                if (!item->result)
+                    item->result = ec;
+            }
+            else
+                item->bytes_sent += s->sge.length - header_length;
+            heaps += s->last;
+            if (++head == n_slots)
+                head = 0;
+        }
+        available += batch;
     }
+    if (heaps > 0)
+        heaps_completed(heaps);
+    return available < n_slots && retries > 0;
 }
 
-bool udp_ibv_stream::make_space()
+void udp_ibv_writer::wait_for_space()
 {
-    for (int i = 0; i < max_poll; i++)
-    {
-        reap(false);
-        if (available.size() >= n_current_packets)
-            return true;
-    }
-
-    // Synchronous attempts failed. Give the event loop a chance to run.
     if (comp_channel)
     {
         send_cq.req_notify(false);
-
-        auto rerun = [this] (const boost::system::error_code &ec, size_t)
+        auto handler = [this](const boost::system::error_code &, size_t)
         {
-            if (ec)
-            {
-                for (std::size_t i = 0; i < n_current_packets; i++)
-                    current_packets[i].result = ec;
-                packets_handler();
-            }
-            else
-            {
-                ibv_cq *event_cq;
-                void *event_cq_context;
-                // This should be non-blocking, since we were woken up, but
-                // spurious wakeups have been observed.
-                while (comp_channel.get_event(&event_cq, &event_cq_context))
-                    send_cq.ack_events(1);
-                async_send_packets();
-            }
+            ibv_cq *event_cq;
+            void *event_cq_context;
+            // This should be non-blocking, since we were woken up, but
+            // spurious wakeups have been observed.
+            while (comp_channel.get_event(&event_cq, &event_cq_context))
+                send_cq.ack_events(1);
+            wakeup();
         };
+        comp_channel_wrapper.async_read_some(boost::asio::null_buffers(), handler);
+    }
+    else
+        post_wakeup();
+}
 
-        /* Need to check again, in case of a race (in which case the event
-         * won't fire until we send some more packets). Note that this
-         * leaves us with an unwanted req_notify which will lead to a
-         * spurious event later, but that is harmless.
-         */
-        reap(false);
-        if (available.size() >= n_current_packets)
-            return true;
-        comp_channel_wrapper.async_read_some(boost::asio::null_buffers(), rerun);
+void udp_ibv_writer::wakeup()
+{
+    bool more_cqe = reap();
+    if (available < target_batch)
+    {
+        wait_for_space();
     }
     else
     {
-        get_io_service().post([this] { async_send_packets(); });
-    }
-
-    return false;
-}
-
-void udp_ibv_stream::async_send_packets()
-{
-    try
-    {
-        if (!make_space())
-            return;
-
+        std::size_t i;
+        packet_result result;
         slot *prev = nullptr;
-        slot *first = nullptr;
-        for (std::size_t i = 0; i < n_current_packets; i++)
+        slot *first = &slots[tail];
+        for (i = 0; i < target_batch; i++)
         {
-            const auto &current_packet = current_packets[i];
-            slot *s = available.back();
-            available.pop_back();
+            transmit_packet data;
+            result = get_packet(data);
+            if (result != packet_result::SUCCESS)
+                break;
 
-            std::size_t payload_size = current_packet.size;
+            slot *s = &slots[tail];
+            std::size_t payload_size = data.size;
             ipv4_packet ipv4 = s->frame.payload_ipv4();
             ipv4.total_length(payload_size + udp_packet::min_size + ipv4.header_length());
             udp_packet udp = ipv4.payload_udp();
             udp.length(payload_size + udp_packet::min_size);
             if (get_num_substreams() > 1)
             {
-                const std::size_t substream_index = current_packet.item->substream_index;
+                const std::size_t substream_index = data.item->substream_index;
                 const auto &endpoint = endpoints[substream_index];
                 s->frame.destination_mac(mac_addresses[substream_index]);
                 ipv4.destination_address(endpoint.address().to_v4());
@@ -204,28 +293,55 @@ void udp_ibv_stream::async_send_packets()
             }
             ipv4.update_checksum();
             packet_buffer payload = udp.payload();
-            boost::asio::buffer_copy(boost::asio::mutable_buffer(payload), current_packet.pkt.buffers);
+            boost::asio::buffer_copy(boost::asio::mutable_buffer(payload), data.pkt.buffers);
             s->sge.length = payload_size + (payload.data() - s->frame.data());
             s->wr.next = nullptr;
+            s->wr.send_flags = 0;
+            s->item = data.item;
+            s->last = data.last;
             if (prev != nullptr)
                 prev->wr.next = &s->wr;
-            else
-                first = s;
             prev = s;
+
+            if (++tail == n_slots)
+                tail = 0;
+            available--;
         }
-        qp.post_send(&first->wr);
-        // TODO: wait until we've reaped the CQE to claim success and post
-        // completion?
-        for (std::size_t i = 0; i < n_current_packets; i++)
-            current_packets[i].result = boost::system::error_code();
+
+        if (i > 0)
+        {
+            prev->wr.wr_id = i;
+            prev->wr.send_flags = IBV_SEND_SIGNALED;
+            qp.post_send(&first->wr);
+        }
+
+        if (i > 0 || more_cqe)
+        {
+            /* There may be more completions immediately available (either existing
+             * ones, or for the packets we've just posted).
+             */
+            post_wakeup();
+        }
+        else if (available < n_slots)
+        {
+            /* We ran out of packets and completions, but we need to monitor
+             * the CQ for future completions. If the result is SLEEP then we
+             * could call sleep() instead (and ideally we'd wait for whichever
+             * happens first). However, if we get SLEEP then we're using
+             * software rate limiting, which means we're likely to see some
+             * completions before it's time to wake up again (because the
+             * hardware will complete packets at line rate).
+             */
+            wait_for_space();
+        }
+        else if (result == packet_result::SLEEP)
+            sleep();
+        else
+        {
+            assert(result == packet_result::EMPTY);
+            request_wakeup();
+        }
     }
-    catch (std::system_error &e)
-    {
-        boost::system::error_code ec(e.code().value(), boost::system::system_category());
-        for (std::size_t i = 0; i < n_current_packets; i++)
-            current_packets[i].result = ec;
-    }
-    get_io_service().post([this] { packets_handler(); });
 }
 
 static std::size_t calc_n_slots(const stream_config &config, std::size_t buffer_size)
@@ -233,37 +349,13 @@ static std::size_t calc_n_slots(const stream_config &config, std::size_t buffer_
     return std::max(std::size_t(1), buffer_size / (config.get_max_packet_size() + header_length));
 }
 
-udp_ibv_stream::udp_ibv_stream(
-    io_service_ref io_service,
-    const boost::asio::ip::udp::endpoint &endpoint,
-    const stream_config &config,
-    const boost::asio::ip::address &interface_address,
-    std::size_t buffer_size,
-    int ttl,
-    int comp_vector,
-    int max_poll)
-    : udp_ibv_stream(
-        std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>{endpoint},
-        config, interface_address, buffer_size, ttl, comp_vector, max_poll)
+static std::size_t calc_target_batch(const stream_config &config, std::size_t n_slots)
 {
+    std::size_t packet_size = config.get_max_packet_size() + header_length;
+    return std::max(std::size_t(1), std::min(n_slots / 4, 262144 / packet_size));
 }
 
-udp_ibv_stream::udp_ibv_stream(
-    io_service_ref io_service,
-    std::initializer_list<boost::asio::ip::udp::endpoint> endpoints,
-    const stream_config &config,
-    const boost::asio::ip::address &interface_address,
-    std::size_t buffer_size,
-    int ttl,
-    int comp_vector,
-    int max_poll)
-    : udp_ibv_stream(
-        std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>(endpoints),
-        config, interface_address, buffer_size, ttl, comp_vector, max_poll)
-{
-}
-
-udp_ibv_stream::udp_ibv_stream(
+udp_ibv_writer::udp_ibv_writer(
     io_service_ref io_service,
     const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     const stream_config &config,
@@ -272,13 +364,14 @@ udp_ibv_stream::udp_ibv_stream(
     int ttl,
     int comp_vector,
     int max_poll)
-    : stream_impl<udp_ibv_stream>(std::move(io_service), config,
-                                  std::max(std::size_t(1), calc_n_slots(config, buffer_size) / 2)),
+    : writer(std::move(io_service), config),
     n_slots(calc_n_slots(config, buffer_size)),
+    target_batch(calc_target_batch(config, n_slots)),
     socket(get_io_service(), boost::asio::ip::udp::v4()),
     endpoints(endpoints),
     cm_id(event_channel, nullptr, RDMA_PS_UDP),
     comp_channel_wrapper(get_io_service()),
+    available(n_slots),
     max_poll(max_poll)
 {
     if (endpoints.empty())
@@ -337,7 +430,6 @@ udp_ibv_stream::udp_ibv_stream(
         slots[i].wr.sg_list = &slots[i].sge;
         slots[i].wr.num_sge = 1;
         slots[i].wr.opcode = IBV_WR_SEND;
-        slots[i].wr.wr_id = i;
         slots[i].frame.destination_mac(mac_addresses[0]);
         slots[i].frame.source_mac(source_mac);
         slots[i].frame.ethertype(ipv4_packet::ethertype);
@@ -355,19 +447,63 @@ udp_ibv_stream::udp_ibv_stream(
         udp.destination_port(endpoints[0].port());
         udp.length(config.get_max_packet_size() + udp_packet::min_size);
         udp.checksum(0);
-        available.push_back(&slots[i]);
     }
 }
 
-udp_ibv_stream::~udp_ibv_stream()
+} // anonymous namespace
+
+constexpr std::size_t udp_ibv_stream::default_buffer_size;
+constexpr int udp_ibv_stream::default_max_poll;
+
+udp_ibv_stream::udp_ibv_stream(
+    io_service_ref io_service,
+    const boost::asio::ip::udp::endpoint &endpoint,
+    const stream_config &config,
+    const boost::asio::ip::address &interface_address,
+    std::size_t buffer_size,
+    int ttl,
+    int comp_vector,
+    int max_poll)
+    : udp_ibv_stream(
+        std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>{endpoint},
+        config, interface_address, buffer_size, ttl, comp_vector, max_poll)
 {
-    /* Wait until we have confirmation that all the packets
-     * have been put on the wire before tearing down the data
-     * structures.
-     */
-    flush();
-    while (available.size() < n_slots)
-        reap(true);
+}
+
+udp_ibv_stream::udp_ibv_stream(
+    io_service_ref io_service,
+    std::initializer_list<boost::asio::ip::udp::endpoint> endpoints,
+    const stream_config &config,
+    const boost::asio::ip::address &interface_address,
+    std::size_t buffer_size,
+    int ttl,
+    int comp_vector,
+    int max_poll)
+    : udp_ibv_stream(
+        std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>(endpoints),
+        config, interface_address, buffer_size, ttl, comp_vector, max_poll)
+{
+}
+
+udp_ibv_stream::udp_ibv_stream(
+    io_service_ref io_service,
+    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+    const stream_config &config,
+    const boost::asio::ip::address &interface_address,
+    std::size_t buffer_size,
+    int ttl,
+    int comp_vector,
+    int max_poll)
+    : stream(std::unique_ptr<writer>(new udp_ibv_writer(
+        std::move(io_service),
+        endpoints,
+        config,
+        interface_address,
+        buffer_size,
+        ttl,
+        comp_vector,
+        max_poll)))
+{
 }
 
 } // namespace send

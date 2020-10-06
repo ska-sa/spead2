@@ -21,16 +21,12 @@
 #ifndef SPEAD2_SEND_INPROC_H
 #define SPEAD2_SEND_INPROC_H
 
-#include <cstddef>
 #include <vector>
-#include <utility>
 #include <memory>
 #include <initializer_list>
 #include <boost/asio.hpp>
 #include <spead2/common_thread_pool.h>
-#include <spead2/common_ringbuffer.h>
 #include <spead2/common_inproc.h>
-#include <spead2/send_packet.h>
 #include <spead2/send_stream.h>
 
 namespace spead2
@@ -38,22 +34,8 @@ namespace spead2
 namespace send
 {
 
-namespace detail
+class inproc_stream : public stream
 {
-
-/// Create a copy of a packet that owns all its own data
-inproc_queue::packet copy_packet(const packet &in);
-
-} // namespace detail
-
-class inproc_stream : public stream_impl<inproc_stream>
-{
-private:
-    friend class stream_impl<inproc_stream>;
-    std::vector<std::shared_ptr<inproc_queue>> queues;
-
-    void async_send_packets();
-
 public:
     /// Constructor
     inproc_stream(
@@ -76,12 +58,8 @@ public:
         std::initializer_list<std::shared_ptr<inproc_queue>> queues,
         const stream_config &config = stream_config());
 
-    /// Get the underlying storage queue
+    /// Get the underlying storage queues
     const std::vector<std::shared_ptr<inproc_queue>> &get_queues() const;
-
-    virtual std::size_t get_num_substreams() const override final { return queues.size(); }
-
-    virtual ~inproc_stream();
 };
 
 } // namespace send
