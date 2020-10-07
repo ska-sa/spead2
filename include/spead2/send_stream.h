@@ -53,7 +53,7 @@ public:
     static constexpr std::size_t default_max_heaps = 4;
     static constexpr std::size_t default_burst_size = 65536;
     static constexpr double default_burst_rate_ratio = 1.05;
-    static constexpr bool default_allow_hw_rate = true;
+    static constexpr bool default_allow_hw_rate = false;
 
     /// Set maximum packet size to use (only counts the UDP payload, not L1-4 headers).
     stream_config &set_max_packet_size(std::size_t max_packet_size);

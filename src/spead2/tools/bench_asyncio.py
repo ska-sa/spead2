@@ -304,8 +304,8 @@ def main():
     group.add_argument('--burst-rate-ratio', metavar='RATIO', type=float,
                        default=spead2.send.StreamConfig.DEFAULT_BURST_RATE_RATIO,
                        help='Hard rate limit, relative to nominal rate [%(default)s]')
-    group.add_argument('--no-hw-rate', dest='allow_hw_rate', action='store_false',
-                       help='Do not use hardware rate limiting')
+    group.add_argument('--allow-hw-rate', action='store_true',
+                       help='Use hardware rate limiting if available')
     if hasattr(spead2.send, 'UdpIbvStream'):
         group.add_argument('--send-ibv', type=str, metavar='ADDRESS',
                            help='Use ibverbs with this interface address [no]')

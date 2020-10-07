@@ -27,6 +27,9 @@ Other changes:
 - Setting a buffer size of 0 for a :py:class:`~spead2.send.UdpIbvStream` now
   uses the default buffer size, instead of a 1-packet buffer.
 - Fix :program:`spead2_bench.py` ignoring the :opt:`--send-affinity` option.
+- The hardware rate limiting introduced in 3.0.0b1 is now disabled by default,
+  as it proved to be significantly less accurate than the software rate limiter
+  in some cases.
 
 Additionally, refer to the changes for 3.0.0b1 below.
 
