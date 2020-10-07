@@ -404,7 +404,7 @@ public:
 #if SPEAD2_USE_IBV
 
 /* Managing the endpoint and memory region lists requires some sleight of
- * hand. We store a separate code in the wrapper in a Python-centric format.
+ * hand. We store a separate copy in the wrapper in a Python-centric format.
  * When constructing the stream, we make a copy with the C++ view.
  */
 class udp_ibv_stream_config_wrapper : public udp_ibv_stream_config
