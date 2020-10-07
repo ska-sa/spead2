@@ -548,7 +548,7 @@ static py::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
              "max_poll"_a = udp_ibv_stream_config::default_max_poll)
         .def(py::init([](std::shared_ptr<thread_pool_wrapper> thread_pool,
                          const stream_config &config,
-                         udp_ibv_stream_config_wrapper &udp_ibv_config_wrapper)
+                         const udp_ibv_stream_config_wrapper &udp_ibv_config_wrapper)
             {
                 udp_ibv_stream_config udp_ibv_config = udp_ibv_config_wrapper;
                 udp_ibv_config.set_endpoints(

@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017 SKA South Africa
+/* Copyright 2015, 2017, 2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -122,7 +122,7 @@ void thread_pool_wrapper::stop()
     thread_pool::stop();
 }
 
-py::buffer_info request_buffer_info(py::buffer &buffer, int extra_flags)
+py::buffer_info request_buffer_info(const py::buffer &buffer, int extra_flags)
 {
     std::unique_ptr<Py_buffer> view(new Py_buffer);
     int flags = PyBUF_STRIDES | PyBUF_FORMAT | extra_flags;
