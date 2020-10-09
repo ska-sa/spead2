@@ -23,6 +23,7 @@
 #include <memory>
 #include <functional>
 #include <vector>
+#include <type_traits>
 #include <boost/program_options.hpp>
 #include <spead2/common_features.h>
 #include <spead2/common_memory_pool.h>
@@ -40,6 +41,8 @@
 #include "spead2_cmdline.h"
 
 namespace po = boost::program_options;
+using boost::asio::ip::udp;
+using boost::asio::ip::tcp;
 
 namespace spead2
 {
@@ -48,14 +51,9 @@ template<typename T>
 class make_value_semantic
 {
 public:
-    po::typed_value<T> *operator()(const T &def) const
+    po::typed_value<T> *operator()(T *out) const
     {
-        return po::value<T>()->default_value(def);
-    }
-
-    po::typed_value<T> *operator()(const T &def, T *out) const
-    {
-        return po::value<T>(out)->default_value(def);
+        return po::value<T>(out)->default_value(*out);
     }
 };
 
@@ -63,30 +61,21 @@ template<>
 class make_value_semantic<bool>
 {
 public:
-    po::typed_value<bool> *operator()(bool def) const
+    po::typed_value<bool> *operator()(bool *out) const
     {
-        assert(!def);
-        return po::bool_switch();
-    }
-
-    po::typed_value<bool> *operator()(bool def, bool *out) const
-    {
-        assert(!def);
+        assert(!*out);
         return po::bool_switch(out);
     }
 };
 
-template<typename T>
 class option_adder
 {
 private:
     po::options_description &desc;
-    T &value;
     std::map<std::string, std::string> name_map;
 
 public:
-    option_adder(po::options_description &desc, T &value,
-                 const std::map<std::string, std::string> &name_map)
+    option_adder(po::options_description &desc, const std::map<std::string, std::string> &name_map)
         : desc(desc), value(value), name_map(name_map)
     {
     }
@@ -116,20 +105,25 @@ public:
     }
 
     template<typename U>
-    void add(const std::string &name, const std::string &description, U (T::*data))
+    typename std::enable_if<!std::is_convertible<U *, po::value_semantic *>::value>::type
+    add(const std::string &name, const std::string &description, U *value)
     {
-        add(name, description,
-            make_value_semantic<U>()(value.*data, &(value.*data)));
+        add(name, description, make_value_semantic<U>()(value));
     }
 };
 
-po::options_description protocol_config_options(
-    protocol_config &config, const std::map<std::string, std::string> &name_map)
+void protocol_options::notify()
+{
+    /* No validation required */
+}
+
+po::options_description protocol_options::make_options(
+    const std::map<std::string, std::string> &name_map)
 {
     po::options_description desc;
-    option_adder<protocol_config> adder(desc, config, name_map);
-    adder.add("tcp", "Use TCP instead of UDP", &protocol_config::tcp);
-    adder.add("pyspead", "Be bug-compatible with PySPEAD", &protocol_config::pyspead);
+    option_adder adder(desc, name_map);
+    adder.add("tcp", "Use TCP instead of UDP", &config.tcp);
+    adder.add("pyspead", "Be bug-compatible with PySPEAD", &config.pyspead);
     return desc;
 }
 
@@ -137,54 +131,66 @@ po::options_description protocol_config_options(
 namespace recv
 {
 
-po::options_description receiver_config_options(
-    receiver_config &config, const std::map<std::string, std::string> &name_map)
+po::options_description receiver_options::make_options(
+    const std::map<std::string, std::string> &name_map)
 {
     po::options_description desc;
-    option_adder<receiver_config> adder(desc, config, name_map);
-    adder.add("bind", "Interface address", &receiver_config::interface_address);
-    adder.add("packet", "Maximum packet size to accept", &receiver_config::max_packet);
-    // No default, because the default depends on the protocol
-    adder.add("buffer", "Socket buffer size", po::value(&config.buffer));
-    adder.add("concurrent-heaps", "Maximum number of in-flight heaps", &receiver_config::max_heaps);
-    adder.add("ring-heaps", "Ring buffer capacity in heaps", &receiver_config::ring_heaps);
-    adder.add("mem-pool", "Use a memory pool", &receiver_config::mem_pool);
-    adder.add("mem-lower", "Minimum allocation which will use the memory pool", &receiver_config::mem_lower);
-    adder.add("mem-upper", "Maximum allocation which will use the memory pool", &receiver_config::mem_upper);
-    adder.add("mem-max-free", "Maximum free memory buffers", &receiver_config::mem_max_free);
-    adder.add("mem-initial", "Initial free memory buffers", &receiver_config::mem_initial);
-    adder.add("ring", "Use ringbuffer instead of callbacks", &receiver_config::ring);
-    adder.add("memcpy-nt", "Use non-temporal memcpy", &receiver_config::memcpy_nt);
+    option_adder adder(desc, name_map);
+    adder.add("bind", "Interface address", &config.interface_address);
+    adder.add("packet", "Maximum packet size to accept", &config.max_packet);
+    adder.add("buffer", "Socket buffer size", &config.buffer_size);
+    adder.add("concurrent-heaps", "Maximum number of in-flight heaps", &config.max_heaps);
+    adder.add("ring-heaps", "Ring buffer capacity in heaps", &cconfig.ring_heaps);
+    adder.add("mem-pool", "Use a memory pool", &config.mem_pool);
+    adder.add("mem-lower", "Minimum allocation which will use the memory pool", &config.mem_lower);
+    adder.add("mem-upper", "Maximum allocation which will use the memory pool", &config.mem_upper);
+    adder.add("mem-max-free", "Maximum free memory buffers", &config.mem_max_free);
+    adder.add("mem-initial", "Initial free memory buffers", &config.mem_initial);
+    adder.add("ring", "Use ringbuffer instead of callbacks", &config.ring);
+    adder.add("memcpy-nt", "Use non-temporal memcpy", &config.memcpy_nt);
 #if SPEAD2_USE_IBV
-    adder.add("ibv", "Use ibverbs", &receiver_config::opts.ibv);
-    adder.add("ibv-vector", "Interrupt vector (-1 for polled)", &receiver_config::ibv_comp_vector);
-    adder.add("ibv-max-poll", "Maximum number of times to poll in a row", &receiver_config::ibv_max_poll);
+    adder.add("ibv", "Use ibverbs", &config.opts.ibv);
+    adder.add("ibv-vector", "Interrupt vector (-1 for polled)", &config.ibv_comp_vector);
+    adder.add("ibv-max-poll", "Maximum number of times to poll in a row", &config.ibv_max_poll);
 #endif
     return desc;
 }
 
-stream_config options_to_stream_config(const protocol_config &protocol,
-                                       const receiver_config &receiver)
+void receiver_options::notify()
+{
+#if SPEAD2_USE_IBV
+    if (ibv && bind.empty())
+        throw po::error("--ibv requires --bind");
+    if (tcp && ibv)
+        throw po::error("--ibv and --tcp are incompatible");
+#endif
+}
+
+stream_config receiver_options::make_stream_config(const protocol_options &protocol) const
 {
     stream_config config;
     config.set_max_heaps(receiver.max_heaps);
-    if (receiver.mem_pool)
+    if (mem_pool)
     {
         std::shared_ptr<spead2::memory_pool> pool = std::make_shared<spead2::memory_pool>(
-            receiver.mem_lower, receiver.mem_upper, receiver.mem_max_free, receiver.mem_initial);
+            mem_lower, mem_upper, mem_max_free, mem_initial);
         config.set_memory_allocator(std::move(pool));
     }
-    config.set_memory_allocator(...);
-    config.set_memcpy(receiver.memcpy_nt ? MEMCPY_NONTEMPORAL : MEMCPY_STD);
+    config.set_memcpy(memcpy_nt ? MEMCPY_NONTEMPORAL : MEMCPY_STD);
     config.set_bug_compat(protocol.pyspead ? BUG_COMPAT_PYSPEAD_0_5_2 : 0);
     return config;
 }
 
-void add_readers(
+ring_stream_config receiver_options::make_ring_stream_config() const
+{
+    assert(ring);
+    return ring_stream_config().set_heaps(ring_heaps);
+}
+
+void receiver_options::add_readers(
     spead2::recv::stream &stream,
     const std::vector<std::string> &endpoints,
-    const protocol_config &protocol,
-    const receiver_config &receiver,
+    const protocol_options &protocol,
     bool allow_pcap)
 {
 #if SPEAD2_USE_IBV
@@ -229,7 +235,9 @@ void add_readers(
             tcp::resolver resolver(stream.get_io_service());
             tcp::resolver::query query(host, port, tcp::resolver::query::address_configured);
             tcp::endpoint endpoint = *resolver.resolve(query);
-            stream.emplace_reader<spead2::recv::tcp_reader>(endpoint, receiver.max_packet, receiver.buffer);
+            std::size_t buffer_size = this->buffer_size.value_or(spead2::recv::tcp_reader::default_buffer_size);
+            std::size_t max_packet = this->max_packet.value_or(spead2::recv::tcp_reader::default_max_size);
+            stream.emplace_reader<spead2::recv::tcp_reader>(endpoint, max_packet, buffer_size);
         }
         else
         {
@@ -238,34 +246,38 @@ void add_readers(
                 boost::asio::ip::udp::resolver::query::address_configured
                 | boost::asio::ip::udp::resolver::query::passive);
             udp::endpoint endpoint = *resolver.resolve(query);
+            std::size_t buffer_size = this->buffer_size.value_or(spead2::recv::udp_reader::default_buffer_size);
+            std::size_t max_packet = this->max_packet.value_or(spead2::recv::udp_reader::default_max_size);
 #if SPEAD2_USE_IBV
-            if (receiver.ibv)
+            if (ibv)
             {
                 ibv_endpoints.push_back(endpoint);
             }
             else
 #endif
-            if (endpoint.address().is_v4() && !receiver.interface_address.empty())
+            if (endpoint.address().is_v4() && !interface_address.empty())
             {
                 stream.emplace_reader<spead2::recv::udp_reader>(
-                    endpoint, receiver.max_packet, receiver.buffer,
-                    boost::asio::ip::address_v4::from_string(receiver.interface_address));
+                    endpoint, max_packet, buffer_size,
+                    boost::asio::ip::address_v4::from_string(interface_address));
             }
             else
             {
-                if (!receiver.interface_address.empty())
+                if (!interface_address.empty())
                     std::cerr << "--bind is not implemented for IPv6\n";
-                stream.emplace_reader<spead2::recv::udp_reader>(endpoint, receiver.max_packet, receiver.buffer);
+                stream.emplace_reader<spead2::recv::udp_reader>(endpoint, max_packet, buffer_size);
             }
         }
     }
 #if SPEAD2_USE_IBV
     if (!ibv_endpoints.empty())
     {
-        boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(receiver.interface_address);
+        boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(interface_address);
+        std::size_t buffer_size = this->buffer_size.value_or(spead2::recv::udp_ibv_reader::default_buffer_size);
+        std::size_t max_packet = this->max_packet.value_or(spead2::recv::udp_ibv_reader::default_max_size);
         stream.emplace_reader<spead2::recv::udp_ibv_reader>(
-            ibv_endpoints, interface_address, receiver.max_packet, receiver.buffer,
-            receiver.ibv_comp_vector, receiver.ibv_max_poll);
+            ibv_endpoints, interface_address, max_packet, buffer_size,
+            ibv_comp_vector, ibv_max_poll);
     }
 #endif
 }
@@ -276,7 +288,7 @@ void add_readers(
 namespace send
 {
 
-void writer_config::finalize(const protocol_config &protocol)
+void writer_config::finalize(const protocol_options &protocol)
 {
 #if SPEAD2_USE_IBV
     if (protocol.tcp && ibv)
@@ -318,7 +330,7 @@ po::options_description flavour_options(
 {
     po::options_description desc;
     option_adder<spead2::flavour> adder(desc, flavour, name_map);
-    // --pyspead is handled in protocol_config
+    // --pyspead is handled in protocol_options
     adder.add(
         "addr-bits", "Heap address bits",
         &flavour::get_heap_address_bits,
@@ -429,7 +441,7 @@ static std::vector<boost::asio::ip::basic_endpoint<Proto>> get_endpoints(
 
 std::unique_ptr<stream> make_stream(
     boost::asio::io_service &io_service,
-    const protocol_config &protocol, const writer_config &writer,
+    const protocol_options &protocol, const writer_config &writer,
     const std::vector<std::string> &endpoints,
     const std::vector<std::pair<const void *, std::size_t>> &memory_regions)
 {

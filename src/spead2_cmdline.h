@@ -32,6 +32,7 @@
 #include <spead2/common_features.h>
 #include <spead2/common_flavour.h>
 #include <spead2/recv_stream.h>
+#include <spead2/recv_ring_stream.h>
 #include <spead2/send_stream.h>
 #if SPEAD2_USE_IBV
 # include <spead2/recv_udp_ibv.h>
@@ -41,19 +42,21 @@
 namespace spead2
 {
 
-struct protocol_config
+struct protocol_options
 {
     bool tcp = false;
     bool pyspead = false;
-};
 
-boost::program_options::options_description protocol_config_options(
-    protocol_config &config, const std::map<std::string, std::string> &name_map = {});
+    void notify();
+
+    boost::program_options::options_description make_options(
+        const std::map<std::string, std::string> &name_map = {});
+};
 
 namespace recv
 {
 
-struct receiver_config
+struct receiver_options
 {
     bool ring = false;
     bool memcpy_nt = false;
@@ -64,6 +67,7 @@ struct receiver_config
     std::size_t mem_upper = 32 * 1024 * 1024;
     std::size_t mem_max_free = 12;
     std::size_t mem_initial = 8;
+    boost::optional<std::size_t> buffer_size;
     boost::optional<std::size_t> max_packet;
     std::string interface_address;
 #if SPEAD2_USE_IBV
@@ -71,10 +75,21 @@ struct receiver_config
     int ibv_comp_vector = 0;
     int ibv_max_poll = spead2::recv::udp_ibv_reader::default_max_poll;
 #endif
-};
 
-boost::program_options::options_description receiver_config_options(
-    receiver_config &config, const std::map<std::string, std::string> &name_map = {});
+    void notify();
+
+    boost::program_options::options_description make_options(
+        const std::map<std::string, std::string> &name_map = {});
+
+    stream_config make_stream_config() const;
+    ring_stream_config make_ring_stream_config() const;
+
+    void add_readers(
+        spead2::recv::stream &stream,
+        const std::vector<std::string> &endpoints,
+        const protocol_options &protocol,
+        bool allow_pcap);
+};
 
 } // namespace recv
 
@@ -93,7 +108,7 @@ struct writer_config
     boost::optional<std::size_t> buffer;
     boost::asio::ip::address interface_address;
 
-    void finalize(const protocol_config &protocol);
+    void finalize(const protocol_options &protocol);
 };
 
 boost::program_options::options_description flavour_options(
@@ -104,7 +119,7 @@ boost::program_options::options_description writer_config_options(
 
 std::unique_ptr<stream> make_stream(
     boost::asio::io_service &io_service,
-    const protocol_config &protocol, const writer_config &writer,
+    const protocol_options &protocol, const writer_config &writer,
     const std::vector<std::string> &endpoints,
     const std::vector<std::pair<const void *, std::size_t>> &memory_regions);
 
