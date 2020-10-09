@@ -44,8 +44,8 @@ using boost::asio::ip::tcp;
 
 struct options
 {
-    spead2::protocol_config protocol;
-    spead2::send::writer_config writer;
+    spead2::protocol_options protocol;
+    spead2::send::sender_options sender;
     std::size_t heap_size = 4194304;
     std::size_t items = 1;
     std::int64_t heaps = -1;
@@ -84,8 +84,8 @@ static options parse_args(int argc, const char **argv)
         ("items", make_opt(opts.items), "Number of items per heap")
         ("heaps", make_opt(opts.heaps), "Number of data heaps to send (-1=infinite)")
     ;
-    desc.add(spead2::protocol_config_options(opts.protocol));
-    desc.add(spead2::send::writer_config_options(opts.writer));
+    desc.add(opts.protocol.make_options());
+    desc.add(opts.sender.make_options());
     hidden.add_options()
         ("destination", make_opt_no_default(opts.dest)->composing(), "Destination host:port")
     ;
@@ -112,7 +112,7 @@ static options parse_args(int argc, const char **argv)
             throw po::error("at least one destination is required");
         if (opts.dest.size() > 1 && opts.protocol.tcp)
             throw po::error("only one destination is supported with TCP");
-        opts.writer.finalize(opts.protocol);
+        opts.sender.notify(opts.protocol);
         return opts;
     }
     catch (po::error &e)
@@ -160,13 +160,14 @@ public:
 };
 
 sender::sender(const options &opts)
-    : max_heaps((opts.heaps < 0 || std::uint64_t(opts.heaps) + opts.dest.size() > opts.writer.config.get_max_heaps())
-                ? opts.writer.config.get_max_heaps() : opts.heaps + opts.dest.size()),
+    : max_heaps((opts.heaps < 0
+                 || std::uint64_t(opts.heaps) + opts.dest.size() > opts.sender.max_heaps)
+                ? opts.sender.max_heaps : opts.heaps + opts.dest.size()),
     n_substreams(opts.dest.size()),
     n_heaps(opts.heaps),
     value_size(opts.heap_size / (opts.items * sizeof(item_t)) * sizeof(item_t)),
-    first_heap(opts.writer.flavour),
-    last_heap(opts.writer.flavour)
+    first_heap(opts.sender.make_flavour(opts.protocol)),
+    last_heap(opts.sender.make_flavour(opts.protocol))
 {
     heaps.reserve(max_heaps);
     for (std::size_t i = 0; i < max_heaps; i++)
@@ -314,7 +315,7 @@ int main(int argc, const char **argv)
 
     spead2::thread_pool thread_pool(1);
     std::unique_ptr<spead2::send::stream> stream =
-        spead2::send::make_stream(thread_pool.get_io_service(), opts.protocol, opts.writer,
-                                  opts.dest, s.memory_regions());
+        opts.sender.make_stream(thread_pool.get_io_service(), opts.protocol,
+                                opts.dest, s.memory_regions());
     return run(*stream, s);
 }

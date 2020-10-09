@@ -118,7 +118,7 @@ static options parse_args(int argc, const char **argv)
             throw po::error("At least one source is required");
         opts.sources = vm["source"].as<std::vector<std::string>>();
         opts.protocol.notify();
-        opts.receiver.notify();
+        opts.receiver.notify(opts.protocol);
         return opts;
     }
     catch (po::error &e)
@@ -266,7 +266,7 @@ int main(int argc, const char **argv)
     }
     else
     {
-        if (opts.sources.size() > 1 && opts.ring)
+        if (opts.sources.size() > 1 && opts.receiver.ring)
         {
             std::cerr << "Multiple streams cannot be used with --ring\n";
             std::exit(2);

@@ -57,6 +57,16 @@ public:
     }
 };
 
+template<typename T>
+class make_value_semantic<boost::optional<T>>
+{
+public:
+    po::typed_value<boost::optional<T>> *operator()(boost::optional<T> *out) const
+    {
+        return po::value<boost::optional<T>>(out);
+    }
+};
+
 template<>
 class make_value_semantic<bool>
 {
@@ -76,7 +86,7 @@ private:
 
 public:
     option_adder(po::options_description &desc, const std::map<std::string, std::string> &name_map)
-        : desc(desc), value(value), name_map(name_map)
+        : desc(desc), name_map(name_map)
     {
     }
 
@@ -91,17 +101,6 @@ public:
         }
         else
             delete value;
-    }
-
-    template<typename Getter, typename Setter>
-    void add(const std::string &name, const std::string &description,
-             const Getter &getter, const Setter &setter) const
-    {
-        using namespace std::placeholders;
-        // Using std::bind allows pointer-to-member-functions
-        auto def = std::bind(getter, value)();
-        add(name, description,
-            make_value_semantic<decltype(def)>()(def)->notifier(std::bind(setter, value, _1)));
     }
 
     template<typename U>
@@ -122,8 +121,8 @@ po::options_description protocol_options::make_options(
 {
     po::options_description desc;
     option_adder adder(desc, name_map);
-    adder.add("tcp", "Use TCP instead of UDP", &config.tcp);
-    adder.add("pyspead", "Be bug-compatible with PySPEAD", &config.pyspead);
+    adder.add("tcp", "Use TCP instead of UDP", &tcp);
+    adder.add("pyspead", "Be bug-compatible with PySPEAD", &pyspead);
     return desc;
 }
 
@@ -136,32 +135,32 @@ po::options_description receiver_options::make_options(
 {
     po::options_description desc;
     option_adder adder(desc, name_map);
-    adder.add("bind", "Interface address", &config.interface_address);
-    adder.add("packet", "Maximum packet size to accept", &config.max_packet);
-    adder.add("buffer", "Socket buffer size", &config.buffer_size);
-    adder.add("concurrent-heaps", "Maximum number of in-flight heaps", &config.max_heaps);
-    adder.add("ring-heaps", "Ring buffer capacity in heaps", &cconfig.ring_heaps);
-    adder.add("mem-pool", "Use a memory pool", &config.mem_pool);
-    adder.add("mem-lower", "Minimum allocation which will use the memory pool", &config.mem_lower);
-    adder.add("mem-upper", "Maximum allocation which will use the memory pool", &config.mem_upper);
-    adder.add("mem-max-free", "Maximum free memory buffers", &config.mem_max_free);
-    adder.add("mem-initial", "Initial free memory buffers", &config.mem_initial);
-    adder.add("ring", "Use ringbuffer instead of callbacks", &config.ring);
-    adder.add("memcpy-nt", "Use non-temporal memcpy", &config.memcpy_nt);
+    adder.add("bind", "Interface address", &interface_address);
+    adder.add("packet", "Maximum packet size to accept", &max_packet_size);
+    adder.add("buffer", "Socket buffer size", &buffer_size);
+    adder.add("concurrent-heaps", "Maximum number of in-flight heaps", &max_heaps);
+    adder.add("ring-heaps", "Ring buffer capacity in heaps", &ring_heaps);
+    adder.add("mem-pool", "Use a memory pool", &mem_pool);
+    adder.add("mem-lower", "Minimum allocation which will use the memory pool", &mem_lower);
+    adder.add("mem-upper", "Maximum allocation which will use the memory pool", &mem_upper);
+    adder.add("mem-max-free", "Maximum free memory buffers", &mem_max_free);
+    adder.add("mem-initial", "Initial free memory buffers", &mem_initial);
+    adder.add("ring", "Use ringbuffer instead of callbacks", &ring);
+    adder.add("memcpy-nt", "Use non-temporal memcpy", &memcpy_nt);
 #if SPEAD2_USE_IBV
-    adder.add("ibv", "Use ibverbs", &config.opts.ibv);
-    adder.add("ibv-vector", "Interrupt vector (-1 for polled)", &config.ibv_comp_vector);
-    adder.add("ibv-max-poll", "Maximum number of times to poll in a row", &config.ibv_max_poll);
+    adder.add("ibv", "Use ibverbs", &ibv);
+    adder.add("ibv-vector", "Interrupt vector (-1 for polled)", &ibv_comp_vector);
+    adder.add("ibv-max-poll", "Maximum number of times to poll in a row", &ibv_max_poll);
 #endif
     return desc;
 }
 
-void receiver_options::notify()
+void receiver_options::notify(const protocol_options &protocol)
 {
 #if SPEAD2_USE_IBV
-    if (ibv && bind.empty())
+    if (ibv && interface_address.empty())
         throw po::error("--ibv requires --bind");
-    if (tcp && ibv)
+    if (protocol.tcp && ibv)
         throw po::error("--ibv and --tcp are incompatible");
 #endif
 }
@@ -169,7 +168,7 @@ void receiver_options::notify()
 stream_config receiver_options::make_stream_config(const protocol_options &protocol) const
 {
     stream_config config;
-    config.set_max_heaps(receiver.max_heaps);
+    config.set_max_heaps(max_heaps);
     if (mem_pool)
     {
         std::shared_ptr<spead2::memory_pool> pool = std::make_shared<spead2::memory_pool>(
@@ -191,7 +190,7 @@ void receiver_options::add_readers(
     spead2::recv::stream &stream,
     const std::vector<std::string> &endpoints,
     const protocol_options &protocol,
-    bool allow_pcap)
+    bool allow_pcap) const
 {
 #if SPEAD2_USE_IBV
     std::vector<udp::endpoint> ibv_endpoints;
@@ -236,8 +235,8 @@ void receiver_options::add_readers(
             tcp::resolver::query query(host, port, tcp::resolver::query::address_configured);
             tcp::endpoint endpoint = *resolver.resolve(query);
             std::size_t buffer_size = this->buffer_size.value_or(spead2::recv::tcp_reader::default_buffer_size);
-            std::size_t max_packet = this->max_packet.value_or(spead2::recv::tcp_reader::default_max_size);
-            stream.emplace_reader<spead2::recv::tcp_reader>(endpoint, max_packet, buffer_size);
+            std::size_t max_packet_size = this->max_packet_size.value_or(spead2::recv::tcp_reader::default_max_size);
+            stream.emplace_reader<spead2::recv::tcp_reader>(endpoint, max_packet_size, buffer_size);
         }
         else
         {
@@ -247,7 +246,7 @@ void receiver_options::add_readers(
                 | boost::asio::ip::udp::resolver::query::passive);
             udp::endpoint endpoint = *resolver.resolve(query);
             std::size_t buffer_size = this->buffer_size.value_or(spead2::recv::udp_reader::default_buffer_size);
-            std::size_t max_packet = this->max_packet.value_or(spead2::recv::udp_reader::default_max_size);
+            std::size_t max_packet_size = this->max_packet_size.value_or(spead2::recv::udp_reader::default_max_size);
 #if SPEAD2_USE_IBV
             if (ibv)
             {
@@ -258,25 +257,25 @@ void receiver_options::add_readers(
             if (endpoint.address().is_v4() && !interface_address.empty())
             {
                 stream.emplace_reader<spead2::recv::udp_reader>(
-                    endpoint, max_packet, buffer_size,
+                    endpoint, max_packet_size, buffer_size,
                     boost::asio::ip::address_v4::from_string(interface_address));
             }
             else
             {
                 if (!interface_address.empty())
                     std::cerr << "--bind is not implemented for IPv6\n";
-                stream.emplace_reader<spead2::recv::udp_reader>(endpoint, max_packet, buffer_size);
+                stream.emplace_reader<spead2::recv::udp_reader>(endpoint, max_packet_size, buffer_size);
             }
         }
     }
 #if SPEAD2_USE_IBV
     if (!ibv_endpoints.empty())
     {
-        boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(interface_address);
+        boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(this->interface_address);
         std::size_t buffer_size = this->buffer_size.value_or(spead2::recv::udp_ibv_reader::default_buffer_size);
-        std::size_t max_packet = this->max_packet.value_or(spead2::recv::udp_ibv_reader::default_max_size);
+        std::size_t max_packet_size = this->max_packet_size.value_or(spead2::recv::udp_ibv_reader::default_max_size);
         stream.emplace_reader<spead2::recv::udp_ibv_reader>(
-            ibv_endpoints, interface_address, max_packet, buffer_size,
+            ibv_endpoints, interface_address, max_packet_size, buffer_size,
             ibv_comp_vector, ibv_max_poll);
     }
 #endif
@@ -288,136 +287,55 @@ void receiver_options::add_readers(
 namespace send
 {
 
-void writer_config::finalize(const protocol_options &protocol)
+void sender_options::notify(const protocol_options &protocol)
 {
 #if SPEAD2_USE_IBV
     if (protocol.tcp && ibv)
         throw po::error("--tcp and --ibv cannot be used together");
-    if (ibv && interface_address.is_unspecified())
+    if (ibv && interface_address.empty())
         throw po::error("--ibv requires --bind");
 #endif
+}
 
-    if (!buffer)
-    {
-        if (protocol.tcp)
-            buffer = tcp_stream::default_buffer_size;
+po::options_description sender_options::make_options(
+    const std::map<std::string, std::string> &name_map)
+{
+    po::options_description desc;
+    option_adder adder(desc, name_map);
+    adder.add("addr-bits", "Heap address bits", &heap_address_bits);
+    adder.add("packet", "Maximum packet size to send", &max_packet_size);
+    adder.add("bind", "Local address to bind sockets to", &interface_address);
+    adder.add("buffer", "Socket buffer size", &buffer_size);
+    adder.add("burst", "Burst size", &burst_size);
+    adder.add("burst-rate-ratio", "Hard rate limit, relative to --rate", &burst_rate_ratio);
+    adder.add("max-heaps", "Maximum heaps in flight", &max_heaps);
+    adder.add("allow-hw-rate", "Use hardware rate limiting if available", &allow_hw_rate);
+    adder.add("rate", "Transmission rate bound (Gb/s)", &rate);
+    adder.add("ttl", "TTL for multicast target", &ttl);
 #if SPEAD2_USE_IBV
-        else if (ibv)
-            buffer = udp_ibv_stream_config::default_buffer_size;
+    adder.add("ibv", "Use ibverbs", &ibv);
+    adder.add("ibv-vector", "Interrupt vector (-1 for polled)", &ibv_comp_vector);
+    adder.add("ibv-max-poll", "Maximum number of times to poll in a row", &ibv_max_poll);
 #endif
-        else
-            buffer = udp_stream::default_buffer_size;
-    }
-
-    int bug_compat = protocol.pyspead
-        ? flavour.get_bug_compat() | BUG_COMPAT_PYSPEAD_0_5_2
-        : flavour.get_bug_compat() & ~BUG_COMPAT_PYSPEAD_0_5_2;
-    flavour = spead2::flavour(
-        flavour.get_version(),
-        flavour.get_item_pointer_bits(),
-        flavour.get_heap_address_bits(),
-        bug_compat);
-
-#if SPEAD2_USE_IBV
-    udp_ibv_config.set_ttl(ttl);
-    udp_ibv_config.set_buffer_size(*buffer);
-    udp_ibv_config.set_interface_address(interface_address);
-#endif
-}
-
-po::options_description flavour_options(
-    spead2::flavour &flavour, const std::map<std::string, std::string> &name_map)
-{
-    po::options_description desc;
-    option_adder<spead2::flavour> adder(desc, flavour, name_map);
-    // --pyspead is handled in protocol_options
-    adder.add(
-        "addr-bits", "Heap address bits",
-        &flavour::get_heap_address_bits,
-        [](spead2::flavour &f, int addr_bits)
-        {
-            // flavour is immutable, so we have to replace the whole object.
-            f = spead2::flavour(
-                f.get_version(),
-                f.get_item_pointer_bits(),
-                addr_bits,
-                f.get_bug_compat());
-        });
     return desc;
 }
 
-po::options_description stream_config_options(
-    stream_config &config, const std::map<std::string, std::string> &name_map)
+flavour sender_options::make_flavour(const protocol_options &protocol) const
 {
-    po::options_description desc;
-    option_adder<stream_config> adder(desc, config, name_map);
-    adder.add("packet", "Maximum packet size to send",
-              &stream_config::get_max_packet_size,
-              &stream_config::set_max_packet_size);
-    adder.add("burst", "Burst size",
-              &stream_config::get_burst_size,
-              &stream_config::set_burst_size);
-    adder.add("burst-rate-ratio", "Hard rate limit, relative to --rate",
-              &stream_config::get_burst_rate_ratio,
-              &stream_config::set_burst_rate_ratio);
-    adder.add("allow-hw-rate", "Use hardware rate limiting if available",
-              &stream_config::get_allow_hw_rate,
-              &stream_config::set_allow_hw_rate);
-    adder.add("max-heaps", "Maximum heaps in flight",
-              &stream_config::get_max_heaps,
-              &stream_config::set_max_heaps);
-    adder.add("rate", "Transmission rate bound (Gb/s)",
-              &stream_config::get_rate,
-              &stream_config::set_rate);
-    return desc;
+    return spead2::flavour(spead2::maximum_version, CHAR_BIT * sizeof(item_pointer_t),
+                           heap_address_bits,
+                           protocol.pyspead ? BUG_COMPAT_PYSPEAD_0_5_2 : 0);
 }
 
-#if SPEAD2_USE_IBV
-po::options_description udp_ibv_stream_config_options(
-    udp_ibv_stream_config &config, const std::map<std::string, std::string> &name_map)
+stream_config sender_options::make_stream_config() const
 {
-    po::options_description desc;
-    option_adder<udp_ibv_stream_config> adder(desc, config, name_map);
-
-    // interface address and TTL are configured elsewhere
-    adder.add("ibv-vector", "Interrupt vector (-1 for polled)",
-              &udp_ibv_stream_config::get_comp_vector,
-              &udp_ibv_stream_config::set_comp_vector);
-    adder.add("ibv-max-poll", "Maximum number of times to poll in a row",
-              &udp_ibv_stream_config::get_max_poll,
-              &udp_ibv_stream_config::set_max_poll);
-    return desc;
-}
-#endif // SPEAD2_USE_IBV
-
-po::options_description writer_config_options(
-    writer_config &config, const std::map<std::string, std::string> &name_map)
-{
-    po::options_description desc;
-    option_adder<writer_config> adder(desc, config, name_map);
-    desc.add(flavour_options(config.flavour, name_map));
-#if SPEAD2_USE_IBV
-    adder.add("ibv", "Use ibverbs", &writer_config::ibv);
-    desc.add(udp_ibv_stream_config_options(config.udp_ibv_config, name_map));
-#endif
-    // We don't set a default for buffer, because it depends on the writer
-    adder.add("buffer", "Socket buffer size", po::value(&config.buffer));
-    adder.add("ttl", "TTL for multicast target", &writer_config::ttl);
-    adder.add(
-        "bind", "Local address to bind sockets to",
-        [](const writer_config &config)
-        {
-            return config.interface_address.is_unspecified() ? "" : config.interface_address.to_string();
-        },
-        [](writer_config &config, const std::string &address)
-        {
-            if (address.empty())
-                config.interface_address = boost::asio::ip::address();
-            else
-                config.interface_address = boost::asio::ip::address::from_string(address);
-        });
-    desc.add(stream_config_options(config.config, name_map));
-    return desc;
+    return stream_config()
+        .set_max_packet_size(max_packet_size)
+        .set_rate(rate * (1e9 / 8))
+        .set_burst_size(burst_size)
+        .set_burst_rate_ratio(burst_rate_ratio)
+        .set_max_heaps(max_heaps)
+        .set_allow_hw_rate(allow_hw_rate);
 }
 
 template<typename Proto>
@@ -439,13 +357,17 @@ static std::vector<boost::asio::ip::basic_endpoint<Proto>> get_endpoints(
     return ans;
 }
 
-std::unique_ptr<stream> make_stream(
+std::unique_ptr<stream> sender_options::make_stream(
     boost::asio::io_service &io_service,
-    const protocol_options &protocol, const writer_config &writer,
+    const protocol_options &protocol,
     const std::vector<std::string> &endpoints,
-    const std::vector<std::pair<const void *, std::size_t>> &memory_regions)
+    const std::vector<std::pair<const void *, std::size_t>> &memory_regions) const
 {
     std::unique_ptr<stream> stream;
+    stream_config config = make_stream_config();
+    boost::asio::ip::address interface_address;
+    if (!this->interface_address.empty())
+        interface_address = boost::asio::ip::address::from_string(this->interface_address);
     if (protocol.tcp)
     {
         auto ep = get_endpoints<boost::asio::ip::tcp>(io_service, endpoints);
@@ -457,45 +379,50 @@ std::unique_ptr<stream> make_stream(
                 promise.set_value();
         };
         stream.reset(new tcp_stream(
-            io_service, connect_handler, ep,
-            writer.config, *writer.buffer, writer.interface_address));
+            io_service, connect_handler, ep, config,
+            buffer_size.value_or(tcp_stream::default_buffer_size), interface_address));
         promise.get_future().get();
     }
     else
     {
         auto ep = get_endpoints<boost::asio::ip::udp>(io_service, endpoints);
 #if SPEAD2_USE_IBV
-        if (writer.ibv)
+        if (ibv)
         {
-            udp_ibv_stream_config udp_ibv_config = writer.udp_ibv_config;
+            udp_ibv_stream_config udp_ibv_config;
             udp_ibv_config
                 .set_endpoints(ep)
-                .set_memory_regions(memory_regions);
-            stream.reset(new udp_ibv_stream(
-                    io_service, writer.config, udp_ibv_config));
+                .set_interface_address(interface_address)
+                .set_memory_regions(memory_regions)
+                .set_ttl(ttl)
+                .set_comp_vector(ibv_comp_vector)
+                .set_max_poll(ibv_max_poll);
+            if (buffer_size)
+                udp_ibv_config.set_buffer_size(*buffer_size);
+            stream.reset(new udp_ibv_stream(io_service, config, udp_ibv_config));
         }
         else
 #endif // SPEAD2_USE_IBV
         {
+            std::size_t buffer_size = this->buffer_size.value_or(udp_stream::default_buffer_size);
             if (ep[0].address().is_multicast())
             {
                 if (ep[0].address().is_v4())
                     stream.reset(new udp_stream(
-                        io_service, ep, writer.config, *writer.buffer,
-                        writer.ttl, writer.interface_address));
+                        io_service, ep, config, buffer_size,
+                        ttl, interface_address));
                 else
                 {
-                    if (!writer.interface_address.is_unspecified())
+                    if (!this->interface_address.empty())
                         std::cerr << "--bind is not yet supported for IPv6 multicast, ignoring\n";
                     stream.reset(new udp_stream(
-                        io_service, ep, writer.config, *writer.buffer,
-                        writer.ttl));
+                        io_service, ep, config, buffer_size, ttl));
                 }
             }
             else
             {
                 stream.reset(new udp_stream(
-                    io_service, ep, writer.config, *writer.buffer, writer.interface_address));
+                    io_service, ep, config, buffer_size, interface_address));
             }
         }
     }

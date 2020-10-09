@@ -68,7 +68,7 @@ struct receiver_options
     std::size_t mem_max_free = 12;
     std::size_t mem_initial = 8;
     boost::optional<std::size_t> buffer_size;
-    boost::optional<std::size_t> max_packet;
+    boost::optional<std::size_t> max_packet_size;
     std::string interface_address;
 #if SPEAD2_USE_IBV
     bool ibv = false;
@@ -76,19 +76,19 @@ struct receiver_options
     int ibv_max_poll = spead2::recv::udp_ibv_reader::default_max_poll;
 #endif
 
-    void notify();
+    void notify(const protocol_options &protocol);
 
     boost::program_options::options_description make_options(
         const std::map<std::string, std::string> &name_map = {});
 
-    stream_config make_stream_config() const;
+    stream_config make_stream_config(const protocol_options &protocol) const;
     ring_stream_config make_ring_stream_config() const;
 
     void add_readers(
         spead2::recv::stream &stream,
         const std::vector<std::string> &endpoints,
         const protocol_options &protocol,
-        bool allow_pcap);
+        bool allow_pcap) const;
 };
 
 } // namespace recv
@@ -96,32 +96,38 @@ struct receiver_options
 namespace send
 {
 
-struct writer_config
+struct sender_options
 {
-    spead2::flavour flavour;
-    stream_config config;
+    int heap_address_bits = spead2::flavour().get_heap_address_bits();
+    std::size_t max_packet_size = spead2::send::stream_config::default_max_packet_size;
+    std::string interface_address;
+    boost::optional<std::size_t> buffer_size;
+    std::size_t burst_size = spead2::send::stream_config::default_burst_size;
+    double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
+    std::size_t max_heaps = spead2::send::stream_config::default_max_heaps;
+    bool allow_hw_rate = false;
+    double rate = 0.0;
+    int ttl = 1;
 #if SPEAD2_USE_IBV
     bool ibv = false;
-    udp_ibv_stream_config udp_ibv_config;
+    int ibv_comp_vector = 0;
+    int ibv_max_poll = spead2::send::udp_ibv_stream_config::default_max_poll;
 #endif
-    int ttl = 1;
-    boost::optional<std::size_t> buffer;
-    boost::asio::ip::address interface_address;
 
-    void finalize(const protocol_options &protocol);
+    void notify(const protocol_options &protocol);
+
+    boost::program_options::options_description make_options(
+        const std::map<std::string, std::string> &name_map = {});
+
+    flavour make_flavour(const protocol_options &protocol) const;
+    stream_config make_stream_config() const;
+
+    std::unique_ptr<stream> make_stream(
+        boost::asio::io_service &io_service,
+        const protocol_options &protocol,
+        const std::vector<std::string> &endpoints,
+        const std::vector<std::pair<const void *, std::size_t>> &memory_regions) const;
 };
-
-boost::program_options::options_description flavour_options(
-    spead2::flavour &flavour, const std::map<std::string, std::string> &name_map = {});
-
-boost::program_options::options_description writer_config_options(
-    writer_config &config, const std::map<std::string, std::string> &name_map = {});
-
-std::unique_ptr<stream> make_stream(
-    boost::asio::io_service &io_service,
-    const protocol_options &protocol, const writer_config &writer,
-    const std::vector<std::string> &endpoints,
-    const std::vector<std::pair<const void *, std::size_t>> &memory_regions);
 
 } // namespace send
 
