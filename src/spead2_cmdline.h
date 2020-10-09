@@ -24,14 +24,17 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <map>
 #include <utility>
 #include <boost/asio.hpp>
 #include <boost/program_options.hpp>
 #include <boost/optional.hpp>
 #include <spead2/common_features.h>
 #include <spead2/common_flavour.h>
+#include <spead2/recv_stream.h>
 #include <spead2/send_stream.h>
 #if SPEAD2_USE_IBV
+# include <spead2/recv_udp_ibv.h>
 # include <spead2/send_udp_ibv.h>
 #endif
 
@@ -45,7 +48,35 @@ struct protocol_config
 };
 
 boost::program_options::options_description protocol_config_options(
-    protocol_config &config, const std::string &prefix = "");
+    protocol_config &config, const std::map<std::string, std::string> &name_map = {});
+
+namespace recv
+{
+
+struct receiver_config
+{
+    bool ring = false;
+    bool memcpy_nt = false;
+    std::size_t max_heaps = stream_config::default_max_heaps;
+    std::size_t ring_heaps = ring_stream_config::default_heaps;
+    bool mem_pool = false;
+    std::size_t mem_lower = 16384;
+    std::size_t mem_upper = 32 * 1024 * 1024;
+    std::size_t mem_max_free = 12;
+    std::size_t mem_initial = 8;
+    boost::optional<std::size_t> max_packet;
+    std::string interface_address;
+#if SPEAD2_USE_IBV
+    bool ibv = false;
+    int ibv_comp_vector = 0;
+    int ibv_max_poll = spead2::recv::udp_ibv_reader::default_max_poll;
+#endif
+};
+
+boost::program_options::options_description receiver_config_options(
+    receiver_config &config, const std::map<std::string, std::string> &name_map = {});
+
+} // namespace recv
 
 namespace send
 {
@@ -66,10 +97,10 @@ struct writer_config
 };
 
 boost::program_options::options_description flavour_options(
-    spead2::flavour &flavour, const std::string &prefix = "");
+    spead2::flavour &flavour, const std::map<std::string, std::string> &name_map = {});
 
 boost::program_options::options_description writer_config_options(
-    writer_config &config, bool include_rate = true, const std::string &prefix = "");
+    writer_config &config, const std::map<std::string, std::string> &name_map = {});
 
 std::unique_ptr<stream> make_stream(
     boost::asio::io_service &io_service,
