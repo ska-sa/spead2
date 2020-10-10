@@ -62,6 +62,12 @@ private:
         ibv_mr_t mr;
 
         memory_region(const ibv_pd_t &pd, const void *ptr, std::size_t size);
+
+        /* Used purely to construct a memory region for comparison e.g. with
+         * std::set<memory_region>::lower_bound. Remove once c++14 is the
+         * minimum version, since it allows types other than the key type for
+         * lower_bound.
+         */
         memory_region(const void *ptr, std::size_t size);
 
         bool operator<(const memory_region &other) const
