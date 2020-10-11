@@ -98,7 +98,7 @@ static options parse_args(int argc, const char **argv)
             usage(std::cout, desc);
             std::exit(0);
         }
-        if (!opts.sources.empty())
+        if (opts.sources.empty())
             throw po::error("At least one source is required");
         opts.protocol.notify();
         opts.receiver.notify(opts.protocol);
