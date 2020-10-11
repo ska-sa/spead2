@@ -48,7 +48,7 @@ namespace spead2
 {
 
 template<typename Proto>
-static std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
+std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
     boost::asio::io_service &io_service, const std::vector<std::string> &endpoints, bool passive)
 {
     typedef boost::asio::ip::basic_resolver<Proto> resolver_type;
