@@ -140,6 +140,7 @@ static options parse_args(int argc, const char **argv, command_mode mode)
         receiver_map["ibv"] = "";
         receiver_map["ibv-vector"] = "";
         receiver_map["ibv-max-poll"] = "";
+        receiver_map["bind"] = "";
         break;
     case command_mode::MASTER:
         receiver_map["bind"] = "recv-bind";
@@ -577,9 +578,9 @@ static void main_agent(int argc, const char **argv)
                 while (control)
                 {
                     std::getline(control, line);
-                    config_file << line << '\n';
                     if (line == "end_config")
                         break;
+                    config_file << line << '\n';
                 }
                 if (connection)
                 {
@@ -598,6 +599,10 @@ static void main_agent(int argc, const char **argv)
                     !opts.multicast.empty() ? opts.multicast : agent_opts.endpoint;
                 opts.protocol.notify();
                 opts.receiver.notify(opts.protocol);
+                if (opts.receiver.ring)
+                    connection.reset(new recv_connection_ring(opts));
+                else
+                    connection.reset(new recv_connection_callback(opts));
                 opts.receiver.add_readers(connection->get_stream(), {endpoint}, opts.protocol, false);
                 control << "ready" << std::endl;
             }
