@@ -58,36 +58,20 @@ static void usage(std::ostream &o, const po::options_description &desc)
     o << desc;
 }
 
-template<typename T>
-static po::typed_value<T> *make_opt(T &var)
-{
-    return po::value<T>(&var)->default_value(var);
-}
-
-static po::typed_value<bool> *make_opt(bool &var)
-{
-    return po::bool_switch(&var)->default_value(var);
-}
-
-template<typename T>
-static po::typed_value<T> *make_opt_no_default(T &var)
-{
-    return po::value<T>(&var);
-}
-
 static options parse_args(int argc, const char **argv)
 {
     options opts;
     po::options_description desc, hidden, all;
     desc.add_options()
-        ("heap-size", make_opt(opts.heap_size), "Payload size for heap")
-        ("items", make_opt(opts.items), "Number of items per heap")
-        ("heaps", make_opt(opts.heaps), "Number of data heaps to send (-1=infinite)")
+        ("heap-size", spead2::make_value_semantic(&opts.heap_size), "Payload size for heap")
+        ("items", spead2::make_value_semantic(&opts.items), "Number of items per heap")
+        ("heaps", spead2::make_value_semantic(&opts.heaps), "Number of data heaps to send (-1=infinite)")
     ;
-    desc.add(opts.protocol.make_options());
-    desc.add(opts.sender.make_options());
+    spead2::option_adder adder(desc);
+    opts.protocol.enumerate(adder);
+    opts.sender.enumerate(adder);
     hidden.add_options()
-        ("destination", make_opt_no_default(opts.dest)->composing(), "Destination host:port")
+        ("destination", spead2::make_value_semantic(&opts.dest), "Destination host:port")
     ;
     all.add(desc);
     all.add(hidden);

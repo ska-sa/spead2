@@ -63,38 +63,22 @@ static void usage(std::ostream &o, const po::options_description &desc)
     o << desc;
 }
 
-template<typename T>
-static po::typed_value<T> *make_opt(T &var)
-{
-    return po::value<T>(&var)->default_value(var);
-}
-
-static po::typed_value<bool> *make_opt(bool &var)
-{
-    return po::bool_switch(&var)->default_value(var);
-}
-
-template<typename T>
-static po::typed_value<T> *make_opt_no_default(T &var)
-{
-    return po::value<T>(&var);
-}
-
 static options parse_args(int argc, const char **argv)
 {
     options opts;
     po::options_description desc, hidden, all;
-    desc.add(opts.protocol.make_options());
-    desc.add(opts.receiver.make_options());
+    spead2::option_adder adder(desc);
+    opts.protocol.enumerate(adder);
+    opts.receiver.enumerate(adder);
     desc.add_options()
-        ("quiet", make_opt(opts.quiet), "Only show total of heaps received")
-        ("descriptors", make_opt(opts.descriptors), "Show descriptors")
-        ("joint", make_opt(opts.joint), "Treat all sources as a single stream")
-        ("threads", make_opt(opts.threads), "Number of worker threads")
+        ("quiet", spead2::make_value_semantic(&opts.quiet), "Only show total of heaps received")
+        ("descriptors", spead2::make_value_semantic(&opts.descriptors), "Show descriptors")
+        ("joint", spead2::make_value_semantic(&opts.joint), "Treat all sources as a single stream")
+        ("threads", spead2::make_value_semantic(&opts.threads), "Number of worker threads")
     ;
 
     hidden.add_options()
-        ("source", po::value<std::vector<std::string>>()->composing(), "sources");
+        ("source", spead2::make_value_semantic(&opts.sources), "sources");
     all.add(desc);
     all.add(hidden);
 
@@ -114,9 +98,8 @@ static options parse_args(int argc, const char **argv)
             usage(std::cout, desc);
             std::exit(0);
         }
-        if (!vm.count("source"))
+        if (!opts.sources.empty())
             throw po::error("At least one source is required");
-        opts.sources = vm["source"].as<std::vector<std::string>>();
         opts.protocol.notify();
         opts.receiver.notify(opts.protocol);
         return opts;

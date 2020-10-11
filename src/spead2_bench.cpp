@@ -47,48 +47,53 @@
 # include <spead2/send_udp_ibv.h>
 # include <spead2/recv_udp_ibv.h>
 #endif
+#include "spead2_cmdline.h"
 
 namespace po = boost::program_options;
 namespace asio = boost::asio;
 
+class option_writer
+{
+private:
+    std::ostream &out;
+
+public:
+    option_writer(std::ostream &o) : out(o) {}
+
+    template<typename T>
+    void operator()(const std::string &name, const std::string &description, const T *value) const
+    {
+        out << name << " = " << boost::lexical_cast<std::string>(*value) << '\n';
+    }
+
+    template<typename T>
+    void operator()(const std::string &name, const std::string &description, const boost::optional<T> *value) const
+    {
+        if (*value)
+            out << name << " = " << boost::lexical_cast<std::string>(**value) << '\n';
+    }
+};
+
 struct options
 {
     bool quiet = false;
-    bool ring = false;
-    bool memcpy_nt = false;
-    std::size_t packet_size = 9172;
     std::size_t heap_size = 4194304;
-    int heap_address_bits = 40;
-    std::size_t send_buffer = spead2::send::udp_stream::default_buffer_size;
-    std::size_t recv_buffer = spead2::recv::udp_reader::default_buffer_size;
-    std::size_t burst_size = spead2::send::stream_config::default_burst_size;
-    double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
-    bool allow_hw_rate = false;
-    std::size_t heaps = spead2::recv::stream_config::default_max_heaps;
-    std::size_t ring_heaps = spead2::recv::ring_stream_config::default_heaps;
-    std::size_t mem_max_free = 12;
-    std::size_t mem_initial = 8;
-
-    std::string send_ibv_if;
-    int send_ibv_comp_vector = 0;
-    int send_ibv_max_poll =
-#if SPEAD2_USE_IBV
-        spead2::send::udp_ibv_stream_config::default_max_poll;
-#else
-        0;
-#endif
-    std::string recv_ibv_if;
-    int recv_ibv_comp_vector = 0;
-    int recv_ibv_max_poll =
-#if SPEAD2_USE_IBV
-        spead2::recv::udp_ibv_reader::default_max_poll;
-#else
-        0;
-#endif
-
     std::string multicast;
-    std::string host;
-    std::string port;
+    std::string endpoint;    // host:port for master, port for agent
+
+    spead2::protocol_options protocol;
+    spead2::recv::receiver_options receiver;
+    spead2::send::sender_options sender;
+
+    // Only used for the protocol used by the master to communicate the options
+    // to the agent.
+    template<typename T>
+    void enumerate_wire(const T &callback)
+    {
+        callback("multicast", "", &multicast);
+        protocol.enumerate(callback);
+        receiver.enumerate(callback);
+    }
 };
 
 enum class command_mode
@@ -97,12 +102,6 @@ enum class command_mode
     AGENT,
     MEM
 };
-
-template<typename T>
-static po::typed_value<T> *make_opt(T &var)
-{
-    return po::value<T>(&var)->default_value(var);
-}
 
 static void usage(std::ostream &o, const po::options_description &desc, command_mode mode)
 {
@@ -125,64 +124,68 @@ static options parse_args(int argc, const char **argv, command_mode mode)
 {
     options opts;
     po::options_description desc, hidden, all;
+    po::positional_options_description positional;
+
+    std::map<std::string, std::string> protocol_map, receiver_map, sender_map;
+    // Empty values suppress options that aren't applicable
+    // Memory pool sizes are managed automatically
+    receiver_map["mem_pool"] = "";
+    receiver_map["mem_lower"] = "";
+    receiver_map["mem_upper"] = "";
+    switch (mode)
+    {
+    case command_mode::MEM:
+        protocol_map["tcp"] = "";
+        receiver_map["buffer"] = "";
+        receiver_map["ibv"] = "";
+        receiver_map["ibv-vector"] = "";
+        receiver_map["ibv-max-poll"] = "";
+        break;
+    case command_mode::MASTER:
+        receiver_map["bind"] = "recv-bind";
+        receiver_map["buffer"] = "recv-buffer";
+        receiver_map["ibv"] = "recv-ibv";
+        receiver_map["ibv-vector"] = "recv-ibv-vector";
+        receiver_map["ibv-max-poll"] = "recv-ibv-max-poll";
+        sender_map["bind"] = "send-bind";
+        sender_map["buffer"] = "send-buffer";
+        sender_map["packet"] = "";  // Packet size is taken from receiver
+        sender_map["ibv"] = "send-ibv";
+        sender_map["ibv-vector"] = "send-ibv-vector";
+        sender_map["ibv-max-poll"] = "send-max-poll";
+        sender_map["rate"] = "";   // Controlled by test
+        break;
+    }
+
     if (mode == command_mode::MASTER || mode == command_mode::MEM)
     {
         desc.add_options()
-            ("quiet", po::bool_switch(&opts.quiet)->default_value(opts.quiet), "Print only the final result")
-            ("ring", po::bool_switch(&opts.ring)->default_value(opts.ring), "Use a ring buffer for heaps")
-            ("memcpy-nt", po::bool_switch(&opts.memcpy_nt)->default_value(opts.memcpy_nt), "Use non-temporal memcpy")
-            ("packet", make_opt(opts.packet_size), "Maximum packet size to use for UDP")
-            ("heap-size", make_opt(opts.heap_size), "Payload size for heap")
-            ("addr-bits", make_opt(opts.heap_address_bits), "Heap address bits")
-            ("heaps", make_opt(opts.heaps), "Maximum number of in-flight heaps")
-            ("ring-heaps", make_opt(opts.ring_heaps), "Ring buffer capacity in heaps")
-            ("mem-max-free", make_opt(opts.mem_max_free), "Maximum free memory buffers")
-            ("mem-initial", make_opt(opts.mem_initial), "Initial free memory buffers");
+            ("quiet", spead2::make_value_semantic(&opts.quiet), "Print only the final result")
+            ("heap-size", spead2::make_value_semantic(&opts.heap_size), "Payload size for heap");
+        opts.protocol.enumerate(spead2::option_adder(desc, protocol_map));
+        opts.receiver.enumerate(spead2::option_adder(desc, receiver_map));
     }
     if (mode == command_mode::MASTER)
     {
+        opts.sender.enumerate(spead2::option_adder(desc, sender_map));
         desc.add_options()
-            ("send-buffer", make_opt(opts.send_buffer), "Socket buffer size (sender)")
-            ("recv-buffer", make_opt(opts.recv_buffer), "Socket buffer size (receiver)")
-            ("burst", make_opt(opts.burst_size), "Send burst size")
-            ("burst-rate-ratio", make_opt(opts.burst_rate_ratio), "Hard rate limit, relative to the nominal rate")
-            ("allow-hw-rate", po::bool_switch(&opts.allow_hw_rate)->default_value(opts.allow_hw_rate), "Use hardware rate limiting if available")
-            ("multicast", make_opt(opts.multicast), "Multicast group to use, instead of unicast")
-#if SPEAD2_USE_IBV
-            ("send-ibv", make_opt(opts.send_ibv_if), "Interface address for ibverbs (sender)")
-            ("send-ibv-vector", make_opt(opts.send_ibv_comp_vector), "Interrupt vector (-1 for polled) (sender)")
-            ("send-ibv-max-poll", make_opt(opts.send_ibv_max_poll), "Maximum number of times to poll in a row (sender)")
-            ("recv-ibv", make_opt(opts.recv_ibv_if), "Interface address for ibverbs (receiver)")
-            ("recv-ibv-vector", make_opt(opts.recv_ibv_comp_vector), "Interrupt vector (-1 for polled) (receiver)")
-            ("recv-ibv-max-poll", make_opt(opts.recv_ibv_max_poll), "Maximum number of times to poll in a row (receiver)")
-#endif
+            ("multicast", po::value<std::string>(&opts.multicast), "Multicast group to use, instead of unicast")
         ;
         hidden.add_options()
-            ("host", po::value<std::string>(&opts.host));
+            ("endpoint", po::value<std::string>(&opts.endpoint));
+        positional.add("endpoint", 1);
+    }
+    else if (mode == command_mode::AGENT)
+    {
+        hidden.add_options()
+            ("port", po::value<std::string>(&opts.endpoint));
+        positional.add("port", 1);
     }
     desc.add_options()
         ("help,h", "Show help text");
-    if (mode == command_mode::MASTER || mode == command_mode::AGENT)
-    {
-        hidden.add_options()
-            ("port", po::value<std::string>(&opts.port));
-    }
     all.add(desc);
     all.add(hidden);
 
-    po::positional_options_description positional;
-    switch (mode)
-    {
-    case command_mode::MASTER:
-        positional.add("host", 1);
-        positional.add("port", 1);
-        break;
-    case command_mode::AGENT:
-        positional.add("port", 1);
-        break;
-    case command_mode::MEM:
-        break;
-    }
     try
     {
         po::variables_map vm;
@@ -197,10 +200,23 @@ static options parse_args(int argc, const char **argv, command_mode mode)
             usage(std::cout, desc, mode);
             std::exit(0);
         }
-        if ((mode == command_mode::MASTER || mode == command_mode::AGENT)
-            && !vm.count("port"))
+        if ((mode == command_mode::MASTER && !vm.count("endpoint"))
+             || (mode == command_mode::AGENT && !vm.count("port")))
         {
             throw po::error("too few positional options have been specified on the command line");
+        }
+        if (mode != command_mode::AGENT)
+        {
+            // Initialise memory pool sizes based on heap size
+            opts.receiver.mem_lower = opts.heap_size;
+            opts.receiver.mem_upper = opts.heap_size + 1024;  // more than enough for overheads
+            opts.protocol.notify();
+            opts.receiver.notify(opts.protocol);
+            if (mode == command_mode::MASTER)
+            {
+                opts.sender.max_packet_size = *opts.receiver.max_packet_size;
+                opts.sender.notify(opts.protocol);
+            }
         }
         return opts;
     }
@@ -210,34 +226,6 @@ static options parse_args(int argc, const char **argv, command_mode mode)
         usage(std::cerr, desc, mode);
         std::exit(2);
     }
-}
-
-// Simple encoding scheme to allow empty strings to be passed in text
-static std::string encode_string(const std::string &s)
-{
-    std::ostringstream encoder;
-    encoder.imbue(std::locale::classic());
-    encoder << '+';
-    encoder << std::hex << std::setw(2) << std::setfill('0');
-    for (unsigned char c : s)
-        encoder << int(c);
-    return encoder.str();
-}
-
-static std::string decode_string(const std::string &s)
-{
-    if (s.empty() || s[0] != '+')
-        throw std::invalid_argument("string was not encoded");
-    std::string out;
-    for (std::size_t i = 1; i + 1 < s.size(); i += 2)
-    {
-        std::istringstream decoder(s.substr(i, 2));
-        decoder.imbue(std::locale::classic());
-        int value;
-        decoder >> std::hex >> value;
-        out += (unsigned char) value;
-    }
-    return out;
 }
 
 namespace
@@ -264,7 +252,7 @@ public:
 
 sender::sender(spead2::send::stream &stream, const std::vector<spead2::send::heap> &heaps,
                const options &opts)
-    : stream(stream), heaps(heaps), max_heaps(std::min(opts.heaps, heaps.size()))
+    : stream(stream), heaps(heaps), max_heaps(std::min(opts.sender.max_heaps, heaps.size()))
 {
 }
 
@@ -313,34 +301,26 @@ static std::pair<bool, double> measure_connection_once(
     std::vector<std::uint8_t> data(opts.heap_size);
 
     /* Look up the address for the stream */
-    asio::io_service io_service;
-    udp::resolver resolver(io_service);
-    udp::resolver::query query(opts.multicast.empty() ? opts.host : opts.multicast, opts.port);
-    udp::endpoint endpoint = *resolver.resolve(query);
+    std::string endpoint = opts.multicast.empty() ? opts.endpoint : opts.multicast;
 
     /* Initiate the control connection */
-    tcp::iostream control(opts.host, opts.port);
+    tcp::endpoint control_endpoint = spead2::parse_endpoint<tcp>(opts.endpoint, false);
+    // iostream constructor wants to do a query, so we have to turn everything
+    // into strings for it.
+    tcp::iostream control(
+        control_endpoint.protocol(),
+        control_endpoint.address().to_string(),
+        boost::lexical_cast<std::string>(control_endpoint.port()),
+        boost::asio::ip::resolver_query_base::numeric_host
+        | boost::asio::ip::resolver_query_base::numeric_service);
     try
     {
         control.exceptions(std::ios::failbit);
-        control << "start "
-            << int(opts.ring) << ' '
-            << int(opts.memcpy_nt) << ' '
-            << opts.packet_size << ' '
-            << opts.heap_size << ' '
-            << opts.heap_address_bits << ' '
-            << opts.recv_buffer << ' '
-            << opts.burst_size << ' '
-            << opts.burst_rate_ratio << ' '
-            << int(opts.allow_hw_rate) << ' '
-            << opts.heaps << ' '
-            << opts.ring_heaps << ' '
-            << opts.mem_max_free << ' '
-            << opts.mem_initial << ' '
-            << encode_string(opts.multicast) << ' '
-            << encode_string(opts.recv_ibv_if) << ' '
-            << opts.recv_ibv_comp_vector << ' '
-            << opts.recv_ibv_max_poll << std::endl;
+        control << "start\n";
+        option_writer writer(control);
+        const_cast<options &>(opts).enumerate_wire(writer);
+        control << "end_config\n";
+
         std::string response;
         std::getline(control, response);
         if (response != "ready")
@@ -350,15 +330,12 @@ static std::pair<bool, double> measure_connection_once(
         }
 
         /* Construct the stream */
+        spead2::send::sender_options sender_options = opts.sender;
+        sender_options.rate = rate;
+
         spead2::thread_pool thread_pool;
-        spead2::flavour flavour(4, 64, opts.heap_address_bits);
-        spead2::send::stream_config config;
-        config.set_max_packet_size(opts.packet_size);
-        config.set_rate(rate);
-        config.set_burst_size(opts.burst_size);
-        config.set_max_heaps(opts.heaps);
-        config.set_burst_rate_ratio(opts.burst_rate_ratio);
-        config.set_allow_hw_rate(opts.allow_hw_rate);
+        spead2::flavour flavour = sender_options.make_flavour(opts.protocol);
+        spead2::send::stream_config config = sender_options.make_stream_config();
 
         /* Build the heaps */
         std::vector<spead2::send::heap> heaps;
@@ -373,29 +350,11 @@ static std::pair<bool, double> measure_connection_once(
         /* Send the heaps */
         auto start = std::chrono::high_resolution_clock::now();
         std::int64_t transferred;
-        std::unique_ptr<spead2::send::stream> stream;
-#if SPEAD2_USE_IBV
-        if (opts.send_ibv_if != "")
-        {
-            boost::asio::ip::address interface_address =
-                boost::asio::ip::address::from_string(opts.send_ibv_if);
-            stream.reset(new spead2::send::udp_ibv_stream(
-                thread_pool.get_io_service(),
-                config,
-                spead2::send::udp_ibv_stream_config()
-                    .set_endpoints({endpoint})
-                    .set_interface_address(interface_address)
-                    .set_buffer_size(opts.send_buffer)
-                    .set_comp_vector(opts.send_ibv_comp_vector)
-                    .set_max_poll(opts.send_ibv_max_poll)
-                    .add_memory_region(data.data(), data.size() * sizeof(data[0]))));
-        }
-        else
-#endif
-        {
-            stream.reset(new spead2::send::udp_stream(
-                thread_pool.get_io_service(), {endpoint}, config, opts.send_buffer));
-        }
+        std::unique_ptr<spead2::send::stream> stream = sender_options.make_stream(
+            thread_pool.get_io_service(),
+            opts.protocol,
+            {endpoint},
+            {{data.data(), data.size() * sizeof(data[0])}});
         sender s(*stream, heaps, opts);
         transferred = s.run();
         auto end = std::chrono::high_resolution_clock::now();
@@ -521,57 +480,12 @@ class recv_connection
 {
 protected:
     spead2::thread_pool thread_pool;
-    std::shared_ptr<spead2::memory_pool> memory_pool;
-
-    explicit recv_connection(const options &opts)
-        : thread_pool(),
-        memory_pool(std::make_shared<spead2::memory_pool>(opts.heap_size, opts.heap_size + 1024, opts.mem_max_free, opts.mem_initial))
-    {
-    }
-
-    static spead2::recv::stream_config make_config(
-        const options &opts,
-        std::shared_ptr<spead2::memory_allocator> memory_allocator)
-    {
-        spead2::recv::stream_config config;
-        config.set_max_heaps(opts.heaps);
-        config.set_memory_allocator(std::move(memory_allocator));
-        if (opts.memcpy_nt)
-            config.set_memcpy(spead2::MEMCPY_NONTEMPORAL);
-        return config;
-    }
 
 public:
     virtual std::int64_t stop(bool force) = 0;
-    virtual void emplace_udp_reader(const boost::asio::ip::udp::endpoint &endpoint,
-                                    const options &opts) = 0;
-    virtual void emplace_mem_reader(const std::uint8_t *ptr, std::size_t length) = 0;
+    virtual spead2::recv::stream &get_stream() = 0;
     virtual ~recv_connection() {}
 };
-
-template<typename Stream>
-static void emplace_udp_reader(Stream &stream, const boost::asio::ip::udp::endpoint &endpoint,
-                               const options &opts)
-{
-    if (opts.recv_ibv_if != "")
-    {
-#if SPEAD2_USE_IBV
-        boost::asio::ip::address interface_address =
-            boost::asio::ip::address::from_string(opts.recv_ibv_if);
-        stream.template emplace_reader<spead2::recv::udp_ibv_reader>(
-            endpoint, interface_address, opts.packet_size, opts.recv_buffer,
-            opts.recv_ibv_comp_vector, opts.recv_ibv_max_poll);
-#else
-        std::cerr << "--recv-ibv passed but agent does not support ibv\n";
-        std::exit(1);
-#endif
-    }
-    else
-    {
-        stream.template emplace_reader<spead2::recv::udp_reader>(
-            endpoint, opts.packet_size, opts.recv_buffer);
-    }
-}
 
 class recv_connection_callback : public recv_connection
 {
@@ -580,26 +494,11 @@ private:
 
 public:
     explicit recv_connection_callback(const options &opts)
-        : recv_connection(opts), stream(thread_pool, make_config(opts, memory_pool))
+        : stream(thread_pool, opts.receiver.make_stream_config(opts.protocol))
     {
     }
 
-    template<typename Reader, typename... Args>
-    void emplace_reader(Args&&... args)
-    {
-        stream.emplace_reader<Reader>(std::forward<Args>(args)...);
-    }
-
-    virtual void emplace_udp_reader(const boost::asio::ip::udp::endpoint &endpoint,
-                                    const options &opts) override
-    {
-        ::emplace_udp_reader(stream, endpoint, opts);
-    }
-
-    virtual void emplace_mem_reader(const std::uint8_t *ptr, std::size_t length) override
-    {
-        stream.emplace_reader<spead2::recv::mem_reader>(ptr, length);
-    }
+    virtual spead2::recv::stream &get_stream() override { return stream; }
 
     virtual std::int64_t stop(bool force) override
     {
@@ -617,17 +516,11 @@ private:
     std::thread consumer;
     std::int64_t num_heaps = 0;
 
-    static spead2::recv::ring_stream_config make_ring_config(const options &opts)
-    {
-        spead2::recv::ring_stream_config ring_config;
-        ring_config.set_heaps(opts.ring_heaps);
-        return ring_config;
-    }
-
 public:
     explicit recv_connection_ring(const options &opts)
-        : recv_connection(opts),
-        stream(thread_pool, make_config(opts, memory_pool), make_ring_config(opts))
+        : stream(thread_pool,
+                 opts.receiver.make_stream_config(opts.protocol),
+                 opts.receiver.make_ring_stream_config())
     {
         consumer = std::thread([this] ()
         {
@@ -644,16 +537,7 @@ public:
         });
     }
 
-    virtual void emplace_udp_reader(const boost::asio::ip::udp::endpoint &endpoint,
-                                    const options &opts) override
-    {
-        ::emplace_udp_reader(stream, endpoint, opts);
-    }
-
-    virtual void emplace_mem_reader(const std::uint8_t *ptr, std::size_t length) override
-    {
-        stream.emplace_reader<spead2::recv::mem_reader>(ptr, length);
-    }
+    virtual spead2::recv::stream &get_stream() override { return stream; }
 
     virtual std::int64_t stop(bool force) override
     {
@@ -673,7 +557,7 @@ static void main_agent(int argc, const char **argv)
 
     /* Look up the bind address for the control socket */
     tcp::resolver tcp_resolver(thread_pool.get_io_service());
-    tcp::resolver::query tcp_query("0.0.0.0", agent_opts.port);
+    tcp::resolver::query tcp_query("0.0.0.0", agent_opts.endpoint);
     tcp::endpoint tcp_endpoint = *tcp_resolver.resolve(tcp_query);
     tcp::acceptor acceptor(thread_pool.get_io_service(), tcp_endpoint);
     while (true)
@@ -687,51 +571,37 @@ static void main_agent(int argc, const char **argv)
             std::getline(control, line);
             if (!control)
                 break;
-            std::istringstream toks(line);
-            std::string cmd;
-            toks >> cmd;
-            if (cmd == "start")
+            if (line == "start")
             {
+                std::stringstream config_file;
+                while (control)
+                {
+                    std::getline(control, line);
+                    config_file << line << '\n';
+                    if (line == "end_config")
+                        break;
+                }
                 if (connection)
                 {
                     std::cerr <<  "Start received while already running\n";
                     continue;
                 }
+
                 options opts;
-                toks >> opts.ring
-                    >> opts.memcpy_nt
-                    >> opts.packet_size
-                    >> opts.heap_size
-                    >> opts.heap_address_bits
-                    >> opts.recv_buffer
-                    >> opts.burst_size
-                    >> opts.burst_rate_ratio
-                    >> opts.allow_hw_rate
-                    >> opts.heaps
-                    >> opts.ring_heaps
-                    >> opts.mem_max_free
-                    >> opts.mem_initial
-                    >> opts.multicast
-                    >> opts.recv_ibv_if
-                    >> opts.recv_ibv_comp_vector
-                    >> opts.recv_ibv_max_poll;
-                opts.multicast = decode_string(opts.multicast);
-                opts.recv_ibv_if = decode_string(opts.recv_ibv_if);
-                /* Look up the bind address for the data socket */
-                udp::resolver resolver(thread_pool.get_io_service());
-                udp::resolver::query query(
-                    !opts.multicast.empty() ? opts.multicast :
-                    !opts.recv_ibv_if.empty() ? opts.recv_ibv_if : "0.0.0.0",
-                    agent_opts.port);
-                udp::endpoint endpoint = *resolver.resolve(query);
-                if (opts.ring)
-                    connection.reset(new recv_connection_ring(opts));
-                else
-                    connection.reset(new recv_connection_callback(opts));
-                connection->emplace_udp_reader(endpoint, opts);
+                po::options_description desc;
+                po::variables_map vm;
+                opts.enumerate_wire(spead2::option_adder(desc));
+                config_file.seekg(0);
+                po::store(parse_config_file(config_file, desc), vm);
+                vm.notify();   // Writes the options into opts
+                std::string endpoint =
+                    !opts.multicast.empty() ? opts.multicast : agent_opts.endpoint;
+                opts.protocol.notify();
+                opts.receiver.notify(opts.protocol);
+                opts.receiver.add_readers(connection->get_stream(), {endpoint}, opts.protocol, false);
                 control << "ready" << std::endl;
             }
-            else if (cmd == "stop")
+            else if (line == "stop")
             {
                 if (!connection)
                 {
@@ -743,7 +613,7 @@ static void main_agent(int argc, const char **argv)
                 std::cerr << num_heaps << '\n';
                 control << num_heaps << std::endl;
             }
-            else if (cmd == "exit")
+            else if (line == "exit")
                 break;
             else
                 std::cerr << "Bad command: " << line << '\n';
@@ -754,10 +624,10 @@ static void main_agent(int argc, const char **argv)
 static void build_streambuf(std::streambuf &streambuf, const options &opts, std::int64_t num_heaps)
 {
     spead2::thread_pool thread_pool;
-    spead2::flavour flavour(4, 64, opts.heap_address_bits);
+    spead2::flavour flavour = opts.sender.make_flavour(opts.protocol);
     spead2::send::streambuf_stream stream(
         thread_pool.get_io_service(), streambuf,
-        spead2::send::stream_config().set_max_packet_size(opts.packet_size));
+        opts.sender.make_stream_config());
     spead2::send::heap heap(flavour), end_heap(flavour);
     std::vector<std::uint8_t> data(opts.heap_size);
     heap.add_item(0x1234, data, false);
@@ -796,12 +666,13 @@ static void main_mem(int argc, const char **argv)
     const int passes = 100;
     for (int pass = 0; pass < passes; pass++)
     {
-        if (opts.ring)
+        if (opts.receiver.ring)
             connection.reset(new recv_connection_ring(opts));
         else
             connection.reset(new recv_connection_callback(opts));
         start = std::chrono::high_resolution_clock::now();
-        connection->emplace_mem_reader((const std::uint8_t *) data.data(), data.size());
+        connection->get_stream().emplace_reader<spead2::recv::mem_reader>(
+            (const std::uint8_t *) data.data(), data.size());
         connection->stop(false);
         end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed_duration = end - start;
@@ -829,7 +700,7 @@ int main(int argc, const char **argv)
     else
     {
         std::cerr << "Usage:\n"
-            << "    spead2_bench master <host> <port> [options]\n"
+            << "    spead2_bench master <host>:<port> [options]\n"
             << "OR\n"
             << "    spead2_bench agent <port> [options]\n"
             << "OR\n"

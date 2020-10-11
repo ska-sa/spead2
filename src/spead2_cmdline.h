@@ -26,6 +26,8 @@
 #include <vector>
 #include <map>
 #include <utility>
+#include <istream>
+#include <ostream>
 #include <boost/asio.hpp>
 #include <boost/program_options.hpp>
 #include <boost/optional.hpp>
@@ -42,6 +44,84 @@
 namespace spead2
 {
 
+namespace detail
+{
+
+template<typename T>
+class make_value_semantic_impl
+{
+public:
+    boost::program_options::typed_value<T> *operator()(T *out) const
+    {
+        return boost::program_options::value<T>(out)->default_value(*out);
+    }
+};
+
+template<typename T>
+class make_value_semantic_impl<boost::optional<T>>
+{
+public:
+    boost::program_options::typed_value<boost::optional<T>> *operator()(boost::optional<T> *out) const
+    {
+        return boost::program_options::value<boost::optional<T>>(out);
+    }
+};
+
+template<>
+class make_value_semantic_impl<bool>
+{
+public:
+    boost::program_options::typed_value<bool> *operator()(bool *out) const
+    {
+        assert(!*out);
+        return boost::program_options::bool_switch(out);
+    }
+};
+
+template<typename T>
+class make_value_semantic_impl<std::vector<T>>
+{
+public:
+    boost::program_options::typed_value<std::vector<T>> *operator()(std::vector<T> *out) const
+    {
+        return boost::program_options::value<std::vector<T>>(out)->composing();
+    }
+};
+
+} // namespace detail
+
+template<typename T>
+boost::program_options::typed_value<T> *make_value_semantic(T *out)
+{
+    return detail::make_value_semantic_impl<T>()(out);
+}
+
+class option_adder
+{
+private:
+    boost::program_options::options_description &desc;
+    std::map<std::string, std::string> name_map;
+
+public:
+    option_adder(boost::program_options::options_description &desc,
+                 const std::map<std::string, std::string> &name_map = {})
+        : desc(desc), name_map(name_map)
+    {
+    }
+
+    template<typename T>
+    void operator()(const std::string &name, const std::string &description, T *value) const
+    {
+        auto it = name_map.find(name);
+        std::string new_name = it == name_map.end() ? name : it->second;
+        if (!new_name.empty())
+        {
+            desc.add_options()
+                (new_name.c_str(), make_value_semantic(value), description.c_str());
+        }
+    }
+};
+
 struct protocol_options
 {
     bool tcp = false;
@@ -49,9 +129,30 @@ struct protocol_options
 
     void notify();
 
-    boost::program_options::options_description make_options(
-        const std::map<std::string, std::string> &name_map = {});
+    template<typename T>
+    void enumerate(T &&callback)
+    {
+        callback("tcp", "Use TCP instead of UDP", &tcp);
+        callback("pyspead", "Be bug-compatible with PySPEAD", &pyspead);
+    }
 };
+
+template<typename Proto>
+std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
+    boost::asio::io_service &io_service, const std::vector<std::string> &endpoints, bool passive);
+
+template<typename Proto>
+boost::asio::ip::basic_endpoint<Proto> parse_endpoint(
+    boost::asio::io_service &io_service, const std::string &endpoint, bool passive);
+
+template<typename Proto>
+std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
+    const std::vector<std::string> &endpoints, bool passive);
+
+template<typename Proto>
+boost::asio::ip::basic_endpoint<Proto> parse_endpoint(
+    const std::string &endpoint, bool passive);
+
 
 namespace recv
 {
@@ -78,8 +179,27 @@ struct receiver_options
 
     void notify(const protocol_options &protocol);
 
-    boost::program_options::options_description make_options(
-        const std::map<std::string, std::string> &name_map = {});
+    template<typename T>
+    void enumerate(T &&callback)
+    {
+        callback("bind", "Interface address", &interface_address);
+        callback("packet", "Maximum packet size to accept", &max_packet_size);
+        callback("buffer", "Socket buffer size", &buffer_size);
+        callback("concurrent-heaps", "Maximum number of in-flight heaps", &max_heaps);
+        callback("ring-heaps", "Ring buffer capacity in heaps", &ring_heaps);
+        callback("mem-pool", "Use a memory pool", &mem_pool);
+        callback("mem-lower", "Minimum allocation which will use the memory pool", &mem_lower);
+        callback("mem-upper", "Maximum allocation which will use the memory pool", &mem_upper);
+        callback("mem-max-free", "Maximum free memory buffers", &mem_max_free);
+        callback("mem-initial", "Initial free memory buffers", &mem_initial);
+        callback("ring", "Use ringbuffer instead of callbacks", &ring);
+        callback("memcpy-nt", "Use non-temporal memcpy", &memcpy_nt);
+#if SPEAD2_USE_IBV
+        callback("ibv", "Use ibverbs", &ibv);
+        callback("ibv-vector", "Interrupt vector (-1 for polled)", &ibv_comp_vector);
+        callback("ibv-max-poll", "Maximum number of times to poll in a row", &ibv_max_poll);
+#endif
+    }
 
     stream_config make_stream_config(const protocol_options &protocol) const;
     ring_stream_config make_ring_stream_config() const;
@@ -116,8 +236,25 @@ struct sender_options
 
     void notify(const protocol_options &protocol);
 
-    boost::program_options::options_description make_options(
-        const std::map<std::string, std::string> &name_map = {});
+    template<typename T>
+    void enumerate(T &&callback)
+    {
+        callback("addr-bits", "Heap address bits", &heap_address_bits);
+        callback("packet", "Maximum packet size to send", &max_packet_size);
+        callback("bind", "Local address to bind sockets to", &interface_address);
+        callback("buffer", "Socket buffer size", &buffer_size);
+        callback("burst", "Burst size", &burst_size);
+        callback("burst-rate-ratio", "Hard rate limit, relative to --rate", &burst_rate_ratio);
+        callback("max-heaps", "Maximum heaps in flight", &max_heaps);
+        callback("allow-hw-rate", "Use hardware rate limiting if available", &allow_hw_rate);
+        callback("rate", "Transmission rate bound (Gb/s)", &rate);
+        callback("ttl", "TTL for multicast target", &ttl);
+#if SPEAD2_USE_IBV
+        callback("ibv", "Use ibverbs", &ibv);
+        callback("ibv-vector", "Interrupt vector (-1 for polled)", &ibv_comp_vector);
+        callback("ibv-max-poll", "Maximum number of times to poll in a row", &ibv_max_poll);
+#endif
+    }
 
     flavour make_flavour(const protocol_options &protocol) const;
     stream_config make_stream_config() const;
