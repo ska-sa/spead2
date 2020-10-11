@@ -129,9 +129,9 @@ static options parse_args(int argc, const char **argv, command_mode mode)
     std::map<std::string, std::string> protocol_map, receiver_map, sender_map;
     // Empty values suppress options that aren't applicable
     // Memory pool sizes are managed automatically
-    receiver_map["mem_pool"] = "";
-    receiver_map["mem_lower"] = "";
-    receiver_map["mem_upper"] = "";
+    receiver_map["mem-pool"] = "";
+    receiver_map["mem-lower"] = "";
+    receiver_map["mem-upper"] = "";
     switch (mode)
     {
     case command_mode::MEM:
