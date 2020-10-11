@@ -206,6 +206,10 @@ static options parse_args(int argc, const char **argv, command_mode mode)
         {
             throw po::error("too few positional options have been specified on the command line");
         }
+        if (opts.protocol.tcp && !opts.multicast.empty())
+        {
+            throw po::error("--multicast and --tcp are incompatible");
+        }
         if (mode != command_mode::AGENT)
         {
             // Initialise memory pool sizes based on heap size
