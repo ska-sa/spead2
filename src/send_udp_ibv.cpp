@@ -540,7 +540,7 @@ udp_ibv_writer::udp_ibv_writer(
         udp.checksum(0);
     }
 
-    if (cm_id.query_device().device_cap_flags & IBV_DEVICE_RAW_IP_CSUM)
+    if (cm_id.query_device_ex().raw_packet_caps & IBV_RAW_PACKET_CAP_IP_CSUM)
         send_flags = IBV_SEND_IP_CSUM;
     else
         send_flags = 0;
