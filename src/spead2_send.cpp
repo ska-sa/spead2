@@ -73,6 +73,8 @@ static options parse_args(int argc, const char **argv)
     hidden.add_options()
         ("destination", spead2::make_value_semantic(&opts.dest), "Destination host:port")
     ;
+    desc.add_options()
+        ("help,h", "Show help text");
     all.add(desc);
     all.add(hidden);
 
