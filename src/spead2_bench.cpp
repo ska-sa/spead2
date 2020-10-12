@@ -129,13 +129,13 @@ static options parse_args(int argc, const char **argv, command_mode mode)
     std::map<std::string, std::string> protocol_map, receiver_map, sender_map;
     // Empty values suppress options that aren't applicable
     // Memory pool sizes are managed automatically
+    protocol_map["tcp"] = "";
     receiver_map["mem-pool"] = "";
     receiver_map["mem-lower"] = "";
     receiver_map["mem-upper"] = "";
     switch (mode)
     {
     case command_mode::MEM:
-        protocol_map["tcp"] = "";
         receiver_map["buffer"] = "";
         receiver_map["ibv"] = "";
         receiver_map["ibv-vector"] = "";
@@ -207,10 +207,6 @@ static options parse_args(int argc, const char **argv, command_mode mode)
              || (mode == command_mode::AGENT && !vm.count("port")))
         {
             throw po::error("too few positional options have been specified on the command line");
-        }
-        if (opts.protocol.tcp && !opts.multicast.empty())
-        {
-            throw po::error("--multicast and --tcp are incompatible");
         }
 #if SPEAD2_USE_IBV
         if (opts.sender.ibv && opts.multicast.empty())
