@@ -212,6 +212,12 @@ static options parse_args(int argc, const char **argv, command_mode mode)
         {
             throw po::error("--multicast and --tcp are incompatible");
         }
+#if SPEAD2_USE_IBV
+        if (opts.sender.ibv && opts.multicast.empty())
+        {
+            throw po::error("--send-ibv requires --multicast");
+        }
+#endif
         if (mode != command_mode::AGENT)
         {
             // Initialise memory pool sizes based on heap size
