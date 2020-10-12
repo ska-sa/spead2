@@ -335,7 +335,8 @@ static std::pair<bool, double> measure_connection_once(
 
         /* Construct the stream */
         spead2::send::sender_options sender_options = opts.sender;
-        sender_options.rate = rate;
+        // sender_options expects rate in Gb/s
+        sender_options.rate = rate * 8e-9;
 
         spead2::thread_pool thread_pool;
         spead2::flavour flavour = sender_options.make_flavour(opts.protocol);
