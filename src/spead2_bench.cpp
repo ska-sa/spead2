@@ -156,6 +156,8 @@ static options parse_args(int argc, const char **argv, command_mode mode)
         sender_map["ibv-max-poll"] = "send-max-poll";
         sender_map["rate"] = "";   // Controlled by test
         break;
+    case command_mode::AGENT:
+        break;
     }
 
     if (mode == command_mode::MASTER || mode == command_mode::MEM)
