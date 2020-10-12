@@ -219,11 +219,8 @@ static options parse_args(int argc, const char **argv, command_mode mode)
             opts.receiver.mem_upper = opts.heap_size + 1024;  // more than enough for overheads
             opts.protocol.notify();
             opts.receiver.notify(opts.protocol);
-            if (mode == command_mode::MASTER)
-            {
-                opts.sender.max_packet_size = *opts.receiver.max_packet_size;
-                opts.sender.notify(opts.protocol);
-            }
+            opts.sender.max_packet_size = *opts.receiver.max_packet_size;
+            opts.sender.notify(opts.protocol);
         }
         return opts;
     }
