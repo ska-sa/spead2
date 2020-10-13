@@ -173,7 +173,14 @@ async def measure_connection_once(args, rate, num_heaps, required_heaps):
         thread_pool = spead2.ThreadPool(1, args.send_affinity[1:] + args.send_affinity[:1])
     else:
         thread_pool = spead2.ThreadPool()
-    thread_pool = spead2.ThreadPool()
+
+    item_group = spead2.send.ItemGroup(
+        flavour=spead2.Flavour(4, 64, args.addr_bits, 0))
+    item_group.add_item(id=None, name='Test item',
+                        description='A test item with arbitrary value',
+                        shape=(args.heap_size,), dtype=np.uint8,
+                        value=np.zeros((args.heap_size,), dtype=np.uint8))
+
     config = spead2.send.StreamConfig(
         max_packet_size=args.packet,
         burst_size=args.burst,
@@ -186,17 +193,20 @@ async def measure_connection_once(args, rate, num_heaps, required_heaps):
         host = args.multicast
     if 'send_ibv' in args and args.send_ibv is not None:
         stream = spead2.send.asyncio.UdpIbvStream(
-            thread_pool, [(host, args.port)], config, args.send_ibv, args.send_buffer,
-            1, args.send_ibv_vector, args.send_ibv_max_poll)
+            thread_pool,
+            config,
+            spead2.send.UdpIbvStreamConfig(
+                endpoints=[(host, args.port)],
+                interface_address=args.send_ibv,
+                buffer_size=args.send_buffer,
+                comp_vector=args.send_ibv_vector,
+                max_poll=args.send_ibv_max_poll,
+                memory_regions=[item.value for item in item_group.values()]
+            )
+        )
     else:
         stream = spead2.send.asyncio.UdpStream(
             thread_pool, [(host, args.port)], config, args.send_buffer)
-    item_group = spead2.send.ItemGroup(
-        flavour=spead2.Flavour(4, 64, args.addr_bits, 0))
-    item_group.add_item(id=None, name='Test item',
-                        description='A test item with arbitrary value',
-                        shape=(args.heap_size,), dtype=np.uint8,
-                        value=np.zeros((args.heap_size,), dtype=np.uint8))
 
     start = timeit.default_timer()
     transferred = await send_stream(item_group, stream, num_heaps, args)
@@ -302,7 +312,7 @@ def main():
         group.add_argument('--send-ibv-vector', type=int, default=0, metavar='N',
                            help='Completion vector, or -1 to use polling [%(default)s]')
         group.add_argument('--send-ibv-max-poll', type=int,
-                           default=spead2.send.UdpIbvStream.DEFAULT_MAX_POLL,
+                           default=spead2.send.UdpIbvStreamConfig.DEFAULT_MAX_POLL,
                            help='Maximum number of times to poll in a row [%(default)s]')
     group = master.add_argument_group('receiver options')
     group.add_argument('--recv-affinity', type=spead2.parse_range_list,

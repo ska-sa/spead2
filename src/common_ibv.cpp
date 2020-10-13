@@ -376,7 +376,7 @@ ibv_qp_t::ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_qp_init_attr_ex *init_attr)
 ibv_mr_t::ibv_mr_t(const ibv_pd_t &pd, void *addr, std::size_t length, int access)
 {
     errno = 0;
-    ibv_mr * mr = ibv_reg_mr(pd.get(), addr, length, IBV_ACCESS_LOCAL_WRITE);
+    ibv_mr * mr = ibv_reg_mr(pd.get(), addr, length, access);
     if (!mr)
         throw_errno("ibv_reg_mr failed");
     reset(mr);

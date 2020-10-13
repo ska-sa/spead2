@@ -142,6 +142,8 @@ class rdma_event_channel_t : public std::unique_ptr<rdma_event_channel, detail::
 {
 public:
     rdma_event_channel_t();
+    // Allow explicitly creating an uninitialized unique_ptr
+    rdma_event_channel_t(std::nullptr_t) {}
 };
 
 class rdma_cm_id_t : public std::unique_ptr<rdma_cm_id, detail::rdma_cm_id_deleter>

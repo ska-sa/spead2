@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017 SKA South Africa
+/* Copyright 2015, 2017, 2020 SKA South Africa
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -235,7 +235,7 @@ public:
 };
 
 // Like pybind11::buffer::request, but allows extra flags to be passed
-pybind11::buffer_info request_buffer_info(pybind11::buffer &buffer, int extra_flags);
+pybind11::buffer_info request_buffer_info(const pybind11::buffer &buffer, int extra_flags);
 
 void register_module(pybind11::module m);
 

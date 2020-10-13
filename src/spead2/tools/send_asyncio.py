@@ -99,7 +99,7 @@ def get_args():
         group.add_argument('--ibv-vector', type=int, default=0, metavar='N',
                            help='Completion vector, or -1 to use polling [%(default)s]')
         group.add_argument('--ibv-max-poll', type=int,
-                           default=spead2.send.UdpIbvStream.DEFAULT_MAX_POLL,
+                           default=spead2.send.UdpIbvStreamConfig.DEFAULT_MAX_POLL,
                            help='Maximum number of times to poll in a row [%(default)s]')
 
     args = parser.parse_args()
@@ -195,8 +195,18 @@ async def async_main():
             thread_pool, args.destination, config, args.buffer, args.bind)
     elif 'ibv' in args and args.ibv:
         stream = spead2.send.asyncio.UdpIbvStream(
-            thread_pool, args.destination, config, args.bind,
-            args.buffer, args.ttl or 1, args.ibv_vector, args.ibv_max_poll)
+            thread_pool,
+            config,
+            spead2.send.UdpIbvStreamConfig(
+                endpoints=args.destination,
+                interface_address=args.bind,
+                buffer_size=args.buffer,
+                ttl=args.ttl or 1,
+                comp_vector=args.ibv_vector,
+                max_poll=args.ibv_max_poll,
+                memory_regions=[item.value for item in item_group.values()]
+            )
+        )
     else:
         kwargs = {}
         if args.ttl is not None:

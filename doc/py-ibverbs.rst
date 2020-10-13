@@ -127,21 +127,17 @@ of :py:class:`spead2.send.UdpStream`. It has a different constructor, but the
 same methods. There is also a :py:class:`spead2.send.asyncio.UdpIbvStream`
 class, analogous to :py:class:`spead2.send.asyncio.UdpStream`.
 
-.. py:class:: spead2.send.UdpIbvStream(thread_pool, endpoints, config, interface_address, buffer_size, ttl=1, comp_vector=0, max_poll=DEFAULT_MAX_POLL)
+There is an additional configuration class for ibverbs-specific
+configuration:
 
-   Create a multicast IPv4 UDP stream using the ibverbs API
+.. py:class:: spead2.send.UdpIbvStreamConfig(*, endpoints=[], interface_address='', buffer_size=DEFAULT_BUFFER_SIZE, ttl=1, comp_vector=0, max_poll=DEFAULT_MAX_POLL, memory_regions=[])
 
-   :param thread_pool: Thread pool handling the I/O
-   :type thread_pool: :py:class:`spead2.ThreadPool`
    :param List[Tuple[str, int]] endpoints: Peer endpoints (one per substream)
-   :param config: Stream configuration
-   :type config: :py:class:`spead2.send.StreamConfig`
    :param str interface_address: Hostname/IP address of the interface which
      will be subscribed
-   :param int buffer_size: Socket buffer size. A warning is logged if this
-     size cannot be set due to OS limits.
-   :param int ttl: Multicast TTL
    :param int buffer_size: Requested memory allocation for work requests.
+     It may be adjusted to an integer number of packets.
+   :param int ttl: Multicast TTL
    :param int comp_vector: Completion channel vector (interrupt)
      for asynchronous operation, or
      a negative value to poll continuously. Polling
@@ -156,3 +152,25 @@ class, analogous to :py:class:`spead2.send.asyncio.UdpStream`.
      waiting for an interrupt (if `comp_vector` is
      non-negative) or letting other code run on the
      thread (if `comp_vector` is negative).
+   :param List[object] memory_regions: Objects implementing the buffer
+     protocol that will be used to hold item data. This is not required, but
+     data stored in these buffers may be transmitted directly without
+     requiring a copy, yielding higher performance. There may be
+     platform-specific limitations on the size and number of these buffers.
+
+   The constructor arguments are also instance attributes. Note that
+   they are implemented as properties that return copies of the state, which
+   means that mutating `endpoints` or `memory_regions` (for example, with
+   :py:meth:`~list.append`) will not have any effect as only the copy will be
+   modified. The entire list must be assigned to update it.
+
+.. py:class:: spead2.send.UdpIbvStream(thread_pool, config, udp_ibv_config)
+
+   Create a multicast IPv4 UDP stream using the ibverbs API
+
+   :param thread_pool: Thread pool handling the I/O
+   :type thread_pool: :py:class:`spead2.ThreadPool`
+   :param config: Stream configuration
+   :type config: :py:class:`spead2.send.StreamConfig`
+   :param udp_ibv_config: Additional stream configuration
+   :type udp_ibv_config: :py:class:`spead2.send.UdpIbvStreamConfig`

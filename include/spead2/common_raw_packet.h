@@ -93,8 +93,8 @@ public:
     packet_buffer(void *ptr, std::size_t length);
     operator boost::asio::mutable_buffer() const;
 
-    std::uint8_t *data() const;
-    std::size_t size() const;
+    std::uint8_t *data() const { return ptr; }
+    std::size_t size() const { return length; }
 };
 
 #define SPEAD2_DECLARE_FIELD(offset, type, name, transform) \

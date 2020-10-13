@@ -8,5 +8,8 @@ the :cpp:class:`spead2::recv::udp_ibv_reader` and
 .. doxygenclass:: spead2::recv::udp_ibv_reader
    :members: udp_ibv_reader
 
+.. doxygenclass:: spead2::send::udp_ibv_stream_config
+   :members:
+
 .. doxygenclass:: spead2::send::udp_ibv_stream
    :members: udp_ibv_stream

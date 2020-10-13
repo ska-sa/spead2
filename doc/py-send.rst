@@ -149,7 +149,8 @@ substream (for backwards compatibility).
 
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
-   :param List[Tuple[str, int]] endpoints: Peer endpoints (one per substream)
+   :param endpoints: Peer endpoints (one per substream)
+   :type endpoints: List[Tuple[str, int]]
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this

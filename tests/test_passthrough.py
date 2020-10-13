@@ -458,17 +458,52 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
             receiver.add_udp_ibv_reader([(self.MCAST_GROUP, 8876 + i)], self._interface_address())
 
     def prepare_senders(self, thread_pool, n):
+        # The buffer size is deliberately reduced so that we test the
+        # wrapping once the buffer has been used up
         if n == 1:
-            return spead2.send.UdpIbvStream(
-                thread_pool, self.MCAST_GROUP, 8876,
-                spead2.send.StreamConfig(rate=1e7),
-                self._interface_address())
+            with pytest.deprecated_call():
+                return spead2.send.UdpIbvStream(
+                    thread_pool, self.MCAST_GROUP, 8876,
+                    spead2.send.StreamConfig(rate=1e7),
+                    self._interface_address(),
+                    buffer_size=64 * 1024)
         else:
             return spead2.send.UdpIbvStream(
                 thread_pool,
-                [(self.MCAST_GROUP, 8876 + i) for i in range(n)],
                 spead2.send.StreamConfig(rate=1e7),
-                self._interface_address())
+                spead2.send.UdpIbvStreamConfig(
+                    endpoints=[(self.MCAST_GROUP, 8876 + i) for i in range(n)],
+                    interface_address=self._interface_address(),
+                    buffer_size=64 * 1024
+                )
+            )
+
+    @pytest.mark.parametrize('num_items', [0, 1, 3, 4, 10])
+    def test_memory_regions(self, num_items):
+        receiver = spead2.recv.Stream(spead2.ThreadPool(), spead2.recv.StreamConfig())
+        receiver.add_udp_ibv_reader([(self.MCAST_GROUP, 8876)], self._interface_address())
+
+        ig = spead2.send.ItemGroup()
+        data = [np.random.randn(50) for i in range(num_items)]
+        for i in range(num_items):
+            ig.add_item(id=0x2345 + i, name=f'name {i}', description=f'description {i}',
+                        shape=data[i].shape, dtype=data[i].dtype, value=data[i])
+        sender = spead2.send.UdpIbvStream(
+            spead2.ThreadPool(),
+            spead2.send.StreamConfig(rate=1e7),
+            spead2.send.UdpIbvStreamConfig(
+                endpoints=[(self.MCAST_GROUP, 8876)],
+                interface_address=self._interface_address(),
+                memory_regions=data
+            )
+        )
+        sender.send_heap(ig.get_heap())
+        sender.send_heap(ig.get_end())
+
+        recv_ig = spead2.ItemGroup()
+        for heap in receiver:
+            recv_ig.update(heap)
+        assert_item_groups_equal(ig, recv_ig)
 
 
 class TestPassthroughTcp(BaseTestPassthrough):

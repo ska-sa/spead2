@@ -129,11 +129,24 @@ class UdpStream(_UdpStream, _SyncStream):
                  config: StreamConfig = ...) -> None: ...
 
 
-class _UdpIbvStream:
+class UdpIbvStreamConfig:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
     DEFAULT_MAX_POLL: ClassVar[int]
 
-class UdpIbvStream(_UdpIbvStream, _SyncStream):
+    endpoints: _EndpointList
+    interface_address: str
+    buffer_size: int
+    ttl: int
+    comp_vector: int
+    max_poll: int
+    memory_regions: list
+
+    def __init__(self, *, endpoints: _EndpointList = ..., interface_address: str = ...,
+                 buffer_size: int = ..., ttl: int = ..., comp_vector: int = ...,
+                 max_poll: int = ..., memory_regions: list = ...) -> None: ...
+
+
+class UdpIbvStream(_SyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  multicast_group: _PybindStr, port: int,
@@ -144,11 +157,8 @@ class UdpIbvStream(_UdpIbvStream, _SyncStream):
 
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 endpoints: _EndpointList,
                  config: StreamConfig,
-                 interface_address: _PybindStr,
-                 buffer_size: int = ..., ttl: int = ...,
-                 comp_vector: int = ..., max_pool: int = ...) -> None: ...
+                 udp_ibv_config: UdpIbvStreamConfig) -> None: ...
 
 
 class _TcpStream:
