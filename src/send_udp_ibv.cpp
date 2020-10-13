@@ -62,6 +62,12 @@ private:
         ibv_mr_t mr;
 
         memory_region(const ibv_pd_t &pd, const void *ptr, std::size_t size);
+
+        /* Used purely to construct a memory region for comparison e.g. with
+         * std::set<memory_region>::lower_bound. Remove once c++14 is the
+         * minimum version, since it allows types other than the key type for
+         * lower_bound.
+         */
         memory_region(const void *ptr, std::size_t size);
 
         bool operator<(const memory_region &other) const
@@ -202,13 +208,7 @@ bool udp_ibv_writer::setup_hw_rate(const ibv_qp_t &qp, const stream_config &conf
     ibv_qp_rate_limit_attr limit_attr = {};
     limit_attr.rate_limit = rate_kbps;
     limit_attr.typical_pkt_sz = frame_size;
-    /* Using config.get_max_burst_size() would cause much longer bursts than
-     * necessary if the user did not explicitly turn down the default.
-     * Experience with ConnectX-5 shows that it can limit bursts to a single
-     * packet with little loss in rate accuracy. If max_burst_sz is set to less
-     * than typical_pkt_size it is ignored and a default is used.
-     */
-    limit_attr.max_burst_sz = frame_size;
+    limit_attr.max_burst_sz = std::max(frame_size, config.get_burst_size());
     if (ibv_modify_qp_rate_limit(qp.get(), &limit_attr) != 0)
     {
         log_debug("Not using HW rate limiting because ibv_modify_qp_rate_limit failed");
@@ -412,20 +412,23 @@ void udp_ibv_writer::wakeup()
              */
             post_wakeup();
         }
+        else if (result == packet_result::SLEEP)
+        {
+            /* Experimentally it seems that if this condition and the next one
+             * both hold, it is better to sleep than to wait for completions
+             * ("better" meaning more likely to hit the target rate),
+             * presumably because it favours getting more packets into the
+             * send queue as soon as possible.
+             */
+            sleep();
+        }
         else if (available < n_slots)
         {
             /* We ran out of packets and completions, but we need to monitor
-             * the CQ for future completions. If the result is SLEEP then we
-             * could call sleep() instead (and ideally we'd wait for whichever
-             * happens first). However, if we get SLEEP then we're using
-             * software rate limiting, which means we're likely to see some
-             * completions before it's time to wake up again (because the
-             * hardware will complete packets at line rate).
+             * the CQ for future completions.
              */
             wait_for_space();
         }
-        else if (result == packet_result::SLEEP)
-            sleep();
         else
         {
             assert(result == packet_result::EMPTY);

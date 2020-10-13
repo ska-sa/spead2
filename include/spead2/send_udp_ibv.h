@@ -73,7 +73,7 @@ public:
     /// Get the configured endpoints
     const std::vector<boost::asio::ip::udp::endpoint> &get_endpoints() const { return endpoints; }
     /**
-     * Set all endpoints at once. Each endpoint corresponds to a substream.
+     * Set the endpoints (replacing any previous). Each endpoint corresponds to a substream.
      *
      * @throws std::invalid_argument if any element of @a endpoints is not an IPv4 multicast address.
      */
