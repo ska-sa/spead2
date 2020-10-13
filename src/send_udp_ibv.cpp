@@ -208,13 +208,7 @@ bool udp_ibv_writer::setup_hw_rate(const ibv_qp_t &qp, const stream_config &conf
     ibv_qp_rate_limit_attr limit_attr = {};
     limit_attr.rate_limit = rate_kbps;
     limit_attr.typical_pkt_sz = frame_size;
-    /* Using config.get_max_burst_size() would cause much longer bursts than
-     * necessary if the user did not explicitly turn down the default.
-     * Experience with ConnectX-5 shows that it can limit bursts to a single
-     * packet with little loss in rate accuracy. If max_burst_sz is set to less
-     * than typical_pkt_size it is ignored and a default is used.
-     */
-    limit_attr.max_burst_sz = frame_size;
+    limit_attr.max_burst_sz = std::max(frame_size, config.get_burst_size());
     if (ibv_modify_qp_rate_limit(qp.get(), &limit_attr) != 0)
     {
         log_debug("Not using HW rate limiting because ibv_modify_qp_rate_limit failed");
