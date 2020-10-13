@@ -113,6 +113,7 @@ private:
     std::size_t head = 0, tail = 0;
     std::size_t available;
     const int max_poll;
+    unsigned int send_flags;
 
     static ibv_qp_t
     create_qp(const ibv_pd_t &pd, const ibv_cq_t &send_cq, const ibv_cq_t &recv_cq,
@@ -336,7 +337,8 @@ void udp_ibv_writer::wakeup()
                 ipv4.destination_address(endpoint.address().to_v4());
                 udp.destination_port(endpoint.port());
             }
-            ipv4.update_checksum();
+            if (!(send_flags & IBV_SEND_IP_CSUM))
+                ipv4.update_checksum();
             packet_buffer payload = udp.payload();
             s->wr.num_sge = 1;
             // TODO: addr and lkey can be fixed by constructor
@@ -390,7 +392,7 @@ void udp_ibv_writer::wakeup()
                 }
             }
             s->wr.next = nullptr;
-            s->wr.send_flags = 0;
+            s->wr.send_flags = send_flags;
             s->item = data.item;
             s->last = data.last;
             if (prev != nullptr)
@@ -405,7 +407,7 @@ void udp_ibv_writer::wakeup()
         if (i > 0)
         {
             prev->wr.wr_id = i;
-            prev->wr.send_flags = IBV_SEND_SIGNALED;
+            prev->wr.send_flags |= IBV_SEND_SIGNALED;
             qp.post_send(&first->wr);
         }
 
@@ -543,6 +545,11 @@ udp_ibv_writer::udp_ibv_writer(
         udp.length(config.get_max_packet_size() + udp_packet::min_size);
         udp.checksum(0);
     }
+
+    if (cm_id.query_device_ex().raw_packet_caps & IBV_RAW_PACKET_CAP_IP_CSUM)
+        send_flags = IBV_SEND_IP_CSUM;
+    else
+        send_flags = 0;
 }
 
 } // anonymous namespace

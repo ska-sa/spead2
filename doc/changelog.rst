@@ -13,6 +13,8 @@ Other changes:
 - Allow ibverbs senders to register memory regions for zero-copy
   transmission.
 - Add C++ preprocessor defines for the version number.
+- Use IP/UDP checksum offloading for sending with ibverbs (improves
+  performance and also adds UDP checksum which is otherwise omitted).
 - Drop support for Python 3.5, which is end-of-life.
 - Change code examples to use standard SPEAD rather than PySPEAD bug
   compatibility.
