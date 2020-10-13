@@ -15,7 +15,7 @@
  */
 
 /**
- * @file Shared command-line processing for tools
+ * @file Shared command-line processing for tools.
  */
 
 #ifndef SPEAD2_CMDLINE_H
@@ -44,56 +44,31 @@
 namespace spead2
 {
 
-namespace detail
+template<typename T>
+static inline boost::program_options::typed_value<T> *
+make_value_semantic(T *out)
 {
+    return boost::program_options::value<T>(out)->default_value(*out);
+}
 
 template<typename T>
-class make_value_semantic_impl
+static inline boost::program_options::typed_value<boost::optional<T>> *
+make_value_semantic(boost::optional<T> *out)
 {
-public:
-    boost::program_options::typed_value<T> *operator()(T *out) const
-    {
-        return boost::program_options::value<T>(out)->default_value(*out);
-    }
-};
+    return boost::program_options::value(out);
+}
 
 template<typename T>
-class make_value_semantic_impl<boost::optional<T>>
+static inline boost::program_options::typed_value<std::vector<T>> *
+make_value_semantic(std::vector<T> *out)
 {
-public:
-    boost::program_options::typed_value<boost::optional<T>> *operator()(boost::optional<T> *out) const
-    {
-        return boost::program_options::value<boost::optional<T>>(out);
-    }
-};
+    return boost::program_options::value(out)->composing();
+}
 
-template<>
-class make_value_semantic_impl<bool>
+static inline boost::program_options::typed_value<bool> *
+make_value_semantic(bool *out)
 {
-public:
-    boost::program_options::typed_value<bool> *operator()(bool *out) const
-    {
-        assert(!*out);
-        return boost::program_options::bool_switch(out);
-    }
-};
-
-template<typename T>
-class make_value_semantic_impl<std::vector<T>>
-{
-public:
-    boost::program_options::typed_value<std::vector<T>> *operator()(std::vector<T> *out) const
-    {
-        return boost::program_options::value<std::vector<T>>(out)->composing();
-    }
-};
-
-} // namespace detail
-
-template<typename T>
-boost::program_options::typed_value<T> *make_value_semantic(T *out)
-{
-    return detail::make_value_semantic_impl<T>()(out);
+    return boost::program_options::bool_switch(out);
 }
 
 class option_adder
