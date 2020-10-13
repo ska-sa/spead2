@@ -26,6 +26,7 @@
 #include <vector>
 #include <map>
 #include <utility>
+#include <cassert>
 #include <istream>
 #include <ostream>
 #include <boost/asio.hpp>
@@ -68,6 +69,7 @@ make_value_semantic(std::vector<T> *out)
 static inline boost::program_options::typed_value<bool> *
 make_value_semantic(bool *out)
 {
+    assert(!*out);    // Cannot make it a bool switch if the default is true.
     return boost::program_options::bool_switch(out);
 }
 
