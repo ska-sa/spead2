@@ -16,6 +16,20 @@
 
 /**
  * @file Shared command-line processing for tools.
+ *
+ * This is not (yet) intended to be a generic library for user programs; it's
+ * goal is just to support the shipped spead2 demonstration programs. It
+ * provides several classes which hold command-line options, each of which
+ * provides an @c enumerate template member function. That in turn makes
+ * callbacks for the elements of the structure, providing a command-line option
+ * name, description and pointer. Typically it will be used with @ref
+ * option_adder to register command-line options, but it can be used for other
+ * purposes (e.g., spead2_bench.cpp uses it to serialise options between the
+ * master and agent).
+ *
+ * Each option class also has a @ref notify method that does any final
+ * adjustments on the class after the options are set, and validates that
+ * the options make sense together.
  */
 
 #ifndef SPEAD2_CMDLINE_H
@@ -27,8 +41,6 @@
 #include <map>
 #include <utility>
 #include <cassert>
-#include <istream>
-#include <ostream>
 #include <boost/asio.hpp>
 #include <boost/program_options.hpp>
 #include <boost/optional.hpp>
@@ -45,6 +57,14 @@
 namespace spead2
 {
 
+/**
+ * Create a boost_program_options value semantic for a field.
+ *
+ * Unlike calling <code>po::value(out)</code> directory, this function will
+ * - Set the default value to *out, unless it is a boost::optional or std::vector.
+ * - Use @c po::bool_switch if it is a boolean.
+ * - Use @c composing if it is a vector.
+ */
 template<typename T>
 static inline boost::program_options::typed_value<T> *
 make_value_semantic(T *out)
@@ -73,6 +93,12 @@ make_value_semantic(bool *out)
     return boost::program_options::bool_switch(out);
 }
 
+/**
+ * Enumeration callback that adds options to a @c po::options_description.
+ *
+ * A map may be provided to remap the option names. Options can also be
+ * suppressed by mapping them to the empty string.
+ */
 class option_adder
 {
 private:
@@ -99,6 +125,7 @@ public:
     }
 };
 
+/// Command-line options that the sender and receiver must agree on exactly.
 struct protocol_options
 {
     bool tcp = false;
@@ -114,14 +141,20 @@ struct protocol_options
     }
 };
 
+/**
+ * Do name resolution on endpoints in the form <address>:<port>.
+ * If @a passive is true, endpoints can also be just ports with no address.
+ */
 template<typename Proto>
 std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
     boost::asio::io_service &io_service, const std::vector<std::string> &endpoints, bool passive);
 
+/// Like @ref parse_endpoints, but for a single endpoint.
 template<typename Proto>
 boost::asio::ip::basic_endpoint<Proto> parse_endpoint(
     boost::asio::io_service &io_service, const std::string &endpoint, bool passive);
 
+// Variants which provide their own io_service
 template<typename Proto>
 std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
     const std::vector<std::string> &endpoints, bool passive);
@@ -134,6 +167,7 @@ boost::asio::ip::basic_endpoint<Proto> parse_endpoint(
 namespace recv
 {
 
+/// Command-line options for a receiver.
 struct receiver_options
 {
     bool ring = false;
@@ -178,9 +212,18 @@ struct receiver_options
 #endif
     }
 
+    /// Create a @ref stream_config from the provided options
     stream_config make_stream_config(const protocol_options &protocol) const;
+
+    /// Create a @ref ring_stream_config from the provided options
     ring_stream_config make_ring_stream_config() const;
 
+    /**
+     * Add reader(s) to a stream.
+     *
+     * If @a allow_pcap is true, endpoints that don't parse as a port number
+     * are assumed to be filenames and added with @ref udp_pcap_file_reader.
+     */
     void add_readers(
         spead2::recv::stream &stream,
         const std::vector<std::string> &endpoints,
@@ -193,6 +236,7 @@ struct receiver_options
 namespace send
 {
 
+/// Command-line options for senders
 struct sender_options
 {
     int heap_address_bits = spead2::flavour().get_heap_address_bits();
@@ -233,9 +277,17 @@ struct sender_options
 #endif
     }
 
+    /// Generate a @ref flavour from the options
     flavour make_flavour(const protocol_options &protocol) const;
+
+    /// Generate a @ref stream_config from the options
     stream_config make_stream_config() const;
 
+    /**
+     * Create a new stream from the options.
+     *
+     * @a memory_regions is used with @ref udp_ibv_stream.
+     */
     std::unique_ptr<stream> make_stream(
         boost::asio::io_service &io_service,
         const protocol_options &protocol,
