@@ -80,26 +80,11 @@ std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
 }
 
 template<typename Proto>
-boost::asio::ip::basic_endpoint<Proto> parse_endpoint(
-    boost::asio::io_service &io_service, const std::string &endpoint, bool passive)
-{
-    return parse_endpoints<Proto>(io_service, {endpoint}, passive)[0];
-}
-
-template<typename Proto>
 std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
     const std::vector<std::string> &endpoints, bool passive)
 {
     boost::asio::io_service io_service;
     return parse_endpoints<Proto>(io_service, endpoints, passive);
-}
-
-template<typename Proto>
-boost::asio::ip::basic_endpoint<Proto> parse_endpoint(
-    const std::string &endpoint, bool passive)
-{
-    boost::asio::io_service io_service;
-    return parse_endpoint<Proto>(io_service, endpoint, passive);
 }
 
 // Explicitly instantiate for TCP and UDP
@@ -113,15 +98,6 @@ template std::vector<boost::asio::ip::udp::endpoint> parse_endpoints<boost::asio
 template std::vector<boost::asio::ip::tcp::endpoint> parse_endpoints<boost::asio::ip::tcp>(
     const std::vector<std::string> &endpoints, bool passive);
 
-template boost::asio::ip::udp::endpoint parse_endpoint<boost::asio::ip::udp>(
-    boost::asio::io_service &io_service, const std::string &endpoint, bool passive);
-template boost::asio::ip::tcp::endpoint parse_endpoint<boost::asio::ip::tcp>(
-    boost::asio::io_service &io_service, const std::string &endpoint, bool passive);
-
-template boost::asio::ip::udp::endpoint parse_endpoint<boost::asio::ip::udp>(
-    const std::string &endpoint, bool passive);
-template boost::asio::ip::tcp::endpoint parse_endpoint<boost::asio::ip::tcp>(
-    const std::string &endpoint, bool passive);
 
 void protocol_options::notify()
 {

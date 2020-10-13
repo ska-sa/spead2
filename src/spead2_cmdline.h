@@ -151,8 +151,11 @@ std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
 
 /// Like @ref parse_endpoints, but for a single endpoint.
 template<typename Proto>
-boost::asio::ip::basic_endpoint<Proto> parse_endpoint(
-    boost::asio::io_service &io_service, const std::string &endpoint, bool passive);
+static inline boost::asio::ip::basic_endpoint<Proto> parse_endpoint(
+    boost::asio::io_service &io_service, const std::string &endpoint, bool passive)
+{
+    return parse_endpoints<Proto>(io_service, {endpoint}, passive)[0];
+}
 
 // Variants which provide their own io_service
 template<typename Proto>
@@ -160,9 +163,11 @@ std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
     const std::vector<std::string> &endpoints, bool passive);
 
 template<typename Proto>
-boost::asio::ip::basic_endpoint<Proto> parse_endpoint(
-    const std::string &endpoint, bool passive);
-
+static inline boost::asio::ip::basic_endpoint<Proto> parse_endpoint(
+    const std::string &endpoint, bool passive)
+{
+    return parse_endpoints<Proto>({endpoint}, passive)[0];
+}
 
 namespace recv
 {
