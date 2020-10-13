@@ -412,20 +412,23 @@ void udp_ibv_writer::wakeup()
              */
             post_wakeup();
         }
+        else if (result == packet_result::SLEEP)
+        {
+            /* Experimentally it seems that if this condition and the next one
+             * both hold, it is better to sleep than to wait for completions
+             * ("better" meaning more likely to hit the target rate),
+             * presumably because it favours getting more packets into the
+             * send queue as soon as possible.
+             */
+            sleep();
+        }
         else if (available < n_slots)
         {
             /* We ran out of packets and completions, but we need to monitor
-             * the CQ for future completions. If the result is SLEEP then we
-             * could call sleep() instead (and ideally we'd wait for whichever
-             * happens first). However, if we get SLEEP then we're using
-             * software rate limiting, which means we're likely to see some
-             * completions before it's time to wake up again (because the
-             * hardware will complete packets at line rate).
+             * the CQ for future completions.
              */
             wait_for_space();
         }
-        else if (result == packet_result::SLEEP)
-            sleep();
         else
         {
             assert(result == packet_result::EMPTY);
