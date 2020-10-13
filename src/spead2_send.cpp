@@ -55,7 +55,7 @@ struct options
     std::size_t burst = spead2::send::stream_config::default_burst_size;
     double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
     std::size_t max_heaps = spead2::send::stream_config::default_max_heaps;
-    bool no_hw_rate = false;
+    bool allow_hw_rate = false;
     double rate = 0.0;
     int ttl = 1;
 #if SPEAD2_USE_IBV
@@ -105,7 +105,7 @@ static options parse_args(int argc, const char **argv)
         ("buffer", make_opt_no_default(opts.buffer), "Socket buffer size")
         ("burst", make_opt(opts.burst), "Burst size")
         ("burst-rate-ratio", make_opt(opts.burst_rate_ratio), "Hard rate limit, relative to --rate")
-        ("no-hw-rate", make_opt(opts.no_hw_rate), "Do not use hardware rate limiting")
+        ("allow-hw-rate", make_opt(opts.allow_hw_rate), "Use hardware rate limiting if available")
         ("max-heaps", make_opt(opts.max_heaps), "Maximum heaps in flight")
         ("rate", make_opt(opts.rate), "Transmission rate bound (Gb/s)")
         ("ttl", make_opt(opts.ttl), "TTL for multicast target")
@@ -364,7 +364,7 @@ int main(int argc, const char **argv)
     config.set_burst_size(opts.burst);
     config.set_max_heaps(opts.max_heaps);
     config.set_burst_rate_ratio(opts.burst_rate_ratio);
-    config.set_allow_hw_rate(!opts.no_hw_rate);
+    config.set_allow_hw_rate(opts.allow_hw_rate);
     std::unique_ptr<spead2::send::stream> stream;
     auto &io_service = thread_pool.get_io_service();
     boost::asio::ip::address interface_address;
