@@ -130,7 +130,7 @@ void tcp_writer::wakeup()
             heaps_completed(1);
         wakeup();
     };
-    socket.async_send(data.pkt.buffers, std::move(handler));
+    boost::asio::async_write(socket, data.pkt.buffers, std::move(handler));
 }
 
 void tcp_writer::start()
