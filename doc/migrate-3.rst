@@ -111,6 +111,15 @@ argument. As of Python 3.6 (which is now the minimum supported version),
 :py:func:`asyncio.get_event_loop` returns the executing event loop, so there
 is no need to pass the loop explicitly.
 
+Command-line arguments in tools
+-------------------------------
+The command-line handling in :program:`spead2_send`, :program:`spead2_recv` and
+:program:`spead2_bench` has been overhauled and made more consistent. For
+example, :program:`spead_bench` now supports the :option:`!--ttl` option, and
+:option:`!--send-ibv` is now an argument-less flag with the interface address given
+by :option:`!--send-bind` (and similarly for receive). See the help for each
+command for details of the current options.
+
 Removal of deprecated functionality
 -----------------------------------
 The following functions were deprecated in version 2 and have been removed in version 3:
