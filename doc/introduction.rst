@@ -100,7 +100,7 @@ be disabled by passing options to :program:`configure` (run ``./configure -h``
 to see a list of options).
 
 One option that may squeeze out a very small amount of extra performance is
-:option:`--enable-lto` to enable link-time optimization. Up to version 1.2.0
+:option:`!--enable-lto` to enable link-time optimization. Up to version 1.2.0
 this was enabled by default, but it has been disabled because it often needs
 other compiler or OS-specific configuration to make it work. For GCC, typical
 usage is
