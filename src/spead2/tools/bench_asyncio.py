@@ -247,7 +247,7 @@ async def run_master(args, protocol, sender, receiver):
             rate = (low + high) * 0.5
             num_heaps = int(max(1e9, rate) / args.heap_size) + 2
             good, actual_rate = await measure_connection(
-                args, sender, rate, num_heaps, num_heaps - 1)
+                args, protocol, sender, receiver, rate, num_heaps, num_heaps - 1)
             if not args.quiet:
                 print("Rate: {:.3f} Gbps ({:.3f} actual): {}".format(
                     rate * 8e-9, actual_rate * 8e-9, "GOOD" if good else "BAD"))
