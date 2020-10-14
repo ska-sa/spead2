@@ -37,8 +37,7 @@ from . import cmdline
 def parse_endpoint(endpoint):
     if ':' not in endpoint:
         raise ValueError('destination must have the form <host>:<port>')
-    host, port = endpoint.rsplit(':', 1)
-    return (host, int(port))
+    return cmdline.parse_endpoint(endpoint)
 
 
 def get_args():
