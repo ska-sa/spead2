@@ -503,7 +503,11 @@ udp_ibv_writer::udp_ibv_writer(
     qp.modify(IBV_QPS_RTR);
     qp.modify(IBV_QPS_RTS);
 
-    if (config.get_allow_hw_rate() && config.get_rate() > 0.0)
+    /* For now AUTO is treated the same as SW; further investigation is
+     * needed to determine the conditions under which HW rate limiting
+     * behaves well.
+     */
+    if (config.get_rate_method() == rate_method::HW && config.get_rate() > 0.0)
     {
         if (setup_hw_rate(qp, config))
             enable_hw_rate();

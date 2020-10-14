@@ -25,7 +25,8 @@ configuration between the stream classes, configuration is encapsulated in a
      transmission rate, the rate will be increased until the average rate
      has caught up. This value specifies the "catch-up" rate, as a ratio to the
      target rate.
-   :param bool allow_hw_rate: If true, then hardware-based rate
+   :param RateMethod rate_method: Select method for applying the rate limit.
+     If true, then hardware-based rate
      limiting may be used if available. In this case it is
      implementation-defined whether `burst_rate_ratio` and `burst_size` have
      any effect. This will often produce results that are at least as good as
@@ -33,6 +34,30 @@ configuration between the stream classes, configuration is encapsulated in a
      the overall rate becomes less accurate and so it is disabled by default.
 
    The constructor arguments are also instance attributes.
+
+.. py:class:: spead2.send.RateMethod
+
+   An enumeration to select a method for rate limiting.
+
+   .. attribute:: SW
+
+      Use a generic software rate limiter.
+
+   .. attribute:: HW
+
+      Use a hardware rate limiter, if available. This is currently only
+      supported when using :doc:`ibverbs <py-ibverbs>`, and only if the
+      hardware supports it. If hardware rate limiting is not available,
+      falls back to software.
+
+   .. attribute:: AUTO
+
+      This is the default, and lets the implementation decide whether to use
+      hardware rate limiting. At present it will never use the hardware rate
+      limiter (because the available hardware limiters don't do a good job
+      under all conditions), but in future it is likely to use the hardware
+      limiter more often in circumstances where it has been tested to perform
+      well.
 
 Streams send pre-baked heaps, which can be constructed by hand, but are more
 normally created from an :py:class:`~spead2.ItemGroup` by a

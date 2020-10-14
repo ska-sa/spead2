@@ -260,6 +260,34 @@ void receiver_options::add_readers(
 namespace send
 {
 
+std::ostream &operator<<(std::ostream &o, rate_method method)
+{
+    switch (method)
+    {
+    case rate_method::SW: return o << "SW";
+    case rate_method::HW: return o << "HW";
+    case rate_method::AUTO: return o << "AUTO";
+    }
+    return o;  // unreachable
+}
+
+std::istream &operator>>(std::istream &i, rate_method &method)
+{
+    std::string name;
+    if (i >> name)
+    {
+        if (name == "SW" || name == "sw")
+            method = rate_method::SW;
+        else if (name == "HW" || name == "hw")
+            method = rate_method::HW;
+        else if (name == "AUTO" || name == "auto")
+            method = rate_method::AUTO;
+        else
+            i.setstate(std::ios::failbit | std::ios::badbit);
+    }
+    return i;
+}
+
 void sender_options::notify(const protocol_options &protocol)
 {
 #if SPEAD2_USE_IBV
@@ -297,7 +325,7 @@ stream_config sender_options::make_stream_config() const
         .set_burst_size(burst_size)
         .set_burst_rate_ratio(burst_rate_ratio)
         .set_max_heaps(max_heaps)
-        .set_allow_hw_rate(allow_hw_rate);
+        .set_rate_method(method);
 }
 
 std::unique_ptr<stream> sender_options::make_stream(

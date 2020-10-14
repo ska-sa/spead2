@@ -43,6 +43,13 @@ namespace spead2
 namespace send
 {
 
+enum class rate_method
+{
+    SW,        ///< Software rate limiter
+    HW,        ///< Hardware rate limiter, if available
+    AUTO       ///< Implementation decides on rate-limit method
+};
+
 /**
  * Configuration for send streams.
  */
@@ -53,7 +60,7 @@ public:
     static constexpr std::size_t default_max_heaps = 4;
     static constexpr std::size_t default_burst_size = 65536;
     static constexpr double default_burst_rate_ratio = 1.05;
-    static constexpr bool default_allow_hw_rate = false;
+    static constexpr rate_method default_rate_method = rate_method::AUTO;
 
     /// Set maximum packet size to use (only counts the UDP payload, not L1-4 headers).
     stream_config &set_max_packet_size(std::size_t max_packet_size);
@@ -75,10 +82,10 @@ public:
     stream_config &set_burst_rate_ratio(double burst_rate_ratio);
     /// Get maximum increase in transmit rate for catching up.
     double get_burst_rate_ratio() const { return burst_rate_ratio; }
-    /// Set whether to allow hardware rate limiting.
-    stream_config &set_allow_hw_rate(bool allow_hw_rate);
-    /// Get whether to allow hardware rate limiting.
-    bool get_allow_hw_rate() const { return allow_hw_rate; }
+    /// Set rate-limiting method
+    stream_config &set_rate_method(rate_method method);
+    /// Get rate-limiting method
+    rate_method get_rate_method() const { return method; }
 
     /// Get product of rate and burst_rate_ratio
     double get_burst_rate() const;
@@ -91,7 +98,7 @@ private:
     std::size_t burst_size = default_burst_size;
     std::size_t max_heaps = default_max_heaps;
     double burst_rate_ratio = default_burst_rate_ratio;
-    bool allow_hw_rate = default_allow_hw_rate;
+    rate_method method = default_rate_method;
 };
 
 class writer;

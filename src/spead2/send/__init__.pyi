@@ -16,6 +16,7 @@
 from typing import (
     Text, Union, List, Tuple, Iterator, Iterable, Optional, Sequence, ClassVar, overload
 )
+import enum
 import socket
 
 import spead2
@@ -40,24 +41,29 @@ class PacketGenerator:
     def __init__(self, heap: Heap, cnt: int, max_packet_size: int) -> None: ...
     def __iter__(self) -> Iterator[bytes]: ...
 
+class RateMethod(enum.Enum):
+    SW = ...
+    HW = ...
+    AUTO = ...
+
 class StreamConfig:
     DEFAULT_MAX_PACKET_SIZE: ClassVar[int]
     DEFAULT_MAX_HEAPS: ClassVar[int]
     DEFAULT_BURST_SIZE: ClassVar[int]
     DEFAULT_BURST_RATE_RATIO: ClassVar[float]
-    DEFAULT_ALLOW_HW_RATE: ClassVar[bool]
+    DEFAULT_RATE_METHOD: ClassVar[RateMethod]
 
     max_packet_size: int
     rate: float
     burst_size: int
     max_heaps: int
     burst_rate_ratio: float
-    allow_hw_rate: bool
+    rate_method: RateMethod
 
     def __init__(self, *, max_packet_size: int = ..., rate: float = ...,
                  burst_size: int = ..., max_heaps: int = ...,
                  burst_rate_ratio: float = ...,
-                 allow_hw_rate: bool = ...) -> None: ...
+                 rate_method: RateMethod = ...) -> None: ...
 
     @property
     def burst_rate(self) -> float: ...
