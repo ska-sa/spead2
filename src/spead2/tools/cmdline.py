@@ -24,6 +24,16 @@ import spead2.send
 _HAVE_IBV = hasattr(spead2.recv.Stream, 'add_udp_ibv_reader')
 
 
+def parse_endpoint(endpoint):
+    if ':' in endpoint:
+        host, port = endpoint.rsplit(':', 1)
+        port = int(port)
+    else:
+        host = ''
+        port = int(endpoint)
+    return host, port
+
+
 class _Options:
     def __init__(self, name_map=None):
         self._name_map = name_map or {}
@@ -152,12 +162,7 @@ class ReceiverOptions(_Options):
         ibv_endpoints = []
         for source in endpoints:
             try:
-                if ':' in source:
-                    host, port = source.rsplit(':', 1)
-                    port = int(port)
-                else:
-                    host = ''
-                    port = int(source)
+                host, port = parse_endpoint(source)
             except ValueError:
                 if not allow_pcap:
                     raise
