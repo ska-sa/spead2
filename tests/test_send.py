@@ -586,21 +586,21 @@ class TestInprocStream:
 
 
 @pytest.mark.skipif(not hasattr(spead2, 'IbvContext'), reason='IBV support not compiled in')
-class TestUdpIbvStreamConfig:
+class TestUdpIbvConfig:
     def test_default_construct(self):
-        config = spead2.send.UdpIbvStreamConfig()
+        config = spead2.send.UdpIbvConfig()
         assert config.endpoints == []
         assert config.interface_address == ''
-        assert config.buffer_size == spead2.send.UdpIbvStreamConfig.DEFAULT_BUFFER_SIZE
+        assert config.buffer_size == spead2.send.UdpIbvConfig.DEFAULT_BUFFER_SIZE
         assert config.ttl == 1
         assert config.comp_vector == 0
-        assert config.max_poll == spead2.send.UdpIbvStreamConfig.DEFAULT_MAX_POLL
+        assert config.max_poll == spead2.send.UdpIbvConfig.DEFAULT_MAX_POLL
         assert config.memory_regions == []
 
     def test_kwargs_construct(self):
         data1 = bytearray(10)
         data2 = bytearray(10)
-        config = spead2.send.UdpIbvStreamConfig(
+        config = spead2.send.UdpIbvConfig(
             endpoints=[('hello', 1234), ('goodbye', 2345)],
             interface_address='1.2.3.4',
             buffer_size=100,
@@ -617,12 +617,12 @@ class TestUdpIbvStreamConfig:
         assert config.memory_regions == [data1, data2]
 
     def test_default_buffer_size(self):
-        config = spead2.send.UdpIbvStreamConfig()
+        config = spead2.send.UdpIbvConfig()
         config.buffer_size = 0
-        assert config.buffer_size == spead2.send.UdpIbvStreamConfig.DEFAULT_BUFFER_SIZE
+        assert config.buffer_size == spead2.send.UdpIbvConfig.DEFAULT_BUFFER_SIZE
 
     def test_bad_max_poll(self):
-        config = spead2.send.UdpIbvStreamConfig()
+        config = spead2.send.UdpIbvConfig()
         with pytest.raises(ValueError):
             config.max_poll = 0
         with pytest.raises(ValueError):
@@ -631,7 +631,7 @@ class TestUdpIbvStreamConfig:
     def test_empty_memory_region(self):
         data = bytearray(0)
         config = spead2.send.StreamConfig()
-        udp_ibv_config = spead2.send.UdpIbvStreamConfig(
+        udp_ibv_config = spead2.send.UdpIbvConfig(
             endpoints=[('239.255.88.88', 8888)],
             interface_address='10.0.0.1',
             memory_regions=[data])
@@ -643,7 +643,7 @@ class TestUdpIbvStreamConfig:
         part1 = data[:6]
         part2 = data[5:]
         config = spead2.send.StreamConfig()
-        udp_ibv_config = spead2.send.UdpIbvStreamConfig(
+        udp_ibv_config = spead2.send.UdpIbvConfig(
             endpoints=[('239.255.88.88', 8888)],
             interface_address='10.0.0.1',
             memory_regions=[part1, part2])
@@ -652,13 +652,13 @@ class TestUdpIbvStreamConfig:
 
     def test_no_endpoints(self):
         config = spead2.send.StreamConfig()
-        udp_ibv_config = spead2.send.UdpIbvStreamConfig(interface_address='10.0.0.1')
+        udp_ibv_config = spead2.send.UdpIbvConfig(interface_address='10.0.0.1')
         with pytest.raises(ValueError, match='endpoints is empty'):
             spead2.send.UdpIbvStream(spead2.ThreadPool(), config, udp_ibv_config)
 
     def test_ipv6_endpoints(self):
         config = spead2.send.StreamConfig()
-        udp_ibv_config = spead2.send.UdpIbvStreamConfig(
+        udp_ibv_config = spead2.send.UdpIbvConfig(
             endpoints=[('::1', 8888)],
             interface_address='10.0.0.1')
         with pytest.raises(ValueError, match='endpoint is not an IPv4 multicast address'):
@@ -666,7 +666,7 @@ class TestUdpIbvStreamConfig:
 
     def test_unicast_endpoints(self):
         config = spead2.send.StreamConfig()
-        udp_ibv_config = spead2.send.UdpIbvStreamConfig(
+        udp_ibv_config = spead2.send.UdpIbvConfig(
             endpoints=[('10.0.0.1', 8888)],
             interface_address='10.0.0.1')
         with pytest.raises(ValueError, match='endpoint is not an IPv4 multicast address'):
@@ -674,14 +674,14 @@ class TestUdpIbvStreamConfig:
 
     def test_no_interface_address(self):
         config = spead2.send.StreamConfig()
-        udp_ibv_config = spead2.send.UdpIbvStreamConfig(
+        udp_ibv_config = spead2.send.UdpIbvConfig(
             endpoints=[('239.255.88.88', 8888)])
         with pytest.raises(ValueError, match='interface address'):
             spead2.send.UdpIbvStream(spead2.ThreadPool(), config, udp_ibv_config)
 
     def test_bad_interface_address(self):
         config = spead2.send.StreamConfig()
-        udp_ibv_config = spead2.send.UdpIbvStreamConfig(
+        udp_ibv_config = spead2.send.UdpIbvConfig(
             endpoints=[('239.255.88.88', 8888)],
             interface_address='this is not an interface address')
         with pytest.raises(RuntimeError, match='Host not found'):
@@ -689,7 +689,7 @@ class TestUdpIbvStreamConfig:
 
     def test_ipv6_interface_address(self):
         config = spead2.send.StreamConfig()
-        udp_ibv_config = spead2.send.UdpIbvStreamConfig(
+        udp_ibv_config = spead2.send.UdpIbvConfig(
             endpoints=[('239.255.88.88', 8888)],
             interface_address='::1')
         with pytest.raises(ValueError, match='interface address'):

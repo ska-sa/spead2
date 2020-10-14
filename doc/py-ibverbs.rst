@@ -130,7 +130,7 @@ class, analogous to :py:class:`spead2.send.asyncio.UdpStream`.
 There is an additional configuration class for ibverbs-specific
 configuration:
 
-.. py:class:: spead2.send.UdpIbvStreamConfig(*, endpoints=[], interface_address='', buffer_size=DEFAULT_BUFFER_SIZE, ttl=1, comp_vector=0, max_poll=DEFAULT_MAX_POLL, memory_regions=[])
+.. py:class:: spead2.send.UdpIbvConfig(*, endpoints=[], interface_address='', buffer_size=DEFAULT_BUFFER_SIZE, ttl=1, comp_vector=0, max_poll=DEFAULT_MAX_POLL, memory_regions=[])
 
    :param List[Tuple[str, int]] endpoints: Peer endpoints (one per substream)
    :param str interface_address: Hostname/IP address of the interface which
@@ -173,4 +173,4 @@ configuration:
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param udp_ibv_config: Additional stream configuration
-   :type udp_ibv_config: :py:class:`spead2.send.UdpIbvStreamConfig`
+   :type udp_ibv_config: :py:class:`spead2.send.UdpIbvConfig`

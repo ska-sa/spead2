@@ -135,7 +135,7 @@ class UdpStream(_UdpStream, _SyncStream):
                  config: StreamConfig = ...) -> None: ...
 
 
-class UdpIbvStreamConfig:
+class UdpIbvConfig:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
     DEFAULT_MAX_POLL: ClassVar[int]
 
@@ -164,7 +164,7 @@ class UdpIbvStream(_SyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  config: StreamConfig,
-                 udp_ibv_config: UdpIbvStreamConfig) -> None: ...
+                 udp_ibv_config: UdpIbvConfig) -> None: ...
 
 
 class _TcpStream:

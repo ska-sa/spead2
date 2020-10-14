@@ -42,7 +42,7 @@ namespace send
 /**
  * Configuration for @ref udp_ibv_stream.
  */
-class udp_ibv_stream_config
+class udp_ibv_config
 {
 public:
     typedef std::pair<const void *, std::size_t> memory_region;
@@ -68,7 +68,7 @@ public:
      * It cannot be used as is, because the interface address and at least one
      * endpoint must be supplied.
      */
-    udp_ibv_stream_config();
+    udp_ibv_config();
 
     /// Get the configured endpoints
     const std::vector<boost::asio::ip::udp::endpoint> &get_endpoints() const { return endpoints; }
@@ -77,13 +77,13 @@ public:
      *
      * @throws std::invalid_argument if any element of @a endpoints is not an IPv4 multicast address.
      */
-    udp_ibv_stream_config &set_endpoints(const std::vector<boost::asio::ip::udp::endpoint> &endpoints);
+    udp_ibv_config &set_endpoints(const std::vector<boost::asio::ip::udp::endpoint> &endpoints);
     /**
      * Append a single endpoint.
      *
      * @throws std::invalid_argument if @a endpoint is not an IPv4 multicast address.
      */
-    udp_ibv_stream_config &add_endpoint(const boost::asio::ip::udp::endpoint &endpoint);
+    udp_ibv_config &add_endpoint(const boost::asio::ip::udp::endpoint &endpoint);
 
     /// Get the currently set interface address
     const boost::asio::ip::address get_interface_address() const { return interface_address; }
@@ -92,7 +92,7 @@ public:
      *
      * @throws std::invalid_argument if @a interface_address is not an IPv4 address.
      */
-    udp_ibv_stream_config &set_interface_address(const boost::asio::ip::address &interface_address);
+    udp_ibv_config &set_interface_address(const boost::asio::ip::address &interface_address);
 
     /// Get the currently configured buffer size.
     std::size_t get_buffer_size() const { return buffer_size; }
@@ -103,12 +103,12 @@ public:
      * used may be slightly different to round it to a whole number of
      * packet-sized slots.
      */
-    udp_ibv_stream_config &set_buffer_size(std::size_t buffer_size);
+    udp_ibv_config &set_buffer_size(std::size_t buffer_size);
 
     /// Get the IP TTL
     std::uint8_t get_ttl() const { return ttl; }
     /// Set the IP TTL
-    udp_ibv_stream_config &set_ttl(std::uint8_t ttl);
+    udp_ibv_config &set_ttl(std::uint8_t ttl);
 
     /// Get the completion channel vector (see @ref set_comp_vector)
     int get_comp_vector() const { return comp_vector; }
@@ -121,7 +121,7 @@ public:
      * vectors and have them load-balanced, without concern for the number
      * available.
      */
-    udp_ibv_stream_config &set_comp_vector(int comp_vector);
+    udp_ibv_config &set_comp_vector(int comp_vector);
 
     /// Get maximum number of times to poll in a row (see @ref set_max_poll)
     int get_max_poll() const { return max_poll; }
@@ -135,7 +135,7 @@ public:
      *
      * @throws std::invalid_argument if @a max_poll is zero.
      */
-    udp_ibv_stream_config &set_max_poll(int max_poll);
+    udp_ibv_config &set_max_poll(int max_poll);
 
     /// Get currently registered memory regions
     const std::vector<memory_region> &get_memory_regions() const { return memory_regions; }
@@ -148,9 +148,9 @@ public:
      * Memory regions must not overlap; this is only validating when constructing
      * the stream.
      */
-    udp_ibv_stream_config &set_memory_regions(const std::vector<memory_region> &memory_regions);
+    udp_ibv_config &set_memory_regions(const std::vector<memory_region> &memory_regions);
     /// Append a memory region (see @ref set_memory_regions)
-    udp_ibv_stream_config &add_memory_region(const void *ptr, std::size_t size);
+    udp_ibv_config &add_memory_region(const void *ptr, std::size_t size);
 };
 
 class udp_ibv_stream : public stream
@@ -159,21 +159,21 @@ public:
     /**
      * Backwards-compatibility constructor (taking only a single endpoint).
      *
-     * Refer to @ref udp_ibv_stream_config for an explanation of the arguments.
+     * Refer to @ref udp_ibv_config for an explanation of the arguments.
      *
      * @throws std::invalid_argument if @a endpoint is not an IPv4 multicast address
      * @throws std::invalid_argument if @a interface_address is not an IPv4 address
      */
-    SPEAD2_DEPRECATED("use udp_ibv_stream_config")
+    SPEAD2_DEPRECATED("use udp_ibv_config")
     udp_ibv_stream(
         io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
         const stream_config &config,
         const boost::asio::ip::address &interface_address,
-        std::size_t buffer_size = udp_ibv_stream_config::default_buffer_size,
+        std::size_t buffer_size = udp_ibv_config::default_buffer_size,
         int ttl = 1,
         int comp_vector = 0,
-        int max_poll = udp_ibv_stream_config::default_max_poll);
+        int max_poll = udp_ibv_config::default_max_poll);
 
     /**
      * Constructor.
@@ -189,7 +189,7 @@ public:
     udp_ibv_stream(
         io_service_ref io_service,
         const stream_config &config,
-        const udp_ibv_stream_config &ibv_config);
+        const udp_ibv_config &ibv_config);
 };
 
 } // namespace send

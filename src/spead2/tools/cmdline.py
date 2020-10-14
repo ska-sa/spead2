@@ -203,7 +203,7 @@ class SenderOptions(_Options):
         if _HAVE_IBV:
             self.ibv = False
             self.ibv_vector = 0
-            self.ibv_max_poll = spead2.send.UdpIbvStreamConfig.DEFAULT_MAX_POLL
+            self.ibv_max_poll = spead2.send.UdpIbvConfig.DEFAULT_MAX_POLL
 
     def add_arguments(self, parser):
         def parse_rate_method(value):
@@ -250,7 +250,7 @@ class SenderOptions(_Options):
             if self._protocol.tcp:
                 self.buffer = spead2.send.asyncio.TcpStream.DEFAULT_BUFFER_SIZE
             elif _HAVE_IBV and self.ibv:
-                self.buffer = spead2.send.UdpIbvStreamConfig.DEFAULT_BUFFER_SIZE
+                self.buffer = spead2.send.UdpIbvConfig.DEFAULT_BUFFER_SIZE
             else:
                 self.buffer = spead2.send.asyncio.UdpStream.DEFAULT_BUFFER_SIZE
 
@@ -276,7 +276,7 @@ class SenderOptions(_Options):
             return spead2.send.asyncio.UdpIbvStream(
                 thread_pool,
                 config,
-                spead2.send.UdpIbvStreamConfig(
+                spead2.send.UdpIbvConfig(
                     endpoints=endpoints,
                     interface_address=self.bind or '',
                     buffer_size=self.buffer,

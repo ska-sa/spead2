@@ -143,7 +143,7 @@ public:
     udp_ibv_writer(
         io_service_ref io_service,
         const stream_config &config,
-        const udp_ibv_stream_config &ibv_config);
+        const udp_ibv_config &ibv_config);
 
     virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
 };
@@ -451,7 +451,7 @@ static std::size_t calc_target_batch(const stream_config &config, std::size_t n_
 udp_ibv_writer::udp_ibv_writer(
     io_service_ref io_service,
     const stream_config &config,
-    const udp_ibv_stream_config &ibv_config)
+    const udp_ibv_config &ibv_config)
     : writer(std::move(io_service), config),
     n_slots(calc_n_slots(config, ibv_config.get_buffer_size())),
     target_batch(calc_target_batch(config, n_slots)),
@@ -561,20 +561,20 @@ static void validate_endpoint(const boost::asio::ip::udp::endpoint &endpoint)
         throw std::invalid_argument("endpoint is not an IPv4 multicast address");
 }
 
-static void validate_memory_region(const udp_ibv_stream_config::memory_region &region)
+static void validate_memory_region(const udp_ibv_config::memory_region &region)
 {
     if (region.second == 0)
         throw std::invalid_argument("memory region must have non-zero size");
 }
 
-constexpr std::size_t udp_ibv_stream_config::default_buffer_size;
-constexpr int udp_ibv_stream_config::default_max_poll;
+constexpr std::size_t udp_ibv_config::default_buffer_size;
+constexpr int udp_ibv_config::default_max_poll;
 
-udp_ibv_stream_config::udp_ibv_stream_config()
+udp_ibv_config::udp_ibv_config()
 {
 }
 
-udp_ibv_stream_config &udp_ibv_stream_config::set_endpoints(
+udp_ibv_config &udp_ibv_config::set_endpoints(
     const std::vector<boost::asio::ip::udp::endpoint> &endpoints)
 {
     for (const auto &endpoint : endpoints)
@@ -583,7 +583,7 @@ udp_ibv_stream_config &udp_ibv_stream_config::set_endpoints(
     return *this;
 }
 
-udp_ibv_stream_config &udp_ibv_stream_config::add_endpoint(
+udp_ibv_config &udp_ibv_config::add_endpoint(
     const boost::asio::ip::udp::endpoint &endpoint)
 {
     validate_endpoint(endpoint);
@@ -591,7 +591,7 @@ udp_ibv_stream_config &udp_ibv_stream_config::add_endpoint(
     return *this;
 }
 
-udp_ibv_stream_config &udp_ibv_stream_config::set_interface_address(
+udp_ibv_config &udp_ibv_config::set_interface_address(
     const boost::asio::ip::address &interface_address)
 {
     if (!interface_address.is_v4())
@@ -600,7 +600,7 @@ udp_ibv_stream_config &udp_ibv_stream_config::set_interface_address(
     return *this;
 }
 
-udp_ibv_stream_config &udp_ibv_stream_config::set_buffer_size(std::size_t buffer_size)
+udp_ibv_config &udp_ibv_config::set_buffer_size(std::size_t buffer_size)
 {
     if (buffer_size == 0)
         this->buffer_size = default_buffer_size;
@@ -609,19 +609,19 @@ udp_ibv_stream_config &udp_ibv_stream_config::set_buffer_size(std::size_t buffer
     return *this;
 }
 
-udp_ibv_stream_config &udp_ibv_stream_config::set_ttl(std::uint8_t ttl)
+udp_ibv_config &udp_ibv_config::set_ttl(std::uint8_t ttl)
 {
     this->ttl = ttl;
     return *this;
 }
 
-udp_ibv_stream_config &udp_ibv_stream_config::set_comp_vector(int comp_vector)
+udp_ibv_config &udp_ibv_config::set_comp_vector(int comp_vector)
 {
     this->comp_vector = comp_vector;
     return *this;
 }
 
-udp_ibv_stream_config &udp_ibv_stream_config::set_max_poll(int max_poll)
+udp_ibv_config &udp_ibv_config::set_max_poll(int max_poll)
 {
     if (max_poll < 1)
         throw std::invalid_argument("max_poll must be at least 1");
@@ -629,7 +629,7 @@ udp_ibv_stream_config &udp_ibv_stream_config::set_max_poll(int max_poll)
     return *this;
 }
 
-udp_ibv_stream_config &udp_ibv_stream_config::set_memory_regions(const std::vector<memory_region> &memory_regions)
+udp_ibv_config &udp_ibv_config::set_memory_regions(const std::vector<memory_region> &memory_regions)
 {
     for (const memory_region &region : memory_regions)
         validate_memory_region(region);
@@ -637,7 +637,7 @@ udp_ibv_stream_config &udp_ibv_stream_config::set_memory_regions(const std::vect
     return *this;
 }
 
-udp_ibv_stream_config &udp_ibv_stream_config::add_memory_region(const void *ptr, std::size_t size)
+udp_ibv_config &udp_ibv_config::add_memory_region(const void *ptr, std::size_t size)
 {
     memory_region region(ptr, size);
     validate_memory_region(region);
@@ -657,7 +657,7 @@ udp_ibv_stream::udp_ibv_stream(
     : udp_ibv_stream(
         std::move(io_service),
         config,
-        udp_ibv_stream_config()
+        udp_ibv_config()
             .add_endpoint(endpoint)
             .set_interface_address(interface_address)
             .set_buffer_size(buffer_size)
@@ -671,7 +671,7 @@ udp_ibv_stream::udp_ibv_stream(
 udp_ibv_stream::udp_ibv_stream(
     io_service_ref io_service,
     const stream_config &config,
-    const udp_ibv_stream_config &ibv_config)
+    const udp_ibv_config &ibv_config)
     : stream(std::unique_ptr<writer>(new udp_ibv_writer(
         std::move(io_service), config, ibv_config)))
 {
