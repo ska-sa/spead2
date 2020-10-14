@@ -263,7 +263,7 @@ class SenderOptions(_Options):
         config = self.make_stream_config()
         if self._protocol.tcp:
             return await spead2.send.asyncio.TcpStream.connect(
-                thread_pool, endpoints, config, self.buffer, self.bind)
+                thread_pool, endpoints, config, self.buffer, self.bind or '')
         elif _HAVE_IBV and self.ibv:
             return spead2.send.asyncio.UdpIbvStream(
                 thread_pool,
