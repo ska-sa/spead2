@@ -180,16 +180,16 @@ public:
      *
      * @param io_service   I/O service for sending data
      * @param config       Common stream configuration
-     * @param udp_ibv_config  Class-specific stream configuration
+     * @param ibv_config   Class-specific stream configuration
      *
-     * @throws std::invalid_argument if @a udp_ibv_config does not an interface address set.
-     * @throws std::invalid_argument if @a udp_ibv_config does not have any endpoints set.
+     * @throws std::invalid_argument if @a ibv_config does not have an interface address set.
+     * @throws std::invalid_argument if @a ibv_config does not have any endpoints set.
      * @throws std::invalid_argument if memory regions overlap.
      */
     udp_ibv_stream(
         io_service_ref io_service,
         const stream_config &config,
-        const udp_ibv_stream_config &udp_ibv_config);
+        const udp_ibv_stream_config &ibv_config);
 };
 
 } // namespace send

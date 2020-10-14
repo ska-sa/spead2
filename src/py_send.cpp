@@ -445,11 +445,11 @@ public:
     udp_ibv_stream_wrapper(
         std::shared_ptr<thread_pool> pool,
         const stream_config &config,
-        const udp_ibv_stream_config &udp_ibv_config,
+        const udp_ibv_stream_config &ibv_config,
         std::vector<py::buffer_info> &&buffer_infos)
         : Base(pool,
                config,
-               udp_ibv_config),
+               ibv_config),
         buffer_infos(std::move(buffer_infos))
     {
     }
@@ -548,30 +548,30 @@ static py::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
              "max_poll"_a = udp_ibv_stream_config::default_max_poll)
         .def(py::init([](std::shared_ptr<thread_pool_wrapper> thread_pool,
                          const stream_config &config,
-                         const udp_ibv_stream_config_wrapper &udp_ibv_config_wrapper)
+                         const udp_ibv_stream_config_wrapper &ibv_config_wrapper)
             {
-                udp_ibv_stream_config udp_ibv_config = udp_ibv_config_wrapper;
-                udp_ibv_config.set_endpoints(
+                udp_ibv_stream_config ibv_config = ibv_config_wrapper;
+                ibv_config.set_endpoints(
                     make_endpoints<boost::asio::ip::udp>(
                         thread_pool->get_io_service(),
-                        udp_ibv_config_wrapper.py_endpoints));
-                udp_ibv_config.set_interface_address(
+                        ibv_config_wrapper.py_endpoints));
+                ibv_config.set_interface_address(
                     make_address(thread_pool->get_io_service(),
-                                 udp_ibv_config_wrapper.py_interface_address));
+                                 ibv_config_wrapper.py_interface_address));
                 std::vector<std::pair<const void *, std::size_t>> regions;
                 std::vector<py::buffer_info> buffer_infos;
-                regions.reserve(udp_ibv_config_wrapper.py_memory_regions.size());
+                regions.reserve(ibv_config_wrapper.py_memory_regions.size());
                 buffer_infos.reserve(regions.size());
-                for (auto &buffer : udp_ibv_config_wrapper.py_memory_regions)
+                for (auto &buffer : ibv_config_wrapper.py_memory_regions)
                 {
                     buffer_infos.push_back(request_buffer_info(buffer, PyBUF_C_CONTIGUOUS));
                     regions.emplace_back(
                         buffer_infos.back().ptr,
                         buffer_infos.back().itemsize * buffer_infos.back().size);
                 }
-                udp_ibv_config.set_memory_regions(regions);
+                ibv_config.set_memory_regions(regions);
 
-                return new T(std::move(thread_pool), config, udp_ibv_config, std::move(buffer_infos));
+                return new T(std::move(thread_pool), config, ibv_config, std::move(buffer_infos));
             }),
             "thread_pool"_a,
             "config"_a = stream_config(),

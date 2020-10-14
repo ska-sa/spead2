@@ -143,7 +143,7 @@ public:
     udp_ibv_writer(
         io_service_ref io_service,
         const stream_config &config,
-        const udp_ibv_stream_config &udp_ibv_config);
+        const udp_ibv_stream_config &ibv_config);
 
     virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
 };
@@ -451,27 +451,27 @@ static std::size_t calc_target_batch(const stream_config &config, std::size_t n_
 udp_ibv_writer::udp_ibv_writer(
     io_service_ref io_service,
     const stream_config &config,
-    const udp_ibv_stream_config &udp_ibv_config)
+    const udp_ibv_stream_config &ibv_config)
     : writer(std::move(io_service), config),
-    n_slots(calc_n_slots(config, udp_ibv_config.get_buffer_size())),
+    n_slots(calc_n_slots(config, ibv_config.get_buffer_size())),
     target_batch(calc_target_batch(config, n_slots)),
     socket(get_io_service(), boost::asio::ip::udp::v4()),
-    endpoints(udp_ibv_config.get_endpoints()),
+    endpoints(ibv_config.get_endpoints()),
     event_channel(nullptr),
     comp_channel_wrapper(get_io_service()),
     available(n_slots),
-    max_poll(udp_ibv_config.get_max_poll())
+    max_poll(ibv_config.get_max_poll())
 {
     if (endpoints.empty())
         throw std::invalid_argument("endpoints is empty");
     mac_addresses.reserve(endpoints.size());
     for (const auto &endpoint : endpoints)
         mac_addresses.push_back(multicast_mac(endpoint.address()));
-    const boost::asio::ip::address &interface_address = udp_ibv_config.get_interface_address();
+    const boost::asio::ip::address &interface_address = ibv_config.get_interface_address();
     if (interface_address.is_unspecified())
         throw std::invalid_argument("interface address must be specified");
     // Check that registered memory regions don't overlap
-    auto config_regions = udp_ibv_config.get_memory_regions();
+    auto config_regions = ibv_config.get_memory_regions();
     std::sort(config_regions.begin(), config_regions.end());
     for (std::size_t i = 1; i < config_regions.size(); i++)
         if (static_cast<const std::uint8_t *>(config_regions[i - 1].first)
@@ -487,7 +487,7 @@ udp_ibv_writer::udp_ibv_writer(
     cm_id = rdma_cm_id_t(event_channel, nullptr, RDMA_PS_UDP);
     cm_id.bind_addr(interface_address);
     pd = ibv_pd_t(cm_id);
-    int comp_vector = udp_ibv_config.get_comp_vector();
+    int comp_vector = ibv_config.get_comp_vector();
     if (comp_vector >= 0)
     {
         comp_channel = ibv_comp_channel_t(cm_id);
@@ -516,7 +516,7 @@ udp_ibv_writer::udp_ibv_writer(
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(max_raw_size * n_slots, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
-    for (const auto &region : udp_ibv_config.get_memory_regions())
+    for (const auto &region : ibv_config.get_memory_regions())
         memory_regions.emplace(pd, region.first, region.second);
     slots.reset(new slot[n_slots]);
     // We fill in the destination details for the first endpoint. If there are
@@ -536,7 +536,7 @@ udp_ibv_writer::udp_ibv_writer(
         // total_length will change later to the actual packet size
         ipv4.total_length(config.get_max_packet_size() + ipv4_packet::min_size + udp_packet::min_size);
         ipv4.flags_frag_off(ipv4_packet::flag_do_not_fragment);
-        ipv4.ttl(udp_ibv_config.get_ttl());
+        ipv4.ttl(ibv_config.get_ttl());
         ipv4.protocol(udp_packet::protocol);
         ipv4.source_address(interface_address.to_v4());
         ipv4.destination_address(endpoints[0].address().to_v4());
@@ -671,9 +671,9 @@ udp_ibv_stream::udp_ibv_stream(
 udp_ibv_stream::udp_ibv_stream(
     io_service_ref io_service,
     const stream_config &config,
-    const udp_ibv_stream_config &udp_ibv_config)
+    const udp_ibv_stream_config &ibv_config)
     : stream(std::unique_ptr<writer>(new udp_ibv_writer(
-        std::move(io_service), config, udp_ibv_config)))
+        std::move(io_service), config, ibv_config)))
 {
 }
 
