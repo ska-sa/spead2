@@ -217,6 +217,7 @@ static options parse_args(int argc, const char **argv, command_mode mode)
         if (mode != command_mode::AGENT)
         {
             // Initialise memory pool sizes based on heap size
+            opts.receiver.mem_pool = true;
             opts.receiver.mem_lower = opts.heap_size;
             opts.receiver.mem_upper = opts.heap_size + 1024;  // more than enough for overheads
             opts.protocol.notify();
