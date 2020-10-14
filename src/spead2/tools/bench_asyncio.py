@@ -313,6 +313,8 @@ def main():
     args = parser.parse_args()
     logging.basicConfig(level=getattr(logging, args.log.upper()))
     if 'endpoint' in args:
+        if args.send_ibv and not args.multicast:
+            parser.error('--send-ibv requires --multicast')
         receiver.mem_pool = True
         receiver.mem_lower = args.heap_size
         receiver.mem_upper = args.heap_size + 1024  # more than enough for overheads
