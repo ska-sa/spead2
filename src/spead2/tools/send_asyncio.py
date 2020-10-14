@@ -103,7 +103,7 @@ async def run(item_group, stream, args):
             heap = item_group.get_end()
         else:
             heap = item_group.get_heap(
-                descriptors='all' if i < n_substreams else 'none',
+                descriptors='all' if i < n_substreams else 'stale',
                 data='all')
         task = asyncio.ensure_future(stream.async_send_heap(heap, substream_index=i % n_substreams))
         tasks.append(task)
