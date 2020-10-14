@@ -28,6 +28,7 @@ import asyncio
 import spead2
 import spead2.recv
 import spead2.recv.asyncio
+from . import cmdline
 
 
 def get_args():
@@ -38,56 +39,25 @@ def get_args():
     group.add_argument('--log', metavar='LEVEL', default='INFO', help='Log level [%(default)s]')
     group.add_argument('--values', action='store_true', help='Show heap values')
     group.add_argument('--descriptors', action='store_true', help='Show descriptors')
+
+    group = parser.add_argument_group('Input options')
     group.add_argument('--max-heaps', type=int, help='Stop receiving after this many heaps')
-
-    group = parser.add_argument_group('Protocol options')
-    group.add_argument('--tcp', action='store_true', help='Receive data over TCP instead of UDP')
-    group.add_argument('--bind', type=str, default='', help='Interface address')
-    group.add_argument('--pyspead', action='store_true', help='Be bug-compatible with PySPEAD')
     group.add_argument('--joint', action='store_true', help='Treat all sources as a single stream')
-    group.add_argument('--packet', type=int, default=spead2.recv.Stream.DEFAULT_UDP_MAX_SIZE,
-                       help='Maximum packet size to accept for UDP [%(default)s]')
 
-    group = parser.add_argument_group('Performance options')
-    group.add_argument('--buffer', type=int, help='Socket buffer size')
+    group = parser.add_argument_group('Protocol and performance options')
+    protocol = cmdline.ProtocolOptions()
+    receiver = cmdline.ReceiverOptions(protocol)
+    protocol.add_arguments(group)
+    receiver.add_arguments(group)
     group.add_argument('--threads', type=int, default=1,
                        help='Number of worker threads [%(default)s]')
-    group.add_argument('--heaps', type=int, default=spead2.recv.StreamConfig.DEFAULT_MAX_HEAPS,
-                       help='Maximum number of in-flight heaps [%(default)s]')
-    group.add_argument('--ring-heaps', type=int, default=spead2.recv.RingStreamConfig.DEFAULT_HEAPS,
-                       help='Ring buffer capacity in heaps [%(default)s]')
-    group.add_argument('--mem-pool', action='store_true', help='Use a memory pool')
-    group.add_argument('--mem-lower', type=int, default=16384,
-                       help='Minimum allocation which will use the memory pool [%(default)s]')
-    group.add_argument('--mem-upper', type=int, default=32 * 1024**2,
-                       help='Maximum allocation which will use the memory pool [%(default)s]')
-    group.add_argument('--mem-max-free', type=int, default=12,
-                       help='Maximum free memory buffers [%(default)s]')
-    group.add_argument('--mem-initial', type=int, default=8,
-                       help='Initial free memory buffers [%(default)s]')
-    group.add_argument('--memcpy-nt', action='store_true',
-                       help='Use non-temporal memcpy')
     group.add_argument('--affinity', type=spead2.parse_range_list,
                        help='List of CPUs to pin threads to [no affinity]')
-    if hasattr(spead2.recv.Stream, 'add_udp_ibv_reader'):
-        group.add_argument('--ibv', action='store_true', help='Use ibverbs [no]')
-        group.add_argument('--ibv-vector', type=int, default=0, metavar='N',
-                           help='Completion vector, or -1 to use polling [%(default)s]')
-        group.add_argument('--ibv-max-poll', type=int,
-                           default=spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL,
-                           help='Maximum number of times to poll in a row [%(default)s]')
 
     args = parser.parse_args()
-    if args.ibv and not args.bind:
-        parser.error('--ibv requires --bind')
-    if args.tcp and args.ibv:
-        parser.error('--ibv and --tcp are incompatible')
-    if args.buffer is None:
-        if args.tcp:
-            args.buffer = spead2.recv.asyncio.Stream.DEFAULT_TCP_BUFFER_SIZE
-        else:
-            args.buffer = spead2.recv.asyncio.Stream.DEFAULT_UDP_BUFFER_SIZE
-    return args
+    protocol.notify(parser, args)
+    receiver.notify(parser, args)
+    return args, receiver
 
 
 async def run_stream(stream, name, args):
@@ -132,40 +102,8 @@ async def run_stream(stream, name, args):
 
 def main():
     def make_stream(sources):
-        config = spead2.recv.StreamConfig()
-        config.bug_compat = spead2.BUG_COMPAT_PYSPEAD_0_5_2 if args.pyspead else 0
-        if memory_pool is not None:
-            config.memory_allocator = memory_pool
-        if args.memcpy_nt:
-            config.memcpy = spead2.MEMCPY_NONTEMPORAL
-        stream = spead2.recv.asyncio.Stream(
-            thread_pool, config, spead2.recv.RingStreamConfig(heaps=args.ring_heaps))
-        ibv_endpoints = []
-        for source in sources:
-            try:
-                if ':' in source:
-                    host, port = source.rsplit(':', 1)
-                    port = int(port)
-                else:
-                    host = ''
-                    port = int(source)
-            except ValueError:
-                try:
-                    stream.add_udp_pcap_file_reader(source)
-                except AttributeError:
-                    raise RuntimeError('spead2 was compiled without pcap support') from None
-            else:
-                if args.tcp:
-                    stream.add_tcp_reader(port, args.packet, args.buffer, host)
-                elif 'ibv' in args and args.ibv:
-                    ibv_endpoints.append((host, port))
-                elif args.bind:
-                    stream.add_udp_reader(host, port, args.packet, args.buffer, args.bind)
-                else:
-                    stream.add_udp_reader(port, args.packet, args.buffer, host)
-        if ibv_endpoints:
-            stream.add_udp_ibv_reader(ibv_endpoints, args.bind, args.packet,
-                                      args.buffer, args.ibv_vector, args.ibv_max_poll)
+        stream = spead2.recv.asyncio.Stream(thread_pool, config, ring_config)
+        receiver.add_readers(stream, sources, allow_pcap=True)
         return stream
 
     def make_coro(sources):
@@ -176,7 +114,7 @@ def main():
         for stream in streams:
             stream.stop()
 
-    args = get_args()
+    args, receiver = get_args()
     logging.basicConfig(level=getattr(logging, args.log.upper()))
 
     if args.affinity is not None and len(args.affinity) > 0:
@@ -184,10 +122,8 @@ def main():
         thread_pool = spead2.ThreadPool(args.threads, args.affinity[1:] + args.affinity[:1])
     else:
         thread_pool = spead2.ThreadPool(args.threads)
-    memory_pool = None
-    if args.mem_pool:
-        memory_pool = spead2.MemoryPool(args.mem_lower, args.mem_upper,
-                                        args.mem_max_free, args.mem_initial)
+    config = receiver.make_stream_config()
+    ring_config = receiver.make_ring_stream_config()
     if args.joint:
         coros_and_streams = [make_coro(args.source)]
     else:
