@@ -60,6 +60,14 @@ public:
 
     /// Get the underlying storage queues
     const std::vector<std::shared_ptr<inproc_queue>> &get_queues() const;
+
+    /**
+     * Get the underlying storage queue (backwards compatibility).
+     *
+     * @throws runtime_error if there are multiple storage queues.
+     */
+    SPEAD2_DEPRECATED("use get_queues")
+    const std::shared_ptr<inproc_queue> &get_queue() const;
 };
 
 } // namespace send
