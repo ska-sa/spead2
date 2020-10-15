@@ -24,10 +24,13 @@
 #include <cstdlib>
 #include <cstdint>
 #include <memory>
+#include <random>
 #include <boost/program_options.hpp>
 #include <boost/asio.hpp>
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_semaphore.h>
+#include <spead2/common_endian.h>
+#include <spead2/common_memory_allocator.h>
 #include <spead2/send_stream.h>
 #include <spead2/send_udp.h>
 #include <spead2/send_tcp.h>
@@ -49,6 +52,7 @@ struct options
     std::size_t heap_size = 4194304;
     std::size_t items = 1;
     std::int64_t heaps = -1;
+    bool verify = false;
     std::vector<std::string> dest;
 };
 
@@ -66,6 +70,7 @@ static options parse_args(int argc, const char **argv)
         ("heap-size", spead2::make_value_semantic(&opts.heap_size), "Payload size for heap")
         ("items", spead2::make_value_semantic(&opts.items), "Number of items per heap")
         ("heaps", spead2::make_value_semantic(&opts.heaps), "Number of data heaps to send (-1=infinite)")
+        ("verify", spead2::make_value_semantic(&opts.verify), "Insert payload values that receiver can verify")
     ;
     spead2::option_adder adder(desc);
     opts.protocol.enumerate(adder);
@@ -119,19 +124,22 @@ private:
     const std::size_t n_substreams;
     const std::int64_t n_heaps;
     const spead2::flavour flavour;
-    const std::size_t value_size;
+    const std::size_t elements;                              // number of element_t's per item
+    const bool verify;
 
-    spead2::send::heap first_heap;                           // has descriptors
+    std::vector<spead2::send::heap> first_heaps;             // have descriptors
     std::vector<spead2::send::heap> heaps;
     spead2::send::heap last_heap;                            // has end-of-stream marker
-    typedef std::pair<float, float> item_t;
-    std::vector<std::unique_ptr<item_t[]>> values;
+    typedef std::uint32_t element_t;
+    spead2::memory_allocator::pointer storage;               // data for all heaps
+    std::vector<std::vector<element_t *>> pointers;          // start of data per item per heap
+    std::minstd_rand generator;
 
     std::uint64_t bytes_transferred = 0;
     boost::system::error_code error;
     spead2::semaphore done_sem{0};
 
-    const spead2::send::heap &get_heap(std::uint64_t idx) const noexcept;
+    const spead2::send::heap &get_heap(std::uint64_t idx) noexcept;
 
     void callback(spead2::send::stream &stream,
                   std::uint64_t idx,
@@ -151,22 +159,28 @@ sender::sender(const options &opts)
                 ? opts.sender.max_heaps : opts.heaps + opts.dest.size()),
     n_substreams(opts.dest.size()),
     n_heaps(opts.heaps),
-    value_size(opts.heap_size / (opts.items * sizeof(item_t)) * sizeof(item_t)),
-    first_heap(opts.sender.make_flavour(opts.protocol)),
+    elements(opts.heap_size / (opts.items * sizeof(element_t))),
+    verify(opts.verify),
     last_heap(opts.sender.make_flavour(opts.protocol))
 {
+    first_heaps.reserve(max_heaps);
     heaps.reserve(max_heaps);
     for (std::size_t i = 0; i < max_heaps; i++)
+    {
+        first_heaps.emplace_back(flavour);
         heaps.emplace_back(flavour);
+    }
 
-    const std::size_t elements = opts.heap_size / (opts.items * sizeof(item_t));
-    const std::size_t heap_size = elements * opts.items * sizeof(item_t);
+    const std::size_t item_size = elements * sizeof(element_t);
+    const std::size_t heap_size = item_size * opts.items;
     if (heap_size != opts.heap_size)
     {
         std::cerr << "Heap size is not an exact multiple: using " << heap_size << " instead of " << opts.heap_size << '\n';
     }
 
-    values.reserve(opts.items);
+    auto allocator = std::make_shared<spead2::mmap_allocator>(0, true);
+    storage = allocator->allocate(heap_size * max_heaps, nullptr);
+
     for (std::size_t i = 0; i < opts.items; i++)
     {
         spead2::descriptor d;
@@ -176,35 +190,51 @@ sender::sender(const options &opts)
         d.name = sstr.str();
         d.description = "A test item with arbitrary value";
         sstr.str("");
-        sstr << "{'shape': (" << elements << ",), 'fortran_order': False, 'descr': '<c8'}";
+        sstr << "{'shape': (" << elements << ",), 'fortran_order': False, 'descr': '>u4'}";
         d.numpy_header = sstr.str();
-        first_heap.add_descriptor(d);
-        std::unique_ptr<item_t[]> item(new item_t[elements]);
-        item_t *ptr = item.get();
-        values.push_back(std::move(item));
         for (std::size_t j = 0; j < max_heaps; j++)
-            heaps[j].add_item(0x1000 + i, ptr, elements * sizeof(item_t), true);
-        first_heap.add_item(0x1000 + i, ptr, elements * sizeof(item_t), true);
+            first_heaps[j].add_descriptor(d);
+    }
+
+    pointers.resize(max_heaps);
+    for (std::size_t i = 0; i < max_heaps; i++)
+    {
+        pointers[i].resize(opts.items);
+        for (std::size_t j = 0; j < opts.items; j++)
+        {
+            pointers[i][j] = reinterpret_cast<element_t *>(
+                storage.get() + i * heap_size + j * item_size);
+            first_heaps[i].add_item(0x1000 + j, pointers[i][j], item_size, true);
+            heaps[i].add_item(0x1000 + j, pointers[i][j], item_size, true);
+        }
     }
     last_heap.add_end();
 }
 
 std::vector<std::pair<const void *, std::size_t>> sender::memory_regions() const
 {
-    std::vector<std::pair<const void *, std::size_t>> out;
-    for (const auto &value : values)
-        out.emplace_back(value.get(), value_size);
-    return out;
+    return {{storage.get(), max_heaps * pointers[0].size() * elements * sizeof(element_t)}};
 }
 
-const spead2::send::heap &sender::get_heap(std::uint64_t idx) const noexcept
+const spead2::send::heap &sender::get_heap(std::uint64_t idx) noexcept
 {
+    spead2::send::heap *heap;
     if (idx < n_substreams)
-        return first_heap;
+        heap = &first_heaps[idx % max_heaps];
     else if (n_heaps >= 0 && idx >= std::uint64_t(n_heaps))
         return last_heap;
     else
-        return heaps[idx % max_heaps];
+        heap = &heaps[idx % max_heaps];
+
+    if (verify)
+    {
+        const std::vector<element_t *> &ptrs = pointers[idx % max_heaps];
+        // Fill in random values to be checked by the receiver
+        for (std::size_t i = 0; i < ptrs.size(); i++)
+            for (std::size_t j = 0; j < elements; j++)
+                ptrs[i][j] = spead2::htobe(std::uint32_t(generator()));
+    }
+    return *heap;
 }
 
 void sender::callback(spead2::send::stream &stream,
@@ -240,9 +270,7 @@ std::uint64_t sender::run(spead2::send::stream &stream)
     error = boost::system::error_code();
     /* Send the initial heaps from the worker thread. This ensures that no
      * callbacks can happen until the initial heaps are all sent, which would
-     * otherwise lead to heaps being queued out of order. For this benchmark it
-     * doesn't really matter since the heaps are all the same, but it makes it
-     * a more realistic benchmark.
+     * otherwise lead to heaps being queued out of order.
      */
     stream.get_io_service().post([this, &stream] {
         for (int i = 0; i < max_heaps; i++)
