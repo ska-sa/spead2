@@ -65,10 +65,6 @@ def get_args():
     sender.add_arguments(group)
     group.add_argument('--descriptors', type=int,
                        help='Description issue frequency [only at start]')
-    group.add_argument('--threads', type=int, default=1,
-                       help='Number of worker threads [%(default)s]')
-    group.add_argument('--affinity', type=spead2.parse_range_list,
-                       help='List of CPUs to pin threads to [no affinity]')
 
     args = parser.parse_args()
     protocol.notify(parser, args)
@@ -138,11 +134,7 @@ async def async_main():
                             description='A test item with arbitrary value',
                             shape=(elements,), dtype=dtype,
                             value=np.zeros((elements,), dtype=dtype))
-    if args.affinity is not None and len(args.affinity) > 0:
-        spead2.ThreadPool.set_affinity(args.affinity[0])
-        thread_pool = spead2.ThreadPool(args.threads, args.affinity[1:] + args.affinity[:1])
-    else:
-        thread_pool = spead2.ThreadPool(args.threads)
+    thread_pool = sender.make_thread_pool()
     memory_regions = [item.value for item in item_group.values()]
     stream = await sender.make_stream(thread_pool, args.destination, memory_regions)
 

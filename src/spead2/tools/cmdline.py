@@ -35,10 +35,38 @@ def parse_endpoint(endpoint):
 
 
 class _Options:
+    """Base class for classes holding command-line arguments.
+
+    The derived class must have attributes corresponding to the command-line
+    arguments (with the same name).
+
+    Parameters
+    ----------
+    name_map : Optional[Mapping[str, Optional[str]]]
+        If specified, provides for renaming and suppressing command-line
+        options. If ``name_map['foo_bar'] == 'abc_xyz'`` then the end user will
+        pass ``--abc-xyz`` instead of ``--foo-bar``. Setting an element to
+        ``None`` will suppress the option.
+    """
+
     def __init__(self, name_map=None):
         self._name_map = name_map or {}
 
     def _add_argument(self, parser, name, *args, **kwargs):
+        """Add an argument to a parser.
+
+        This is called by subclasses to add an argument to a parser.
+
+        It functions like :py:meth:`argparse.ArgumentParser.add_argument`, except
+        that:
+
+        - Instead of the flag, one must provide the name of the class
+          attribute. The flag is computed by converting underscores to dashes and
+          prepending ``--`` (after applying the name map given to the
+          constructor).
+        - No `default` should be provided. The value currently stored in the object
+          is used as the default.
+        """
         assert 'dest' not in kwargs
         new_name = self._name_map.get(name, name)
         if new_name is not None:
@@ -46,6 +74,11 @@ class _Options:
             parser.add_argument(flag, *args, dest=new_name, default=getattr(self, name), **kwargs)
 
     def _extract_args(self, namespace):
+        """Update the object attributes from parsed arguments.
+
+        After parsing the arguments, the subclass should call this to reflect
+        the arguments into the object.
+        """
         for name in self.__dict__:
             if name.startswith('_'):
                 continue
@@ -72,12 +105,54 @@ class ProtocolOptions(_Options):
         self._extract_args(namespace)
 
 
-class ReceiverOptions(_Options):
-    """Options for receivers."""
+class SharedOptions(_Options):
+    """Options common to senders and receiver.
+
+    Unlike :class:`ProtocolOptions`, these need not be the same at the sender
+    and receiver.
+    """
 
     def __init__(self, protocol, name_map=None) -> None:
         super().__init__(name_map)
         self._protocol = protocol
+        self.buffer = None            # Default depends on protocol
+        self.bind = None
+        if _HAVE_IBV:
+            # These must be set conditionally, because _extract_args requires
+            # a command-line argument corresponding to every attribute.
+            self.ibv = False
+            self.ibv_vector = 0
+            self.ibv_max_poll = spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL
+        self.threads = 1
+        self.affinity = None
+
+    def add_arguments(self, parser):
+        self._add_argument(parser, 'buffer', type=int, help='Socket buffer size')
+        self._add_argument(parser, 'bind', type=str, help='Interface address')
+        if _HAVE_IBV:
+            self._add_argument(parser, 'ibv', action='store_true', help='Use ibverbs [no]')
+            self._add_argument(parser, 'ibv_vector', type=int, metavar='N',
+                               help='Completion vector, or -1 to use polling [%(default)s]')
+            self._add_argument(parser, 'ibv_max_poll', type=int,
+                               help='Maximum number of times to poll in a row [%(default)s]')
+        self._add_argument(parser, 'affinity', type=spead2.parse_range_list,
+                           help='List of CPUs to pin threads to [no affinity]')
+        self._add_argument(parser, 'threads', type=int,
+                           help='Number of worker threads [%(default)s]')
+
+    def make_thread_pool(self):
+        if self.affinity:
+            spead2.ThreadPool.set_affinity(self.affinity[0])
+            return spead2.ThreadPool(self.threads, self.affinity[1:] + self.affinity[:1])
+        else:
+            return spead2.ThreadPool(self.threads)
+
+
+class ReceiverOptions(SharedOptions):
+    """Options for receivers."""
+
+    def __init__(self, protocol, name_map=None) -> None:
+        super().__init__(protocol, name_map)
         self.memcpy_nt = False
         self.concurrent_heaps = spead2.recv.StreamConfig.DEFAULT_MAX_HEAPS
         self.ring_heaps = spead2.recv.RingStreamConfig.DEFAULT_HEAPS
@@ -86,13 +161,7 @@ class ReceiverOptions(_Options):
         self.mem_upper = 32 * 1024**2
         self.mem_max_free = 12
         self.mem_initial = 8
-        self.buffer = None
         self.packet = None
-        self.bind = None
-        if _HAVE_IBV:
-            self.ibv = False
-            self.ibv_vector = 0
-            self.ibv_max_poll = spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL
 
     def add_arguments(self, parser):
         self._add_argument(parser, 'memcpy_nt', action='store_true',
@@ -110,15 +179,8 @@ class ReceiverOptions(_Options):
                            help='Maximum free memory buffers [%(default)s]')
         self._add_argument(parser, 'mem_initial', type=int,
                            help='Initial free memory buffers [%(default)s]')
-        self._add_argument(parser, 'buffer', type=int, help='Socket buffer size')
         self._add_argument(parser, 'packet', type=int, help='Maximum packet size to accept')
-        self._add_argument(parser, 'bind', type=str, help='Interface address')
-        if _HAVE_IBV:
-            self._add_argument(parser, 'ibv', action='store_true', help='Use ibverbs [no]')
-            self._add_argument(parser, 'ibv_vector', type=int, metavar='N',
-                               help='Completion vector, or -1 to use polling [%(default)s]')
-            self._add_argument(parser, 'ibv_max_poll', type=int,
-                               help='Maximum number of times to poll in a row [%(default)s]')
+        super().add_arguments(parser)
 
     def notify(self, parser, namespace):
         self._extract_args(namespace)
@@ -184,26 +246,19 @@ class ReceiverOptions(_Options):
                                       self.buffer, self.ibv_vector, self.ibv_max_poll)
 
 
-class SenderOptions(_Options):
+class SenderOptions(SharedOptions):
     """Options for senders."""
 
     def __init__(self, protocol, name_map=None):
-        super().__init__(name_map)
-        self._protocol = protocol
+        super().__init__(protocol, name_map)
         self.addr_bits = spead2.Flavour().heap_address_bits
         self.packet = spead2.send.StreamConfig.DEFAULT_MAX_PACKET_SIZE
-        self.buffer = None        # Default depends on protocol
-        self.bind = None
         self.burst = spead2.send.StreamConfig.DEFAULT_BURST_SIZE
         self.burst_rate_ratio = spead2.send.StreamConfig.DEFAULT_BURST_RATE_RATIO
         self.max_heaps = spead2.send.StreamConfig.DEFAULT_MAX_HEAPS
         self.rate_method = spead2.send.StreamConfig.DEFAULT_RATE_METHOD
         self.rate = 0.0
         self.ttl = None
-        if _HAVE_IBV:
-            self.ibv = False
-            self.ibv_vector = 0
-            self.ibv_max_poll = spead2.send.UdpIbvStreamConfig.DEFAULT_MAX_POLL
 
     def add_arguments(self, parser):
         def parse_rate_method(value):
@@ -218,8 +273,6 @@ class SenderOptions(_Options):
                            help='Heap address bits [%(default)s]')
         self._add_argument(parser, 'packet', type=int,
                            help='Maximum packet size to send [%(default)s]')
-        self._add_argument(parser, 'buffer', type=int, help='Socket buffer size')
-        self._add_argument(parser, 'bind', type=str, help='Local address to bind sockets to')
         self._add_argument(parser, 'burst', metavar='BYTES', type=int,
                            help='Burst size [%(default)s]')
         self._add_argument(parser, 'burst_rate_ratio', metavar='RATIO', type=float,
@@ -231,13 +284,7 @@ class SenderOptions(_Options):
         self._add_argument(parser, 'rate', metavar='Gb/s', type=float,
                            help='Transmission rate bound [no limit]')
         self._add_argument(parser, 'ttl', type=int, help='TTL for multicast target')
-        if _HAVE_IBV:
-            self._add_argument(parser, 'ibv', action='store_true',
-                               help='Use ibverbs [no]')
-            self._add_argument(parser, 'ibv_vector', type=int, metavar='N',
-                               help='Completion vector, or -1 to use polling [%(default)s]')
-            self._add_argument(parser, 'ibv_max_poll', type=int,
-                               help='Maximum number of times to poll in a row [%(default)s]')
+        super().add_arguments(parser)
 
     def notify(self, parser, namespace):
         self._extract_args(namespace)
