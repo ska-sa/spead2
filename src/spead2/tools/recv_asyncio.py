@@ -49,10 +49,6 @@ def get_args():
     receiver = cmdline.ReceiverOptions(protocol)
     protocol.add_arguments(group)
     receiver.add_arguments(group)
-    group.add_argument('--threads', type=int, default=1,
-                       help='Number of worker threads [%(default)s]')
-    group.add_argument('--affinity', type=spead2.parse_range_list,
-                       help='List of CPUs to pin threads to [no affinity]')
 
     args = parser.parse_args()
     protocol.notify(parser, args)
@@ -117,11 +113,7 @@ def main():
     args, receiver = get_args()
     logging.basicConfig(level=getattr(logging, args.log.upper()))
 
-    if args.affinity is not None and len(args.affinity) > 0:
-        spead2.ThreadPool.set_affinity(args.affinity[0])
-        thread_pool = spead2.ThreadPool(args.threads, args.affinity[1:] + args.affinity[:1])
-    else:
-        thread_pool = spead2.ThreadPool(args.threads)
+    thread_pool = receiver.make_thread_pool()
     config = receiver.make_stream_config()
     ring_config = receiver.make_ring_stream_config()
     if args.joint:
