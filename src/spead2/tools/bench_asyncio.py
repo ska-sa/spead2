@@ -40,6 +40,7 @@ import spead2.recv
 import spead2.recv.asyncio
 import spead2.send
 import spead2.send.asyncio
+from . import cmdline
 
 
 class AgentConnection:
@@ -74,37 +75,23 @@ class AgentConnection:
                         logging.warning("Start received while already running: %s", command)
                         continue
                     args = argparse.Namespace(**command['args'])
-                    if args.recv_affinity is not None and len(args.recv_affinity) > 0:
-                        spead2.ThreadPool.set_affinity(args.recv_affinity[0])
-                        thread_pool = spead2.ThreadPool(
-                            1, args.recv_affinity[1:] + args.recv_affinity[:1])
-                    else:
-                        thread_pool = spead2.ThreadPool()
-                    thread_pool = spead2.ThreadPool()
-                    memory_pool = spead2.MemoryPool(
-                        args.heap_size, args.heap_size + 1024, args.mem_max_free, args.mem_initial)
-                    config = spead2.recv.StreamConfig(max_heaps=args.heaps,
-                                                      memory_allocator=memory_pool)
-                    if args.memcpy_nt:
-                        config.memcpy = spead2.MEMCPY_NONTEMPORAL
+                    protocol = cmdline.ProtocolOptions()
+                    receiver = cmdline.ReceiverOptions(protocol)
+                    for (key, value) in command['protocol'].items():
+                        setattr(protocol, key, value)
+                    for (key, value) in command['receiver'].items():
+                        setattr(receiver, key, value)
                     stream = spead2.recv.asyncio.Stream(
-                        thread_pool, config, spead2.recv.RingStreamConfig(heaps=args.ring_heaps))
-                    bind_hostname = '' if args.multicast is None else args.multicast
-                    if 'recv_ibv' in args and args.recv_ibv is not None:
-                        try:
-                            stream.add_udp_ibv_reader(
-                                bind_hostname, args.port,
-                                args.recv_ibv,
-                                args.packet, args.recv_buffer,
-                                args.recv_ibv_vector, args.recv_ibv_max_poll)
-                        except AttributeError:
-                            logging.error('--recv-ibv passed but agent does not support ibv')
-                            sys.exit(1)
-                    else:
-                        stream.add_udp_reader(args.port, args.packet, args.recv_buffer,
-                                              bind_hostname)
-                    thread_pool = None
-                    memory_pool = None
+                        receiver.make_thread_pool(),
+                        receiver.make_stream_config(),
+                        receiver.make_ring_stream_config()
+                    )
+                    if getattr(receiver, 'ibv') and not hasattr(stream, 'add_udp_ibv_reader'):
+                        logging.error('--recv-ibv passed but agent does not support ibv')
+                        sys.exit(1)
+
+                    endpoint = args.multicast or args.endpoint
+                    receiver.add_readers(stream, [endpoint])
                     stream_task = asyncio.ensure_future(self.run_stream(stream))
                     self._write('ready\n')
                 elif command['cmd'] == 'stop':
@@ -146,7 +133,7 @@ async def send_stream(item_group, stream, num_heaps, args):
     tasks = collections.deque()
     transferred = 0
     for i in range(num_heaps + 1):
-        while len(tasks) >= args.heaps:
+        while len(tasks) >= args.max_heaps:
             transferred += await tasks.popleft()
         if i == num_heaps:
             heap = item_group.get_end()
@@ -159,54 +146,39 @@ async def send_stream(item_group, stream, num_heaps, args):
     return transferred
 
 
-async def measure_connection_once(args, rate, num_heaps, required_heaps):
+async def measure_connection_once(args, protocol, sender, receiver,
+                                  rate, num_heaps, required_heaps):
     def write(s):
         writer.write(s.encode('ascii'))
 
-    reader, writer = await asyncio.open_connection(args.host, args.port)
-    write(json.dumps({'cmd': 'start', 'args': vars(args)}) + '\n')
+    host, port = cmdline.parse_endpoint(args.endpoint)
+    reader, writer = await asyncio.open_connection(host, port)
+    write(json.dumps(
+        {
+            'cmd': 'start',
+            'args': vars(args),
+            'protocol': {key: value for (key, value) in protocol.__dict__.items()
+                         if not key.startswith('_')},
+            'receiver': {key: value for (key, value) in receiver.__dict__.items()
+                         if not key.startswith('_')}
+        }) + '\n')
     # Wait for "ready" response
     response = await reader.readline()
     assert response == b'ready\n'
-    if args.send_affinity is not None and len(args.send_affinity) > 0:
-        spead2.ThreadPool.set_affinity(args.send_affinity[0])
-        thread_pool = spead2.ThreadPool(1, args.send_affinity[1:] + args.send_affinity[:1])
-    else:
-        thread_pool = spead2.ThreadPool()
 
-    item_group = spead2.send.ItemGroup(
-        flavour=spead2.Flavour(4, 64, args.addr_bits, 0))
+    item_group = spead2.send.ItemGroup(flavour=sender.make_flavour())
     item_group.add_item(id=None, name='Test item',
                         description='A test item with arbitrary value',
                         shape=(args.heap_size,), dtype=np.uint8,
                         value=np.zeros((args.heap_size,), dtype=np.uint8))
 
-    config = spead2.send.StreamConfig(
-        max_packet_size=args.packet,
-        burst_size=args.burst,
-        rate=rate,
-        max_heaps=args.heaps,
-        burst_rate_ratio=args.burst_rate_ratio,
-        allow_hw_rate=args.allow_hw_rate)
-    host = args.host
+    sender.rate = rate * 8e-9        # Convert to Gb/s
+    endpoint = args.endpoint
     if args.multicast is not None:
-        host = args.multicast
-    if 'send_ibv' in args and args.send_ibv is not None:
-        stream = spead2.send.asyncio.UdpIbvStream(
-            thread_pool,
-            config,
-            spead2.send.UdpIbvStreamConfig(
-                endpoints=[(host, args.port)],
-                interface_address=args.send_ibv,
-                buffer_size=args.send_buffer,
-                comp_vector=args.send_ibv_vector,
-                max_poll=args.send_ibv_max_poll,
-                memory_regions=[item.value for item in item_group.values()]
-            )
-        )
-    else:
-        stream = spead2.send.asyncio.UdpStream(
-            thread_pool, [(host, args.port)], config, args.send_buffer)
+        endpoint = args.multicast
+    memory_regions = [item.value for item in item_group.values()]
+    stream = await sender.make_stream(
+        sender.make_thread_pool(), [cmdline.parse_endpoint(endpoint)], memory_regions)
 
     start = timeit.default_timer()
     transferred = await send_stream(item_group, stream, num_heaps, args)
@@ -228,26 +200,27 @@ async def measure_connection_once(args, rate, num_heaps, required_heaps):
     return received_heaps >= required_heaps, actual_rate
 
 
-async def measure_connection(args, rate, num_heaps, required_heaps):
+async def measure_connection(args, protocol, sender, receiver, rate, num_heaps, required_heaps):
     good = True
     rate_sum = 0.0
     passes = 5
     for i in range(passes):
-        status, actual_rate = await measure_connection_once(args, rate, num_heaps,
-                                                            required_heaps)
+        status, actual_rate = await measure_connection_once(args, protocol, sender, receiver,
+                                                            rate, num_heaps, required_heaps)
         good = good and status
         rate_sum += actual_rate
     return good, rate_sum / passes
 
 
-async def run_master(args):
+async def run_master(args, protocol, sender, receiver):
     best_actual = 0.0
 
     # Send 1GB as fast as possible to find an upper bound - receive rate
     # does not matter. Also do a warmup run first to warm up the receiver.
     num_heaps = int(1e9 / args.heap_size) + 2
-    await measure_connection_once(args, 0.0, num_heaps, 0)  # warmup
-    good, actual_rate = await measure_connection(args, 0.0, num_heaps, num_heaps - 1)
+    await measure_connection_once(args, protocol, sender, receiver, 0.0, num_heaps, 0)  # warmup
+    good, actual_rate = await measure_connection(args, protocol, sender, receiver,
+                                                 0.0, num_heaps, num_heaps - 1)
     if good:
         if not args.quiet:
             print("Limited by send spead")
@@ -261,7 +234,8 @@ async def run_master(args):
             # 1 second for warmup effects.
             rate = (low + high) * 0.5
             num_heaps = int(max(1e9, rate) / args.heap_size) + 2
-            good, actual_rate = await measure_connection(args, rate, num_heaps, num_heaps - 1)
+            good, actual_rate = await measure_connection(
+                args, protocol, sender, receiver, rate, num_heaps, num_heaps - 1)
             if not args.quiet:
                 print("Rate: {:.3f} Gbps ({:.3f} actual): {}".format(
                     rate * 8e-9, actual_rate * 8e-9, "GOOD" if good else "BAD"))
@@ -281,72 +255,60 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--log', metavar='LEVEL', default='INFO', help='Log level [%(default)s]')
     subparsers = parser.add_subparsers(title='subcommands')
+
     master = subparsers.add_parser('master')
+    sender_map = {
+        'buffer': 'send_buffer',
+        'packet': None,                 # Use receiver's packet size
+        'rate': None,                   # Controlled by test
+        'bind': 'send_bind',
+        'ibv': 'send_ibv',
+        'ibv_vector': 'send_ibv_vector',
+        'ibv_max_poll': 'send_ibv_max_poll',
+        'affinity': 'send-affinity',
+        'threads': 'send-threads'
+    }
+    receiver_map = {
+        'buffer': 'recv_buffer',
+        'bind': 'recv_bind',
+        'ibv': 'recv_ibv',
+        'ibv_vector': 'recv_ibv_vector',
+        'ibv_max_poll': 'recv_ibv_max_poll',
+        'affinity': 'recv-affinity',
+        'threads': 'recv-threads',
+        'mem_pool': None,
+        'mem_lower': None,
+        'mem_upper': None
+    }
+    protocol = cmdline.ProtocolOptions(name_map={'tcp': None})
+    sender = cmdline.SenderOptions(protocol, name_map=sender_map)
+    receiver = cmdline.ReceiverOptions(protocol, name_map=receiver_map)
     master.add_argument('--quiet', action='store_true', default=False,
                         help='Print only the final result')
-    master.add_argument('--packet', metavar='BYTES', type=int, default=9172,
-                        help='Maximum packet size to use for UDP [%(default)s]')
     master.add_argument('--heap-size', metavar='BYTES', type=int, default=4194304,
                         help='Payload size for heap [%(default)s]')
-    master.add_argument('--addr-bits', metavar='BITS', type=int, default=40,
-                        help='Heap address bits [%(default)s]')
     master.add_argument('--multicast', metavar='ADDRESS', type=str,
                         help='Send via multicast group [unicast]')
-    group = master.add_argument_group('sender options')
-    group.add_argument('--send-affinity', type=spead2.parse_range_list,
-                       help='List of CPUs to pin threads to [no affinity]')
-    group.add_argument('--send-buffer', metavar='BYTES', type=int,
-                       default=spead2.send.asyncio.UdpStream.DEFAULT_BUFFER_SIZE,
-                       help='Socket buffer size [%(default)s]')
-    group.add_argument('--burst', metavar='BYTES', type=int,
-                       default=spead2.send.StreamConfig.DEFAULT_BURST_SIZE,
-                       help='Send burst size [%(default)s]')
-    group.add_argument('--burst-rate-ratio', metavar='RATIO', type=float,
-                       default=spead2.send.StreamConfig.DEFAULT_BURST_RATE_RATIO,
-                       help='Hard rate limit, relative to nominal rate [%(default)s]')
-    group.add_argument('--allow-hw-rate', action='store_true',
-                       help='Use hardware rate limiting if available')
-    if hasattr(spead2.send, 'UdpIbvStream'):
-        group.add_argument('--send-ibv', type=str, metavar='ADDRESS',
-                           help='Use ibverbs with this interface address [no]')
-        group.add_argument('--send-ibv-vector', type=int, default=0, metavar='N',
-                           help='Completion vector, or -1 to use polling [%(default)s]')
-        group.add_argument('--send-ibv-max-poll', type=int,
-                           default=spead2.send.UdpIbvStreamConfig.DEFAULT_MAX_POLL,
-                           help='Maximum number of times to poll in a row [%(default)s]')
-    group = master.add_argument_group('receiver options')
-    group.add_argument('--recv-affinity', type=spead2.parse_range_list,
-                       help='List of CPUs to pin threads to [no affinity]')
-    group.add_argument('--recv-buffer', metavar='BYTES', type=int,
-                       default=spead2.recv.Stream.DEFAULT_UDP_BUFFER_SIZE,
-                       help='Socket buffer size [%(default)s]')
-    if hasattr(spead2.recv.Stream, 'add_udp_ibv_reader'):
-        group.add_argument('--recv-ibv', type=str, metavar='ADDRESS',
-                           help='Use ibverbs with this interface address [no]')
-        group.add_argument('--recv-ibv-vector', type=int, default=0, metavar='N',
-                           help='Completion vector, or -1 to use polling [%(default)s]')
-        group.add_argument('--recv-ibv-max-poll', type=int,
-                           default=spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL,
-                           help='Maximum number of times to poll in a row [%(default)s]')
-    group.add_argument('--heaps', type=int, default=spead2.recv.StreamConfig.DEFAULT_MAX_HEAPS,
-                       help='Maximum number of in-flight heaps [%(default)s]')
-    group.add_argument('--ring-heaps', type=int, default=spead2.recv.RingStreamConfig.DEFAULT_HEAPS,
-                       help='Ring buffer capacity in heaps [%(default)s]')
-    group.add_argument('--memcpy-nt', action='store_true',
-                       help='Use non-temporal memcpy [no]')
-    group.add_argument('--mem-max-free', type=int, default=12,
-                       help='Maximum free memory buffers [%(default)s]')
-    group.add_argument('--mem-initial', type=int, default=8,
-                       help='Initial free memory buffers [%(default)s]')
-    master.add_argument('host')
-    master.add_argument('port', type=int)
+    protocol.add_arguments(master)
+    sender.add_arguments(master.add_argument_group('sender options'))
+    receiver.add_arguments(master.add_argument_group('receiver options'))
+    master.add_argument('endpoint', metavar='HOST:PORT')
     agent = subparsers.add_parser('agent')
     agent.add_argument('port', type=int)
 
     args = parser.parse_args()
     logging.basicConfig(level=getattr(logging, args.log.upper()))
-    if 'host' in args:
-        task = run_master(args)
+    if 'endpoint' in args:
+        if args.send_ibv and not args.multicast:
+            parser.error('--send-ibv requires --multicast')
+        receiver.mem_pool = True
+        receiver.mem_lower = args.heap_size
+        receiver.mem_upper = args.heap_size + 1024  # more than enough for overheads
+        protocol.notify(parser, args)
+        receiver.notify(parser, args)
+        sender.packet = receiver.packet
+        sender.notify(parser, args)
+        task = run_master(args, protocol, sender, receiver)
     else:
         task = run_agent(args)
     task = asyncio.ensure_future(task)
