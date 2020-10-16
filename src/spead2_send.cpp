@@ -35,6 +35,7 @@
 #if SPEAD2_USE_IBV
 # include <spead2/send_udp_ibv.h>
 #endif
+#include "spead2_cmdline.h"
 
 namespace po = boost::program_options;
 namespace asio = boost::asio;
@@ -43,26 +44,11 @@ using boost::asio::ip::tcp;
 
 struct options
 {
+    spead2::protocol_options protocol;
+    spead2::send::sender_options sender;
     std::size_t heap_size = 4194304;
     std::size_t items = 1;
     std::int64_t heaps = -1;
-    bool pyspead = false;
-    bool tcp = false;
-    std::string bind;
-    int addr_bits = 40;
-    std::size_t packet = spead2::send::stream_config::default_max_packet_size;
-    std::size_t buffer;
-    std::size_t burst = spead2::send::stream_config::default_burst_size;
-    double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
-    std::size_t max_heaps = spead2::send::stream_config::default_max_heaps;
-    bool allow_hw_rate = false;
-    double rate = 0.0;
-    int ttl = 1;
-#if SPEAD2_USE_IBV
-    bool ibv = false;
-    int ibv_comp_vector = 0;
-    int ibv_max_poll = spead2::send::udp_ibv_stream_config::default_max_poll;
-#endif
     std::vector<std::string> dest;
 };
 
@@ -72,52 +58,23 @@ static void usage(std::ostream &o, const po::options_description &desc)
     o << desc;
 }
 
-template<typename T>
-static po::typed_value<T> *make_opt(T &var)
-{
-    return po::value<T>(&var)->default_value(var);
-}
-
-static po::typed_value<bool> *make_opt(bool &var)
-{
-    return po::bool_switch(&var)->default_value(var);
-}
-
-template<typename T>
-static po::typed_value<T> *make_opt_no_default(T &var)
-{
-    return po::value<T>(&var);
-}
-
 static options parse_args(int argc, const char **argv)
 {
     options opts;
     po::options_description desc, hidden, all;
     desc.add_options()
-        ("heap-size", make_opt(opts.heap_size), "Payload size for heap")
-        ("items", make_opt(opts.items), "Number of items per heap")
-        ("heaps", make_opt(opts.heaps), "Number of data heaps to send (-1=infinite)")
-        ("pyspead", make_opt(opts.pyspead), "Be bug-compatible with PySPEAD")
-        ("addr-bits", make_opt(opts.addr_bits), "Heap address bits")
-        ("tcp", make_opt(opts.tcp), "Use TCP instead than UDP")
-        ("bind", make_opt(opts.bind), "Local address to bind sockets to")
-        ("packet", make_opt(opts.packet), "Maximum packet size to send")
-        ("buffer", make_opt_no_default(opts.buffer), "Socket buffer size")
-        ("burst", make_opt(opts.burst), "Burst size")
-        ("burst-rate-ratio", make_opt(opts.burst_rate_ratio), "Hard rate limit, relative to --rate")
-        ("allow-hw-rate", make_opt(opts.allow_hw_rate), "Use hardware rate limiting if available")
-        ("max-heaps", make_opt(opts.max_heaps), "Maximum heaps in flight")
-        ("rate", make_opt(opts.rate), "Transmission rate bound (Gb/s)")
-        ("ttl", make_opt(opts.ttl), "TTL for multicast target")
-#if SPEAD2_USE_IBV
-        ("ibv", make_opt(opts.ibv), "Use ibverbs")
-        ("ibv-vector", make_opt(opts.ibv_comp_vector), "Interrupt vector (-1 for polled)")
-        ("ibv-max-poll", make_opt(opts.ibv_max_poll), "Maximum number of times to poll in a row")
-#endif
+        ("heap-size", spead2::make_value_semantic(&opts.heap_size), "Payload size for heap")
+        ("items", spead2::make_value_semantic(&opts.items), "Number of items per heap")
+        ("heaps", spead2::make_value_semantic(&opts.heaps), "Number of data heaps to send (-1=infinite)")
     ;
+    spead2::option_adder adder(desc);
+    opts.protocol.enumerate(adder);
+    opts.sender.enumerate(adder);
     hidden.add_options()
-        ("destination", make_opt_no_default(opts.dest)->composing(), "Destination host:port")
+        ("destination", spead2::make_value_semantic(&opts.dest), "Destination host:port")
     ;
+    desc.add_options()
+        ("help,h", "Show help text");
     all.add(desc);
     all.add(hidden);
 
@@ -139,23 +96,9 @@ static options parse_args(int argc, const char **argv)
         }
         if (!vm.count("destination"))
             throw po::error("at least one destination is required");
-        if (opts.dest.size() > 1 && opts.tcp)
+        if (opts.dest.size() > 1 && opts.protocol.tcp)
             throw po::error("only one destination is supported with TCP");
-        if (!vm.count("buffer"))
-        {
-            if (opts.tcp)
-                opts.buffer = spead2::send::tcp_stream::default_buffer_size;
-#if SPEAD2_USE_IBV
-            else if (opts.ibv)
-                opts.buffer = spead2::send::udp_ibv_stream_config::default_buffer_size;
-#endif
-            else
-                opts.buffer = spead2::send::udp_stream::default_buffer_size;
-        }
-#if SPEAD2_USE_IBV
-        if (opts.ibv && opts.bind.empty())
-            throw po::error("--ibv requires --bind");
-#endif
+        opts.sender.notify(opts.protocol);
         return opts;
     }
     catch (po::error &e)
@@ -203,15 +146,14 @@ public:
 };
 
 sender::sender(const options &opts)
-    : max_heaps((opts.heaps < 0 || std::uint64_t(opts.heaps) + opts.dest.size() > opts.max_heaps)
-                ? opts.max_heaps : opts.heaps + opts.dest.size()),
+    : max_heaps((opts.heaps < 0
+                 || std::uint64_t(opts.heaps) + opts.dest.size() > opts.sender.max_heaps)
+                ? opts.sender.max_heaps : opts.heaps + opts.dest.size()),
     n_substreams(opts.dest.size()),
     n_heaps(opts.heaps),
-    flavour(spead2::maximum_version, 64, opts.addr_bits,
-            opts.pyspead ? spead2::BUG_COMPAT_PYSPEAD_0_5_2 : 0),
     value_size(opts.heap_size / (opts.items * sizeof(item_t)) * sizeof(item_t)),
-    first_heap(flavour),
-    last_heap(flavour)
+    first_heap(opts.sender.make_flavour(opts.protocol)),
+    last_heap(opts.sender.make_flavour(opts.protocol))
 {
     heaps.reserve(max_heaps);
     for (std::size_t i = 0; i < max_heaps; i++)
@@ -358,73 +300,8 @@ int main(int argc, const char **argv)
     sender s(opts);
 
     spead2::thread_pool thread_pool(1);
-    spead2::send::stream_config config;
-    config.set_max_packet_size(opts.packet);
-    config.set_rate(opts.rate * 1000 * 1000 * 1000 / 8);
-    config.set_burst_size(opts.burst);
-    config.set_max_heaps(opts.max_heaps);
-    config.set_burst_rate_ratio(opts.burst_rate_ratio);
-    config.set_allow_hw_rate(opts.allow_hw_rate);
-    std::unique_ptr<spead2::send::stream> stream;
-    auto &io_service = thread_pool.get_io_service();
-    boost::asio::ip::address interface_address;
-    if (!opts.bind.empty())
-        interface_address = boost::asio::ip::address::from_string(opts.bind);
-
-    if (opts.tcp) {
-        std::vector<tcp::endpoint> endpoints = get_endpoints<tcp>(io_service, opts);
-        auto promise = std::promise<void>();
-        auto connect_handler = [&promise] (const boost::system::error_code &e) {
-            if (e)
-                promise.set_exception(std::make_exception_ptr(boost::system::system_error(e)));
-            else
-                promise.set_value();
-        };
-        stream.reset(new spead2::send::tcp_stream(
-                    io_service, connect_handler, endpoints, config, opts.buffer, interface_address));
-        promise.get_future().get();
-    }
-    else
-    {
-        std::vector<udp::endpoint> endpoints = get_endpoints<udp>(io_service, opts);
-#if SPEAD2_USE_IBV
-        if (opts.ibv)
-        {
-            stream.reset(new spead2::send::udp_ibv_stream(
-                    io_service, config,
-                    spead2::send::udp_ibv_stream_config()
-                        .set_endpoints(endpoints)
-                        .set_interface_address(interface_address)
-                        .set_buffer_size(opts.buffer)
-                        .set_ttl(opts.ttl)
-                        .set_comp_vector(opts.ibv_comp_vector)
-                        .set_max_poll(opts.ibv_max_poll)
-                        .set_memory_regions(s.memory_regions())));
-        }
-        else
-#endif
-        {
-            if (endpoints[0].address().is_multicast())
-            {
-                if (endpoints[0].address().is_v4())
-                    stream.reset(new spead2::send::udp_stream(
-                            io_service, endpoints, config, opts.buffer,
-                            opts.ttl, interface_address));
-                else
-                {
-                    if (!opts.bind.empty())
-                        std::cerr << "--bind is not yet supported for IPv6 multicast, ignoring\n";
-                    stream.reset(new spead2::send::udp_stream(
-                            io_service, endpoints, config, opts.buffer,
-                            opts.ttl));
-                }
-            }
-            else
-            {
-                stream.reset(new spead2::send::udp_stream(
-                        io_service, endpoints, config, opts.buffer, interface_address));
-            }
-        }
-    }
+    std::unique_ptr<spead2::send::stream> stream =
+        opts.sender.make_stream(thread_pool.get_io_service(), opts.protocol,
+                                opts.dest, s.memory_regions());
     return run(*stream, s);
 }

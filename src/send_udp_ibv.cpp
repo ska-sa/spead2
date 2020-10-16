@@ -619,7 +619,7 @@ udp_ibv_stream_config &udp_ibv_stream_config::set_comp_vector(int comp_vector)
 
 udp_ibv_stream_config &udp_ibv_stream_config::set_max_poll(int max_poll)
 {
-    if (max_poll <= 1)
+    if (max_poll < 1)
         throw std::invalid_argument("max_poll must be at least 1");
     this->max_poll = max_poll;
     return *this;

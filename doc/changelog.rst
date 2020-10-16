@@ -21,14 +21,14 @@ Other changes:
 - Change :cpp:class:`spead2::send::streambuf_stream` so that when the
   streambuf only partially writes a packet, the partial byte count is
   included in the count returned to the callback.
-- :cpp:class:`spead2::send::stream::flush` now only blocks until the
+- :cpp:func:`spead2::send::stream::flush` now only blocks until the
   previously enqueued heaps are completed. Another thread that keeps adding
   heaps would previously have prevented it from returning.
 - Partially rewrite the sending infrastructure, resulting in performance
   improvements, in some cases of over 10%.
 - Setting a buffer size of 0 for a :py:class:`~spead2.send.UdpIbvStream` now
   uses the default buffer size, instead of a 1-packet buffer.
-- Fix :program:`spead2_bench.py` ignoring the :opt:`--send-affinity` option.
+- Fix :program:`spead2_bench.py` ignoring the :option:`!--send-affinity` option.
 - The hardware rate limiting introduced in 3.0.0b1 is now disabled by default,
   as it proved to be significantly less accurate than the software rate limiter
   in some cases.
@@ -131,14 +131,14 @@ Other changes:
 
 - Significant performance improvements to send code (in some cases an order of
   magnitude improvement).
-- Add :option:`--max-heap` option to :program:`spead2_send` and
+- Add :option:`!--max-heap` option to :program:`spead2_send` and
   :program:`spead2_send.py` to control the depth of the send queue.
-- Change the meaning of the :option:`--heaps` option in :program:`spead2_bench`
+- Change the meaning of the :option:`!--heaps` option in :program:`spead2_bench`
   and :program:`spead2_bench.py`: it now also controls the depth of the sending
   queue.
 - Fix a bug in send rate limiting that could allow the target rate to be
   exceeded under some conditions.
-- Remove :option:`--threads` option from C++ :program:`spead2_send`, as the new
+- Remove :option:`!--threads` option from C++ :program:`spead2_send`, as the new
   optimised implementation isn't thread-safe.
 - Disable the ``test_numpy_large`` test on macOS, which was causing frequent
   failures on TravisCI due to dropped packets.
@@ -232,9 +232,9 @@ Other changes:
 
 - Add support for TCP/IP (contributed by Rodrigo Tobar).
 - Changed command-line options for
-  :program:`spead2_send`/:program:`spead2_recv`: :option:`--ibv` and
-  :option:`--netmap` are now boolean flags, and the interface address is set
-  with :option:`--bind`.
+  :program:`spead2_send`/:program:`spead2_recv`: :option:`!--ibv` and
+  :option:`!--netmap` are now boolean flags, and the interface address is set
+  with :option:`!--bind`.
 - Added option to specify interface address for
   :cpp:class:`spead2::send::udp_stream` even when not using the multicast
   constructors.
@@ -258,7 +258,7 @@ Other changes:
 
 - Add progress reports to mcdump
 - Add ability to pass ``-`` as filename to mcdump to skip file writing.
-- Add :option:`--count` option to mcdump
+- Add :option:`!--count` option to mcdump
 
 .. rubric:: Version 1.7.1
 
@@ -276,7 +276,7 @@ that prevented the asyncio integration from being included.
 .. rubric:: Version 1.6.0
 
 - Change :program:`spead2_send.py` and :program:`spead2_send` to interpret
-  the :option:`--rate` option as Gb/s and not Gib/s.
+  the :option:`!--rate` option as Gb/s and not Gib/s.
 - Change send rate limiting to bound the rate at which we catch up if we fall
   behind. This is controlled by a new attribute of
   :class:`~spead2.send.StreamConfig`.
@@ -309,7 +309,7 @@ that prevented the asyncio integration from being included.
 
 .. rubric:: Version 1.4.0
 
-- Remove :option:`--bind` option to :program:`spead2_recv.py` and :program:`spead2_recv`.
+- Remove :option:`!--bind` option to :program:`spead2_recv.py` and :program:`spead2_recv`.
   Instead, use :samp:`{host}:{port}` as the source. This allows subscribing to
   multiple multicast groups.
 - Improved access to information about incomplete heaps
@@ -317,7 +317,7 @@ that prevented the asyncio integration from being included.
 - Add :py:attr:`.MemoryPool.warn_on_empty` control.
 - Add warning when a stream ringbuffer is full.
 - Add statistics to streams.
-- Fix spead2_send.py to send a stop heap when using :option:`--heaps`. It was
+- Fix spead2_send.py to send a stop heap when using :option:`!--heaps`. It was
   acccidentally broken in 1.2.0.
 - Add support for packet timestamping in mcdump.
 - Return the previous logging function from :cpp:func:`spead2::set_log_function`.
@@ -412,7 +412,7 @@ that prevented the asyncio integration from being included.
   operate on any type of stream. This will **break** code that depended on the
   old template class of the same name, which has been renamed to
   :cpp:class:`spead2::send::stream_impl`.
-- Add :option:`--memcpy-nt` to :program:`spead2_recv.py` and
+- Add :option:`!--memcpy-nt` to :program:`spead2_recv.py` and
   :program:`spead2_bench.py`
 - Multicast support in :program:`spead2_bench.py` and :program:`spead2_bench`
 - Changes to the algorithm for :program:`spead2_bench.py` and
@@ -451,7 +451,7 @@ that prevented the asyncio integration from being included.
 
 - Fixed a bug in registering `add_udp_ibv_reader` in Python, which broke
   :program:`spead2_recv.py`, and possibly any other code using this API.
-- Fixed :program:`spead2_recv.py` ignoring :option:`--ibv-max-poll` option
+- Fixed :program:`spead2_recv.py` ignoring :option:`!--ibv-max-poll` option
 
 .. rubric:: Version 0.10.0
 

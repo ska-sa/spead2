@@ -26,13 +26,13 @@ mcdump_SOURCES = mcdump.cpp
 mcdump_LDADD = -lboost_program_options $(LDADD)
 endif
 
-spead2_recv_SOURCES = spead2_recv.cpp
+spead2_recv_SOURCES = spead2_recv.cpp spead2_cmdline.cpp
 spead2_recv_LDADD = -lboost_program_options $(LDADD)
 
-spead2_send_SOURCES = spead2_send.cpp
+spead2_send_SOURCES = spead2_send.cpp spead2_cmdline.cpp
 spead2_send_LDADD = -lboost_program_options $(LDADD)
 
-spead2_bench_SOURCES = spead2_bench.cpp
+spead2_bench_SOURCES = spead2_bench.cpp spead2_cmdline.cpp
 spead2_bench_LDADD = -lboost_program_options $(LDADD)
 
 spead2_unittest_SOURCES = \
