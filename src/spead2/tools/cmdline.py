@@ -145,7 +145,7 @@ class SharedOptions(_Options):
             spead2.ThreadPool.set_affinity(self.affinity[0])
             return spead2.ThreadPool(self.threads, self.affinity[1:] + self.affinity[:1])
         else:
-            thread_pool = spead2.ThreadPool(self.threads)
+            return spead2.ThreadPool(self.threads)
 
 
 class ReceiverOptions(SharedOptions):
