@@ -256,11 +256,19 @@ class SenderOptions(SharedOptions):
         self.burst = spead2.send.StreamConfig.DEFAULT_BURST_SIZE
         self.burst_rate_ratio = spead2.send.StreamConfig.DEFAULT_BURST_RATE_RATIO
         self.max_heaps = spead2.send.StreamConfig.DEFAULT_MAX_HEAPS
-        self.allow_hw_rate = False
+        self.rate_method = spead2.send.StreamConfig.DEFAULT_RATE_METHOD
         self.rate = 0.0
         self.ttl = None
 
     def add_arguments(self, parser):
+        def parse_rate_method(value):
+            try:
+                return spead2.send.RateMethod.__members__[value.upper()]
+            except KeyError as exc:
+                raise ValueError from exc
+
+        rate_method_names = list(spead2.send.RateMethod.__members__)
+
         self._add_argument(parser, 'addr_bits', type=int,
                            help='Heap address bits [%(default)s]')
         self._add_argument(parser, 'packet', type=int,
@@ -271,8 +279,8 @@ class SenderOptions(SharedOptions):
                            help='Hard rate limit, relative to --rate [%(default)s]')
         self._add_argument(parser, 'max_heaps', metavar='HEAPS', type=int,
                            help='Maximum heaps in flight [%(default)s]')
-        self._add_argument(parser, 'allow_hw_rate', action='store_true',
-                           help='Use hardware rate limiting if available')
+        self._add_argument(parser, 'rate_method', metavar='METHOD', type=parse_rate_method,
+                           help=f'Method for rate limiting ({"/".join(rate_method_names)})')
         self._add_argument(parser, 'rate', metavar='Gb/s', type=float,
                            help='Transmission rate bound [no limit]')
         self._add_argument(parser, 'ttl', type=int, help='TTL for multicast target')
@@ -304,7 +312,7 @@ class SenderOptions(SharedOptions):
             burst_size=self.burst,
             burst_rate_ratio=self.burst_rate_ratio,
             max_heaps=self.max_heaps,
-            allow_hw_rate=self.allow_hw_rate)
+            rate_method=self.rate_method)
 
     async def make_stream(self, thread_pool, endpoints, memory_regions):
         config = self.make_stream_config()

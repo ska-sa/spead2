@@ -449,7 +449,7 @@ class TestStreamConfig:
         assert config.burst_size == config.DEFAULT_BURST_SIZE
         assert config.max_heaps == config.DEFAULT_MAX_HEAPS
         assert config.burst_rate_ratio == config.DEFAULT_BURST_RATE_RATIO
-        assert config.allow_hw_rate == config.DEFAULT_ALLOW_HW_RATE
+        assert config.rate_method == config.DEFAULT_RATE_METHOD
 
     def test_setters(self):
         config = send.StreamConfig()
@@ -458,13 +458,13 @@ class TestStreamConfig:
         config.burst_size = 12345
         config.max_heaps = 5
         config.burst_rate_ratio = 1.5
-        config.allow_hw_rate = False
+        config.rate_method = send.RateMethod.SW
         assert config.max_packet_size == 1234
         assert config.rate == 1e9
         assert config.burst_size == 12345
         assert config.max_heaps == 5
         assert config.burst_rate_ratio == 1.5
-        assert config.allow_hw_rate is False
+        assert config.rate_method == send.RateMethod.SW
         assert config.burst_rate == 1.5e9
 
     def test_construct_kwargs(self):

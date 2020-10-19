@@ -35,7 +35,7 @@ constexpr std::size_t stream_config::default_max_packet_size;
 constexpr std::size_t stream_config::default_max_heaps;
 constexpr std::size_t stream_config::default_burst_size;
 constexpr double stream_config::default_burst_rate_ratio;
-constexpr bool stream_config::default_allow_hw_rate;
+constexpr rate_method stream_config::default_rate_method;
 
 stream_config &stream_config::set_max_packet_size(std::size_t max_packet_size)
 {
@@ -74,9 +74,9 @@ stream_config &stream_config::set_burst_rate_ratio(double burst_rate_ratio)
     return *this;
 }
 
-stream_config &stream_config::set_allow_hw_rate(bool allow_hw_rate)
+stream_config &stream_config::set_rate_method(rate_method method)
 {
-    this->allow_hw_rate = allow_hw_rate;
+    this->method = method;
     return *this;
 }
 

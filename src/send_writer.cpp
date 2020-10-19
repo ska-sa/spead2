@@ -41,7 +41,7 @@ void writer::set_owner(stream *owner)
 
 void writer::enable_hw_rate()
 {
-    assert(config.get_allow_hw_rate());
+    assert(config.get_rate_method() != rate_method::SW);
     hw_rate = true;
 }
 

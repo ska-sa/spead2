@@ -40,6 +40,7 @@
 #include <vector>
 #include <map>
 #include <utility>
+#include <iosfwd>
 #include <cassert>
 #include <boost/asio.hpp>
 #include <boost/program_options.hpp>
@@ -241,6 +242,10 @@ struct receiver_options
 namespace send
 {
 
+// These are needed for boost::program_options to parse/print rate_method
+std::ostream &operator<<(std::ostream &o, rate_method method);
+std::istream &operator>>(std::istream &i, rate_method &method);
+
 /// Command-line options for senders
 struct sender_options
 {
@@ -251,7 +256,7 @@ struct sender_options
     std::size_t burst_size = spead2::send::stream_config::default_burst_size;
     double burst_rate_ratio = spead2::send::stream_config::default_burst_rate_ratio;
     std::size_t max_heaps = spead2::send::stream_config::default_max_heaps;
-    bool allow_hw_rate = false;
+    rate_method method = spead2::send::stream_config::default_rate_method;
     double rate = 0.0;
     int ttl = 1;
 #if SPEAD2_USE_IBV
@@ -272,7 +277,7 @@ struct sender_options
         callback("burst", "Burst size", &burst_size);
         callback("burst-rate-ratio", "Hard rate limit, relative to --rate", &burst_rate_ratio);
         callback("max-heaps", "Maximum heaps in flight", &max_heaps);
-        callback("allow-hw-rate", "Use hardware rate limiting if available", &allow_hw_rate);
+        callback("rate-method", "Rate limiting method (SW/HW/AUTO)", &method);
         callback("rate", "Transmission rate bound (Gb/s)", &rate);
         callback("ttl", "TTL for multicast target", &ttl);
 #if SPEAD2_USE_IBV

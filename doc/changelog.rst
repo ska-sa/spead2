@@ -31,7 +31,10 @@ Other changes:
 - Fix :program:`spead2_bench.py` ignoring the :option:`!--send-affinity` option.
 - The hardware rate limiting introduced in 3.0.0b1 is now disabled by default,
   as it proved to be significantly less accurate than the software rate limiter
-  in some cases.
+  in some cases. The interface has also been changed from a boolean to an enum
+  (with the default being ``AUTO``) so that it can later be re-enabled under
+  circumstances where it is known to work well, while still allowing it to be
+  explicitly enabled or disabled.
 
 Additionally, refer to the changes for 3.0.0b1 below.
 
