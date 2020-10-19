@@ -405,6 +405,145 @@ public:
 /// Construct a table with a single entry
 ibv_rwq_ind_table_t create_rwq_ind_table(const rdma_cm_id_t &cm_id, const ibv_wq_t &wq);
 
+namespace detail
+{
+
+/**
+ * Base for @ref spead2::recv::udp_ibv_config and @ref spead2::send::udp_ibv_config.
+ * It uses the curiously recursive template pattern to avoid being
+ * polymorphic (and to allow the return type of setters to be the derived class).
+ */
+template<typename Derived>
+class udp_ibv_config_base
+{
+private:
+    std::vector<boost::asio::ip::udp::endpoint> endpoints;
+    boost::asio::ip::address interface_address;
+    std::size_t buffer_size = Derived::default_buffer_size;
+    int comp_vector = 0;
+    int max_poll = Derived::default_max_poll;
+
+public:
+    /// Get the configured endpoints
+    const std::vector<boost::asio::ip::udp::endpoint> &get_endpoints() const { return endpoints; }
+    /**
+     * Set the endpoints (replacing any previous).
+     *
+     * @throws std::invalid_argument if any element of @a endpoints is invalid.
+     */
+    Derived &set_endpoints(const std::vector<boost::asio::ip::udp::endpoint> &endpoints);
+    /**
+     * Append a single endpoint.
+     *
+     * @throws std::invalid_argument if @a endpoint is invalid.
+     */
+    Derived &add_endpoint(const boost::asio::ip::udp::endpoint &endpoint);
+
+    /// Get the currently set interface address
+    const boost::asio::ip::address get_interface_address() const { return interface_address; }
+    /**
+     * Set the interface address.
+     *
+     * @throws std::invalid_argument if @a interface_address is not an IPv4 address.
+     */
+    Derived &set_interface_address(const boost::asio::ip::address &interface_address);
+
+    /// Get the currently configured buffer size.
+    std::size_t get_buffer_size() const { return buffer_size; }
+    /**
+     * Set the buffer size.
+     *
+     * The value 0 is special and resets it to the default. The actual buffer size
+     * used may be slightly different to round it to a whole number of
+     * packet-sized slots.
+     */
+    Derived &set_buffer_size(std::size_t buffer_size);
+
+    /// Get the completion channel vector (see @ref set_comp_vector)
+    int get_comp_vector() const { return comp_vector; }
+    /**
+     * Set the completion channel vector (interrupt) for asynchronous operation.
+     * Use a negative value to poll continuously. Polling should not be used if
+     * there are other users of the thread pool. If a non-negative value is
+     * provided, it is taken modulo the number of available completion vectors.
+     * This allows a number of streams to be assigned sequential completion
+     * vectors and have them load-balanced, without concern for the number
+     * available.
+     */
+    Derived &set_comp_vector(int comp_vector);
+
+    /// Get maximum number of times to poll in a row (see @ref set_max_poll)
+    int get_max_poll() const { return max_poll; }
+    /**
+     * Set maximum number of times to poll in a row.
+     *
+     * If interrupts are enabled (default), it is the maximum number of times
+     * to poll before waiting for an interrupt; if they are disabled by @ref
+     * set_comp_vector, it is the number of times to poll before letting other
+     * code run on the thread.
+     *
+     * @throws std::invalid_argument if @a max_poll is zero.
+     */
+    Derived &set_max_poll(int max_poll);
+};
+
+template<typename Derived>
+Derived &udp_ibv_config_base<Derived>::set_endpoints(
+    const std::vector<boost::asio::ip::udp::endpoint> &endpoints)
+{
+    for (const auto &endpoint : endpoints)
+        Derived::validate_endpoint(endpoint);
+    this->endpoints = endpoints;
+    return *static_cast<Derived *>(this);
+}
+
+template<typename Derived>
+Derived &udp_ibv_config_base<Derived>::add_endpoint(
+    const boost::asio::ip::udp::endpoint &endpoint)
+{
+    Derived::validate_endpoint(endpoint);
+    endpoints.push_back(endpoint);
+    return *static_cast<Derived *>(this);
+}
+
+template<typename Derived>
+Derived &udp_ibv_config_base<Derived>::set_interface_address(
+    const boost::asio::ip::address &interface_address)
+{
+    if (!interface_address.is_v4())
+        throw std::invalid_argument("interface address is not an IPv4 address");
+    this->interface_address = interface_address;
+    return *static_cast<Derived *>(this);
+}
+
+template<typename Derived>
+Derived &udp_ibv_config_base<Derived>::set_buffer_size(std::size_t buffer_size)
+{
+    if (buffer_size == 0)
+        this->buffer_size = Derived::default_buffer_size;
+    else
+        this->buffer_size = buffer_size;
+    return *static_cast<Derived *>(this);
+}
+
+template<typename Derived>
+Derived &udp_ibv_config_base<Derived>::set_comp_vector(int comp_vector)
+{
+    this->comp_vector = comp_vector;
+    return *static_cast<Derived *>(this);
+}
+
+template<typename Derived>
+Derived &udp_ibv_config_base<Derived>::set_max_poll(int max_poll)
+{
+    if (max_poll < 1)
+        throw std::invalid_argument("max_poll must be at least 1");
+    this->max_poll = max_poll;
+    return *static_cast<Derived *>(this);
+}
+
+} // namespace detail
+
 } // namespace spead2
 
 #endif // SPEAD2_USE_IBV

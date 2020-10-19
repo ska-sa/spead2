@@ -123,7 +123,7 @@ void receiver_options::notify(const protocol_options &protocol)
             buffer_size = spead2::recv::tcp_reader::default_buffer_size;
 #if SPEAD2_USE_IBV
         else if (ibv)
-            buffer_size = spead2::recv::udp_ibv_reader::default_buffer_size;
+            buffer_size = spead2::recv::udp_ibv_config::default_buffer_size;
 #endif
         else
             buffer_size = spead2::recv::udp_reader::default_buffer_size;
@@ -135,7 +135,7 @@ void receiver_options::notify(const protocol_options &protocol)
             max_packet_size = spead2::recv::tcp_reader::default_max_size;
 #if SPEAD2_USE_IBV
         else if (ibv)
-            max_packet_size = spead2::recv::udp_ibv_reader::default_max_size;
+            max_packet_size = spead2::recv::udp_ibv_config::default_max_size;
 #endif
         else
             max_packet_size = spead2::recv::udp_reader::default_max_size;
@@ -248,8 +248,13 @@ void receiver_options::add_readers(
     {
         boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(this->interface_address);
         stream.emplace_reader<spead2::recv::udp_ibv_reader>(
-            ibv_endpoints, interface_address, *max_packet_size, *buffer_size,
-            ibv_comp_vector, ibv_max_poll);
+            udp_ibv_config()
+                .set_endpoints(ibv_endpoints)
+                .set_interface_address(interface_address)
+                .set_max_size(*max_packet_size)
+                .set_buffer_size(*buffer_size)
+                .set_comp_vector(ibv_comp_vector)
+                .set_max_poll(ibv_max_poll));
     }
 #endif
 }
