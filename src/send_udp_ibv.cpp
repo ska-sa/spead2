@@ -469,7 +469,7 @@ udp_ibv_writer::udp_ibv_writer(
         mac_addresses.push_back(multicast_mac(endpoint.address()));
     const boost::asio::ip::address &interface_address = ibv_config.get_interface_address();
     if (interface_address.is_unspecified())
-        throw std::invalid_argument("interface address must be specified");
+        throw std::invalid_argument("interface address has not been specified");
     // Check that registered memory regions don't overlap
     auto config_regions = ibv_config.get_memory_regions();
     std::sort(config_regions.begin(), config_regions.end());

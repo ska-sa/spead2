@@ -74,8 +74,6 @@ static constexpr int header_length =
 static spead2::rdma_cm_id_t make_cm_id(const rdma_event_channel_t &event_channel,
                                        const boost::asio::ip::address &interface_address)
 {
-    if (interface_address.is_unspecified())
-        throw std::invalid_argument("interface address has not been be specified");
     rdma_cm_id_t cm_id(event_channel, nullptr, RDMA_PS_UDP);
     cm_id.bind_addr(interface_address);
     return cm_id;
@@ -86,6 +84,7 @@ udp_ibv_reader_core::udp_ibv_reader_core(
     const udp_ibv_config &config)
     : udp_reader_base(owner),
     join_socket(owner.get_io_service(), boost::asio::ip::udp::v4()),
+    event_channel(nullptr),
     comp_channel_wrapper(owner.get_io_service()),
     max_size(config.get_max_size()),
     max_poll(config.get_max_poll()),
@@ -93,7 +92,10 @@ udp_ibv_reader_core::udp_ibv_reader_core(
 {
     if (config.get_endpoints().empty())
         throw std::invalid_argument("endpoints is empty");
+    if (config.get_interface_address().is_unspecified())
+        throw std::invalid_argument("interface address has not been be specified");
 
+    event_channel = rdma_event_channel_t();
     cm_id = make_cm_id(event_channel, config.get_interface_address());
     pd = ibv_pd_t(cm_id);
     if (config.get_comp_vector() >= 0)

@@ -455,7 +455,10 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
 
     def prepare_receivers(self, receivers):
         for i, receiver in enumerate(receivers):
-            receiver.add_udp_ibv_reader([(self.MCAST_GROUP, 8876 + i)], self._interface_address())
+            receiver.add_udp_ibv_reader(
+                spead2.recv.UdpIbvConfig(
+                    endpoints=[(self.MCAST_GROUP, 8876 + i)],
+                    interface_address=self._interface_address()))
 
     def prepare_senders(self, thread_pool, n):
         # The buffer size is deliberately reduced so that we test the

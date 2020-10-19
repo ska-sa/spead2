@@ -799,6 +799,92 @@ class TestRingStreamConfig:
             recv.RingStreamConfig(heaps=0)
 
 
+@pytest.mark.skipif(not hasattr(spead2, 'IbvContext'), reason='IBV support not compiled in')
+class TestUdpIbvConfig:
+    def test_default_construct(self):
+        config = spead2.recv.UdpIbvConfig()
+        assert config.endpoints == []
+        assert config.interface_address == ''
+        assert config.buffer_size == spead2.recv.UdpIbvConfig.DEFAULT_BUFFER_SIZE
+        assert config.max_size == spead2.recv.UdpIbvConfig.DEFAULT_MAX_SIZE
+        assert config.comp_vector == 0
+        assert config.max_poll == spead2.send.UdpIbvConfig.DEFAULT_MAX_POLL
+
+    def test_kwargs_construct(self):
+        config = spead2.recv.UdpIbvConfig(
+            endpoints=[('hello', 1234), ('goodbye', 2345)],
+            interface_address='1.2.3.4',
+            buffer_size=100,
+            max_size=4321,
+            comp_vector=-1,
+            max_poll=1000)
+        assert config.endpoints == [('hello', 1234), ('goodbye', 2345)]
+        assert config.interface_address == '1.2.3.4'
+        assert config.buffer_size == 100
+        assert config.max_size == 4321
+        assert config.comp_vector == -1
+        assert config.max_poll == 1000
+
+    def test_default_buffer_size(self):
+        config = spead2.recv.UdpIbvConfig()
+        config.buffer_size = 0
+        assert config.buffer_size == spead2.recv.UdpIbvConfig.DEFAULT_BUFFER_SIZE
+
+    def test_bad_max_poll(self):
+        config = spead2.recv.UdpIbvConfig()
+        with pytest.raises(ValueError):
+            config.max_poll = 0
+        with pytest.raises(ValueError):
+            config.max_poll = -1
+
+    def test_bad_max_size(self):
+        config = spead2.recv.UdpIbvConfig()
+        with pytest.raises(ValueError):
+            config.max_size = 0
+
+    def test_no_endpoints(self):
+        config = spead2.recv.UdpIbvConfig(interface_address='10.0.0.1')
+        stream = spead2.recv.Stream(
+            spead2.ThreadPool(), spead2.recv.StreamConfig(), spead2.recv.RingStreamConfig())
+        with pytest.raises(ValueError, match='endpoints is empty'):
+            stream.add_udp_ibv_reader(config)
+
+    def test_ipv6_endpoints(self):
+        config = spead2.recv.UdpIbvConfig(
+            endpoints=[('::1', 8888)],
+            interface_address='10.0.0.1')
+        stream = spead2.recv.Stream(
+            spead2.ThreadPool(), spead2.recv.StreamConfig(), spead2.recv.RingStreamConfig())
+        with pytest.raises(ValueError, match='endpoint is not an IPv4 address'):
+            stream.add_udp_ibv_reader(config)
+
+    def test_no_interface_address(self):
+        config = spead2.recv.UdpIbvConfig(
+            endpoints=[('239.255.88.88', 8888)])
+        stream = spead2.recv.Stream(
+            spead2.ThreadPool(), spead2.recv.StreamConfig(), spead2.recv.RingStreamConfig())
+        with pytest.raises(ValueError, match='interface address'):
+            stream.add_udp_ibv_reader(config)
+
+    def test_bad_interface_address(self):
+        config = spead2.recv.UdpIbvConfig(
+            endpoints=[('239.255.88.88', 8888)],
+            interface_address='this is not an interface address')
+        stream = spead2.recv.Stream(
+            spead2.ThreadPool(), spead2.recv.StreamConfig(), spead2.recv.RingStreamConfig())
+        with pytest.raises(RuntimeError, match='Host not found'):
+            stream.add_udp_ibv_reader(config)
+
+    def test_ipv6_interface_address(self):
+        config = spead2.recv.UdpIbvConfig(
+            endpoints=[('239.255.88.88', 8888)],
+            interface_address='::1')
+        stream = spead2.recv.Stream(
+            spead2.ThreadPool(), spead2.recv.StreamConfig(), spead2.recv.RingStreamConfig())
+        with pytest.raises(ValueError, match='interface address'):
+            stream.add_udp_ibv_reader(config)
+
+
 class TestStream:
     """Tests for the stream API."""
 

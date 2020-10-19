@@ -82,6 +82,22 @@ class RingStreamConfig:
     def __init__(self, *, heaps: int = ..., contiguous_only: bool = ...,
                  incomplete_keep_payload_ranges: bool = ...) -> None: ...
 
+class UdpIbvConfig:
+    DEFAULT_BUFFER_SIZE: ClassVar[int]
+    DEFAULT_MAX_SIZE: ClassVar[int]
+    DEFAULT_MAX_POLL: ClassVar[int]
+
+    endpoints: _EndpointList
+    interface_address: str
+    buffer_size: int
+    max_size: int
+    comp_vector: int
+    max_poll: int
+
+    def __init__(self, *, endpoints: _EndpointList = ..., interface_address: str = ...,
+                 buffer_size: int = ..., max_size: int = ..., comp_vector: int = ...,
+                 max_poll: int = ...) -> None: ...
+
 class Ringbuffer:
     def size(self) -> int: ...
     def capacity(self) -> int: ...
@@ -128,7 +144,8 @@ class _Stream:
                            interface_address: _PybindStr,
                            max_size: int = ..., buffer_size: int = ...,
                            comp_vector: int = ..., max_poll: int = ...) -> None: ...
-    def add_udp_pcap_file_reader(self, filename: _PybindStr) -> None: ...
+    @overload
+    def add_udp_ibv_reader(self, config: UdpIbvConfig) -> None: ...
     def add_inproc_reader(self, queue: spead2.InprocQueue) -> None: ...
     def stop(self) -> None: ...
     @property
