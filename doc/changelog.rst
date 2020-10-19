@@ -35,6 +35,11 @@ Other changes:
   (with the default being ``AUTO``) so that it can later be re-enabled under
   circumstances where it is known to work well, while still allowing it to be
   explicitly enabled or disabled.
+- Add :option:`!--verify` option to :program:`spead2_send` and
+  :program:`spead2_recv` to aid in testing the code. To support this,
+  :program:`spead2_send` was modified so that each in-flight heap uses
+  different memory, which may reduce performance (due to less cache re-use)
+  even when the option is not given.
 
 Additionally, refer to the changes for 3.0.0b1 below.
 

@@ -22,10 +22,12 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <random>
 #include <boost/program_options.hpp>
 #include <boost/asio.hpp>
 #include <boost/lexical_cast.hpp>
 #include <spead2/common_thread_pool.h>
+#include <spead2/common_endian.h>
 #include <spead2/recv_udp.h>
 #include <spead2/recv_tcp.h>
 #if SPEAD2_USE_IBV
@@ -48,6 +50,7 @@ struct options
     bool descriptors = false;
     bool joint = false;
     int threads = 1;
+    bool verify = false;
     std::vector<std::string> sources;
     spead2::protocol_options protocol;
     spead2::recv::receiver_options receiver;
@@ -75,6 +78,7 @@ static options parse_args(int argc, const char **argv)
         ("descriptors", spead2::make_value_semantic(&opts.descriptors), "Show descriptors")
         ("joint", spead2::make_value_semantic(&opts.joint), "Treat all sources as a single stream")
         ("threads", spead2::make_value_semantic(&opts.threads), "Number of worker threads")
+        ("verify", spead2::make_value_semantic(&opts.verify), "Verify payload (use spead2_send with same option")
     ;
 
     hidden.add_options()
@@ -114,7 +118,7 @@ static options parse_args(int argc, const char **argv)
     }
 }
 
-void show_heap(const spead2::recv::heap &fheap, const options &opts)
+static void show_heap(const spead2::recv::heap &fheap, const options &opts)
 {
     if (opts.quiet)
         return;
@@ -170,6 +174,82 @@ void show_heap(const spead2::recv::heap &fheap, const options &opts)
     std::cout << std::noshowbase;
 }
 
+/* O(log(z)) version of engine.discard(z), which in GCC seems to be implemented in O(z). */
+template<std::uint_fast32_t a, std::uint_fast32_t m>
+static void fast_discard(std::linear_congruential_engine<std::uint_fast32_t, a, 0, m> &engine,
+                         unsigned long long z)
+{
+    if (z == 0)
+        return;
+    // There is no way to directly observe the current state. We can only
+    // advance to the following state.
+    std::uint64_t x = engine();
+    z--;
+    // Multiply by a^z mod m
+    std::uint64_t apow = a;
+    while (z > 0)
+    {
+        if (z & 1)
+            x = x * apow % m;
+        apow = apow * apow % m;
+        z >>= 1;
+    }
+    engine.seed(x);
+}
+
+static void verify_heap(const spead2::recv::heap &fheap, const options &opts)
+{
+    if (!opts.verify)
+        return;
+    const auto &items = fheap.get_items();
+
+    typedef uint32_t element_t;
+    bool first = true;
+    std::size_t elements = 0;
+    std::minstd_rand generator;
+    for (const auto &item : items)
+    {
+        if (item.id < 0x1000)
+            continue;
+        if (first)
+        {
+            elements = item.length / sizeof(element_t);
+            // The first heap gets numbered 1 rather than 0
+            std::uint64_t start_pos = elements * items.size() * (fheap.get_cnt() - 1);
+            fast_discard(generator, start_pos);
+            first = false;
+        }
+        if (item.length != elements * sizeof(element_t))
+        {
+            std::cerr << "Heap " << fheap.get_cnt()
+                << ", item 0x" << std::hex << item.id << std::dec
+                << " has an inconsistent length\n";
+            std::exit(1);
+        }
+        const element_t *data = reinterpret_cast<const element_t *>(item.ptr);
+        for (std::size_t i = 0; i < elements; i++)
+        {
+            element_t expected = generator();
+            element_t actual = spead2::betoh(data[i]);
+            if (expected != actual)
+            {
+                std::cerr << "Verification mismatch in heap " << fheap.get_cnt()
+                    << ", item 0x" << std::hex << item.id << std::dec
+                    << " offset " << i
+                    << "\nexpected 0x" << std::hex << expected << ", actual 0x" << actual << std::dec
+                    << std::endl;
+                std::exit(1);
+            }
+        }
+    }
+
+    if (first && !fheap.is_end_of_stream())
+    {
+        spead2::log_warning("Heap %d has no verifiable items but is not an end-of-stream heap",
+                            fheap.get_cnt());
+    }
+}
+
 class callback_stream : public spead2::recv::stream
 {
 private:
@@ -182,6 +262,7 @@ private:
         {
             spead2::recv::heap frozen(std::move(heap));
             show_heap(frozen, opts);
+            verify_heap(frozen, opts);
             n_complete++;
         }
         else if (!opts.quiet)
