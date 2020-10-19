@@ -191,7 +191,7 @@ class Library:
         namespace.
     """
 
-    def __init__(self, name, headers, soname, guard, decls, wrappers=()):
+    def __init__(self, name, headers, soname, guard, decls, wrappers=(), fail_log_level='warning'):
         self.name = name
         self.headers = list(headers)
         self.soname = soname
@@ -216,6 +216,7 @@ class Library:
         self.environment.globals['guard'] = self.guard
         self.environment.globals['nodes'] = self.nodes
         self.environment.globals['wrappers'] = set(wrappers)
+        self.environment.globals['fail_log_level'] = fail_log_level
 
     def header(self):
         return self.environment.get_template('template.h').render()
@@ -238,7 +239,7 @@ def main(argv):
                       IBV_DECLS, ['ibv_create_qp', 'ibv_query_device'])
     else:
         lib = Library('mlx5dv', ['infiniband/mlx5dv.h'], 'libmlx5.so.1', 'SPEAD2_USE_MLX5DV',
-                      MLX5DV_DECLS)
+                      MLX5DV_DECLS, fail_log_level='debug')
 
     if args.type == 'header':
         print(lib.header())

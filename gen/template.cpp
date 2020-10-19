@@ -85,7 +85,7 @@ static void init()
     {
         init_result = std::current_exception();
         reset_stubs();
-        log_warning("could not load {{ soname }}: %s", e.what());
+        log_{{ fail_log_level }}("could not load {{ soname }}: %s", e.what());
     }
 }
 
