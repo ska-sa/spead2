@@ -81,14 +81,8 @@ class AgentConnection:
                         setattr(protocol, key, value)
                     for (key, value) in command['receiver'].items():
                         setattr(receiver, key, value)
-                    if args.recv_affinity is not None and len(args.recv_affinity) > 0:
-                        spead2.ThreadPool.set_affinity(args.recv_affinity[0])
-                        thread_pool = spead2.ThreadPool(
-                            1, args.recv_affinity[1:] + args.recv_affinity[:1])
-                    else:
-                        thread_pool = spead2.ThreadPool()
                     stream = spead2.recv.asyncio.Stream(
-                        thread_pool,
+                        receiver.make_thread_pool(),
                         receiver.make_stream_config(),
                         receiver.make_ring_stream_config()
                     )
@@ -99,7 +93,6 @@ class AgentConnection:
                     endpoint = args.multicast or args.endpoint
                     receiver.add_readers(stream, [endpoint])
                     stream_task = asyncio.ensure_future(self.run_stream(stream))
-                    thread_pool = None
                     self._write('ready\n')
                 elif command['cmd'] == 'stop':
                     if stream_task is None:
@@ -172,11 +165,6 @@ async def measure_connection_once(args, protocol, sender, receiver,
     # Wait for "ready" response
     response = await reader.readline()
     assert response == b'ready\n'
-    if args.send_affinity is not None and len(args.send_affinity) > 0:
-        spead2.ThreadPool.set_affinity(args.send_affinity[0])
-        thread_pool = spead2.ThreadPool(1, args.send_affinity[1:] + args.send_affinity[:1])
-    else:
-        thread_pool = spead2.ThreadPool()
 
     item_group = spead2.send.ItemGroup(flavour=sender.make_flavour())
     item_group.add_item(id=None, name='Test item',
@@ -190,7 +178,7 @@ async def measure_connection_once(args, protocol, sender, receiver,
         endpoint = args.multicast
     memory_regions = [item.value for item in item_group.values()]
     stream = await sender.make_stream(
-        thread_pool, [cmdline.parse_endpoint(endpoint)], memory_regions)
+        sender.make_thread_pool(), [cmdline.parse_endpoint(endpoint)], memory_regions)
 
     start = timeit.default_timer()
     transferred = await send_stream(item_group, stream, num_heaps, args)
@@ -276,7 +264,9 @@ def main():
         'bind': 'send_bind',
         'ibv': 'send_ibv',
         'ibv_vector': 'send_ibv_vector',
-        'ibv_max_poll': 'send_ibv_max_poll'
+        'ibv_max_poll': 'send_ibv_max_poll',
+        'affinity': 'send-affinity',
+        'threads': 'send-threads'
     }
     receiver_map = {
         'buffer': 'recv_buffer',
@@ -284,6 +274,8 @@ def main():
         'ibv': 'recv_ibv',
         'ibv_vector': 'recv_ibv_vector',
         'ibv_max_poll': 'recv_ibv_max_poll',
+        'affinity': 'recv-affinity',
+        'threads': 'recv-threads',
         'mem_pool': None,
         'mem_lower': None,
         'mem_upper': None
@@ -298,14 +290,8 @@ def main():
     master.add_argument('--multicast', metavar='ADDRESS', type=str,
                         help='Send via multicast group [unicast]')
     protocol.add_arguments(master)
-    group = master.add_argument_group('sender options')
-    sender.add_arguments(group)
-    group.add_argument('--send-affinity', type=spead2.parse_range_list,
-                       help='List of CPUs to pin threads to [no affinity]')
-    group = master.add_argument_group('receiver options')
-    receiver.add_arguments(group)
-    group.add_argument('--recv-affinity', type=spead2.parse_range_list,
-                       help='List of CPUs to pin threads to [no affinity]')
+    sender.add_arguments(master.add_argument_group('sender options'))
+    receiver.add_arguments(master.add_argument_group('receiver options'))
     master.add_argument('endpoint', metavar='HOST:PORT')
     agent = subparsers.add_parser('agent')
     agent.add_argument('port', type=int)
