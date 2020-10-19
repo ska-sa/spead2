@@ -68,6 +68,8 @@ udp_ibv_config &udp_ibv_config::set_max_size(std::size_t max_size)
 namespace detail
 {
 
+constexpr std::size_t udp_ibv_reader_core::default_buffer_size;
+constexpr int udp_ibv_reader_core::default_max_poll;
 static constexpr int header_length =
     ethernet_frame::min_size + ipv4_packet::min_size + udp_packet::min_size;
 
@@ -78,9 +80,6 @@ static spead2::rdma_cm_id_t make_cm_id(const rdma_event_channel_t &event_channel
     cm_id.bind_addr(interface_address);
     return cm_id;
 }
-
-constexpr std::size_t udp_ibv_reader_core::default_buffer_size;
-constexpr int udp_ibv_reader_core::default_max_poll;
 
 udp_ibv_reader_core::udp_ibv_reader_core(
     stream &owner,
