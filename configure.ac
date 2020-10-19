@@ -1,4 +1,4 @@
-# Copyright 2016, 2017, 2019-2020 SKA South Africa
+# Copyright 2016, 2017, 2019-2020 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
