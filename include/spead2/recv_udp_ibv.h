@@ -47,7 +47,7 @@ namespace spead2
 {
 
 // Prevent the compiler instantiating the template in all translation units
-// (we'll explicit instantiate it in recv_udp_ibv.cpp).
+// (we'll explicitly instantiate it in recv_udp_ibv.cpp).
 namespace recv { class udp_ibv_config; }
 extern template class detail::udp_ibv_config_base<recv::udp_ibv_config>;
 
