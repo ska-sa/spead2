@@ -303,7 +303,7 @@ void sender_options::notify(const protocol_options &protocol)
             buffer_size = tcp_stream::default_buffer_size;
 #if SPEAD2_USE_IBV
         else if (ibv)
-            buffer_size = udp_ibv_stream_config::default_buffer_size;
+            buffer_size = udp_ibv_config::default_buffer_size;
 #endif
         else
             buffer_size = udp_stream::default_buffer_size;
@@ -360,8 +360,8 @@ std::unique_ptr<stream> sender_options::make_stream(
 #if SPEAD2_USE_IBV
         if (ibv)
         {
-            udp_ibv_stream_config udp_ibv_config;
-            udp_ibv_config
+            udp_ibv_config ibv_config;
+            ibv_config
                 .set_endpoints(ep)
                 .set_interface_address(interface_address)
                 .set_memory_regions(memory_regions)
@@ -369,7 +369,7 @@ std::unique_ptr<stream> sender_options::make_stream(
                 .set_comp_vector(ibv_comp_vector)
                 .set_max_poll(ibv_max_poll)
                 .set_buffer_size(*buffer_size);
-            stream.reset(new udp_ibv_stream(io_service, config, udp_ibv_config));
+            stream.reset(new udp_ibv_stream(io_service, config, ibv_config));
         }
         else
 #endif // SPEAD2_USE_IBV

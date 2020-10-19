@@ -471,7 +471,7 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
             return spead2.send.UdpIbvStream(
                 thread_pool,
                 spead2.send.StreamConfig(rate=1e7),
-                spead2.send.UdpIbvStreamConfig(
+                spead2.send.UdpIbvConfig(
                     endpoints=[(self.MCAST_GROUP, 8876 + i) for i in range(n)],
                     interface_address=self._interface_address(),
                     buffer_size=64 * 1024
@@ -491,7 +491,7 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
         sender = spead2.send.UdpIbvStream(
             spead2.ThreadPool(),
             spead2.send.StreamConfig(rate=1e7),
-            spead2.send.UdpIbvStreamConfig(
+            spead2.send.UdpIbvConfig(
                 endpoints=[(self.MCAST_GROUP, 8876)],
                 interface_address=self._interface_address(),
                 memory_regions=data

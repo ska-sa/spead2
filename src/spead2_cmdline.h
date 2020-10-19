@@ -262,7 +262,7 @@ struct sender_options
 #if SPEAD2_USE_IBV
     bool ibv = false;
     int ibv_comp_vector = 0;
-    int ibv_max_poll = spead2::send::udp_ibv_stream_config::default_max_poll;
+    int ibv_max_poll = spead2::send::udp_ibv_config::default_max_poll;
 #endif
 
     void notify(const protocol_options &protocol);

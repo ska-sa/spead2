@@ -122,7 +122,6 @@ class SharedOptions(_Options):
             # a command-line argument corresponding to every attribute.
             self.ibv = False
             self.ibv_vector = 0
-            self.ibv_max_poll = spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL
         self.threads = 1
         self.affinity = None
 
@@ -162,6 +161,8 @@ class ReceiverOptions(SharedOptions):
         self.mem_max_free = 12
         self.mem_initial = 8
         self.packet = None
+        if _HAVE_IBV:
+            self.ibv_max_poll = spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL
 
     def add_arguments(self, parser):
         self._add_argument(parser, 'memcpy_nt', action='store_true',
@@ -259,6 +260,8 @@ class SenderOptions(SharedOptions):
         self.rate_method = spead2.send.StreamConfig.DEFAULT_RATE_METHOD
         self.rate = 0.0
         self.ttl = None
+        if _HAVE_IBV:
+            self.ibv_max_poll = spead2.send.UdpIbvConfig.DEFAULT_MAX_POLL
 
     def add_arguments(self, parser):
         def parse_rate_method(value):
@@ -297,7 +300,7 @@ class SenderOptions(SharedOptions):
             if self._protocol.tcp:
                 self.buffer = spead2.send.asyncio.TcpStream.DEFAULT_BUFFER_SIZE
             elif _HAVE_IBV and self.ibv:
-                self.buffer = spead2.send.UdpIbvStreamConfig.DEFAULT_BUFFER_SIZE
+                self.buffer = spead2.send.UdpIbvConfig.DEFAULT_BUFFER_SIZE
             else:
                 self.buffer = spead2.send.asyncio.UdpStream.DEFAULT_BUFFER_SIZE
 
@@ -323,7 +326,7 @@ class SenderOptions(SharedOptions):
             return spead2.send.asyncio.UdpIbvStream(
                 thread_pool,
                 config,
-                spead2.send.UdpIbvStreamConfig(
+                spead2.send.UdpIbvConfig(
                     endpoints=endpoints,
                     interface_address=self.bind or '',
                     buffer_size=self.buffer,
