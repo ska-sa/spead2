@@ -86,10 +86,12 @@ A new feature is the ability to create a send stream with multiple destinations
 and select the destination on a per-heap basis (see :ref:`py-substreams` for
 more information). Supporting this cleanly required a number of changes:
 
-- The :attr:`spead2.send.InprocStream.queue` attribute has been removed, and replaced with
+- The :attr:`spead2.send.InprocStream.queue` attribute has been replaced with
   :attr:`~spead2.send.InprocStream.queues`. Similarly, the C++
   :cpp:func:`spead2::send::inproc_stream::get_queue` has been replaced by
-  :cpp:func:`~spead2::send::inproc_stream::get_queues`.
+  :cpp:func:`~spead2::send::inproc_stream::get_queues`. The originals are still
+  present but deprecated, and raise a :py:exc:`RuntimeError` if the stream was
+  constructed with multiple queues.
 - The constructors for most send stream types now accept a list of endpoints
   (or queues) rather than a single endpoint (queue). The old constructors are
   still supported for backwards compatibility, but are deprecated.

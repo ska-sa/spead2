@@ -579,3 +579,18 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreams):
         for queue in self._queues:
             queue.stop()
         return ret
+
+    def test_queues(self):
+        queues = [spead2.InprocQueue() for i in range(2)]
+        stream = spead2.send.InprocStream(spead2.ThreadPool(), queues)
+        assert stream.queues == queues
+        with pytest.deprecated_call():
+            with pytest.raises(RuntimeError):
+                stream.queue
+
+    def test_queue(self):
+        queue = spead2.InprocQueue()
+        stream = spead2.send.InprocStream(spead2.ThreadPool(), [queue])
+        assert stream.queues == [queue]
+        with pytest.deprecated_call():
+            assert stream.queue is queue

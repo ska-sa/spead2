@@ -148,5 +148,13 @@ const std::vector<std::shared_ptr<inproc_queue>> &inproc_stream::get_queues() co
     return static_cast<const inproc_writer &>(get_writer()).get_queues();
 }
 
+const std::shared_ptr<inproc_queue> &inproc_stream::get_queue() const
+{
+    const auto &queues = get_queues();
+    if (queues.size() != 1)
+        throw std::runtime_error("get_queue only works when there is a single queue. Use get_queues instead");
+    return queues[0];
+}
+
 } // namespace send
 } // namespace spead2
