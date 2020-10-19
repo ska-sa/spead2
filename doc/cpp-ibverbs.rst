@@ -5,6 +5,9 @@ The support for libibverbs is essentially the same as for :doc:`Python
 the :cpp:class:`spead2::recv::udp_ibv_reader` and
 :cpp:class:`spead2::send::udp_ibv_stream` classes:
 
+.. doxygenclass:: spead2::recv::udp_ibv_config
+   :members:
+
 .. doxygenclass:: spead2::recv::udp_ibv_reader
    :members: udp_ibv_reader
 

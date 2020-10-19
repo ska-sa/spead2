@@ -2,8 +2,8 @@ Support for ibverbs
 ===================
 Receiver performance can be significantly improved by using the Infiniband
 Verbs API instead of the BSD sockets API. This is currently only tested on
-Linux with Mellanox ConnectX®-3 and ConnectX®-5 NICs. It depends on device
-managed flow steering (DMFS).
+Linux with ConnectX®-5 NICs. It depends on device managed flow steering
+(DMFS).
 
 There are a number of limitations in the current implementation:
 
@@ -50,8 +50,7 @@ All other cases
 No system configuration is needed, but the ``CAP_NET_RAW`` capability is
 required. Running as root will achieve this; a full discussion of Linux
 capabilities is beyond the scope of this manual.
-For more information, see the `libvma documentation`_. For ConnectX®-4/5, only
-the first of these lines is required.
+For more information, see the `libvma documentation`_.
 
 .. _libvma documentation: https://docs.mellanox.com/category/vma
 
@@ -60,45 +59,48 @@ Receiving
 The ibverbs API can be used programmatically by using an extra method of
 :py:class:`spead2.recv.Stream`.
 
-.. py:method:: spead2.recv.Stream.add_udp_ibv_reader(endpoints, interface_address, max_size=DEFAULT_UDP_IBV_MAX_SIZE, buffer_size=DEFAULT_UDP_IBV_BUFFER_SIZE, comp_vector=0, max_poll=DEFAULT_UDP_IBV_MAX_POLL)
+The configuration is specified using a :py:class:`spead.recv.UdpIbvConfig`.
 
-      Feed data from multicast IPv4 traffic. For backwards compatibility, one
-      can also pass a single address and port as two separate arguments in
-      place of `endpoints`.
+.. py:class:: spead2.recv.UdpIbvConfig(*, endpoints=[], interface_address='', buffer_size=DEFAULT_BUFFER_SIZE, max_size=DEFAULT_MAX_SIZE, comp_vector=0, max_poll=DEFAULT_MAX_POLL)
 
-      :param list endpoints: List of 2-tuples, each containing a
-        hostname/IP address and the UDP port number. The address may be either
-        unicast or multicast, but in the former case there must be
-        an interface with that IP address (usually it will be the same as
-        `interface_address`, but this is not required as an interface may have
-        multiple IP addresses).
-      :param str interface_address: Hostname/IP address of the interface which
-        will be subscribed
-      :param int max_size: Maximum packet size that will be accepted
-      :param int buffer_size: Requested memory allocation for work requests.
-        It may be adjusted due to implementation-dependent limits or alignment
-        requirements.
-      :param int comp_vector: Completion channel vector (interrupt)
-        for asynchronous operation, or
-        a negative value to poll continuously. Polling
-        should not be used if there are other users of the
-        thread pool. If a non-negative value is provided, it
-        is taken modulo the number of available completion
-        vectors. This allows a number of readers to be
-        assigned sequential completion vectors and have them
-        load-balanced, without concern for the number
-        available.
-      :param int max_poll: Maximum number of times to poll in a row, without
-        waiting for an interrupt (if `comp_vector` is
-        non-negative) or letting other code run on the
-        thread (if `comp_vector` is negative).
+   :param endpoints: Peer endpoints
+   :type endpoints: List[Tuple[str, int]]
+   :param str interface_address: Hostname/IP address of the interface which
+     will be subscribed
+   :param int buffer_size: Requested memory allocation for work requests.
+     It may be adjusted to an integer number of packets.
+   :param int max_size: Maximum packet size that will be accepted
+   :param int comp_vector: Completion channel vector (interrupt)
+     for asynchronous operation, or
+     a negative value to poll continuously. Polling
+     should not be used if there are other users of the
+     thread pool. If a non-negative value is provided, it
+     is taken modulo the number of available completion
+     vectors. This allows a number of streams to be
+     assigned sequential completion vectors and have them
+     load-balanced, without concern for the number
+     available.
+   :param int max_poll: Maximum number of times to poll in a row, without
+     waiting for an interrupt (if `comp_vector` is
+     non-negative) or letting other code run on the
+     thread (if `comp_vector` is negative).
+
+   The constructor arguments are also instance attributes. Note that
+   they are implemented as properties that return copies of the state, which
+   means that mutating `endpoints` (for example, with :py:meth:`~list.append`)
+   will not have any effect as only the copy will be modified. The entire list
+   must be assigned to update it.
+
+.. py:method:: spead2.recv.Stream.add_udp_ibv_reader(config)
+
+   Feed data from IPv4 traffic.
 
 If supported by the NIC and the drivers, the receive code will automatically
 use a "multi-packet receive queue", which allows each packet to consume only
 the amount of space needed in the buffer. This is currently only supported on
-ConnectX®-4+ with MLNX OFED drivers prior to 5.0. When in use, the
-`max_size` parameter has little impact on performance, and is used only to
-reject larger packets.
+ConnectX®-4+ with MLNX OFED drivers 5.0 or later (or upstream rdma-core). When
+in use, the `max_size` parameter has little impact on performance, and is used
+only to reject larger packets.
 
 When multi-packet receive queues are not supported, performance can be
 improved by making `max_size` as small as possible for the intended data
@@ -132,7 +134,8 @@ configuration:
 
 .. py:class:: spead2.send.UdpIbvConfig(*, endpoints=[], interface_address='', buffer_size=DEFAULT_BUFFER_SIZE, ttl=1, comp_vector=0, max_poll=DEFAULT_MAX_POLL, memory_regions=[])
 
-   :param List[Tuple[str, int]] endpoints: Peer endpoints (one per substream)
+   :param endpoints: Peer endpoints (one per substream)
+   :type endpoints: List[Tuple[str, int]]
    :param str interface_address: Hostname/IP address of the interface which
      will be subscribed
    :param int buffer_size: Requested memory allocation for work requests.

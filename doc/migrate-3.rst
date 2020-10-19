@@ -55,6 +55,11 @@ help in helper classes :py:class:`spead2.recv.StreamConfig` and
 :cpp:class:`spead2::recv::ring_stream_config` for C++). Code will need to be
 modified to construct these helper objects.
 
+Similarly, for :doc:`ibverbs <py-ibverbs>` there is now a
+:class:`spread.recv.UdpIbvConfig` that is used to configure the reader. The old
+forms of :py:meth:`spead.recv.Stream.add_udp_ibv_reader` are still present but
+are deprecated.
+
 In version 2 it was also possible (although not recommended) to change
 parameters like the memory allocator after readers had already been placed.
 For efficiency reasons this is no longer supported in version 3.

@@ -322,7 +322,8 @@ public:
      *                               IPv4 address
      * @throws std::invalid_argument If @a interface_address is not an IPv4 address
      */
-    SPEAD2_DEPRECATED("Use udp_ibv_config") udp_ibv_reader(
+    SPEAD2_DEPRECATED("Use udp_ibv_config")
+    udp_ibv_reader(
         stream &owner,
         const boost::asio::ip::udp::endpoint &endpoint,
         const boost::asio::ip::address &interface_address,
@@ -365,7 +366,8 @@ public:
      *                               an IPv4 address
      * @throws std::invalid_argument If @a interface_address is not an IPv4 address
      */
-    SPEAD2_DEPRECATED("Use udp_ibv_config") udp_ibv_reader(
+    SPEAD2_DEPRECATED("Use udp_ibv_config")
+    udp_ibv_reader(
         stream &owner,
         const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const boost::asio::ip::address &interface_address,
