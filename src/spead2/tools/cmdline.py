@@ -243,8 +243,14 @@ class ReceiverOptions(SharedOptions):
                 else:
                     stream.add_udp_reader(port, self.packet, self.buffer, host)
         if ibv_endpoints:
-            stream.add_udp_ibv_reader(ibv_endpoints, self.bind, self.packet,
-                                      self.buffer, self.ibv_vector, self.ibv_max_poll)
+            stream.add_udp_ibv_reader(
+                spead2.recv.UdpIbvConfig(
+                    endpoints=ibv_endpoints,
+                    interface_address=self.bind or '',
+                    max_size=self.packet,
+                    buffer_size=self.buffer,
+                    comp_vector=self.ibv_vector,
+                    max_poll=self.ibv_max_poll))
 
 
 class SenderOptions(SharedOptions):
