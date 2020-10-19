@@ -17,7 +17,7 @@ from typing import Iterator, Any, List, Tuple, Sequence, Union, Text, Optional, 
 import socket
 
 import spead2
-from spead2 import _PybindStr
+from spead2 import _EndpointList
 
 class RawItem:
     @property
@@ -120,28 +120,28 @@ class _Stream:
     def add_buffer_reader(self, buffer: Any) -> None: ...
     @overload
     def add_udp_reader(self, port: int, max_size: int = ..., buffer_size: int = ...,
-                       bind_hostname: _PybindStr = ...) -> None: ...
+                       bind_hostname: str = ...) -> None: ...
     @overload
     def add_udp_reader(self, socket: socket.socket, max_size: int = ...) -> None: ...
     @overload
-    def add_udp_reader(self, multicast_group: _PybindStr, port: int, max_size: int = ...,
-                       buffer_size: int = ..., interface_address: _PybindStr = ...) -> None: ...
+    def add_udp_reader(self, multicast_group: str, port: int, max_size: int = ...,
+                       buffer_size: int = ..., interface_address: str = ...) -> None: ...
     @overload
-    def add_udp_reader(self, multicast_group: _PybindStr, port: int, max_size: int = ...,
+    def add_udp_reader(self, multicast_group: str, port: int, max_size: int = ...,
                        buffer_size: int = ..., interface_index: int = ...) -> None: ...
     @overload
     def add_tcp_reader(self, port: int, max_size: int = ..., buffer_size: int = ...,
-                       bind_hostname: _PybindStr = ...) -> None: ...
+                       bind_hostname: str = ...) -> None: ...
     @overload
     def add_tcp_reader(self, acceptor: socket.socket, max_size: int = ...) -> None: ...
     @overload
-    def add_udp_ibv_reader(self, multicast_group: _PybindStr, port: int,
-                           interface_address: _PybindStr,
+    def add_udp_ibv_reader(self, multicast_group: str, port: int,
+                           interface_address: str,
                            max_size: int = ..., buffer_size: int = ...,
                            comp_vector: int = ..., max_poll: int = ...) -> None: ...
     @overload
-    def add_udp_ibv_reader(self, endpoints: Sequence[Tuple[_PybindStr, int]],
-                           interface_address: _PybindStr,
+    def add_udp_ibv_reader(self, endpoints: Sequence[Tuple[str, int]],
+                           interface_address: str,
                            max_size: int = ..., buffer_size: int = ...,
                            comp_vector: int = ..., max_poll: int = ...) -> None: ...
     @overload

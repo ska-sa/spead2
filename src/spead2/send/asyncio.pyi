@@ -20,8 +20,7 @@ from typing import List, Optional, overload
 import spead2
 import spead2.send
 
-from spead2 import _PybindStr
-from spead2.send import _EndpointList
+from spead2 import _EndpointList
 
 class _AsyncStream(spead2.send._Stream):
     @property
@@ -36,37 +35,37 @@ class _AsyncStream(spead2.send._Stream):
 class UdpStream(spead2.send._UdpStream, _AsyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: _PybindStr, port: int,
+                 hostname: str, port: int,
                  config: spead2.send.StreamConfig,
                  buffer_size: int, socket: socket.socket,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: _PybindStr, port: int,
+                 hostname: str, port: int,
                  config: spead2.send.StreamConfig = ...,
-                 buffer_size: int = ..., interface_address: _PybindStr = ...,
+                 buffer_size: int = ..., interface_address: str = ...,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: _PybindStr, port: int,
+                 hostname: str, port: int,
                  config: spead2.send.StreamConfig,
                  ttl: int,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 multicast_group: _PybindStr, port: int,
+                 multicast_group: str, port: int,
                  config: spead2.send.StreamConfig,
-                 ttl: int, interface_address: _PybindStr,
+                 ttl: int, interface_address: str,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 multicast_group: _PybindStr, port: int,
+                 multicast_group: str, port: int,
                  config: spead2.send.StreamConfig,
                  ttl: int, interface_index: int,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 socket: socket.socket, hostname: _PybindStr, port: int,
+                 socket: socket.socket, hostname: str, port: int,
                  config: spead2.send.StreamConfig = ...,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
 
@@ -81,7 +80,7 @@ class UdpStream(spead2.send._UdpStream, _AsyncStream):
     def __init__(self, thread_pool: spead2.ThreadPool,
                  endpoints: _EndpointList,
                  config: spead2.send.StreamConfig = ...,
-                 buffer_size: int = ..., interface_address: _PybindStr = ...,
+                 buffer_size: int = ..., interface_address: str = ...,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
@@ -93,7 +92,7 @@ class UdpStream(spead2.send._UdpStream, _AsyncStream):
     def __init__(self, thread_pool: spead2.ThreadPool,
                  endpoints: _EndpointList,
                  config: spead2.send.StreamConfig,
-                 ttl: int, interface_address: _PybindStr,
+                 ttl: int, interface_address: str,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
@@ -111,9 +110,9 @@ class UdpStream(spead2.send._UdpStream, _AsyncStream):
 class UdpIbvStream(_AsyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 multicast_group: _PybindStr, port: int,
+                 multicast_group: str, port: int,
                  config: spead2.send.StreamConfig,
-                 interface_address: _PybindStr,
+                 interface_address: str,
                  buffer_size: int = ..., ttl: int = ...,
                  comp_vector: int = ..., max_pool: int = ...,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
@@ -122,7 +121,7 @@ class UdpIbvStream(_AsyncStream):
     def __init__(self, thread_pool: spead2.ThreadPool,
                  endpoints: _EndpointList,
                  config: spead2.send.StreamConfig,
-                 interface_address: _PybindStr,
+                 interface_address: str,
                  buffer_size: int = ..., ttl: int = ...,
                  comp_vector: int = ..., max_pool: int = ...,
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
@@ -133,9 +132,9 @@ class TcpStream(spead2.send._TcpStream, _AsyncStream):
                  *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
     @classmethod
     async def connect(self, thread_pool: spead2.ThreadPool,
-                      hostname: _PybindStr, port: int,
+                      hostname: str, port: int,
                       config: spead2.send.StreamConfig = ...,
-                      buffer_size: int = ..., interface_address: _PybindStr = ...,
+                      buffer_size: int = ..., interface_address: str = ...,
                       *, loop: Optional[asyncio.AbstractEventLoop] = None) -> None: ...
 
 
