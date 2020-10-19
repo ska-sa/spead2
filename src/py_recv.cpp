@@ -351,7 +351,7 @@ public:
             config.add_endpoint(make_endpoint<boost::asio::ip::udp>(
                 endpoint.first, endpoint.second));
         config.set_interface_address(
-                    make_address(config_wrapper.py_interface_address));
+            make_address(config_wrapper.py_interface_address));
         emplace_reader<udp_ibv_reader>(config);
     }
 #endif  // SPEAD2_USE_IBV
