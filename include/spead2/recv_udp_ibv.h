@@ -121,6 +121,11 @@ protected:
                      const boost::asio::ip::address &interface_address);
 
 public:
+    SPEAD2_DEPRECATED("Use spead2::recv::udp_ibv_config::default_buffer_size")
+    static constexpr std::size_t default_buffer_size = udp_ibv_config::default_buffer_size;
+    SPEAD2_DEPRECATED("Use spead2::recv::udp_ibv_config::default_max_poll")
+    static constexpr int default_max_poll = udp_ibv_config::default_max_poll;
+
     udp_ibv_reader_core(
         stream &owner,
         const udp_ibv_config &config);

@@ -150,7 +150,12 @@ class UdpIbvConfig:
                  max_poll: int = ..., memory_regions: list = ...) -> None: ...
 
 
-class UdpIbvStream(_SyncStream):
+class _UdpIbvStream:
+    DEFAULT_BUFFER_SIZE: ClassVar[int]
+    DEFAULT_MAX_POLL: ClassVar[int]
+
+
+class UdpIbvStream(_UdpIbvStream, _SyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  multicast_group: str, port: int,

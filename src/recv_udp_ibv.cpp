@@ -79,6 +79,9 @@ static spead2::rdma_cm_id_t make_cm_id(const rdma_event_channel_t &event_channel
     return cm_id;
 }
 
+constexpr std::size_t udp_ibv_reader_core::default_buffer_size;
+constexpr int udp_ibv_reader_core::default_max_poll;
+
 udp_ibv_reader_core::udp_ibv_reader_core(
     stream &owner,
     const udp_ibv_config &config)

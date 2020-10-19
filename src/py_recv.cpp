@@ -575,18 +575,18 @@ py::module register_module(py::module &parent)
         .def_property_readonly("ring_config", SPEAD2_PTMF(ring_stream_wrapper, get_ring_config))
 #if SPEAD2_USE_IBV
         .def_property_readonly_static("DEFAULT_UDP_IBV_MAX_SIZE",
-            []() {
-                deprecation_warning("Use UdpIbvConfig.DEFAULT_MAX_SIZE");
+            [](py::object) {
+                deprecation_warning("Use spead2.recv.UdpIbvConfig.DEFAULT_MAX_SIZE");
                 return udp_ibv_config::default_max_size;
             })
         .def_property_readonly_static("DEFAULT_UDP_IBV_BUFFER_SIZE",
-            []() {
-                deprecation_warning("Use UdpIbvConfig.DEFAULT_BUFFER_SIZE");
+            [](py::object) {
+                deprecation_warning("Use spead2.recv.UdpIbvConfig.DEFAULT_BUFFER_SIZE");
                 return udp_ibv_config::default_buffer_size;
             })
         .def_property_readonly_static("DEFAULT_UDP_IBV_MAX_POLL",
-            []() {
-                deprecation_warning("Use UdpIbvConfig.DEFAULT_MAX_POLL");
+            [](py::object) {
+                deprecation_warning("Use spead2.recv.UdpIbvConfig.DEFAULT_MAX_POLL");
                 return udp_ibv_config::default_max_poll;
             })
 #endif
