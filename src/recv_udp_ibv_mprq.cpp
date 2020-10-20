@@ -117,7 +117,7 @@ udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add
         }
         if (flags & ibv_wq_mprq_t::FLAG_LAST)
         {
-            /* Temporary stop the poller so that we release the CQ entries
+            /* Temporarily stop the poller so that we release the CQ entries
              * we've consumed so far. Not doing this risks an overflow if
              * packets are very small.
              */
