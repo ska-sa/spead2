@@ -410,8 +410,8 @@ namespace detail
 
 /**
  * Base for @ref spead2::recv::udp_ibv_config and @ref spead2::send::udp_ibv_config.
- * It uses the curiously recursive template pattern to avoid being
- * polymorphic (and to allow the return type of setters to be the derived class).
+ * It uses the curiously recursive template pattern so that the setters can return
+ * references to the derived class.
  */
 template<typename Derived>
 class udp_ibv_config_base
