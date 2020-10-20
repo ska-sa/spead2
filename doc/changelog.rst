@@ -40,6 +40,7 @@ Other changes:
   :program:`spead2_send` was modified so that each in-flight heap uses
   different memory, which may reduce performance (due to less cache re-use)
   even when the option is not given.
+- Miscellaneous performance improvements.
 
 Additionally, refer to the changes for 3.0.0b1 below.
 
