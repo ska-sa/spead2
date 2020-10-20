@@ -36,7 +36,7 @@ void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src
     const char * __restrict__ src_c = (const char *) src;
     // Align the destination to a cache-line boundary
     std::uintptr_t dest_i = std::uintptr_t(dest_c);
-    constexpr unsigned int cache_line_mask = detail::cache_line_size - 1;
+    constexpr std::uintptr_t cache_line_mask = detail::cache_line_size - 1;
     std::uintptr_t aligned = (dest_i + cache_line_mask) & ~cache_line_mask;
     std::size_t head = aligned - dest_i;
     if (head > 0)
