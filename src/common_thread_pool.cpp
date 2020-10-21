@@ -37,6 +37,13 @@ static void run_io_service(boost::asio::io_service &io_service)
 {
     try
     {
+        /* Glibc's memory allocator seems to do some initialisation the
+         * first time a thread does a dynamic allocation. To avoid that
+         * occurring in a real-time situation, do a dummy allocation now to
+         * initialise it.
+         */
+        int *dummy = new int;
+        delete dummy;
         io_service.run();
     }
     catch (const std::exception &e)
