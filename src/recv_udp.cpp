@@ -310,7 +310,13 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
             log_info("Overriding reader for %1%:%2% to use ibverbs",
                      endpoint.address().to_string(), endpoint.port());
             return reader_factory<udp_ibv_reader>::make_reader(
-                owner, endpoint, ibv_interface, max_size, buffer_size, ibv_comp_vector);
+                owner,
+                udp_ibv_config()
+                    .add_endpoint(endpoint)
+                    .set_interface_address(ibv_interface)
+                    .set_max_size(max_size)
+                    .set_buffer_size(buffer_size)
+                    .set_comp_vector(ibv_comp_vector));
         }
 #endif
     }
@@ -333,7 +339,13 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
             log_info("Overriding reader for %1%:%2% to use ibverbs",
                      endpoint.address().to_string(), endpoint.port());
             return reader_factory<udp_ibv_reader>::make_reader(
-                owner, endpoint, interface_address, max_size, buffer_size, ibv_comp_vector);
+                owner,
+                udp_ibv_config()
+                    .add_endpoint(endpoint)
+                    .set_interface_address(interface_address)
+                    .set_max_size(max_size)
+                    .set_buffer_size(buffer_size)
+                    .set_comp_vector(ibv_comp_vector));
         }
 #endif
     }

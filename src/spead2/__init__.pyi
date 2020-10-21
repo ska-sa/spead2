@@ -19,9 +19,7 @@ from typing import (List, Sequence, Optional, Tuple, Any, Union,
 import numpy as np
 import spead2.recv
 
-
-# Not the same as typing.AnyStr, which is a TypeVar
-_PybindStr = Union[Text, bytes]
+_EndpointList = List[Tuple[str, int]]
 
 __version__: str
 
@@ -107,7 +105,7 @@ class RawDescriptor:
     name: bytes
     description: bytes
     numpy_header: bytes
-    format: List[Tuple[_PybindStr, int]]
+    format: List[Tuple[str, int]]
 
     @property
     def shape(self) -> List[Optional[int]]: ...
@@ -115,7 +113,7 @@ class RawDescriptor:
     def shape(self, value: Sequence[Optional[int]]) -> None: ...
 
 class IbvContext:
-    def __init__(self, interface_address: _PybindStr) -> None: ...
+    def __init__(self, interface_address: str) -> None: ...
     def reset(self) -> None: ...
 
 def parse_range_list(ranges: str) -> List[int]: ...

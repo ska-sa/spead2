@@ -575,7 +575,17 @@ static py::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
             }),
             "thread_pool"_a,
             "config"_a = stream_config(),
-            "udp_ibv_config"_a);
+            "udp_ibv_config"_a)
+        .def_property_readonly_static("DEFAULT_BUFFER_SIZE",
+            [](py::object) {
+                deprecation_warning("Use spead2.send.UdpIbvConfig.DEFAULT_BUFFER_SIZE");
+                return udp_ibv_config::default_buffer_size;
+            })
+        .def_property_readonly_static("DEFAULT_MAX_POLL",
+            [](py::object) {
+                deprecation_warning("Use spead2.send.UdpIbvConfig.DEFAULT_MAX_POLL");
+                return udp_ibv_config::default_max_poll;
+            });
 }
 #endif
 

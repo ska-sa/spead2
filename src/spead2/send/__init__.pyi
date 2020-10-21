@@ -20,9 +20,7 @@ import enum
 import socket
 
 import spead2
-from spead2 import _PybindStr
-
-_EndpointList = List[Tuple[str, int]]
+from spead2 import _EndpointList
 
 class Heap:
     def __init__(self, flavour: spead2.Flavour) -> None: ...
@@ -82,28 +80,28 @@ class _UdpStream:
 class UdpStream(_UdpStream, _SyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: _PybindStr, port: int,
+                 hostname: str, port: int,
                  config: StreamConfig = ...,
-                 buffer_size: int = ..., interface_address: _PybindStr = ...) -> None: ...
+                 buffer_size: int = ..., interface_address: str = ...) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: _PybindStr, port: int,
+                 hostname: str, port: int,
                  config: StreamConfig,
                  buffer_size: int,
                  ttl: int) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 multicast_group: _PybindStr, port: int,
+                 multicast_group: str, port: int,
                  config: StreamConfig,
-                 ttl: int, interface_address: _PybindStr) -> None: ...
+                 ttl: int, interface_address: str) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 multicast_group: _PybindStr, port: int,
+                 multicast_group: str, port: int,
                  config: StreamConfig,
                  ttl: int, interface_index: int) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 socket: socket.socket, hostname: _PybindStr, port: int,
+                 socket: socket.socket, hostname: str, port: int,
                  config: StreamConfig = ...) -> None: ...
 
     # Endpoint list variants
@@ -111,7 +109,7 @@ class UdpStream(_UdpStream, _SyncStream):
     def __init__(self, thread_pool: spead2.ThreadPool,
                  endpoints: _EndpointList,
                  config: StreamConfig = ...,
-                 buffer_size: int = ..., interface_address: _PybindStr = ...) -> None: ...
+                 buffer_size: int = ..., interface_address: str = ...) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  endpoints: _EndpointList,
@@ -122,7 +120,7 @@ class UdpStream(_UdpStream, _SyncStream):
     def __init__(self, thread_pool: spead2.ThreadPool,
                  endpoints: _EndpointList,
                  config: StreamConfig,
-                 ttl: int, interface_address: _PybindStr) -> None: ...
+                 ttl: int, interface_address: str) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  endpoints: _EndpointList,
@@ -152,12 +150,17 @@ class UdpIbvConfig:
                  max_poll: int = ..., memory_regions: list = ...) -> None: ...
 
 
-class UdpIbvStream(_SyncStream):
+class _UdpIbvStream:
+    DEFAULT_BUFFER_SIZE: ClassVar[int]
+    DEFAULT_MAX_POLL: ClassVar[int]
+
+
+class UdpIbvStream(_UdpIbvStream, _SyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 multicast_group: _PybindStr, port: int,
+                 multicast_group: str, port: int,
                  config: StreamConfig,
-                 interface_address: _PybindStr,
+                 interface_address: str,
                  buffer_size: int = ..., ttl: int = ...,
                  comp_vector: int = ..., max_pool: int = ...) -> None: ...
 
@@ -176,9 +179,9 @@ class TcpStream(_TcpStream, _SyncStream):
                  config: StreamConfig = ...) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: _PybindStr, port: int,
+                 hostname: str, port: int,
                  config: StreamConfig = ...,
-                 buffer_size: int = ..., interface_address: _PybindStr = ...) -> None: ...
+                 buffer_size: int = ..., interface_address: str = ...) -> None: ...
 
 class _BytesStream:
     def getvalue(self) -> bytes: ...

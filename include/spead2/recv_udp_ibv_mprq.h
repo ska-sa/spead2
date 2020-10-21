@@ -81,7 +81,7 @@ private:
 
 public:
     /**
-     * Constructor.
+     * Constructor with single endpoint (deprecated).
      *
      * @param owner        Owning stream
      * @param endpoint     Multicast group and port
@@ -112,13 +112,13 @@ public:
         stream &owner,
         const boost::asio::ip::udp::endpoint &endpoint,
         const boost::asio::ip::address &interface_address,
-        std::size_t max_size = default_max_size,
-        std::size_t buffer_size = default_buffer_size,
+        std::size_t max_size = udp_ibv_config::default_max_size,
+        std::size_t buffer_size = udp_ibv_config::default_buffer_size,
         int comp_vector = 0,
-        int max_poll = default_max_poll);
+        int max_poll = udp_ibv_config::default_max_poll);
 
     /**
-     * Constructor with multiple endpoints.
+     * Constructor with multiple endpoints (deprecated).
      *
      * @param owner        Owning stream
      * @param endpoints    Multicast groups and ports
@@ -149,10 +149,21 @@ public:
         stream &owner,
         const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const boost::asio::ip::address &interface_address,
-        std::size_t max_size = default_max_size,
-        std::size_t buffer_size = default_buffer_size,
+        std::size_t max_size = udp_ibv_config::default_max_size,
+        std::size_t buffer_size = udp_ibv_config::default_buffer_size,
         int comp_vector = 0,
-        int max_poll = default_max_poll);
+        int max_poll = udp_ibv_config::default_max_poll);
+
+    /**
+     * Constructor.
+     *
+     * @param owner        Owning stream
+     * @param config       Configuration
+     *
+     * @throws std::invalid_argument If no endpoints are set.
+     * @throws std::invalid_argument If no interface address is set.
+     */
+    udp_ibv_mprq_reader(stream &owner, const udp_ibv_config &config);
 };
 
 } // namespace recv

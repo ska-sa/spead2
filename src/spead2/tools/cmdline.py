@@ -162,7 +162,7 @@ class ReceiverOptions(SharedOptions):
         self.mem_initial = 8
         self.packet = None
         if _HAVE_IBV:
-            self.ibv_max_poll = spead2.recv.Stream.DEFAULT_UDP_IBV_MAX_POLL
+            self.ibv_max_poll = spead2.recv.UdpIbvConfig.DEFAULT_MAX_POLL
 
     def add_arguments(self, parser):
         self._add_argument(parser, 'memcpy_nt', action='store_true',
@@ -195,7 +195,7 @@ class ReceiverOptions(SharedOptions):
             if self._protocol.tcp:
                 self.buffer = spead2.recv.asyncio.Stream.DEFAULT_TCP_BUFFER_SIZE
             elif _HAVE_IBV and self.ibv:
-                self.buffer = spead2.recv.asyncio.Stream.DEFAULT_UDP_IBV_BUFFER_SIZE
+                self.buffer = spead2.recv.UdpIbvConfig.DEFAULT_BUFFER_SIZE
             else:
                 self.buffer = spead2.recv.asyncio.Stream.DEFAULT_UDP_BUFFER_SIZE
 
@@ -203,7 +203,7 @@ class ReceiverOptions(SharedOptions):
             if self._protocol.tcp:
                 self.packet = spead2.recv.asyncio.Stream.DEFAULT_TCP_MAX_SIZE
             elif _HAVE_IBV and self.ibv:
-                self.packet = spead2.recv.asyncio.Stream.DEFAULT_UDP_IBV_MAX_SIZE
+                self.packet = spead2.recv.UdpIbvConfig.DEFAULT_MAX_SIZE
             else:
                 self.packet = spead2.recv.asyncio.Stream.DEFAULT_UDP_MAX_SIZE
 
@@ -243,8 +243,14 @@ class ReceiverOptions(SharedOptions):
                 else:
                     stream.add_udp_reader(port, self.packet, self.buffer, host)
         if ibv_endpoints:
-            stream.add_udp_ibv_reader(ibv_endpoints, self.bind, self.packet,
-                                      self.buffer, self.ibv_vector, self.ibv_max_poll)
+            stream.add_udp_ibv_reader(
+                spead2.recv.UdpIbvConfig(
+                    endpoints=ibv_endpoints,
+                    interface_address=self.bind or '',
+                    max_size=self.packet,
+                    buffer_size=self.buffer,
+                    comp_vector=self.ibv_vector,
+                    max_poll=self.ibv_max_poll))
 
 
 class SenderOptions(SharedOptions):

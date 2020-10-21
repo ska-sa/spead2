@@ -138,14 +138,8 @@ static int clamp(int x, int low, int high)
 
 udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     stream &owner,
-    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-    const boost::asio::ip::address &interface_address,
-    std::size_t max_size,
-    std::size_t buffer_size,
-    int comp_vector,
-    int max_poll)
-    : udp_ibv_reader_base<udp_ibv_mprq_reader>(
-        owner, endpoints, interface_address, max_size, comp_vector, max_poll)
+    const udp_ibv_config &config)
+    : udp_ibv_reader_base<udp_ibv_mprq_reader>(owner, config)
 {
     if (!cm_id.mlx5dv_is_supported())
         throw std::system_error(std::make_error_code(std::errc::not_supported),
@@ -171,6 +165,7 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     int log_wqe_size = attr.striding_rq_attrs.single_stride_log_num_of_bytes
         + attr.striding_rq_attrs.single_wqe_log_num_of_strides;
     wqe_size = std::size_t(1) << log_wqe_size;
+    std::size_t buffer_size = config.get_buffer_size();
     if (buffer_size < 2 * wqe_size)
         buffer_size = 2 * wqe_size;
 
@@ -200,10 +195,10 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     memset(&cq_attr, 0, sizeof(cq_attr));
     cq_attr.cqe = strides;
     cq_attr.wc_flags = IBV_WC_EX_WITH_BYTE_LEN;
-    if (comp_vector >= 0)
+    if (config.get_comp_vector() >= 0)
     {
         cq_attr.channel = comp_channel.get();
-        cq_attr.comp_vector = comp_vector % cm_id->verbs->num_comp_vectors;
+        cq_attr.comp_vector = config.get_comp_vector() % cm_id->verbs->num_comp_vectors;
     }
     cq_attr.flags = IBV_CREATE_CQ_ATTR_SINGLE_THREADED;
     cq_attr.comp_mask = IBV_CQ_INIT_ATTR_MASK_FLAGS;
@@ -230,9 +225,29 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     for (std::size_t i = 0; i < wqe; i++)
         post_wr(i * wqe_size);
 
-    flows = create_flows(qp, endpoints, cm_id->port_num);
+    flows = create_flows(qp, config.get_endpoints(), cm_id->port_num);
     enqueue_receive(true);
-    join_groups(endpoints, interface_address);
+    join_groups(config.get_endpoints(), config.get_interface_address());
+}
+
+udp_ibv_mprq_reader::udp_ibv_mprq_reader(
+    stream &owner,
+    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+    const boost::asio::ip::address &interface_address,
+    std::size_t max_size,
+    std::size_t buffer_size,
+    int comp_vector,
+    int max_poll)
+    : udp_ibv_mprq_reader(
+        owner,
+        udp_ibv_config()
+            .set_endpoints(endpoints)
+            .set_interface_address(interface_address)
+            .set_max_size(max_size)
+            .set_buffer_size(buffer_size)
+            .set_comp_vector(comp_vector)
+            .set_max_poll(max_poll))
+{
 }
 
 udp_ibv_mprq_reader::udp_ibv_mprq_reader(
@@ -243,8 +258,15 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     std::size_t buffer_size,
     int comp_vector,
     int max_poll)
-    : udp_ibv_mprq_reader(owner, std::vector<boost::asio::ip::udp::endpoint>{endpoint},
-                          interface_address, max_size, buffer_size, comp_vector, max_poll)
+    : udp_ibv_mprq_reader(
+        owner,
+        udp_ibv_config()
+            .add_endpoint(endpoint)
+            .set_interface_address(interface_address)
+            .set_max_size(max_size)
+            .set_buffer_size(buffer_size)
+            .set_comp_vector(comp_vector)
+            .set_max_poll(max_poll))
 {
 }
 

@@ -47,6 +47,24 @@ namespace spead2
 namespace recv
 {
 
+constexpr std::size_t udp_ibv_config::default_buffer_size;
+constexpr std::size_t udp_ibv_config::default_max_size;
+constexpr int udp_ibv_config::default_max_poll;
+
+void udp_ibv_config::validate_endpoint(const boost::asio::ip::udp::endpoint &endpoint)
+{
+    if (!endpoint.address().is_unspecified() && !endpoint.address().is_v4())
+        throw std::invalid_argument("endpoint is not an IPv4 address");
+}
+
+udp_ibv_config &udp_ibv_config::set_max_size(std::size_t max_size)
+{
+    if (max_size < 1)
+        throw std::invalid_argument("max_size must be positive");
+    this->max_size = max_size;
+    return *this;
+}
+
 namespace detail
 {
 
@@ -58,8 +76,6 @@ static constexpr int header_length =
 static spead2::rdma_cm_id_t make_cm_id(const rdma_event_channel_t &event_channel,
                                        const boost::asio::ip::address &interface_address)
 {
-    if (!interface_address.is_v4())
-        throw std::invalid_argument("interface address is not an IPv4 address");
     rdma_cm_id_t cm_id(event_channel, nullptr, RDMA_PS_UDP);
     cm_id.bind_addr(interface_address);
     return cm_id;
@@ -67,31 +83,24 @@ static spead2::rdma_cm_id_t make_cm_id(const rdma_event_channel_t &event_channel
 
 udp_ibv_reader_core::udp_ibv_reader_core(
     stream &owner,
-    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-    const boost::asio::ip::address &interface_address,
-    std::size_t max_size,
-    int comp_vector,
-    int max_poll)
+    const udp_ibv_config &config)
     : udp_reader_base(owner),
     join_socket(owner.get_io_service(), boost::asio::ip::udp::v4()),
+    event_channel(nullptr),
     comp_channel_wrapper(owner.get_io_service()),
-    max_size(max_size),
-    max_poll(max_poll),
+    max_size(config.get_max_size()),
+    max_poll(config.get_max_poll()),
     stop_poll(false)
 {
-    for (const auto &endpoint : endpoints)
-        if (!endpoint.address().is_unspecified() && !endpoint.address().is_v4())
-        {
-            std::ostringstream msg;
-            msg << "endpoint " << endpoint << " is not an IPv4 address";
-            throw std::invalid_argument(msg.str());
-        }
-    if (max_poll <= 0)
-        throw std::invalid_argument("max_poll must be non-negative");
+    if (config.get_endpoints().empty())
+        throw std::invalid_argument("endpoints is empty");
+    if (config.get_interface_address().is_unspecified())
+        throw std::invalid_argument("interface address has not been be specified");
 
-    cm_id = make_cm_id(event_channel, interface_address);
+    event_channel = rdma_event_channel_t();
+    cm_id = make_cm_id(event_channel, config.get_interface_address());
     pd = ibv_pd_t(cm_id);
-    if (comp_vector >= 0)
+    if (config.get_comp_vector() >= 0)
     {
         comp_channel = ibv_comp_channel_t(cm_id);
         comp_channel_wrapper = comp_channel.wrap(get_io_service());
@@ -229,29 +238,25 @@ udp_ibv_reader::poll_result udp_ibv_reader::poll_once(stream_base::add_packet_st
 
 udp_ibv_reader::udp_ibv_reader(
     stream &owner,
-    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-    const boost::asio::ip::address &interface_address,
-    std::size_t max_size,
-    std::size_t buffer_size,
-    int comp_vector,
-    int max_poll)
-    : udp_ibv_reader_base<udp_ibv_reader>(
-        owner, endpoints, interface_address, max_size, comp_vector, max_poll),
-    n_slots(compute_n_slots(cm_id, buffer_size, max_size + detail::header_length))
+    const udp_ibv_config &config)
+    : udp_ibv_reader_base<udp_ibv_reader>(owner, config),
+    n_slots(compute_n_slots(cm_id,
+                            config.get_buffer_size(),
+                            config.get_max_size() + detail::header_length))
 {
     // Re-compute buffer_size as a whole number of slots
     const std::size_t max_raw_size = max_size + detail::header_length;
-    buffer_size = n_slots * max_raw_size;
+    std::size_t buffer_size = n_slots * max_raw_size;
 
-    if (comp_vector >= 0)
+    if (config.get_comp_vector() >= 0)
         recv_cq = ibv_cq_t(cm_id, n_slots, nullptr,
-                           comp_channel, comp_vector % cm_id->verbs->num_comp_vectors);
+                           comp_channel, config.get_comp_vector() % cm_id->verbs->num_comp_vectors);
     else
         recv_cq = ibv_cq_t(cm_id, n_slots, nullptr);
     send_cq = ibv_cq_t(cm_id, 1, nullptr);
     qp = create_qp(pd, send_cq, recv_cq, n_slots);
     qp.modify(IBV_QPS_INIT, cm_id->port_num);
-    flows = create_flows(qp, endpoints, cm_id->port_num);
+    flows = create_flows(qp, config.get_endpoints(), cm_id->port_num);
 
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(buffer_size, nullptr);
@@ -272,7 +277,27 @@ udp_ibv_reader::udp_ibv_reader(
 
     enqueue_receive(true);
     qp.modify(IBV_QPS_RTR);
-    join_groups(endpoints, interface_address);
+    join_groups(config.get_endpoints(), config.get_interface_address());
+}
+
+udp_ibv_reader::udp_ibv_reader(
+    stream &owner,
+    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
+    const boost::asio::ip::address &interface_address,
+    std::size_t max_size,
+    std::size_t buffer_size,
+    int comp_vector,
+    int max_poll)
+    : udp_ibv_reader(
+        owner,
+        udp_ibv_config()
+            .set_endpoints(endpoints)
+            .set_interface_address(interface_address)
+            .set_max_size(max_size)
+            .set_buffer_size(buffer_size)
+            .set_comp_vector(comp_vector)
+            .set_max_poll(max_poll))
+{
 }
 
 udp_ibv_reader::udp_ibv_reader(
@@ -283,12 +308,22 @@ udp_ibv_reader::udp_ibv_reader(
     std::size_t buffer_size,
     int comp_vector,
     int max_poll)
-    : udp_ibv_reader(owner, std::vector<boost::asio::ip::udp::endpoint>{endpoint},
-                     interface_address, max_size, buffer_size, comp_vector, max_poll)
+    : udp_ibv_reader(
+        owner,
+        udp_ibv_config()
+            .add_endpoint(endpoint)
+            .set_interface_address(interface_address)
+            .set_max_size(max_size)
+            .set_buffer_size(buffer_size)
+            .set_comp_vector(comp_vector)
+            .set_max_poll(max_poll))
 {
 }
 
 } // namespace recv
+
+template class detail::udp_ibv_config_base<recv::udp_ibv_config>;
+
 } // namespace spead2
 
 #endif // SPEAD2_USE_IBV

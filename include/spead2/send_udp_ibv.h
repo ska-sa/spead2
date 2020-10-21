@@ -33,16 +33,23 @@
 #include <initializer_list>
 #include <spead2/send_stream.h>
 #include <spead2/common_thread_pool.h>
+#include <spead2/common_ibv.h>
 
 namespace spead2
 {
+
+// Prevent the compiler instantiating the template in all translation units
+// (we'll explicitly instantiate it in send_udp_ibv.cpp).
+namespace send { class udp_ibv_config; }
+extern template class detail::udp_ibv_config_base<send::udp_ibv_config>;
+
 namespace send
 {
 
 /**
  * Configuration for @ref udp_ibv_stream.
  */
-class udp_ibv_config
+class udp_ibv_config : public spead2::detail::udp_ibv_config_base<udp_ibv_config>
 {
 public:
     typedef std::pair<const void *, std::size_t> memory_region;
@@ -53,89 +60,18 @@ public:
     static constexpr int default_max_poll = 10;
 
 private:
-    std::vector<boost::asio::ip::udp::endpoint> endpoints;
-    boost::asio::ip::address interface_address;
-    std::size_t buffer_size = default_buffer_size;
+    friend class spead2::detail::udp_ibv_config_base<udp_ibv_config>;
+    static void validate_endpoint(const boost::asio::ip::udp::endpoint &endpoint);
+    static void validate_memory_region(const udp_ibv_config::memory_region &region);
+
     std::uint8_t ttl = 1;
-    int comp_vector = 0;
-    int max_poll = default_max_poll;
     std::vector<memory_region> memory_regions;
 
 public:
-    /**
-     * Construct with the defaults.
-     *
-     * It cannot be used as is, because the interface address and at least one
-     * endpoint must be supplied.
-     */
-    udp_ibv_config();
-
-    /// Get the configured endpoints
-    const std::vector<boost::asio::ip::udp::endpoint> &get_endpoints() const { return endpoints; }
-    /**
-     * Set the endpoints (replacing any previous). Each endpoint corresponds to a substream.
-     *
-     * @throws std::invalid_argument if any element of @a endpoints is not an IPv4 multicast address.
-     */
-    udp_ibv_config &set_endpoints(const std::vector<boost::asio::ip::udp::endpoint> &endpoints);
-    /**
-     * Append a single endpoint.
-     *
-     * @throws std::invalid_argument if @a endpoint is not an IPv4 multicast address.
-     */
-    udp_ibv_config &add_endpoint(const boost::asio::ip::udp::endpoint &endpoint);
-
-    /// Get the currently set interface address
-    const boost::asio::ip::address get_interface_address() const { return interface_address; }
-    /**
-     * Set the interface address.
-     *
-     * @throws std::invalid_argument if @a interface_address is not an IPv4 address.
-     */
-    udp_ibv_config &set_interface_address(const boost::asio::ip::address &interface_address);
-
-    /// Get the currently configured buffer size.
-    std::size_t get_buffer_size() const { return buffer_size; }
-    /**
-     * Set the buffer size.
-     *
-     * The value 0 is special and resets it to the default. The actual buffer size
-     * used may be slightly different to round it to a whole number of
-     * packet-sized slots.
-     */
-    udp_ibv_config &set_buffer_size(std::size_t buffer_size);
-
     /// Get the IP TTL
     std::uint8_t get_ttl() const { return ttl; }
     /// Set the IP TTL
     udp_ibv_config &set_ttl(std::uint8_t ttl);
-
-    /// Get the completion channel vector (see @ref set_comp_vector)
-    int get_comp_vector() const { return comp_vector; }
-    /**
-     * Set the completion channel vector (interrupt) for asynchronous operation.
-     * Use a negative value to poll continuously. Polling should not be used if
-     * there are other users of the thread pool. If a non-negative value is
-     * provided, it is taken modulo the number of available completion vectors.
-     * This allows a number of readers to be assigned sequential completion
-     * vectors and have them load-balanced, without concern for the number
-     * available.
-     */
-    udp_ibv_config &set_comp_vector(int comp_vector);
-
-    /// Get maximum number of times to poll in a row (see @ref set_max_poll)
-    int get_max_poll() const { return max_poll; }
-    /**
-     * Set maximum number of times to poll in a row.
-     *
-     * If interrupts are enabled (default), it is the maximum number of times
-     * to poll before waiting for an interrupt; if they are disabled by @ref
-     * set_comp_vector, it is the number of times to poll before letting other
-     * code run on the thread.
-     *
-     * @throws std::invalid_argument if @a max_poll is zero.
-     */
-    udp_ibv_config &set_max_poll(int max_poll);
 
     /// Get currently registered memory regions
     const std::vector<memory_region> &get_memory_regions() const { return memory_regions; }
@@ -156,6 +92,11 @@ public:
 class udp_ibv_stream : public stream
 {
 public:
+    SPEAD2_DEPRECATED("use spead2::send::udp_ibv_config::default_buffer_size")
+    static constexpr std::size_t default_buffer_size = udp_ibv_config::default_buffer_size;
+    SPEAD2_DEPRECATED("use spead2::send::udp_ibv_config::default_max_poll")
+    static constexpr int default_max_poll = udp_ibv_config::default_max_poll;
+
     /**
      * Backwards-compatibility constructor (taking only a single endpoint).
      *
