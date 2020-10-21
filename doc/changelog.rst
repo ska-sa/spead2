@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 3.0.0b2
 
 Version 3.0 contains a number of breaking API changes. For information on
 updating your existing code, refer to :doc:`migrate-3`.
