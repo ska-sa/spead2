@@ -1,6 +1,60 @@
 Changelog
 =========
 
+.. rubric:: 3.0.0
+
+Version 3.0 contains a number of breaking API changes. For information on
+updating your existing code, refer to :doc:`migrate-3`.
+
+The :doc:`ibverbs <py-ibverbs>` acceleration has been substantially modified to use a
+newer version of rdma-core. It will no longer compile against versions of
+MLNX-OFED prior to 5.0. Compiled code (such as Python wheels) will still run
+against old versions of MLNX-OFED, but extension features such as multi-packet
+receive queues and packet timestamps will not work, and nor will
+:program:`mcdump`. It is recommended that if you are using ibverbs acceleration
+with older MLNX-OFED drivers that you stick with spead2 2.x until you're able
+to upgrade the drivers and spead2 simultaneously.
+
+- Support multiple "substreams" in a send stream (see :ref:`py-substreams`).
+- Reduce overhead for dealing with incomplete heaps.
+- Allow ibverbs senders to register memory regions for zero-copy
+  transmission.
+- Add C++ preprocessor defines for the version number.
+- Use IP/UDP checksum offloading for sending with ibverbs (improves
+  performance and also adds UDP checksum which is otherwise omitted).
+- Add wheels for Python 3.9.
+- Drop support for Python 3.5, which is end-of-life.
+- Change code examples to use standard SPEAD rather than PySPEAD bug
+  compatibility.
+- Change :cpp:class:`spead2::send::streambuf_stream` so that when the
+  streambuf only partially writes a packet, the partial byte count is
+  included in the count returned to the callback.
+- :cpp:func:`spead2::send::stream::flush` now only blocks until the
+  previously enqueued heaps are completed. Another thread that keeps adding
+  heaps would previously have prevented it from returning.
+- Partially rewrite the sending infrastructure, resulting in performance
+  improvements, in some cases of over 10%.
+- Setting a buffer size of 0 for a :py:class:`~spead2.send.UdpIbvStream` now
+  uses the default buffer size, instead of a 1-packet buffer.
+- Fix :program:`spead2_bench.py` ignoring the :option:`!--send-affinity` option.
+- Add :option:`!--verify` option to :program:`spead2_send` and
+  :program:`spead2_recv` to aid in testing the code. To support this,
+  :program:`spead2_send` was modified so that each in-flight heap uses
+  different memory, which may reduce performance (due to less cache re-use)
+  even when the option is not given.
+- Miscellaneous performance improvements.
+- Support hardware send rate limiting when using ibverbs (disabled by default).
+- Discover libibverbs and pcap using pkg-config where possible.
+- Make :program:`configure` print out the configuration that will be compiled.
+- Update the Python wheels to use manylinux2014. This uses a newer compiler
+  (potentially giving better performance) and supports :c:func:`sendmmsg`.
+- A number of deprecated functions have been removed.
+- Avoid ibverbs code creating a send queue for receiver or vice versa.
+- Rename ``slave`` option to :program:`spead2_bench` to ``agent``.
+
+Compared to 3.0.0b2 there is a critical bug fix for a race condition in the
+send code.
+
 .. rubric:: 3.0.0b2
 
 Version 3.0 contains a number of breaking API changes. For information on
