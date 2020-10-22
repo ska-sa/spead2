@@ -149,7 +149,7 @@ bool stream::async_send_heap(const heap &h, completion_handler handler,
     }
     item_pointer_t cnt_mask = (item_pointer_t(1) << h.get_flavour().get_heap_address_bits()) - 1;
 
-    std::unique_lock<std::mutex> lock(head_mutex);
+    std::unique_lock<std::mutex> lock(tail_mutex);
     std::size_t tail = queue_tail.load(std::memory_order_relaxed);
     std::size_t head = queue_head.load(std::memory_order_acquire);
     if (tail - head == queue_size)
