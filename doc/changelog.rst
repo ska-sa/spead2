@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Bring the type stubs up to date.
+
 .. rubric:: 3.0.0
 
 Version 3.0 contains a number of breaking API changes. For information on
