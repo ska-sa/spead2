@@ -49,7 +49,7 @@ Prior to version 3, some parameters to configure a stream were passed directly
 to the constructor (e.g., the maximum number of partial heaps), while others
 were set by methods after construction (such as the memory allocator). In
 version 3, all these parameters are set at construction time, and they are
-help in helper classes :py:class:`spead2.recv.StreamConfig` and
+held in helper classes :py:class:`spead2.recv.StreamConfig` and
 :py:class:`spead2.recv.RingStreamConfig`
 (:cpp:class:`spead2::recv::stream_config` and
 :cpp:class:`spead2::recv::ring_stream_config` for C++). Code will need to be
