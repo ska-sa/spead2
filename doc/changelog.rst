@@ -1,9 +1,10 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 3.0.1
 
 - Bring the type stubs up to date.
+- Fix a typo in the documentation.
 
 .. rubric:: 3.0.0
 
