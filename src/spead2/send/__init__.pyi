@@ -77,7 +77,6 @@ class _SyncStream(_Stream):
 class _UdpStream:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
 
-class UdpStream(_UdpStream, _SyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  hostname: str, port: int,
@@ -132,6 +131,8 @@ class UdpStream(_UdpStream, _SyncStream):
                  endpoints: _EndpointList,
                  config: StreamConfig = ...) -> None: ...
 
+class UdpStream(_UdpStream, _SyncStream):
+    pass
 
 class UdpIbvConfig:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
@@ -154,8 +155,6 @@ class _UdpIbvStream:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
     DEFAULT_MAX_POLL: ClassVar[int]
 
-
-class UdpIbvStream(_UdpIbvStream, _SyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool,
                  multicast_group: str, port: int,
@@ -170,6 +169,9 @@ class UdpIbvStream(_UdpIbvStream, _SyncStream):
                  udp_ibv_config: UdpIbvConfig) -> None: ...
 
 
+class UdpIbvStream(_UdpIbvStream, _SyncStream):
+    pass
+
 class _TcpStream:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
 
@@ -182,25 +184,31 @@ class TcpStream(_TcpStream, _SyncStream):
                  hostname: str, port: int,
                  config: StreamConfig = ...,
                  buffer_size: int = ..., interface_address: str = ...) -> None: ...
+    @overload
+    def __init__(self, thread_pool: spead2.ThreadPool,
+                 endpoints: _EndpointList,
+                 config: StreamConfig = ...,
+                 buffer_size: int = ..., interface_address: str = ...) -> None: ...
 
-class _BytesStream:
+class BytesStream(_SyncStream):
     def getvalue(self) -> bytes: ...
-
-class BytesStream(_BytesStream, _SyncStream):
     def __init__(self, thread_pool: spead2.ThreadPool,
                  config: StreamConfig = ...) -> None: ...
 
 class _InprocStream:
     @property
+    def queue(self) -> spead2.InprocQueue: ...
+    @property
     def queues(self) -> Sequence[spead2.InprocQueue]: ...
-
-class InprocStream(_InprocStream, _SyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool, queue: spead2.InprocQueue,
                  config: StreamConfig = ...) -> None: ...
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool, queues: List[spead2.InprocQueue],
                  config: StreamConfig = ...) -> None: ...
+
+class InprocStream(_InprocStream, _SyncStream):
+    pass
 
 class HeapGenerator:
     def __init__(self, item_group: spead2.ItemGroup, descriptor_frequency: Optional[int] = None,
