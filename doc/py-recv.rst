@@ -85,7 +85,7 @@ properties after construction.
 
 .. py:class:: spead2.recv.RingStreamConfig(**kwargs)
 
-   :param int ring_heaps: The capacity of the ring buffer between the network
+   :param int heaps: The capacity of the ring buffer between the network
      threads and the consumer. Increasing this may reduce lock contention at
      the cost of more memory usage.
    :param bool contiguous_only: If set to ``False``, incomplete heaps will be
