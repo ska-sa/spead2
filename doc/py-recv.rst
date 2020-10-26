@@ -85,7 +85,7 @@ properties after construction.
 
 .. py:class:: spead2.recv.RingStreamConfig(**kwargs)
 
-   :param int ring_heaps: The capacity of the ring buffer between the network
+   :param int heaps: The capacity of the ring buffer between the network
      threads and the consumer. Increasing this may reduce lock contention at
      the cost of more memory usage.
    :param bool contiguous_only: If set to ``False``, incomplete heaps will be
@@ -243,23 +243,17 @@ Asynchronous receive
 Asynchronous I/O is supported through Python's :py:mod:`asyncio` module. It can
 be combined with other asynchronous I/O frameworks like twisted_ and Tornado_.
 
-.. py:class:: spead2.recv.asyncio.Stream(*args, **kwargs, loop=None)
+.. py:class:: spead2.recv.asyncio.Stream(*args, **kwargs)
 
    See :py:class:`spead2.recv.Stream` (the base class) for other constructor
    arguments.
 
-   :param loop: Default asyncio event loop for async operations. If not
-     specified, uses the default asyncio event loop. Do not call
-     `get_nowait` from the base class.
-
-   .. py:method:: get(loop=None)
+   .. py:method:: get()
 
       Coroutine that yields the next heap, or raises :py:exc:`spead2.Stopped`
       once the stream has been stopped and there is no more data. It is safe
       to have multiple in-flight calls, which will be satisfied in the order
       they were made.
-
-      :param loop: asyncio event loop to use, overriding constructor.
 
 .. _twisted: https://twistedmatrix.com/trac/
 .. _tornado: http://www.tornadoweb.org/en/stable/
