@@ -52,6 +52,7 @@ stream::stream(std::unique_ptr<writer> &&w)
     : queue_size(w->config.get_max_heaps()),
     queue_mask(compute_queue_mask(queue_size)),
     num_substreams(w->get_num_substreams()),
+    max_packet_size(w->config.get_max_packet_size()),
     w(std::move(w)),
     queue(new queue_item_storage[queue_mask + 1])
 {
@@ -114,7 +115,7 @@ bool stream::async_send_heap(const heap &h, completion_handler handler,
     }
 
     // Construct in place
-    new (get_queue(tail)) detail::queue_item(h, cnt, substream_index, std::move(handler));
+    new (get_queue(tail)) detail::queue_item(h, cnt, substream_index, max_packet_size, std::move(handler));
     bool wakeup = need_wakeup;
     need_wakeup = false;
     queue_tail.store(tail + 1, std::memory_order_release);

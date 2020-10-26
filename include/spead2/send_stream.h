@@ -32,8 +32,10 @@
 #include <atomic>
 #include <cassert>
 #include <boost/asio.hpp>
+#include <boost/optional.hpp>
 #include <boost/system/error_code.hpp>
 #include <spead2/send_heap.h>
+#include <spead2/send_packet.h>
 #include <spead2/send_stream_config.h>
 #include <spead2/send_writer.h>
 #include <spead2/common_defines.h>
@@ -55,9 +57,9 @@ struct queue_item
 {
     typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
 
-    const heap &h;
-    item_pointer_t cnt;
+    packet_generator gen;
     std::size_t substream_index;
+
     item_pointer_t bytes_sent = 0;
     boost::system::error_code result;
     completion_handler handler;
@@ -66,8 +68,10 @@ struct queue_item
 
     queue_item() = default;
     queue_item(const heap &h, item_pointer_t cnt, std::size_t substream_index,
-               completion_handler &&handler) noexcept
-        : h(h), cnt(cnt), substream_index(substream_index), handler(std::move(handler))
+               std::size_t max_packet_size, completion_handler &&handler)
+        : gen(h, cnt, max_packet_size),
+        substream_index(substream_index),
+        handler(std::move(handler))
     {
     }
 };
@@ -102,6 +106,8 @@ private:
     const std::size_t queue_mask;
     /// Number of substreams exposed by the writer
     const std::size_t num_substreams;
+    /// Maximum packet size, copied from the stream config
+    const std::size_t max_packet_size;
     /// Increment to next_cnt after each heap
     item_pointer_t step_cnt = 1;
     /// Writer backing the stream

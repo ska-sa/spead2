@@ -104,21 +104,16 @@ writer::packet_result writer::get_packet(transmit_packet &data)
             return packet_result::EMPTY;
     }
     detail::queue_item *cur = get_owner()->get_queue(active);
-    if (!gen)
-        gen = boost::in_place(cur->h, cur->cnt, config.get_max_packet_size());
-    assert(gen->has_next_packet());
+    assert(cur->gen.has_next_packet());
 
-    data.pkt = gen->next_packet();
+    data.pkt = cur->gen.next_packet();
     data.size = boost::asio::buffer_size(data.pkt.buffers);
-    data.last = !gen->has_next_packet();
+    data.last = !cur->gen.has_next_packet();
     data.item = cur;
     if (!hw_rate)
         rate_bytes += data.size;
     if (data.last)
-    {
         active++;
-        gen = boost::none;
-    }
     return packet_result::SUCCESS;
 }
 

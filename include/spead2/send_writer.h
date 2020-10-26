@@ -116,15 +116,6 @@ private:
     /// Entry from which we are currently getting new packets
     std::size_t active = 0;
     /**
-     * Packet generator for the active heap. It may be empty at any time, which
-     * indicates that it should be initialised from the heap indicated by
-     * @ref active.
-     *
-     * When non-empty, it must always have a next packet i.e. after
-     * exhausting it, it must be cleared/changed.
-     */
-    boost::optional<packet_generator> gen;
-    /**
      * The stream with which we're associated. This is filled in by @ref
      * set_owner shortly after construction.
      */
