@@ -108,16 +108,38 @@ writer::packet_result writer::get_packet(transmit_packet &data)
 
     data.pkt = cur->gen.next_packet();
     data.size = boost::asio::buffer_size(data.pkt.buffers);
-    data.last = !cur->gen.has_next_packet();
-    data.item = cur;
+    data.substream_index = cur->substream_index;
+    // Point at the start of the group, so that errors and byte counts accumulate
+    // in one place.
+    data.item = get_owner()->get_queue(active_start);
     if (!hw_rate)
         rate_bytes += data.size;
-    if (data.last)
-        active++;
+    data.last = false;
+
+    // Find the heap to use for the next packet, skipping exhausted heaps
+    std::size_t next_active = cur->group_next;
+    detail::queue_item *next = (next_active == active) ? cur : get_owner()->get_queue(next_active);
+    while (!next->gen.has_next_packet())
+    {
+        if (next_active == active)
+        {
+            // We've gone all the way around the group and not found anything,
+            // so the group is exhausted.
+            data.last = true;
+            active = cur->group_end;
+            active_start = active;
+            return packet_result::SUCCESS;
+        }
+        next_active = next->group_next;
+        next = get_owner()->get_queue(next_active);
+    }
+    // Cache the result so that we can skip the search next time
+    cur->group_next = next_active;
+    active = next_active;
     return packet_result::SUCCESS;
 }
 
-void writer::heaps_completed(std::size_t n)
+void writer::groups_completed(std::size_t n)
 {
     struct bound_handler
     {
@@ -156,8 +178,18 @@ void writer::heaps_completed(std::size_t n)
                 handlers[i] = bound_handler(
                     std::move(cur->handler), cur->result, cur->bytes_sent);
                 waiters.splice_after(waiters.before_begin(), cur->waiters);
+                std::size_t next_queue_head = cur->group_end;
                 cur->~queue_item();
                 queue_head++;
+                // For a group with > 1 heap, destroy the rest of the group
+                // and splice in waiters.
+                while (queue_head != next_queue_head)
+                {
+                    cur = get_owner()->get_queue(queue_head);
+                    waiters.splice_after(waiters.before_begin(), cur->waiters);
+                    cur->~queue_item();
+                    queue_head++;
+                }
             }
             // After this, async_send_heaps is free to reuse the slots we've
             // just vacated.

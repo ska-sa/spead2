@@ -51,8 +51,8 @@ class stream;
  * the subclass must ensure that only one handler runs at a time.
  *
  * The @ref wakeup handler should use @ref get_packet to try to retrieve
- * packet(s) and send them, and should ensure that @ref heaps_completed is
- * called after transmitting final packets of heaps. It is also responsible
+ * packet(s) and send them, and should ensure that @ref groups_completed is
+ * called after transmitting final packets of groups. It is also responsible
  * for updating queue_item::bytes_sent and
  * queue_item::result. Depending on the last result of @ref
  * get_packet, it should arrange for itself to be rerun by calling either
@@ -115,6 +115,8 @@ private:
     std::size_t queue_head = 0, queue_tail = 0;
     /// Entry from which we are currently getting new packets
     std::size_t active = 0;
+    /// Start of group containing active
+    std::size_t active_start = 0;
     /**
      * The stream with which we're associated. This is filled in by @ref
      * set_owner shortly after construction.
@@ -154,7 +156,8 @@ protected:
     {
         packet pkt;
         std::size_t size;
-        bool last;          // if this is the last packet in the heap
+        std::size_t substream_index;
+        bool last;          // if this is the last packet in the group
         detail::queue_item *item;
     };
 
@@ -175,8 +178,8 @@ protected:
      */
     packet_result get_packet(transmit_packet &data);
 
-    /// Notify the base class that @a n heaps have finished transmission.
-    void heaps_completed(std::size_t n);
+    /// Notify the base class that @a n groups have finished transmission.
+    void groups_completed(std::size_t n);
 
     /**
      * Request @ref wakeup once the sleep time has been reached. This must

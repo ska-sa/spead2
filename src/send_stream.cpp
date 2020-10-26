@@ -115,7 +115,9 @@ bool stream::async_send_heap(const heap &h, completion_handler handler,
     }
 
     // Construct in place
-    new (get_queue(tail)) detail::queue_item(h, cnt, substream_index, max_packet_size, std::move(handler));
+    new (get_queue(tail)) detail::queue_item(
+        h, cnt, substream_index, tail + 1, tail,
+        max_packet_size, std::move(handler));
     bool wakeup = need_wakeup;
     need_wakeup = false;
     queue_tail.store(tail + 1, std::memory_order_release);

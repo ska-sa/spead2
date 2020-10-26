@@ -127,7 +127,7 @@ void tcp_writer::wakeup()
         if (!item->result)
             item->result = ec;
         if (last)
-            heaps_completed(1);
+            groups_completed(1);
         wakeup();
     };
     boost::asio::async_write(socket, data.pkt.buffers, std::move(handler));

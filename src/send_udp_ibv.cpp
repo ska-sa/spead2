@@ -226,7 +226,7 @@ bool udp_ibv_writer::reap()
 {
     ibv_wc wc;
     int retries = max_poll;
-    int heaps = 0;
+    int groups = 0;
     std::size_t min_available = std::min(n_slots, available + target_batch);
     // TODO: this could probably be faster with the cq_ex polling API
     // because it could avoid locking.
@@ -265,14 +265,14 @@ bool udp_ibv_writer::reap()
                     item->bytes_sent += s->sge[j].length;
                 item->bytes_sent -= header_length;
             }
-            heaps += s->last;
+            groups += s->last;
             if (++head == n_slots)
                 head = 0;
         }
         available += batch;
     }
-    if (heaps > 0)
-        heaps_completed(heaps);
+    if (groups > 0)
+        groups_completed(groups);
     return available < n_slots && retries > 0;
 }
 
@@ -325,7 +325,7 @@ void udp_ibv_writer::wakeup()
             udp.length(payload_size + udp_packet::min_size);
             if (get_num_substreams() > 1)
             {
-                const std::size_t substream_index = data.item->substream_index;
+                const std::size_t substream_index = data.substream_index;
                 const auto &endpoint = endpoints[substream_index];
                 s->frame.destination_mac(mac_addresses[substream_index]);
                 ipv4.destination_address(endpoint.address().to_v4());

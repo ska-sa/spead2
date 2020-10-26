@@ -58,8 +58,17 @@ struct queue_item
     typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
 
     packet_generator gen;
-    std::size_t substream_index;
+    const std::size_t substream_index;
+    // Queue index (non-masked) one past the end of a group
+    std::size_t group_end;
+    /* Next queue index (non-masked) to send a packet from after this one.
+     * This gets updated lazily when that one is exhausted, so that it
+     * requires amortised constant time to find the next non-exhausted
+     * item in the group.
+     */
+    std::size_t group_next;
 
+    // These fields are only relevant for the first item in a group
     item_pointer_t bytes_sent = 0;
     boost::system::error_code result;
     completion_handler handler;
@@ -68,9 +77,11 @@ struct queue_item
 
     queue_item() = default;
     queue_item(const heap &h, item_pointer_t cnt, std::size_t substream_index,
+               std::size_t group_end, std::size_t group_next,
                std::size_t max_packet_size, completion_handler &&handler)
         : gen(h, cnt, max_packet_size),
         substream_index(substream_index),
+        group_end(group_end), group_next(group_next),
         handler(std::move(handler))
     {
     }

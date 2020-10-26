@@ -49,7 +49,7 @@ public:
 void streambuf_writer::wakeup()
 {
     constexpr int max_batch = 64;
-    int heaps = 0;
+    int groups = 0;
     packet_result result;
     for (int i = 0; i < max_batch; i++)
     {
@@ -71,11 +71,11 @@ void streambuf_writer::wakeup()
             }
         }
         if (data.last)
-            heaps++;
+            groups++;
     }
 
-    if (heaps > 0)
-        heaps_completed(heaps);
+    if (groups > 0)
+        groups_completed(groups);
 
     switch (result)
     {
