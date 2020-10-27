@@ -48,6 +48,27 @@ static std::size_t compute_queue_mask(std::size_t size)
     return p2 - 1;
 }
 
+stream::unwinder::unwinder(stream &s, std::size_t tail)
+    : s(s), orig_tail(tail), tail(tail)
+{
+}
+
+void stream::unwinder::set_tail(std::size_t tail)
+{
+    this->tail = tail;
+}
+
+void stream::unwinder::abort()
+{
+    for (std::size_t i = orig_tail; i != tail; i++)
+        s.get_queue(i)->~queue_item();
+}
+
+void stream::unwinder::commit()
+{
+    orig_tail = tail;
+}
+
 stream::stream(std::unique_ptr<writer> &&w)
     : queue_size(w->config.get_max_heaps()),
     queue_mask(compute_queue_mask(queue_size)),
@@ -83,55 +104,9 @@ bool stream::async_send_heap(const heap &h, completion_handler handler,
                              s_item_pointer_t cnt,
                              std::size_t substream_index)
 {
-    if (substream_index >= num_substreams)
-    {
-        log_warning("async_send_heap: dropping heap because substream index is out of range");
-        get_io_service().post(std::bind(handler, boost::asio::error::invalid_argument, 0));
-        return false;
-    }
-    item_pointer_t cnt_mask = (item_pointer_t(1) << h.get_flavour().get_heap_address_bits()) - 1;
-
-    std::unique_lock<std::mutex> lock(tail_mutex);
-    std::size_t tail = queue_tail.load(std::memory_order_relaxed);
-    std::size_t head = queue_head.load(std::memory_order_acquire);
-    if (tail - head == queue_size)
-    {
-        lock.unlock();
-        log_warning("async_send_heap: dropping heap because queue is full");
-        get_io_service().post(std::bind(handler, boost::asio::error::would_block, 0));
-        return false;
-    }
-    if (cnt < 0)
-    {
-        cnt = next_cnt & cnt_mask;
-        next_cnt += step_cnt;
-    }
-    else if (item_pointer_t(cnt) > cnt_mask)
-    {
-        lock.unlock();
-        log_warning("async_send_heap: dropping heap because cnt is out of range");
-        get_io_service().post(std::bind(handler, boost::asio::error::invalid_argument, 0));
-        return false;
-    }
-
-    // Construct in place
-    new (get_queue(tail)) detail::queue_item(
-        h, cnt, substream_index, tail + 1, tail,
-        max_packet_size, std::move(handler));
-    bool wakeup = need_wakeup;
-    need_wakeup = false;
-    queue_tail.store(tail + 1, std::memory_order_release);
-    lock.unlock();
-
-    if (wakeup)
-    {
-        writer *w_ptr = w.get();
-        get_io_service().post([w_ptr]() {
-            w_ptr->update_send_time_empty();
-            w_ptr->wakeup();
-        });
-    }
-    return true;
+    heap_reference ref(h, cnt, substream_index);
+    return async_send_heaps_impl<null_unwinder>(
+        &ref, &ref + 1, std::move(handler), group_mode::ROUND_ROBIN);
 }
 
 void stream::flush()
@@ -158,6 +133,11 @@ std::size_t stream::get_num_substreams() const
 {
     return num_substreams;
 }
+
+// Explicit instantiation
+template bool stream::async_send_heaps_impl<stream::null_unwinder, heap_reference *>(
+    heap_reference *first, heap_reference *last,
+    completion_handler &&handler, group_mode mode);
 
 } // namespace send
 } // namespace spead2
