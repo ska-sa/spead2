@@ -34,6 +34,8 @@
 #include <boost/asio.hpp>
 #include <boost/system/error_code.hpp>
 #include <spead2/send_heap.h>
+#include <spead2/send_stream_config.h>
+#include <spead2/send_writer.h>
 #include <spead2/common_defines.h>
 #include <spead2/common_thread_pool.h>
 
@@ -43,65 +45,34 @@ namespace spead2
 namespace send
 {
 
-enum class rate_method
+namespace detail
 {
-    SW,        ///< Software rate limiter
-    HW,        ///< Hardware rate limiter, if available
-    AUTO       ///< Implementation decides on rate-limit method
-};
 
-/**
- * Configuration for send streams.
+/* Entry in a stream's queue. It is logically an inner class of stream, but
+ * C++ doesn't allow forward references to inner classes so it is split out.
  */
-class stream_config
+struct queue_item
 {
-public:
-    static constexpr std::size_t default_max_packet_size = 1472;
-    static constexpr std::size_t default_max_heaps = 4;
-    static constexpr std::size_t default_burst_size = 65536;
-    static constexpr double default_burst_rate_ratio = 1.05;
-    static constexpr rate_method default_rate_method = rate_method::AUTO;
+    typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
 
-    /// Set maximum packet size to use (only counts the UDP payload, not L1-4 headers).
-    stream_config &set_max_packet_size(std::size_t max_packet_size);
-    /// Get maximum packet size to use.
-    std::size_t get_max_packet_size() const { return max_packet_size; }
-    /// Set maximum transmit rate to use, in bytes per second.
-    stream_config &set_rate(double rate);
-    /// Get maximum transmit rate to use, in bytes per second.
-    double get_rate() const { return rate; }
-    /// Set maximum size of a burst, in bytes.
-    stream_config &set_burst_size(std::size_t burst_size);
-    /// Get maximum size of a burst, in bytes.
-    std::size_t get_burst_size() const { return burst_size; }
-    /// Set maximum number of in-flight heaps.
-    stream_config &set_max_heaps(std::size_t max_heaps);
-    /// Get maximum number of in-flight heaps.
-    std::size_t get_max_heaps() const { return max_heaps; }
-    /// Set maximum increase in transmit rate for catching up.
-    stream_config &set_burst_rate_ratio(double burst_rate_ratio);
-    /// Get maximum increase in transmit rate for catching up.
-    double get_burst_rate_ratio() const { return burst_rate_ratio; }
-    /// Set rate-limiting method
-    stream_config &set_rate_method(rate_method method);
-    /// Get rate-limiting method
-    rate_method get_rate_method() const { return method; }
+    const heap &h;
+    item_pointer_t cnt;
+    std::size_t substream_index;
+    item_pointer_t bytes_sent = 0;
+    boost::system::error_code result;
+    completion_handler handler;
+    // Populated by flush(). A forward_list takes less space when not used than vector.
+    std::forward_list<std::promise<void>> waiters;
 
-    /// Get product of rate and burst_rate_ratio
-    double get_burst_rate() const;
-
-    stream_config();
-
-private:
-    std::size_t max_packet_size = default_max_packet_size;
-    double rate = 0.0;
-    std::size_t burst_size = default_burst_size;
-    std::size_t max_heaps = default_max_heaps;
-    double burst_rate_ratio = default_burst_rate_ratio;
-    rate_method method = default_rate_method;
+    queue_item() = default;
+    queue_item(const heap &h, item_pointer_t cnt, std::size_t substream_index,
+               completion_handler &&handler) noexcept
+        : h(h), cnt(cnt), substream_index(substream_index), handler(std::move(handler))
+    {
+    }
 };
 
-class writer;
+} // namespace detail
 
 /**
  * Stream for sending heaps, potentially to multiple destinations.
@@ -109,32 +80,12 @@ class writer;
 class stream
 {
 public:
-    typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
-
-    /* Only public so that writer classes can update bytes_sent and result. */
-    struct queue_item
-    {
-        const heap &h;
-        item_pointer_t cnt;
-        std::size_t substream_index;
-        item_pointer_t bytes_sent = 0;
-        boost::system::error_code result;
-        completion_handler handler;
-        // Populated by flush(). A forward_list takes less space when not used than vector.
-        std::forward_list<std::promise<void>> waiters;
-
-        queue_item() = default;
-        queue_item(const heap &h, item_pointer_t cnt, std::size_t substream_index,
-                   completion_handler &&handler) noexcept
-            : h(h), cnt(cnt), substream_index(substream_index), handler(std::move(handler))
-        {
-        }
-    };
+    typedef detail::queue_item::completion_handler completion_handler;
 
 private:
     friend class writer;
 
-    typedef std::aligned_storage<sizeof(queue_item), alignof(queue_item)>::type queue_item_storage;
+    typedef std::aligned_storage<sizeof(detail::queue_item), alignof(detail::queue_item)>::type queue_item_storage;
 
     /* Data are laid out in a manner designed to optimise the cache, which
      * means the logically related items (such as the head and tail indices)
@@ -199,7 +150,7 @@ private:
     std::atomic<std::size_t> queue_head{0};
 
     /// Access an item from the queue (takes care of masking the index)
-    queue_item *get_queue(std::size_t idx);
+    detail::queue_item *get_queue(std::size_t idx);
 
 protected:
     writer &get_writer() { return *w; }

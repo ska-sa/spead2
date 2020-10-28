@@ -80,7 +80,7 @@ void inproc_writer::wakeup()
 
     inproc_queue::packet dup = copy_packet(data.pkt);
     std::size_t size = dup.size;
-    stream::queue_item *item = data.item;
+    auto *item = data.item;
     try
     {
         queues[data.item->substream_index]->buffer.push(std::move(dup));

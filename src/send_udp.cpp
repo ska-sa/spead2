@@ -70,7 +70,7 @@ void udp_writer::send_packets(int first, int last)
     int heaps = 0;
     if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
     {
-        stream::queue_item *item = packets[first].item;
+        auto *item = packets[first].item;
         if (!item->result)
             item->result = boost::system::error_code(errno, boost::asio::error::get_system_category());
         heaps += packets[first].last;
@@ -80,7 +80,7 @@ void udp_writer::send_packets(int first, int last)
     {
         for (int i = 0; i < sent; i++)
         {
-            stream::queue_item *item = packets[first].item;
+            auto *item = packets[first].item;
             item->bytes_sent += packets[first].size;
             heaps += packets[first].last;
             first++;
@@ -174,7 +174,7 @@ void udp_writer::wakeup()
         }
 
         // First try a synchronous send
-        stream::queue_item *item = data.item;
+        auto *item = data.item;
         bool last = data.last;
         const auto &endpoint = endpoints[item->substream_index];
         boost::system::error_code ec;

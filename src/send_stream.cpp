@@ -31,68 +31,9 @@ namespace spead2
 namespace send
 {
 
-constexpr std::size_t stream_config::default_max_packet_size;
-constexpr std::size_t stream_config::default_max_heaps;
-constexpr std::size_t stream_config::default_burst_size;
-constexpr double stream_config::default_burst_rate_ratio;
-constexpr rate_method stream_config::default_rate_method;
-
-stream_config &stream_config::set_max_packet_size(std::size_t max_packet_size)
+detail::queue_item *stream::get_queue(std::size_t idx)
 {
-    // TODO: validate here instead rather than waiting until packet_generator
-    this->max_packet_size = max_packet_size;
-    return *this;
-}
-
-stream_config &stream_config::set_rate(double rate)
-{
-    if (rate < 0.0 || !std::isfinite(rate))
-        throw std::invalid_argument("rate must be non-negative");
-    this->rate = rate;
-    return *this;
-}
-
-stream_config &stream_config::set_max_heaps(std::size_t max_heaps)
-{
-    if (max_heaps == 0)
-        throw std::invalid_argument("max_heaps must be positive");
-    this->max_heaps = max_heaps;
-    return *this;
-}
-
-stream_config &stream_config::set_burst_size(std::size_t burst_size)
-{
-    this->burst_size = burst_size;
-    return *this;
-}
-
-stream_config &stream_config::set_burst_rate_ratio(double burst_rate_ratio)
-{
-    if (burst_rate_ratio < 1.0 || !std::isfinite(burst_rate_ratio))
-        throw std::invalid_argument("burst rate ratio must be at least 1.0 and finite");
-    this->burst_rate_ratio = burst_rate_ratio;
-    return *this;
-}
-
-stream_config &stream_config::set_rate_method(rate_method method)
-{
-    this->method = method;
-    return *this;
-}
-
-double stream_config::get_burst_rate() const
-{
-    return rate * burst_rate_ratio;
-}
-
-stream_config::stream_config()
-{
-}
-
-
-stream::queue_item *stream::get_queue(std::size_t idx)
-{
-    return reinterpret_cast<queue_item *>(queue.get() + (idx & queue_mask));
+    return reinterpret_cast<detail::queue_item *>(queue.get() + (idx & queue_mask));
 }
 
 static std::size_t compute_queue_mask(std::size_t size)
@@ -173,7 +114,7 @@ bool stream::async_send_heap(const heap &h, completion_handler handler,
     }
 
     // Construct in place
-    new (get_queue(tail)) queue_item(h, cnt, substream_index, std::move(handler));
+    new (get_queue(tail)) detail::queue_item(h, cnt, substream_index, std::move(handler));
     bool wakeup = need_wakeup;
     need_wakeup = false;
     queue_tail.store(tail + 1, std::memory_order_release);
@@ -202,7 +143,7 @@ void stream::flush()
         std::size_t head = queue_head.load();
         if (head == tail)
             return;
-        queue_item *item = get_queue(tail - 1);
+        detail::queue_item *item = get_queue(tail - 1);
         item->waiters.emplace_front();
         future = item->waiters.front().get_future();
     }

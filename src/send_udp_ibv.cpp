@@ -89,7 +89,7 @@ private:
         ibv_send_wr wr{};
         ibv_sge sge[max_sge]{};
         ethernet_frame frame;
-        stream::queue_item *item = nullptr;
+        detail::queue_item *item = nullptr;
         bool last;   ///< Last packet in the heap
     };
 
@@ -253,7 +253,7 @@ bool udp_ibv_writer::reap()
         for (int i = 0; i < batch; i++)
         {
             const slot *s = &slots[head];
-            stream::queue_item *item = s->item;
+            auto *item = s->item;
             if (ec)
             {
                 if (!item->result)

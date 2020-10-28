@@ -25,7 +25,7 @@
 #include <algorithm>
 #include <boost/utility/in_place_factory.hpp>
 #include <spead2/send_writer.h>
-
+#include <spead2/send_stream.h>
 
 namespace spead2
 {
@@ -103,7 +103,7 @@ writer::packet_result writer::get_packet(transmit_packet &data)
         if (active == queue_tail)
             return packet_result::EMPTY;
     }
-    stream::queue_item *cur = get_owner()->get_queue(active);
+    detail::queue_item *cur = get_owner()->get_queue(active);
     if (!gen)
         gen = boost::in_place(cur->h, cur->cnt, config.get_max_packet_size());
     assert(gen->has_next_packet());
@@ -157,7 +157,7 @@ void writer::heaps_completed(std::size_t n)
             std::lock_guard<std::mutex> lock(get_owner()->head_mutex);
             for (std::size_t i = 0; i < batch; i++)
             {
-                stream::queue_item *cur = get_owner()->get_queue(queue_head);
+                detail::queue_item *cur = get_owner()->get_queue(queue_head);
                 handlers[i] = bound_handler(
                     std::move(cur->handler), cur->result, cur->bytes_sent);
                 waiters.splice_after(waiters.before_begin(), cur->waiters);

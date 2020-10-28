@@ -28,13 +28,16 @@
 #include <boost/optional.hpp>
 #include <spead2/common_thread_pool.h>
 #include <spead2/send_packet.h>
-#include <spead2/send_stream.h>
+#include <spead2/send_stream_config.h>
 
 namespace spead2
 {
 
 namespace send
 {
+
+namespace detail { struct queue_item; }
+class stream;
 
 /**
  * Back-end for a @ref stream. A writer is responsible for retrieving packets
@@ -50,8 +53,8 @@ namespace send
  * The @ref wakeup handler should use @ref get_packet to try to retrieve
  * packet(s) and send them, and should ensure that @ref heaps_completed is
  * called after transmitting final packets of heaps. It is also responsible
- * for updating stream::queue_item::bytes_sent and
- * stream::queue_item::result. Depending on the last result of @ref
+ * for updating queue_item::bytes_sent and
+ * queue_item::result. Depending on the last result of @ref
  * get_packet, it should arrange for itself to be rerun by calling either
  * @ref sleep, @ref request_wakeup or @ref post_wakeup.
  *
@@ -161,7 +164,7 @@ protected:
         packet pkt;
         std::size_t size;
         bool last;          // if this is the last packet in the heap
-        stream::queue_item *item;
+        detail::queue_item *item;
     };
 
     stream *get_owner() const { return owner; }

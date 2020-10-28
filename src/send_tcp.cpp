@@ -119,7 +119,7 @@ void tcp_writer::wakeup()
         break;
     }
 
-    stream::queue_item *item = data.item;
+    auto *item = data.item;
     bool last = data.last;
     auto handler = [this, item, last](const boost::system::error_code &ec, std::size_t bytes_transferred)
     {
