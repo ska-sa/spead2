@@ -76,9 +76,13 @@ class BaseTestPassthrough:
         finally:
             sock.close()
 
-    def _test_item_groups(self, item_groups,
-                          memcpy=spead2.MEMCPY_STD, allocator=None, new_order='='):
-        received_item_groups = self.transmit_item_groups(item_groups, memcpy, allocator, new_order)
+    def _test_item_groups(self, item_groups, *,
+                          memcpy=spead2.MEMCPY_STD, allocator=None,
+                          new_order='=', round_robin=False):
+        received_item_groups = self.transmit_item_groups(
+            item_groups,
+            memcpy=memcpy, allocator=allocator,
+            new_order=new_order, round_robin=round_robin)
         assert len(received_item_groups) == len(item_groups)
         for received_item_group, item_group in zip(received_item_groups, item_groups):
             assert_item_groups_equal(item_group, received_item_group)
@@ -86,9 +90,15 @@ class BaseTestPassthrough:
                 if item.dtype is not None:
                     assert item.value.dtype == item.value.dtype.newbyteorder(new_order)
 
-    def _test_item_group(self, item_group,
-                         memcpy=spead2.MEMCPY_STD, allocator=None, new_order='='):
-        self._test_item_groups([item_group])
+    def _test_item_group(self, item_group, *,
+                         memcpy=spead2.MEMCPY_STD, allocator=None,
+                         new_order='=', round_robin=False):
+        self._test_item_groups(
+            [item_group],
+            memcpy=memcpy,
+            allocator=allocator,
+            new_order=new_order,
+            round_robin=round_robin)
 
     def test_numpy_simple(self):
         """A basic array with numpy encoding"""
@@ -121,7 +131,7 @@ class BaseTestPassthrough:
                     shape=data.shape, dtype=data.dtype, value=data)
         allocator = spead2.MmapAllocator()
         pool = spead2.MemoryPool(1, 4096, 4, 4, allocator)
-        self._test_item_group(ig, spead2.MEMCPY_NONTEMPORAL, pool)
+        self._test_item_group(ig, memcpy=spead2.MEMCPY_NONTEMPORAL, allocator=pool)
 
     def test_fallback_struct_whole_bytes(self):
         """A structure with non-byte-aligned elements, but which is
@@ -202,7 +212,8 @@ class BaseTestPassthrough:
                         shape=(), format=[('u', 40)], value=0x12345 * i)
         self._test_item_group(ig)
 
-    def transmit_item_groups(self, item_groups, memcpy, allocator, new_order='='):
+    def transmit_item_groups(self, item_groups, *,
+                             memcpy, allocator, new_order='=', round_robin=False):
         """Transmit `item_groups` over the chosen transport.
 
         Return the item groups received at the other end. Each item group will
@@ -227,10 +238,26 @@ class BaseTestPassthrough:
         if len(item_groups) != 1:
             # Use reversed order so that if everything is actually going
             # through the same transport it will get picked up.
-            for i, gen in reversed(list(enumerate(gens))):
-                sender.send_heap(gen.get_heap(), substream_index=i)
-            for i, gen in enumerate(gens):
-                sender.send_heap(gen.get_end(), substream_index=i)
+            if round_robin:
+                sender.send_heaps(
+                    [
+                        spead2.send.HeapReference(gen.get_heap(), substream_index=i)
+                        for i, gen in reversed(list(enumerate(gens)))
+                    ],
+                    spead2.send.GroupMode.ROUND_ROBIN
+                )
+                sender.send_heaps(
+                    [
+                        spead2.send.HeapReference(gen.get_end(), substream_index=i)
+                        for i, gen in enumerate(gens)
+                    ],
+                    spead2.send.GroupMode.ROUND_ROBIN
+                )
+            else:
+                for i, gen in reversed(list(enumerate(gens))):
+                    sender.send_heap(gen.get_heap(), substream_index=i)
+                for i, gen in enumerate(gens):
+                    sender.send_heap(gen.get_end(), substream_index=i)
         else:
             # This is a separate code path to give coverage of the case where
             # the substream index is implicit.
@@ -280,6 +307,30 @@ class BaseTestPassthroughSubstreams(BaseTestPassthrough):
                         shape=(), format=[('i', 32)], value=i)
             item_groups.append(ig)
         self._test_item_groups(item_groups)
+
+    @pytest.mark.parametrize('size', [10, 20000])
+    def test_round_robin(self, size):
+        # The interleaving and substream features are independent, but the
+        # test framework is set up for one item group per substream.
+        item_groups = []
+        for i in range(4):
+            value = np.random.randint(0, 256, size=size).astype(np.uint8)
+            ig = spead2.ItemGroup()
+            ig.add_item(id=0x2345, name='arr', description='a random array',
+                        shape=(size,), dtype='u8', value=value)
+            item_groups.append(ig)
+        self._test_item_groups(item_groups, round_robin=True)
+
+    def test_round_robin_mixed_sizes(self):
+        sizes = [20000, 2000, 40000, 30000]
+        item_groups = []
+        for size in sizes:
+            value = np.random.randint(0, 256, size=size).astype(np.uint8)
+            ig = spead2.ItemGroup()
+            ig.add_item(id=0x2345, name='arr', description='a random array',
+                        shape=(size,), dtype='u8', value=value)
+            item_groups.append(ig)
+        self._test_item_groups(item_groups, round_robin=True)
 
     def prepare_receivers(self, receivers):
         raise NotImplementedError()
@@ -546,8 +597,10 @@ class TestPassthroughTcp6(BaseTestPassthrough):
 
 
 class TestPassthroughMem(BaseTestPassthrough):
-    def transmit_item_groups(self, item_groups, memcpy, allocator, new_order='='):
+    def transmit_item_groups(self, item_groups, *,
+                             memcpy, allocator, new_order='=', round_robin=False):
         assert len(item_groups) == 1
+        assert not round_robin
         thread_pool = spead2.ThreadPool(2)
         sender = spead2.send.BytesStream(thread_pool)
         gen = spead2.send.HeapGenerator(item_groups[0])
@@ -578,10 +631,12 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreams):
         else:
             return spead2.send.InprocStream(thread_pool, self._queues)
 
-    def transmit_item_groups(self, item_groups, memcpy, allocator, new_order='='):
+    def transmit_item_groups(self, item_groups, *,
+                             memcpy, allocator, new_order='=', round_robin=False):
         self._queues = [spead2.InprocQueue() for ig in item_groups]
         ret = super().transmit_item_groups(
-            item_groups, memcpy, allocator, new_order)
+            item_groups, memcpy=memcpy, allocator=allocator,
+            new_order=new_order, round_robin=round_robin)
         for queue in self._queues:
             queue.stop()
         return ret
