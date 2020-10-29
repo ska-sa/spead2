@@ -136,6 +136,16 @@ private:
      */
     std::vector<std::unique_ptr<std::uint8_t[]> > storage;
 
+    /* Make non-copyable. Copy constructors won't compile anyway because
+     * of the unique_ptrs in storage, but because std::vector still defines
+     * them, std::is_copy_constructible returns the wrong answer, and in turn
+     * pybind11 generates code that calls them.
+     *
+     * boost::noncopyable breaks the move constructors.
+     */
+    heap(const heap &) = delete;
+    heap &operator=(const heap &) = delete;
+
 public:
     /// Opaque handle type for retrieving previously added items.
     typedef std::vector<item>::size_type item_handle;
@@ -147,6 +157,10 @@ public:
      */
     explicit heap(
         const flavour &flavour_ = flavour());
+
+    // Have to explicitly default these because the copy constructor is deleted
+    heap(heap &&) = default;
+    heap &operator=(heap &&) = default;
 
     /// Return flavour
     const flavour &get_flavour() const
