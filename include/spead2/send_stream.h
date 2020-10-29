@@ -47,6 +47,53 @@ namespace spead2
 namespace send
 {
 
+/**
+ * Associate a heap with metadata needed to transmit it.
+ *
+ * It holds a reference to the original heap.
+ */
+struct heap_reference
+{
+    const send::heap &heap;
+    s_item_pointer_t cnt;
+    std::size_t substream_index;
+
+    heap_reference(const send::heap &heap, s_item_pointer_t cnt = -1, std::size_t substream_index = 0)
+        : heap(heap), cnt(cnt), substream_index(substream_index)
+    {
+    }
+};
+
+static inline const heap &get_heap(const heap &h)
+{
+    return h;
+}
+
+static inline s_item_pointer_t get_heap_cnt(const heap &h)
+{
+    return -1;
+}
+
+static inline std::size_t get_heap_substream_index(const heap &h)
+{
+    return 0;
+}
+
+static inline const heap &get_heap(const heap_reference &ref)
+{
+    return ref.heap;
+}
+
+static inline s_item_pointer_t get_heap_cnt(const heap_reference &ref)
+{
+    return ref.cnt;
+}
+
+static inline std::size_t get_heap_substream_index(const heap_reference &ref)
+{
+    return ref.substream_index;
+}
+
 namespace detail
 {
 
