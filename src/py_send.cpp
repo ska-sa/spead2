@@ -146,12 +146,32 @@ public:
         else
             return state->bytes_transferred;
     }
+
+    /// Sends multiple heaps synchronously
+    item_pointer_t send_heaps(const std::vector<heap_reference> &heaps, group_mode mode)
+    {
+        // See comments in send_heap
+        auto state = std::make_shared<callback_state>();
+        Base::async_send_heaps(
+            heaps.begin(), heaps.end(),
+            [state] (const boost::system::error_code &ec, item_pointer_t bytes_transferred)
+            {
+                state->ec = ec;
+                state->bytes_transferred = bytes_transferred;
+                state->sem.put();
+            }, mode);
+        semaphore_get(state->sem);
+        if (state->ec)
+            throw boost_io_error(state->ec);
+        else
+            return state->bytes_transferred;
+    }
 };
 
 struct callback_item
 {
     py::handle callback;
-    py::handle h;  // heap: kept here because it can only be freed with the GIL
+    std::vector<py::handle> heaps;  // kept here because they can only be freed with the GIL
     boost::system::error_code ec;
     item_pointer_t bytes_transferred;
 };
@@ -160,8 +180,8 @@ static void free_callback_items(const std::vector<callback_item> &callbacks)
 {
     for (const callback_item &item : callbacks)
     {
-        if (item.h)
-            item.h.dec_ref();
+        for (py::handle h : item.heaps)
+            h.dec_ref();
         if (item.callback)
             item.callback.dec_ref();
     }
@@ -178,6 +198,20 @@ private:
     // Prevent copying: the callbacks vector cannot sanely be copied
     asyncio_stream_wrapper(const asyncio_stream_wrapper &) = delete;
     asyncio_stream_wrapper &operator=(const asyncio_stream_wrapper &) = delete;
+
+    void handler(py::handle callback_ptr, std::vector<py::handle> h_ptr,
+                 const boost::system::error_code &ec, item_pointer_t bytes_transferred)
+    {
+        bool was_empty;
+        {
+            std::unique_lock<std::mutex> lock(callbacks_mutex);
+            was_empty = callbacks.empty();
+            callbacks.push_back(callback_item{callback_ptr, std::move(h_ptr), ec, bytes_transferred});
+        }
+        if (was_empty)
+            sem.put();
+    }
+
 public:
 #pragma GCC diagnostic push   // There are deprecated constructors
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -202,18 +236,32 @@ public:
         py::handle callback_ptr = callback.ptr();
         h_ptr.inc_ref();
         callback_ptr.inc_ref();
-        return Base::async_send_heap(h.cast<heap_wrapper &>(), [this, callback_ptr, h_ptr] (
-            const boost::system::error_code &ec, item_pointer_t bytes_transferred)
-        {
-            bool was_empty;
+        return Base::async_send_heap(
+            h.cast<const heap_wrapper &>(),
+            [this, callback_ptr, h_ptr] (const boost::system::error_code &ec, item_pointer_t bytes_transferred)
             {
-                std::unique_lock<std::mutex> lock(callbacks_mutex);
-                was_empty = callbacks.empty();
-                callbacks.push_back(callback_item{callback_ptr, h_ptr, ec, bytes_transferred});
-            }
-            if (was_empty)
-                sem.put();
-        }, cnt, substream_index);
+                handler(callback_ptr, {h_ptr}, ec, bytes_transferred);
+            },
+            cnt, substream_index);
+    }
+
+    bool async_send_heaps_obj(const std::vector<heap_reference> &heaps,
+                              py::object callback, group_mode mode)
+    {
+        // See comments in async_send_heap_obj
+        std::vector<py::handle> h_ptrs;
+        h_ptrs.reserve(heaps.size());
+        for (const auto &h : heaps)
+            h_ptrs.push_back(py::cast(static_cast<const heap_wrapper *>(&h.heap)).release());
+        py::handle callback_ptr = callback.ptr();
+        callback_ptr.inc_ref();
+        return Base::async_send_heaps(
+            heaps.begin(), heaps.end(),
+            [this, callback_ptr, h_ptrs] (const boost::system::error_code &ec, item_pointer_t bytes_transferred)
+            {
+                handler(callback_ptr, h_ptrs, ec, bytes_transferred);
+            },
+            mode);
     }
 
     void process_callbacks()
@@ -228,8 +276,12 @@ public:
         {
             for (callback_item &item : current_callbacks)
             {
-                item.h.dec_ref();
-                item.h = py::handle();
+                while (!item.heaps.empty())
+                {
+                    item.heaps.back().dec_ref();
+                    item.heaps.pop_back();
+                }
+                item.heaps.shrink_to_fit();
                 py::object callback = py::reinterpret_steal<py::object>(item.callback);
                 item.callback = py::handle();
                 callback(make_io_error(item.ec), item.bytes_transferred);
@@ -261,7 +313,8 @@ public:
     {
         for (const callback_item &item : callbacks)
         {
-            item.h.dec_ref();
+            for (py::handle h : item.heaps)
+                h.dec_ref();
             item.callback.dec_ref();
         }
     }
@@ -805,6 +858,8 @@ static void sync_stream_register(py::class_<T> &stream_class)
     stream_class.def("send_heap", SPEAD2_PTMF(T, send_heap),
                      "heap"_a, "cnt"_a = s_item_pointer_t(-1),
                      "substream_index"_a = std::size_t(0));
+    stream_class.def("send_heaps", SPEAD2_PTMF(T, send_heaps),
+                     "heaps"_a, "mode"_a);
 }
 
 template<typename T>
@@ -817,6 +872,8 @@ static void async_stream_register(py::class_<T> &stream_class)
         .def("async_send_heap", SPEAD2_PTMF(T, async_send_heap_obj),
              "heap"_a, "callback"_a, "cnt"_a = s_item_pointer_t(-1),
              "substream_index"_a = std::size_t(0))
+        .def("async_send_heaps", SPEAD2_PTMF(T, async_send_heaps_obj),
+             "heaps"_a, "callback"_a, "mode"_a)
         .def("flush", SPEAD2_PTMF(T, flush))
         .def("process_callbacks", SPEAD2_PTMF(T, process_callbacks));
 }
@@ -852,6 +909,20 @@ py::module register_module(py::module &parent)
         .value("SW", rate_method::SW)
         .value("HW", rate_method::HW)
         .value("AUTO", rate_method::AUTO);
+
+    py::enum_<group_mode>(m, "GroupMode")
+        .value("ROUND_ROBIN", group_mode::ROUND_ROBIN);
+
+    py::class_<heap_reference>(m, "HeapReference")
+        .def(py::init<const heap_wrapper &, s_item_pointer_t, std::size_t>(),
+             "heap"_a, py::kw_only(), "cnt"_a = -1, "substream_index"_a = 0,
+             py::keep_alive<1, 2>())
+        .def_property_readonly(
+            "heap",
+            [](const heap_reference &h) { return static_cast<const heap_wrapper *>(&h.heap); },
+            py::return_value_policy::reference)
+        .def_readwrite("cnt", &heap_reference::cnt)
+        .def_readwrite("substream_index", &heap_reference::substream_index);
 
     py::class_<stream_config>(m, "StreamConfig")
         .def(py::init(&data_class_constructor<stream_config>))
