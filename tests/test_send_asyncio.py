@@ -14,6 +14,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
+import gc
+import weakref
 
 import numpy as np
 import pytest
@@ -63,6 +65,25 @@ class TestUdpStream:
             spead2.send.StreamConfig(max_packet_size=100000), buffer_size=0)
         with pytest.raises(IOError):
             await stream.async_send_heap(self.heap)
+
+    async def test_async_send_heap_refcount(self):
+        """async_send_heap must release the reference to the heap."""
+        weak = weakref.ref(self.heap)
+        future = self.stream.async_send_heap(weak())
+        self.heap = None
+        await future
+        gc.collect()
+        assert weak() is None
+
+    async def test_async_send_heaps_refcount(self):
+        """async_send_heaps must release the reference to the heap."""
+        weak = weakref.ref(self.heap)
+        future = self.stream.async_send_heaps([spead2.send.HeapReference(weak())],
+                                              spead2.send.GroupMode.ROUND_ROBIN)
+        self.heap = None
+        await future
+        gc.collect()
+        assert weak() is None
 
 
 @pytest.mark.asyncio
