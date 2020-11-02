@@ -286,7 +286,7 @@ private:
             {
                 unwind.abort();
                 lock.unlock();
-                log_warning("async_send_heap: dropping heap because substream index is out of range");
+                log_warning("async_send_heap(s): dropping heap because substream index is out of range");
                 get_io_service().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
                 return false;
             }
@@ -296,7 +296,7 @@ private:
             {
                 unwind.abort();
                 lock.unlock();
-                log_warning("async_send_heap: dropping heap because queue is full");
+                log_warning("async_send_heap(s): dropping heap because queue is full");
                 get_io_service().post(std::bind(std::move(handler), boost::asio::error::would_block, 0));
                 return false;
             }
@@ -308,7 +308,7 @@ private:
             else if (item_pointer_t(cnt) > cnt_mask)
             {
                 lock.unlock();
-                log_warning("async_send_heap: dropping heap because cnt is out of range");
+                log_warning("async_send_heap(s): dropping heap because cnt is out of range");
                 get_io_service().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
                 return false;
             }
