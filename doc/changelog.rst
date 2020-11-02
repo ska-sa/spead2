@@ -1,6 +1,14 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add :py:meth:`~spead2.send.AbstractStream.send_heaps` and
+  :py:meth:`~spead2.send.asyncio.AbstractStream.async_send_heaps` to send
+  groups of heaps with interleaved packets.
+- Upgrade to pybind11 2.6.0, which contains a workaround for a bug in CPython
+  3.9.0.
+
 .. rubric:: 3.0.1
 
 - Bring the type stubs up to date.

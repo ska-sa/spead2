@@ -29,15 +29,20 @@ from . import test_passthrough
 
 
 class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
-    def transmit_item_groups(self, item_groups, memcpy, allocator, new_order='='):
+    def transmit_item_groups(self, item_groups, *,
+                             memcpy, allocator, new_order='=', round_robin=False):
         loop = asyncio.new_event_loop()
         try:
             return loop.run_until_complete(
-                self.transmit_item_groups_async(item_groups, memcpy, allocator, new_order))
+                self.transmit_item_groups_async(
+                    item_groups,
+                    memcpy=memcpy, allocator=allocator,
+                    new_order=new_order, round_robin=round_robin))
         finally:
             loop.close()
 
-    async def transmit_item_groups_async(self, item_groups, memcpy, allocator, new_order='='):
+    async def transmit_item_groups_async(self, item_groups, *,
+                                         memcpy, allocator, new_order='=', round_robin=False):
         if self.requires_ipv6:
             self.check_ipv6()
         recv_config = spead2.recv.StreamConfig(memcpy=memcpy)
@@ -56,10 +61,24 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
         if len(item_groups) != 1:
             # Use reversed order so that if everything is actually going
             # through the same transport it will get picked up.
-            for i, gen in reversed(list(enumerate(gens))):
-                await sender.async_send_heap(gen.get_heap(), substream_index=i)
-            for i, gen in enumerate(gens):
-                await sender.async_send_heap(gen.get_end(), substream_index=i)
+            if round_robin:
+                await sender.async_send_heaps(
+                    [
+                        spead2.send.HeapReference(gen.get_heap(), substream_index=i)
+                        for i, gen in reversed(list(enumerate(gens)))
+                    ], spead2.send.GroupMode.ROUND_ROBIN
+                )
+                await sender.async_send_heaps(
+                    [
+                        spead2.send.HeapReference(gen.get_end(), substream_index=i)
+                        for i, gen in enumerate(gens)
+                    ], spead2.send.GroupMode.ROUND_ROBIN
+                )
+            else:
+                for i, gen in reversed(list(enumerate(gens))):
+                    await sender.async_send_heap(gen.get_heap(), substream_index=i)
+                for i, gen in enumerate(gens):
+                    await sender.async_send_heap(gen.get_end(), substream_index=i)
         else:
             # This is a separate code path to give coverage of the case where
             # the substream index is implicit.
@@ -184,10 +203,13 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreamsAsync):
         else:
             return spead2.send.asyncio.InprocStream(thread_pool, self._queues)
 
-    async def transmit_item_groups_async(self, item_groups, memcpy, allocator, new_order='='):
+    async def transmit_item_groups_async(self, item_groups, *,
+                                         memcpy, allocator, new_order='=', round_robin=False):
         self._queues = [spead2.InprocQueue() for ig in item_groups]
         ret = await super().transmit_item_groups_async(
-            item_groups, memcpy, allocator, new_order)
+            item_groups,
+            memcpy=memcpy, allocator=allocator,
+            new_order=new_order, round_robin=round_robin)
         for queue in self._queues:
             queue.stop()
         return ret

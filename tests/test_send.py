@@ -36,7 +36,7 @@ def hexlify(data):
     for i in range(0, len(data), 8):
         part = data[i : min(i + 8, len(data))]
         chunks.append(b':'.join([binascii.hexlify(part[i : i + 1]) for i in range(len(part))]))
-    return b' '.join(chunks)
+    return b'\n'.join(chunks).decode('ascii')
 
 
 def encode_be(size, value):
@@ -564,6 +564,102 @@ class TestStream:
         ig = send.ItemGroup(flavour=self.flavour)
         with pytest.raises(IOError):
             self.stream.send_heap(ig.get_start(), 2**48)
+
+    def test_send_heaps_empty(self):
+        with pytest.raises(OSError):
+            self.stream.send_heaps([], send.GroupMode.ROUND_ROBIN)
+
+    def test_send_heaps_unwind(self):
+        """Second or later heap is invalid: must reset original state."""
+        ig = send.ItemGroup(flavour=self.flavour)
+        self.stream.send_heap(ig.get_start(), substream_index=0)
+        with pytest.raises(OSError):
+            self.stream.send_heaps(
+                [
+                    send.HeapReference(ig.get_start(), substream_index=0),
+                    send.HeapReference(ig.get_start(), substream_index=100)
+                ],
+                send.GroupMode.ROUND_ROBIN)
+        self.stream.send_heap(ig.get_end(), substream_index=0)
+
+        expected_cnts = [1, 2]
+        expected_ctrl = [spead2.CTRL_STREAM_START, spead2.CTRL_STREAM_STOP]
+        expected = b''
+        for cnt, ctrl in zip(expected_cnts, expected_ctrl):
+            expected = b''.join([
+                expected,
+                self.flavour.make_header(6),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, cnt),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 1),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 1),
+                self.flavour.make_immediate(spead2.STREAM_CTRL_ID, ctrl),
+                self.flavour.make_address(spead2.NULL_ID, 0),
+                struct.pack('B', 0)
+            ])
+        assert hexlify(self.stream.getvalue()) == hexlify(expected)
+
+    def test_interleave(self):
+        n = 3
+        igs = [send.ItemGroup(flavour=self.flavour) for i in range(n)]
+        for i in range(n):
+            data = np.arange(i, i + i * 64 + 8).astype(np.uint8)
+            igs[i].add_item(0x1000 + i, 'test', 'Test item',
+                            shape=data.shape, dtype=data.dtype, value=data)
+        self.stream = send.BytesStream(
+            spead2.ThreadPool(),
+            send.StreamConfig(max_heaps=n, max_packet_size=88))
+        self.stream.send_heaps(
+            [send.HeapReference(ig.get_heap(descriptors='none', data='all')) for ig in igs],
+            send.GroupMode.ROUND_ROBIN)
+        expected = b''.join([
+            # Heap 0, packet 0 (only packet)
+            self.flavour.make_header(5),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 1),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 8),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 8),
+            self.flavour.make_address(0x1000, 0),
+            igs[0]['test'].value.tobytes(),
+            # Heap 1, packet 0
+            self.flavour.make_header(5),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 2),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 72),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 40),
+            self.flavour.make_address(0x1001, 0),
+            igs[1]['test'].value.tobytes()[0 : 40],
+            # Heap 2, packet 0
+            self.flavour.make_header(5),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 3),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 136),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 40),
+            self.flavour.make_address(0x1002, 0),
+            igs[2]['test'].value.tobytes()[0 : 40],
+            # Heap 1, packet 1
+            self.flavour.make_header(4),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 2),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 72),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 40),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 32),
+            igs[1]['test'].value.tobytes()[40 : 72],
+            # Heap 2, packet 1
+            self.flavour.make_header(4),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 3),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 136),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 40),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 48),
+            igs[2]['test'].value.tobytes()[40 : 88],
+            # Heap 2, packet 2
+            self.flavour.make_header(4),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 3),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 136),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 88),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 48),
+            igs[2]['test'].value.tobytes()[88 : 136]
+        ])
+        assert hexlify(self.stream.getvalue()) == hexlify(expected)
 
 
 class TestTcpStream:

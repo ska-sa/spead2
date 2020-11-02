@@ -7,6 +7,10 @@ Heaps
 .. doxygenclass:: spead2::send::heap
    :members:
 
+.. doxygenstruct:: spead2::send::heap_reference
+   :members:
+   :undoc-members:
+
 .. doxygenstruct:: spead2::send::item
    :members:
 
@@ -27,13 +31,13 @@ with a single expression such as
 
 Streams
 -------
-All stream types are derived from :cpp:class:`spead2::send::stream` using the
-`curiously recurring template pattern`_ and implementing an
-:samp:`async_send_packet` function.
+All stream types are derived from :cpp:class:`spead2::send::stream`.
 
-.. _`curiously recurring template pattern`: http://en.wikipedia.org/wiki/Curiously_recurring_template_pattern
+.. doxygenenum:: spead2::send::group_mode
 
-.. doxygentypedef:: spead2::send::stream::completion_handler
+.. cpp:type:: std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> spead2::send::stream::completion_handler
+
+   Callback type for asynchronous notification of heap completion.
 
 .. doxygenclass:: spead2::send::stream
    :members:

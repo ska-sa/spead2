@@ -32,8 +32,13 @@
 #include <atomic>
 #include <cassert>
 #include <boost/asio.hpp>
+#include <boost/optional.hpp>
 #include <boost/system/error_code.hpp>
 #include <spead2/send_heap.h>
+#include <spead2/send_packet.h>
+#include <spead2/send_stream_config.h>
+#include <spead2/send_writer.h>
+#include <spead2/common_logging.h>
 #include <spead2/common_defines.h>
 #include <spead2/common_thread_pool.h>
 
@@ -43,65 +48,103 @@ namespace spead2
 namespace send
 {
 
-enum class rate_method
+/// Determines how to order packets when using @ref spead2::send::stream::async_send_heaps.
+enum class group_mode
 {
-    SW,        ///< Software rate limiter
-    HW,        ///< Hardware rate limiter, if available
-    AUTO       ///< Implementation decides on rate-limit method
+    /**
+     * Interleave the packets of the heaps. One packet is sent from each heap
+     * in turn (skipping those that have run out of packets).
+     */
+    ROUND_ROBIN
 };
 
 /**
- * Configuration for send streams.
+ * Associate a heap with metadata needed to transmit it.
+ *
+ * It holds a reference to the original heap.
  */
-class stream_config
+struct heap_reference
 {
-public:
-    static constexpr std::size_t default_max_packet_size = 1472;
-    static constexpr std::size_t default_max_heaps = 4;
-    static constexpr std::size_t default_burst_size = 65536;
-    static constexpr double default_burst_rate_ratio = 1.05;
-    static constexpr rate_method default_rate_method = rate_method::AUTO;
+    const send::heap &heap;
+    s_item_pointer_t cnt;
+    std::size_t substream_index;
 
-    /// Set maximum packet size to use (only counts the UDP payload, not L1-4 headers).
-    stream_config &set_max_packet_size(std::size_t max_packet_size);
-    /// Get maximum packet size to use.
-    std::size_t get_max_packet_size() const { return max_packet_size; }
-    /// Set maximum transmit rate to use, in bytes per second.
-    stream_config &set_rate(double rate);
-    /// Get maximum transmit rate to use, in bytes per second.
-    double get_rate() const { return rate; }
-    /// Set maximum size of a burst, in bytes.
-    stream_config &set_burst_size(std::size_t burst_size);
-    /// Get maximum size of a burst, in bytes.
-    std::size_t get_burst_size() const { return burst_size; }
-    /// Set maximum number of in-flight heaps.
-    stream_config &set_max_heaps(std::size_t max_heaps);
-    /// Get maximum number of in-flight heaps.
-    std::size_t get_max_heaps() const { return max_heaps; }
-    /// Set maximum increase in transmit rate for catching up.
-    stream_config &set_burst_rate_ratio(double burst_rate_ratio);
-    /// Get maximum increase in transmit rate for catching up.
-    double get_burst_rate_ratio() const { return burst_rate_ratio; }
-    /// Set rate-limiting method
-    stream_config &set_rate_method(rate_method method);
-    /// Get rate-limiting method
-    rate_method get_rate_method() const { return method; }
-
-    /// Get product of rate and burst_rate_ratio
-    double get_burst_rate() const;
-
-    stream_config();
-
-private:
-    std::size_t max_packet_size = default_max_packet_size;
-    double rate = 0.0;
-    std::size_t burst_size = default_burst_size;
-    std::size_t max_heaps = default_max_heaps;
-    double burst_rate_ratio = default_burst_rate_ratio;
-    rate_method method = default_rate_method;
+    heap_reference(const send::heap &heap, s_item_pointer_t cnt = -1, std::size_t substream_index = 0)
+        : heap(heap), cnt(cnt), substream_index(substream_index)
+    {
+    }
 };
 
-class writer;
+static inline const heap &get_heap(const heap &h)
+{
+    return h;
+}
+
+static inline s_item_pointer_t get_heap_cnt(const heap &h)
+{
+    return -1;
+}
+
+static inline std::size_t get_heap_substream_index(const heap &h)
+{
+    return 0;
+}
+
+static inline const heap &get_heap(const heap_reference &ref)
+{
+    return ref.heap;
+}
+
+static inline s_item_pointer_t get_heap_cnt(const heap_reference &ref)
+{
+    return ref.cnt;
+}
+
+static inline std::size_t get_heap_substream_index(const heap_reference &ref)
+{
+    return ref.substream_index;
+}
+
+namespace detail
+{
+
+/* Entry in a stream's queue. It is logically an inner class of stream, but
+ * C++ doesn't allow forward references to inner classes so it is split out.
+ */
+struct queue_item
+{
+    typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
+
+    packet_generator gen;
+    const std::size_t substream_index;
+    // Queue index (non-masked) one past the end of a group
+    std::size_t group_end;
+    /* Next queue index (non-masked) to send a packet from after this one.
+     * This gets updated lazily when that one is exhausted, so that it
+     * requires amortised constant time to find the next non-exhausted
+     * item in the group.
+     */
+    std::size_t group_next;
+
+    // These fields are only relevant for the first item in a group
+    item_pointer_t bytes_sent = 0;
+    boost::system::error_code result;
+    completion_handler handler;
+    // Populated by flush(). A forward_list takes less space when not used than vector.
+    std::forward_list<std::promise<void>> waiters;
+
+    queue_item() = default;
+    queue_item(const heap &h, item_pointer_t cnt, std::size_t substream_index,
+               std::size_t group_end, std::size_t group_next,
+               std::size_t max_packet_size)
+        : gen(h, cnt, max_packet_size),
+        substream_index(substream_index),
+        group_end(group_end), group_next(group_next)
+    {
+    }
+};
+
+} // namespace detail
 
 /**
  * Stream for sending heaps, potentially to multiple destinations.
@@ -109,32 +152,12 @@ class writer;
 class stream
 {
 public:
-    typedef std::function<void(const boost::system::error_code &ec, item_pointer_t bytes_transferred)> completion_handler;
-
-    /* Only public so that writer classes can update bytes_sent and result. */
-    struct queue_item
-    {
-        const heap &h;
-        item_pointer_t cnt;
-        std::size_t substream_index;
-        item_pointer_t bytes_sent = 0;
-        boost::system::error_code result;
-        completion_handler handler;
-        // Populated by flush(). A forward_list takes less space when not used than vector.
-        std::forward_list<std::promise<void>> waiters;
-
-        queue_item() = default;
-        queue_item(const heap &h, item_pointer_t cnt, std::size_t substream_index,
-                   completion_handler &&handler) noexcept
-            : h(h), cnt(cnt), substream_index(substream_index), handler(std::move(handler))
-        {
-        }
-    };
+    typedef detail::queue_item::completion_handler completion_handler;
 
 private:
     friend class writer;
 
-    typedef std::aligned_storage<sizeof(queue_item), alignof(queue_item)>::type queue_item_storage;
+    typedef std::aligned_storage<sizeof(detail::queue_item), alignof(detail::queue_item)>::type queue_item_storage;
 
     /* Data are laid out in a manner designed to optimise the cache, which
      * means the logically related items (such as the head and tail indices)
@@ -151,6 +174,8 @@ private:
     const std::size_t queue_mask;
     /// Number of substreams exposed by the writer
     const std::size_t num_substreams;
+    /// Maximum packet size, copied from the stream config
+    const std::size_t max_packet_size;
     /// Increment to next_cnt after each heap
     item_pointer_t step_cnt = 1;
     /// Writer backing the stream
@@ -199,7 +224,133 @@ private:
     std::atomic<std::size_t> queue_head{0};
 
     /// Access an item from the queue (takes care of masking the index)
-    queue_item *get_queue(std::size_t idx);
+    detail::queue_item *get_queue(std::size_t idx);
+
+    /// No-op version of @ref unwinder (see below)
+    class null_unwinder
+    {
+    public:
+        explicit null_unwinder(stream &s, std::size_t tail) {}
+        void set_tail(std::size_t tail) {}
+        void abort() {}
+        void commit() {}
+    };
+
+    /**
+     * Unwinds partial application of @ref async_send_heaps. Specifically, it
+     * destroys constructed @ref detail::queue_item entries in the queue.
+     */
+    class unwinder
+    {
+    private:
+        stream &s;
+        std::size_t orig_tail;    ///< Tail when the unwinder was constructed
+        std::size_t tail;         ///< Current tail
+
+    public:
+        explicit unwinder(stream &s, std::size_t tail);
+        ~unwinder() { abort(); }
+        /**
+         * Update the current tail. All entries in [orig_tail, tail) will be
+         * destroyed by the destructor.
+         */
+        void set_tail(std::size_t tail);
+        /// Perform the unwinding immediately.
+        void abort();
+        /// Prevent the unwinding from happening, because async_send_heaps was successful.
+        void commit();
+    };
+
+    /// Common implementation for @ref async_send_heap and @ref async_send_heaps
+    template<typename Unwinder, typename Iterator>
+    bool async_send_heaps_impl(Iterator first, Iterator last,
+                               completion_handler &&handler, group_mode mode)
+    {
+        // Need a slot to put the handler in; caller must handle the exception case
+        assert(first != last);
+        // Only mode so far - when we add more we'll need to update this function.
+        assert(mode == group_mode::ROUND_ROBIN);
+        std::unique_lock<std::mutex> lock(tail_mutex);
+        std::size_t tail = queue_tail.load(std::memory_order_relaxed);
+        std::size_t orig_tail = tail;
+        std::size_t head = queue_head.load(std::memory_order_acquire);
+        std::size_t next_cnt = this->next_cnt;
+        Unwinder unwind(*this, tail);
+
+        for (Iterator it = first; it != last; ++it)
+        {
+            const heap &h = get_heap(*it);
+            s_item_pointer_t cnt = get_heap_cnt(*it);
+            std::size_t substream_index = get_heap_substream_index(*it);
+            if (substream_index >= num_substreams)
+            {
+                unwind.abort();
+                lock.unlock();
+                log_warning("async_send_heap(s): dropping heap because substream index is out of range");
+                get_io_service().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
+                return false;
+            }
+            item_pointer_t cnt_mask = (item_pointer_t(1) << h.get_flavour().get_heap_address_bits()) - 1;
+
+            if (tail - head == queue_size)
+            {
+                unwind.abort();
+                lock.unlock();
+                log_warning("async_send_heap(s): dropping heap because queue is full");
+                get_io_service().post(std::bind(std::move(handler), boost::asio::error::would_block, 0));
+                return false;
+            }
+            if (cnt < 0)
+            {
+                cnt = next_cnt & cnt_mask;
+                next_cnt += step_cnt;
+            }
+            else if (item_pointer_t(cnt) > cnt_mask)
+            {
+                lock.unlock();
+                log_warning("async_send_heap(s): dropping heap because cnt is out of range");
+                get_io_service().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
+                return false;
+            }
+
+            // Construct in place. The group values are set for a singleton,
+            // and repaired later if that's not the case.
+            auto *cur = get_queue(tail);
+            new (cur) detail::queue_item(
+                h, cnt, substream_index, tail + 1, tail,
+                max_packet_size);
+            tail++;
+            unwind.set_tail(tail);
+        }
+
+        // We've successfully added all the heaps, so start commiting the changes
+        get_queue(orig_tail)->handler = std::move(handler);
+        if (tail != orig_tail + 1)
+        {
+            for (std::size_t i = orig_tail; i != tail; i++)
+            {
+                auto *cur = get_queue(i);
+                cur->group_end = tail;
+                cur->group_next = (i + 1 == tail) ? orig_tail : i + 1;
+            }
+        }
+        this->next_cnt = next_cnt;
+        unwind.commit();
+
+        bool wakeup = need_wakeup;
+        need_wakeup = false;
+        queue_tail.store(tail, std::memory_order_release);
+        lock.unlock();
+        if (wakeup)
+        {
+            writer *w_ptr = w.get();
+            get_io_service().post([w_ptr]() {
+                w_ptr->update_send_time_empty();
+                w_ptr->wakeup();
+            });
+        }
+        return true;
+    }
 
 protected:
     writer &get_writer() { return *w; }
@@ -232,10 +383,10 @@ public:
      * queue. The completion handlers for such heaps are guaranteed to be
      * called in order.
      *
-     * If this function returns @c false, the heap was rejected due to
-     * insufficient space. The handler is called as soon as possible
-     * (from a thread running the io_service), with error code @c
-     * boost::asio::error::would_block.
+     * If this function returns @c false, the heap was rejected without
+     * being added to the queue. The handler is called as soon as possible
+     * (from a thread running the io_service). If the heap was rejected due to
+     * lack of space, the error code is @c boost::asio::error::would_block.
      *
      * By default the heap cnt is chosen automatically (see @ref set_cnt_sequence).
      * An explicit value can instead be chosen by passing a non-negative value
@@ -257,6 +408,53 @@ public:
                          std::size_t substream_index = 0);
 
     /**
+     * Send a group of heaps asynchronously, with @a handler called on
+     * completion. The caller must ensure that the @ref heap objects
+     * (as well as any memory they point to) remain valid until @a handler is
+     * called.
+     *
+     * If this function returns @c true, then the heaps have been added to the
+     * queue. The completion handlers for such heaps are guaranteed to be
+     * called in order. Note that there is no individual per-heap feedback;
+     * the callback is called once to give the result of the entire group.
+     *
+     * If this function returns @c false, the heaps were rejected without
+     * being added to the queue. The handler is called as soon as possible
+     * (from a thread running the io_service). If the heaps were rejected due to
+     * lack of space, the error code is @c boost::asio::error::would_block.
+     * It is an error to send an empty list of heaps.
+     *
+     * Note that either all the heaps will be queued, or none will; in
+     * particular, there needs to be enough space in the queue for them all.
+     *
+     * The heaps are specified by a range of input iterators. Typically they
+     * will be of type @ref heap_reference, but other types can be used by
+     * overloading @c get_heap, @c get_heap_cnt and @c
+     * get_heap_substream_index for the value type of the iterator. Refer to
+     * @ref async_send_heap for an explanation of the @a cnt and @a
+     * substream_index parameters.
+     *
+     * The @ref heap_reference objects can be safely deleted once this
+     * function returns; it is sufficient for the @ref heap objects (and the
+     * data they reference) to persist.
+     *
+     * @retval  false  If the heaps were immediately discarded
+     * @retval  true   If the heaps were enqueued
+     */
+    template<typename Iterator>
+    bool async_send_heaps(Iterator first, Iterator last,
+                          completion_handler handler, group_mode mode)
+    {
+        if (first == last)
+        {
+            log_warning("Empty heap group");
+            get_io_service().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
+            return false;
+        }
+        return async_send_heaps_impl<unwinder, Iterator>(first, last, std::move(handler), mode);
+    }
+
+    /**
      * Get the number of substreams in this stream.
      */
     std::size_t get_num_substreams() const;
@@ -271,6 +469,10 @@ public:
 
     virtual ~stream();
 };
+
+extern template bool stream::async_send_heaps_impl<stream::null_unwinder, heap_reference *>(
+    heap_reference *first, heap_reference *last,
+    completion_handler &&handler, group_mode mode);
 
 } // namespace send
 } // namespace spead2

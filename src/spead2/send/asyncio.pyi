@@ -1,4 +1,4 @@
-# Copyright 2019 National Research Foundation (SARAO)
+# Copyright 2019-2020 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -28,6 +28,9 @@ class _AsyncStream(spead2.send._Stream):
     def flush(self) -> None: ...
     def async_send_heap(self, heap: spead2.send.Heap, cnt: int = ...,
                         substream_index: int = ...) -> asyncio.Future[int]: ...
+    def async_send_heaps(self,
+                         heaps: List[spead2.send.HeapReference],
+                         mode: spead2.send.GroupMode) -> asyncio.Future[int]: ...
     async def async_flush(self) -> None: ...
 
 class UdpStream(spead2.send._UdpStream, _AsyncStream):

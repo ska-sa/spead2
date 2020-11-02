@@ -31,68 +31,9 @@ namespace spead2
 namespace send
 {
 
-constexpr std::size_t stream_config::default_max_packet_size;
-constexpr std::size_t stream_config::default_max_heaps;
-constexpr std::size_t stream_config::default_burst_size;
-constexpr double stream_config::default_burst_rate_ratio;
-constexpr rate_method stream_config::default_rate_method;
-
-stream_config &stream_config::set_max_packet_size(std::size_t max_packet_size)
+detail::queue_item *stream::get_queue(std::size_t idx)
 {
-    // TODO: validate here instead rather than waiting until packet_generator
-    this->max_packet_size = max_packet_size;
-    return *this;
-}
-
-stream_config &stream_config::set_rate(double rate)
-{
-    if (rate < 0.0 || !std::isfinite(rate))
-        throw std::invalid_argument("rate must be non-negative");
-    this->rate = rate;
-    return *this;
-}
-
-stream_config &stream_config::set_max_heaps(std::size_t max_heaps)
-{
-    if (max_heaps == 0)
-        throw std::invalid_argument("max_heaps must be positive");
-    this->max_heaps = max_heaps;
-    return *this;
-}
-
-stream_config &stream_config::set_burst_size(std::size_t burst_size)
-{
-    this->burst_size = burst_size;
-    return *this;
-}
-
-stream_config &stream_config::set_burst_rate_ratio(double burst_rate_ratio)
-{
-    if (burst_rate_ratio < 1.0 || !std::isfinite(burst_rate_ratio))
-        throw std::invalid_argument("burst rate ratio must be at least 1.0 and finite");
-    this->burst_rate_ratio = burst_rate_ratio;
-    return *this;
-}
-
-stream_config &stream_config::set_rate_method(rate_method method)
-{
-    this->method = method;
-    return *this;
-}
-
-double stream_config::get_burst_rate() const
-{
-    return rate * burst_rate_ratio;
-}
-
-stream_config::stream_config()
-{
-}
-
-
-stream::queue_item *stream::get_queue(std::size_t idx)
-{
-    return reinterpret_cast<queue_item *>(queue.get() + (idx & queue_mask));
+    return reinterpret_cast<detail::queue_item *>(queue.get() + (idx & queue_mask));
 }
 
 static std::size_t compute_queue_mask(std::size_t size)
@@ -107,10 +48,32 @@ static std::size_t compute_queue_mask(std::size_t size)
     return p2 - 1;
 }
 
+stream::unwinder::unwinder(stream &s, std::size_t tail)
+    : s(s), orig_tail(tail), tail(tail)
+{
+}
+
+void stream::unwinder::set_tail(std::size_t tail)
+{
+    this->tail = tail;
+}
+
+void stream::unwinder::abort()
+{
+    for (std::size_t i = orig_tail; i != tail; i++)
+        s.get_queue(i)->~queue_item();
+}
+
+void stream::unwinder::commit()
+{
+    orig_tail = tail;
+}
+
 stream::stream(std::unique_ptr<writer> &&w)
     : queue_size(w->config.get_max_heaps()),
     queue_mask(compute_queue_mask(queue_size)),
     num_substreams(w->get_num_substreams()),
+    max_packet_size(w->config.get_max_packet_size()),
     w(std::move(w)),
     queue(new queue_item_storage[queue_mask + 1])
 {
@@ -141,53 +104,9 @@ bool stream::async_send_heap(const heap &h, completion_handler handler,
                              s_item_pointer_t cnt,
                              std::size_t substream_index)
 {
-    if (substream_index >= num_substreams)
-    {
-        log_warning("async_send_heap: dropping heap because substream index is out of range");
-        get_io_service().post(std::bind(handler, boost::asio::error::invalid_argument, 0));
-        return false;
-    }
-    item_pointer_t cnt_mask = (item_pointer_t(1) << h.get_flavour().get_heap_address_bits()) - 1;
-
-    std::unique_lock<std::mutex> lock(tail_mutex);
-    std::size_t tail = queue_tail.load(std::memory_order_relaxed);
-    std::size_t head = queue_head.load(std::memory_order_acquire);
-    if (tail - head == queue_size)
-    {
-        lock.unlock();
-        log_warning("async_send_heap: dropping heap because queue is full");
-        get_io_service().post(std::bind(handler, boost::asio::error::would_block, 0));
-        return false;
-    }
-    if (cnt < 0)
-    {
-        cnt = next_cnt & cnt_mask;
-        next_cnt += step_cnt;
-    }
-    else if (item_pointer_t(cnt) > cnt_mask)
-    {
-        lock.unlock();
-        log_warning("async_send_heap: dropping heap because cnt is out of range");
-        get_io_service().post(std::bind(handler, boost::asio::error::invalid_argument, 0));
-        return false;
-    }
-
-    // Construct in place
-    new (get_queue(tail)) queue_item(h, cnt, substream_index, std::move(handler));
-    bool wakeup = need_wakeup;
-    need_wakeup = false;
-    queue_tail.store(tail + 1, std::memory_order_release);
-    lock.unlock();
-
-    if (wakeup)
-    {
-        writer *w_ptr = w.get();
-        get_io_service().post([w_ptr]() {
-            w_ptr->update_send_time_empty();
-            w_ptr->wakeup();
-        });
-    }
-    return true;
+    heap_reference ref(h, cnt, substream_index);
+    return async_send_heaps_impl<null_unwinder>(
+        &ref, &ref + 1, std::move(handler), group_mode::ROUND_ROBIN);
 }
 
 void stream::flush()
@@ -202,7 +121,7 @@ void stream::flush()
         std::size_t head = queue_head.load();
         if (head == tail)
             return;
-        queue_item *item = get_queue(tail - 1);
+        detail::queue_item *item = get_queue(tail - 1);
         item->waiters.emplace_front();
         future = item->waiters.front().get_future();
     }
@@ -214,6 +133,11 @@ std::size_t stream::get_num_substreams() const
 {
     return num_substreams;
 }
+
+// Explicit instantiation
+template bool stream::async_send_heaps_impl<stream::null_unwinder, heap_reference *>(
+    heap_reference *first, heap_reference *last,
+    completion_handler &&handler, group_mode mode);
 
 } // namespace send
 } // namespace spead2

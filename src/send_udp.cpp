@@ -67,28 +67,28 @@ void udp_writer::send_packets(int first, int last)
 {
     // Try sending
     int sent = sendmmsg(socket.native_handle(), msgvec + first, last - first, MSG_DONTWAIT);
-    int heaps = 0;
+    int groups = 0;
     if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
     {
-        stream::queue_item *item = packets[first].item;
+        auto *item = packets[first].item;
         if (!item->result)
             item->result = boost::system::error_code(errno, boost::asio::error::get_system_category());
-        heaps += packets[first].last;
+        groups += packets[first].last;
         first++;
     }
     else if (sent > 0)
     {
         for (int i = 0; i < sent; i++)
         {
-            stream::queue_item *item = packets[first].item;
+            auto *item = packets[first].item;
             item->bytes_sent += packets[first].size;
-            heaps += packets[first].last;
+            groups += packets[first].last;
             first++;
         }
     }
 
-    if (heaps > 0)
-        heaps_completed(heaps);
+    if (groups > 0)
+        groups_completed(groups);
     if (first < last)
     {
         // We didn't manage to send it all: schedule a new attempt once there is
@@ -145,7 +145,7 @@ void udp_writer::wakeup()
             msg_iov[offset].iov_len = boost::asio::buffer_size(buffer);
             offset++;
         }
-        const auto &endpoint = endpoints[packets[i].item->substream_index];
+        const auto &endpoint = endpoints[packets[i].substream_index];
         hdr.msg_name = (void *) endpoint.data();
         hdr.msg_namelen = endpoint.size();
     }
@@ -174,9 +174,9 @@ void udp_writer::wakeup()
         }
 
         // First try a synchronous send
-        stream::queue_item *item = data.item;
+        auto *item = data.item;
         bool last = data.last;
-        const auto &endpoint = endpoints[item->substream_index];
+        const auto &endpoint = endpoints[data.substream_index];
         boost::system::error_code ec;
         std::size_t bytes = socket.send_to(data.pkt.buffers, endpoint, 0, ec);
         if (ec == boost::asio::error::would_block)
@@ -188,10 +188,10 @@ void udp_writer::wakeup()
                 if (!item->result)
                     item->result = ec;
                 if (last)
-                    heaps_completed(1);
+                    groups_completed(1);
                 wakeup();
             };
-            socket.async_send_to(data.pkt.buffers, endpoints[data.item->substream_index],
+            socket.async_send_to(data.pkt.buffers, endpoints[data.substream_index],
                                  std::move(handler));
             return;
         }
@@ -201,7 +201,7 @@ void udp_writer::wakeup()
             if (!item->result)
                 item->result = ec;
             if (last)
-                heaps_completed(1);
+                groups_completed(1);
         }
     }
     post_wakeup();

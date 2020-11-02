@@ -80,10 +80,10 @@ void inproc_writer::wakeup()
 
     inproc_queue::packet dup = copy_packet(data.pkt);
     std::size_t size = dup.size;
-    stream::queue_item *item = data.item;
+    auto *item = data.item;
     try
     {
-        queues[data.item->substream_index]->buffer.push(std::move(dup));
+        queues[data.substream_index]->buffer.push(std::move(dup));
         item->bytes_sent += size;
     }
     catch (ringbuffer_stopped &)
@@ -91,7 +91,7 @@ void inproc_writer::wakeup()
         item->result = boost::asio::error::operation_aborted;
     }
     if (data.last)
-        heaps_completed(1);
+        groups_completed(1);
     post_wakeup();
 }
 

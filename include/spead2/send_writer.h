@@ -28,13 +28,16 @@
 #include <boost/optional.hpp>
 #include <spead2/common_thread_pool.h>
 #include <spead2/send_packet.h>
-#include <spead2/send_stream.h>
+#include <spead2/send_stream_config.h>
 
 namespace spead2
 {
 
 namespace send
 {
+
+namespace detail { struct queue_item; }
+class stream;
 
 /**
  * Back-end for a @ref stream. A writer is responsible for retrieving packets
@@ -48,10 +51,10 @@ namespace send
  * the subclass must ensure that only one handler runs at a time.
  *
  * The @ref wakeup handler should use @ref get_packet to try to retrieve
- * packet(s) and send them, and should ensure that @ref heaps_completed is
- * called after transmitting final packets of heaps. It is also responsible
- * for updating stream::queue_item::bytes_sent and
- * stream::queue_item::result. Depending on the last result of @ref
+ * packet(s) and send them, and should ensure that @ref groups_completed is
+ * called after transmitting final packets of groups. It is also responsible
+ * for updating queue_item::bytes_sent and
+ * queue_item::result. Depending on the last result of @ref
  * get_packet, it should arrange for itself to be rerun by calling either
  * @ref sleep, @ref request_wakeup or @ref post_wakeup.
  *
@@ -112,15 +115,8 @@ private:
     std::size_t queue_head = 0, queue_tail = 0;
     /// Entry from which we are currently getting new packets
     std::size_t active = 0;
-    /**
-     * Packet generator for the active heap. It may be empty at any time, which
-     * indicates that it should be initialised from the heap indicated by
-     * @ref active.
-     *
-     * When non-empty, it must always have a next packet i.e. after
-     * exhausting it, it must be cleared/changed.
-     */
-    boost::optional<packet_generator> gen;
+    /// Start of group containing active
+    std::size_t active_start = 0;
     /**
      * The stream with which we're associated. This is filled in by @ref
      * set_owner shortly after construction.
@@ -160,8 +156,9 @@ protected:
     {
         packet pkt;
         std::size_t size;
-        bool last;          // if this is the last packet in the heap
-        stream::queue_item *item;
+        std::size_t substream_index;
+        bool last;          // if this is the last packet in the group
+        detail::queue_item *item;
     };
 
     stream *get_owner() const { return owner; }
@@ -181,8 +178,8 @@ protected:
      */
     packet_result get_packet(transmit_packet &data);
 
-    /// Notify the base class that @a n heaps have finished transmission.
-    void heaps_completed(std::size_t n);
+    /// Notify the base class that @a n groups have finished transmission.
+    void groups_completed(std::size_t n);
 
     /**
      * Request @ref wakeup once the sleep time has been reached. This must

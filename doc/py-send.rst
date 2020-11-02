@@ -141,6 +141,24 @@ implement the following interface, although this base class does not actually ex
 
       See :ref:`py-substreams` for a description of `substream_index`.
 
+   .. py:method:: send_heaps(heaps, mode)
+
+      Sends a group of heaps. This is primarily intended to be combined with
+      :ref:`py-substreams`, where one wishes to send a heap on each
+      substream, with their packets interleaved on the network (rather than
+      all the packets for one heap, then all the packets for the next etc).
+
+      This function will either enqueue all of the heaps, or none of them. In
+      particular, there must be space in the queue for all of them.
+
+      It is an error for `heaps` to be empty. Currently this raises
+      :py:exc:`OSError`, but it may be replaced by :py:exc:`ValueError` in
+      future.
+
+      :param heaps: A list of heaps to send
+      :type heaps: List[spead2.send.HeapReference]
+      :param spead2.send.GroupMode mode: Controls the packet ordering
+
    .. py:method:: set_cnt_sequence(next, step)
 
       Modify the linear sequence used to generate heap cnts. The next heap
@@ -158,6 +176,24 @@ implement the following interface, although this base class does not actually ex
    .. py:attribute:: num_substreams
 
       Number of substreams in this stream (read-only).
+
+.. py:class:: spead2.send.HeapReference(heap, *, cnt=-1, substream_index=0)
+
+   A thin wrapper around a :class:`~spead2.send.Heap`, heap cnt and substream
+   index, for passing to :py:meth:`~spead2.send.AbstractStream.send_heaps`. The
+   parameters have the same meaning as the corresponding arguments to
+   :py:meth:`~spead2.send.AbstractStream.send_heap`.
+
+.. py:class:: spead2.send.GroupMode
+
+   Enumeration selecting the packet ordering for a group of heaps sent with
+   :py:meth:`~spead2.send.AbstractStream.send_heaps`. At present there is only one
+   option, but there is the possibility of other options in future.
+
+   .. py:attribute:: ROUND_ROBIN
+
+    Interleave the packets of the heaps. One packet is sent from each heap
+    in turn (skipping those that have run out of packets).
 
 UDP
 ^^^
@@ -344,7 +380,7 @@ following abstract interface (the class does not actually exist):
 
 .. class:: spead2.send.asyncio.AbstractStream()
 
-   .. py:method:: async_send_heap(heap, cnt=-1, substream_index=0, *, loop=None)
+   .. py:method:: async_send_heap(heap, cnt=-1, substream_index=0)
 
       Send a heap asynchronously. Note that this is *not* a coroutine:
       it returns a future. Adding the heap to the queue is done
@@ -353,8 +389,19 @@ following abstract interface (the class does not actually exist):
       :param heap: Heap to send
       :type heap: :py:class:`spead2.send.Heap`
       :param int cnt: Heap cnt to send (defaults to auto-incrementing)
-      :param loop: Event loop to use, overriding the constructor
-      :type loop: :py:class:`asyncio.AbstractEventLoop`
+
+   .. py:method:: async_send_heaps(heaps, mode)
+
+      Send a group of heaps asynchronously. Note that this is *not* a
+      coroutine: it returns a future. Adding the heaps to the queue is done
+      synchronously, to ensure proper ordering.
+
+      The parameters have the same meaning as for
+      :py:meth:`~spead2.send.AbstractStream.send_heaps`.
+
+      :param heaps: A list of heaps to send
+      :type heaps: List[spead2.send.HeapReference]
+      :param spead2.send.GroupMode mode: Controls the packet ordering
 
    .. py:method:: flush
 
