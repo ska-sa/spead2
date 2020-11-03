@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 3.1.0
 
 - Add :py:meth:`~spead2.send.AbstractStream.send_heaps` and
   :py:meth:`~spead2.send.asyncio.AbstractStream.async_send_heaps` to send
