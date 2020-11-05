@@ -78,6 +78,9 @@ int ibv_query_device(struct ibv_context *context,
 
 struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
                           size_t length, int access);
+
+struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
+                                uint64_t iova, unsigned int access);
 '''
 
 RDMACM_DECLS = '''
@@ -189,9 +192,15 @@ class Library:
     wrappers : Iterable[str]
         Functions for which an implementation will be provided in the global
         namespace.
+    optional : Iterable[str]
+        Functions whose absence doesn't prevent the library being loaded. Calling
+        such a function raises a std::system_error. The presence can be tested with
+        another function, formed by prefixing the original function name with
+        @c has_.
     """
 
-    def __init__(self, name, headers, soname, guard, decls, wrappers=(), fail_log_level='warning'):
+    def __init__(self, name, headers, soname, guard, decls, wrappers=(), optional=(),
+                 *, fail_log_level='warning'):
         self.name = name
         self.headers = list(headers)
         self.soname = soname
@@ -216,6 +225,7 @@ class Library:
         self.environment.globals['guard'] = self.guard
         self.environment.globals['nodes'] = self.nodes
         self.environment.globals['wrappers'] = set(wrappers)
+        self.environment.globals['optional'] = set(optional)
         self.environment.globals['fail_log_level'] = fail_log_level
 
     def header(self):
@@ -236,7 +246,9 @@ def main(argv):
                       RDMACM_DECLS)
     elif args.library == 'ibv':
         lib = Library('ibv', ['infiniband/verbs.h'], 'libibverbs.so.1', 'SPEAD2_USE_IBV',
-                      IBV_DECLS, ['ibv_create_qp', 'ibv_query_device'])
+                      IBV_DECLS,
+                      ['ibv_create_qp', 'ibv_query_device'],
+                      ['ibv_reg_mr_iova2'])
     else:
         lib = Library('mlx5dv', ['infiniband/mlx5dv.h'], 'libmlx5.so.1', 'SPEAD2_USE_MLX5DV',
                       MLX5DV_DECLS, fail_log_level='debug')

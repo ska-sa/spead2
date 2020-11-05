@@ -50,6 +50,20 @@ static void init();
     std::rethrow_exception(init_result);
 }
 
+{% if node.name in optional -%}
+{{ node | rename(node.name + '_missing') | gen }}
+{
+    throw std::system_error(EOPNOTSUPP, std::system_category(), "{{ node.name }} not found in library");
+}
+
+bool has_{{ node.name }}()
+{
+    std::call_once(init_once, init);
+    return {{ node.name }} != {{ node.name }}_missing;
+}
+
+{% endif -%}
+
 {{ node | rename(node.name + '_first') | gen }}
 {
     std::call_once(init_once, init);
@@ -75,8 +89,20 @@ static void init()
     {
         dl_handle lib("{{ soname }}");
 {% for node in nodes %}
+{% if node.name in optional %}
+        try
+        {
+            {{ node.name }} = reinterpret_cast<{{ node | ptr(False) | gen }}>(
+                lib.sym("{{ node.name }}"));
+        }
+        catch (std::system_error &)
+        {
+            {{ node.name }} = {{ node.name }}_missing;
+        }
+{% else %}
         {{ node.name }} = reinterpret_cast<{{ node | ptr(False) | gen }}>(
             lib.sym("{{ node.name }}"));
+{% endif %}
 {% endfor %}
         // Prevent the library being closed, so that the symbols stay valid
         lib.release();

@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Set ``IBV_ACCESS_RELAXED_ORDERING`` flag on ibverbs memory regions. This
+  reduces packet loss in some circumstances (observed on Epyc 2 system with
+  lots of memory traffic).
+
 .. rubric:: 3.1.0
 
 - Add :py:meth:`~spead2.send.AbstractStream.send_heaps` and

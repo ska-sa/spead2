@@ -43,6 +43,9 @@ namespace spead2
 
 {% for node in nodes -%}
 extern {{ node | ptr | gen }};
+{% if node.name in optional -%}
+bool has_{{ node.name }}();
+{% endif %}
 {% endfor %}
 
 } // namespace spead2
