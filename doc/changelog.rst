@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 3.1.1
 
 - Set ``IBV_ACCESS_RELAXED_ORDERING`` flag on ibverbs memory regions. This
   reduces packet loss in some circumstances (observed on Epyc 2 system with
