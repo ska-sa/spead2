@@ -304,7 +304,12 @@ class ibv_mr_t : public std::unique_ptr<ibv_mr, detail::ibv_mr_deleter>
 {
 public:
     ibv_mr_t() = default;
-    ibv_mr_t(const ibv_pd_t &pd, void *addr, std::size_t length, int access);
+    /* If allow_relaxed_ordering is true, it will try to set
+     * IBV_ACCESS_RELAXED_ORDERING if supported, but fall back gracefully if
+     * not.
+     */
+    ibv_mr_t(const ibv_pd_t &pd, void *addr, std::size_t length, int access,
+             bool allow_relaxed_ordering = true);
 };
 
 class ibv_flow_t : public std::unique_ptr<ibv_flow, detail::ibv_flow_deleter>
