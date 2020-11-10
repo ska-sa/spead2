@@ -35,24 +35,6 @@ namespace send
 
 class heap;
 
-/**
- * A packet ready for sending on the network. It contains some internally
- * held data, and const buffer sequence that contains a mix of pointers to
- * the internal data and pointers to the heap's items.
- *
- * If @a buffers is empty, it indicates the end of the heap.
- *
- * @todo Investigate whether number of new calls could be reduced by using
- * a pool for the case of packets with no item pointers other than the
- * per-packet ones; or by having the caller of the packet_generator provide
- * storage.
- */
-struct packet
-{
-    std::unique_ptr<std::uint8_t[]> data;
-    std::vector<boost::asio::const_buffer> buffers;
-};
-
 class packet_generator
 {
 private:
