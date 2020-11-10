@@ -42,36 +42,49 @@ private:
     static constexpr std::size_t prefix_size = 8 + 4 * sizeof(item_pointer_t);
 
     const heap &h;
-    item_pointer_t cnt;
-    std::size_t max_packet_size;
-    std::size_t max_item_pointers_per_packet;
+    const item_pointer_t cnt;
+    const std::size_t max_packet_size;
+    const std::size_t max_item_pointers_per_packet;
 
+    /// @name Item pointer generation
+    /// @{
     /// Next item pointer to send
     std::size_t next_item_pointer = 0;
+    /// Address at which payload for the next item will be found
+    std::size_t next_address = 0;
+    /// @}
+
+    /// @name Payload generation
+    /// @{
     /// Current item payload being sent
     std::size_t next_item = 0;
     /// Amount of next_item already sent
     std::size_t next_item_offset = 0;
-    /// Address at which payload for the next item will be found
-    std::size_t next_address = 0;
     /// Payload offset for the next packet
     s_item_pointer_t payload_offset = 0;
     s_item_pointer_t payload_size = 0;
+    /// @}
     /// There is payload padding, so we need to add a NULL item pointer
     bool need_null_item = false;
 
 public:
     packet_generator(const heap &h, item_pointer_t cnt, std::size_t max_packet_size);
 
+    /**
+     * The maximum size of a packet this generator will generate. It may be
+     * smaller than the value passed to the constructor (for alignment
+     * reasons), but will never be larger.
+     */
     std::size_t get_max_packet_size() const;
 
     bool has_next_packet() const;
     /**
      * Create a packet ready for sending on the network. The caller must
-     * provide space for storing data, of size at least the @a max_packet_size
-     * passed to the constructor, and with at least item_pointer_t alignment.
-     * The returned buffer sequence may contain a mix of pointers to the
-     * original heap and pointers within the scratch area.
+     * provide space for storing data, of size at least
+     * @ref get_max_packet_size, and with at least @c item_pointer_t alignment.
+     * The first element of the returned buffer sequence will reference a
+     * prefix of @a scratch, while the remaining elements will reference to the
+     * items of the original heap.
      *
      * If there are no more packets to send for the heap, an empty list is
      * returned.
