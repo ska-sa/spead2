@@ -334,29 +334,29 @@ void udp_ibv_writer::wakeup()
             }
             if (!(send_flags & IBV_SEND_IP_CSUM))
                 ipv4.update_checksum();
-            packet_buffer payload = udp.payload();
             s->wr.num_sge = 1;
             // TODO: addr and lkey can be fixed by constructor
             s->sge[0].addr = (uintptr_t) s->frame.data();
             s->sge[0].lkey = mr->lkey;
-            s->sge[0].length = payload.data() - s->frame.data();
-            std::uint8_t *copy_target = s->payload;
-            /* It may appear that we require strictly less than (because we're
-             * using one SGE for the IP/UDP header), but the first buffer in
-             * data.buffers will always be able to merge with it.
+            // The packet_generator writes the SPEAD header and item pointers
+            // directly into the payload.
+            assert(boost::asio::buffer_cast<const std::uint8_t *>(data.buffers[0]) == s->payload);
+            std::uint8_t *copy_target = s->payload + boost::asio::buffer_size(data.buffers[0]);
+            s->sge[0].length = copy_target - s->frame.data();
+            /* The first SGE is used for both the IP/UDP header and the
+             * SPEAD header and item pointers.
              *
-             * This is a conservative estimate, because other merges are
+             * This is a conservative estimate, because merges are
              * possible (particularly if not all items fall into registered
              * ranges), but the cost of doing two passes to check for this
              * case would be expensive.
-             *
-             * TODO: revisit now that payload is also being used as scratch.
              */
             bool can_skip_copy = data.buffers.size() <= max_sge;
-            for (const auto &buffer : data.buffers)
+            for (std::size_t j = 1; j < data.buffers.size(); j++)
             {
+                const auto &buffer = data.buffers[j];
                 ibv_sge cur;
-                const uint8_t *ptr = boost::asio::buffer_cast<const uint8_t *>(buffer);
+                const std::uint8_t *ptr = boost::asio::buffer_cast<const uint8_t *>(buffer);
                 cur.length = boost::asio::buffer_size(buffer);
                 // Check if it belongs to a user-registered region
                 memory_region cmp(ptr, cur.length);
