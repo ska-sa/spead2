@@ -32,14 +32,14 @@ namespace send
 namespace
 {
 
-static inproc_queue::packet copy_packet(const packet &in)
+static inproc_queue::packet copy_packet(const std::vector<boost::asio::const_buffer> &in)
 {
-    std::size_t size = boost::asio::buffer_size(in.buffers);
+    std::size_t size = boost::asio::buffer_size(in);
     inproc_queue::packet out;
     out.data.reset(new std::uint8_t[size]);
     out.size = size;
     boost::asio::mutable_buffer buffer(out.data.get(), size);
-    boost::asio::buffer_copy(buffer, in.buffers);
+    boost::asio::buffer_copy(buffer, in);
     return out;
 }
 
@@ -47,6 +47,7 @@ class inproc_writer : public writer
 {
 private:
     std::vector<std::shared_ptr<inproc_queue>> queues;
+    std::unique_ptr<std::uint8_t[]> scratch;   ///< Scratch space for constructing packets
 
     virtual void wakeup() override;
 
@@ -66,7 +67,7 @@ public:
 void inproc_writer::wakeup()
 {
     transmit_packet data;
-    switch (get_packet(data))
+    switch (get_packet(data, scratch.get()))
     {
     case packet_result::SLEEP:
         sleep();
@@ -78,7 +79,7 @@ void inproc_writer::wakeup()
         break;
     }
 
-    inproc_queue::packet dup = copy_packet(data.pkt);
+    inproc_queue::packet dup = copy_packet(data.buffers);
     std::size_t size = dup.size;
     auto *item = data.item;
     try
@@ -105,7 +106,8 @@ inproc_writer::inproc_writer(
     const std::vector<std::shared_ptr<inproc_queue>> &queues,
     const stream_config &config)
     : writer(std::move(io_service), config),
-    queues(queues)
+    queues(queues),
+    scratch(new std::uint8_t[config.get_max_packet_size()])
 {
     if (queues.empty())
         throw std::invalid_argument("queues is empty");

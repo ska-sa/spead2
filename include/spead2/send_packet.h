@@ -81,8 +81,20 @@ private:
 public:
     packet_generator(const heap &h, item_pointer_t cnt, std::size_t max_packet_size);
 
+    std::size_t get_max_packet_size() const;
+
     bool has_next_packet() const;
-    packet next_packet();
+    /**
+     * Create a packet ready for sending on the network. The caller must
+     * provide space for storing data, of size at least the @a max_packet_size
+     * passed to the constructor, and with at least item_pointer_t alignment.
+     * The returned buffer sequence may contain a mix of pointers to the
+     * original heap and pointers within the scratch area.
+     *
+     * If there are no more packets to send for the heap, an empty list is
+     * returned.
+     */
+    std::vector<boost::asio::const_buffer> next_packet(std::uint8_t *scratch);
 };
 
 } // namespace send

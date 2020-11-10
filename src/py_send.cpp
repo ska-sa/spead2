@@ -81,11 +81,12 @@ flavour heap_wrapper::get_flavour() const
 
 py::bytes packet_generator_next(packet_generator &gen)
 {
-    packet pkt = gen.next_packet();
-    if (pkt.buffers.empty())
+    std::unique_ptr<std::uint8_t[]> scratch(new std::uint8_t[gen.get_max_packet_size()]);
+    auto buffers = gen.next_packet(scratch.get());
+    if (buffers.empty())
         throw py::stop_iteration();
-    return py::bytes(std::string(boost::asio::buffers_begin(pkt.buffers),
-                                 boost::asio::buffers_end(pkt.buffers)));
+    return py::bytes(std::string(boost::asio::buffers_begin(buffers),
+                                 boost::asio::buffers_end(buffers)));
 }
 
 static py::object make_io_error(const boost::system::error_code &ec)

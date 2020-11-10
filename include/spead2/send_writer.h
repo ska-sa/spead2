@@ -154,7 +154,7 @@ private:
 protected:
     struct transmit_packet
     {
-        packet pkt;
+        std::vector<boost::asio::const_buffer> buffers;
         std::size_t size;
         std::size_t substream_index;
         bool last;          // if this is the last packet in the group
@@ -174,9 +174,9 @@ protected:
     /**
      * Retrieve a packet from the stream.
      *
-     * If successful, the packet information is written into @ref data.
+     * If successful, the packet information is written into @a data.
      */
-    packet_result get_packet(transmit_packet &data);
+    packet_result get_packet(transmit_packet &data, std::uint8_t *scratch);
 
     /// Notify the base class that @a n groups have finished transmission.
     void groups_completed(std::size_t n);
