@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 3.1.2
 
 - Fix a use-after-free bug that could cause a crash when freeing a send
   stream.
