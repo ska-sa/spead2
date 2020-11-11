@@ -60,6 +60,8 @@ private:
     boost::asio::ip::tcp::endpoint endpoint;
     /// Callback once connected (if not pre-connected)
     std::function<void(const boost::system::error_code &)> connect_handler;
+    // Scratch space for constructing packets
+    std::unique_ptr<std::uint8_t[]> scratch;
 
     virtual void wakeup() override final;
     virtual void start() override final;
@@ -106,7 +108,7 @@ public:
 void tcp_writer::wakeup()
 {
     transmit_packet data;
-    packet_result result = get_packet(data);
+    packet_result result = get_packet(data, scratch.get());
     switch (result)
     {
     case packet_result::SLEEP:
@@ -130,7 +132,7 @@ void tcp_writer::wakeup()
             groups_completed(1);
         wakeup();
     };
-    boost::asio::async_write(socket, data.pkt.buffers, std::move(handler));
+    boost::asio::async_write(socket, data.buffers, std::move(handler));
 }
 
 void tcp_writer::start()
@@ -159,7 +161,8 @@ tcp_writer::tcp_writer(
     socket(make_socket(get_io_service(), endpoints, buffer_size, interface_address)),
     pre_connected(false),
     endpoint(endpoints[0]),
-    connect_handler(std::move(connect_handler))
+    connect_handler(std::move(connect_handler)),
+    scratch(new std::uint8_t[config.get_max_packet_size()])
 {
 }
 
@@ -169,7 +172,8 @@ tcp_writer::tcp_writer(
     const stream_config &config)
     : writer(std::move(io_service), config),
     socket(std::move(socket)),
-    pre_connected(true)
+    pre_connected(true),
+    scratch(new std::uint8_t[config.get_max_packet_size()])
 {
     if (!socket_uses_io_service(this->socket, get_io_service()))
         throw std::invalid_argument("I/O service does not match the socket's I/O service");

@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Improve send performance by eliminating a memory allocation from packet
+  generation.
+
 .. rubric:: 3.1.1
 
 - Set ``IBV_ACCESS_RELAXED_ORDERING`` flag on ibverbs memory regions. This

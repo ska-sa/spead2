@@ -89,6 +89,7 @@ private:
         ibv_send_wr wr{};
         ibv_sge sge[max_sge]{};
         ethernet_frame frame;
+        std::uint8_t *payload;         ///< points to UDP payload within frame
         detail::queue_item *item = nullptr;
         bool last;   ///< Last packet in the heap
     };
@@ -312,12 +313,12 @@ void udp_ibv_writer::wakeup()
         slot *first = &slots[tail];
         for (i = 0; i < target_batch; i++)
         {
+            slot *s = &slots[tail];
             transmit_packet data;
-            result = get_packet(data);
+            result = get_packet(data, s->payload);
             if (result != packet_result::SUCCESS)
                 break;
 
-            slot *s = &slots[tail];
             std::size_t payload_size = data.size;
             ipv4_packet ipv4 = s->frame.payload_ipv4();
             ipv4.total_length(payload_size + udp_packet::min_size + ipv4.header_length());
@@ -333,27 +334,29 @@ void udp_ibv_writer::wakeup()
             }
             if (!(send_flags & IBV_SEND_IP_CSUM))
                 ipv4.update_checksum();
-            packet_buffer payload = udp.payload();
             s->wr.num_sge = 1;
             // TODO: addr and lkey can be fixed by constructor
             s->sge[0].addr = (uintptr_t) s->frame.data();
             s->sge[0].lkey = mr->lkey;
-            s->sge[0].length = payload.data() - s->frame.data();
-            std::uint8_t *copy_target = payload.data();
-            /* It may appear that we require strictly less than (because we're
-             * using one SGE for the IP/UDP header), but the first buffer in
-             * data.pkt.buffers will always be able to merge with it.
+            // The packet_generator writes the SPEAD header and item pointers
+            // directly into the payload.
+            assert(boost::asio::buffer_cast<const std::uint8_t *>(data.buffers[0]) == s->payload);
+            std::uint8_t *copy_target = s->payload + boost::asio::buffer_size(data.buffers[0]);
+            s->sge[0].length = copy_target - s->frame.data();
+            /* The first SGE is used for both the IP/UDP header and the
+             * SPEAD header and item pointers.
              *
-             * This is a conservative estimate, because other merges are
+             * This is a conservative estimate, because merges are
              * possible (particularly if not all items fall into registered
              * ranges), but the cost of doing two passes to check for this
              * case would be expensive.
              */
-            bool can_skip_copy = data.pkt.buffers.size() <= max_sge;
-            for (const auto &buffer : data.pkt.buffers)
+            bool can_skip_copy = data.buffers.size() <= max_sge;
+            for (std::size_t j = 1; j < data.buffers.size(); j++)
             {
+                const auto &buffer = data.buffers[j];
                 ibv_sge cur;
-                const uint8_t *ptr = boost::asio::buffer_cast<const uint8_t *>(buffer);
+                const std::uint8_t *ptr = boost::asio::buffer_cast<const uint8_t *>(buffer);
                 cur.length = boost::asio::buffer_size(buffer);
                 // Check if it belongs to a user-registered region
                 memory_region cmp(ptr, cur.length);
@@ -545,6 +548,7 @@ udp_ibv_writer::udp_ibv_writer(
         udp.destination_port(endpoints[0].port());
         udp.length(config.get_max_packet_size() + udp_packet::min_size);
         udp.checksum(0);
+        slots[i].payload = boost::asio::buffer_cast<std::uint8_t *>(udp.payload());
     }
 
     if (cm_id.query_device_ex().raw_packet_caps & IBV_RAW_PACKET_CAP_IP_CSUM)

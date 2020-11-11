@@ -43,9 +43,15 @@ private:
 #if SPEAD2_USE_SENDMMSG
     struct mmsghdr msgvec[max_batch];
     std::vector<struct iovec> msg_iov;
-    transmit_packet packets[max_batch];
+    struct
+    {
+        transmit_packet packet;
+        std::unique_ptr<std::uint8_t[]> scratch;
+    } packets[max_batch];
 
     void send_packets(int first, int last);
+#else
+    std::unique_ptr<std::uint8_t[]> scratch;
 #endif
 
 public:
@@ -70,19 +76,19 @@ void udp_writer::send_packets(int first, int last)
     int groups = 0;
     if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
     {
-        auto *item = packets[first].item;
+        auto *item = packets[first].packet.item;
         if (!item->result)
             item->result = boost::system::error_code(errno, boost::asio::error::get_system_category());
-        groups += packets[first].last;
+        groups += packets[first].packet.last;
         first++;
     }
     else if (sent > 0)
     {
         for (int i = 0; i < sent; i++)
         {
-            auto *item = packets[first].item;
-            item->bytes_sent += packets[first].size;
-            groups += packets[first].last;
+            auto *item = packets[first].packet.item;
+            item->bytes_sent += packets[first].packet.size;
+            groups += packets[first].packet.last;
             first++;
         }
     }
@@ -107,7 +113,7 @@ void udp_writer::send_packets(int first, int last)
 
 void udp_writer::wakeup()
 {
-    packet_result result = get_packet(packets[0]);
+    packet_result result = get_packet(packets[0].packet, packets[0].scratch.get());
     switch (result)
     {
     case packet_result::SLEEP:
@@ -122,13 +128,13 @@ void udp_writer::wakeup()
 
     // We have at least one packet to send. See if we can get some more.
     int n;
-    std::size_t n_iov = packets[0].pkt.buffers.size();
+    std::size_t n_iov = packets[0].packet.buffers.size();
     for (n = 1; n < max_batch; n++)
     {
-        result = get_packet(packets[n]);
+        result = get_packet(packets[n].packet, packets[n].scratch.get());
         if (result != packet_result::SUCCESS)
             break;
-        n_iov += packets[n].pkt.buffers.size();
+        n_iov += packets[n].packet.buffers.size();
     }
 
     msg_iov.resize(n_iov);
@@ -137,15 +143,15 @@ void udp_writer::wakeup()
     {
         auto &hdr = msgvec[i].msg_hdr;
         hdr.msg_iov = &msg_iov[offset];
-        hdr.msg_iovlen = packets[i].pkt.buffers.size();
-        for (const auto &buffer : packets[i].pkt.buffers)
+        hdr.msg_iovlen = packets[i].packet.buffers.size();
+        for (const auto &buffer : packets[i].packet.buffers)
         {
             msg_iov[offset].iov_base = const_cast<void *>(
                 boost::asio::buffer_cast<const void *>(buffer));
             msg_iov[offset].iov_len = boost::asio::buffer_size(buffer);
             offset++;
         }
-        const auto &endpoint = endpoints[packets[i].substream_index];
+        const auto &endpoint = endpoints[packets[i].packet.substream_index];
         hdr.msg_name = (void *) endpoint.data();
         hdr.msg_namelen = endpoint.size();
     }
@@ -160,7 +166,7 @@ void udp_writer::wakeup()
     for (int i = 0; i < max_batch; i++)
     {
         transmit_packet data;
-        packet_result result = get_packet(data);
+        packet_result result = get_packet(data, scratch.get());
         switch (result)
         {
         case packet_result::SLEEP:
@@ -178,7 +184,7 @@ void udp_writer::wakeup()
         bool last = data.last;
         const auto &endpoint = endpoints[data.substream_index];
         boost::system::error_code ec;
-        std::size_t bytes = socket.send_to(data.pkt.buffers, endpoint, 0, ec);
+        std::size_t bytes = socket.send_to(data.buffers, endpoint, 0, ec);
         if (ec == boost::asio::error::would_block)
         {
             // Socket buffer is full, so do an asynchronous send
@@ -191,7 +197,7 @@ void udp_writer::wakeup()
                     groups_completed(1);
                 wakeup();
             };
-            socket.async_send_to(data.pkt.buffers, endpoints[data.substream_index],
+            socket.async_send_to(data.buffers, endpoints[data.substream_index],
                                  std::move(handler));
             return;
         }
@@ -218,6 +224,9 @@ udp_writer::udp_writer(
     : writer(std::move(io_service), config),
     socket(std::move(socket)),
     endpoints(endpoints)
+#if !SPEAD2_USE_SENDMMSG
+    , scratch(new std::uint8_t[config.get_max_packet_size()])
+#endif
 {
     if (!socket_uses_io_service(this->socket, get_io_service()))
         throw std::invalid_argument("I/O service does not match the socket's I/O service");
@@ -229,6 +238,8 @@ udp_writer::udp_writer(
     this->socket.non_blocking(true);
 #if SPEAD2_USE_SENDMMSG
     std::memset(&msgvec, 0, sizeof(msgvec));
+    for (int i = 0; i < max_batch; i++)
+        packets[i].scratch.reset(new std::uint8_t[config.get_max_packet_size()]);
 #endif
 }
 

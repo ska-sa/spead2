@@ -73,7 +73,7 @@ void writer::update_send_time_empty()
     send_time = std::max(send_time, backdate);
 }
 
-writer::packet_result writer::get_packet(transmit_packet &data)
+writer::packet_result writer::get_packet(transmit_packet &data, std::uint8_t *scratch)
 {
     if (must_sleep)
     {
@@ -106,8 +106,8 @@ writer::packet_result writer::get_packet(transmit_packet &data)
     detail::queue_item *cur = get_owner()->get_queue(active);
     assert(cur->gen.has_next_packet());
 
-    data.pkt = cur->gen.next_packet();
-    data.size = boost::asio::buffer_size(data.pkt.buffers);
+    data.buffers = cur->gen.next_packet(scratch);
+    data.size = boost::asio::buffer_size(data.buffers);
     data.substream_index = cur->substream_index;
     // Point at the start of the group, so that errors and byte counts accumulate
     // in one place.

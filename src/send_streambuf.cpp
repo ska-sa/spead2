@@ -33,6 +33,7 @@ class streambuf_writer : public writer
 {
 private:
     std::streambuf &streambuf;
+    std::unique_ptr<std::uint8_t[]> scratch;  // scratch space for constructing packets
 
     virtual void wakeup() override final;
 
@@ -54,11 +55,11 @@ void streambuf_writer::wakeup()
     for (int i = 0; i < max_batch; i++)
     {
         transmit_packet data;
-        result = get_packet(data);
+        result = get_packet(data, scratch.get());
         if (result != packet_result::SUCCESS)
             break;
 
-        for (const auto &buffer : data.pkt.buffers)
+        for (const auto &buffer : data.buffers)
         {
             std::size_t buffer_size = boost::asio::buffer_size(buffer);
             std::size_t written = streambuf.sputn(boost::asio::buffer_cast<const char *>(buffer), buffer_size);
@@ -95,7 +96,8 @@ streambuf_writer::streambuf_writer(
     io_service_ref io_service,
     std::streambuf &streambuf,
     const stream_config &config)
-    : writer(std::move(io_service), config), streambuf(streambuf)
+    : writer(std::move(io_service), config), streambuf(streambuf),
+    scratch(new std::uint8_t[config.get_max_packet_size()])
 {
 }
 

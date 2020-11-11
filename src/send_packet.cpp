@@ -21,6 +21,7 @@
 #include <vector>
 #include <cstdint>
 #include <cstring>
+#include <climits>
 #include <stdexcept>
 #include <algorithm>
 #include <spead2/send_heap.h>
@@ -45,10 +46,13 @@ static bool use_immediate(const item &it, std::size_t max_immediate_size)
 
 packet_generator::packet_generator(
     const heap &h, item_pointer_t cnt, std::size_t max_packet_size)
-    : h(h), cnt(cnt), max_packet_size(max_packet_size)
-{
+    : h(h), cnt(cnt),
     // Round down max packet size so that we can align payload
-    max_packet_size &= ~7;
+    max_packet_size(max_packet_size &= ~7),
+    max_item_pointers_per_packet(
+        (max_packet_size - (prefix_size + sizeof(item_pointer_t))) / sizeof(item_pointer_t)
+    )
+{
     /* We need
      * - the prefix
      * - an item pointer
@@ -59,7 +63,7 @@ packet_generator::packet_generator(
         throw std::invalid_argument("packet size is too small");
 
     payload_size = 0;
-    const std::size_t max_immediate_size = h.get_flavour().get_heap_address_bits() / 8;
+    const std::size_t max_immediate_size = h.get_flavour().get_heap_address_bits() / CHAR_BIT;
     for (const item &it : h.items)
     {
         if (!use_immediate(it, max_immediate_size))
@@ -68,10 +72,8 @@ packet_generator::packet_generator(
 
     /* Check if we need to add dummy payload to ensure that every packet
      * contains some payload.
-     */
-    max_item_pointers_per_packet =
-        (max_packet_size - (prefix_size + sizeof(item_pointer_t))) / sizeof(item_pointer_t);
-    /* Number of packets needed to send all the item pointers, plus
+     *
+     * Number of packets needed to send all the item pointers, plus
      * potentially one extra in case we need to inject a NULL item pointer
      * to mark the separation between the padding and the last item.
      */
@@ -92,14 +94,19 @@ packet_generator::packet_generator(
     }
 }
 
+std::size_t packet_generator::get_max_packet_size() const
+{
+    return max_packet_size;
+}
+
 bool packet_generator::has_next_packet() const
 {
     return payload_offset < payload_size;
 }
 
-packet packet_generator::next_packet()
+std::vector<boost::asio::const_buffer> packet_generator::next_packet(std::uint8_t *scratch)
 {
-    packet out;
+    std::vector<boost::asio::const_buffer> out;
 
     if (h.get_repeat_pointers())
     {
@@ -110,30 +117,31 @@ packet packet_generator::next_packet()
     if (payload_offset < payload_size)
     {
         pointer_encoder encoder(h.get_flavour().get_heap_address_bits());
-        const std::size_t max_immediate_size = h.get_flavour().get_heap_address_bits() / 8;
+        const std::size_t max_immediate_size = h.get_flavour().get_heap_address_bits() / CHAR_BIT;
         const std::size_t n_item_pointers = std::min(
             max_item_pointers_per_packet,
             h.items.size() + need_null_item - next_item_pointer);
         std::size_t packet_payload_length = std::min(
             std::size_t(payload_size - payload_offset),
             max_packet_size - n_item_pointers * sizeof(item_pointer_t) - prefix_size);
+        assert(packet_payload_length > 0);
 
-        // Determine how much internal data is needed.
-        // Always add enough to allow for padding the payload
-        std::size_t alloc_bytes = prefix_size + (n_item_pointers + 1) * sizeof(item_pointer_t);
-        out.data.reset(new std::uint8_t[alloc_bytes]);
-        std::uint64_t *header = reinterpret_cast<std::uint64_t *>(out.data.get());
+        // This code will need fixing up for alignment if item_pointer_t is ever
+        // not 8 bytes.
+        static_assert(sizeof(item_pointer_t) == sizeof(std::uint64_t),
+                      "item_pointer_t must currently be 64-bit");
+        std::uint64_t *header = reinterpret_cast<std::uint64_t *>(scratch);
         *header = htobe<std::uint64_t>(
             (std::uint64_t(0x5304) << 48)
             | (std::uint64_t(8 - max_immediate_size) << 40)
             | (std::uint64_t(max_immediate_size) << 32)
             | (n_item_pointers + 4));
-        // TODO: if item_pointer_t is more than 64 bits, this will misalign
-        item_pointer_t *pointer = reinterpret_cast<item_pointer_t *>(out.data.get() + 8);
+        item_pointer_t *pointer = reinterpret_cast<item_pointer_t *>(scratch + 8);
         *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(HEAP_CNT_ID, cnt));
         *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(HEAP_LENGTH_ID, payload_size));
         *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(PAYLOAD_OFFSET_ID, payload_offset));
         *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(PAYLOAD_LENGTH_ID, packet_payload_length));
+        payload_offset += packet_payload_length;
         for (std::size_t i = 0; i < n_item_pointers; i++)
         {
             item_pointer_t ip;
@@ -164,10 +172,9 @@ packet packet_generator::next_packet()
             *pointer++ = ip;
             next_item_pointer++;
         }
-        out.buffers.emplace_back(out.data.get(), prefix_size + 8 * n_item_pointers);
+        out.emplace_back(scratch, prefix_size + 8 * n_item_pointers);
 
         // Generate payload
-        payload_offset += packet_payload_length;
         while (packet_payload_length > 0)
         {
             if (next_item == h.items.size())
@@ -176,7 +183,11 @@ packet packet_generator::next_packet()
                 assert(need_null_item);
                 assert(packet_payload_length <= 8);
                 *pointer = 0;
-                out.buffers.emplace_back(pointer, packet_payload_length);
+                // We can only add dummy payload if there was no real payload,
+                // so we can merge this with the existing buffer.
+                assert(out.size() == 1);
+                out[0] = boost::asio::const_buffer(
+                    scratch, boost::asio::buffer_size(out[0]) + packet_payload_length);
                 packet_payload_length = 0;
             }
             else if (use_immediate(h.items[next_item], max_immediate_size))
@@ -189,7 +200,7 @@ packet packet_generator::next_packet()
                 const item &it = h.items[next_item];
                 std::size_t send_bytes = std::min(
                     it.data.buffer.length - next_item_offset, packet_payload_length);
-                out.buffers.emplace_back(it.data.buffer.ptr + next_item_offset, send_bytes);
+                out.emplace_back(it.data.buffer.ptr + next_item_offset, send_bytes);
                 next_item_offset += send_bytes;
                 if (next_item_offset == it.data.buffer.length)
                 {
