@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <limits>
 #include <cmath>
+#include <thread>
 #include <stdexcept>
 #include <spead2/common_logging.h>
 #include <spead2/send_stream.h>
@@ -84,6 +85,18 @@ stream::stream(std::unique_ptr<writer> &&w)
 stream::~stream()
 {
     flush();
+    /* The writer might still have a pending wakeup to check for new work.
+     * Before we can safely delete it, we need it to have set need_wakeup.
+     * A spin loop is not normally great style, but we take a hit on shutdown
+     * to keep worker::request_wakeup fast when we're not shutting down.
+     */
+    std::unique_lock<std::mutex> lock(tail_mutex);
+    while (!need_wakeup)
+    {
+        lock.unlock();
+        std::this_thread::yield();
+        lock.lock();
+    }
 }
 
 boost::asio::io_service &stream::get_io_service() const

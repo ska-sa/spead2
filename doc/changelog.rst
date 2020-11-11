@@ -3,6 +3,8 @@ Changelog
 
 .. rubric:: Development version
 
+- Fix a use-after-free bug that could cause a crash when freeing a send
+  stream.
 - Improve send performance by eliminating a memory allocation from packet
   generation.
 

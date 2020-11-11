@@ -190,6 +190,10 @@ protected:
     /**
      * Request @ref wakeup when new packets become available (new relative
      * to the last call to @ref get_packet).
+     *
+     * Note: if this is called and there are no heaps whose callbacks are
+     * still outstanding, this writer may be immediately destroyed by another
+     * thread.
      */
     void request_wakeup();
 
