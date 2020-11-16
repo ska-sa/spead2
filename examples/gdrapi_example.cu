@@ -181,8 +181,8 @@ gdr_mh_t gdrapi_memory_allocator::get_mh(const pointer &ptr)
 }
 
 /**
- * Wrap gdr_copy_to_mapping for copies. For x86 systems,
- * spead2::MEMCPY_NONTEMPORAL would be equally effective.
+ * Wrap gdr_copy_to_mapping for copies. One could also use
+ * spead2::MEMCPY_NONTEMPORAL.
  */
 static void custom_memcpy(const spead2::memory_allocator::pointer &allocation,
                           const spead2::recv::packet_header &packet)

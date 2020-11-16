@@ -5,6 +5,9 @@ Changelog
 
 - Add :cpp:func:`spead2::recv::heap::get_payload` to allow the payload
   pointer to be retrieved from a complete heap.
+- Add an example program showing integration with `gdrcopy`_.
+
+.. _gdrcopy: https://github.com/NVIDIA/gdrcopy
 
 .. rubric:: 3.1.2
 
