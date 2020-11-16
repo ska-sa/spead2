@@ -180,6 +180,20 @@ gdr_mh_t gdrapi_memory_allocator::get_mh(const pointer &ptr)
     return meta->mh;
 }
 
+/**
+ * Wrap gdr_copy_to_mapping for copies. For x86 systems,
+ * spead2::MEMCPY_NONTEMPORAL would be equally effective.
+ */
+static void custom_memcpy(const spead2::memory_allocator::pointer &allocation,
+                          const spead2::recv::packet_header &packet)
+{
+    gdr_copy_to_mapping(
+        gdrapi_memory_allocator::get_mh(allocation),
+        allocation.get() + packet.payload_offset,
+        packet.payload,
+        packet.payload_length);
+}
+
 int main()
 {
     // Storage for the result of each sum
@@ -195,7 +209,7 @@ int main()
     spead2::thread_pool tp;
     spead2::recv::stream_config config;
     config.set_memory_allocator(alloc);
-    config.set_memcpy(spead2::MEMCPY_NONTEMPORAL);
+    config.set_memcpy(custom_memcpy);
     spead2::recv::ring_stream<> stream(tp, config);
     stream.emplace_reader<spead2::recv::udp_reader>(
         boost::asio::ip::udp::endpoint(
