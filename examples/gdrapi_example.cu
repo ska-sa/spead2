@@ -33,34 +33,20 @@
 #include <spead2/common_memory_allocator.h>
 #include <spead2/common_memory_pool.h>
 
-const char *sum_src = R"(
-extern "C" __global__ void sum(const unsigned int *data, unsigned long long *out, int n)
+__global__ void sum(const unsigned int *data, unsigned long long *out, int n)
 {
     unsigned long long ans = 0;
     for (int i = 0; i < n; i++)
         ans += data[i];
     *out = ans;
 }
-)";
-
 
 #define CUDA_CHECK(cmd)             \
     ({                              \
-        CUresult result = (cmd);    \
-        if (result != CUDA_SUCCESS) \
+        cudaError_t result = (cmd);    \
+        if (result != cudaSuccess) \
         {                           \
             std::cerr << "CUDA error: " << #cmd << "\n"; \
-            std::exit(1);           \
-        }                           \
-        result;                     \
-    })
-
-#define NVRTC_CHECK(cmd)             \
-    ({                              \
-        nvrtcResult result = (cmd);    \
-        if (result != NVRTC_SUCCESS) \
-        {                           \
-            std::cerr << "nvrtc error: " << #cmd << "\n"; \
             std::exit(1);           \
         }                           \
         result;                     \
@@ -77,28 +63,14 @@ extern "C" __global__ void sum(const unsigned int *data, unsigned long long *out
         result;                     \
     })
 
-// Compile CUDA source to PTX
-static std::vector<char> compile(const char *src)
-{
-    nvrtcProgram prog;
-    NVRTC_CHECK(nvrtcCreateProgram(&prog, src, NULL, 0, NULL, NULL));
-    NVRTC_CHECK(nvrtcCompileProgram(prog, 0, NULL));
-    std::size_t size;
-    NVRTC_CHECK(nvrtcGetPTXSize(prog, &size));
-    std::vector<char> out(size, '\0');
-    NVRTC_CHECK(nvrtcGetPTX(prog, out.data()));
-    NVRTC_CHECK(nvrtcDestroyProgram(&prog));
-    return out;
-}
-
 class gdrapi_memory_allocator : public spead2::memory_allocator
 {
 private:
     struct metadata
     {
         gdr_mh_t mh;
-        CUdeviceptr base;          // address to free
-        CUdeviceptr dptr;          // device address corresponding to the pointer
+        void *base;                // device address to free
+        void *dptr;                // device address corresponding to the pointer
         std::size_t padded_size;   // size for unmapping
     };
 
@@ -112,7 +84,7 @@ public:
 
     virtual pointer allocate(std::size_t size, void *hint) override;
 
-    static CUdeviceptr get_device_ptr(const pointer &ptr);
+    static void *get_device_ptr(const pointer &ptr);
     static gdr_mh_t get_mh(const pointer &ptr);
 };
 
@@ -138,10 +110,12 @@ gdrapi_memory_allocator::pointer gdrapi_memory_allocator::allocate(std::size_t s
     // We have to allocate more than requested so that we can manually align
     // to the page size. See https://github.com/NVIDIA/gdrcopy/issues/52
     std::size_t alloc_size = meta->padded_size + GPU_PAGE_SIZE - 1;
-    CUDA_CHECK(cuMemAlloc(&meta->base, alloc_size));
+    CUDA_CHECK(cudaMalloc(&meta->base, alloc_size));
     // Round up to the next GPU page
-    meta->dptr = (meta->base + GPU_PAGE_SIZE - 1) & GPU_PAGE_MASK;
-    INT_CHECK(gdr_pin_buffer(gdr, meta->dptr, meta->padded_size, 0, 0, &meta->mh));
+    meta->dptr = reinterpret_cast<void *>(
+        (reinterpret_cast<std::uintptr_t>(meta->base) + GPU_PAGE_SIZE - 1) & GPU_PAGE_MASK
+    );
+    INT_CHECK(gdr_pin_buffer(gdr, CUdeviceptr(meta->dptr), meta->padded_size, 0, 0, &meta->mh));
     void *hptr;
     INT_CHECK(gdr_map(gdr, meta->mh, &hptr, meta->padded_size));
     return pointer(
@@ -154,11 +128,11 @@ void gdrapi_memory_allocator::free(std::uint8_t *ptr, void *user)
     metadata *meta = static_cast<metadata *>(user);
     INT_CHECK(gdr_unmap(gdr, meta->mh, ptr, meta->padded_size));
     INT_CHECK(gdr_unpin_buffer(gdr, meta->mh));
-    CUDA_CHECK(cuMemFree(meta->base));
+    CUDA_CHECK(cudaFree(meta->base));
     delete meta;
 }
 
-CUdeviceptr gdrapi_memory_allocator::get_device_ptr(const pointer &ptr)
+void *gdrapi_memory_allocator::get_device_ptr(const pointer &ptr)
 {
     metadata *meta = static_cast<metadata *>(ptr.get_deleter().get_user());
     assert(meta != nullptr);
@@ -174,19 +148,8 @@ gdr_mh_t gdrapi_memory_allocator::get_mh(const pointer &ptr)
 
 int main()
 {
-    CUdevice device;
-    CUcontext ctx;
-    CUmodule module;
-    CUfunction kernel;
-    CUdeviceptr dsum;
-
-    CUDA_CHECK(cuInit(0));
-    CUDA_CHECK(cuDeviceGet(&device, 0));
-    CUDA_CHECK(cuCtxCreate(&ctx, 0, device));
-    std::vector<char> ptx = compile(sum_src);
-    CUDA_CHECK(cuModuleLoadDataEx(&module, ptx.data(), 0, 0, 0));
-    CUDA_CHECK(cuModuleGetFunction(&kernel, module, "sum"));
-    CUDA_CHECK(cuMemAlloc(&dsum, sizeof(unsigned long long)));
+    unsigned long long *dsum;
+    CUDA_CHECK(cudaMalloc(reinterpret_cast<void **>(&dsum), sizeof(unsigned long long)));
 
     auto raw_alloc = std::make_shared<gdrapi_memory_allocator>();
     auto alloc = std::make_shared<spead2::memory_pool>(0, 32 * 1024 * 1024, 8, 8, raw_alloc);
@@ -212,17 +175,11 @@ int main()
                 {
                     const gdrapi_memory_allocator::pointer &ptr = heap.get_payload();
                     std::size_t offset = item.ptr - ptr.get();
-                    CUdeviceptr dptr = raw_alloc->get_device_ptr(ptr) + offset;
+                    void *dptr = static_cast<std::uint8_t *>(raw_alloc->get_device_ptr(ptr)) + offset;
                     int n = item.length / sizeof(std::uint32_t);
-                    void *args[] = {&dptr, &dsum, &n};
-                    CUDA_CHECK(cuLaunchKernel(
-                        kernel,
-                        1, 1, 1,
-                        1, 1, 1,
-                        0, NULL,
-                        args, NULL));
+                    sum<<<1, 1>>>(reinterpret_cast<std::uint32_t *>(dptr), dsum, n);
                     unsigned long long hsum = 0;
-                    CUDA_CHECK(cuMemcpy((CUdeviceptr) &hsum, dsum, sizeof(hsum)));
+                    CUDA_CHECK(cudaMemcpy(&hsum, dsum, sizeof(hsum), cudaMemcpyDeviceToHost));
                     std::cout << std::fixed << double(hsum) / n << '\n';
                 }
             }

@@ -158,7 +158,7 @@ SPEAD2_ARG_WITH(
 
 SPEAD2_ARG_WITH(
     [posix-semaphores],
-    [AS_HELP_STRING([--without-posix-semaphores], [Do not POSIX semaphores, even if available])],
+    [AS_HELP_STRING([--without-posix-semaphores], [Do not use POSIX semaphores, even if available])],
     [SPEAD2_USE_POSIX_SEMAPHORES],
     [SPEAD2_CHECK_FEATURE(
         [posix_semaphores], [POSIX semaphores],
@@ -174,6 +174,24 @@ SPEAD2_ARG_WITH(
         [SPEAD2_USE_POSIX_SEMAPHORES=1], []
     )]
 )
+
+SPEAD2_ARG_WITH(
+    [cuda],
+    [AS_HELP_STRING([--without-cuda], [Do not build CUDA examples])],
+    [SPEAD2_USE_CUDA],
+    [AC_CHECK_PROG([NVCC], [nvcc], [nvcc])
+     AS_IF([test "x$NVCC" != "x"], [SPEAD2_USE_CUDA=1])]
+)
+AC_ARG_VAR(NVCC)
+
+SPEAD2_ARG_WITH(
+    [gdrapi],
+    [AS_HELP_STRING([--without-gdrapi], [Do not build examples using gdrcopy])],
+    [SPEAD2_USE_GDRAPI],
+    [SPEAD2_CHECK_HEADER(
+        [gdrapi.h], [gdrapi], [gdr_open()],
+        [SPEAD2_USE_GDRAPI=1])
+    ])
 
 ### Determine libraries to link against and include paths
 
@@ -220,6 +238,8 @@ AM_CONDITIONAL([OPTIMIZED], [test "x$enable_optimized" != "xno"])
 AM_CONDITIONAL([COVERAGE], [test "x$enable_coverage" = "xyes"])
 AM_CONDITIONAL([LTO], [test "x$enable_lto" = "xyes"])
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
+AM_CONDITIONAL([SPEAD2_USE_CUDA], [test "x$SPEAD2_USE_CUDA" = "x1"])
+AM_CONDITIONAL([SPEAD2_USE_GDRAPI], [test "x$SPEAD2_USE_GDRAPI" = "x1"])
 
 AC_SUBST(SPEAD2_MAJOR, m4_esyscmd([python gen/get_version.py major]))
 AC_SUBST(SPEAD2_MINOR, m4_esyscmd([python gen/get_version.py minor]))
@@ -257,4 +277,6 @@ SPEAD2_PRINT_FEATURE([ibverbs], [test "x$SPEAD2_USE_IBV" = "x1"])
 SPEAD2_PRINT_FEATURE([ibverbs HW rate limit], [test "x$SPEAD2_USE_IBV_HW_RATE_LIMIT" = "x1"])
 SPEAD2_PRINT_FEATURE([mlx5dv], [test "x$SPEAD2_USE_MLX5DV" = "x1"])
 SPEAD2_PRINT_FEATURE([pcap], [test "x$SPEAD2_USE_PCAP" = "x1"])
+SPEAD2_PRINT_FEATURE([CUDA (examples only)], [test "x$SPEAD2_USE_CUDA" = "x1"])
+SPEAD2_PRINT_FEATURE([gdrcopy (examples only)], [test "x$SPEAD2_USE_GDRAPI" = "x1"])
 echo ""
