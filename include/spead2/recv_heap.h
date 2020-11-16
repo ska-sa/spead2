@@ -123,6 +123,13 @@ public:
      * a @c CTRL_STREAM_STOP.
      */
     bool is_end_of_stream() const;
+
+    /**
+     * Get the payload pointer. This will return an empty pointer unless
+     * @a keep_payload was set in the constructor. This is not normally
+     * needed, but has applications in some advanced use cases.
+     */
+    const memory_allocator::pointer &get_payload() const { return payload; }
 };
 
 /**
@@ -193,12 +200,6 @@ public:
     s_item_pointer_t get_heap_length() const { return heap_length; }
     /// Number of bytes of payload received
     s_item_pointer_t get_received_length() const { return received_length; }
-
-    /**
-     * Get the payload pointer. This will return an empty pointer unless
-     * @a keep_payload was set in the constructor.
-     */
-    const memory_allocator::pointer &get_payload() const { return payload; }
 
     /**
      * Return a list of contiguous ranges of payload that were received. This

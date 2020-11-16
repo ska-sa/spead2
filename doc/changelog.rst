@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add :cpp:func:`spead2::recv::heap::get_payload` to allow the payload
+  pointer to be retrieved from a complete heap.
+
 .. rubric:: 3.1.2
 
 - Fix a use-after-free bug that could cause a crash when freeing a send
