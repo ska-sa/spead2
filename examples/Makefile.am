@@ -15,7 +15,7 @@
 
 include $(top_srcdir)/src/Makefile.inc.am
 
-noinst_PROGRAMS = test_recv test_send test_ringbuffer
+noinst_PROGRAMS = test_recv test_send test_ringbuffer gdrapi_example
 
 test_recv_SOURCES = test_recv.cpp
 
@@ -23,3 +23,7 @@ test_send_SOURCES = test_send.cpp
 
 test_ringbuffer_SOURCES = test_ringbuffer.cpp
 test_ringbuffer_LDADD = -lboost_program_options $(LDADD)
+
+gdrapi_example_SOURCES = gdrapi_example.cpp
+gdrapi_example_LDADD = -lgdrapi -L/usr/local/cuda/lib64 -lcuda -lnvrtc $(LDADD)
+gdrapi_example_CPPFLAGS = -I/usr/local/cuda/include $(AM_CPPFLAGS)
