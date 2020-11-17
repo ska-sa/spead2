@@ -85,12 +85,16 @@ new allocators can be created by subclassing :cpp:class:`spead2::memory_allocato
 For an allocator set on a stream, a pointer to a
 :cpp:class:`spead2::recv::packet_header` is passed as a hint to the allocator,
 allowing memory to be placed according to information in the packet. Note that
-for unreliable transports this could be any packet from the heap, and you should
-not rely on it being the initial packet.
+if the :cpp:member:`~spead2::recv::stream_config` has been configured to allow
+out of order packets then this could be any packet from the heap, rather than
+the first one.
 
 .. doxygenclass:: spead2::memory_allocator
    :members: allocate, free
 
+The file :file:`examples/gdrapi_example.cu` in the spead2 source distribution
+shows an example of using a custom memory allocator to allocate memory for
+heaps on the GPU.
 
 Custom memory scatter
 ---------------------------
@@ -143,3 +147,6 @@ though:
    doesn't copy things to the same place, you obviously won't be able to use
    those pointers. Note that :cpp:func:`~spead2::recv::heap::get_descriptors`
    will also not be usable.
+
+See :file:`examples/gdrapi_example.cu` in the spead2 source distribution for an
+example that copies data to a GPU.
