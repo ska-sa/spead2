@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: 3.1.3
+
+- Fix installation of header files: some newer headers were not being
+  installed, breaking builds for C++ projects.
+
 .. rubric:: 3.1.2
 
 - Fix a use-after-free bug that could cause a crash when freeing a send
