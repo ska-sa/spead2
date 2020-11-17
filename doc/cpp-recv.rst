@@ -86,7 +86,7 @@ For an allocator set on a stream, a pointer to a
 :cpp:class:`spead2::recv::packet_header` is passed as a hint to the allocator,
 allowing memory to be placed according to information in the packet. Note that
 if the :cpp:member:`~spead2::recv::stream_config` has been configured to allow
-out of order packets then this could be any packet from the heap, rather than
+out-of-order packets then this could be any packet from the heap, rather than
 the first one.
 
 .. doxygenclass:: spead2::memory_allocator
