@@ -151,7 +151,7 @@ public:
 
 udp_ibv_writer::memory_region::memory_region(
     const ibv_pd_t &pd, const void *ptr, std::size_t size)
-    : ptr(ptr), size(size), mr(pd, const_cast<void *>(ptr), size, 0)
+    : ptr(ptr), size(size), mr(pd, const_cast<void *>(ptr), size, IBV_ACCESS_LOCAL_WRITE)
 {
 }
 
