@@ -58,8 +58,8 @@ __global__ void sum(const unsigned int *data, unsigned long long *out, int n)
 /// Crash out if a CUDA call fails
 #define CUDA_CHECK(cmd)             \
     ({                              \
-        cudaError_t result = (cmd);    \
-        if (result != cudaSuccess) \
+        cudaError_t result = (cmd); \
+        if (result != cudaSuccess)  \
         {                           \
             std::cerr << "CUDA error: " << #cmd << "\n"; \
             std::exit(1);           \
