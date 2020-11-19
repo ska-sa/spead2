@@ -5,9 +5,12 @@ Changelog
 
 - Add :cpp:func:`spead2::recv::heap::get_payload` to allow the payload
   pointer to be retrieved from a complete heap.
-- Add an example program showing integration with `gdrcopy`_.
+- Make the ibverbs sender compatible with `PeerDirect`_.
+- Add examples programs showing integration with `gdrcopy`_ and
+  `PeerDirect`_.
 
 .. _gdrcopy: https://github.com/NVIDIA/gdrcopy
+.. _PeerDirect: https://docs.mellanox.com/pages/viewpage.action?pageId=32413288
 
 .. rubric:: 3.1.3
 
