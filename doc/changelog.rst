@@ -5,6 +5,7 @@ Changelog
 
 - Add :cpp:func:`spead2::recv::heap::get_payload` to allow the payload
   pointer to be retrieved from a complete heap.
+- Make the ibverbs sender compatible with `PeerDirect`_.
 - Add examples programs showing integration with `gdrcopy`_ and
   `PeerDirect`_.
 
