@@ -108,7 +108,6 @@ protected:
     ibv_pd_t pd;
     ibv_comp_channel_t comp_channel;
     boost::asio::posix::stream_descriptor comp_channel_wrapper;
-    std::vector<ibv_flow_t> flows;
 
     ///< Maximum supported packet size
     const std::size_t max_size;
@@ -275,9 +274,14 @@ private:
 
     // All the data structures required by ibverbs
     ibv_cq_t send_cq;
+    ibv_cq_t recv_cq;
     ibv_qp_t qp;
     ibv_mr_t mr;
-    ibv_cq_t recv_cq;
+    /* Note: don't try to move this to the base class, even though it is
+     * shared with udp_ibv_reader_mprq. It needs to be destroyed before the
+     * QP, otherwise destroying the QP fails with EBUSY.
+     */
+    std::vector<ibv_flow_t> flows;
 
     ///< Number of packets that can be queued
     const std::size_t n_slots;
