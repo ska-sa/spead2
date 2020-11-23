@@ -8,6 +8,8 @@ Changelog
 - Make the ibverbs sender compatible with `PeerDirect`_.
 - Add examples programs showing integration with `gdrcopy`_ and
   `PeerDirect`_.
+- Always use SFENCE at end of :cpp:func:`memcpy_nontemporal` so that it is
+  appropriate for use with `gdrcopy`_.
 - Fix a memory leak when receiving with ibverbs.
 
 .. _gdrcopy: https://github.com/NVIDIA/gdrcopy
