@@ -43,7 +43,14 @@ void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src
     {
         if (head >= n)
         {
-            return std::memcpy(dest_c, src_c, n);
+            std::memcpy(dest_c, src_c, n);
+            /* Not normally required, but if the destination is
+             * write-combining memory then this will flush the combining
+             * buffers. That may be necessary if the memory is actually on
+             * a GPU or other accelerator.
+             */
+            _mm_sfence();
+            return dest;
         }
         std::memcpy(dest_c, src_c, head);
         dest_c += head;
