@@ -57,11 +57,12 @@ private:
     friend class detail::udp_ibv_reader_base<udp_ibv_mprq_reader>;
 
     // All the data structures required by ibverbs
+    ibv_cq_ex_t recv_cq;
     ibv_wq_mprq_t wq;
     ibv_rwq_ind_table_t rwq_ind_table;
     ibv_qp_t qp;
     ibv_mr_t mr;
-    ibv_cq_ex_t recv_cq;
+    std::vector<ibv_flow_t> flows;
 
     /// Data buffer for all the packets
     memory_allocator::pointer buffer;

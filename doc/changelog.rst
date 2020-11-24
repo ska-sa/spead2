@@ -8,6 +8,7 @@ Changelog
 - Make the ibverbs sender compatible with `PeerDirect`_.
 - Add examples programs showing integration with `gdrcopy`_ and
   `PeerDirect`_.
+- Fix a memory leak when receiving with ibverbs.
 
 .. _gdrcopy: https://github.com/NVIDIA/gdrcopy
 .. _PeerDirect: https://docs.mellanox.com/pages/viewpage.action?pageId=32413288
