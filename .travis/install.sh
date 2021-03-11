@@ -25,7 +25,11 @@ fi
 
 source venv/bin/activate
 pip install -U pip setuptools wheel
-pip install -r requirements.txt
+if python --version | grep -q 'Python 3\.6'; then
+    pip install -r requirements-3.6.txt
+else
+    pip install -r requirements.txt
+fi
 if [ "$COVERAGE" = "yes" ]; then
     pip install cpp-coveralls
 fi
