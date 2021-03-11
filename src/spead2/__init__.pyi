@@ -1,4 +1,4 @@
-# Copyright 2019 National Research Foundation (SARAO)
+# Copyright 2019-2021 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -17,6 +17,10 @@ from typing import (List, Sequence, Optional, Tuple, Any, Union,
                     Dict, KeysView, ValuesView, Text, overload)
 
 import numpy as np
+try:
+    from numpy.typing import DTypeLike as _DTypeLike
+except ImportError:
+    _DTypeLike = Any  # type: ignore
 import spead2.recv
 
 _EndpointList = List[Tuple[str, int]]
@@ -128,7 +132,7 @@ class Descriptor:
     format: Optional[List[Tuple[str, int]]]
 
     def __init__(self, id: int, name: str, description: str,
-                 shape: Sequence[Optional[int]], dtype: Optional[np.dtype] = None,
+                 shape: Sequence[Optional[int]], dtype: Optional[_DTypeLike] = None,
                  order: str = ..., format: Optional[List[Tuple[str, int]]] = None) -> None: ...
     @property
     def itemsize_bits(self) -> int: ...
@@ -146,7 +150,7 @@ class Item(Descriptor):
     version: int
 
     def __init__(self, id: int, name: str, description: str,
-                 shape: Sequence[Optional[int]], dtype: Optional[np.dtype] = None,
+                 shape: Sequence[Optional[int]], dtype: Optional[_DTypeLike] = None,
                  order: str = ..., format: Optional[List[Tuple[str, int]]] = None,
                  value: Any = None) -> None: ...
     @property
@@ -160,7 +164,7 @@ class Item(Descriptor):
 class ItemGroup:
     def __init__(self) -> None: ...
     def add_item(self, id: Optional[int], name: str, description: str,
-                 shape: Sequence[Optional[int]], dtype: Optional[np.dtype] = None,
+                 shape: Sequence[Optional[int]], dtype: Optional[_DTypeLike] = None,
                  order: str = 'C', format: Optional[List[Tuple[str, int]]] = None,
                  value: Any = None) -> Item: ...
     def __getitem__(self, key: Union[int, str]) -> Item: ...
