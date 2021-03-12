@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: 3.2.1
+
+- Update type annotations to use :class:`numpy.typing.DTypeLike` for dtype
+  arguments, to prevent false warnings from mypy.
+
 .. rubric:: 3.2.0
 
 - Add :cpp:func:`spead2::recv::heap::get_payload` to allow the payload
