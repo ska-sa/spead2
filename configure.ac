@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-AC_INIT([spead2], m4_esyscmd([python gen/get_version.py full]))
+AC_INIT([spead2], m4_esyscmd([python3 gen/get_version.py full]))
 # Suppress the default CXXFLAGS
 : ${CXXFLAGS=""}
 AC_CONFIG_AUX_DIR([build-aux])
@@ -241,10 +241,10 @@ AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
 AM_CONDITIONAL([SPEAD2_USE_CUDA], [test "x$SPEAD2_USE_CUDA" = "x1"])
 AM_CONDITIONAL([SPEAD2_USE_GDRAPI], [test "x$SPEAD2_USE_GDRAPI" = "x1"])
 
-AC_SUBST(SPEAD2_MAJOR, m4_esyscmd([python gen/get_version.py major]))
-AC_SUBST(SPEAD2_MINOR, m4_esyscmd([python gen/get_version.py minor]))
-AC_SUBST(SPEAD2_PATCH, m4_esyscmd([python gen/get_version.py patch]))
-AC_SUBST(SPEAD2_VERSION, m4_esyscmd([python gen/get_version.py full]))
+AC_SUBST(SPEAD2_MAJOR, m4_esyscmd([python3 gen/get_version.py major]))
+AC_SUBST(SPEAD2_MINOR, m4_esyscmd([python3 gen/get_version.py minor]))
+AC_SUBST(SPEAD2_PATCH, m4_esyscmd([python3 gen/get_version.py patch]))
+AC_SUBST(SPEAD2_VERSION, m4_esyscmd([python3 gen/get_version.py full]))
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
