@@ -79,7 +79,12 @@ static inline boost::asio::io_service &get_socket_io_service(SocketType &socket)
 template<typename SocketType>
 static inline bool socket_uses_io_service(SocketType &socket, boost::asio::io_service &io_service)
 {
-#if BOOST_VERSION >= 107000
+#if BOOST_VERSION >= 107600 && BOOST_VERSION < 107700
+    // Workaround for https://github.com/chriskohlhoff/asio/issues/853
+    typedef boost::asio::io_service::executor_type executor_type;
+    return socket.get_executor().target_type() == typeid(executor_type)
+          && *socket.get_executor().template target<executor_type>() == io_service.get_executor();
+#elif BOOST_VERSION >= 107000
     return socket.get_executor() == io_service.get_executor();
 #else
     return &socket.get_io_service() == &io_service;
