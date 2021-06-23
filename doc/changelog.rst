@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: 3.2.2
+
+- Use ``python3`` instead of ``python`` to invoke Python (so that it works
+  even on systems where ``python`` is absent or is Python 2).
+- Work around a bug that prevented compilation on Boost 1.76.
+
 .. rubric:: 3.2.1
 
 - Update type annotations to use :class:`numpy.typing.DTypeLike` for dtype
