@@ -30,7 +30,7 @@ AC_LANG(C++)
 ### Check for -std=c++11
 
 save_CXXFLAGS="$CXXFLAGS"
-CXXFLAGS="-std=c++11 $CXXFLAGS"
+CXXFLAGS="-std=c++11 $CXXFLAGS -pipe"
 SPEAD2_CHECK_FEATURE([compiler_cxx11], [-std=c++11], [unordered_map], [], [std::unordered_map<int, int> m], [],
                      [AC_MSG_ERROR([C++11 support is required])])
 CXXFLAGS="$save_CXXFLAGS"
