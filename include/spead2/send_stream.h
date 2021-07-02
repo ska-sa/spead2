@@ -80,12 +80,12 @@ static inline const heap &get_heap(const heap &h)
     return h;
 }
 
-static inline s_item_pointer_t get_heap_cnt(const heap &h)
+static inline s_item_pointer_t get_heap_cnt(const heap &)
 {
     return -1;
 }
 
-static inline std::size_t get_heap_substream_index(const heap &h)
+static inline std::size_t get_heap_substream_index(const heap &)
 {
     return 0;
 }
@@ -230,8 +230,8 @@ private:
     class null_unwinder
     {
     public:
-        explicit null_unwinder(stream &s, std::size_t tail) {}
-        void set_tail(std::size_t tail) {}
+        explicit null_unwinder(stream &, std::size_t) {}
+        void set_tail(std::size_t) {}
         void abort() {}
         void commit() {}
     };
