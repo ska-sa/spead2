@@ -15,7 +15,9 @@ Within these limitations, it is quite easy to take advantage of this faster
 code path. The main difficulties are that one *must* specify the IP address of
 the interface that will send or receive the packets, and that the
 ``CAP_NET_RAW`` capability may be needed. The netifaces_ module can
-help find the IP address for an interface by name.
+help find the IP address for an interface by name, and the
+:ref:`spead2_net_raw` tool simplifies the process of getting the
+``CAP_NET_RAW`` capability.
 
 .. _netifaces: https://pypi.python.org/pypi/netifaces
 
