@@ -1,8 +1,9 @@
 Changelog
 =========
 
-.. rubric:: 3.2.3
+.. rubric:: 3.3.0
 
+- Add :ref:`spead2_net_raw` tool.
 - Eliminate some compiler warnings about unused parameters.
 - Update build process to use pypa-build and setuptools_scm.
 - Update to pybind11 2.6.2.
