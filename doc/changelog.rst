@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: 3.2.3
+
+- Eliminate some compiler warnings about unused parameters.
+- Update build process to use pypa-build and setuptools_scm.
+- Update to pybind11 2.6.2.
+
 .. rubric:: 3.2.2
 
 - Use ``python3`` instead of ``python`` to invoke Python (so that it works

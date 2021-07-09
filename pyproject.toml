@@ -1,3 +1,2 @@
 [build-system]
-requires = ["setuptools", "wheel", "pybind11==2.6.0"]
-# If updating pybind11 version, also update .travis/script.sh
+requires = ["setuptools", "wheel", "pybind11==2.6.2", "setuptools_scm==6.0.1"]
