@@ -35,6 +35,13 @@ spead2_send_LDADD = -lboost_program_options $(LDADD)
 spead2_bench_SOURCES = spead2_bench.cpp spead2_cmdline.cpp
 spead2_bench_LDADD = -lboost_program_options $(LDADD)
 
+if SPEAD2_USE_CAP
+bin_PROGRAMS += spead2_net_raw
+spead2_net_raw_SOURCES = spead2_net_raw.c
+spead2_net_raw_CFLAGS = $(CAP_CFLAGS)
+spead2_net_raw_LDADD = $(CAP_LIBS)
+endif
+
 spead2_unittest_SOURCES = \
 	unittest_main.cpp \
 	unittest_logging.cpp \

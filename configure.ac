@@ -20,6 +20,7 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_SRCDIR([src/common_logging.cpp])
 AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([foreign])
+AC_PROG_CC
 AC_PROG_CXX
 AC_CHECK_TOOL(AR, ar, :)
 AC_PROG_RANLIB
@@ -110,6 +111,13 @@ SPEAD2_ARG_WITH(
             [])
         ])
     ]
+)
+
+SPEAD2_ARG_WITH(
+    [cap],
+    [AS_HELP_STRING([--without-cap], [Do not use libcap, even if detected])],
+    [SPEAD2_USE_CAP],
+    [PKG_CHECK_MODULES([CAP], [libcap], [SPEAD2_USE_CAP=1], [SPEAD2_USE_CAP=0])]
 )
 
 SPEAD2_ARG_WITH(
@@ -240,6 +248,7 @@ AM_CONDITIONAL([LTO], [test "x$enable_lto" = "xyes"])
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
 AM_CONDITIONAL([SPEAD2_USE_CUDA], [test "x$SPEAD2_USE_CUDA" = "x1"])
 AM_CONDITIONAL([SPEAD2_USE_GDRAPI], [test "x$SPEAD2_USE_GDRAPI" = "x1"])
+AM_CONDITIONAL([SPEAD2_USE_CAP], [test "x$SPEAD2_USE_CAP" = "x1"])
 
 AC_SUBST(SPEAD2_MAJOR, m4_esyscmd([python3 gen/get_version.py major]))
 AC_SUBST(SPEAD2_MINOR, m4_esyscmd([python3 gen/get_version.py minor]))
@@ -277,6 +286,7 @@ SPEAD2_PRINT_FEATURE([ibverbs], [test "x$SPEAD2_USE_IBV" = "x1"])
 SPEAD2_PRINT_FEATURE([ibverbs HW rate limit], [test "x$SPEAD2_USE_IBV_HW_RATE_LIMIT" = "x1"])
 SPEAD2_PRINT_FEATURE([mlx5dv], [test "x$SPEAD2_USE_MLX5DV" = "x1"])
 SPEAD2_PRINT_FEATURE([pcap], [test "x$SPEAD2_USE_PCAP" = "x1"])
+SPEAD2_PRINT_FEATURE([cap (for spead2_net_raw)], [test "x$SPEAD2_USE_CAP" = "x1"])
 SPEAD2_PRINT_FEATURE([CUDA (examples only)], [test "x$SPEAD2_USE_CUDA" = "x1"])
 SPEAD2_PRINT_FEATURE([gdrcopy (examples only)], [test "x$SPEAD2_USE_GDRAPI" = "x1"])
 echo ""

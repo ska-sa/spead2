@@ -120,3 +120,40 @@ Limitations
 
 - It is not optimised for small packets (below about 1KB). Packet capture rates
   top out around 6Mpps for current hardware.
+
+.. _spead2_net_raw:
+
+spead2_net_raw
+--------------
+When using :doc:`ibverbs <py-ibverbs>`, it is necessary to have the
+``CAP_NET_RAW`` capability on Linux. While this can be achieved by running as
+root, doing so may be undesirable. The :program:`spead2_net_raw` utility
+program can be used to simplify running ibverbs applications. To use it, the
+program must first be given the capability. After installation, this can be
+done by running
+
+.. code:: sh
+
+   sudo setcap cap_net_raw+p /usr/local/bin/spead2_net_raw
+
+Adjust the path as necessary to match your installation. If
+:program:`spead2_net_raw` did not get installed, check that you have the libcap
+development headers installed (for example, ``libcap-dev`` in Ubuntu), and
+rerun :program:`configure` to detect it.
+
+Now you can prefix any command with :program:`spead2_net_raw` and it will have
+the ``CAP_NET_RAW`` capability. It is an "ambient" capability, so all
+child processes will have the capability too, which can be useful if the
+process you run is a shell.
+
+.. warning::
+
+   After doing the above, any user on the system that can run
+   :program:`cap_net_raw` will be able to intercept any incoming network
+   traffic or generate arbitrary outgoing traffic. You should not do this
+   blindly if there are untrusted users on your system, or if the system
+   allows untrusted code to run outside of a secure sandbox.
+
+This is not the only way to give :program:`spead2_net_raw` the capability (you
+can, for example, make it an "inherited" capability), but a full discussion of
+the Linux capabilities model is beyond the scope of this manual.
