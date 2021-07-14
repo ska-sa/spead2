@@ -131,8 +131,6 @@ jobs:
           python-version: '3.9'
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
-        env:
-          CC: ${{ matrix.cc }}  # Do not pass -Werror when building dependencies
       - run: ./bootstrap.sh
       - name: Prepare Python build for coverage
         run: |
