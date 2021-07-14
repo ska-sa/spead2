@@ -9,4 +9,3 @@ set -e -v
 # merge the single file it will do merging.
 lcov -c -d . --include "$PWD/include/spead2/*" --include "$PWD/src/*" -o lcov-temp.info
 lcov -a lcov-temp.info -o lcov.info
-./venv/bin/cpp-coveralls --no-gcov --lcov-file lcov.info
