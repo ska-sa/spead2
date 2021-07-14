@@ -15,6 +15,7 @@
 
 import socket
 import struct
+import sys
 import platform
 import time
 
@@ -967,6 +968,10 @@ class TestUdpReader:
         with pytest.raises(TypeError):
             receiver.add_udp_reader(100000)
 
+    @pytest.mark.skipif(
+        sys.platform == 'darwin',
+        reason='Test does not work with macos on Github Actions'
+    )
     def test_illegal_udp_port(self):
         receiver = recv.Stream(spead2.ThreadPool())
         with pytest.raises(RuntimeError):
