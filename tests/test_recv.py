@@ -15,6 +15,7 @@
 
 import socket
 import struct
+import platform
 import time
 
 import numpy as np
@@ -884,6 +885,10 @@ class TestUdpIbvConfig:
         with pytest.raises(ValueError, match='interface address'):
             stream.add_udp_ibv_reader(config)
 
+    @pytest.mark.skipif(
+        platform.python_implementation() == 'PyPy',
+        reason='Deprecations not being report on PyPy due to pybind/pybind11#3110'
+    )
     def test_deprecated_constants(self):
         with pytest.deprecated_call():
             assert recv.Stream.DEFAULT_UDP_IBV_BUFFER_SIZE == recv.UdpIbvConfig.DEFAULT_BUFFER_SIZE
