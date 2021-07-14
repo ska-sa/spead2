@@ -133,7 +133,6 @@ struct queue_item
     // Populated by flush(). A forward_list takes less space when not used than vector.
     std::forward_list<std::promise<void>> waiters;
 
-    queue_item() = default;
     queue_item(const heap &h, item_pointer_t cnt, std::size_t substream_index,
                std::size_t group_end, std::size_t group_next,
                std::size_t max_packet_size)
