@@ -14,6 +14,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/* This file is written in C. It's in a .cpp file so that the build system
+ * doesn't need to worry about setting the right compiler flags for both C
+ * and C++.
+ */
+
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
