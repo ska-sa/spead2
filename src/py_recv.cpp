@@ -576,17 +576,23 @@ py::module register_module(py::module &parent)
 #if SPEAD2_USE_IBV
         .def_property_readonly_static("DEFAULT_UDP_IBV_MAX_SIZE",
             [](py::object) {
+#ifndef PYPY_VERSION  // Workaround for https://github.com/pybind/pybind11/issues/3110
                 deprecation_warning("Use spead2.recv.UdpIbvConfig.DEFAULT_MAX_SIZE");
+#endif
                 return udp_ibv_config::default_max_size;
             })
         .def_property_readonly_static("DEFAULT_UDP_IBV_BUFFER_SIZE",
             [](py::object) {
+#ifndef PYPY_VERSION  // Workaround for https://github.com/pybind/pybind11/issues/3110
                 deprecation_warning("Use spead2.recv.UdpIbvConfig.DEFAULT_BUFFER_SIZE");
+#endif
                 return udp_ibv_config::default_buffer_size;
             })
         .def_property_readonly_static("DEFAULT_UDP_IBV_MAX_POLL",
             [](py::object) {
+#ifndef PYPY_VERSION  // Workaround for https://github.com/pybind/pybind11/issues/3110
                 deprecation_warning("Use spead2.recv.UdpIbvConfig.DEFAULT_MAX_POLL");
+#endif
                 return udp_ibv_config::default_max_poll;
             })
 #endif

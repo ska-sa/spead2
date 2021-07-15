@@ -455,6 +455,8 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
 
     @classmethod
     def get_interface_index(cls):
+        if not hasattr(socket, 'if_nametoindex'):
+            pytest.skip('socket.if_nametoindex does not exist')
         for iface in netifaces.interfaces():
             addrs = netifaces.ifaddresses(iface).get(netifaces.AF_INET6, [])
             for addr in addrs:

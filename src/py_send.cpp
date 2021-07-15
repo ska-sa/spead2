@@ -632,12 +632,16 @@ static py::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
             "udp_ibv_config"_a)
         .def_property_readonly_static("DEFAULT_BUFFER_SIZE",
             [](py::object) {
+#ifndef PYPY_VERSION  // Workaround for https://github.com/pybind/pybind11/issues/3110
                 deprecation_warning("Use spead2.send.UdpIbvConfig.DEFAULT_BUFFER_SIZE");
+#endif
                 return udp_ibv_config::default_buffer_size;
             })
         .def_property_readonly_static("DEFAULT_MAX_POLL",
             [](py::object) {
+#ifndef PYPY_VERSION  // Workaround for https://github.com/pybind/pybind11/issues/3110
                 deprecation_warning("Use spead2.send.UdpIbvConfig.DEFAULT_MAX_POLL");
+#endif
                 return udp_ibv_config::default_max_poll;
             });
 }

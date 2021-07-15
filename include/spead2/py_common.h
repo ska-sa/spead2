@@ -120,7 +120,7 @@ template<typename T>
 T *data_class_constructor(pybind11::kwargs kwargs)
 {
     pybind11::object self = pybind11::cast(new T());
-    for (const auto &item : kwargs)
+    for (auto item : kwargs)
     {
         if (pybind11::hasattr(self, item.first))
             pybind11::setattr(self, item.first, item.second);
@@ -222,7 +222,6 @@ private:
     void run();
 
 public:
-    log_function_python() = default;
     explicit log_function_python(pybind11::object logger, std::size_t ring_size = 1024);
 
     ~log_function_python() { stop(); }

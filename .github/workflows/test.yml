@@ -1,0 +1,157 @@
+name: Unit tests
+on: [push, pull_request]
+jobs:
+  test-cxx:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-20.04
+            cxx: g++
+            extras: yes
+          - os: ubuntu-20.04
+            cxx: clang++
+            extras: yes
+          - os: macos-10.15
+            cxx: clang++
+            extras: no
+    runs-on: ${{ matrix.os }}
+    env:
+      CXX: ${{ matrix.cxx }} -Werror
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-cxx-ccache-${{ hashFiles('**') }}
+          restore-keys: |
+            ${{ runner.os }}-cxx-ccache-
+      - name: Install system packages
+        run: ./.ci/install-sys-pkgs.sh
+      - name: Set up ccache
+        run: ./.ci/ccache-path.sh
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'
+      - run: pip install jinja2 pycparser
+      - run: ./bootstrap.sh
+      - name: Run configure
+        run: ./.ci/configure.sh ${{ matrix.extras }}
+      - name: Build
+        run: make -C build -j
+      - name: Run tests
+        run: ./.ci/cxx-tests.sh
+      - name: Show ccache stats
+        run: ccache -s
+
+  test-python:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-20.04
+            cc: gcc
+            cxx: g++
+            python-version: 3.6
+          - os: ubuntu-20.04
+            cc: gcc
+            cxx: g++
+            python-version: pypy-3.7
+          - os: ubuntu-20.04
+            cc: gcc
+            cxx: g++
+            python-version: 3.9
+          - os: ubuntu-20.04
+            cc: clang
+            cxx: clang++
+            python-version: 3.9
+          - os: macos-10.15
+            cc: clang
+            cxx: clang++
+            python-version: 3.9
+    runs-on: ${{ matrix.os }}
+    env:
+      CC: ${{ matrix.cc }} -Werror
+      CXX: ${{ matrix.cxx }} -Werror
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-py-ccache-${{ hashFiles('**') }}
+          restore-keys: |
+            ${{ runner.os }}-py-ccache-
+      - uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install system packages
+        run: ./.ci/install-sys-pkgs.sh
+      - name: Set up ccache
+        run: ./.ci/ccache-path.sh
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Python dependencies
+        run: ./.ci/py-requirements.sh
+        env:
+          CC: ${{ matrix.cc }}  # Do not pass -Werror when building dependencies
+      - run: ./bootstrap.sh
+      - run: pip install -v .
+      - name: Run tests
+        run: ./.ci/py-tests.sh
+      - run: flake8
+      - name: Show ccache stats
+        run: ccache -s
+
+  coverage:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-coverage-ccache-${{ hashFiles('**') }}
+          restore-keys: |
+            ${{ runner.os }}-coverage-ccache-
+      - uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install system packages
+        run: ./.ci/install-sys-pkgs.sh
+      - name: Set up ccache
+        run: ./.ci/ccache-path.sh
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Install Python dependencies
+        run: ./.ci/py-requirements.sh
+      - run: ./bootstrap.sh
+      - name: Prepare Python build for coverage
+        run: |
+          echo '[build_ext]' > setup.cfg
+          echo 'coverage = yes' >> setup.cfg
+      # An in-tree build is needed for the coverage files to be written to
+      # the right places.
+      - run: pip install --use-feature=in-tree-build -v .
+      - name: Run Python tests
+        run: ./.ci/py-tests.sh
+      - name: Run configure
+        run: ./.ci/configure.sh yes --disable-optimized --enable-coverage
+      - name: Build
+        run: make -C build -j
+      - name: Run C++ tests
+        run: ./.ci/cxx-tests.sh
+      - name: Collect coverage
+        run: ./.ci/coverage.sh
+      - uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: lcov.info
+      - name: Show ccache stats
+        run: ccache -s

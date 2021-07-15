@@ -82,7 +82,8 @@ class TestUdpStream:
                                               spead2.send.GroupMode.ROUND_ROBIN)
         self.heap = None
         await future
-        gc.collect()
+        for i in range(5):  # Try extra hard to make PyPy release things
+            gc.collect()
         assert weak() is None
 
 
