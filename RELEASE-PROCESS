@@ -3,7 +3,7 @@
 - Update version number in src/spead2/_version.py
 - ./bootstrap.sh
 - Check that .pyi stubs have been updated
-- Check that Travis successfully tested the release
+- Check that Github Actions successfully tested the release
 - Run ./mkwheels.sh
 - Run python -m build -s
 - Install the sdist and check that it passes pytest
