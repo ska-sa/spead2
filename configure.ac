@@ -20,7 +20,6 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_SRCDIR([src/common_logging.cpp])
 AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([foreign])
-AC_PROG_CC
 AC_PROG_CXX
 AC_CHECK_TOOL(AR, ar, :)
 AC_PROG_RANLIB
