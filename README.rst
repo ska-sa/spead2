@@ -5,8 +5,8 @@ spead2
    :target: https://readthedocs.org/projects/spead2/?badge=latest
    :alt: Documentation Status
 
-.. image:: https://travis-ci.org/ska-sa/spead2.svg?branch=master
-   :target: https://travis-ci.org/ska-sa/spead2
+.. image:: https://github.com/ska-sa/spead2/actions/workflows/test.yml/badge.svg
+   :target: https://github.com/ska-sa/spead2/actions/workflows/test.yml
    :alt: Test Status
 
 .. image:: https://coveralls.io/repos/github/ska-sa/spead2/badge.svg
