@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: 3.3.2
+
+- :cpp:class:`spead2::recv::mem_reader` now stops the stream gracefully,
+  allowing incomplete heaps to be flushed.
+
 .. rubric:: 3.3.1
 
 - Convert :program:`spead2_net_raw` to a C++ file so that it gets the same
