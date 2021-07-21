@@ -38,7 +38,8 @@ mem_reader::mem_reader(
     get_io_service().post([this] {
         mem_to_stream(get_stream_base(), this->ptr, this->length);
         // There will be no more data, so we can stop the stream immediately.
-        get_stream_base().stop();
+        stream_base::add_packet_state state(get_stream_base());
+        state.stop();
         stopped();
     });
 }
