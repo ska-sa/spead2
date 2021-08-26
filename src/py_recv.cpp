@@ -383,7 +383,7 @@ public:
     }
 };
 
-/// Register the receiver module with Boost.Python
+/// Register the receiver module with Python
 py::module register_module(py::module &parent)
 {
     using namespace pybind11::literals;
