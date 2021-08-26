@@ -466,6 +466,9 @@ py::module register_module(py::module &parent)
         .def_property("allow_out_of_order",
                       SPEAD2_PTMF(stream_config, get_allow_out_of_order),
                       SPEAD2_PTMF_VOID(stream_config, set_allow_out_of_order))
+        .def_property("stream_id",
+                      SPEAD2_PTMF(stream_config, get_stream_id),
+                      SPEAD2_PTMF(stream_config, set_stream_id))
         .def_readonly_static("DEFAULT_MAX_HEAPS", &stream_config::default_max_heaps);
     py::class_<ring_stream_config_wrapper>(m, "RingStreamConfig")
         .def(py::init(&data_class_constructor<ring_stream_config_wrapper>))

@@ -117,6 +117,8 @@ private:
     bool allow_unsized_heaps = true;
     /// Whether to accept packets out-of-order for a single heap
     bool allow_out_of_order = false;
+    /// A user-defined identifier for a stream
+    std::uintptr_t stream_id = 0;
 
 public:
     stream_config();
@@ -173,6 +175,12 @@ public:
 
     /// Get bug compatibility flags.
     bug_compat_mask get_bug_compat() const { return bug_compat; }
+
+    /// Set a stream ID
+    stream_config &set_stream_id(std::uintptr_t stream_id);
+
+    /// Get the stream ID
+    std::uintptr_t get_stream_id() const { return stream_id; }
 };
 
 /**

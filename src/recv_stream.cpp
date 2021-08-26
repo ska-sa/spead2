@@ -177,6 +177,12 @@ stream_config &stream_config::set_allow_out_of_order(bool allow)
     return *this;
 }
 
+stream_config &stream_config::set_stream_id(std::uintptr_t id)
+{
+    stream_id = id;
+    return *this;
+}
+
 stream_base::stream_base(const stream_config &config)
     : queue_storage(new storage_type[config.get_max_heaps()]),
     bucket_count(compute_bucket_count(config.get_max_heaps())),

@@ -69,10 +69,11 @@ class StreamConfig:
     stop_on_stop_item: bool
     allow_unsized_heaps: bool
     allow_out_of_order: bool
+    stream_id: int
     def __init__(self, *, max_heaps: int = ..., bug_compat: int = ...,
                  memcpy: int = ..., memory_allocator: spead2.MemoryAllocator = ...,
                  stop_on_stop_item: bool = ..., allow_unsized_heaps: bool = ...,
-                 allow_out_of_order: bool = ...) -> None: ...
+                 allow_out_of_order: bool = ..., stream_id: int = ...) -> None: ...
 
 class RingStreamConfig:
     DEFAULT_HEAPS: ClassVar[int]
