@@ -15,7 +15,12 @@
 
 include $(top_srcdir)/src/Makefile.inc.am
 
-noinst_PROGRAMS = test_recv test_send test_ringbuffer
+noinst_PROGRAMS = \
+	recv_chunk_example \
+	recv_chunk_ring_example \
+	test_recv \
+	test_send \
+	test_ringbuffer
 
 test_recv_SOURCES = test_recv.cpp
 
@@ -23,6 +28,10 @@ test_send_SOURCES = test_send.cpp
 
 test_ringbuffer_SOURCES = test_ringbuffer.cpp
 test_ringbuffer_LDADD = -lboost_program_options $(LDADD)
+
+recv_chunk_example_SOURCES = recv_chunk_example.cpp
+
+recv_chunk_ring_example_SOURCES = recv_chunk_ring_example.cpp
 
 if SPEAD2_USE_CUDA
 
