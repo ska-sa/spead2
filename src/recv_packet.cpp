@@ -173,6 +173,7 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
     out.pointers = data + 8 + first_regular * sizeof(item_pointer_t);
     out.n_items -= first_regular;
     out.payload = out.pointers + out.n_items * sizeof(item_pointer_t);
+    out.packet = data;
     return size;
 }
 

@@ -150,7 +150,7 @@ public:
     stream_config &set_memcpy(memcpy_function_id id);
 
     /// Get memcpy function for copying heap payload.
-    packet_memcpy_function get_memcpy() const { return memcpy; }
+    const packet_memcpy_function &get_memcpy() const { return memcpy; }
 
     /// Set whether to stop the stream when a stop item is received.
     stream_config & set_stop_on_stop_item(bool stop);
