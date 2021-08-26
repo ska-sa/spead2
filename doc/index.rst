@@ -14,6 +14,7 @@ Contents:
    introduction
    py
    cpp
+   advanced
    perf
    tools
    migrate-3

@@ -39,3 +39,4 @@ search path, and you need to set :envvar:`PKG_CONFIG_PATH` to
    cpp-inproc
    cpp-logging
    cpp-ibverbs
+   cpp-recv-chunk

@@ -3,6 +3,7 @@ Changelog
 
 .. rubric:: Development version
 
+- Add :doc:`recv-chunk`.
 - Add missing :py:meth:`spead2.recv.Stream.add_udp_pcap_file_reader` to .pyi file.
 - Add :py:meth:`spead2.InprocQueue.add_packet`.
 - Prevent conversions from ``None`` to :py:class:`spead2.ThreadPool`.
