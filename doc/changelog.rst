@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add missing :py:meth:`spead2.recv.Stream.add_udp_pcap_file_reader` to .pyi file.
+
 .. rubric:: 3.3.2
 
 - :cpp:class:`spead2::recv::mem_reader` now stops the stream gracefully,
