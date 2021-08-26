@@ -15,10 +15,10 @@ receiving).
    .. automethod:: dynamic_shape
    .. automethod:: compatible_shape
 
-.. autoclass:: spead2.Item(\*args, \*\*kwargs, value=None)
+.. autoclass:: spead2.Item(*args, **kwargs, value=None)
 
    .. autoattribute:: value
-   .. autoinstanceattribute:: version
+   .. autoattribute:: version
       :annotation:
 
 .. autoclass:: spead2.ItemGroup

@@ -16,8 +16,6 @@ pool with only one thread.
 .. [#] This is a limitation of the current design that will hopefully be
    overcome in future versions.
 
-.. py:currentmodule:: spead2
-
 .. py:class:: spead2.ThreadPool(threads=1, affinity=[])
 
    Construct a thread pool and start the threads. A list of integers can be
