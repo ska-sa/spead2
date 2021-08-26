@@ -27,9 +27,11 @@
 #include <boost/optional.hpp>
 #include <boost/system/system_error.hpp>
 #include <cassert>
+#include <cstring>
 #include <mutex>
 #include <atomic>
 #include <list>
+#include <string>
 #include <stdexcept>
 #include <type_traits>
 #include <functional>
@@ -105,6 +107,115 @@ extern template class socket_wrapper<boost::asio::ip::tcp::acceptor>;
 boost::asio::ip::address make_address_no_release(
     boost::asio::io_service &io_service, const std::string &hostname,
     boost::asio::ip::resolver_query_base::flags flags);
+
+namespace detail
+{
+
+// Implementation details of callback_from_python below
+
+template<typename> struct callback_plain;
+
+/// Callback without a void * user_data pointer
+template<typename R, typename... Args>
+struct callback_plain<std::function<R(Args...)>>
+{
+    pybind11::object obj;
+    void *ptr;
+
+    R operator()(Args&&... args) const
+    {
+        auto cast_ptr = reinterpret_cast<R (*)(Args...)>(ptr);
+        return (*cast_ptr)(std::forward<Args>(args)...);
+    }
+};
+
+template<typename> struct callback_bind;
+
+/// Callback with a void * user_data pointer
+template<typename R, typename... Args>
+struct callback_bind<std::function<R(Args...)>>
+{
+    pybind11::object obj;
+    void *ptr;
+    void *user_data;
+
+    R operator()(Args&&... args) const
+    {
+        auto cast_ptr = reinterpret_cast<R (*)(Args..., void *)>(ptr);
+        return (*cast_ptr)(std::forward<Args>(args)..., user_data);
+    }
+};
+
+} // namespace detail
+
+/**
+ * Convert a C callback from Python into a @c std::function. The callback
+ * must be either None, or a non-empty tuple whose first element is a
+ * PyCapsule. The capsule's value is the function pointer, the name must
+ * match one of the two signatures (exactly), and if it matches the second
+ * signature, the capsule's context is bound as the last function argument.
+ *
+ * F must be a specialisation of std::function.
+ *
+ * Note that the returned functor holds a reference to the original Python
+ * object. This means that it is not safe to copy or free it without the GIL
+ * held.
+ */
+template<typename F>
+F callback_from_python(
+    pybind11::object obj,
+    const char *signature_plain,
+    const char *signature_bind)
+{
+    if (obj.is_none())
+        return F();
+    else
+    {
+        // Extract the capsule that's the first element of the tuple
+        pybind11::tuple tuple = obj.cast<pybind11::tuple>();
+        pybind11::capsule capsule = tuple[0].cast<pybind11::capsule>();
+        void *pointer = capsule.get_pointer();
+        const char *name = capsule.name();
+        if (pointer == nullptr)
+            return F();  // null function pointer maps to an empty std::function
+        else if (name == nullptr)
+            throw std::invalid_argument("Signature missing from capsule");
+        else if (std::strcmp(name, signature_plain) == 0)
+        {
+            return detail::callback_plain<F>{std::move(obj), pointer};
+        }
+        else if (std::strcmp(name, signature_bind) == 0)
+        {
+            void *user_data = PyCapsule_GetContext(capsule.ptr());
+            if (PyErr_Occurred())
+                throw pybind11::error_already_set();
+            return detail::callback_bind<F>{std::move(obj), pointer, user_data};
+        }
+        else
+            throw std::invalid_argument(
+                std::string("Invalid callback signature \"") + name + "\". Expected one of:\n  "
+                + signature_plain + "\n  " + signature_bind);
+    }
+}
+
+/**
+ * Retrieve the original Python object passed to @ref callback_from_python.
+ * It is not a perfect round trip, because a capsule with a null pointer is
+ * mapped to None.
+ */
+template<typename R, typename... Args>
+pybind11::object callback_to_python(const std::function<R(Args...)> &f)
+{
+    if (!f)
+        return pybind11::none();
+    auto plain = f.template target<detail::callback_plain<std::function<R(Args...)>>>();
+    if (plain != nullptr)
+        return plain->obj;
+    auto bind = f.template target<detail::callback_bind<std::function<R(Args...)>>>();
+    if (bind != nullptr)
+        return bind->obj;
+    throw pybind11::type_error("Callback did not come from Python");
+}
 
 /**
  * Issue a Python deprecation.
