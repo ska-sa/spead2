@@ -218,7 +218,7 @@ pybind11::object callback_to_python(const std::function<R(Args...)> &f)
 }
 
 /**
- * Issue a Python deprecation.
+ * Issue a Python deprecation warning.
  *
  * Note that this might throw, due to the interface of PyErr_WarnEx.
  */
