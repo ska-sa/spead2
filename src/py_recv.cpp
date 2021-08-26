@@ -22,6 +22,7 @@
 #include <pybind11/stl.h>
 #include <pybind11/operators.h>
 #include <stdexcept>
+#include <type_traits>
 #include <cstdint>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -34,6 +35,7 @@
 #include <spead2/recv_inproc.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_ring_stream.h>
+#include <spead2/recv_chunk_stream.h>
 #include <spead2/recv_live_heap.h>
 #include <spead2/recv_heap.h>
 #include <spead2/common_ringbuffer.h>
@@ -103,6 +105,188 @@ public:
     }
 };
 
+#if SPEAD2_USE_IBV
+/* Managing the endpoints and interface address requires some sleight of
+ * hand. We store a separate copy in the wrapper in a Python-centric format.
+ * When constructing the reader, we make a copy with the C++ view.
+ */
+class udp_ibv_config_wrapper : public udp_ibv_config
+{
+public:
+    std::vector<std::pair<std::string, std::uint16_t>> py_endpoints;
+    std::string py_interface_address;
+};
+#endif // SPEAD2_USE_IBV
+
+static boost::asio::ip::address make_address(stream &s, const std::string &hostname)
+{
+    return make_address_no_release(s.get_io_service(), hostname,
+                                   boost::asio::ip::udp::resolver::query::passive);
+}
+
+template<typename Protocol>
+static typename Protocol::endpoint make_endpoint(
+    stream &s, const std::string &hostname, std::uint16_t port)
+{
+    return typename Protocol::endpoint(make_address(s, hostname), port);
+}
+
+static void add_buffer_reader(stream &s, py::buffer buffer)
+{
+    py::buffer_info info = request_buffer_info(buffer, PyBUF_C_CONTIGUOUS);
+    py::gil_scoped_release gil;
+    s.emplace_reader<buffer_reader>(std::ref(info));
+}
+
+static void add_udp_reader(
+    stream &s,
+    std::uint16_t port,
+    std::size_t max_size,
+    std::size_t buffer_size,
+    const std::string &bind_hostname)
+{
+    py::gil_scoped_release gil;
+    auto endpoint = make_endpoint<boost::asio::ip::udp>(s, bind_hostname, port);
+    s.emplace_reader<udp_reader>(endpoint, max_size, buffer_size);
+}
+
+static void add_udp_reader_socket(
+    stream &s,
+    const socket_wrapper<boost::asio::ip::udp::socket> &socket,
+    std::size_t max_size = udp_reader::default_max_size)
+{
+    auto asio_socket = socket.copy(s.get_io_service());
+    py::gil_scoped_release gil;
+    s.emplace_reader<udp_reader>(std::move(asio_socket), max_size);
+}
+
+static void add_udp_reader_bind_v4(
+    stream &s,
+    const std::string &address,
+    std::uint16_t port,
+    std::size_t max_size,
+    std::size_t buffer_size,
+    const std::string &interface_address)
+{
+    py::gil_scoped_release gil;
+    auto endpoint = make_endpoint<boost::asio::ip::udp>(s, address, port);
+    s.emplace_reader<udp_reader>(endpoint, max_size, buffer_size, make_address(s, interface_address));
+}
+
+static void add_udp_reader_bind_v6(
+    stream &s,
+    const std::string &address,
+    std::uint16_t port,
+    std::size_t max_size,
+    std::size_t buffer_size,
+    unsigned int interface_index)
+{
+    py::gil_scoped_release gil;
+    auto endpoint = make_endpoint<boost::asio::ip::udp>(s, address, port);
+    s.emplace_reader<udp_reader>(endpoint, max_size, buffer_size, interface_index);
+}
+
+static void add_tcp_reader(
+    stream &s,
+    std::uint16_t port,
+    std::size_t max_size,
+    std::size_t buffer_size,
+    const std::string &bind_hostname)
+{
+    py::gil_scoped_release gil;
+    auto endpoint = make_endpoint<boost::asio::ip::tcp>(s, bind_hostname, port);
+    s.emplace_reader<tcp_reader>(endpoint, max_size, buffer_size);
+}
+
+static void add_tcp_reader_socket(
+    stream &s,
+    const socket_wrapper<boost::asio::ip::tcp::acceptor> &acceptor,
+    std::size_t max_size)
+{
+    auto asio_socket = acceptor.copy(s.get_io_service());
+    py::gil_scoped_release gil;
+    s.emplace_reader<tcp_reader>(std::move(asio_socket), max_size);
+}
+
+#if SPEAD2_USE_IBV
+static void add_udp_ibv_reader_single(
+    stream &s,
+    const std::string &address,
+    std::uint16_t port,
+    const std::string &interface_address,
+    std::size_t max_size,
+    std::size_t buffer_size,
+    int comp_vector,
+    int max_poll)
+{
+    deprecation_warning("Use a UdpIbvConfig instead");
+    py::gil_scoped_release gil;
+    auto endpoint = make_endpoint<boost::asio::ip::udp>(s, address, port);
+    s.emplace_reader<udp_ibv_reader>(
+        udp_ibv_config()
+            .add_endpoint(endpoint)
+            .set_interface_address(make_address(s, interface_address))
+            .set_max_size(max_size)
+            .set_buffer_size(buffer_size)
+            .set_comp_vector(comp_vector)
+            .set_max_poll(max_poll));
+}
+
+static void add_udp_ibv_reader_multi(
+    stream &s,
+    const py::sequence &endpoints,
+    const std::string &interface_address,
+    std::size_t max_size,
+    std::size_t buffer_size,
+    int comp_vector,
+    int max_poll)
+{
+    deprecation_warning("Use a UdpIbvConfig instead");
+    // TODO: could this conversion be done by a custom caster?
+    udp_ibv_config config;
+    for (size_t i = 0; i < len(endpoints); i++)
+    {
+        py::sequence endpoint = endpoints[i].cast<py::sequence>();
+        std::string address = endpoint[0].cast<std::string>();
+        std::uint16_t port = endpoint[1].cast<std::uint16_t>();
+        config.add_endpoint(make_endpoint<boost::asio::ip::udp>(s, address, port));
+    }
+    py::gil_scoped_release gil;
+    config.set_interface_address(make_address(s, interface_address));
+    config.set_max_size(max_size);
+    config.set_buffer_size(buffer_size);
+    config.set_comp_vector(comp_vector);
+    config.set_max_poll(max_poll);
+    s.emplace_reader<udp_ibv_reader>(config);
+}
+
+static void add_udp_ibv_reader_new(stream &s, const udp_ibv_config_wrapper &config_wrapper)
+{
+    py::gil_scoped_release gil;
+    udp_ibv_config config = config_wrapper;
+    for (const auto &endpoint : config_wrapper.py_endpoints)
+        config.add_endpoint(make_endpoint<boost::asio::ip::udp>(
+            s, endpoint.first, endpoint.second));
+    config.set_interface_address(
+        make_address(s, config_wrapper.py_interface_address));
+    s.emplace_reader<udp_ibv_reader>(config);
+}
+#endif  // SPEAD2_USE_IBV
+
+#if SPEAD2_USE_PCAP
+static void add_udp_pcap_file_reader(stream &s, const std::string &filename)
+{
+    py::gil_scoped_release gil;
+    s.emplace_reader<udp_pcap_file_reader>(filename);
+}
+#endif
+
+static void add_inproc_reader(stream &s, std::shared_ptr<inproc_queue> queue)
+{
+    py::gil_scoped_release gil;
+    s.emplace_reader<inproc_reader>(queue);
+}
+
 class ring_stream_config_wrapper : public ring_stream_config
 {
 private:
@@ -128,19 +312,6 @@ public:
     }
 };
 
-#if SPEAD2_USE_IBV
-/* Managing the endpoints and interface address requires some sleight of
- * hand. We store a separate copy in the wrapper in a Python-centric format.
- * When constructing the reader, we make a copy with the C++ view.
- */
-class udp_ibv_config_wrapper : public udp_ibv_config
-{
-public:
-    std::vector<std::pair<std::string, std::uint16_t>> py_endpoints;
-    std::string py_interface_address;
-};
-#endif // SPEAD2_USE_IBV
-
 /**
  * Stream that handles the magic necessary to reflect heaps into
  * Python space and capture the reference to it.
@@ -155,18 +326,6 @@ class ring_stream_wrapper : public ring_stream<ringbuffer<live_heap, semaphore_f
 private:
     bool incomplete_keep_payload_ranges;
     exit_stopper stopper{[this] { stop(); }};
-
-    boost::asio::ip::address make_address(const std::string &hostname)
-    {
-        return make_address_no_release(get_io_service(), hostname,
-                                       boost::asio::ip::udp::resolver::query::passive);
-    }
-
-    template<typename Protocol>
-    typename Protocol::endpoint make_endpoint(const std::string &hostname, std::uint16_t port)
-    {
-        return typename Protocol::endpoint(make_address(hostname), port);
-    }
 
     py::object to_object(live_heap &&h)
     {
@@ -222,155 +381,7 @@ public:
         return ring_config;
     }
 
-    void add_buffer_reader(py::buffer buffer)
-    {
-        py::buffer_info info = request_buffer_info(buffer, PyBUF_C_CONTIGUOUS);
-        py::gil_scoped_release gil;
-        emplace_reader<buffer_reader>(std::ref(info));
-    }
-
-    void add_udp_reader(
-        std::uint16_t port,
-        std::size_t max_size,
-        std::size_t buffer_size,
-        const std::string &bind_hostname)
-    {
-        py::gil_scoped_release gil;
-        auto endpoint = make_endpoint<boost::asio::ip::udp>(bind_hostname, port);
-        emplace_reader<udp_reader>(endpoint, max_size, buffer_size);
-    }
-
-    void add_udp_reader_socket(
-        const socket_wrapper<boost::asio::ip::udp::socket> &socket,
-        std::size_t max_size = udp_reader::default_max_size)
-    {
-        auto asio_socket = socket.copy(get_io_service());
-        py::gil_scoped_release gil;
-        emplace_reader<udp_reader>(std::move(asio_socket), max_size);
-    }
-
-    void add_udp_reader_bind_v4(
-        const std::string &address,
-        std::uint16_t port,
-        std::size_t max_size,
-        std::size_t buffer_size,
-        const std::string &interface_address)
-    {
-        py::gil_scoped_release gil;
-        auto endpoint = make_endpoint<boost::asio::ip::udp>(address, port);
-        emplace_reader<udp_reader>(endpoint, max_size, buffer_size, make_address(interface_address));
-    }
-
-    void add_udp_reader_bind_v6(
-        const std::string &address,
-        std::uint16_t port,
-        std::size_t max_size,
-        std::size_t buffer_size,
-        unsigned int interface_index)
-    {
-        py::gil_scoped_release gil;
-        auto endpoint = make_endpoint<boost::asio::ip::udp>(address, port);
-        emplace_reader<udp_reader>(endpoint, max_size, buffer_size, interface_index);
-    }
-
-    void add_tcp_reader(
-        std::uint16_t port,
-        std::size_t max_size,
-        std::size_t buffer_size,
-        const std::string &bind_hostname)
-    {
-        py::gil_scoped_release gil;
-        auto endpoint = make_endpoint<boost::asio::ip::tcp>(bind_hostname, port);
-        emplace_reader<tcp_reader>(endpoint, max_size, buffer_size);
-    }
-
-    void add_tcp_reader_socket(
-        const socket_wrapper<boost::asio::ip::tcp::acceptor> &acceptor,
-        std::size_t max_size)
-    {
-        auto asio_socket = acceptor.copy(get_io_service());
-        py::gil_scoped_release gil;
-        emplace_reader<tcp_reader>(std::move(asio_socket), max_size);
-    }
-
-#if SPEAD2_USE_IBV
-    void add_udp_ibv_reader_single(
-        const std::string &address,
-        std::uint16_t port,
-        const std::string &interface_address,
-        std::size_t max_size,
-        std::size_t buffer_size,
-        int comp_vector,
-        int max_poll)
-    {
-        deprecation_warning("Use a UdpIbvConfig instead");
-        py::gil_scoped_release gil;
-        auto endpoint = make_endpoint<boost::asio::ip::udp>(address, port);
-        emplace_reader<udp_ibv_reader>(
-            udp_ibv_config()
-                .add_endpoint(endpoint)
-                .set_interface_address(make_address(interface_address))
-                .set_max_size(max_size)
-                .set_buffer_size(buffer_size)
-                .set_comp_vector(comp_vector)
-                .set_max_poll(max_poll));
-    }
-
-    void add_udp_ibv_reader_multi(
-        const py::sequence &endpoints,
-        const std::string &interface_address,
-        std::size_t max_size,
-        std::size_t buffer_size,
-        int comp_vector,
-        int max_poll)
-    {
-        deprecation_warning("Use a UdpIbvConfig instead");
-        // TODO: could this conversion be done by a custom caster?
-        udp_ibv_config config;
-        for (size_t i = 0; i < len(endpoints); i++)
-        {
-            py::sequence endpoint = endpoints[i].cast<py::sequence>();
-            std::string address = endpoint[0].cast<std::string>();
-            std::uint16_t port = endpoint[1].cast<std::uint16_t>();
-            config.add_endpoint(make_endpoint<boost::asio::ip::udp>(address, port));
-        }
-        py::gil_scoped_release gil;
-        config.set_interface_address(make_address(interface_address));
-        config.set_max_size(max_size);
-        config.set_buffer_size(buffer_size);
-        config.set_comp_vector(comp_vector);
-        config.set_max_poll(max_poll);
-        emplace_reader<udp_ibv_reader>(config);
-    }
-
-    void add_udp_ibv_reader_new(const udp_ibv_config_wrapper &config_wrapper)
-    {
-        py::gil_scoped_release gil;
-        udp_ibv_config config = config_wrapper;
-        for (const auto &endpoint : config_wrapper.py_endpoints)
-            config.add_endpoint(make_endpoint<boost::asio::ip::udp>(
-                endpoint.first, endpoint.second));
-        config.set_interface_address(
-            make_address(config_wrapper.py_interface_address));
-        emplace_reader<udp_ibv_reader>(config);
-    }
-#endif  // SPEAD2_USE_IBV
-
-#if SPEAD2_USE_PCAP
-    void add_udp_pcap_file_reader(const std::string &filename)
-    {
-        py::gil_scoped_release gil;
-        emplace_reader<udp_pcap_file_reader>(filename);
-    }
-#endif
-
-    void add_inproc_reader(std::shared_ptr<inproc_queue> queue)
-    {
-        py::gil_scoped_release gil;
-        emplace_reader<inproc_reader>(queue);
-    }
-
-    void stop()
+    virtual void stop() override
     {
         stopper.reset();
         py::gil_scoped_release gil;
@@ -380,6 +391,98 @@ public:
     ~ring_stream_wrapper()
     {
         stop();
+    }
+};
+
+/**
+ * Package a chunk with a reference to the original Python object.
+ * This is used
+ * only for chunks in the ringbuffer, not those owned by Python.
+ */
+class chunk_wrapper : public chunk
+{
+public:
+    py::object obj;
+};
+
+/**
+ * Get the original Python object from a wrapped chunk, and
+ * restore its pointers.
+ */
+static py::object unwrap_chunk(std::unique_ptr<chunk> &&c)
+{
+    chunk_wrapper &cw = dynamic_cast<chunk_wrapper &>(*c);
+    chunk &orig = cw.obj.cast<chunk &>();
+    py::object ret = std::move(cw.obj);
+    orig = std::move(*c);
+    return ret;
+}
+
+/**
+ * Wrap up a Python chunk into an object that can traverse the ringbuffer.
+ * Python doesn't allow ownership to be given away, so we have to create a
+ * new C++ object which refers back to the original Python object to keep
+ * it alive.
+ */
+static std::unique_ptr<chunk_wrapper> wrap_chunk(chunk &c)
+{
+    if (!c.data)
+        throw std::invalid_argument("data buffer is not set");
+    if (!c.present)
+        throw std::invalid_argument("present buffer is not set");
+    std::unique_ptr<chunk_wrapper> cw{new chunk_wrapper};
+    static_cast<chunk &>(*cw) = std::move(c);
+    cw->obj = py::cast(c);
+    return cw;
+}
+
+/**
+ * Push a chunk onto a ringbuffer. The specific operation is described by
+ * @a func; this function takes care of wrapping in @ref chunk_wrapper.
+ */
+template<typename T>
+static void push_chunk(T func, chunk &c)
+{
+    /* Note: the type of 'wrapper' must exactly match what the ringbuffer
+     * expects, otherwise it constructs a new, temporary unique_ptr by
+     * moving from 'wrapper', and we lose ownership in the failure path.
+     */
+    std::unique_ptr<chunk> wrapper = wrap_chunk(c);
+    try
+    {
+        func(std::move(wrapper));
+    }
+    catch (std::exception &)
+    {
+        // Undo the move that happened as part of wrapping
+        if (wrapper)
+            c = std::move(*wrapper);
+        throw;
+    }
+}
+
+typedef ringbuffer<std::unique_ptr<chunk>, semaphore_fd, semaphore_fd> chunk_ringbuffer;
+
+class chunk_ring_stream_wrapper : public chunk_ring_stream<chunk_ringbuffer, chunk_ringbuffer>
+{
+private:
+    exit_stopper stopper{[this] { stop(); }};
+
+public:
+    using chunk_ring_stream<chunk_ringbuffer, chunk_ringbuffer>::chunk_ring_stream;
+
+    virtual void stop() override
+    {
+        stopper.reset();
+        /* Note: ring_stream_wrapper drops the GIL while stopping. We
+         * can't do that here because stop() can free chunks that were
+         * in flight, which involves interaction with the Python API.
+         * I think the only reason ring_stream_wrapper drops the GIL is
+         * that logging used to directly acquire the GIL, and so if stop()
+         * did any logging it would deadlock. Now that logging is pushed
+         * off to a separate thread that should no longer be an issue.
+         */
+        chunk_ring_stream::stop();
     }
 };
 
@@ -503,48 +606,42 @@ py::module register_module(py::module &parent)
         .def_readonly_static("DEFAULT_MAX_SIZE", &udp_ibv_config_wrapper::default_max_size)
         .def_readonly_static("DEFAULT_MAX_POLL", &udp_ibv_config_wrapper::default_max_poll);
 #endif // SPEAD2_USE_IBV
-    py::class_<ring_stream_wrapper> stream_class(m, "Stream");
-    stream_class
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>,
-                      const stream_config &,
-                      const ring_stream_config_wrapper &>(),
-             "thread_pool"_a, "config"_a = stream_config(),
-             "ring_config"_a = ring_stream_config_wrapper())
-        .def("__iter__", [](py::object self) { return self; })
-        .def("__next__", SPEAD2_PTMF(ring_stream_wrapper, next))
-        .def("get", SPEAD2_PTMF(ring_stream_wrapper, get))
-        .def("get_nowait", SPEAD2_PTMF(ring_stream_wrapper, get_nowait))
-        .def("add_buffer_reader", SPEAD2_PTMF(ring_stream_wrapper, add_buffer_reader), "buffer"_a)
-        .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader),
+    py::class_<stream>(m, "_Stream")
+        // SPEAD2_PTMF doesn't work for get_stats because it's defined in stream_base, which is a protected ancestor
+        .def_property_readonly("stats", [](const ring_stream_wrapper &stream) { return stream.get_stats(); })
+        .def_property_readonly("config",
+                               [](const stream &self) { return self.get_config(); })
+        .def("add_buffer_reader", add_buffer_reader, "buffer"_a)
+        .def("add_udp_reader", add_udp_reader,
               "port"_a,
               "max_size"_a = udp_reader::default_max_size,
               "buffer_size"_a = udp_reader::default_buffer_size,
               "bind_hostname"_a = std::string())
-        .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_socket),
+        .def("add_udp_reader", add_udp_reader_socket,
               "socket"_a,
               "max_size"_a = udp_reader::default_max_size)
-        .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_bind_v4),
+        .def("add_udp_reader", add_udp_reader_bind_v4,
               "multicast_group"_a,
               "port"_a,
               "max_size"_a = udp_reader::default_max_size,
               "buffer_size"_a = udp_reader::default_buffer_size,
               "interface_address"_a = "0.0.0.0")
-        .def("add_udp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_reader_bind_v6),
+        .def("add_udp_reader", add_udp_reader_bind_v6,
               "multicast_group"_a,
               "port"_a,
               "max_size"_a = udp_reader::default_max_size,
               "buffer_size"_a = udp_reader::default_buffer_size,
               "interface_index"_a = (unsigned int) 0)
-        .def("add_tcp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_tcp_reader),
+        .def("add_tcp_reader", add_tcp_reader,
              "port"_a,
              "max_size"_a = tcp_reader::default_max_size,
              "buffer_size"_a = tcp_reader::default_buffer_size,
              "bind_hostname"_a = std::string())
-        .def("add_tcp_reader", SPEAD2_PTMF(ring_stream_wrapper, add_tcp_reader_socket),
+        .def("add_tcp_reader", add_tcp_reader_socket,
              "acceptor"_a,
              "max_size"_a = tcp_reader::default_max_size)
 #if SPEAD2_USE_IBV
-        .def("add_udp_ibv_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_ibv_reader_single),
+        .def("add_udp_ibv_reader", add_udp_ibv_reader_single,
               "multicast_group"_a,
               "port"_a,
               "interface_address"_a,
@@ -552,30 +649,23 @@ py::module register_module(py::module &parent)
               "buffer_size"_a = udp_ibv_config::default_buffer_size,
               "comp_vector"_a = 0,
               "max_poll"_a = udp_ibv_config::default_max_poll)
-        .def("add_udp_ibv_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_ibv_reader_multi),
+        .def("add_udp_ibv_reader", add_udp_ibv_reader_multi,
               "endpoints"_a,
               "interface_address"_a,
               "max_size"_a = udp_ibv_config::default_max_size,
               "buffer_size"_a = udp_ibv_config::default_buffer_size,
               "comp_vector"_a = 0,
               "max_poll"_a = udp_ibv_config::default_max_poll)
-        .def("add_udp_ibv_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_ibv_reader_new),
+        .def("add_udp_ibv_reader", add_udp_ibv_reader_new,
              "config"_a)
 #endif
 #if SPEAD2_USE_PCAP
-        .def("add_udp_pcap_file_reader", SPEAD2_PTMF(ring_stream_wrapper, add_udp_pcap_file_reader),
+        .def("add_udp_pcap_file_reader", add_udp_pcap_file_reader,
              "filename"_a)
 #endif
-        .def("add_inproc_reader", SPEAD2_PTMF(ring_stream_wrapper, add_inproc_reader),
+        .def("add_inproc_reader", add_inproc_reader,
              "queue"_a)
-        .def("stop", SPEAD2_PTMF(ring_stream_wrapper, stop))
-        .def_property_readonly("fd", SPEAD2_PTMF(ring_stream_wrapper, get_fd))
-        // SPEAD2_PTMF doesn't work for get_stats because it's defined in stream_base, which is a protected ancestor
-        .def_property_readonly("stats", [](const ring_stream_wrapper &stream) { return stream.get_stats(); })
-        .def_property_readonly("ringbuffer", SPEAD2_PTMF(ring_stream_wrapper, get_ringbuffer))
-        .def_property_readonly("config",
-                               [](const ring_stream_wrapper &self) { return self.get_config(); })
-        .def_property_readonly("ring_config", SPEAD2_PTMF(ring_stream_wrapper, get_ring_config))
+        .def("stop", SPEAD2_PTMF(stream, stop))
 #if SPEAD2_USE_IBV
         .def_property_readonly_static("DEFAULT_UDP_IBV_MAX_SIZE",
             [](py::object) {
@@ -603,10 +693,157 @@ py::module register_module(py::module &parent)
         .def_readonly_static("DEFAULT_UDP_BUFFER_SIZE", &udp_reader::default_buffer_size)
         .def_readonly_static("DEFAULT_TCP_MAX_SIZE", &tcp_reader::default_max_size)
         .def_readonly_static("DEFAULT_TCP_BUFFER_SIZE", &tcp_reader::default_buffer_size);
+    py::class_<ring_stream_wrapper, stream> stream_class(m, "Stream");
+    stream_class
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>,
+                      const stream_config &,
+                      const ring_stream_config_wrapper &>(),
+             "thread_pool"_a.none(false), "config"_a = stream_config(),
+             "ring_config"_a = ring_stream_config_wrapper())
+        .def("__iter__", [](py::object self) { return self; })
+        .def("__next__", SPEAD2_PTMF(ring_stream_wrapper, next))
+        .def("get", SPEAD2_PTMF(ring_stream_wrapper, get))
+        .def("get_nowait", SPEAD2_PTMF(ring_stream_wrapper, get_nowait))
+        .def_property_readonly("fd", SPEAD2_PTMF(ring_stream_wrapper, get_fd))
+        .def_property_readonly("ringbuffer", SPEAD2_PTMF(ring_stream_wrapper, get_ringbuffer))
+        .def_property_readonly("ring_config", SPEAD2_PTMF(ring_stream_wrapper, get_ring_config));
     using Ringbuffer = ringbuffer<live_heap, semaphore_fd, semaphore>;
     py::class_<Ringbuffer>(stream_class, "Ringbuffer")
         .def("size", SPEAD2_PTMF(Ringbuffer, size))
         .def("capacity", SPEAD2_PTMF(Ringbuffer, capacity));
+    py::class_<chunk_stream_config>(m, "ChunkStreamConfig")
+        .def(py::init(&data_class_constructor<chunk_stream_config>))
+        .def_property("items",
+                      SPEAD2_PTMF(chunk_stream_config, get_items),
+                      SPEAD2_PTMF(chunk_stream_config, set_items))
+        .def_property("max_chunks",
+                      SPEAD2_PTMF(chunk_stream_config, get_max_chunks),
+                      SPEAD2_PTMF(chunk_stream_config, set_max_chunks))
+        .def_property(
+            "place",
+            [](const chunk_stream_config &config) {
+                return callback_to_python(config.get_place());
+            },
+            [](chunk_stream_config &config, py::object obj) {
+                config.set_place(callback_from_python<chunk_place_function>(
+                    obj,
+                    "void (void *, size_t)",
+                    "void (void *, size_t, void *)"
+                ));
+            })
+        .def(
+            "enable_packet_presence", SPEAD2_PTMF(chunk_stream_config, enable_packet_presence),
+            "payload_size"_a)
+        .def("disable_packet_presence", SPEAD2_PTMF(chunk_stream_config, disable_packet_presence))
+        .def_property_readonly("packet_presence_payload_size",
+                               SPEAD2_PTMF(chunk_stream_config, get_packet_presence_payload_size))
+        .def_readonly_static("DEFAULT_MAX_CHUNKS", &chunk_stream_config::default_max_chunks);
+    py::class_<chunk>(m, "Chunk")
+        .def(py::init(&data_class_constructor<chunk>))
+        .def_readwrite("chunk_id", &chunk::chunk_id)
+        .def_readwrite("stream_id", &chunk::stream_id)
+        // Can't use def_readwrite for present and data because they're
+        // non-copyable types
+        .def_property(
+            "present",
+            [](const chunk &c) -> const memory_allocator::pointer & { return c.present; },
+            [](chunk &c, memory_allocator::pointer &&value)
+            {
+                if (value)
+                {
+                    auto alloc = static_cast<const spead2::buffer_allocation *>(value.get_deleter().get_user());
+                    c.present_size = alloc->buffer_info.size * alloc->buffer_info.itemsize;
+                }
+                else
+                    c.present_size = 0;
+                c.present = std::move(value);
+            })
+        .def_property(
+            "data",
+            [](const chunk &c) -> const memory_allocator::pointer & { return c.data; },
+            [](chunk &c, memory_allocator::pointer &&value) { c.data = std::move(value); });
+    py::class_<chunk_ring_stream_wrapper, stream>(m, "ChunkRingStream")
+        .def(py::init<std::shared_ptr<thread_pool_wrapper>,
+                      const stream_config &,
+                      const chunk_stream_config &,
+                      std::shared_ptr<chunk_ringbuffer>,
+                      std::shared_ptr<chunk_ringbuffer>>(),
+             "thread_pool"_a.none(false),
+             "config"_a = stream_config(),
+             "chunk_stream_config"_a,
+             "data_ringbuffer"_a.none(false),
+             "free_ringbuffer"_a.none(false),
+            // Keep the Python ringbuffer objects alive, not just the C++ side.
+            // This allows Python subclasses to be passed then later retrieved
+            // from properties.
+             py::keep_alive<1, 5>(),
+             py::keep_alive<1, 6>())
+        .def(
+            "add_free_chunk",
+            [](chunk_ring_stream_wrapper &stream, chunk &c)
+            {
+                push_chunk(
+                    [&stream](std::unique_ptr<chunk> &&wrapper)
+                    {
+                        stream.add_free_chunk(std::move(wrapper));
+                    },
+                    c
+                );
+            },
+            "chunk"_a)
+        .def_property_readonly("data_ringbuffer", SPEAD2_PTMF(chunk_ring_stream_wrapper, get_data_ringbuffer))
+        .def_property_readonly("free_ringbuffer", SPEAD2_PTMF(chunk_ring_stream_wrapper, get_free_ringbuffer));
+    py::class_<chunk_ringbuffer, std::shared_ptr<chunk_ringbuffer>>(m, "ChunkRingbuffer")
+        .def(py::init<std::size_t>(), "maxsize"_a)
+        .def("qsize", SPEAD2_PTMF(chunk_ringbuffer, size))
+        .def_property_readonly("maxsize", SPEAD2_PTMF(chunk_ringbuffer, capacity))
+        .def_property_readonly(
+            "data_fd",
+            [](const chunk_ringbuffer &ring) { return ring.get_data_sem().get_fd(); })
+        .def_property_readonly(
+            "space_fd",
+            [](const chunk_ringbuffer &ring) { return ring.get_space_sem().get_fd(); })
+        .def("get", [](chunk_ringbuffer &ring) { return unwrap_chunk(ring.pop(gil_release_tag())); })
+        .def("get_nowait", [](chunk_ringbuffer &ring) { return unwrap_chunk(ring.try_pop()); })
+        .def(
+            "put",
+            [](chunk_ringbuffer &ring, chunk &c)
+            {
+                push_chunk(
+                    [&ring](std::unique_ptr<chunk> &&wrapper)
+                    {
+                        ring.push(std::move(wrapper), gil_release_tag());
+                    },
+                    c
+                );
+            },
+            "chunk"_a)
+        .def(
+            "put_nowait",
+            [](chunk_ringbuffer &ring, chunk &c)
+            {
+                push_chunk(
+                    [&ring](std::unique_ptr<chunk> &&wrapper) { ring.try_push(std::move(wrapper)); },
+                    c
+                );
+            },
+            "chunk"_a)
+        .def("empty", [](const chunk_ringbuffer &ring) { return ring.size() == 0; })
+        .def("full", [](const chunk_ringbuffer &ring) { return ring.size() == ring.capacity(); })
+        .def("stop", SPEAD2_PTMF(chunk_ringbuffer, stop))
+        .def("__iter__", [](py::object self) { return self; })
+        .def(
+            "__next__", [](chunk_ringbuffer &ring)
+            {
+                try
+                {
+                    return unwrap_chunk(ring.pop(gil_release_tag()));
+                }
+                catch (ringbuffer_stopped &)
+                {
+                    throw py::stop_iteration();
+                }
+            });
 
     return m;
 }

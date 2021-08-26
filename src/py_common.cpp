@@ -244,6 +244,7 @@ void register_module(py::module m)
 
     py::register_exception<ringbuffer_stopped>(m, "Stopped");
     py::register_exception<ringbuffer_empty>(m, "Empty");
+    py::register_exception<ringbuffer_full>(m, "Full");
     py::register_exception_translator(translate_exception_boost_io_error);
 
 #define EXPORT_ENUM(x) (m.attr(#x) = long(x))
