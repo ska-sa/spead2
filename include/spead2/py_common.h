@@ -381,7 +381,32 @@ PTMFWrapperGen<T, Return, Class, Args...> ptmf_wrapper_type(Return (Class::*ptmf
 #define SPEAD2_PTMF_VOID(Class, Func) \
     (decltype(::spead2::detail::ptmf_wrapper_type<Class>(&Class::Func))::template make_wrapper_void<&Class::Func>())
 
+/**
+ * Pseudo-allocator that wraps a Python object implementing the buffer
+ * protocol. At present it only supports writable buffers. The allocation
+ * hint must be a pointer to a @ref buffer_allocation, and it will also
+ * be stored as the @c user_data in the deleter.
+ */
+class buffer_allocator final : public memory_allocator
+{
+private:
+    virtual void free(std::uint8_t *ptr, void *user_data) override;
+
+public:
+    static std::shared_ptr<buffer_allocator> instance;
+
+    virtual pointer allocate(std::size_t size, void *hint) override;
+};
+
 } // namespace detail
+
+struct buffer_allocation
+{
+    pybind11::buffer obj;
+    pybind11::buffer_info buffer_info;
+
+    explicit buffer_allocation(pybind11::buffer buf);
+};
 
 } // namespace spead2
 
@@ -456,6 +481,23 @@ struct type_caster<boost::optional<spead2::socket_wrapper<SocketType>>>
         value = cast_op<spead2::socket_wrapper<SocketType> &&>(std::move(inner_caster));
         return true;
     }
+};
+
+/* Allow a Python buffer object to be passed to callback_from
+ * spead2::memory_allocator::pointer is expected. It will be wrapped so that
+ * the buffer view is freed when the pointer is freed, and to allow conversion
+ * back to Python.
+ *
+ * Some care is needed because if the pointer gets deleted without the GIL
+ * held, it will all end in tears.
+ */
+template<>
+struct type_caster<spead2::memory_allocator::pointer>
+{
+    PYBIND11_TYPE_CASTER(spead2::memory_allocator::pointer, _("buffer"));
+
+    bool load(handle src, bool convert);
+    static handle cast(const spead2::memory_allocator::pointer &ptr, return_value_policy policy, handle parent);
 };
 
 } // namespace detail
