@@ -1,8 +1,10 @@
 flake8
+jinja2
 netifaces
+numba
 numpy
 pycparser
-jinja2
 pytest
 pytest-asyncio
 pytest-timeout
+scipy
