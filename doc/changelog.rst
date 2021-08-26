@@ -4,6 +4,7 @@ Changelog
 .. rubric:: Development version
 
 - Add missing :py:meth:`spead2.recv.Stream.add_udp_pcap_file_reader` to .pyi file.
+- Add :py:meth:`spead2.InprocQueue.add_packet`.
 
 .. rubric:: 3.3.2
 

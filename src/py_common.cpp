@@ -315,6 +315,15 @@ void register_module(py::module m)
 
     py::class_<inproc_queue, std::shared_ptr<inproc_queue>>(m, "InprocQueue")
         .def(py::init<>())
+        .def("add_packet", [](inproc_queue &self, py::buffer obj)
+        {
+            py::buffer_info info = request_buffer_info(obj, PyBUF_C_CONTIGUOUS);
+            inproc_queue::packet pkt;
+            pkt.size = info.size * info.itemsize;
+            pkt.data = std::unique_ptr<std::uint8_t[]>{new std::uint8_t[pkt.size]};
+            std::memcpy(pkt.data.get(), info.ptr, pkt.size);
+            self.add_packet(std::move(pkt));
+        }, "packet")
         .def("stop", SPEAD2_PTMF(inproc_queue, stop));
 
     py::class_<descriptor>(m, "RawDescriptor")

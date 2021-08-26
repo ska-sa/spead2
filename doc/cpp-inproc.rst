@@ -5,7 +5,7 @@ See the :doc:`Python documentation <py-inproc>` for an overview of the
 in-process transport.
 
 .. doxygenclass:: spead2::inproc_queue
-   :members: stop
+   :members: add_packet, stop
 
 Sending
 -------

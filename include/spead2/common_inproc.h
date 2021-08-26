@@ -44,6 +44,9 @@ public:
 
     unbounded_queue<packet, semaphore_fd> buffer;
 
+    /// Add a packet directly to the queue
+    void add_packet(packet &&pkt);
+
     /**
      * Indicate end-of-stream to receivers. It is an error to add any more
      * packets after this.
