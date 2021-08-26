@@ -531,55 +531,55 @@ static py::class_<T> udp_stream_register(py::module &m, const char *name)
 
     return py::class_<T>(m, name)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::pair<std::string, std::uint16_t>> &, const stream_config &, std::size_t, std::string>(),
-             "thread_pool"_a, "endpoints"_a,
+             "thread_pool"_a.none(false), "endpoints"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
              "interface_address"_a = std::string())
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::pair<std::string, std::uint16_t>> &, const stream_config &, std::size_t, int>(),
-             "thread_pool"_a, "endpoints"_a,
+             "thread_pool"_a.none(false), "endpoints"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
              "ttl"_a)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::pair<std::string, std::uint16_t>> &, const stream_config &, std::size_t, int, std::string>(),
-             "thread_pool"_a, "endpoints"_a,
+             "thread_pool"_a.none(false), "endpoints"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
              "ttl"_a,
              "interface_address"_a)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::pair<std::string, std::uint16_t>> &, const stream_config &, std::size_t, int, unsigned int>(),
-             "thread_pool"_a, "endpoints"_a,
+             "thread_pool"_a.none(false), "endpoints"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
              "ttl"_a,
              "interface_index"_a)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const socket_wrapper<boost::asio::ip::udp::socket> &, const std::vector<std::pair<std::string, std::uint16_t>> &, const stream_config &>(),
-             "thread_pool"_a, "socket"_a, "endpoints"_a,
+             "thread_pool"_a.none(false), "socket"_a, "endpoints"_a,
              "config"_a = stream_config())
 
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, std::string>(),
-             "thread_pool"_a, "hostname"_a, "port"_a,
+             "thread_pool"_a.none(false), "hostname"_a, "port"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
              "interface_address"_a = std::string())
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, int>(),
-             "thread_pool"_a, "hostname"_a, "port"_a,
+             "thread_pool"_a.none(false), "hostname"_a, "port"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
              "ttl"_a)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, int, std::string>(),
-             "thread_pool"_a, "multicast_group"_a, "port"_a,
+             "thread_pool"_a.none(false), "multicast_group"_a, "port"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
              "ttl"_a,
              "interface_address"_a)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, int, unsigned int>(),
-             "thread_pool"_a, "multicast_group"_a, "port"_a,
+             "thread_pool"_a.none(false), "multicast_group"_a, "port"_a,
              "config"_a = stream_config(),
              "buffer_size"_a = T::default_buffer_size,
              "ttl"_a,
              "interface_index"_a)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const socket_wrapper<boost::asio::ip::udp::socket> &, std::string, std::uint16_t, const stream_config &>(),
-             "thread_pool"_a, "socket"_a, "hostname"_a, "port"_a,
+             "thread_pool"_a.none(false), "socket"_a, "hostname"_a, "port"_a,
              "config"_a = stream_config())
 
         .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size);
@@ -593,7 +593,7 @@ static py::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
 
     return py::class_<T>(m, name)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::string, std::size_t, int, int, int>(),
-             "thread_pool"_a, "multicast_group"_a, "port"_a,
+             "thread_pool"_a.none(false), "multicast_group"_a, "port"_a,
              "config"_a = stream_config(),
              "interface_address"_a,
              "buffer_size"_a = udp_ibv_config::default_buffer_size,
@@ -627,7 +627,7 @@ static py::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
 
                 return new T(std::move(thread_pool), config, ibv_config, std::move(buffer_infos));
             }),
-            "thread_pool"_a,
+            "thread_pool"_a.none(false),
             "config"_a = stream_config(),
             "udp_ibv_config"_a)
         .def_property_readonly_static("DEFAULT_BUFFER_SIZE",
@@ -710,14 +710,14 @@ static py::class_<typename Registrar::stream_type> tcp_stream_register(py::modul
         .def(py::init<std::shared_ptr<thread_pool_wrapper>,
                       const socket_wrapper<boost::asio::ip::tcp::socket> &,
                       const stream_config &>(),
-             "thread_pool"_a, "socket"_a, "config"_a = stream_config())
+             "thread_pool"_a.none(false), "socket"_a, "config"_a = stream_config())
         .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size);
     Registrar::template apply<
             std::shared_ptr<thread_pool_wrapper>,
             const std::string &, std::uint16_t,
             const stream_config &, std::size_t, const std::string &>(
         class_,
-        "thread_pool"_a, "hostname"_a, "port"_a,
+        "thread_pool"_a.none(false), "hostname"_a, "port"_a,
         "config"_a = stream_config(),
         "buffer_size"_a = T::default_buffer_size,
         "interface_address"_a = "");
@@ -726,7 +726,7 @@ static py::class_<typename Registrar::stream_type> tcp_stream_register(py::modul
             const std::vector<std::pair<std::string, std::uint16_t>> &,
             const stream_config &, std::size_t, const std::string &>(
         class_,
-        "thread_pool"_a, "endpoints"_a,
+        "thread_pool"_a.none(false), "endpoints"_a,
         "config"_a = stream_config(),
         "buffer_size"_a = T::default_buffer_size,
         "interface_address"_a = "");
@@ -831,9 +831,9 @@ static py::class_<T> inproc_stream_register(py::module &m, const char *name)
                     deprecation_warning("pass a list of queues");
                     return new T(std::move(io_service), std::move(queue), config);
                 }),
-             "thread_pool"_a, "queue"_a, "config"_a = stream_config())
+             "thread_pool"_a.none(false), "queue"_a, "config"_a = stream_config())
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::shared_ptr<inproc_queue>> &, const stream_config &>(),
-             "thread_pool"_a, "queues"_a, "config"_a = stream_config())
+             "thread_pool"_a.none(false), "queues"_a, "config"_a = stream_config())
         .def_property_readonly("queues", SPEAD2_PTMF(T, get_queues))
         .def_property_readonly("queue", [](const T &stream)
         {
@@ -1010,7 +1010,7 @@ py::module register_module(py::module &parent)
         py::class_<bytes_stream> stream_class(m, "BytesStream");
         stream_class
             .def(py::init<std::shared_ptr<thread_pool_wrapper>, const stream_config &>(),
-                 "thread_pool"_a, "config"_a = stream_config())
+                 "thread_pool"_a.none(false), "config"_a = stream_config())
             .def("getvalue", SPEAD2_PTMF(bytes_stream, getvalue));
         sync_stream_register(stream_class);
     }
