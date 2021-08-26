@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2020-2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -150,7 +150,7 @@ public:
  * on completion of code scheduled through the thread pool must drop the GIL
  * first.
  */
-class ring_stream_wrapper : public ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore> >
+class ring_stream_wrapper : public ring_stream<ringbuffer<live_heap, semaphore_fd, semaphore> >
 {
 private:
     bool incomplete_keep_payload_ranges;
@@ -182,7 +182,7 @@ public:
         io_service_ref io_service,
         const stream_config &config = stream_config(),
         const ring_stream_config_wrapper &ring_config = ring_stream_config_wrapper())
-        : ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore>>(
+        : ring_stream<ringbuffer<live_heap, semaphore_fd, semaphore>>(
             std::move(io_service), config, ring_config),
         incomplete_keep_payload_ranges(ring_config.get_incomplete_keep_payload_ranges())
     {}
@@ -201,7 +201,7 @@ public:
 
     py::object get()
     {
-        return to_object(ring_stream::pop_live());
+        return to_object(ring_stream::pop_live(gil_release_tag()));
     }
 
     py::object get_nowait()
@@ -217,7 +217,7 @@ public:
     ring_stream_config_wrapper get_ring_config() const
     {
         ring_stream_config_wrapper ring_config(
-            ring_stream<ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore> >::get_ring_config());
+            ring_stream<ringbuffer<live_heap, semaphore_fd, semaphore> >::get_ring_config());
         ring_config.set_incomplete_keep_payload_ranges(incomplete_keep_payload_ranges);
         return ring_config;
     }
@@ -600,7 +600,7 @@ py::module register_module(py::module &parent)
         .def_readonly_static("DEFAULT_UDP_BUFFER_SIZE", &udp_reader::default_buffer_size)
         .def_readonly_static("DEFAULT_TCP_MAX_SIZE", &tcp_reader::default_max_size)
         .def_readonly_static("DEFAULT_TCP_BUFFER_SIZE", &tcp_reader::default_buffer_size);
-    using Ringbuffer = ringbuffer<live_heap, semaphore_gil<semaphore_fd>, semaphore>;
+    using Ringbuffer = ringbuffer<live_heap, semaphore_fd, semaphore>;
     py::class_<Ringbuffer>(stream_class, "Ringbuffer")
         .def("size", SPEAD2_PTMF(Ringbuffer, size))
         .def("capacity", SPEAD2_PTMF(Ringbuffer, capacity));

@@ -317,10 +317,12 @@ public:
      * Append an item to the queue, blocking if necessary. It uses move
      * semantics, so on success, the original value is undefined.
      *
-     * @param value    Value to move
+     * @param value     Value to move
+     * @param sem_args  Arbitrary arguments to pass to the space semaphore
      * @throw ringbuffer_stopped if @ref stop is called first
      */
-    void push(T &&value);
+    template<typename... SemArgs>
+    void push(T &&value, SemArgs&&... sem_args);
 
     /**
      * Construct a new item in the queue, blocking if necessary.
@@ -345,7 +347,8 @@ public:
      *
      * @throw ringbuffer_stopped if the queue is empty and @ref stop was called
      */
-    T pop();
+    template<typename... SemArgs>
+    T pop(SemArgs&&... sem_args);
 
     /**
      * Indicate that no more items will be produced. This does not immediately
@@ -408,9 +411,10 @@ void ringbuffer<T, DataSemaphore, SpaceSemaphore>::try_emplace(Args&&... args)
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
-void ringbuffer<T, DataSemaphore, SpaceSemaphore>::push(T &&value)
+template<typename... SemArgs>
+void ringbuffer<T, DataSemaphore, SpaceSemaphore>::push(T &&value, SemArgs&&... sem_args)
 {
-    semaphore_get(space_sem);
+    semaphore_get(space_sem, std::forward<SemArgs>(sem_args)...);
     try
     {
         this->emplace_internal(std::move(value));
@@ -443,9 +447,10 @@ void ringbuffer<T, DataSemaphore, SpaceSemaphore>::try_push(T &&value)
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
-T ringbuffer<T, DataSemaphore, SpaceSemaphore>::pop()
+template<typename... SemArgs>
+T ringbuffer<T, DataSemaphore, SpaceSemaphore>::pop(SemArgs&&... sem_args)
 {
-    semaphore_get(data_sem);
+    semaphore_get(data_sem, std::forward<SemArgs>(sem_args)...);
     try
     {
         T result = this->pop_internal();

@@ -110,7 +110,7 @@ private:
          * Semaphore triggered by the callback. It uses a semaphore rather
          * than a promise because a semaphore can be interrupted.
          */
-        semaphore_gil<semaphore> sem;
+        semaphore sem;
         /**
          * Error code from the callback.
          */
@@ -141,7 +141,7 @@ public:
             state->bytes_transferred = bytes_transferred;
             state->sem.put();
         }, cnt, substream_index);
-        semaphore_get(state->sem);
+        semaphore_get(state->sem, gil_release_tag());
         if (state->ec)
             throw boost_io_error(state->ec);
         else
@@ -161,7 +161,7 @@ public:
                 state->bytes_transferred = bytes_transferred;
                 state->sem.put();
             }, mode);
-        semaphore_get(state->sem);
+        semaphore_get(state->sem, gil_release_tag());
         if (state->ec)
             throw boost_io_error(state->ec);
         else
@@ -192,7 +192,7 @@ template<typename Base>
 class asyncio_stream_wrapper : public Base
 {
 private:
-    semaphore_gil<semaphore_fd> sem;
+    semaphore_fd sem;
     std::vector<callback_item> callbacks;
     std::mutex callbacks_mutex;
 
@@ -267,7 +267,7 @@ public:
 
     void process_callbacks()
     {
-        sem.get();
+        semaphore_get(sem, gil_release_tag());
         std::vector<callback_item> current_callbacks;
         {
             std::unique_lock<std::mutex> lock(callbacks_mutex);
@@ -739,7 +739,7 @@ class tcp_stream_register_sync
 private:
     struct connect_state
     {
-        semaphore_gil<semaphore> sem;
+        semaphore sem;
         boost::system::error_code ec;
     };
 
@@ -758,7 +758,7 @@ private:
             state->sem.put();
         };
         std::unique_ptr<stream_type> stream{new stream_type(connect_handler, std::forward<Args>(args)...)};
-        state->sem.get();
+        semaphore_get(state->sem, gil_release_tag());
         if (state->ec)
             throw boost_io_error(state->ec);
         return stream;

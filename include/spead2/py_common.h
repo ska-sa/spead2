@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2020-2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -174,32 +174,30 @@ public:
 };
 
 /**
- * Semaphore variant that releases the GIL during waits, and throws an
+ * Tag class for releasing the GIL in semaphore_get. It also throws an
  * exception if interrupted by SIGINT in the Python process.
  */
-template<typename Semaphore>
-class semaphore_gil : public Semaphore
-{
-public:
-    using Semaphore::Semaphore;
-    int get();
-};
+struct gil_release_tag {};
 
 template<typename Semaphore>
-int semaphore_gil<Semaphore>::get()
+void semaphore_get(Semaphore &sem, gil_release_tag)
 {
-    int result;
+    while (true)
     {
-        pybind11::gil_scoped_release gil;
-        result = Semaphore::get();
+        int result;
+        {
+            pybind11::gil_scoped_release gil;
+            result = sem.get();
+        }
+        if (result == -1)
+        {
+            // Allow SIGINT to abort the wait
+            if (PyErr_CheckSignals() == -1)
+                throw pybind11::error_already_set();
+        }
+        else
+            return;
     }
-    if (result == -1)
-    {
-        // Allow SIGINT to abort the wait
-        if (PyErr_CheckSignals() == -1)
-            throw pybind11::error_already_set();
-    }
-    return result;
 }
 
 /**
