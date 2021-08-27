@@ -608,7 +608,7 @@ py::module register_module(py::module &parent)
 #endif // SPEAD2_USE_IBV
     py::class_<stream>(m, "_Stream")
         // SPEAD2_PTMF doesn't work for get_stats because it's defined in stream_base, which is a protected ancestor
-        .def_property_readonly("stats", [](const ring_stream_wrapper &stream) { return stream.get_stats(); })
+        .def_property_readonly("stats", [](const stream &self) { return self.get_stats(); })
         .def_property_readonly("config",
                                [](const stream &self) { return self.get_config(); })
         .def("add_buffer_reader", add_buffer_reader, "buffer"_a)
