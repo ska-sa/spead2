@@ -158,3 +158,21 @@ jobs:
           path-to-lcov: lcov.info
       - name: Show ccache stats
         run: ccache -s
+
+  cibuildwheel:
+    # TODO: re-enable
+    # needs: [test-cxx, test-python, coverage]
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: pypa/cibuildwheel@v2.1.1
+      - uses: actions/upload-artifact@v2
+        with:
+          name: wheels
+          path: ./wheelhouse/*.whl
+      - name: Tar debug symbols
+        run: cd wheelhouse && tar -Jcvf "spead2-$(sed 's/.*"\(.*\)"/\1/' ../src/spead2/_version.py)-debug.tar.xz" _spead2*.debug
+      - uses: actions/upload-artifact@v2
+        with:
+          name: debug_symbols
+          path: ./wheelhouse/spead2-*-debug.tar.xz
