@@ -8,7 +8,8 @@ package="$1"
 
 yum install -y \
     wget libpcap libpcap-devel python-devel \
-    cmake3 ninja-build pandoc libnl3-devel
+    cmake3 ninja-build pandoc libnl3-devel \
+    ccache
 
 # Install boost
 wget https://ufpr.dl.sourceforge.net/project/boost/boost/1.74.0/boost_1_74_0.tar.bz2 -O /tmp/boost_1_74_0.tar.bz2
