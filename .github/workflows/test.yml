@@ -161,6 +161,7 @@ jobs:
         run: ccache -s
 
   sdist:
+    needs: [test-cxx, test-python, coverage]
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -185,8 +186,7 @@ jobs:
           path: ./dist/*.tar.gz
 
   cibuildwheel:
-    # TODO: re-enable
-    # needs: [test-cxx, test-python, coverage]
+    needs: [test-cxx, test-python, coverage]
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
