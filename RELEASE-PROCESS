@@ -1,14 +1,10 @@
-- pip install -U build
 - Update version number in doc/changelog.rst
 - Update version number in src/spead2/_version.py
-- ./bootstrap.sh
 - Check that .pyi stubs have been updated
-- Check that Github Actions successfully tested the release
-- Run ./mkwheels.sh
-- Run python -m build -s
-- Install the sdist and check that it passes pytest
-- Install a wheel and check that it passes pytest
+- Check that Github Actions successfully tested the release and built wheels
+- Install the sdist from Github Actions and check that it passes pytest
+- Install a wheel from Github Actions and check that it passes pytest
 - Tag the release, git push --tags
 - Upload the sdist and wheels to PyPI with twine
-- Upload the sdist and debug symbols to github
+- Upload the sdist and debug symbols to Github release
 - Check that readthedocs has updated itself
