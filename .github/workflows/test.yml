@@ -87,8 +87,9 @@ jobs:
       - uses: actions/cache@v2
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements*.txt') }}
           restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
             ${{ runner.os }}-pip-
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
@@ -158,6 +159,30 @@ jobs:
           path-to-lcov: lcov.info
       - name: Show ccache stats
         run: ccache -s
+
+  sdist:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-3.9-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-3.9-
+            ${{ runner.os }}-pip-
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Install Python dependencies
+        run: ./.ci/py-requirements.sh
+      - run: ./bootstrap.sh
+      - run: pip install build==0.6.0.post1
+      - run: python -m build --sdist .
+      - uses: actions/upload-artifact@v2
+        with:
+          name: sdist
+          path: ./dist/*.tar.gz
 
   cibuildwheel:
     # TODO: re-enable
