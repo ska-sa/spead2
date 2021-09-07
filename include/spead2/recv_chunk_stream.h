@@ -145,17 +145,17 @@ public:
     /// Set the function used to determine the chunk of each heap and its placement within the chunk.
     chunk_stream_config &set_place(chunk_place_function place);
     /// Get the function used to determine the chunk of each heap and its placement within the chunk.
-    chunk_place_function get_place() const { return place; }
+    const chunk_place_function &get_place() const { return place; }
 
     /// Set the function used to allocate a chunk.
     chunk_stream_config &set_allocate(chunk_allocate_function allocate);
     /// Get the function used to allocate a chunk.
-    chunk_allocate_function get_allocate() const { return allocate; }
+    const chunk_allocate_function &get_allocate() const { return allocate; }
 
     /// Set the function that is provided with completed chunks.
     chunk_stream_config &set_ready(chunk_ready_function ready);
     /// Get the function that is provided with completed chunks.
-    chunk_ready_function get_ready() const { return ready; }
+    const chunk_ready_function &get_ready() const { return ready; }
 
     /**
      * Enable the packet presence feature. The payload offset of each
