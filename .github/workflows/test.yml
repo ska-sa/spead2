@@ -87,8 +87,9 @@ jobs:
       - uses: actions/cache@v2
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements*.txt') }}
           restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
             ${{ runner.os }}-pip-
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
@@ -158,3 +159,45 @@ jobs:
           path-to-lcov: lcov.info
       - name: Show ccache stats
         run: ccache -s
+
+  sdist:
+    needs: [test-cxx, test-python, coverage]
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-3.9-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-3.9-
+            ${{ runner.os }}-pip-
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Install Python dependencies
+        run: ./.ci/py-requirements.sh
+      - run: ./bootstrap.sh
+      - run: pip install build==0.6.0.post1
+      - run: python -m build --sdist .
+      - uses: actions/upload-artifact@v2
+        with:
+          name: sdist
+          path: ./dist/*.tar.gz
+
+  cibuildwheel:
+    needs: [test-cxx, test-python, coverage]
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: pypa/cibuildwheel@v2.1.1
+      - uses: actions/upload-artifact@v2
+        with:
+          name: wheels
+          path: ./wheelhouse/*.whl
+      - name: Tar debug symbols
+        run: cd wheelhouse && tar -Jcvf "spead2-$(sed 's/.*"\(.*\)"/\1/' ../src/spead2/_version.py)-debug.tar.xz" _spead2*.debug
+      - uses: actions/upload-artifact@v2
+        with:
+          name: debug_symbols
+          path: ./wheelhouse/spead2-*-debug.tar.xz
