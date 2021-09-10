@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 3.4.0
 
 - Add :doc:`recv-chunk`.
 - Add missing :py:meth:`spead2.recv.Stream.add_udp_pcap_file_reader` to .pyi file.
