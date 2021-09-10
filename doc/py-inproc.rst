@@ -35,6 +35,10 @@ Sending
 
 .. py:class:: spead2.InprocQueue()
 
+    .. py:method:: add_packet(packet)
+
+       Add a packet directly to the queue.
+
     .. py:method:: stop()
 
        Indicate end-of-stream to receivers. It is an error to add any more

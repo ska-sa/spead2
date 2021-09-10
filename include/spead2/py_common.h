@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2020-2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -27,9 +27,11 @@
 #include <boost/optional.hpp>
 #include <boost/system/system_error.hpp>
 #include <cassert>
+#include <cstring>
 #include <mutex>
 #include <atomic>
 #include <list>
+#include <string>
 #include <stdexcept>
 #include <type_traits>
 #include <functional>
@@ -106,8 +108,117 @@ boost::asio::ip::address make_address_no_release(
     boost::asio::io_service &io_service, const std::string &hostname,
     boost::asio::ip::resolver_query_base::flags flags);
 
+namespace detail
+{
+
+// Implementation details of callback_from_python below
+
+template<typename> struct callback_plain;
+
+/// Callback without a void * user_data pointer
+template<typename R, typename... Args>
+struct callback_plain<std::function<R(Args...)>>
+{
+    pybind11::object obj;
+    void *ptr;
+
+    R operator()(Args&&... args) const
+    {
+        auto cast_ptr = reinterpret_cast<R (*)(Args...)>(ptr);
+        return (*cast_ptr)(std::forward<Args>(args)...);
+    }
+};
+
+template<typename> struct callback_bind;
+
+/// Callback with a void * user_data pointer
+template<typename R, typename... Args>
+struct callback_bind<std::function<R(Args...)>>
+{
+    pybind11::object obj;
+    void *ptr;
+    void *user_data;
+
+    R operator()(Args&&... args) const
+    {
+        auto cast_ptr = reinterpret_cast<R (*)(Args..., void *)>(ptr);
+        return (*cast_ptr)(std::forward<Args>(args)..., user_data);
+    }
+};
+
+} // namespace detail
+
 /**
- * Issue a Python deprecation.
+ * Convert a C callback from Python into a @c std::function. The callback
+ * must be either None, or a non-empty tuple whose first element is a
+ * PyCapsule. The capsule's value is the function pointer, the name must
+ * match one of the two signatures (exactly), and if it matches the second
+ * signature, the capsule's context is bound as the last function argument.
+ *
+ * F must be a specialisation of std::function.
+ *
+ * Note that the returned functor holds a reference to the original Python
+ * object. This means that it is not safe to copy or free it without the GIL
+ * held.
+ */
+template<typename F>
+F callback_from_python(
+    pybind11::object obj,
+    const char *signature_plain,
+    const char *signature_bind)
+{
+    if (obj.is_none())
+        return F();
+    else
+    {
+        // Extract the capsule that's the first element of the tuple
+        pybind11::tuple tuple = obj.cast<pybind11::tuple>();
+        pybind11::capsule capsule = tuple[0].cast<pybind11::capsule>();
+        void *pointer = capsule.get_pointer();
+        const char *name = capsule.name();
+        if (pointer == nullptr)
+            return F();  // null function pointer maps to an empty std::function
+        else if (name == nullptr)
+            throw std::invalid_argument("Signature missing from capsule");
+        else if (std::strcmp(name, signature_plain) == 0)
+        {
+            return detail::callback_plain<F>{std::move(obj), pointer};
+        }
+        else if (std::strcmp(name, signature_bind) == 0)
+        {
+            void *user_data = PyCapsule_GetContext(capsule.ptr());
+            if (PyErr_Occurred())
+                throw pybind11::error_already_set();
+            return detail::callback_bind<F>{std::move(obj), pointer, user_data};
+        }
+        else
+            throw std::invalid_argument(
+                std::string("Invalid callback signature \"") + name + "\". Expected one of:\n  "
+                + signature_plain + "\n  " + signature_bind);
+    }
+}
+
+/**
+ * Retrieve the original Python object passed to @ref callback_from_python.
+ * It is not a perfect round trip, because a capsule with a null pointer is
+ * mapped to None.
+ */
+template<typename R, typename... Args>
+pybind11::object callback_to_python(const std::function<R(Args...)> &f)
+{
+    if (!f)
+        return pybind11::none();
+    auto plain = f.template target<detail::callback_plain<std::function<R(Args...)>>>();
+    if (plain != nullptr)
+        return plain->obj;
+    auto bind = f.template target<detail::callback_bind<std::function<R(Args...)>>>();
+    if (bind != nullptr)
+        return bind->obj;
+    throw pybind11::type_error("Callback did not come from Python");
+}
+
+/**
+ * Issue a Python deprecation warning.
  *
  * Note that this might throw, due to the interface of PyErr_WarnEx.
  */
@@ -174,32 +285,30 @@ public:
 };
 
 /**
- * Semaphore variant that releases the GIL during waits, and throws an
+ * Tag class for releasing the GIL in semaphore_get. It also throws an
  * exception if interrupted by SIGINT in the Python process.
  */
-template<typename Semaphore>
-class semaphore_gil : public Semaphore
-{
-public:
-    using Semaphore::Semaphore;
-    int get();
-};
+struct gil_release_tag {};
 
 template<typename Semaphore>
-int semaphore_gil<Semaphore>::get()
+void semaphore_get(Semaphore &sem, gil_release_tag)
 {
-    int result;
+    while (true)
     {
-        pybind11::gil_scoped_release gil;
-        result = Semaphore::get();
+        int result;
+        {
+            pybind11::gil_scoped_release gil;
+            result = sem.get();
+        }
+        if (result == -1)
+        {
+            // Allow SIGINT to abort the wait
+            if (PyErr_CheckSignals() == -1)
+                throw pybind11::error_already_set();
+        }
+        else
+            return;
     }
-    if (result == -1)
-    {
-        // Allow SIGINT to abort the wait
-        if (PyErr_CheckSignals() == -1)
-            throw pybind11::error_already_set();
-    }
-    return result;
 }
 
 /**
@@ -383,7 +492,32 @@ PTMFWrapperGen<T, Return, Class, Args...> ptmf_wrapper_type(Return (Class::*ptmf
 #define SPEAD2_PTMF_VOID(Class, Func) \
     (decltype(::spead2::detail::ptmf_wrapper_type<Class>(&Class::Func))::template make_wrapper_void<&Class::Func>())
 
+/**
+ * Pseudo-allocator that wraps a Python object implementing the buffer
+ * protocol. At present it only supports writable buffers. The allocation
+ * hint must be a pointer to a @ref buffer_allocation, and it will also
+ * be stored as the @c user_data in the deleter.
+ */
+class buffer_allocator final : public memory_allocator
+{
+private:
+    virtual void free(std::uint8_t *ptr, void *user_data) override;
+
+public:
+    static std::shared_ptr<buffer_allocator> instance;
+
+    virtual pointer allocate(std::size_t size, void *hint) override;
+};
+
 } // namespace detail
+
+struct buffer_allocation
+{
+    pybind11::buffer obj;
+    pybind11::buffer_info buffer_info;
+
+    explicit buffer_allocation(pybind11::buffer buf);
+};
 
 } // namespace spead2
 
@@ -458,6 +592,23 @@ struct type_caster<boost::optional<spead2::socket_wrapper<SocketType>>>
         value = cast_op<spead2::socket_wrapper<SocketType> &&>(std::move(inner_caster));
         return true;
     }
+};
+
+/* Allow a Python buffer object to be passed to callback_from
+ * spead2::memory_allocator::pointer is expected. It will be wrapped so that
+ * the buffer view is freed when the pointer is freed, and to allow conversion
+ * back to Python.
+ *
+ * Some care is needed because if the pointer gets deleted without the GIL
+ * held, it will all end in tears.
+ */
+template<>
+struct type_caster<spead2::memory_allocator::pointer>
+{
+    PYBIND11_TYPE_CASTER(spead2::memory_allocator::pointer, _("buffer"));
+
+    bool load(handle src, bool convert);
+    static handle cast(const spead2::memory_allocator::pointer &ptr, return_value_policy policy, handle parent);
 };
 
 } // namespace detail

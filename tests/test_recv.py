@@ -729,6 +729,7 @@ class TestStreamConfig:
         assert config.stop_on_stop_item is True
         assert config.allow_unsized_heaps is True
         assert config.allow_out_of_order is False
+        assert config.stream_id == 0
 
     def test_set_get(self):
         config = recv.StreamConfig()
@@ -739,6 +740,7 @@ class TestStreamConfig:
         config.allow_unsized_heaps = False
         config.allow_out_of_order = True
         config.memory_allocator = allocator = spead2.MmapAllocator()
+        config.stream_id = 123
         assert config.max_heaps == 5
         assert config.bug_compat == spead2.BUG_COMPAT_PYSPEAD_0_5_2
         assert config.memcpy == spead2.MEMCPY_NONTEMPORAL
@@ -746,6 +748,7 @@ class TestStreamConfig:
         assert config.stop_on_stop_item is False
         assert config.allow_unsized_heaps is False
         assert config.allow_out_of_order is True
+        assert config.stream_id == 123
 
     def test_kwargs_construct(self):
         config = recv.StreamConfig(
@@ -754,7 +757,8 @@ class TestStreamConfig:
             memcpy=spead2.MEMCPY_NONTEMPORAL,
             stop_on_stop_item=False,
             allow_unsized_heaps=False,
-            allow_out_of_order=True
+            allow_out_of_order=True,
+            stream_id=123
         )
         assert config.max_heaps == 5
         assert config.bug_compat == spead2.BUG_COMPAT_PYSPEAD_0_5_2
@@ -762,6 +766,7 @@ class TestStreamConfig:
         assert config.stop_on_stop_item is False
         assert config.allow_unsized_heaps is False
         assert config.allow_out_of_order is True
+        assert config.stream_id == 123
 
     def test_max_heaps_zero(self):
         """Constructing a config with max_heaps=0 raises ValueError"""

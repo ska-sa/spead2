@@ -122,10 +122,12 @@ public:
      * Wait until a heap is available and return it; or until the stream is
      * stopped.
      *
+     * @param sem_args  Arbitrary arguments to pass to the data semaphore
      * @throw ringbuffer_stopped if @ref stop has been called and
      * there are no more heaps.
      */
-    live_heap pop_live();
+    template<typename... SemArgs>
+    live_heap pop_live(SemArgs&&... sem_args);
 
     /**
      * Like @ref pop, but if no contiguous heap is available,
@@ -232,9 +234,10 @@ heap ring_stream<Ringbuffer>::pop()
 }
 
 template<typename Ringbuffer>
-live_heap ring_stream<Ringbuffer>::pop_live()
+template<typename... SemArgs>
+live_heap ring_stream<Ringbuffer>::pop_live(SemArgs&&... sem_args)
 {
-    return ready_heaps.pop();
+    return ready_heaps.pop(std::forward<SemArgs>(sem_args)...);
 }
 
 template<typename Ringbuffer>

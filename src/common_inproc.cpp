@@ -18,6 +18,7 @@
  * @file
  */
 
+#include <utility>
 #include <spead2/common_unbounded_queue.h>
 #include <spead2/common_semaphore.h>
 #include <spead2/common_inproc.h>
@@ -26,6 +27,11 @@ namespace spead2
 {
 
 template class unbounded_queue<inproc_queue::packet, semaphore_fd>;
+
+void inproc_queue::add_packet(packet &&pkt)
+{
+    buffer.push(std::move(pkt));
+}
 
 void inproc_queue::stop()
 {

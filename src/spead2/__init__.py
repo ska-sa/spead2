@@ -21,7 +21,7 @@ import numpy as _np
 
 import spead2._spead2
 from spead2._spead2 import (             # noqa: F401
-    Flavour, ThreadPool, Stopped, Empty,
+    Flavour, ThreadPool, Stopped, Empty, Full,
     MemoryAllocator, MmapAllocator, MemoryPool, InprocQueue,
     BUG_COMPAT_DESCRIPTOR_WIDTHS,
     BUG_COMPAT_SHAPE_BIT_1,

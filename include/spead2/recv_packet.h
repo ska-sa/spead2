@@ -54,6 +54,8 @@ struct packet_header
     const std::uint8_t *pointers;
     /// Start of the packet payload
     const std::uint8_t *payload;
+    /// The original packet
+    const std::uint8_t *packet;
 };
 
 /**

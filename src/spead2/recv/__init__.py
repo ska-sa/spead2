@@ -1,4 +1,4 @@
-# Copyright 2015, 2020 National Research Foundation (SARAO)
+# Copyright 2015, 2020-2021 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -55,7 +55,8 @@ bytes, in the order they appeared in the original packet.
 """
 
 from spead2._spead2.recv import (           # noqa: F401
-    StreamConfig, RingStreamConfig, Stream, Heap, IncompleteHeap
+    StreamConfig, RingStreamConfig, Stream, Heap, IncompleteHeap,
+    Chunk, ChunkStreamConfig, ChunkRingStream, ChunkRingbuffer
 )
 try:
     from spead2._spead2.recv import UdpIbvConfig      # noqa: F401

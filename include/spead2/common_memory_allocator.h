@@ -55,6 +55,7 @@ public:
         deleter &operator=(deleter &&) noexcept = default;
         void operator()(std::uint8_t *ptr);
 
+        const std::shared_ptr<memory_allocator> &get_allocator() const { return allocator; }
         void *get_user() const { return user; }
     };
 

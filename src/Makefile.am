@@ -74,6 +74,7 @@ libspead2_a_SOURCES = \
 	common_semaphore.cpp \
 	common_socket.cpp \
 	common_thread_pool.cpp \
+	recv_chunk_stream.cpp \
 	recv_heap.cpp \
 	recv_inproc.cpp \
 	recv_live_heap.cpp \

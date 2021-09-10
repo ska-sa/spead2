@@ -1,4 +1,4 @@
-# Copyright 2019 National Research Foundation (SARAO)
+# Copyright 2021 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -13,17 +13,4 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import asyncio
-from typing import AsyncIterator, Optional
-
-import spead2
-import spead2.recv
-
-class Stream(spead2.recv._RingStream):
-    async def get(self) -> spead2.recv.Heap: ...
-    def __aiter__(self) -> AsyncIterator[spead2.recv.Heap]: ...
-
-class ChunkRingbuffer(spead2.recv._ChunkRingbuffer):
-    async def get(self) -> spead2.recv.Chunk: ...
-    async def put(self, chunk: spead2.recv.Chunk): ...
-    def __aiter__(self) -> AsyncIterator[spead2.recv.Chunk]: ...
+def intp_to_voidptr(src): ...

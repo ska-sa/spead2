@@ -244,6 +244,7 @@ void register_module(py::module m)
 
     py::register_exception<ringbuffer_stopped>(m, "Stopped");
     py::register_exception<ringbuffer_empty>(m, "Empty");
+    py::register_exception<ringbuffer_full>(m, "Full");
     py::register_exception_translator(translate_exception_boost_io_error);
 
 #define EXPORT_ENUM(x) (m.attr(#x) = long(x))
@@ -315,6 +316,15 @@ void register_module(py::module m)
 
     py::class_<inproc_queue, std::shared_ptr<inproc_queue>>(m, "InprocQueue")
         .def(py::init<>())
+        .def("add_packet", [](inproc_queue &self, py::buffer obj)
+        {
+            py::buffer_info info = request_buffer_info(obj, PyBUF_C_CONTIGUOUS);
+            inproc_queue::packet pkt;
+            pkt.size = info.size * info.itemsize;
+            pkt.data = std::unique_ptr<std::uint8_t[]>{new std::uint8_t[pkt.size]};
+            std::memcpy(pkt.data.get(), info.ptr, pkt.size);
+            self.add_packet(std::move(pkt));
+        }, "packet")
         .def("stop", SPEAD2_PTMF(inproc_queue, stop));
 
     py::class_<descriptor>(m, "RawDescriptor")
@@ -382,4 +392,69 @@ void register_atexit()
     atexit_mod.attr("register")(py::cpp_function(detail::run_exit_stoppers));
 }
 
+buffer_allocation::buffer_allocation(py::buffer buf)
+    : obj(std::move(buf)),
+    buffer_info(request_buffer_info(obj, PyBUF_C_CONTIGUOUS | PyBUF_WRITEABLE))
+{
+}
+
+namespace detail
+{
+
+std::shared_ptr<buffer_allocator> buffer_allocator::instance = std::make_shared<buffer_allocator>();
+
+void buffer_allocator::free(std::uint8_t *ptr, void *user_data)
+{
+    auto alloc = static_cast<buffer_allocation *>(user_data);
+    delete alloc;
+}
+
+buffer_allocator::pointer buffer_allocator::allocate(std::size_t, void *hint)
+{
+    auto alloc = static_cast<buffer_allocation *>(hint);
+    return pointer(static_cast<std::uint8_t *>(alloc->buffer_info.ptr),
+                   deleter(shared_from_this(), hint));
+}
+
+} // namespace detail
 } // namespace spead2
+
+namespace pybind11
+{
+namespace detail
+{
+
+bool type_caster<spead2::memory_allocator::pointer>::load(handle src, bool convert)
+{
+    if (src.is_none())
+    {
+        value.reset();
+        return true;
+    }
+    if (!PyObject_CheckBuffer(src.ptr()))
+        return false;
+    buffer buf = reinterpret_borrow<buffer>(src);
+    std::unique_ptr<spead2::buffer_allocation> alloc{
+        new spead2::buffer_allocation(std::move(buf))
+    };
+    // Create a pointer wrapping the buffer_allocation
+    value = spead2::detail::buffer_allocator::instance->allocate(1, alloc.get());
+    // Ownership has passed to value, so do not free it when alloc goes out of scope
+    alloc.release();
+    return true;
+}
+
+handle type_caster<spead2::memory_allocator::pointer>::cast(
+    const spead2::memory_allocator::pointer &ptr, return_value_policy, handle)
+{
+    if (!ptr)
+        return none().inc_ref();
+    // Check that it was allocated from the singleton instance of buffer_allocator
+    if (ptr.get_deleter().get_allocator() != spead2::detail::buffer_allocator::instance)
+        throw type_error("pointer did not come from a Python buffer object");
+    auto alloc = static_cast<const spead2::buffer_allocation *>(ptr.get_deleter().get_user());
+    return alloc->obj.inc_ref();
+}
+
+} // namespace detail
+} // namespace pybind11

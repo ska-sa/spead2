@@ -165,9 +165,11 @@ setup(
     ],
     tests_require=[
         'netifaces',
+        'numba',
         'pytest',
         'pytest-asyncio',
-        'pytest-timeout'
+        'pytest-timeout',
+        'scipy'
     ],
     python_requires='>=3.6',
     packages=find_packages('src'),

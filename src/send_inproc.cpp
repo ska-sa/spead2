@@ -84,7 +84,7 @@ void inproc_writer::wakeup()
     auto *item = data.item;
     try
     {
-        queues[data.substream_index]->buffer.push(std::move(dup));
+        queues[data.substream_index]->add_packet(std::move(dup));
         item->bytes_sent += size;
     }
     catch (ringbuffer_stopped &)

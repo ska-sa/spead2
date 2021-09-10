@@ -20,3 +20,4 @@ with the C++ backend.
    py-inproc
    py-logging
    py-ibverbs
+   py-recv-chunk
