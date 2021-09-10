@@ -59,8 +59,9 @@ Reference
    .. py:attribute:: data
 
    Data storage for a chunk. This can be set to any object that supports the
-   Python buffer protocol, as long as it is contiguous and writable. It can
-   also be set to ``None`` to clear it.
+   Python buffer protocol, as long as it is contiguous and writable. Examples
+   include (contiguous) numpy arrays, :py:class:`bytearray` and
+   :py:class:`memoryview`. It can also be set to ``None`` to clear it.
 
    .. py:attribute:: present
 
@@ -201,7 +202,7 @@ Reference
    :type chunk_config: :py:class:`spead2.recv.ChunkStreamConfig`
    :param data_ringbuffer: Ringbuffer onto which the stream will place completed chunks.
    :type data_ringbuffer: :py:class:`spead2.recv.ChunkRingbuffer`
-   :param free_ringbuffer: Rnigbuffer from which the stream will obtain new chunks.
+   :param free_ringbuffer: Ringbuffer from which the stream will obtain new chunks.
    :type free_ringbuffer: :py:class:`spead2.recv.ChunkRingbuffer`
 
    .. py:attribute:: data_ringbuffer

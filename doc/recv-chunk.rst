@@ -36,7 +36,7 @@ a callback (the :dfn:`place callback`) which determines for each heap
 
 The heap index is used to report which heaps are received, via a boolean array.
 The indices for a chunk should thus be consecutive integers starting from 0
-(holes are allowed, but will waste memory in the array). The offset is the
+(gaps are allowed, but will waste memory in the array). The offset is the
 byte offset within the storage for the chunk. The callback may also indicate
 that the heap should be ignored by returning a chunk ID of -1 (which is the
 value on entry, so this is the effect if the callback does not change the
@@ -78,7 +78,7 @@ Packet presence
 ---------------
 Instead of only getting information on which heaps were successfully received,
 it is possible to instead get information about which *packets* were received,
-even some packets from a heap are missing. This is only possible if the amount
+even if some packets from a heap are missing. This is only possible if the amount
 of payload in each packet is known in advance. The payload offset item is
 divided by the expected payload size and added to the heap offset returned by
 the callback before being used.

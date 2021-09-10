@@ -345,6 +345,7 @@ public:
      * Retrieve an item from the queue, blocking until there is one or until
      * the queue is stopped.
      *
+     * @param sem_args  Arbitrary arguments to pass to the data semaphore
      * @throw ringbuffer_stopped if the queue is empty and @ref stop was called
      */
     template<typename... SemArgs>

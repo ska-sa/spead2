@@ -208,14 +208,13 @@ class TestChunkRingbuffer:
             chunk_ringbuffer.get()
         assert chunk_ringbuffer.empty()
 
-    def test_stop(self, chunk_ringbuffer):
+    @pytest.mark.parametrize('method', [recv.ChunkRingbuffer.get, recv.ChunkRingbuffer.get_nowait])
+    def test_stop(self, chunk_ringbuffer, method):
         chunk_ringbuffer.put(make_chunk())
         chunk_ringbuffer.stop()
         chunk_ringbuffer.get()  # Should get the item in the queue
         with pytest.raises(spead2.Stopped):
-            chunk_ringbuffer.get()
-        with pytest.raises(spead2.Stopped):
-            chunk_ringbuffer.get_nowait()
+            method(chunk_ringbuffer)
 
     def test_round_trip(self, chunk_ringbuffer):
         chunk = make_chunk()

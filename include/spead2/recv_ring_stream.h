@@ -122,6 +122,7 @@ public:
      * Wait until a heap is available and return it; or until the stream is
      * stopped.
      *
+     * @param sem_args  Arbitrary arguments to pass to the data semaphore
      * @throw ringbuffer_stopped if @ref stop has been called and
      * there are no more heaps.
      */
