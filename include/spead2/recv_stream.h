@@ -152,7 +152,7 @@ public:
      * Maximum number of packets received as a unit. This is only applicable
      * to readers that support fetching a batch of packets from the source.
      */
-    std::size_t &max_batch;
+    std::uint64_t &max_batch;
 
     /**
      * Number of heaps that were entirely contained in one packet.
