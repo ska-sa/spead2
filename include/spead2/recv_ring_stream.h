@@ -197,8 +197,10 @@ void ring_stream<Ringbuffer>::heap_ready(live_heap &&h)
                     log_warning("worker thread blocked by full ringbuffer on heap %d",
                                 h.get_cnt());
                 {
+                    // Record directly in stats rather than batch_stats, so that
+                    // it is visible immediately rather than only after unblocking.
                     std::lock_guard<std::mutex> lock(stats_mutex);
-                    stats.worker_blocked++;
+                    stats[stream_stat_worker_blocked]++;
                 }
                 ready_heaps.push(std::move(h));
                 if (lossy)

@@ -23,7 +23,9 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <deque>
+#include <vector>
+#include <string>
+#include <map>
 #include <memory>
 #include <utility>
 #include <functional>
@@ -50,44 +52,115 @@ namespace recv
 struct packet_header;
 
 /**
+ * Type for a statistic.
+ *
+ * All statistics are integral, but the type determines how values are merged.
+ */
+enum class stream_stat_type
+{
+    COUNTER,    ///< Merge values by addition
+    MAXIMUM,    ///< Merge values by taking the larger one
+};
+
+/// Registration information about a statistic counter.
+struct stream_stat
+{
+    std::string name;
+    stream_stat_type type;
+
+    stream_stat() = default;
+    stream_stat(std::string name, stream_stat_type type);
+
+    std::uint64_t combine(std::uint64_t a, std::uint64_t b) const;
+};
+
+static constexpr std::size_t stream_stat_heaps = 0;
+static constexpr std::size_t stream_stat_incomplete_heaps_evicted = 1;
+static constexpr std::size_t stream_stat_incomplete_heaps_flushed = 2;
+static constexpr std::size_t stream_stat_packets = 3;
+static constexpr std::size_t stream_stat_batches = 4;
+static constexpr std::size_t stream_stat_max_batch = 5;
+static constexpr std::size_t stream_stat_single_packet_heaps = 6;
+static constexpr std::size_t stream_stat_search_dist = 7;
+static constexpr std::size_t stream_stat_worker_blocked = 8;
+static constexpr std::size_t stream_stat_custom = 9;  // index for first user-defined statistic
+
+
+class stream_stats_metadata
+{
+private:
+    std::vector<stream_stat> stats;
+    std::map<std::string, std::size_t> lookup;
+
+public:
+    static std::shared_ptr<stream_stats_metadata> default_instance;
+
+    stream_stats_metadata();
+
+    const std::vector<stream_stat> &get_all() const { return stats; }
+    std::size_t operator[](const std::string &name) const;
+    std::size_t size() const { return stats.size(); }
+
+    // Return value is the index of the corresponding statistic
+    std::size_t add(std::string name, stream_stat_type type);
+};
+
+/**
  * Statistics about a stream. Not all fields are relevant for all stream types.
  */
-struct stream_stats
+class stream_stats
 {
+private:
+    std::shared_ptr<stream_stats_metadata> metadata;
+    std::vector<std::uint64_t> values;
+
+public:
+    stream_stats();
+    explicit stream_stats(std::shared_ptr<stream_stats_metadata> metadata);
+
+    std::size_t size() const { return values.size(); }
+    std::uint64_t &operator[](std::size_t index) { return values[index]; }
+    std::uint64_t operator[](std::size_t index) const { return values[index]; }
+
+    std::uint64_t &operator[](const std::string &name);
+    std::uint64_t operator[](const std::string &name) const;
+
+    // The references below are for backwards compatibility.
+
     /// Total number of heaps passed to @ref stream_base::heap_ready
-    std::uint64_t heaps = 0;
+    std::uint64_t &heaps;
     /**
      * Number of incomplete heaps that were evicted from the buffer to make
      * room for new data.
      */
-    std::uint64_t incomplete_heaps_evicted = 0;
+    std::uint64_t &incomplete_heaps_evicted;
     /**
      * Number of incomplete heaps that were emitted by @ref stream::flush.
      * These are typically heaps that were in-flight when the stream stopped.
      */
-    std::uint64_t incomplete_heaps_flushed = 0;
+    std::uint64_t &incomplete_heaps_flushed;
     /// Number of packets received
-    std::uint64_t packets = 0;
+    std::uint64_t &packets;
     /// Number of batches of packets.
-    std::uint64_t batches = 0;
+    std::uint64_t &batches;
     /**
      * Number of times a worker thread was blocked because the ringbuffer was
      * full. Only applicable to @ref ring_stream.
      */
-    std::uint64_t worker_blocked = 0;
+    std::uint64_t &worker_blocked;
     /**
      * Maximum number of packets received as a unit. This is only applicable
      * to readers that support fetching a batch of packets from the source.
      */
-    std::size_t max_batch = 0;
+    std::size_t &max_batch;
 
     /**
      * Number of heaps that were entirely contained in one packet.
      */
-    std::uint64_t single_packet_heaps = 0;
+    std::uint64_t &single_packet_heaps;
 
     /// Total number of hash table probes.
-    std::uint64_t search_dist = 0;
+    std::uint64_t &search_dist;
 
     stream_stats operator+(const stream_stats &other) const;
     stream_stats &operator+=(const stream_stats &other);
@@ -119,6 +192,8 @@ private:
     bool allow_out_of_order = false;
     /// A user-defined identifier for a stream
     std::uintptr_t stream_id = 0;
+    /// statistics (includes the built-in ones)
+    std::shared_ptr<stream_stats_metadata> stats;
 
 public:
     stream_config();
@@ -181,6 +256,12 @@ public:
 
     /// Get the stream ID
     std::uintptr_t get_stream_id() const { return stream_id; }
+
+    /// Set the stream statistics
+    stream_config &set_stats(std::shared_ptr<stream_stats_metadata> stats);
+
+    /// Get the stream statistics
+    const std::shared_ptr<stream_stats_metadata> &get_stats() const { return stats; }
 };
 
 /**
@@ -314,7 +395,14 @@ private:
 
 protected:
     mutable std::mutex stats_mutex;
-    stream_stats stats;
+    std::vector<std::uint64_t> stats;
+
+    /**
+     * Statistics for the current batch. These are protected by queue_mutex
+     * rather than stats_mutex. When the batch ends they are merged into
+     * @ref stats.
+     */
+    std::vector<std::uint64_t> batch_stats;
 
     /**
      * Shut down the stream. This calls @ref flush_unlocked. Subclasses may
