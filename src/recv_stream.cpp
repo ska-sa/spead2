@@ -104,8 +104,8 @@ stream_stats::stream_stats(std::shared_ptr<stream_stats_metadata> metadata)
     batches(values[stream_stat_batches]),
     worker_blocked(values[stream_stat_worker_blocked]),
     max_batch(values[stream_stat_max_batch]),
-    single_packet_heaps(values[single_packet_heaps]),
-    search_dist(values[search_dist])
+    single_packet_heaps(values[stream_stat_single_packet_heaps]),
+    search_dist(values[stream_stat_search_dist])
 {
 }
 
