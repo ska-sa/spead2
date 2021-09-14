@@ -540,13 +540,15 @@ py::module register_module(py::module &parent)
         STREAM_STATS_PROPERTY(max_batch)
         STREAM_STATS_PROPERTY(single_packet_heaps)
         STREAM_STATS_PROPERTY(search_dist)
-        .def("__getitem__", [](const stream_stats &self, std::size_t index) {
+        .def("__getitem__", [](const stream_stats &self, std::size_t index)
+        {
             if (index < self.size())
                 return self[index];
             else
                 throw py::index_error();
         })
-        .def("__getitem__", [](const stream_stats &self, const std::string &name) {
+        .def("__getitem__", [](const stream_stats &self, const std::string &name)
+        {
             try
             {
                 return self[name];
@@ -556,6 +558,30 @@ py::module register_module(py::module &parent)
                 throw py::key_error(name);
             }
         })
+        .def("__contains__", [](const stream_stats &self, const std::string &name)
+        {
+            try
+            {
+                self[name];
+                return true;
+            }
+            catch (std::invalid_argument &)
+            {
+                return false;
+            }
+        })
+        .def("get", [](const stream_stats &self, const std::string &name, py::object &default) -> py::object
+        {
+            try
+            {
+                return py::int_(self[name]);
+            }
+            catch (std::invalid_argument &)
+            {
+                return default;
+            }
+        }, py::arg(), py::arg() = py::none)
+        .def("__len__", SPEAD2_PTMF(stream_stats, size))
         .def(py::self + py::self)
         .def(py::self += py::self);
 #undef STREAM_STATS_PROPERTY
