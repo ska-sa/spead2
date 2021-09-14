@@ -34,6 +34,7 @@
 #include <atomic>
 #include <type_traits>
 #include <boost/asio.hpp>
+#include <boost/iterator/iterator_facade.hpp>
 #include <spead2/recv_live_heap.h>
 #include <spead2/recv_reader.h>
 #include <spead2/common_memory_pool.h>
@@ -101,6 +102,55 @@ static constexpr std::size_t custom = 9;  // index for first user-defined statis
 
 } // namespace stream_stat_indices
 
+namespace detail
+{
+
+template<typename T, typename V>  // T is either stream_stats or const stream_stats; V is a pair
+class stream_stats_iterator : public boost::iterator_facade<
+    stream_stats_iterator<T, V>,
+    V, // value type
+    boost::random_access_traversal_tag,
+    V> // reference type
+{
+private:
+    friend class boost::iterator_core_access;
+
+    T *owner = nullptr;
+    std::size_t index = 0;
+
+    V dereference() const
+    {
+        return V(owner->get_config()[index].get_name(), (*owner)[index]);
+    }
+
+    template<typename T2, typename V2>
+    bool equal(const stream_stats_iterator<T2, V2> &other) const
+    {
+        return owner == other.owner && index == other.index;
+    }
+
+    void increment() { index++; }
+    void decrement() { index--; }
+    void advance(std::ptrdiff_t n) { index += n; }
+
+    template<typename T2, typename V2>
+    std::ptrdiff_t distance_to(const stream_stats_iterator<T2, V2> &other) const
+    {
+        return std::ptrdiff_t(other.index) - std::ptrdiff_t(index);
+    }
+
+public:
+    stream_stats_iterator() = default;
+    explicit stream_stats_iterator(T &owner, std::size_t index = 0) : owner(&owner), index(index) {}
+
+    template<typename T2, typename V2,
+             typename = typename std::enable_if<std::is_convertible<T2 *, T *>::value>::type>
+    stream_stats_iterator(const stream_stats_iterator<T2, V2> &other)
+        : owner(other.owner), index(other.index) {}
+};
+
+} // namespace detail
+
 /**
  * Statistics about a stream. Not all fields are relevant for all stream types.
  */
@@ -111,10 +161,16 @@ private:
     std::vector<std::uint64_t> values;
 
 public:
+    using iterator = detail::stream_stats_iterator<stream_stats, std::pair<const std::string &, std::uint64_t &>>;
+    using const_iterator = detail::stream_stats_iterator<const stream_stats, const std::pair<const std::string &, std::uint64_t>>;
+
     stream_stats();
     explicit stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config);
     stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config,
                  std::vector<std::uint64_t> values);
+
+    /// Get the configuration of the statistics
+    const std::vector<stream_stat_config> &get_config() const { return *config; }
 
     /// Get the number of statistics
     std::size_t size() const { return values.size(); }
@@ -139,6 +195,15 @@ public:
      * @throw std::invalid_argument if @a name is not the name of a statistic
      */
     std::uint64_t operator[](const std::string &name) const;
+
+    const_iterator cbegin() const { return const_iterator(*this); }
+    const_iterator cend() const { return const_iterator(*this, size()); }
+    iterator begin() { return iterator(*this); }
+    iterator end() { return iterator(*this, size()); }
+    const_iterator begin() const { return cbegin(); }
+    const_iterator end() const { return cend(); }
+    iterator find(const std::string &name);
+    const_iterator find(const std::string &name) const;
 
     // The references below are for backwards compatibility.
 

@@ -66,14 +66,24 @@ bool operator!=(const stream_stat_config &a, const stream_stat_config &b)
     return !(a == b);
 }
 
-static std::size_t get_stat_index(
+static std::size_t get_stat_index_nothrow(
     const std::vector<stream_stat_config> &stats,
     const std::string &name)
 {
     for (std::size_t i = 0; i < stats.size(); i++)
         if (stats[i].get_name() == name)
             return i;
-    throw std::invalid_argument(name + " is not a known statistic name");
+    return stats.size();
+}
+
+static std::size_t get_stat_index(
+    const std::vector<stream_stat_config> &stats,
+    const std::string &name)
+{
+    std::size_t ret = get_stat_index_nothrow(stats, name);
+    if (ret == stats.size())
+        throw std::invalid_argument(name + " is not a known statistic name");
+    return ret;
 }
 
 
@@ -134,6 +144,16 @@ std::uint64_t &stream_stats::operator[](const std::string &name)
 std::uint64_t stream_stats::operator[](const std::string &name) const
 {
     return values[get_stat_index(*config, name)];
+}
+
+stream_stats::iterator stream_stats::find(const std::string &name)
+{
+    return iterator(*this, get_stat_index_nothrow(*config, name));
+}
+
+stream_stats::const_iterator stream_stats::find(const std::string &name) const
+{
+    return const_iterator(*this, get_stat_index_nothrow(*config, name));
 }
 
 stream_stats stream_stats::operator+(const stream_stats &other) const

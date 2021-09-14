@@ -549,38 +549,44 @@ py::module register_module(py::module &parent)
         })
         .def("__getitem__", [](const stream_stats &self, const std::string &name)
         {
-            try
-            {
-                return self[name];
-            }
-            catch (std::invalid_argument &)
-            {
+            auto pos = self.find(name);
+            if (pos == self.end())
                 throw py::key_error(name);
-            }
+            return pos->second;
+        })
+        .def("__setitem__", [](stream_stats &self, std::size_t index, std::uint64_t value)
+        {
+            if (index < self.size())
+                self[index] = value;
+            else
+                throw py::index_error();
+        })
+        .def("__setitem__", [](stream_stats &self, const std::string &name, std::uint64_t value)
+        {
+            auto pos = self.find(name);
+            if (pos == self.end())
+                throw py::key_error(name);
+            pos->second = value;
         })
         .def("__contains__", [](const stream_stats &self, const std::string &name)
         {
-            try
-            {
-                self[name];
-                return true;
-            }
-            catch (std::invalid_argument &)
-            {
-                return false;
-            }
+            return self.find(name) != self.end();
         })
-        .def("get", [](const stream_stats &self, const std::string &name, py::object &default) -> py::object
+        .def("get", [](const stream_stats &self, const std::string &name, py::object &default_)
         {
-            try
-            {
-                return py::int_(self[name]);
-            }
-            catch (std::invalid_argument &)
-            {
-                return default;
-            }
-        }, py::arg(), py::arg() = py::none)
+            auto pos = self.find(name);
+            return pos != self.end() ? py::int_(pos->second) : default_;
+        }, py::arg(), py::arg() = py::none())
+        .def(
+            "items",
+            [](const stream_stats &self) { return py::make_iterator(self.begin(), self.end()); },
+            py::keep_alive<0, 1>()  // keep the stats alive while it is iterated
+        )
+        .def(
+            "__iter__",
+            [](const stream_stats &self) { return py::make_key_iterator(self.begin(), self.end()); },
+            py::keep_alive<0, 1>()  // keep the stats alive while it is iterated
+        )
         .def("__len__", SPEAD2_PTMF(stream_stats, size))
         .def(py::self + py::self)
         .def(py::self += py::self);
