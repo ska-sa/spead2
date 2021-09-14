@@ -21,9 +21,11 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/operators.h>
+#include <algorithm>
 #include <stdexcept>
 #include <type_traits>
 #include <cstdint>
+#include <cctype>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <boost/optional.hpp>
@@ -538,21 +540,8 @@ py::module register_module(py::module &parent)
         .def("combine", SPEAD2_PTMF(stream_stat_config, combine))
         .def(py::self == py::self)
         .def(py::self != py::self);
-#define STREAM_STATS_PROPERTY(field) \
-    .def_property( \
-        #field, \
-        [](const stream_stats &self) { return self[stream_stat_indices::field]; }, \
-        [](stream_stats &self, std::uint64_t value) { self[stream_stat_indices::field] = value; })
-    py::class_<stream_stats>(m, "StreamStats")
-        STREAM_STATS_PROPERTY(heaps)
-        STREAM_STATS_PROPERTY(incomplete_heaps_evicted)
-        STREAM_STATS_PROPERTY(incomplete_heaps_flushed)
-        STREAM_STATS_PROPERTY(packets)
-        STREAM_STATS_PROPERTY(batches)
-        STREAM_STATS_PROPERTY(worker_blocked)
-        STREAM_STATS_PROPERTY(max_batch)
-        STREAM_STATS_PROPERTY(single_packet_heaps)
-        STREAM_STATS_PROPERTY(search_dist)
+    py::class_<stream_stats> stream_stats_cls(m, "StreamStats");
+    stream_stats_cls
         .def("__getitem__", [](const stream_stats &self, std::size_t index)
         {
             if (index < self.size())
@@ -603,7 +592,30 @@ py::module register_module(py::module &parent)
         .def("__len__", SPEAD2_PTMF(stream_stats, size))
         .def(py::self + py::self)
         .def(py::self += py::self);
+
+    py::module stream_stat_indices_module = m.def_submodule("stream_stat_indices");
+#define STREAM_STATS_PROPERTY(field) \
+    do { \
+        stream_stats_cls.def_property( \
+            #field, \
+            [](const stream_stats &self) { return self[stream_stat_indices::field]; }, \
+            [](stream_stats &self, std::uint64_t value) { self[stream_stat_indices::field] = value; }); \
+        std::string upper = #field; \
+        std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper); \
+        stream_stat_indices_module.attr(upper.c_str()) = stream_stat_indices::field; \
+    } while (false)
+
+    STREAM_STATS_PROPERTY(heaps);
+    STREAM_STATS_PROPERTY(incomplete_heaps_evicted);
+    STREAM_STATS_PROPERTY(incomplete_heaps_flushed);
+    STREAM_STATS_PROPERTY(packets);
+    STREAM_STATS_PROPERTY(batches);
+    STREAM_STATS_PROPERTY(worker_blocked);
+    STREAM_STATS_PROPERTY(max_batch);
+    STREAM_STATS_PROPERTY(single_packet_heaps);
+    STREAM_STATS_PROPERTY(search_dist);
 #undef STREAM_STATS_PROPERTY
+
     py::class_<stream_config>(m, "StreamConfig")
         .def(py::init(&data_class_constructor<stream_config>))
         .def_property("max_heaps",

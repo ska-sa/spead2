@@ -1057,8 +1057,8 @@ class TestStreamStats:
             stats['not_a_stat']
 
     def test_getitem_index(self, stats):
-        assert stats[0] == 10  # TODO: get names for the indices
-        assert stats[8] == 90
+        assert stats[recv.stream_stat_indices.HEAPS] == 10
+        assert stats[recv.stream_stat_indices.WORKER_BLOCKED] == 90
 
     def test_getitem_index_out_of_range(self, stats):
         with pytest.raises(IndexError):
