@@ -589,7 +589,13 @@ py::module register_module(py::module &parent)
             [](const stream_stats &self) { return py::make_key_iterator(self.begin(), self.end()); },
             py::keep_alive<0, 1>()  // keep the stats alive while it is iterated
         )
+        .def(
+            "keys",
+            [](const stream_stats &self) { return py::make_key_iterator(self.begin(), self.end()); },
+            py::keep_alive<0, 1>()  // keep the stats alive while it is iterated
+        )
         .def("__len__", SPEAD2_PTMF(stream_stats, size))
+        .def_property_readonly("config", SPEAD2_PTMF(stream_stats, get_config))
         .def(py::self + py::self)
         .def(py::self += py::self);
 
