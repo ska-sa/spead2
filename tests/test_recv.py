@@ -1069,7 +1069,7 @@ class TestStreamStats:
         assert 'not_a_stat' not in stats
 
     def test_len(self, stats):
-        assert len(stats) == 9  # Note: will need updating if new built-in stats are added
+        assert len(stats) == len(TestStreamConfig.expected_stats)
 
     def test_custom(self, stats, custom_stats, custom_indices):
         assert custom_stats['counter'] == 123
