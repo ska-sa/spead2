@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017-2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -51,59 +51,55 @@ namespace recv
 
 struct packet_header;
 
-/**
- * Type for a statistic.
- *
- * All statistics are integral, but the type determines how values are merged.
- */
-enum class stream_stat_type
-{
-    COUNTER,    ///< Merge values by addition
-    MAXIMUM,    ///< Merge values by taking the larger one
-};
-
 /// Registration information about a statistic counter.
-struct stream_stat
+class stream_stat_config
 {
-    std::string name;
-    stream_stat_type type;
+public:
+    /**
+     * Type for a statistic.
+     *
+     * All statistics are integral, but the mode determines how values are merged.
+     */
+    enum class mode
+    {
+        COUNTER,    ///< Merge values by addition
+        MAXIMUM     ///< Merge values by taking the larger one
+    };
 
-    stream_stat() = default;
-    stream_stat(std::string name, stream_stat_type type);
+private:
+    const std::string name;
+    const mode mode_;
 
+public:
+    explicit stream_stat_config(std::string name, mode mode_ = mode::COUNTER);
+
+    const std::string &get_name() const { return name; }
+    mode get_mode() const { return mode_; }
+
+    /**
+     * Combine two samples according to the mode.
+     */
     std::uint64_t combine(std::uint64_t a, std::uint64_t b) const;
 };
 
-static constexpr std::size_t stream_stat_heaps = 0;
-static constexpr std::size_t stream_stat_incomplete_heaps_evicted = 1;
-static constexpr std::size_t stream_stat_incomplete_heaps_flushed = 2;
-static constexpr std::size_t stream_stat_packets = 3;
-static constexpr std::size_t stream_stat_batches = 4;
-static constexpr std::size_t stream_stat_max_batch = 5;
-static constexpr std::size_t stream_stat_single_packet_heaps = 6;
-static constexpr std::size_t stream_stat_search_dist = 7;
-static constexpr std::size_t stream_stat_worker_blocked = 8;
-static constexpr std::size_t stream_stat_custom = 9;  // index for first user-defined statistic
+bool operator==(const stream_stat_config &a, const stream_stat_config &b);
+bool operator!=(const stream_stat_config &a, const stream_stat_config &b);
 
-
-class stream_stats_metadata
+namespace stream_stat_indices
 {
-private:
-    std::vector<stream_stat> stats;
-    std::map<std::string, std::size_t> lookup;
 
-public:
-    static std::shared_ptr<stream_stats_metadata> default_instance;
+static constexpr std::size_t heaps = 0;
+static constexpr std::size_t incomplete_heaps_evicted = 1;
+static constexpr std::size_t incomplete_heaps_flushed = 2;
+static constexpr std::size_t packets = 3;
+static constexpr std::size_t batches = 4;
+static constexpr std::size_t max_batch = 5;
+static constexpr std::size_t single_packet_heaps = 6;
+static constexpr std::size_t search_dist = 7;
+static constexpr std::size_t worker_blocked = 8;
+static constexpr std::size_t custom = 9;  // index for first user-defined statistic
 
-    stream_stats_metadata();
-
-    const std::vector<stream_stat> &get_all() const { return stats; }
-    std::size_t operator[](const std::string &name) const;
-    std::size_t size() const { return stats.size(); }
-
-    // Return value is the index of the corresponding statistic
-    std::size_t add(std::string name, stream_stat_type type);
-};
+} // namespace stream_stat_indices
 
 /**
  * Statistics about a stream. Not all fields are relevant for all stream types.
@@ -111,18 +107,37 @@ public:
 class stream_stats
 {
 private:
-    std::shared_ptr<stream_stats_metadata> metadata;
+    std::shared_ptr<std::vector<stream_stat_config>> config;
     std::vector<std::uint64_t> values;
 
 public:
     stream_stats();
-    explicit stream_stats(std::shared_ptr<stream_stats_metadata> metadata);
+    explicit stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config);
+    stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config,
+                 std::vector<std::uint64_t> values);
 
+    /// Get the number of statistics
     std::size_t size() const { return values.size(); }
+    /**
+     * Access a statistic by index. If index is out of range, behaviour is undefined.
+     */
     std::uint64_t &operator[](std::size_t index) { return values[index]; }
+    /**
+     * Access a statistic by index. If index is out of range, behaviour is undefined.
+     */
     std::uint64_t operator[](std::size_t index) const { return values[index]; }
 
+    /**
+     * Access a statistic by name.
+     *
+     * @throw std::invalid_argument if @a name is not the name of a statistic
+     */
     std::uint64_t &operator[](const std::string &name);
+    /**
+     * Access a statistic by name.
+     *
+     * @throw std::invalid_argument if @a name is not the name of a statistic
+     */
     std::uint64_t operator[](const std::string &name) const;
 
     // The references below are for backwards compatibility.
@@ -171,6 +186,7 @@ public:
  */
 class stream_config
 {
+    friend class stream_base;
 public:
     static constexpr std::size_t default_max_heaps = 4;
 
@@ -192,8 +208,8 @@ private:
     bool allow_out_of_order = false;
     /// A user-defined identifier for a stream
     std::uintptr_t stream_id = 0;
-    /// statistics (includes the built-in ones)
-    std::shared_ptr<stream_stats_metadata> stats;
+    /// Statistics (includes the built-in ones)
+    std::shared_ptr<std::vector<stream_stat_config>> stats;
 
 public:
     stream_config();
@@ -257,11 +273,22 @@ public:
     /// Get the stream ID
     std::uintptr_t get_stream_id() const { return stream_id; }
 
-    /// Set the stream statistics
-    stream_config &set_stats(std::shared_ptr<stream_stats_metadata> stats);
+    /**
+     * Add a new custom statistic. Returns the index to use with @ref stream_stats.
+     *
+     * @throw std::invalid_argument if @a name already exists.
+     */
+    std::size_t add_stat(std::string name, stream_stat_config::mode mode);
 
-    /// Get the stream statistics
-    const std::shared_ptr<stream_stats_metadata> &get_stats() const { return stats; }
+    /// Get the stream statistics (including the built-in ones)
+    const std::vector<stream_stat_config> &get_stats() const { return *stats; }
+
+    /**
+     * Helper to get the index of a specific statistic.
+     *
+     * @throw std::invalid_argument if @a name is not a known statistic.
+     */
+    std::size_t get_stat_index(const std::string &name) const;
 };
 
 /**

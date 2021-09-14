@@ -524,8 +524,12 @@ py::module register_module(py::module &parent)
         .def_readonly("is_immediate", &item_wrapper::is_immediate)
         .def_readonly("immediate_value", &item_wrapper::immediate_value)
         .def_buffer([](item_wrapper &item) { return item.get_value(); });
+
 #define STREAM_STATS_PROPERTY(field) \
-    .def_property(#field, [](const stream_stats &self) { return self[#field]; }, [](stream_stats &self, std::uint64_t value) { self[#field] = value; })
+    .def_property( \
+        #field, \
+        [](const stream_stats &self) { return self[stream_stat_indices::field]; }, \
+        [](stream_stats &self, std::uint64_t value) { self[stream_stat_indices::field] = value; })
     py::class_<stream_stats>(m, "StreamStats")
         STREAM_STATS_PROPERTY(heaps)
         STREAM_STATS_PROPERTY(incomplete_heaps_evicted)
@@ -536,6 +540,22 @@ py::module register_module(py::module &parent)
         STREAM_STATS_PROPERTY(max_batch)
         STREAM_STATS_PROPERTY(single_packet_heaps)
         STREAM_STATS_PROPERTY(search_dist)
+        .def("__getitem__", [](const stream_stats &self, std::size_t index) {
+            if (index < self.size())
+                return self[index];
+            else
+                throw py::index_error();
+        })
+        .def("__getitem__", [](const stream_stats &self, const std::string &name) {
+            try
+            {
+                return self[name];
+            }
+            catch (std::invalid_argument &)
+            {
+                throw py::key_error(name);
+            }
+        })
         .def(py::self + py::self)
         .def(py::self += py::self);
 #undef STREAM_STATS_PROPERTY

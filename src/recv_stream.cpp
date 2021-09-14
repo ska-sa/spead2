@@ -36,87 +36,104 @@ namespace spead2
 namespace recv
 {
 
-stream_stat::stream_stat(std::string name, stream_stat_type type)
-    : name(std::move(name)), type(type)
+stream_stat_config::stream_stat_config(std::string name, mode mode_)
+    : name(std::move(name)), mode_(mode_)
 {
 }
 
-std::uint64_t stream_stat::combine(std::uint64_t a, std::uint64_t b) const
+std::uint64_t stream_stat_config::combine(std::uint64_t a, std::uint64_t b) const
 {
-    switch (type)
+    switch (mode_)
     {
-    case stream_stat_type::COUNTER:
+    case mode::COUNTER:
         return a + b;
-    case stream_stat_type::MAXIMUM:
+    case mode::MAXIMUM:
         return std::max(a, b);
     }
-    return 0;  // should be unreachable
+#ifdef __GNUC__
+    __builtin_unreachable();
+#endif
+    return 0;  // stops compiler complaining about not returning
 }
 
-stream_stats_metadata::stream_stats_metadata()
+bool operator==(const stream_stat_config &a, const stream_stat_config &b)
 {
+    return a.get_name() == b.get_name() && a.get_mode() == b.get_mode();
+}
+
+bool operator!=(const stream_stat_config &a, const stream_stat_config &b)
+{
+    return !(a == b);
+}
+
+static std::size_t get_stat_index(
+    const std::vector<stream_stat_config> &stats,
+    const std::string &name)
+{
+    for (std::size_t i = 0; i < stats.size(); i++)
+        if (stats[i].get_name() == name)
+            return i;
+    throw std::invalid_argument(name + " is not a known statistic name");
+}
+
+
+static std::shared_ptr<std::vector<stream_stat_config>> make_default_stats()
+{
+    auto stats = std::make_shared<std::vector<stream_stat_config>>();
     // Keep this in sync with the stream_stat_* constexprs in the header
-    add("heaps", stream_stat_type::COUNTER);
-    add("incomplete_heaps_evicted", stream_stat_type::COUNTER);
-    add("incomplete_heaps_flushed", stream_stat_type::COUNTER);
-    add("packets", stream_stat_type::COUNTER);
-    add("batches", stream_stat_type::COUNTER);
-    add("max_batch", stream_stat_type::MAXIMUM);
-    add("single_packet_heaps", stream_stat_type::COUNTER);
-    add("search_dist", stream_stat_type::COUNTER);
-    // For backwards compatibility, worker_blocked is always added, although
+    stats->emplace_back("heaps", stream_stat_config::mode::COUNTER);
+    stats->emplace_back("incomplete_heaps_evicted", stream_stat_config::mode::COUNTER);
+    stats->emplace_back("incomplete_heaps_flushed", stream_stat_config::mode::COUNTER);
+    stats->emplace_back("packets", stream_stat_config::mode::COUNTER);
+    stats->emplace_back("batches", stream_stat_config::mode::COUNTER);
+    stats->emplace_back("max_batch", stream_stat_config::mode::MAXIMUM);
+    stats->emplace_back("single_packet_heaps", stream_stat_config::mode::COUNTER);
+    stats->emplace_back("search_dist", stream_stat_config::mode::COUNTER);
+    // For backwards compatibility, worker_blocked is always stats->emplace_backed, although
     // it is not part of the base stream statistics
-    add("worker_blocked", stream_stat_type::COUNTER);
-    assert(stats.size() == stream_stat_custom);
+    stats->emplace_back("worker_blocked", stream_stat_config::mode::COUNTER);
+    assert(stats->size() == stream_stat_indices::custom);
+    return stats;
 }
 
-std::size_t stream_stats_metadata::operator[](const std::string &name) const
-{
-    auto pos = lookup.find(name);
-    if (pos == lookup.end())
-        throw std::invalid_argument("statistic " + name + " has not been registered");
-    return pos->second;
-}
+static std::shared_ptr<std::vector<stream_stat_config>> default_stats = make_default_stats();
 
-std::size_t stream_stats_metadata::add(std::string name, stream_stat_type type)
-{
-    std::size_t index = stats.size();
-    lookup[name] = index;
-    stats.emplace_back(std::move(name), type);
-    return index;
-}
-
-std::shared_ptr<stream_stats_metadata> stream_stats_metadata::default_instance =
-    std::make_shared<stream_stats_metadata>();
-
-
-stream_stats::stream_stats() : stream_stats(stream_stats_metadata::default_instance)
+stream_stats::stream_stats()
+    : stream_stats(default_stats)
 {
 }
 
-stream_stats::stream_stats(std::shared_ptr<stream_stats_metadata> metadata)
-    : metadata(std::move(metadata)),
-    values(this->metadata->size()),
-    heaps(values[stream_stat_heaps]),
-    incomplete_heaps_evicted(values[stream_stat_incomplete_heaps_evicted]),
-    incomplete_heaps_flushed(values[stream_stat_incomplete_heaps_flushed]),
-    packets(values[stream_stat_packets]),
-    batches(values[stream_stat_batches]),
-    worker_blocked(values[stream_stat_worker_blocked]),
-    max_batch(values[stream_stat_max_batch]),
-    single_packet_heaps(values[stream_stat_single_packet_heaps]),
-    search_dist(values[stream_stat_search_dist])
+stream_stats::stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config)
+    : stream_stats(std::move(config), std::vector<std::uint64_t>(config->size()))
 {
+}
+
+stream_stats::stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config,
+                           std::vector<std::uint64_t> values)
+    : config(std::move(config)),
+    values(std::move(values)),
+    heaps(this->values[stream_stat_indices::heaps]),
+    incomplete_heaps_evicted(this->values[stream_stat_indices::incomplete_heaps_evicted]),
+    incomplete_heaps_flushed(this->values[stream_stat_indices::incomplete_heaps_flushed]),
+    packets(this->values[stream_stat_indices::packets]),
+    batches(this->values[stream_stat_indices::batches]),
+    worker_blocked(this->values[stream_stat_indices::worker_blocked]),
+    max_batch(this->values[stream_stat_indices::max_batch]),
+    single_packet_heaps(this->values[stream_stat_indices::single_packet_heaps]),
+    search_dist(this->values[stream_stat_indices::search_dist])
+{
+    assert(config->size() >= stream_stat_indices::custom);
+    assert(config->size() == values.size());
 }
 
 std::uint64_t &stream_stats::operator[](const std::string &name)
 {
-    return values[(*metadata)[name]];
+    return values[get_stat_index(*config, name)];
 }
 
 std::uint64_t stream_stats::operator[](const std::string &name) const
 {
-    return values[(*metadata)[name]];
+    return values[get_stat_index(*config, name)];
 }
 
 stream_stats stream_stats::operator+(const stream_stats &other) const
@@ -128,11 +145,10 @@ stream_stats stream_stats::operator+(const stream_stats &other) const
 
 stream_stats &stream_stats::operator+=(const stream_stats &other)
 {
-    if (metadata != other.metadata)
-        throw std::invalid_argument("metadata must match to add stats together");
-    const auto &meta = metadata->get_all();
+    if (config != other.config && *config != *other.config)
+        throw std::invalid_argument("config must match to add stats together");
     for (std::size_t i = 0; i < values.size(); i++)
-        values[i] = meta[i].combine(values[i], other.values[i]);
+        values[i] = (*config)[i].combine(values[i], other.values[i]);
     return *this;
 }
 
@@ -175,7 +191,7 @@ static void packet_memcpy_nontemporal(const spead2::memory_allocator::pointer &a
 stream_config::stream_config()
     : memcpy(packet_memcpy_std),
     allocator(std::make_shared<memory_allocator>()),
-    stats(stream_stats_metadata::default_instance)
+    stats(default_stats)
 {
 }
 
@@ -264,13 +280,22 @@ stream_config &stream_config::set_stream_id(std::uintptr_t id)
     return *this;
 }
 
-stream_config &stream_config::set_stats(std::shared_ptr<stream_stats_metadata> stats)
+std::size_t stream_config::add_stat(std::string name, stream_stat_config::mode mode)
 {
-    if (!stats)
-        throw std::invalid_argument("stats must not be null");
-    this->stats = std::move(stats);
-    return *this;
+    // If we're pointing at the default, make a copy so that we don't modify
+    // the default.
+    if (stats == default_stats)
+        stats = std::make_shared<std::vector<stream_stat_config>>(*default_stats);
+    std::size_t index = stats->size();
+    stats->emplace_back(std::move(name), mode);
+    return index;
 }
+
+std::size_t stream_config::get_stat_index(const std::string &name) const
+{
+    return spead2::recv::get_stat_index(*stats, name);
+}
+
 
 stream_base::stream_base(const stream_config &config)
     : queue_storage(new storage_type[config.get_max_heaps()]),
@@ -279,8 +304,8 @@ stream_base::stream_base(const stream_config &config)
     buckets(new queue_entry *[bucket_count]),
     head(0),
     config(config),
-    stats(config.get_stats()->size()),
-    batch_stats(config.get_stats()->size())
+    stats(config.get_stats().size()),
+    batch_stats(config.get_stats().size())
 {
     for (std::size_t i = 0; i < config.get_max_heaps(); i++)
         cast(i)->next = INVALID_ENTRY;
@@ -337,19 +362,19 @@ stream_base::add_packet_state::~add_packet_state()
     if (!packets && is_stopped())
         return;   // Stream was stopped before we could do anything - don't count as a batch
     std::lock_guard<std::mutex> stats_lock(owner.stats_mutex);
-    // The built-in stats are updated directly; batch_stats is never used
-    owner.stats[stream_stat_packets] += packets;
-    owner.stats[stream_stat_batches]++;
-    owner.stats[stream_stat_heaps] += complete_heaps + incomplete_heaps_evicted;
-    owner.stats[stream_stat_incomplete_heaps_evicted] += incomplete_heaps_evicted;
-    owner.stats[stream_stat_single_packet_heaps] += single_packet_heaps;
-    owner.stats[stream_stat_search_dist] += search_dist;
-    auto &owner_max_batch = owner.stats[stream_stat_max_batch];
+    // The built-in stats are updated directly; batch_stats is not used
+    owner.stats[stream_stat_indices::packets] += packets;
+    owner.stats[stream_stat_indices::batches]++;
+    owner.stats[stream_stat_indices::heaps] += complete_heaps + incomplete_heaps_evicted;
+    owner.stats[stream_stat_indices::incomplete_heaps_evicted] += incomplete_heaps_evicted;
+    owner.stats[stream_stat_indices::single_packet_heaps] += single_packet_heaps;
+    owner.stats[stream_stat_indices::search_dist] += search_dist;
+    auto &owner_max_batch = owner.stats[stream_stat_indices::max_batch];
     owner_max_batch = std::max(owner_max_batch, packets);
     // Update custom statistics
-    const auto &meta = owner.get_config().get_stats()->get_all();
-    for (std::size_t i = stream_stat_custom; i < owner.batch_stats.size(); i++)
-        owner.stats[i] = meta[i].combine(owner.stats[i], owner.batch_stats[i]);
+    const auto &stats_config = owner.get_config().get_stats();
+    for (std::size_t i = stream_stat_indices::custom; i < stats_config.size(); i++)
+        owner.stats[i] = stats_config[i].combine(owner.stats[i], owner.batch_stats[i]);
 }
 
 bool stream_base::add_packet(add_packet_state &state, const packet_header &packet)
@@ -459,8 +484,8 @@ void stream_base::flush_unlocked()
         }
     }
     std::lock_guard<std::mutex> stats_lock(stats_mutex);
-    stats[stream_stat_heaps] += n_flushed;
-    stats[stream_stat_incomplete_heaps_flushed] += n_flushed;
+    stats[stream_stat_indices::heaps] += n_flushed;
+    stats[stream_stat_indices::incomplete_heaps_flushed] += n_flushed;
 }
 
 void stream_base::flush()
@@ -491,9 +516,7 @@ void stream_base::stop_received()
 stream_stats stream_base::get_stats() const
 {
     std::lock_guard<std::mutex> stats_lock(stats_mutex);
-    stream_stats ret(get_config().get_stats());
-    for (std::size_t i = 0; i < stats.size(); i++)
-        ret[i] = stats[i];
+    stream_stats ret(get_config().stats, stats);
     return ret;
 }
 
