@@ -721,6 +721,18 @@ class TestDecode:
 class TestStreamConfig:
     """Tests for :class:`spead2.recv.StreamConfig`."""
 
+    expected_stats = [
+        recv.StreamStatConfig('heaps'),
+        recv.StreamStatConfig('incomplete_heaps_evicted'),
+        recv.StreamStatConfig('incomplete_heaps_flushed'),
+        recv.StreamStatConfig('packets'),
+        recv.StreamStatConfig('batches'),
+        recv.StreamStatConfig('max_batch', recv.StreamStatConfig.Mode.MAXIMUM),
+        recv.StreamStatConfig('single_packet_heaps'),
+        recv.StreamStatConfig('search_dist'),
+        recv.StreamStatConfig('worker_blocked')
+    ]
+
     def test_default_construct(self):
         config = recv.StreamConfig()
         assert config.max_heaps == recv.StreamConfig.DEFAULT_MAX_HEAPS
@@ -730,6 +742,8 @@ class TestStreamConfig:
         assert config.allow_unsized_heaps is True
         assert config.allow_out_of_order is False
         assert config.stream_id == 0
+        # Will need updating if any new built-in statistics added
+        assert config.stats == self.expected_stats
 
     def test_set_get(self):
         config = recv.StreamConfig()
@@ -780,6 +794,17 @@ class TestStreamConfig:
     def test_bad_kwarg(self):
         with pytest.raises(TypeError):
             recv.StreamConfig(not_valid_arg=1)
+
+    def test_stats(self):
+        config = recv.StreamConfig()
+        counter_index = config.add_stat('counter')
+        maximum_index = config.add_stat('maximum', recv.StreamStatConfig.Mode.MAXIMUM)
+        assert config.stats == self.expected_stats + [
+            recv.StreamStatConfig('counter', recv.StreamStatConfig.Mode.COUNTER),
+            recv.StreamStatConfig('maximum', recv.StreamStatConfig.Mode.MAXIMUM)
+        ]
+        assert config.get_stat_index('counter') == counter_index
+        assert config.get_stat_index('maximum') == maximum_index
 
 
 class TestRingStreamConfig:
