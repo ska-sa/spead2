@@ -343,7 +343,9 @@ public:
      *
      * @throw std::invalid_argument if @a name already exists.
      */
-    std::size_t add_stat(std::string name, stream_stat_config::mode mode);
+    std::size_t add_stat(
+        std::string name,
+        stream_stat_config::mode mode = stream_stat_config::mode::COUNTER);
 
     /// Get the stream statistics (including the built-in ones)
     const std::vector<stream_stat_config> &get_stats() const { return *stats; }

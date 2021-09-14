@@ -1,4 +1,4 @@
-# Copyright 2015, 2017, 2019-2020 National Research Foundation (SARAO)
+# Copyright 2015, 2017, 2019-2021 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -965,6 +965,94 @@ class TestStream:
         assert stats.incomplete_heaps_evicted == 0
         assert stats.incomplete_heaps_flushed == 0
         assert stats.worker_blocked == 0
+
+
+class TestStreamStats:
+    @pytest.fixture
+    def stats(self):
+        # StreamStats can't be constructed from Python, so create a dummy stream
+        # to get an empty set of stats
+        receiver = recv.Stream(spead2.ThreadPool())
+        stats = receiver.stats
+        stats.heaps = 10
+        stats.incomplete_heaps_evicted = 20
+        stats.incomplete_heaps_flushed = 30
+        stats.packets = 40
+        stats.batches = 50
+        stats.max_batch = 60
+        stats.single_packet_heaps = 70
+        stats.search_dist = 80
+        stats.worker_blocked = 90
+        return stats
+
+    @pytest.fixture
+    def custom_stats_fixtures(self):
+        stream_config = recv.StreamConfig()
+        indices = {}
+        indices['counter'] = stream_config.add_stat('counter')
+        indices['maximum'] = stream_config.add_stat('maximum', recv.StreamStatConfig.Mode.MAXIMUM)
+        receiver = recv.Stream(spead2.ThreadPool(), stream_config)
+        stats = receiver.stats
+        stats["counter"] = 123
+        stats["maximum"] = 456
+        return stats, indices
+
+    @pytest.fixture
+    def custom_stats(self, custom_stats_fixtures):
+        return custom_stats_fixtures[0]
+
+    @pytest.fixture
+    def custom_indices(self, custom_stats_fixtures):
+        return custom_stats_fixtures[1]
+
+    def test_properties(self, stats):
+        assert stats.heaps == 10
+        assert stats.incomplete_heaps_evicted == 20
+        assert stats.incomplete_heaps_flushed == 30
+        assert stats.packets == 40
+        assert stats.batches == 50
+        assert stats.max_batch == 60
+        assert stats.single_packet_heaps == 70
+        assert stats.search_dist == 80
+        assert stats.worker_blocked == 90
+
+    def test_getitem_name(self, stats):
+        assert stats['heaps'] == 10
+        assert stats['incomplete_heaps_evicted'] == 20
+        assert stats['incomplete_heaps_flushed'] == 30
+        assert stats['packets'] == 40
+        assert stats['batches'] == 50
+        assert stats['max_batch'] == 60
+        assert stats['single_packet_heaps'] == 70
+        assert stats['search_dist'] == 80
+        assert stats['worker_blocked'] == 90
+
+    def test_getitem_name_missing(self, stats):
+        with pytest.raises(KeyError):
+            stats['not_a_stat']
+
+    def test_getitem_index(self, stats):
+        assert stats[0] == 10  # TODO: get names for the indices
+        assert stats[8] == 90
+
+    def test_getitem_index_out_of_range(self, stats):
+        with pytest.raises(IndexError):
+            stats[1000]
+
+    def test_contains(self, stats):
+        assert 'heaps' in stats
+        assert 'not_a_stat' not in stats
+
+    def test_len(self, stats):
+        assert len(stats) == 9  # Note: will need updating if new built-in stats are added
+
+    def test_custom(self, stats, custom_stats, custom_indices):
+        assert custom_stats['counter'] == 123
+        assert custom_stats['maximum'] == 456
+        assert custom_stats[custom_indices['counter']] == 123
+        assert custom_stats[custom_indices['maximum']] == 456
+        assert 'counter' in custom_stats
+        assert len(custom_stats) == len(stats) + 2
 
 
 class TestUdpReader:

@@ -525,6 +525,19 @@ py::module register_module(py::module &parent)
         .def_readonly("immediate_value", &item_wrapper::immediate_value)
         .def_buffer([](item_wrapper &item) { return item.get_value(); });
 
+    py::class_<stream_stat_config> stream_stat_config_cls(m, "StreamStatConfig");
+    py::enum_<stream_stat_config::mode>(stream_stat_config_cls, "Mode")
+        .value("COUNTER", stream_stat_config::mode::COUNTER)
+        .value("MAXIMUM", stream_stat_config::mode::MAXIMUM);
+    stream_stat_config_cls
+        .def(
+            py::init<std::string, stream_stat_config::mode>(),
+            "name"_a, "mode"_a = stream_stat_config::mode::COUNTER)
+        .def_property_readonly("name", SPEAD2_PTMF(stream_stat_config, get_name))
+        .def_property_readonly("mode", SPEAD2_PTMF(stream_stat_config, get_mode))
+        .def("combine", SPEAD2_PTMF(stream_stat_config, combine))
+        .def(py::self == py::self)
+        .def(py::self != py::self);
 #define STREAM_STATS_PROPERTY(field) \
     .def_property( \
         #field, \
@@ -627,6 +640,12 @@ py::module register_module(py::module &parent)
         .def_property("stream_id",
                       SPEAD2_PTMF(stream_config, get_stream_id),
                       SPEAD2_PTMF(stream_config, set_stream_id))
+        .def("add_stat", SPEAD2_PTMF(stream_config, add_stat),
+             "name"_a,
+             "mode"_a = stream_stat_config::mode::COUNTER)
+        .def_property_readonly("stats", SPEAD2_PTMF(stream_config, get_stats))
+        .def("get_stat_index", SPEAD2_PTMF(stream_config, get_stat_index),
+             "name"_a)
         .def_readonly_static("DEFAULT_MAX_HEAPS", &stream_config::default_max_heaps);
     py::class_<ring_stream_config_wrapper>(m, "RingStreamConfig")
         .def(py::init(&data_class_constructor<ring_stream_config_wrapper>))
