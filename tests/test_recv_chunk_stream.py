@@ -62,6 +62,7 @@ user_data_type = types.Record.make_c_struct([
     ('placed_heaps_index', types.uintp)  # Index at which to update stats
 ])
 
+
 @numba.cfunc(types.void(types.CPointer(chunk_place_data), types.uintp), nopython=True)
 def place_plain(data_ptr, data_size):
     data = numba.carray(data_ptr, 1)
