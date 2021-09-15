@@ -77,6 +77,7 @@ struct chunk_place_data
     std::int64_t chunk_id;
     std::size_t heap_index;          ///< Number of this heap within the chunk (output)
     std::size_t heap_offset;         ///< Byte offset of this heap within the chunk payload (output)
+    std::uint64_t *batch_stats;      ///< Pointer to staging area for statistics
     // Note: when adding new fields, remember to update src/spead2/recv/numba.py
 };
 
@@ -273,6 +274,8 @@ private:
  */
 class chunk_stream : private detail::chunk_stream_state, public stream
 {
+    friend class chunk_stream_state;
+
     virtual void heap_ready(live_heap &&) override;
 
 public:

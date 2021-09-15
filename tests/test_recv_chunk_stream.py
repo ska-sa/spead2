@@ -57,6 +57,11 @@ def check_refcount(objlist):
         assert weak() is None
 
 
+user_data_type = types.Record.make_c_struct([
+    ('scale', types.int_),        # A scale applied to heap_index
+    ('placed_heaps_index', types.uintp)  # Index at which to update stats
+])
+
 @numba.cfunc(types.void(types.CPointer(chunk_place_data), types.uintp), nopython=True)
 def place_plain(data_ptr, data_size):
     data = numba.carray(data_ptr, 1)
@@ -70,20 +75,24 @@ def place_plain(data_ptr, data_size):
 
 
 @numba.cfunc(
-    types.void(types.CPointer(chunk_place_data), types.uintp, types.voidptr),
+    types.void(types.CPointer(chunk_place_data), types.uintp, types.CPointer(user_data_type)),
     nopython=True)
-def place_bind(data_ptr, data_size, user_data):
+def place_bind(data_ptr, data_size, user_data_ptr):
     # Takes a np.int_ in via user_data to scale the heap index.
     data = numba.carray(data_ptr, 1)
-    items = numba.carray(intp_to_voidptr(data[0].items), 2, dtype=np.int64)
+    items = numba.carray(intp_to_voidptr(data[0].items), 3, dtype=np.int64)
     heap_cnt = items[0]
     payload_size = items[1]
     packet_size = items[2]
+    user_data = numba.carray(user_data_ptr, 1)
     if payload_size == HEAP_PAYLOAD_SIZE and packet_size == PACKET_SIZE:
         data[0].chunk_id = heap_cnt // HEAPS_PER_CHUNK
         heap_index = heap_cnt % HEAPS_PER_CHUNK
-        data[0].heap_index = heap_index * numba.carray(user_data, 1, dtype=np.int_)[0]
+        data[0].heap_index = heap_index * user_data[0].scale
         data[0].heap_offset = heap_index * HEAP_PAYLOAD_SIZE
+        batch_stats = numba.carray(intp_to_voidptr(data[0].batch_stats),
+                                   user_data[0].placed_heaps_index + 1, dtype=np.uint64)
+        batch_stats[user_data[0].placed_heaps_index] += 1
 
 
 # ctypes doesn't distinguish equivalent integer types, so we have to
@@ -514,15 +523,20 @@ class TestChunkRingStream:
                     data=np.zeros(CHUNK_PAYLOAD_SIZE, np.uint8)
                 )
             )
+
+        stream_config = spead2.recv.StreamConfig(max_heaps=128, allow_out_of_order=True)
         # Note: user_data is deliberately not assigned to a local variable, so
         # that reference-counting errors are more likely to be detected.
+        user_data = np.zeros(1, dtype=user_data_type.dtype)
+        user_data["scale"] = PACKETS_PER_HEAP
+        user_data["placed_heaps_index"] = stream_config.add_stat("placed_heaps")
         place_bind_llc = scipy.LowLevelCallable(
             place_bind.ctypes,
-            user_data=np.array(PACKETS_PER_HEAP, dtype=np.int_).ctypes.data_as(ctypes.c_void_p),
+            user_data=user_data.ctypes.data_as(ctypes.c_void_p),
             signature='void (void *, size_t, void *)')
         stream = spead2.recv.ChunkRingStream(
             spead2.ThreadPool(),
-            spead2.recv.StreamConfig(max_heaps=128, allow_out_of_order=True),
+            stream_config,
             spead2.recv.ChunkStreamConfig(
                 items=[0x1000, spead2.HEAP_LENGTH_ID, spead2.PAYLOAD_LENGTH_ID],
                 max_chunks=4,
@@ -545,3 +559,4 @@ class TestChunkRingStream:
         self.check_chunk_packets(
             chunks[1], 1,
             np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], np.uint8))
+        assert stream.stats["placed_heaps"] == 2

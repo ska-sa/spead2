@@ -204,6 +204,7 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
     data.chunk_id = -1;
     data.heap_index = 0;
     data.heap_offset = 0;
+    data.batch_stats = static_cast<chunk_stream *>(this)->batch_stats.data();
     chunk_config.get_place()(&data, sizeof(data));
     if (data.chunk_id < head_chunk)
     {
