@@ -348,7 +348,7 @@ private:
     /// Temporary storage for in-flight chunks during @ref stop
     std::vector<std::unique_ptr<chunk>> graveyard;
 
-    /// Create a new @ref chunk_stream_config that uses the ringbuffers
+    /// Create a new @ref spead2::recv::chunk_stream_config that uses the ringbuffers
     static chunk_stream_config adjust_chunk_config(
         const chunk_stream_config &chunk_config,
         DataRingbuffer &data_ring,
