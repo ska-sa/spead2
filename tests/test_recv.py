@@ -805,6 +805,13 @@ class TestStreamConfig:
         ]
         assert config.get_stat_index('counter') == counter_index
         assert config.get_stat_index('maximum') == maximum_index
+        with pytest.raises(ValueError):
+            config.get_stat_index('does_not_exist')
+        # Can't add duplicates
+        with pytest.raises(ValueError):
+            config.add_stat('heaps')
+        with pytest.raises(ValueError):
+            config.add_stat('counter')
 
 
 class TestRingStreamConfig:

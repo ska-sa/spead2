@@ -306,6 +306,8 @@ stream_config &stream_config::set_stream_id(std::uintptr_t id)
 
 std::size_t stream_config::add_stat(std::string name, stream_stat_config::mode mode)
 {
+    if (spead2::recv::get_stat_index_nothrow(*stats, name) != stats->size())
+        throw std::invalid_argument("A statistic called " + name + " already exists");
     // If we're pointing at the default, make a copy so that we don't modify
     // the default.
     if (stats == default_stats)
