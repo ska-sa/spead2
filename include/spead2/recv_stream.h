@@ -114,6 +114,7 @@ class stream_stats_iterator : public boost::iterator_facade<
 {
 private:
     friend class boost::iterator_core_access;
+    template<typename T2, typename V2> friend class stream_stats_iterator;
 
     T *owner = nullptr;
     std::size_t index = 0;
