@@ -114,8 +114,10 @@ stream_stats::stream_stats()
 }
 
 stream_stats::stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config)
-    : stream_stats(std::move(config), std::vector<std::uint64_t>(config->size()))
+    : stream_stats(config, std::vector<std::uint64_t>(config->size()))
 {
+    // Note: annoyingly, can't use std::move(config) above, because we access
+    // config to get the size to use for the vector.
 }
 
 stream_stats::stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config,
@@ -132,8 +134,8 @@ stream_stats::stream_stats(std::shared_ptr<std::vector<stream_stat_config>> conf
     single_packet_heaps(this->values[stream_stat_indices::single_packet_heaps]),
     search_dist(this->values[stream_stat_indices::search_dist])
 {
-    assert(config->size() >= stream_stat_indices::custom);
-    assert(config->size() == values.size());
+    assert(this->config->size() >= stream_stat_indices::custom);
+    assert(this->config->size() == this->values.size());
 }
 
 std::uint64_t &stream_stats::operator[](const std::string &name)
