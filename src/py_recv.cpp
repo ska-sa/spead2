@@ -672,6 +672,7 @@ py::module register_module(py::module &parent)
         .def_property_readonly("stats", SPEAD2_PTMF(stream_config, get_stats))
         .def("get_stat_index", SPEAD2_PTMF(stream_config, get_stat_index),
              "name"_a)
+        .def("next_stat_index", SPEAD2_PTMF(stream_config, next_stat_index))
         .def_readonly_static("DEFAULT_MAX_HEAPS", &stream_config::default_max_heaps);
     py::class_<ring_stream_config_wrapper>(m, "RingStreamConfig")
         .def(py::init(&data_class_constructor<ring_stream_config_wrapper>))

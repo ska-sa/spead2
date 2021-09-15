@@ -797,12 +797,14 @@ class TestStreamConfig:
 
     def test_stats(self):
         config = recv.StreamConfig()
+        base_index = config.next_stat_index()
         counter_index = config.add_stat('counter')
         maximum_index = config.add_stat('maximum', recv.StreamStatConfig.Mode.MAXIMUM)
         assert config.stats == self.expected_stats + [
             recv.StreamStatConfig('counter', recv.StreamStatConfig.Mode.COUNTER),
             recv.StreamStatConfig('maximum', recv.StreamStatConfig.Mode.MAXIMUM)
         ]
+        assert counter_index == base_index
         assert config.get_stat_index('counter') == counter_index
         assert config.get_stat_index('maximum') == maximum_index
         with pytest.raises(ValueError):

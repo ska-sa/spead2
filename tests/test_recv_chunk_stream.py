@@ -446,7 +446,10 @@ class TestChunkRingStream:
             self.check_chunk(chunk, i, expected_present)
             seen += 1
             recv_stream.add_free_chunk(chunk)
-        assert seen == 5   # Will see chunk 0 with no heaps, but won't see it again
+        assert seen == 5    # Will see chunk 0 with no heaps, but won't see it again
+        recv_stream.stop()  # Ensure that stats are brought up to date
+        assert recv_stream.stats["too_old_heaps"] == 1
+        assert recv_stream.stats["rejected_heaps"] == 2  # Descriptors and stop heap
 
     def test_missing_place_callback(self, data_ring, free_ring):
         with pytest.raises(ValueError):

@@ -198,6 +198,7 @@ private:
     const packet_memcpy_function orig_memcpy;  ///< Packet memcpy provided by the user
     const chunk_stream_config chunk_config;
     const std::uintptr_t stream_id;
+    const std::size_t base_stat_index;         ///< Index of first custom stat
     /// Circular buffer of chunks under construction
     std::vector<std::unique_ptr<chunk>> chunks;
     std::int64_t head_chunk = 0, tail_chunk = 0;  ///< chunk IDs of valid chunk range
@@ -295,6 +296,11 @@ public:
      *   pointer to @ref heap_metadata, from which the chunk can be retrieved.
      * - The @link stream_config::set_memory_allocator memory allocator@endlink
      *   is overridden, and the provided value is ignored.
+     * - Additional statistics are registered:
+     *   - <tt>too_old_heaps</tt>: number of heaps for which the placement function returned
+     *     a non-negative chunk ID that was behind the window.
+     *   - <tt>rejected_heaps</tt>: number of heaps for which the placement function returned
+     *     a negative chunk ID.
      *
      * @param io_service       I/O service (also used by the readers).
      * @param config           Basic stream configuration

@@ -397,6 +397,14 @@ public:
      * @throw std::invalid_argument if @a name is not a known statistic.
      */
     std::size_t get_stat_index(const std::string &name) const;
+
+    /**
+     * The index that will be returned by the next call to @ref add_stat.
+     * Indices are guaranteed to be sequential, so one can call this function
+     * to get a base index, then make a block of calls to @ref add_stat and
+     * not need to store all the individual indices.
+     */
+    std::size_t next_stat_index() const { return stats->size(); }
 };
 
 /**

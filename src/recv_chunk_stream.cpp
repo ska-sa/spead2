@@ -98,6 +98,7 @@ chunk_stream_state::chunk_stream_state(
     : orig_memcpy(config.get_memcpy()),
     chunk_config(chunk_config),
     stream_id(config.get_stream_id()),
+    base_stat_index(config.next_stat_index()),
     chunks(chunk_config.get_max_chunks())
 {
     if (!this->chunk_config.get_place())
@@ -140,6 +141,9 @@ stream_config chunk_stream_state::adjust_config(const stream_config &config)
     new_config.set_memory_allocator(std::make_shared<chunk_stream_allocator>(*this));
     // Override the original memcpy with our custom version
     new_config.set_memcpy(std::bind(&chunk_stream_state::packet_memcpy, this, _1, _2));
+    // Add custom statistics
+    new_config.add_stat("too_old_heaps");
+    new_config.add_stat("rejected_heaps");
     return new_config;
 }
 
@@ -166,6 +170,10 @@ void chunk_stream_state::flush_chunks()
 
 // Used to get a non-null pointer
 static std::uint8_t dummy_uint8;
+
+// Keep these in sync with stats added in adjust_config
+static constexpr std::size_t too_old_heaps_offset = 0;
+static constexpr std::size_t rejected_heaps_offset = 1;
 
 std::pair<std::uint8_t *, std::unique_ptr<chunk_stream_state::heap_metadata>>
 chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
@@ -213,6 +221,8 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
          */
         metadata->chunk_id = -1;
         metadata->chunk_ptr = nullptr;
+        std::size_t stat_offset = (data.chunk_id >= 0) ? too_old_heaps_offset : rejected_heaps_offset;
+        data.batch_stats[base_stat_index + stat_offset]++;
         return {&dummy_uint8, std::move(metadata)};
     }
     else
