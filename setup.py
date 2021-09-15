@@ -64,7 +64,7 @@ class BuildExt(build_ext):
             extension.extra_compile_args.extend(config['compiler']['CFLAGS'].split())
             extension.extra_link_args.extend(config['compiler']['LIBS'].split())
             if self.coverage:
-                extension.extra_compile_args.extend(['-g', '--coverage'])
+                extension.extra_compile_args.extend(['-g', '-O0', '--coverage'])
                 extension.libraries.extend(['gcov'])
             if self.split_debug:
                 extension.extra_compile_args.extend(['-g'])
