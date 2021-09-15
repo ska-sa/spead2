@@ -50,12 +50,12 @@ std::uint64_t stream_stat_config::combine(std::uint64_t a, std::uint64_t b) cons
     case mode::MAXIMUM:
         return std::max(a, b);
     }
-    // LCOV_EXCL_START
-#ifdef __GNUC__
-    __builtin_unreachable();
-#endif
-    return 0;  // stops compiler complaining about not returning
-    // LCOV_EXCL_STOP
+    /* Line below should normally be unreachable. Using the same expression as
+     * for COUNTER lets the compiler generate more efficient code, as it only
+     * has to consider two cases (looks just as good as using GCC's
+     * __builtin_unreachable, without depending on compiler specifics).
+     */
+    return a + b;   // LCOV_EXCL_LINE
 }
 
 bool operator==(const stream_stat_config &a, const stream_stat_config &b)
