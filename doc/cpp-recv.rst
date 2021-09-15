@@ -44,7 +44,7 @@ to limitations of the documentation tools.
 .. doxygenclass:: spead2::recv::stream
    :members:
 
-.. doxygenstruct:: spead2::recv::stream_stats
+.. doxygenclass:: spead2::recv::stream_stats
    :members:
 
 A potentially more convenient interface is
