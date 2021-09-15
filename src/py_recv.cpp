@@ -528,6 +528,9 @@ py::module register_module(py::module &parent)
         .def_buffer([](item_wrapper &item) { return item.get_value(); });
 
     py::class_<stream_stat_config> stream_stat_config_cls(m, "StreamStatConfig");
+    /* We have to register the embedded enum type before we can use it as a
+     * default value for the stream_stat constructor/
+     */
     py::enum_<stream_stat_config::mode>(stream_stat_config_cls, "Mode")
         .value("COUNTER", stream_stat_config::mode::COUNTER)
         .value("MAXIMUM", stream_stat_config::mode::MAXIMUM);
@@ -594,12 +597,17 @@ py::module register_module(py::module &parent)
             [](const stream_stats &self) { return py::make_key_iterator(self.begin(), self.end()); },
             py::keep_alive<0, 1>()  // keep the stats alive while it is iterated
         )
+        // TODO: add "values" after https://github.com/pybind/pybind11/pull/3271 lands
         .def("__len__", SPEAD2_PTMF(stream_stats, size))
         .def_property_readonly("config", SPEAD2_PTMF(stream_stats, get_config))
         .def(py::self + py::self)
         .def(py::self += py::self);
 
     py::module stream_stat_indices_module = m.def_submodule("stream_stat_indices");
+    /* The macro registers a property on stream_stats to access the built-in stats
+     * by name, and at the same time populates the index constant in submodule
+     * stream_stat_indices (upper-casing it).
+     */
 #define STREAM_STATS_PROPERTY(field) \
     do { \
         stream_stats_cls.def_property( \

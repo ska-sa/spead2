@@ -68,6 +68,10 @@ bool operator!=(const stream_stat_config &a, const stream_stat_config &b)
     return !(a == b);
 }
 
+/**
+ * Get the index within @a stats corresponding to @a name. If it is not
+ * present, returns @c stats.size().
+ */
 static std::size_t get_stat_index_nothrow(
     const std::vector<stream_stat_config> &stats,
     const std::string &name)
@@ -78,6 +82,11 @@ static std::size_t get_stat_index_nothrow(
     return stats.size();
 }
 
+/**
+ * Get the index within @a stats corresponding to @a name.
+ *
+ * @throw std::invalid_argument if it is not present
+ */
 static std::size_t get_stat_index(
     const std::vector<stream_stat_config> &stats,
     const std::string &name)
@@ -108,6 +117,10 @@ static std::shared_ptr<std::vector<stream_stat_config>> make_default_stats()
     return stats;
 }
 
+/* This is used for stream_stats objects that do not have any custom statistics.
+ * Sharing this means the compatibility check for operator+ requires only a
+ * pointer comparison rather than comparing arrays.
+ */
 static std::shared_ptr<std::vector<stream_stat_config>> default_stats = make_default_stats();
 
 stream_stats::stream_stats()
@@ -215,7 +228,7 @@ static void packet_memcpy_nontemporal(const spead2::memory_allocator::pointer &a
 stream_config::stream_config()
     : memcpy(packet_memcpy_std),
     allocator(std::make_shared<memory_allocator>()),
-    stats(default_stats)
+    stats(default_stats)  // Initially point to shared defaults; make a copy on write
 {
 }
 

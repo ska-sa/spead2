@@ -74,18 +74,22 @@ private:
 public:
     explicit stream_stat_config(std::string name, mode mode_ = mode::COUNTER);
 
+    /// Get the name passed to the constructor
     const std::string &get_name() const { return name; }
+    /// Get the mode passed to the constructor
     mode get_mode() const { return mode_; }
-
-    /**
-     * Combine two samples according to the mode.
-     */
+    /// Combine two samples according to the mode.
     std::uint64_t combine(std::uint64_t a, std::uint64_t b) const;
 };
 
+/* Comparison operators for stream_stat_config is used to check whether two
+ * instances of stream_stat have the same config and hence can be sensibly
+ * combined.
+ */
 bool operator==(const stream_stat_config &a, const stream_stat_config &b);
 bool operator!=(const stream_stat_config &a, const stream_stat_config &b);
 
+/// Constants for indexing @ref stream_stats by index
 namespace stream_stat_indices
 {
 
@@ -105,6 +109,18 @@ static constexpr std::size_t custom = 9;  // index for first user-defined statis
 namespace detail
 {
 
+/* Implementation details of stream_stats::iterator and
+ * stream_stats::const_iterator. It zips together the names and values of the
+ * statistics. Because dereferencing returns temporaries rather than lvalue
+ * references, this is actually an input iterator (in pre-C++20 terminology),
+ * although it does support random traversal.
+ *
+ * T is either stream_stats or const stream_stats
+ * V is the value type of the iterator (a pair of name and value)
+ *
+ * boost::iterator_facade simplifies the implementation by filling in all the
+ * different member types and functions expected of a conforming iterator.
+ */
 template<typename T, typename V>  // T is either stream_stats or const stream_stats; V is a pair
 class stream_stats_iterator : public boost::iterator_facade<
     stream_stats_iterator<T, V>,
@@ -144,6 +160,7 @@ public:
     stream_stats_iterator() = default;
     explicit stream_stats_iterator(T &owner, std::size_t index = 0) : owner(&owner), index(index) {}
 
+    // This is a template constructor to allow iterator to be converted to const_iterator
     template<typename T2, typename V2,
              typename = typename std::enable_if<std::is_convertible<T2 *, T *>::value>::type>
     stream_stats_iterator(const stream_stats_iterator<T2, V2> &other)
@@ -165,8 +182,11 @@ public:
     using iterator = detail::stream_stats_iterator<stream_stats, std::pair<const std::string &, std::uint64_t &>>;
     using const_iterator = detail::stream_stats_iterator<const stream_stats, const std::pair<const std::string &, std::uint64_t>>;
 
+    /// Construct with the default set of statistics, and all zero values
     stream_stats();
+    /// Construct with all zero values
     explicit stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config);
+    /// Construct with provided values
     stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config,
                  std::vector<std::uint64_t> values);
 
@@ -197,13 +217,19 @@ public:
      */
     std::uint64_t operator[](const std::string &name) const;
 
-    const_iterator cbegin() const { return const_iterator(*this); }
-    const_iterator cend() const { return const_iterator(*this, size()); }
-    iterator begin() { return iterator(*this); }
-    iterator end() { return iterator(*this, size()); }
-    const_iterator begin() const { return cbegin(); }
-    const_iterator end() const { return cend(); }
+    const_iterator cbegin() const noexcept { return const_iterator(*this); }
+    const_iterator cend() const noexcept { return const_iterator(*this, size()); }
+    iterator begin() noexcept { return iterator(*this); }
+    iterator end() noexcept { return iterator(*this, size()); }
+    const_iterator begin() const noexcept { return cbegin(); }
+    const_iterator end() const noexcept { return cend(); }
+    /**
+     * Find element with the given name. If not found, returns @c end().
+     */
     iterator find(const std::string &name);
+    /**
+     * Find element with the given name. If not found, returns @c end().
+     */
     const_iterator find(const std::string &name) const;
 
     // The references below are for backwards compatibility.
@@ -243,7 +269,21 @@ public:
     /// Total number of hash table probes.
     std::uint64_t &search_dist;
 
+    /**
+     * Combine two sets of statistics. Each statistic is combined according to
+     * its mode.
+     *
+     * @throw std::invalid_argument if @a other has a different list of statistics
+     * @see stream_stat_config::mode
+     */
     stream_stats operator+(const stream_stats &other) const;
+    /**
+     * Combine another set of statistics with this one. Each statistic is
+     * combined according to its mode.
+     *
+     * @throw std::invalid_argument if @a other has a different list of statistics
+     * @see stream_stat_config::mode
+     */
     stream_stats &operator+=(const stream_stats &other);
 };
 
@@ -495,7 +535,10 @@ protected:
     /**
      * Statistics for the current batch. These are protected by queue_mutex
      * rather than stats_mutex. When the batch ends they are merged into
-     * @ref stats.
+     * @ref stats. User code can safely update these stats from
+     * within @ref stream::heap_ready, custom allocators and packet memcpy
+     * functions. Only the custom statistics should be updated; it is
+     * not guaranteed that built-in stats in this vector will be seen.
      */
     std::vector<std::uint64_t> batch_stats;
 
