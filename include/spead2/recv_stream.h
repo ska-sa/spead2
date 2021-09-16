@@ -102,7 +102,7 @@ static constexpr std::size_t max_batch = 5;
 static constexpr std::size_t single_packet_heaps = 6;
 static constexpr std::size_t search_dist = 7;
 static constexpr std::size_t worker_blocked = 8;
-static constexpr std::size_t custom = 9;  // index for first user-defined statistic
+static constexpr std::size_t custom = 9;  ///< Index for first user-defined statistic
 
 } // namespace stream_stat_indices
 
@@ -170,7 +170,14 @@ public:
 } // namespace detail
 
 /**
- * Statistics about a stream. Not all fields are relevant for all stream types.
+ * Statistics about a stream. Both a vector-like interface (indexing and @ref
+ * size) and a map-like interface (with iterators and @ref find) are provided.
+ * The iterators support random traversal, but are not technically random
+ * access iterators because dereferencing does not return a reference.
+ *
+ * The public members provide direct access to the core statistics, for
+ * backwards compatibility. New code is advised to use the other interfaces.
+ * Indices for core statistics are available in @ref stream_stat_indices.
  */
 class stream_stats
 {
@@ -232,41 +239,15 @@ public:
      */
     const_iterator find(const std::string &name) const;
 
-    // The references below are for backwards compatibility.
-
-    /// Total number of heaps passed to @ref stream_base::heap_ready
+    // References to core statistics in values (for backwards compatibility only).
     std::uint64_t &heaps;
-    /**
-     * Number of incomplete heaps that were evicted from the buffer to make
-     * room for new data.
-     */
     std::uint64_t &incomplete_heaps_evicted;
-    /**
-     * Number of incomplete heaps that were emitted by @ref stream::flush.
-     * These are typically heaps that were in-flight when the stream stopped.
-     */
     std::uint64_t &incomplete_heaps_flushed;
-    /// Number of packets received
     std::uint64_t &packets;
-    /// Number of batches of packets.
     std::uint64_t &batches;
-    /**
-     * Number of times a worker thread was blocked because the ringbuffer was
-     * full. Only applicable to @ref ring_stream.
-     */
     std::uint64_t &worker_blocked;
-    /**
-     * Maximum number of packets received as a unit. This is only applicable
-     * to readers that support fetching a batch of packets from the source.
-     */
     std::uint64_t &max_batch;
-
-    /**
-     * Number of heaps that were entirely contained in one packet.
-     */
     std::uint64_t &single_packet_heaps;
-
-    /// Total number of hash table probes.
     std::uint64_t &search_dist;
 
     /**
@@ -388,7 +369,7 @@ public:
         std::string name,
         stream_stat_config::mode mode = stream_stat_config::mode::COUNTER);
 
-    /// Get the stream statistics (including the built-in ones)
+    /// Get the stream statistics (including the core ones)
     const std::vector<stream_stat_config> &get_stats() const { return *stats; }
 
     /**
@@ -400,9 +381,6 @@ public:
 
     /**
      * The index that will be returned by the next call to @ref add_stat.
-     * Indices are guaranteed to be sequential, so one can call this function
-     * to get a base index, then make a block of calls to @ref add_stat and
-     * not need to store all the individual indices.
      */
     std::size_t next_stat_index() const { return stats->size(); }
 };

@@ -44,9 +44,6 @@ to limitations of the documentation tools.
 .. doxygenclass:: spead2::recv::stream
    :members:
 
-.. doxygenclass:: spead2::recv::stream_stats
-   :members:
-
 A potentially more convenient interface is
 :cpp:class:`spead2::recv::ring_stream\<Ringbuffer>`, which places received
 heaps into a fixed-size thread-safe ring buffer. Another thread can then pull
@@ -78,6 +75,8 @@ Reader classes are constructed inside a stream by calling
 .. doxygenclass:: spead2::recv::udp_pcap_file_reader
    :members: udp_pcap_file_reader
 
+.. _memory-allocators:
+
 Memory allocators
 -----------------
 In addition to the memory allocators described in :ref:`py-memory-allocators`,
@@ -96,8 +95,10 @@ The file :file:`examples/gdrapi_example.cu` in the spead2 source distribution
 shows an example of using a custom memory allocator to allocate memory for
 heaps on the GPU.
 
+.. _custom-memory-scatter:
+
 Custom memory scatter
----------------------------
+---------------------
 In specialised high-bandwidth cases, the overhead of assembling heaps in
 temporary storage before scattering the data into other arrangements can be
 very high. It is possible (since 1.11) to take complete control over the
@@ -150,3 +151,17 @@ though:
 
 See :file:`examples/gdrapi_example.cu` in the spead2 source distribution for an
 example that copies data to a GPU.
+
+Statistics
+----------
+See :doc:`recv-stats` for an overview of statistics.
+
+.. doxygenclass:: spead2::recv::stream_stats
+   :undoc-members:
+   :members:
+
+.. doxygenclass:: spead2::recv::stream_stat_config
+   :members:
+
+.. doxygennamespace:: spead2::recv::stream_stat_indices
+   :undoc-members:
