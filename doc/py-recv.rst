@@ -464,6 +464,10 @@ Refer to :doc:`recv-stats` for general information about statistics.
 
       Mode for updating long-term statistics from per-batch statistics
 
+   .. py:method:: combine(a, b)
+
+      Combine two samples according to the mode.
+
 Additional statistics are available on the ringbuffer underlying the stream
 (:attr:`~spead2.recv.Stream.ringbuffer` property), with similar caveats about
 synchronisation.
