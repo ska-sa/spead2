@@ -89,7 +89,7 @@ struct chunk_place_data
  *
  * @see chunk_place_data
  */
-typedef std::function<void(chunk_place_data *data, std::size_t chunk_place_data)> chunk_place_function;
+typedef std::function<void(chunk_place_data *data, std::size_t data_size)> chunk_place_function;
 
 /**
  * Callback to obtain storage for a new chunk. It does not need to populate
