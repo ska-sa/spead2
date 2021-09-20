@@ -359,10 +359,16 @@ public:
     /**
      * Constructor. Refer to @ref chunk_stream::chunk_stream for details.
      *
-     * The @link chunk_stream_config::set_allocate allocate@endlink and
-     * @link chunk_stream_config::set_ready ready@endlink callbacks are
-     * ignored and should be unset. Calling @ref get_chunk_config will
-     * reflect the internally-defined callbacks.
+     * The @link chunk_stream_config::set_allocate allocate@endlink callback
+     * is ignored and should be unset. If a
+     * @link chunk_stream_config::set_ready ready@endlink callback is
+     * defined, it will be called before the chunk is pushed onto the
+     * ringbuffer. It must not move from the provided @a unique_ptr, but it
+     * can be used to perform further processing on the chunk before it is
+     * pushed.
+     *
+     * Calling @ref get_chunk_config will reflect the internally-defined
+     * callbacks.
      */
     chunk_ring_stream(
         io_service_ref io_service,
@@ -439,6 +445,8 @@ chunk_stream_config chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::adjust_ch
                                               std::uint64_t *batch_stats) {
         try
         {
+            if (orig_ready)
+                orig_ready(std::move(c), batch_stats);
             // TODO: use try_push and track stalls
             data_ring.push(std::move(c));
         }
