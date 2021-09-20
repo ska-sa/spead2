@@ -14,7 +14,7 @@ C++ API.
 
 .. doxygentypedef:: spead2::recv::chunk_place_function
 
-.. cpp:type:: std::function<std::unique_ptr<chunk>(std::int64_t chunk_id)> chunk_allocate_function
+.. cpp:type:: std::function<std::unique_ptr<chunk>(std::int64_t chunk_id, std::uint64_t *batch_stats)> chunk_allocate_function
 
    Callback to obtain storage for a new chunk.
 

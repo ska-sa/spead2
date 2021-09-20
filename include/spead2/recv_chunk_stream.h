@@ -97,12 +97,12 @@ typedef std::function<void(chunk_place_data *data, std::size_t data_size)> chunk
  */
 // If this is updated, update doc/cpp-recv-chunk.rst as well. It's not
 // documented with breathe due to a Doxygen bug.
-typedef std::function<std::unique_ptr<chunk>(std::int64_t chunk_id)> chunk_allocate_function;
+typedef std::function<std::unique_ptr<chunk>(std::int64_t chunk_id, std::uint64_t *batch_stats)> chunk_allocate_function;
 
 /**
  * Callback to receive a completed chunk. It takes ownership of the chunk.
  */
-typedef std::function<void(std::unique_ptr<chunk> &&)> chunk_ready_function;
+typedef std::function<void(std::unique_ptr<chunk> &&, std::uint64_t *batch_stats)> chunk_ready_function;
 
 /**
  * Parameters for a @ref chunk_stream.
@@ -420,7 +420,7 @@ chunk_stream_config chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::adjust_ch
 {
     chunk_stream_config new_config = chunk_config;
     // Set the allocate callback to get a chunk from the free ringbuffer
-    new_config.set_allocate([&free_ring] (std::int64_t) -> std::unique_ptr<chunk> {
+    new_config.set_allocate([&free_ring] (std::int64_t, std::uint64_t *) -> std::unique_ptr<chunk> {
         try
         {
             return free_ring.pop();
@@ -433,7 +433,10 @@ chunk_stream_config chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::adjust_ch
         }
     });
     // Set the ready callback to push chunks to the data ringbuffer
-    new_config.set_ready([&data_ring, &graveyard] (std::unique_ptr<chunk> &&c) {
+    auto orig_ready = chunk_config.get_ready();
+    new_config.set_ready(
+        [&data_ring, &graveyard, orig_ready] (std::unique_ptr<chunk> &&c,
+                                              std::uint64_t *batch_stats) {
         try
         {
             // TODO: use try_push and track stalls
