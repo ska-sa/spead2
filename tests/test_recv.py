@@ -1,4 +1,4 @@
-# Copyright 2015, 2017, 2019-2020 National Research Foundation (SARAO)
+# Copyright 2015, 2017, 2019-2021 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -721,6 +721,18 @@ class TestDecode:
 class TestStreamConfig:
     """Tests for :class:`spead2.recv.StreamConfig`."""
 
+    expected_stats = [
+        recv.StreamStatConfig('heaps'),
+        recv.StreamStatConfig('incomplete_heaps_evicted'),
+        recv.StreamStatConfig('incomplete_heaps_flushed'),
+        recv.StreamStatConfig('packets'),
+        recv.StreamStatConfig('batches'),
+        recv.StreamStatConfig('max_batch', recv.StreamStatConfig.Mode.MAXIMUM),
+        recv.StreamStatConfig('single_packet_heaps'),
+        recv.StreamStatConfig('search_dist'),
+        recv.StreamStatConfig('worker_blocked')
+    ]
+
     def test_default_construct(self):
         config = recv.StreamConfig()
         assert config.max_heaps == recv.StreamConfig.DEFAULT_MAX_HEAPS
@@ -730,6 +742,8 @@ class TestStreamConfig:
         assert config.allow_unsized_heaps is True
         assert config.allow_out_of_order is False
         assert config.stream_id == 0
+        # Will need updating if any new built-in statistics added
+        assert config.stats == self.expected_stats
 
     def test_set_get(self):
         config = recv.StreamConfig()
@@ -780,6 +794,26 @@ class TestStreamConfig:
     def test_bad_kwarg(self):
         with pytest.raises(TypeError):
             recv.StreamConfig(not_valid_arg=1)
+
+    def test_stats(self):
+        config = recv.StreamConfig()
+        base_index = config.next_stat_index()
+        counter_index = config.add_stat('counter')
+        maximum_index = config.add_stat('maximum', recv.StreamStatConfig.Mode.MAXIMUM)
+        assert config.stats == self.expected_stats + [
+            recv.StreamStatConfig('counter', recv.StreamStatConfig.Mode.COUNTER),
+            recv.StreamStatConfig('maximum', recv.StreamStatConfig.Mode.MAXIMUM)
+        ]
+        assert counter_index == base_index
+        assert config.get_stat_index('counter') == counter_index
+        assert config.get_stat_index('maximum') == maximum_index
+        with pytest.raises(ValueError):
+            config.get_stat_index('does_not_exist')
+        # Can't add duplicates
+        with pytest.raises(ValueError):
+            config.add_stat('heaps')
+        with pytest.raises(ValueError):
+            config.add_stat('counter')
 
 
 class TestRingStreamConfig:
@@ -965,6 +999,138 @@ class TestStream:
         assert stats.incomplete_heaps_evicted == 0
         assert stats.incomplete_heaps_flushed == 0
         assert stats.worker_blocked == 0
+
+
+class TestStreamStats:
+    @pytest.fixture
+    def stats(self):
+        # StreamStats can't be constructed from Python, so create a dummy stream
+        # to get an empty set of stats
+        receiver = recv.Stream(spead2.ThreadPool())
+        stats = receiver.stats
+        stats.heaps = 10
+        stats.incomplete_heaps_evicted = 20
+        stats.incomplete_heaps_flushed = 30
+        stats.packets = 40
+        stats.batches = 50
+        stats.max_batch = 60
+        stats.single_packet_heaps = 70
+        stats.search_dist = 80
+        stats.worker_blocked = 90
+        return stats
+
+    @pytest.fixture
+    def custom_stats_fixtures(self):
+        stream_config = recv.StreamConfig()
+        indices = {}
+        indices['counter'] = stream_config.add_stat('counter')
+        indices['maximum'] = stream_config.add_stat('maximum', recv.StreamStatConfig.Mode.MAXIMUM)
+        receiver = recv.Stream(spead2.ThreadPool(), stream_config)
+        stats = receiver.stats
+        stats['heaps'] = 10
+        stats['max_batch'] = 15
+        stats['counter'] = 123
+        stats['maximum'] = 456
+        return stats, indices
+
+    @pytest.fixture
+    def custom_stats(self, custom_stats_fixtures):
+        return custom_stats_fixtures[0]
+
+    @pytest.fixture
+    def custom_indices(self, custom_stats_fixtures):
+        return custom_stats_fixtures[1]
+
+    @pytest.fixture
+    def custom_stats2(self):
+        stream_config = recv.StreamConfig()
+        stream_config.add_stat('counter')
+        stream_config.add_stat('maximum', recv.StreamStatConfig.Mode.MAXIMUM)
+        receiver = recv.Stream(spead2.ThreadPool(), stream_config)
+        stats = receiver.stats
+        stats['heaps'] = 20
+        stats['max_batch'] = 17
+        stats['counter'] = 300
+        stats['maximum'] = 400
+        return stats
+
+    def test_properties(self, stats):
+        assert stats.heaps == 10
+        assert stats.incomplete_heaps_evicted == 20
+        assert stats.incomplete_heaps_flushed == 30
+        assert stats.packets == 40
+        assert stats.batches == 50
+        assert stats.max_batch == 60
+        assert stats.single_packet_heaps == 70
+        assert stats.search_dist == 80
+        assert stats.worker_blocked == 90
+        assert stats.config == TestStreamConfig.expected_stats
+
+    def test_getitem_name(self, stats):
+        assert stats['heaps'] == 10
+        assert stats['incomplete_heaps_evicted'] == 20
+        assert stats['incomplete_heaps_flushed'] == 30
+        assert stats['packets'] == 40
+        assert stats['batches'] == 50
+        assert stats['max_batch'] == 60
+        assert stats['single_packet_heaps'] == 70
+        assert stats['search_dist'] == 80
+        assert stats['worker_blocked'] == 90
+
+    def test_getitem_name_missing(self, stats):
+        with pytest.raises(KeyError):
+            stats['not_a_stat']
+
+    def test_getitem_index(self, stats):
+        assert stats[recv.stream_stat_indices.HEAPS] == 10
+        assert stats[recv.stream_stat_indices.WORKER_BLOCKED] == 90
+
+    def test_getitem_index_out_of_range(self, stats):
+        with pytest.raises(IndexError):
+            stats[1000]
+
+    def test_contains(self, stats):
+        assert 'heaps' in stats
+        assert 'not_a_stat' not in stats
+
+    def test_len(self, stats):
+        assert len(stats) == len(TestStreamConfig.expected_stats)
+
+    def test_custom(self, stats, custom_stats, custom_indices):
+        assert custom_stats['counter'] == 123
+        assert custom_stats['maximum'] == 456
+        assert custom_stats[custom_indices['counter']] == 123
+        assert custom_stats[custom_indices['maximum']] == 456
+        assert 'counter' in custom_stats
+        assert len(custom_stats) == len(stats) + 2
+
+    def test_add(self, custom_stats, custom_stats2):
+        total = custom_stats + custom_stats2
+        assert total['heaps'] == custom_stats['heaps'] + custom_stats2['heaps']
+        assert total['max_batch'] == max(custom_stats['max_batch'], custom_stats2['max_batch'])
+        assert total['counter'] == custom_stats['counter'] + custom_stats2['counter']
+        assert total['maximum'] == max(custom_stats['maximum'], custom_stats2['maximum'])
+
+    def test_add_assign(self, custom_stats, custom_stats2):
+        total = custom_stats + custom_stats2  # Verified by the previous test
+        custom_stats += custom_stats2
+        assert custom_stats['heaps'] == total['heaps']
+        assert custom_stats['max_batch'] == total['max_batch']
+        assert custom_stats['counter'] == total['counter']
+        assert custom_stats['maximum'] == total['maximum']
+
+    def test_add_mismatched(self, stats, custom_stats):
+        with pytest.raises(ValueError):
+            stats + custom_stats
+        with pytest.raises(ValueError):
+            stats += custom_stats
+
+    def test_iterate(self, custom_stats):
+        assert list(custom_stats) == [s.name for s in custom_stats.config]
+        assert list(custom_stats.keys()) == list(custom_stats)
+        assert list(custom_stats.items()) == [
+            (s.name, custom_stats[s.name]) for s in custom_stats.config
+        ]
 
 
 class TestUdpReader:

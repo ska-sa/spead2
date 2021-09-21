@@ -25,7 +25,8 @@ chunk_place_data = types.Record.make_c_struct([
     ('items', types.intp),   # s_item_pointer_t *
     ('chunk_id', types.int64),
     ('heap_index', types.uintp),
-    ('heap_offset', types.uintp)
+    ('heap_offset', types.uintp),
+    ('batch_stats', types.intp)  # uint64_t *
 ])
 """Numba record type representing the C structure used in the chunk placement callback.
 

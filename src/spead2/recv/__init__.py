@@ -56,8 +56,10 @@ bytes, in the order they appeared in the original packet.
 
 from spead2._spead2.recv import (           # noqa: F401
     StreamConfig, RingStreamConfig, Stream, Heap, IncompleteHeap,
-    Chunk, ChunkStreamConfig, ChunkRingStream, ChunkRingbuffer
+    Chunk, ChunkStreamConfig, ChunkRingStream, ChunkRingbuffer,
+    StreamStats, StreamStatConfig
 )
+from . import stream_stat_indices           # noqa: F401
 try:
     from spead2._spead2.recv import UdpIbvConfig      # noqa: F401
 except ImportError:

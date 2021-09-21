@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017-2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -23,7 +23,9 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <deque>
+#include <vector>
+#include <string>
+#include <map>
 #include <memory>
 #include <utility>
 #include <functional>
@@ -32,6 +34,7 @@
 #include <atomic>
 #include <type_traits>
 #include <boost/asio.hpp>
+#include <boost/iterator/iterator_facade.hpp>
 #include <spead2/recv_live_heap.h>
 #include <spead2/recv_reader.h>
 #include <spead2/common_memory_pool.h>
@@ -49,47 +52,219 @@ namespace recv
 
 struct packet_header;
 
-/**
- * Statistics about a stream. Not all fields are relevant for all stream types.
- */
-struct stream_stats
+/// Registration information about a statistic counter.
+class stream_stat_config
 {
-    /// Total number of heaps passed to @ref stream_base::heap_ready
-    std::uint64_t heaps = 0;
+public:
     /**
-     * Number of incomplete heaps that were evicted from the buffer to make
-     * room for new data.
+     * Type for a statistic.
+     *
+     * All statistics are integral, but the mode determines how values are merged.
      */
-    std::uint64_t incomplete_heaps_evicted = 0;
+    enum class mode
+    {
+        COUNTER,    ///< Merge values by addition
+        MAXIMUM     ///< Merge values by taking the larger one
+    };
+
+private:
+    const std::string name;
+    const mode mode_;
+
+public:
+    explicit stream_stat_config(std::string name, mode mode_ = mode::COUNTER);
+
+    /// Get the name passed to the constructor
+    const std::string &get_name() const { return name; }
+    /// Get the mode passed to the constructor
+    mode get_mode() const { return mode_; }
+    /// Combine two samples according to the mode.
+    std::uint64_t combine(std::uint64_t a, std::uint64_t b) const;
+};
+
+/* Comparison operators for stream_stat_config is used to check whether two
+ * instances of stream_stat have the same config and hence can be sensibly
+ * combined.
+ */
+bool operator==(const stream_stat_config &a, const stream_stat_config &b);
+bool operator!=(const stream_stat_config &a, const stream_stat_config &b);
+
+/// Constants for indexing @ref stream_stats by index
+namespace stream_stat_indices
+{
+
+static constexpr std::size_t heaps = 0;
+static constexpr std::size_t incomplete_heaps_evicted = 1;
+static constexpr std::size_t incomplete_heaps_flushed = 2;
+static constexpr std::size_t packets = 3;
+static constexpr std::size_t batches = 4;
+static constexpr std::size_t max_batch = 5;
+static constexpr std::size_t single_packet_heaps = 6;
+static constexpr std::size_t search_dist = 7;
+static constexpr std::size_t worker_blocked = 8;
+static constexpr std::size_t custom = 9;  ///< Index for first user-defined statistic
+
+} // namespace stream_stat_indices
+
+namespace detail
+{
+
+/* Implementation details of stream_stats::iterator and
+ * stream_stats::const_iterator. It zips together the names and values of the
+ * statistics. Because dereferencing returns temporaries rather than lvalue
+ * references, this is actually an input iterator (in pre-C++20 terminology),
+ * although it does support random traversal.
+ *
+ * T is either stream_stats or const stream_stats
+ * V is the value type of the iterator (a pair of name and value)
+ *
+ * boost::iterator_facade simplifies the implementation by filling in all the
+ * different member types and functions expected of a conforming iterator.
+ */
+template<typename T, typename V>  // T is either stream_stats or const stream_stats; V is a pair
+class stream_stats_iterator : public boost::iterator_facade<
+    stream_stats_iterator<T, V>,
+    V, // value type
+    boost::random_access_traversal_tag,
+    V> // reference type
+{
+private:
+    friend class boost::iterator_core_access;
+    template<typename T2, typename V2> friend class stream_stats_iterator;
+
+    T *owner = nullptr;
+    std::size_t index = 0;
+
+    V dereference() const
+    {
+        return V(owner->get_config()[index].get_name(), (*owner)[index]);
+    }
+
+    template<typename T2, typename V2>
+    bool equal(const stream_stats_iterator<T2, V2> &other) const
+    {
+        return owner == other.owner && index == other.index;
+    }
+
+    void increment() { index++; }
+    void decrement() { index--; }
+    void advance(std::ptrdiff_t n) { index += n; }
+
+    template<typename T2, typename V2>
+    std::ptrdiff_t distance_to(const stream_stats_iterator<T2, V2> &other) const
+    {
+        return std::ptrdiff_t(other.index) - std::ptrdiff_t(index);
+    }
+
+public:
+    stream_stats_iterator() = default;
+    explicit stream_stats_iterator(T &owner, std::size_t index = 0) : owner(&owner), index(index) {}
+
+    // This is a template constructor to allow iterator to be converted to const_iterator
+    template<typename T2, typename V2,
+             typename = typename std::enable_if<std::is_convertible<T2 *, T *>::value>::type>
+    stream_stats_iterator(const stream_stats_iterator<T2, V2> &other)
+        : owner(other.owner), index(other.index) {}
+};
+
+} // namespace detail
+
+/**
+ * Statistics about a stream. Both a vector-like interface (indexing and @ref
+ * size) and a map-like interface (with iterators and @ref find) are provided.
+ * The iterators support random traversal, but are not technically random
+ * access iterators because dereferencing does not return a reference.
+ *
+ * The public members provide direct access to the core statistics, for
+ * backwards compatibility. New code is advised to use the other interfaces.
+ * Indices for core statistics are available in @ref stream_stat_indices.
+ */
+class stream_stats
+{
+private:
+    std::shared_ptr<std::vector<stream_stat_config>> config;
+    std::vector<std::uint64_t> values;
+
+public:
+    using iterator = detail::stream_stats_iterator<stream_stats, std::pair<const std::string &, std::uint64_t &>>;
+    using const_iterator = detail::stream_stats_iterator<const stream_stats, const std::pair<const std::string &, std::uint64_t>>;
+
+    /// Construct with the default set of statistics, and all zero values
+    stream_stats();
+    /// Construct with all zero values
+    explicit stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config);
+    /// Construct with provided values
+    stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config,
+                 std::vector<std::uint64_t> values);
+
+    /// Get the configuration of the statistics
+    const std::vector<stream_stat_config> &get_config() const { return *config; }
+
+    /// Get the number of statistics
+    std::size_t size() const { return values.size(); }
     /**
-     * Number of incomplete heaps that were emitted by @ref stream::flush.
-     * These are typically heaps that were in-flight when the stream stopped.
+     * Access a statistic by index. If index is out of range, behaviour is undefined.
      */
-    std::uint64_t incomplete_heaps_flushed = 0;
-    /// Number of packets received
-    std::uint64_t packets = 0;
-    /// Number of batches of packets.
-    std::uint64_t batches = 0;
+    std::uint64_t &operator[](std::size_t index) { return values[index]; }
     /**
-     * Number of times a worker thread was blocked because the ringbuffer was
-     * full. Only applicable to @ref ring_stream.
+     * Access a statistic by index. If index is out of range, behaviour is undefined.
      */
-    std::uint64_t worker_blocked = 0;
-    /**
-     * Maximum number of packets received as a unit. This is only applicable
-     * to readers that support fetching a batch of packets from the source.
-     */
-    std::size_t max_batch = 0;
+    std::uint64_t operator[](std::size_t index) const { return values[index]; }
 
     /**
-     * Number of heaps that were entirely contained in one packet.
+     * Access a statistic by name.
+     *
+     * @throw std::invalid_argument if @a name is not the name of a statistic
      */
-    std::uint64_t single_packet_heaps = 0;
+    std::uint64_t &operator[](const std::string &name);
+    /**
+     * Access a statistic by name.
+     *
+     * @throw std::invalid_argument if @a name is not the name of a statistic
+     */
+    std::uint64_t operator[](const std::string &name) const;
 
-    /// Total number of hash table probes.
-    std::uint64_t search_dist = 0;
+    const_iterator cbegin() const noexcept { return const_iterator(*this); }
+    const_iterator cend() const noexcept { return const_iterator(*this, size()); }
+    iterator begin() noexcept { return iterator(*this); }
+    iterator end() noexcept { return iterator(*this, size()); }
+    const_iterator begin() const noexcept { return cbegin(); }
+    const_iterator end() const noexcept { return cend(); }
+    /**
+     * Find element with the given name. If not found, returns @c end().
+     */
+    iterator find(const std::string &name);
+    /**
+     * Find element with the given name. If not found, returns @c end().
+     */
+    const_iterator find(const std::string &name) const;
 
+    // References to core statistics in values (for backwards compatibility only).
+    std::uint64_t &heaps;
+    std::uint64_t &incomplete_heaps_evicted;
+    std::uint64_t &incomplete_heaps_flushed;
+    std::uint64_t &packets;
+    std::uint64_t &batches;
+    std::uint64_t &worker_blocked;
+    std::uint64_t &max_batch;
+    std::uint64_t &single_packet_heaps;
+    std::uint64_t &search_dist;
+
+    /**
+     * Combine two sets of statistics. Each statistic is combined according to
+     * its mode.
+     *
+     * @throw std::invalid_argument if @a other has a different list of statistics
+     * @see stream_stat_config::mode
+     */
     stream_stats operator+(const stream_stats &other) const;
+    /**
+     * Combine another set of statistics with this one. Each statistic is
+     * combined according to its mode.
+     *
+     * @throw std::invalid_argument if @a other has a different list of statistics
+     * @see stream_stat_config::mode
+     */
     stream_stats &operator+=(const stream_stats &other);
 };
 
@@ -98,6 +273,7 @@ struct stream_stats
  */
 class stream_config
 {
+    friend class stream_base;
 public:
     static constexpr std::size_t default_max_heaps = 4;
 
@@ -119,6 +295,8 @@ private:
     bool allow_out_of_order = false;
     /// A user-defined identifier for a stream
     std::uintptr_t stream_id = 0;
+    /// Statistics (includes the built-in ones)
+    std::shared_ptr<std::vector<stream_stat_config>> stats;
 
 public:
     stream_config();
@@ -181,6 +359,30 @@ public:
 
     /// Get the stream ID
     std::uintptr_t get_stream_id() const { return stream_id; }
+
+    /**
+     * Add a new custom statistic. Returns the index to use with @ref stream_stats.
+     *
+     * @throw std::invalid_argument if @a name already exists.
+     */
+    std::size_t add_stat(
+        std::string name,
+        stream_stat_config::mode mode = stream_stat_config::mode::COUNTER);
+
+    /// Get the stream statistics (including the core ones)
+    const std::vector<stream_stat_config> &get_stats() const { return *stats; }
+
+    /**
+     * Helper to get the index of a specific statistic.
+     *
+     * @throw std::invalid_argument if @a name is not a known statistic.
+     */
+    std::size_t get_stat_index(const std::string &name) const;
+
+    /**
+     * The index that will be returned by the next call to @ref add_stat.
+     */
+    std::size_t next_stat_index() const { return stats->size(); }
 };
 
 /**
@@ -314,7 +516,17 @@ private:
 
 protected:
     mutable std::mutex stats_mutex;
-    stream_stats stats;
+    std::vector<std::uint64_t> stats;
+
+    /**
+     * Statistics for the current batch. These are protected by queue_mutex
+     * rather than stats_mutex. When the batch ends they are merged into
+     * @ref stats. User code can safely update these stats from
+     * within @ref stream::heap_ready, custom allocators and packet memcpy
+     * functions. Only the custom statistics should be updated; it is
+     * not guaranteed that built-in stats in this vector will be seen.
+     */
+    std::vector<std::uint64_t> batch_stats;
 
     /**
      * Shut down the stream. This calls @ref flush_unlocked. Subclasses may

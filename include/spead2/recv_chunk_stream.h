@@ -77,6 +77,7 @@ struct chunk_place_data
     std::int64_t chunk_id;
     std::size_t heap_index;          ///< Number of this heap within the chunk (output)
     std::size_t heap_offset;         ///< Byte offset of this heap within the chunk payload (output)
+    std::uint64_t *batch_stats;      ///< Pointer to staging area for statistics
     // Note: when adding new fields, remember to update src/spead2/recv/numba.py
 };
 
@@ -88,7 +89,7 @@ struct chunk_place_data
  *
  * @see chunk_place_data
  */
-typedef std::function<void(chunk_place_data *data, std::size_t chunk_place_data)> chunk_place_function;
+typedef std::function<void(chunk_place_data *data, std::size_t data_size)> chunk_place_function;
 
 /**
  * Callback to obtain storage for a new chunk. It does not need to populate
@@ -197,6 +198,7 @@ private:
     const packet_memcpy_function orig_memcpy;  ///< Packet memcpy provided by the user
     const chunk_stream_config chunk_config;
     const std::uintptr_t stream_id;
+    const std::size_t base_stat_index;         ///< Index of first custom stat
     /// Circular buffer of chunks under construction
     std::vector<std::unique_ptr<chunk>> chunks;
     std::int64_t head_chunk = 0, tail_chunk = 0;  ///< chunk IDs of valid chunk range
@@ -273,6 +275,8 @@ private:
  */
 class chunk_stream : private detail::chunk_stream_state, public stream
 {
+    friend class chunk_stream_state;
+
     virtual void heap_ready(live_heap &&) override;
 
 public:
@@ -292,6 +296,11 @@ public:
      *   pointer to @ref heap_metadata, from which the chunk can be retrieved.
      * - The @link stream_config::set_memory_allocator memory allocator@endlink
      *   is overridden, and the provided value is ignored.
+     * - Additional statistics are registered:
+     *   - <tt>too_old_heaps</tt>: number of heaps for which the placement function returned
+     *     a non-negative chunk ID that was behind the window.
+     *   - <tt>rejected_heaps</tt>: number of heaps for which the placement function returned
+     *     a negative chunk ID.
      *
      * @param io_service       I/O service (also used by the readers).
      * @param config           Basic stream configuration
@@ -339,7 +348,7 @@ private:
     /// Temporary storage for in-flight chunks during @ref stop
     std::vector<std::unique_ptr<chunk>> graveyard;
 
-    /// Create a new @ref chunk_stream_config that uses the ringbuffers
+    /// Create a new @ref spead2::recv::chunk_stream_config that uses the ringbuffers
     static chunk_stream_config adjust_chunk_config(
         const chunk_stream_config &chunk_config,
         DataRingbuffer &data_ring,

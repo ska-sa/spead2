@@ -21,9 +21,11 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/operators.h>
+#include <algorithm>
 #include <stdexcept>
 #include <type_traits>
 #include <cstdint>
+#include <cctype>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <boost/optional.hpp>
@@ -524,18 +526,110 @@ py::module register_module(py::module &parent)
         .def_readonly("is_immediate", &item_wrapper::is_immediate)
         .def_readonly("immediate_value", &item_wrapper::immediate_value)
         .def_buffer([](item_wrapper &item) { return item.get_value(); });
-    py::class_<stream_stats>(m, "StreamStats")
-        .def_readwrite("heaps", &stream_stats::heaps)
-        .def_readwrite("incomplete_heaps_evicted", &stream_stats::incomplete_heaps_evicted)
-        .def_readwrite("incomplete_heaps_flushed", &stream_stats::incomplete_heaps_flushed)
-        .def_readwrite("packets", &stream_stats::packets)
-        .def_readwrite("batches", &stream_stats::batches)
-        .def_readwrite("worker_blocked", &stream_stats::worker_blocked)
-        .def_readwrite("max_batch", &stream_stats::max_batch)
-        .def_readwrite("single_packet_heaps", &stream_stats::single_packet_heaps)
-        .def_readwrite("search_dist", &stream_stats::search_dist)
+
+    py::class_<stream_stat_config> stream_stat_config_cls(m, "StreamStatConfig");
+    /* We have to register the embedded enum type before we can use it as a
+     * default value for the stream_stat constructor/
+     */
+    py::enum_<stream_stat_config::mode>(stream_stat_config_cls, "Mode")
+        .value("COUNTER", stream_stat_config::mode::COUNTER)
+        .value("MAXIMUM", stream_stat_config::mode::MAXIMUM);
+    stream_stat_config_cls
+        .def(
+            py::init<std::string, stream_stat_config::mode>(),
+            "name"_a, "mode"_a = stream_stat_config::mode::COUNTER)
+        .def_property_readonly("name", SPEAD2_PTMF(stream_stat_config, get_name))
+        .def_property_readonly("mode", SPEAD2_PTMF(stream_stat_config, get_mode))
+        .def("combine", SPEAD2_PTMF(stream_stat_config, combine))
+        .def(py::self == py::self)
+        .def(py::self != py::self);
+    py::class_<stream_stats> stream_stats_cls(m, "StreamStats");
+    stream_stats_cls
+        .def("__getitem__", [](const stream_stats &self, std::size_t index)
+        {
+            if (index < self.size())
+                return self[index];
+            else
+                throw py::index_error();
+        })
+        .def("__getitem__", [](const stream_stats &self, const std::string &name)
+        {
+            auto pos = self.find(name);
+            if (pos == self.end())
+                throw py::key_error(name);
+            return pos->second;
+        })
+        .def("__setitem__", [](stream_stats &self, std::size_t index, std::uint64_t value)
+        {
+            if (index < self.size())
+                self[index] = value;
+            else
+                throw py::index_error();
+        })
+        .def("__setitem__", [](stream_stats &self, const std::string &name, std::uint64_t value)
+        {
+            auto pos = self.find(name);
+            if (pos == self.end())
+                throw py::key_error(name);
+            pos->second = value;
+        })
+        .def("__contains__", [](const stream_stats &self, const std::string &name)
+        {
+            return self.find(name) != self.end();
+        })
+        .def("get", [](const stream_stats &self, const std::string &name, py::object &default_)
+        {
+            auto pos = self.find(name);
+            return pos != self.end() ? py::int_(pos->second) : default_;
+        }, py::arg(), py::arg() = py::none())
+        .def(
+            "items",
+            [](const stream_stats &self) { return py::make_iterator(self.begin(), self.end()); },
+            py::keep_alive<0, 1>()  // keep the stats alive while it is iterated
+        )
+        .def(
+            "__iter__",
+            [](const stream_stats &self) { return py::make_key_iterator(self.begin(), self.end()); },
+            py::keep_alive<0, 1>()  // keep the stats alive while it is iterated
+        )
+        .def(
+            "keys",
+            [](const stream_stats &self) { return py::make_key_iterator(self.begin(), self.end()); },
+            py::keep_alive<0, 1>()  // keep the stats alive while it is iterated
+        )
+        // TODO: add "values" after https://github.com/pybind/pybind11/pull/3271 lands
+        .def("__len__", SPEAD2_PTMF(stream_stats, size))
+        .def_property_readonly("config", SPEAD2_PTMF(stream_stats, get_config))
         .def(py::self + py::self)
         .def(py::self += py::self);
+
+    py::module stream_stat_indices_module = m.def_submodule("stream_stat_indices");
+    /* The macro registers a property on stream_stats to access the built-in stats
+     * by name, and at the same time populates the index constant in submodule
+     * stream_stat_indices (upper-casing it).
+     */
+#define STREAM_STATS_PROPERTY(field) \
+    do { \
+        stream_stats_cls.def_property( \
+            #field, \
+            [](const stream_stats &self) { return self[stream_stat_indices::field]; }, \
+            [](stream_stats &self, std::uint64_t value) { self[stream_stat_indices::field] = value; }); \
+        std::string upper = #field; \
+        std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper); \
+        stream_stat_indices_module.attr(upper.c_str()) = stream_stat_indices::field; \
+    } while (false)
+
+    STREAM_STATS_PROPERTY(heaps);
+    STREAM_STATS_PROPERTY(incomplete_heaps_evicted);
+    STREAM_STATS_PROPERTY(incomplete_heaps_flushed);
+    STREAM_STATS_PROPERTY(packets);
+    STREAM_STATS_PROPERTY(batches);
+    STREAM_STATS_PROPERTY(worker_blocked);
+    STREAM_STATS_PROPERTY(max_batch);
+    STREAM_STATS_PROPERTY(single_packet_heaps);
+    STREAM_STATS_PROPERTY(search_dist);
+#undef STREAM_STATS_PROPERTY
+
     py::class_<stream_config>(m, "StreamConfig")
         .def(py::init(&data_class_constructor<stream_config>))
         .def_property("max_heaps",
@@ -572,6 +666,13 @@ py::module register_module(py::module &parent)
         .def_property("stream_id",
                       SPEAD2_PTMF(stream_config, get_stream_id),
                       SPEAD2_PTMF(stream_config, set_stream_id))
+        .def("add_stat", SPEAD2_PTMF(stream_config, add_stat),
+             "name"_a,
+             "mode"_a = stream_stat_config::mode::COUNTER)
+        .def_property_readonly("stats", SPEAD2_PTMF(stream_config, get_stats))
+        .def("get_stat_index", SPEAD2_PTMF(stream_config, get_stat_index),
+             "name"_a)
+        .def("next_stat_index", SPEAD2_PTMF(stream_config, next_stat_index))
         .def_readonly_static("DEFAULT_MAX_HEAPS", &stream_config::default_max_heaps);
     py::class_<ring_stream_config_wrapper>(m, "RingStreamConfig")
         .def(py::init(&data_class_constructor<ring_stream_config_wrapper>))
