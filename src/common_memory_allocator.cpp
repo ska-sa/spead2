@@ -1,4 +1,4 @@
-/* Copyright 2016 National Research Foundation (SARAO)
+/* Copyright 2016, 2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -28,16 +28,32 @@
 namespace spead2
 {
 
-memory_allocator::deleter::deleter(std::shared_ptr<memory_allocator> allocator,
-                                   void *user)
-    : allocator(std::move(allocator)), user(user)
+// An empty pointer used when needed for a return by reference
+static const std::shared_ptr<memory_allocator> empty_allocator_ptr;
+
+memory_allocator::legacy_deleter::legacy_deleter(
+    std::shared_ptr<memory_allocator> &&allocator, void *user)
+    : state(std::make_shared<state_t>(std::move(allocator), user))
 {
 }
 
-void memory_allocator::deleter::operator()(std::uint8_t *ptr)
+void memory_allocator::legacy_deleter::operator()(std::uint8_t *ptr) const
 {
-    allocator->free(ptr, user);
-    allocator.reset();
+    state->allocator->free(ptr, state->user);
+    // Allow the allocator to be reclaimed even if the unique_ptr lingers on.
+    state->allocator.reset();
+}
+
+const std::shared_ptr<memory_allocator> &memory_allocator::deleter::get_allocator() const
+{
+    const legacy_deleter *legacy = target<legacy_deleter>();
+    return (legacy != nullptr) ? legacy->get_allocator() : empty_allocator_ptr;
+}
+
+void *memory_allocator::deleter::get_user() const
+{
+    const legacy_deleter *legacy = target<legacy_deleter>();
+    return (legacy != nullptr) ? legacy->get_user() : nullptr;
 }
 
 void memory_allocator::prefault(std::uint8_t *data, std::size_t size)
@@ -52,11 +68,13 @@ memory_allocator::pointer memory_allocator::allocate(std::size_t size, void *hin
     (void) hint; // prevent warnings about unused parameters
     std::uint8_t *ptr = new std::uint8_t[size];
     prefault(ptr, size);
-    return pointer(ptr, deleter(shared_from_this()));
+    return std::unique_ptr<std::uint8_t[]>(ptr);
 }
 
 void memory_allocator::free(std::uint8_t *ptr, void *user)
 {
+    // This implementation is not expected to be called, but is left in place
+    // in case of 3rd-party allocators that rely on this default implementation.
     (void) user; // prevent warnings about unused parameters
     delete[] ptr;
 }
@@ -95,13 +113,7 @@ mmap_allocator::pointer mmap_allocator::allocate(std::size_t size, void *hint)
 #ifndef MAP_POPULATE
     prefault(ptr, size);
 #endif
-    return pointer(ptr, deleter(shared_from_this(), (void *) std::uintptr_t(size)));
-}
-
-void mmap_allocator::free(std::uint8_t *ptr, void *user)
-{
-    std::size_t size = std::uintptr_t(user);
-    munmap(ptr, size);
+    return pointer(ptr, [size](std::uint8_t *ptr) { munmap(ptr, size); });
 }
 
 } // namespace spead2

@@ -110,11 +110,10 @@ chunk_stream_state::chunk_stream_state(
 }
 
 void chunk_stream_state::packet_memcpy(
-    const spead2::memory_allocator::pointer &allocation,
+    const memory_allocator::pointer &allocation,
     const packet_header &packet) const
 {
-    const heap_metadata &metadata = *static_cast<const heap_metadata *>(
-        allocation.get_deleter().get_user());
+    const heap_metadata &metadata = *get_heap_metadata(allocation);
     if (metadata.chunk_id < head_chunk)
     {
         // The packet corresponds to a chunk that has already been aged out
@@ -169,6 +168,12 @@ void chunk_stream_state::flush_chunks()
         flush_head();
 }
 
+const chunk_stream_state::heap_metadata *chunk_stream_state::get_heap_metadata(
+    const memory_allocator::pointer &ptr)
+{
+    return ptr.get_deleter().target<heap_metadata>();
+}
+
 // Used to get a non-null pointer
 static std::uint8_t dummy_uint8;
 
@@ -176,7 +181,7 @@ static std::uint8_t dummy_uint8;
 static constexpr std::size_t too_old_heaps_offset = 0;
 static constexpr std::size_t rejected_heaps_offset = 1;
 
-std::pair<std::uint8_t *, std::unique_ptr<chunk_stream_state::heap_metadata>>
+std::pair<std::uint8_t *, chunk_stream_state::heap_metadata>
 chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
 {
     /* Extract the user's requested items.
@@ -204,8 +209,14 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
         }
     }
 
-    // TODO: see if the storage can be in the class instead of using new.
-    std::unique_ptr<heap_metadata> metadata{new heap_metadata};
+    /* TODO: see if the storage can be in the class with the deleter
+     * just referencing it. That will avoid the implied memory allocation
+     * in constructing the std::function underlying the deleter.
+     */
+    std::pair<std::uint8_t *, heap_metadata> out;
+    out.first = &dummy_uint8;  // Use a non-null value to avoid confusion with empty pointers
+    heap_metadata &metadata = out.second;
+
     chunk_place_data data;
     data.packet = packet.packet;
     data.packet_size = packet.payload + packet.payload_length - packet.packet;
@@ -217,14 +228,12 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
     chunk_config.get_place()(&data, sizeof(data));
     if (data.chunk_id < head_chunk)
     {
-        /* We don't want this heap. We return non-null results since a null
-         * pointer may cause confusion.
-         */
-        metadata->chunk_id = -1;
-        metadata->chunk_ptr = nullptr;
+        // We don't want this heap.
+        metadata.chunk_id = -1;
+        metadata.chunk_ptr = nullptr;
         std::size_t stat_offset = (data.chunk_id >= 0) ? too_old_heaps_offset : rejected_heaps_offset;
         data.batch_stats[base_stat_index + stat_offset]++;
-        return {&dummy_uint8, std::move(metadata)};
+        return out;
     }
     else
     {
@@ -268,19 +277,19 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
         if (chunks[pos])
         {
             chunk &c = *chunks[pos];
-            std::uint8_t *ptr = c.data.get() + data.heap_offset;
-            metadata->chunk_id = data.chunk_id;
-            metadata->heap_index = data.heap_index;
-            metadata->heap_offset = data.heap_offset;
-            metadata->chunk_ptr = &c;
-            return {ptr, std::move(metadata)};
+            out.first = c.data.get() + data.heap_offset;
+            metadata.chunk_id = data.chunk_id;
+            metadata.heap_index = data.heap_index;
+            metadata.heap_offset = data.heap_offset;
+            metadata.chunk_ptr = &c;
+            return out;
         }
         else
         {
             // the allocator didn't allocate a chunk for this slot.
-            metadata->chunk_id = -1;
-            metadata->chunk_ptr = nullptr;
-            return {&dummy_uint8, std::move(metadata)};
+            metadata.chunk_id = -1;
+            metadata.chunk_ptr = nullptr;
+            return out;
         }
     }
 }
@@ -295,22 +304,11 @@ memory_allocator::pointer chunk_stream_allocator::allocate(std::size_t size, voi
     if (hint)
     {
         auto alloc = stream.allocate(size, *reinterpret_cast<const packet_header *>(hint));
-        // Pack the heap_metadata into the user_data field of the deleter
-        return pointer(alloc.first, deleter(shared_from_this(), alloc.second.release()));
+        // Use the heap_metadata as the deleter
+        return pointer(alloc.first, std::move(alloc.second));
     }
     // Probably unreachable, but provides a safety net
     return memory_allocator::allocate(size, hint);
-}
-
-void chunk_stream_allocator::free(std::uint8_t *ptr, void *user)
-{
-    if (!user)
-    {
-        // It was allocated using the base class, which uses new[] (probably unreachable)
-        delete[] ptr;
-    }
-    else
-        delete static_cast<chunk_stream_state::heap_metadata *>(user);
 }
 
 } // namespace detail
@@ -329,7 +327,7 @@ void chunk_stream::heap_ready(live_heap &&lh)
     if (lh.is_complete())
     {
         heap h(std::move(lh));
-        auto metadata = static_cast<const heap_metadata *>(h.get_payload().get_deleter().get_user());
+        auto metadata = get_heap_metadata(h.get_payload());
         // We need to check the chunk_id because the chunk might have been aged
         // out while the heap was incomplete.
         if (metadata && metadata->chunk_ptr && metadata->chunk_id >= get_head_chunk()

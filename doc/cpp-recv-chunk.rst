@@ -27,7 +27,7 @@ C++ API.
    :members:
 
 .. doxygenclass:: spead2::recv::chunk_stream
-   :members: chunk_stream, get_chunk_config
+   :members: chunk_stream, get_chunk_config, get_heap_metadata
 
 Ringbuffer convenience API
 --------------------------
