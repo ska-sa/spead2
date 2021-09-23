@@ -75,7 +75,8 @@ static void chunk_place(spead2::recv::chunk_place_data *data, std::size_t data_s
     }
 }
 
-static std::unique_ptr<spead2::recv::chunk> chunk_allocate(std::int64_t chunk_id)
+static std::unique_ptr<spead2::recv::chunk> chunk_allocate(
+    std::int64_t chunk_id, std::uint64_t *batch_stats)
 {
     std::unique_ptr<spead2::recv::chunk> chunk{new spead2::recv::chunk};
     chunk->present = allocator->allocate(heaps_per_chunk, nullptr);
@@ -86,7 +87,8 @@ static std::unique_ptr<spead2::recv::chunk> chunk_allocate(std::int64_t chunk_id
     return chunk;
 }
 
-static void chunk_ready(std::unique_ptr<spead2::recv::chunk> &&chunk)
+static void chunk_ready(
+    std::unique_ptr<spead2::recv::chunk> &&chunk, std::uint64_t *batch_stats)
 {
     auto n_present = std::accumulate(
         chunk->present.get(),

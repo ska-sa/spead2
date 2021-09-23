@@ -1,6 +1,18 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add support for :ref:`custom-stats`.
+- Change the allocate and ready callbacks on
+  :cpp:class:`spead2::recv::chunk_stream` to take a pointer to the batch
+  statistics. This is a **backwards-incompatible change** (keep in mind that
+  chunking receive is still experimental). Code that uses
+  :cpp:class:`spead2::recv::chunk_ring_stream` is unaffected.
+- Allow a ready callback to be used together with
+  :cpp:class:`spead2::recv::chunk_ring_stream`, to finish preparation of a
+  chunk before it pushed to the ringbuffer.
+
 .. rubric:: 3.4.0
 
 - Add :doc:`recv-chunk`.

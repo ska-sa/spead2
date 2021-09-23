@@ -152,7 +152,8 @@ void chunk_stream_state::flush_head()
     assert(head_chunk < tail_chunk);
     if (chunks[head_pos])
     {
-        chunk_config.get_ready()(std::move(chunks[head_pos]));
+        std::uint64_t *batch_stats = static_cast<chunk_stream *>(this)->batch_stats.data();
+        chunk_config.get_ready()(std::move(chunks[head_pos]), batch_stats);
         // If the ready callback didn't take over ownership, free it.
         chunks[head_pos].reset();
     }
@@ -248,7 +249,7 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
             {
                 if (std::size_t(tail_chunk - head_chunk) == max_chunks)
                     flush_head();
-                chunks[tail_pos] = allocate(tail_chunk);
+                chunks[tail_pos] = allocate(tail_chunk, data.batch_stats);
                 if (chunks[tail_pos])
                 {
                     chunks[tail_pos]->chunk_id = tail_chunk;
