@@ -807,7 +807,7 @@ class TestStreamConfig:
         assert counter_index == base_index
         assert config.get_stat_index('counter') == counter_index
         assert config.get_stat_index('maximum') == maximum_index
-        with pytest.raises(ValueError):
+        with pytest.raises(IndexError):
             config.get_stat_index('does_not_exist')
         # Can't add duplicates
         with pytest.raises(ValueError):
