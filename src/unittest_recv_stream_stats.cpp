@@ -84,12 +84,16 @@ BOOST_AUTO_TEST_CASE(test_reverse_iteration)
 {
     spead2::recv::stream_stats stats;
     std::vector<std::string> names, rnames, crnames;
+    /* Uses (*it).first rather than it->first because libc++ doesn't like the
+     * latter with reverse iterators when dereferencing doesn't return an
+     * lvalue.
+     */
     for (auto it = stats.begin(); it != stats.end(); ++it)
-        names.push_back(it->first);
+        names.push_back((*it).first);
     for (auto it = stats.rbegin(); it != stats.rend(); ++it)
-        rnames.push_back(it->first);
+        rnames.push_back((*it).first);
     for (auto it = stats.crbegin(); it != stats.crend(); ++it)
-        crnames.push_back(it->first);
+        crnames.push_back((*it).first);
     std::reverse(rnames.begin(), rnames.end());
     BOOST_TEST(rnames == names);
     std::reverse(crnames.begin(), crnames.end());
