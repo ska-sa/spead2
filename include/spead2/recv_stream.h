@@ -32,6 +32,7 @@
 #include <future>
 #include <mutex>
 #include <atomic>
+#include <iterator>
 #include <type_traits>
 #include <boost/asio.hpp>
 #include <boost/iterator/iterator_facade.hpp>
@@ -186,8 +187,20 @@ private:
     std::vector<std::uint64_t> values;
 
 public:
+    // These are all to make the container look like a std::unordered_map
+    using key_type = std::string;
+    using mapped_type = std::uint64_t;
+    using value_type = std::pair<const std::string, std::uint64_t>;
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+    using reference = value_type &;
+    using const_reference = const value_type &;
+    using pointer = value_type *;
+    using const_pointer = const value_type *;
     using iterator = detail::stream_stats_iterator<stream_stats, std::pair<const std::string &, std::uint64_t &>>;
     using const_iterator = detail::stream_stats_iterator<const stream_stats, const std::pair<const std::string &, std::uint64_t>>;
+    using reverse_iterator = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     /// Construct with the default set of statistics, and all zero values
     stream_stats();
@@ -200,6 +213,8 @@ public:
     /// Get the configuration of the statistics
     const std::vector<stream_stat_config> &get_config() const { return *config; }
 
+    /// Whether the container is empty
+    bool empty() const { return size() == 0; }
     /// Get the number of statistics
     std::size_t size() const { return values.size(); }
     /**
@@ -209,20 +224,44 @@ public:
     /**
      * Access a statistic by index. If index is out of range, behaviour is undefined.
      */
-    std::uint64_t operator[](std::size_t index) const { return values[index]; }
+    const std::uint64_t &operator[](std::size_t index) const { return values[index]; }
+    /**
+     * Access a statistic by index.
+     *
+     * @throw std::out_of_range if index is out of range.
+     */
+    std::uint64_t &at(std::size_t index) { return values.at(index); }
+    /**
+     * Access a statistic by index.
+     *
+     * @throw std::out_of_range if index is out of range.
+     */
+    const std::uint64_t &at(std::size_t index) const { return values.at(index); }
 
     /**
      * Access a statistic by name.
      *
-     * @throw std::invalid_argument if @a name is not the name of a statistic
+     * @throw std::out_of_range if @a name is not the name of a statistic
      */
     std::uint64_t &operator[](const std::string &name);
     /**
      * Access a statistic by name.
      *
-     * @throw std::invalid_argument if @a name is not the name of a statistic
+     * @throw std::out_of_range if @a name is not the name of a statistic
      */
-    std::uint64_t operator[](const std::string &name) const;
+    const std::uint64_t &operator[](const std::string &name) const;
+    /**
+     * Access a statistic by name.
+     *
+     * @throw std::out_of_range if @a name is not the name of a statistic
+     */
+    std::uint64_t &at(const std::string &name);
+    /**
+     * Access a statistic by name.
+     *
+     * @throw std::out_of_range if @a name is not the name of a statistic
+     */
+    const std::uint64_t &at(const std::string &name) const;
 
     const_iterator cbegin() const noexcept { return const_iterator(*this); }
     const_iterator cend() const noexcept { return const_iterator(*this, size()); }
@@ -230,6 +269,13 @@ public:
     iterator end() noexcept { return iterator(*this, size()); }
     const_iterator begin() const noexcept { return cbegin(); }
     const_iterator end() const noexcept { return cend(); }
+
+    const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator(cend()); }
+    const_reverse_iterator crend() const noexcept { return const_reverse_iterator(cbegin()); }
+    reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
+    reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
+    const_reverse_iterator rbegin() const noexcept { return crbegin(); }
+    const_reverse_iterator rend() const noexcept { return crend(); }
     /**
      * Find element with the given name. If not found, returns @c end().
      */
@@ -238,6 +284,10 @@ public:
      * Find element with the given name. If not found, returns @c end().
      */
     const_iterator find(const std::string &name) const;
+    /**
+     * Return the number of elements matching @a name (0 or 1).
+     */
+    std::size_t count(const std::string &name) const;
 
     // References to core statistics in values (for backwards compatibility only).
     std::uint64_t &heaps;
@@ -375,7 +425,7 @@ public:
     /**
      * Helper to get the index of a specific statistic.
      *
-     * @throw std::invalid_argument if @a name is not a known statistic.
+     * @throw std::out_of_range if @a name is not a known statistic.
      */
     std::size_t get_stat_index(const std::string &name) const;
 

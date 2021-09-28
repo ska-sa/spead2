@@ -85,7 +85,7 @@ static std::size_t get_stat_index_nothrow(
 /**
  * Get the index within @a stats corresponding to @a name.
  *
- * @throw std::invalid_argument if it is not present
+ * @throw std::out_of_range if it is not present
  */
 static std::size_t get_stat_index(
     const std::vector<stream_stat_config> &stats,
@@ -93,7 +93,7 @@ static std::size_t get_stat_index(
 {
     std::size_t ret = get_stat_index_nothrow(stats, name);
     if (ret == stats.size())
-        throw std::invalid_argument(name + " is not a known statistic name");
+        throw std::out_of_range(name + " is not a known statistic name");
     return ret;
 }
 
@@ -155,10 +155,20 @@ stream_stats::stream_stats(std::shared_ptr<std::vector<stream_stat_config>> conf
 
 std::uint64_t &stream_stats::operator[](const std::string &name)
 {
+    return at(name);
+}
+
+const std::uint64_t &stream_stats::operator[](const std::string &name) const
+{
+    return at(name);
+}
+
+std::uint64_t &stream_stats::at(const std::string &name)
+{
     return values[get_stat_index(*config, name)];
 }
 
-std::uint64_t stream_stats::operator[](const std::string &name) const
+const std::uint64_t &stream_stats::at(const std::string &name) const
 {
     return values[get_stat_index(*config, name)];
 }
@@ -171,6 +181,11 @@ stream_stats::iterator stream_stats::find(const std::string &name)
 stream_stats::const_iterator stream_stats::find(const std::string &name) const
 {
     return const_iterator(*this, get_stat_index_nothrow(*config, name));
+}
+
+std::size_t stream_stats::count(const std::string &name) const
+{
+    return get_stat_index_nothrow(*config, name) != values.size() ? 1 : 0;
 }
 
 stream_stats stream_stats::operator+(const stream_stats &other) const

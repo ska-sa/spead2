@@ -22,6 +22,7 @@
  * allow all the C++ functionality to be exercised.
  */
 
+#include <algorithm>
 #include <stdexcept>
 #include <boost/test/unit_test.hpp>
 #include <spead2/recv_stream.h>
@@ -79,6 +80,22 @@ BOOST_AUTO_TEST_CASE(test_iterator_traversal)
     BOOST_CHECK(it == stats.begin());
 }
 
+BOOST_AUTO_TEST_CASE(test_reverse_iteration)
+{
+    spead2::recv::stream_stats stats;
+    std::vector<std::string> names, rnames, crnames;
+    for (auto it = stats.begin(); it != stats.end(); ++it)
+        names.push_back(it->first);
+    for (auto it = stats.rbegin(); it != stats.rend(); ++it)
+        rnames.push_back(it->first);
+    for (auto it = stats.crbegin(); it != stats.crend(); ++it)
+        crnames.push_back(it->first);
+    std::reverse(rnames.begin(), rnames.end());
+    BOOST_TEST(rnames == names);
+    std::reverse(crnames.begin(), crnames.end());
+    BOOST_TEST(crnames == names);
+}
+
 BOOST_AUTO_TEST_CASE(test_references)
 {
     // Test that the backwards-compatibility fields work
@@ -108,13 +125,46 @@ BOOST_AUTO_TEST_CASE(test_index)
     spead2::recv::stream_stats stats;
     stats["heaps"] = 123;
     BOOST_TEST(stats["heaps"] == 123);
+    BOOST_TEST(stats.at("heaps") == 123);
     BOOST_TEST(stats[spead2::recv::stream_stat_indices::heaps] == 123);
-    BOOST_CHECK_THROW(stats["missing"], std::invalid_argument);
+    BOOST_CHECK_THROW(stats["missing"], std::out_of_range);
+    BOOST_CHECK_THROW(stats.at("missing"), std::out_of_range);
+    BOOST_CHECK_THROW(stats.at(100000), std::out_of_range);
 
     const spead2::recv::stream_stats &stats_const = stats;
     BOOST_TEST(stats_const["heaps"] == 123);
+    BOOST_TEST(stats_const.at("heaps") == 123);
     BOOST_TEST(stats_const[spead2::recv::stream_stat_indices::heaps] == 123);
-    BOOST_CHECK_THROW(stats_const["missing"], std::invalid_argument);
+    BOOST_CHECK_THROW(stats_const["missing"], std::out_of_range);
+    BOOST_CHECK_THROW(stats_const.at("missing"), std::out_of_range);
+    BOOST_CHECK_THROW(stats_const.at(100000), std::out_of_range);
+}
+
+BOOST_AUTO_TEST_CASE(test_find)
+{
+    spead2::recv::stream_stats stats;
+    stats.at("heaps") = 123;
+    auto it = stats.find("heaps");
+    BOOST_REQUIRE(it != stats.end());
+    BOOST_TEST(it->first == "heaps");
+    BOOST_TEST(it->second == 123);
+    it = stats.find("missing");
+    BOOST_CHECK(it == stats.end());
+
+    const spead2::recv::stream_stats &stats_const = stats;
+    auto it_const = stats_const.find("heaps");
+    BOOST_REQUIRE(it_const != stats_const.end());
+    BOOST_TEST(it_const->first == "heaps");
+    BOOST_TEST(it_const->second == 123);
+    it_const = stats_const.find("missing");
+    BOOST_CHECK(it_const == stats_const.end());
+}
+
+BOOST_AUTO_TEST_CASE(test_count)
+{
+    spead2::recv::stream_stats stats;
+    BOOST_TEST(stats.count("heaps") == 1);
+    BOOST_TEST(stats.count("missing") == 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // stream_stats
