@@ -398,25 +398,50 @@ buffer_allocation::buffer_allocation(py::buffer buf)
 {
 }
 
-namespace detail
+namespace
 {
 
-std::shared_ptr<buffer_allocator> buffer_allocator::instance = std::make_shared<buffer_allocator>();
-
-void buffer_allocator::free(std::uint8_t *ptr, void *user_data)
+/* Function object that acts as a deleter for a wrapped buffer_allocation. It's
+ * a class rather than a lambda so that the shared_ptr can be constructed by
+ * move instead of copy in C++11 (which doesn't support C++14 generalised
+ * lambda captures), and to provide get_allocation.
+ *
+ * It needs to hold a shared_ptr rather than a unique_ptr because std::function
+ * requires the function to be copyable. In practice it is unlikely to be
+ * copied.
+ */
+class buffer_allocation_deleter
 {
-    auto alloc = static_cast<buffer_allocation *>(user_data);
-    delete alloc;
+private:
+    std::shared_ptr<buffer_allocation> alloc;
+
+public:
+    explicit buffer_allocation_deleter(std::shared_ptr<buffer_allocation> alloc)
+        : alloc(std::move(alloc)) {}
+
+    void operator()(std::uint8_t *ptr) const
+    {
+        alloc->buffer_info = py::buffer_info();
+        alloc->obj = py::object();
+    }
+
+    buffer_allocation &get_allocation() const
+    {
+        return *alloc;
+    }
+};
+
+} // anonymous namespace
+
+buffer_allocation *get_buffer_allocation(const memory_allocator::pointer &ptr)
+{
+    const auto *deleter = ptr.get_deleter().target<buffer_allocation_deleter>();
+    if (deleter)
+        return &deleter->get_allocation();
+    else
+        return nullptr;
 }
 
-buffer_allocator::pointer buffer_allocator::allocate(std::size_t, void *hint)
-{
-    auto alloc = static_cast<buffer_allocation *>(hint);
-    return pointer(static_cast<std::uint8_t *>(alloc->buffer_info.ptr),
-                   deleter(shared_from_this(), hint));
-}
-
-} // namespace detail
 } // namespace spead2
 
 namespace pybind11
@@ -433,14 +458,12 @@ bool type_caster<spead2::memory_allocator::pointer>::load(handle src, bool conve
     }
     if (!PyObject_CheckBuffer(src.ptr()))
         return false;
-    buffer buf = reinterpret_borrow<buffer>(src);
-    std::unique_ptr<spead2::buffer_allocation> alloc{
-        new spead2::buffer_allocation(std::move(buf))
-    };
     // Create a pointer wrapping the buffer_allocation
-    value = spead2::detail::buffer_allocator::instance->allocate(1, alloc.get());
-    // Ownership has passed to value, so do not free it when alloc goes out of scope
-    alloc.release();
+    auto alloc = std::make_shared<spead2::buffer_allocation>(reinterpret_borrow<buffer>(src));
+    // copy the pointer before moving from alloc
+    std::uint8_t *ptr = static_cast<std::uint8_t *>(alloc->buffer_info.ptr);
+    value = spead2::memory_allocator::pointer(
+        ptr, spead2::buffer_allocation_deleter(std::move(alloc)));
     return true;
 }
 
@@ -449,11 +472,10 @@ handle type_caster<spead2::memory_allocator::pointer>::cast(
 {
     if (!ptr)
         return none().inc_ref();
-    // Check that it was allocated from the singleton instance of buffer_allocator
-    if (ptr.get_deleter().get_allocator() != spead2::detail::buffer_allocator::instance)
+    auto deleter = ptr.get_deleter().target<spead2::buffer_allocation_deleter>();
+    if (!deleter)
         throw type_error("pointer did not come from a Python buffer object");
-    auto alloc = static_cast<const spead2::buffer_allocation *>(ptr.get_deleter().get_user());
-    return alloc->obj.inc_ref();
+    return deleter->get_allocation().obj.inc_ref();
 }
 
 } // namespace detail

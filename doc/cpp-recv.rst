@@ -91,6 +91,9 @@ the first one.
 .. doxygenclass:: spead2::memory_allocator
    :members: allocate, free
 
+.. doxygenclass:: spead2::memory_allocator::deleter
+   :members:
+
 The file :file:`examples/gdrapi_example.cu` in the spead2 source distribution
 shows an example of using a custom memory allocator to allocate memory for
 heaps on the GPU.

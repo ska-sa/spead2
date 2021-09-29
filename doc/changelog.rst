@@ -9,6 +9,11 @@ Changelog
   statistics. This is a **backwards-incompatible change** (keep in mind that
   chunking receive is still experimental). Code that uses
   :cpp:class:`spead2::recv::chunk_ring_stream` is unaffected.
+- Change the design of deleters for
+  :cpp:class:`spead2::memory_allocator`. Code that calls ``get_user`` or
+  ``get_deleter`` on a pointer allocated by spead2 may now get a ``nullptr``
+  back. Code that uses a custom memory allocator and that calls these
+  functions on pointers allocated by that allocator should continue to work.
 - Allow a ready callback to be used together with
   :cpp:class:`spead2::recv::chunk_ring_stream`, to finish preparation of a
   chunk before it pushed to the ringbuffer.

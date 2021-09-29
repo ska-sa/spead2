@@ -216,7 +216,7 @@ protected:
 
 public:
     /**
-     * Structure associated with each heap, via the user_data of the
+     * Structure associated with each heap, as the deleter of the
      * allocated pointer.
      */
     struct heap_metadata
@@ -225,6 +225,9 @@ public:
         std::size_t heap_index;
         std::size_t heap_offset;
         chunk *chunk_ptr;
+
+        // Free the memory (no-op since we don't own it)
+        void operator()(std::uint8_t *) const {}
     };
 
     /// Constructor
@@ -242,11 +245,18 @@ public:
      *
      * @returns A raw pointer for heap storage and context used for actual copies.
      */
-    std::pair<std::uint8_t *, std::unique_ptr<heap_metadata>> allocate(
+    std::pair<std::uint8_t *, heap_metadata> allocate(
         std::size_t size, const packet_header &packet);
 
     /// Send all in-flight chunks to the ready callback
     void flush_chunks();
+
+    /**
+     * Get the @ref heap_metadata associated with a heap payload pointer.
+     * If the pointer was not allocated by a chunk stream, returns @c
+     * nullptr.
+     */
+    static const heap_metadata *get_heap_metadata(const memory_allocator::pointer &ptr);
 };
 
 /**
@@ -263,9 +273,6 @@ public:
     explicit chunk_stream_allocator(chunk_stream_state &stream);
 
     virtual pointer allocate(std::size_t size, void *hint) override;
-
-private:
-    virtual void free(std::uint8_t *ptr, void *user) override;
 };
 
 } // namespace detail
@@ -292,8 +299,8 @@ public:
      *   heaps@endlink setting is forced to false.
      * - The @link stream_config::set_memcpy memcpy function@endlink may be
      *   overridden, although the provided function is still used when a copy
-     *   happens. Use <code>ptr.get_deleter().get_user()</code> to get a
-     *   pointer to @ref heap_metadata, from which the chunk can be retrieved.
+     *   happens. Use @ref get_heap_metadata to
+     *   get a pointer to @ref heap_metadata, from which the chunk can be retrieved.
      * - The @link stream_config::set_memory_allocator memory allocator@endlink
      *   is overridden, and the provided value is ignored.
      * - Additional statistics are registered:
@@ -315,6 +322,7 @@ public:
         const chunk_stream_config &chunk_config);
 
     using detail::chunk_stream_state::get_chunk_config;
+    using detail::chunk_stream_state::get_heap_metadata;
 
     virtual void stop_received() override;
     virtual void stop() override;

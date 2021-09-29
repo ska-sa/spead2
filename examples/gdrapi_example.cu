@@ -1,4 +1,4 @@
-/* Copyright 2020 National Research Foundation (SARAO)
+/* Copyright 2020-2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -86,18 +86,19 @@ __global__ void sum(const unsigned int *data, unsigned long long *out, int n)
 class gdrapi_memory_allocator : public spead2::memory_allocator
 {
 private:
-    /// Information stored alongside each memory allocation.
-    struct metadata
+    /// Information stored alongside each memory allocation, which also handles deletion
+    struct deleter
     {
+        std::shared_ptr<gdrapi_memory_allocator> allocator;  ///< Keeps gdr handle alive
         gdr_mh_t mh;               ///< memory handle for interacting with gdrapi
         void *base;                ///< device address to free
         void *dptr;                ///< device address corresponding to the pointer
         std::size_t padded_size;   ///< size for unmapping
+
+        void operator()(std::uint8_t * ptr) const;  ///< Free the memory
     };
 
     gdr_t gdr;                     ///< Global handle for interacting with gdrapi
-
-    virtual void free(std::uint8_t *ptr, void *user) override;
 
 public:
     gdrapi_memory_allocator();
@@ -137,47 +138,40 @@ gdrapi_memory_allocator::~gdrapi_memory_allocator()
 
 gdrapi_memory_allocator::pointer gdrapi_memory_allocator::allocate(std::size_t size, void *hint)
 {
-    std::unique_ptr<metadata> meta(new metadata);
+    deleter meta;
+    meta.allocator = std::static_pointer_cast<gdrapi_memory_allocator>(shared_from_this());
     // Mapping is done in GPU page granularity, so round up size to a GPU page.
-    meta->padded_size = (size + GPU_PAGE_SIZE - 1) & GPU_PAGE_MASK;
+    meta.padded_size = (size + GPU_PAGE_SIZE - 1) & GPU_PAGE_MASK;
     // We have to allocate more than requested so that we can manually align
     // to the page size. See https://github.com/NVIDIA/gdrcopy/issues/52
-    std::size_t alloc_size = meta->padded_size + GPU_PAGE_SIZE - 1;
-    CUDA_CHECK(cudaMalloc(&meta->base, alloc_size));
+    std::size_t alloc_size = meta.padded_size + GPU_PAGE_SIZE - 1;
+    CUDA_CHECK(cudaMalloc(&meta.base, alloc_size));
     // Round up device pointer to the next GPU page boundary
-    meta->dptr = reinterpret_cast<void *>(
-        (reinterpret_cast<std::uintptr_t>(meta->base) + GPU_PAGE_SIZE - 1) & GPU_PAGE_MASK
+    meta.dptr = reinterpret_cast<void *>(
+        (reinterpret_cast<std::uintptr_t>(meta.base) + GPU_PAGE_SIZE - 1) & GPU_PAGE_MASK
     );
     // Pin and map the GPU memory
-    INT_CHECK(gdr_pin_buffer(gdr, CUdeviceptr(meta->dptr), meta->padded_size, 0, 0, &meta->mh));
+    INT_CHECK(gdr_pin_buffer(gdr, CUdeviceptr(meta.dptr), meta.padded_size, 0, 0, &meta.mh));
     void *hptr;
-    INT_CHECK(gdr_map(gdr, meta->mh, &hptr, meta->padded_size));
-    return pointer(
-        static_cast<std::uint8_t *>(hptr),
-        deleter(shared_from_this(), meta.release()));
+    INT_CHECK(gdr_map(gdr, meta.mh, &hptr, meta.padded_size));
+    return pointer(static_cast<std::uint8_t *>(hptr), std::move(meta));
 }
 
-void gdrapi_memory_allocator::free(std::uint8_t *ptr, void *user)
+void gdrapi_memory_allocator::deleter::operator()(std::uint8_t *ptr) const
 {
-    metadata *meta = static_cast<metadata *>(user);
-    INT_CHECK(gdr_unmap(gdr, meta->mh, ptr, meta->padded_size));
-    INT_CHECK(gdr_unpin_buffer(gdr, meta->mh));
-    CUDA_CHECK(cudaFree(meta->base));
-    delete meta;
+    INT_CHECK(gdr_unmap(allocator->gdr, mh, ptr, padded_size));
+    INT_CHECK(gdr_unpin_buffer(allocator->gdr, mh));
+    CUDA_CHECK(cudaFree(base));
 }
 
 void *gdrapi_memory_allocator::get_device_ptr(const pointer &ptr)
 {
-    metadata *meta = static_cast<metadata *>(ptr.get_deleter().get_user());
-    assert(meta != nullptr);
-    return meta->dptr;
+    return ptr.get_deleter().target<deleter>()->dptr;
 }
 
 gdr_mh_t gdrapi_memory_allocator::get_mh(const pointer &ptr)
 {
-    metadata *meta = static_cast<metadata *>(ptr.get_deleter().get_user());
-    assert(meta != nullptr);
-    return meta->mh;
+    return ptr.get_deleter().target<deleter>()->mh;
 }
 
 /**

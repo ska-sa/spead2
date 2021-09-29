@@ -1,4 +1,4 @@
-/* Copyright 2015-2017 National Research Foundation (SARAO)
+/* Copyright 2015-2017, 2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -34,6 +34,8 @@
 namespace spead2
 {
 
+namespace detail { class memory_pool_deleter; }
+
 /**
  * Memory allocator that pre-allocates memory and recycles it. This wastes
  * memory but reduces the number of page faults. It has a lower bound and an
@@ -51,6 +53,8 @@ namespace spead2
  */
 class memory_pool : public memory_allocator
 {
+    friend class detail::memory_pool_deleter;
+
 private:
     boost::optional<io_service_ref> io_service;
     const std::size_t lower, upper, max_free, initial, low_water;
@@ -61,7 +65,10 @@ private:
     bool refilling = false;
     bool warn_on_empty = true;
 
-    virtual void free(std::uint8_t *ptr, void *user) override;
+    // Like shared_from_this but pointer has the right type
+    std::shared_ptr<memory_pool> shared_this();
+    // Called by memory_pool_deleter to return a pointer to the pool
+    void free_impl(std::uint8_t *ptr, memory_allocator::deleter &&base_deleter);
     // Makes ourself the owner
     pointer convert(pointer &&base);
     static void refill(std::size_t upper, std::shared_ptr<memory_allocator> allocator,

@@ -492,23 +492,6 @@ PTMFWrapperGen<T, Return, Class, Args...> ptmf_wrapper_type(Return (Class::*ptmf
 #define SPEAD2_PTMF_VOID(Class, Func) \
     (decltype(::spead2::detail::ptmf_wrapper_type<Class>(&Class::Func))::template make_wrapper_void<&Class::Func>())
 
-/**
- * Pseudo-allocator that wraps a Python object implementing the buffer
- * protocol. At present it only supports writable buffers. The allocation
- * hint must be a pointer to a @ref buffer_allocation, and it will also
- * be stored as the @c user_data in the deleter.
- */
-class buffer_allocator final : public memory_allocator
-{
-private:
-    virtual void free(std::uint8_t *ptr, void *user_data) override;
-
-public:
-    static std::shared_ptr<buffer_allocator> instance;
-
-    virtual pointer allocate(std::size_t size, void *hint) override;
-};
-
 } // namespace detail
 
 struct buffer_allocation
@@ -518,6 +501,12 @@ struct buffer_allocation
 
     explicit buffer_allocation(pybind11::buffer buf);
 };
+
+/**
+ * Get the buffer_allocation embedded in the deleter. If the pointer was not
+ * allocated by the type caster, return @c nullptr.
+ */
+buffer_allocation *get_buffer_allocation(const memory_allocator::pointer &ptr);
 
 } // namespace spead2
 

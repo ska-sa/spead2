@@ -852,7 +852,8 @@ py::module register_module(py::module &parent)
             {
                 if (value)
                 {
-                    auto alloc = static_cast<const spead2::buffer_allocation *>(value.get_deleter().get_user());
+                    auto *alloc = get_buffer_allocation(value);
+                    assert(alloc != nullptr);
                     c.present_size = alloc->buffer_info.size * alloc->buffer_info.itemsize;
                 }
                 else

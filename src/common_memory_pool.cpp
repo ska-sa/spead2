@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -49,6 +49,44 @@ memory_pool::memory_pool(
 {
 }
 
+namespace detail
+{
+
+class memory_pool_deleter
+{
+private:
+    struct state_t
+    {
+        std::shared_ptr<memory_pool> allocator;
+        memory_allocator::deleter base_deleter;
+
+        state_t(std::shared_ptr<memory_pool> &&allocator,
+                memory_allocator::deleter &&base_deleter)
+            : allocator(std::move(allocator)), base_deleter(std::move(base_deleter)) {}
+    };
+
+    // See the comments in memory_allocator::legacy_deleter for an explanation
+    // of why this is wrapped in a shared_ptr.
+    std::shared_ptr<state_t> state;
+
+public:
+    memory_pool_deleter(
+            std::shared_ptr<memory_pool> &&allocator,
+            memory_allocator::deleter &&base_deleter)
+        : state(std::make_shared<state_t>(std::move(allocator), std::move(base_deleter)))
+    {
+    }
+
+    void operator()(std::uint8_t *ptr) const
+    {
+        state->allocator->free_impl(ptr, std::move(state->base_deleter));
+        // Allow the allocator to be freed even if the unique_ptr lingers on.
+        state->allocator.reset();
+    }
+};
+
+} // namespace detail
+
 memory_pool::memory_pool(
     boost::optional<io_service_ref> io_service,
     std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
@@ -66,14 +104,19 @@ memory_pool::memory_pool(
         pool.emplace(base_allocator->allocate(upper, nullptr));
 }
 
-void memory_pool::free(std::uint8_t *ptr, void *user)
+std::shared_ptr<memory_pool> memory_pool::shared_this()
 {
-    pointer wrapped(ptr, deleter(base_allocator, user));
+    return std::static_pointer_cast<memory_pool>(shared_from_this());
+}
+
+void memory_pool::free_impl(std::uint8_t *ptr, memory_allocator::deleter &&base_deleter)
+{
+    pointer wrapped(ptr, std::move(base_deleter));
     std::unique_lock<std::mutex> lock(mutex);
     if (pool.size() < max_free)
     {
         log_debug("returning memory to the pool");
-        pool.push(move(wrapped));
+        pool.push(std::move(wrapped));
     }
     else
     {
@@ -85,7 +128,15 @@ void memory_pool::free(std::uint8_t *ptr, void *user)
 
 memory_pool::pointer memory_pool::convert(pointer &&base)
 {
-    pointer wrapped(base.get(), deleter(shared_from_this(), base.get_deleter().get_user()));
+    /* TODO: in theory this might not be exception-safe, because in C++11
+     * the move constructor for std::function is not noexcept. Thus, after
+     * constructing the memory_pool_deleter argument, the construction of
+     * the pointer could fail. The lack of noexcept is assumed to be an
+     * oversight in older C++ standards, and GCC 9 at least makes it
+     * no-except.
+     */
+    pointer wrapped(base.get(),
+                    detail::memory_pool_deleter(shared_this(), std::move(base.get_deleter())));
     base.release();
     return wrapped;
 }
@@ -135,8 +186,7 @@ memory_pool::pointer memory_pool::allocate(std::size_t size, void *hint)
             if (pool.size() < low_water && !refilling)
             {
                 refilling = true;
-                std::shared_ptr<memory_pool> self =
-                    std::static_pointer_cast<memory_pool>(shared_from_this());
+                std::shared_ptr<memory_pool> self = shared_this();
                 std::weak_ptr<memory_pool> weak{self};
                 // C++ (or at least GCC) won't let me capture the members by value directly
                 const std::size_t upper = this->upper;
