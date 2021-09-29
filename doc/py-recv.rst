@@ -102,7 +102,7 @@ properties after construction.
 
       Get the index of statistic `name`.
 
-      :raises ValueError: if `name` is not a known statistic name
+      :raises IndexError: if `name` is not a known statistic name
 
    .. py:attribute:: stats
 
