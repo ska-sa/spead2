@@ -1,4 +1,4 @@
-# Copyright 2015, 2019 National Research Foundation (SARAO)
+# Copyright 2015, 2019, 2021 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -157,7 +157,7 @@ class Descriptor:
                 dtype is None and
                 len(format) == 1 and
                 format[0][0] in ('u', 'i') and
-                self._internal_dtype.hasobject):
+                format[0][1] < 64):
             self._fastpath = _FASTPATH_IMMEDIATE
         else:
             self._fastpath = _FASTPATH_NONE
@@ -343,13 +343,13 @@ class Item(Descriptor):
     @property
     def value(self):
         """Current value. Assigning to this will increment the version number.
-        Assigning `None` will raise `ValueError` because there is no way to
-        encode this using SPEAD.
+        Assigning ``None`` will raise :exc:`ValueError` because there is no way
+        to encode this using SPEAD.
 
         .. warning:: If you modify a mutable value in-place, the change will
-          not be detected, and the new value will not be transmitted. In this
-          case, either manually increment the version number, or reassign the
-          value.
+          not be detected, and by default :py:meth:`.HeapGenerator.get_heap`
+          will not add the item to the heap it returns. In this case, either
+          manually increment the version number, or reassign the value.
         """
         return self._value
 
@@ -582,18 +582,28 @@ class Item(Descriptor):
             # turn a bytes object into a list of one-byte objects, the way
             # list(str) does.
             value = [self.value[i : i + 1] for i in range(len(self.value))]
-        value = _np.array(value, dtype=self._internal_dtype, order=self.order, copy=False)
-        if not self.compatible_shape(value.shape):
-            raise ValueError(f'Value has shape {value.shape}, expected {self.shape}')
+        if self._fastpath == _FASTPATH_IMMEDIATE and self.itemsize_bits % 8 == 0:
+            value = _np.array(value, dtype='>u8', order=self.order, copy=False)
+            if not self.compatible_shape(value.shape):
+                raise ValueError(f'Value has shape {value.shape}, expected {self.shape}')
+            # Truncate to just the low-order bytes that are needed. Note: this
+            # doesn't check for overflows, because the value might only get
+            # filled in later if it is referenced rather than copied.
+            value = value[_np.newaxis].view(_np.uint8)[-(self.itemsize_bits // 8):]
+        else:
+            value = _np.array(value, dtype=self._internal_dtype, order=self.order, copy=False)
+            if not self.compatible_shape(value.shape):
+                raise ValueError(f'Value has shape {value.shape}, expected {self.shape}')
         return value
 
     def to_buffer(self):
         """Returns an object that implements the buffer protocol for the value.
+
         It can be either the original value (on the numpy fast path), or a new
         temporary object.
         """
         value = self._transform_value()
-        if self._fastpath != _FASTPATH_NUMPY:
+        if value.dtype.hasobject:
             bit_length = self.itemsize_bits * self._num_elements()
             out = bytearray((bit_length + 7) // 8)
             gen = self._write_bits(out)
