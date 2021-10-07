@@ -20,7 +20,7 @@ import weakref
 import spead2 as _spead2
 from spead2._spead2.send import (       # noqa: F401
     RateMethod, StreamConfig, GroupMode, Heap, HeapReference, PacketGenerator,
-    BytesStream, UdpStream, TcpStream, InprocStream)
+    Stream, BytesStream, UdpStream, TcpStream, InprocStream)
 try:
     from spead2._spead2.send import UdpIbvStream, UdpIbvConfig      # noqa: F401
 except ImportError:

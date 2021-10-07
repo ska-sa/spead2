@@ -525,11 +525,11 @@ public:
 };
 
 template<typename T>
-static py::class_<T> udp_stream_register(py::module &m, const char *name)
+static py::class_<T, stream> udp_stream_register(py::module &m, const char *name)
 {
     using namespace pybind11::literals;
 
-    return py::class_<T>(m, name)
+    return py::class_<T, stream>(m, name)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::pair<std::string, std::uint16_t>> &, const stream_config &, std::size_t, std::string>(),
              "thread_pool"_a.none(false), "endpoints"_a,
              "config"_a = stream_config(),
@@ -587,11 +587,11 @@ static py::class_<T> udp_stream_register(py::module &m, const char *name)
 
 #if SPEAD2_USE_IBV
 template<typename T>
-static py::class_<T> udp_ibv_stream_register(py::module &m, const char *name)
+static py::class_<T, stream> udp_ibv_stream_register(py::module &m, const char *name)
 {
     using namespace pybind11::literals;
 
-    return py::class_<T>(m, name)
+    return py::class_<T, stream>(m, name)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::string, std::size_t, int, int, int>(),
              "thread_pool"_a.none(false), "multicast_group"_a, "port"_a,
              "config"_a = stream_config(),
@@ -700,12 +700,12 @@ public:
  * to pass to py::class_::def.
  */
 template<typename Registrar>
-static py::class_<typename Registrar::stream_type> tcp_stream_register(py::module &m, const char *name)
+static py::class_<typename Registrar::stream_type, stream> tcp_stream_register(py::module &m, const char *name)
 {
     using namespace pybind11::literals;
 
     typedef typename Registrar::stream_type T;
-    py::class_<T> class_(m, name);
+    py::class_<T, stream> class_(m, name);
     class_
         .def(py::init<std::shared_ptr<thread_pool_wrapper>,
                       const socket_wrapper<boost::asio::ip::tcp::socket> &,
@@ -766,7 +766,7 @@ private:
 
 public:
     template<typename... Args, typename... Extra>
-    static void apply(py::class_<stream_type> &class_, Extra&&... extra)
+    static void apply(py::class_<stream_type, stream> &class_, Extra&&... extra)
     {
         class_.def(py::init(&tcp_stream_register_sync::construct<Args...>),
                    std::forward<Extra>(extra)...);
@@ -810,7 +810,7 @@ private:
 
 public:
     template<typename... Args, typename... Extra>
-    static void apply(py::class_<stream_type> &class_, Extra&&... extra)
+    static void apply(py::class_<stream_type, stream> &class_, Extra&&... extra)
     {
         using namespace pybind11::literals;
         class_.def(py::init(&tcp_stream_register_async::construct<Args...>),
@@ -819,10 +819,10 @@ public:
 };
 
 template<typename T>
-static py::class_<T> inproc_stream_register(py::module &m, const char *name)
+static py::class_<T, stream> inproc_stream_register(py::module &m, const char *name)
 {
     using namespace pybind11::literals;
-    return py::class_<T>(m, name)
+    return py::class_<T, stream>(m, name)
         .def(py::init(
                 [](std::shared_ptr<thread_pool_wrapper> io_service,
                    std::shared_ptr<inproc_queue> queue,
@@ -846,20 +846,9 @@ static py::class_<T> inproc_stream_register(py::module &m, const char *name)
 }
 
 template<typename T>
-static void stream_register(py::class_<T> &stream_class)
+static void sync_stream_register(py::class_<T, stream> &stream_class)
 {
     using namespace pybind11::literals;
-    stream_class
-        .def("set_cnt_sequence", SPEAD2_PTMF(T, set_cnt_sequence),
-             "next"_a, "step"_a)
-        .def_property_readonly("num_substreams", SPEAD2_PTMF(T, get_num_substreams));
-}
-
-template<typename T>
-static void sync_stream_register(py::class_<T> &stream_class)
-{
-    using namespace pybind11::literals;
-    stream_register(stream_class);
     stream_class.def("send_heap", SPEAD2_PTMF(T, send_heap),
                      "heap"_a, "cnt"_a = s_item_pointer_t(-1),
                      "substream_index"_a = std::size_t(0));
@@ -868,10 +857,9 @@ static void sync_stream_register(py::class_<T> &stream_class)
 }
 
 template<typename T>
-static void async_stream_register(py::class_<T> &stream_class)
+static void async_stream_register(py::class_<T, stream> &stream_class)
 {
     using namespace pybind11::literals;
-    stream_register(stream_class);
     stream_class
         .def_property_readonly("fd", SPEAD2_PTMF(T, get_fd))
         .def("async_send_heap", SPEAD2_PTMF(T, async_send_heap_obj),
@@ -957,6 +945,11 @@ py::module register_module(py::module &parent)
         .def_readonly_static("DEFAULT_BURST_RATE_RATIO", &stream_config::default_burst_rate_ratio)
         .def_readonly_static("DEFAULT_RATE_METHOD", &stream_config::default_rate_method);
 
+    py::class_<stream>(m, "Stream")
+        .def("set_cnt_sequence", SPEAD2_PTMF(stream, set_cnt_sequence),
+             "next"_a, "step"_a)
+        .def_property_readonly("num_substreams", SPEAD2_PTMF(stream, get_num_substreams));
+
     {
         auto stream_class = udp_stream_register<udp_stream_wrapper<stream_wrapper<udp_stream>>>(m, "UdpStream");
         sync_stream_register(stream_class);
@@ -1007,7 +1000,7 @@ py::module register_module(py::module &parent)
     }
 
     {
-        py::class_<bytes_stream> stream_class(m, "BytesStream");
+        py::class_<bytes_stream, stream> stream_class(m, "BytesStream", py::multiple_inheritance());
         stream_class
             .def(py::init<std::shared_ptr<thread_pool_wrapper>, const stream_config &>(),
                  "thread_pool"_a.none(false), "config"_a = stream_config())
