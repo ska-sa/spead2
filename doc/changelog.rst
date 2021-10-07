@@ -17,6 +17,9 @@ Changelog
 - Allow a ready callback to be used together with
   :cpp:class:`spead2::recv::chunk_ring_stream`, to finish preparation of a
   chunk before it pushed to the ringbuffer.
+- In Python, avoid copying immediate items when given as 0-d arrays with dtype
+  ``>u8``. This makes it practical to pre-define heaps and later update their
+  values rather than creating new heap objects.
 
 .. rubric:: 3.4.0
 

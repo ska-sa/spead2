@@ -441,6 +441,43 @@ class TestEncode:
                                               repeat_pointers=True)
         assert hexlify(packets) == hexlify(expected)
 
+    def test_zero_copy(self):
+        """Test that heaps can reference original data.
+
+        This allows heaps to be updated by just changing the data.
+        """
+        id = 0x2345
+        data = np.arange(8, dtype=np.uint8)
+        imm = np.zeros((), dtype='>u8')
+        item1 = spead2.Item(id=id, name='item1', description='addressed item',
+                            shape=data.shape, dtype=data.dtype, value=data)
+        item2 = spead2.Item(id=id + 1, name='item2', description='inline item',
+                            shape=(), format=[('u', self.flavour.heap_address_bits)],
+                            value=imm)
+        heap = spead2.send.Heap(self.flavour)
+        heap.add_item(item1)
+        heap.add_item(item2)
+        # Now change the values after they've been added to the heap.
+        data *= 2
+        imm[()] = 0xdeadbeef
+
+        expected = [
+            b''.join([
+                self.flavour.make_header(6),
+                self.flavour.make_immediate(spead2.HEAP_CNT_ID, 0x123456),
+                self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 8),
+                self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+                self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 8),
+                self.flavour.make_address(id, 0),
+                self.flavour.make_immediate(id + 1, 0xdeadbeef),
+                data.tobytes()
+            ])
+        ]
+
+        gen = send.PacketGenerator(heap, 0x123456, 1500)
+        packets = list(gen)
+        assert hexlify(packets) == hexlify(expected)
+
 
 class TestStreamConfig:
     def test_default_construct(self):

@@ -27,11 +27,17 @@ Mapping of SPEAD protocol to Python
   whose length will be computed from the size of the item, or zero if any
   other element of the shape is zero.
 
-When transmitting data, one case is handled specially: if the expected shape
-is one-dimensional, but the provided value is an instance of
-:py:class:`bytes`, :py:class:`str` or :py:class:`unicode`, it will be broken
-up into its individual characters. This is a convenience for sending
-variable-length strings.
+When transmitting data, a few cases are handled specially:
+
+* If the expected shape is one-dimensional, but the provided value is an
+  instance of :py:class:`bytes`, :py:class:`str` or :py:class:`unicode`, it
+  will be broken up into its individual characters. This is a convenience for
+  sending variable-length strings.
+* If the format is a single signed or unsigned integer whose number of bits
+  is less than 64 but a multiple of 8, and the value is a zero-dimensional
+  numpy array with dtype ``>u8``, the relevant bytes are referenced by the
+  heap. The value can later be updated and the same heap sent again without
+  creating a new :py:class:`~spead2.send.Heap` object.
 
 When receiving data, some transformations are made:
 
