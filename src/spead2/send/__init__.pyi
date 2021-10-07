@@ -82,7 +82,7 @@ class Stream:
     @property
     def num_substreams(self) -> int: ...
 
-class _SyncStream(Stream):
+class SyncStream(Stream):
     def send_heap(self, heap: Heap, cnt: int = ..., substream_index = ...) -> None: ...
     def send_heaps(self, heaps: List[HeapReference], mode: GroupMode) -> None: ...
 
@@ -143,7 +143,7 @@ class _UdpStream:
                  endpoints: _EndpointList,
                  config: StreamConfig = ...) -> None: ...
 
-class UdpStream(_UdpStream, _SyncStream):
+class UdpStream(_UdpStream, SyncStream):
     pass
 
 class UdpIbvConfig:
@@ -181,13 +181,13 @@ class _UdpIbvStream:
                  udp_ibv_config: UdpIbvConfig) -> None: ...
 
 
-class UdpIbvStream(_UdpIbvStream, _SyncStream):
+class UdpIbvStream(_UdpIbvStream, SyncStream):
     pass
 
 class _TcpStream:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
 
-class TcpStream(_TcpStream, _SyncStream):
+class TcpStream(_TcpStream, SyncStream):
     @overload
     def __init__(self, thread_pool: spead2.ThreadPool, socket: socket.socket,
                  config: StreamConfig = ...) -> None: ...
@@ -202,7 +202,7 @@ class TcpStream(_TcpStream, _SyncStream):
                  config: StreamConfig = ...,
                  buffer_size: int = ..., interface_address: str = ...) -> None: ...
 
-class BytesStream(_SyncStream):
+class BytesStream(SyncStream):
     def getvalue(self) -> bytes: ...
     def __init__(self, thread_pool: spead2.ThreadPool,
                  config: StreamConfig = ...) -> None: ...
@@ -219,7 +219,7 @@ class _InprocStream:
     def __init__(self, thread_pool: spead2.ThreadPool, queues: List[spead2.InprocQueue],
                  config: StreamConfig = ...) -> None: ...
 
-class InprocStream(_InprocStream, _SyncStream):
+class InprocStream(_InprocStream, SyncStream):
     pass
 
 class HeapGenerator:

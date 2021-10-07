@@ -124,9 +124,10 @@ Blocking send
 
 There are multiple stream classes, corresponding to different transports, and
 some of the classes have several variants of the constructor. They all
-implement the following interface, although this base class does not actually exist:
+implement the following interface (the class exists as a type annotation,
+but does not currently exist at runtime).
 
-.. py:class:: spead2.send.AbstractStream()
+.. py:class:: spead2.send.SyncStream()
 
    .. py:method:: send_heap(heap, cnt=-1, substream_index=0)
 
@@ -376,9 +377,10 @@ the MTU).
 
 The classes exist in the :py:mod:`spead2.send.asyncio` modules, and mostly
 implement the same constructors as the synchronous classes. They implement the
-following abstract interface (the class does not actually exist):
+following interface (the class exists at a type annotation, but does not
+currently exist at runtime):
 
-.. class:: spead2.send.asyncio.AbstractStream()
+.. class:: spead2.send.asyncio.AsyncStream()
 
    .. py:method:: async_send_heap(heap, cnt=-1, substream_index=0)
 

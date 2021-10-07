@@ -20,6 +20,8 @@ Changelog
 - In Python, avoid copying immediate items when given as 0-d arrays with dtype
   ``>u8``. This makes it practical to pre-define heaps and later update their
   values rather than creating new heap objects.
+- Make :py:class:`spead2.send.Stream`, :py:class:`spead2.send.SyncStream` and
+  :py:class:`spead2.send.asyncio.AsyncStream` available for type annotations.
 
 .. rubric:: 3.4.0
 
