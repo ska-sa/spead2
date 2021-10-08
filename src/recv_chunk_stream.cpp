@@ -347,7 +347,10 @@ void chunk_stream::stop_received()
 
 void chunk_stream::stop()
 {
-    flush_chunks();
+    {
+        std::lock_guard<std::mutex> lock(queue_mutex);
+        flush_chunks();
+    }
     stream::stop();
 }
 

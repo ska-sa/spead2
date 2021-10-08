@@ -522,15 +522,20 @@ private:
     /// Stream configuration
     const stream_config config;
 
+protected:
     /**
      * Mutex protecting the state of the queue. This includes
      * - @ref queue_storage
      * - @ref buckets
      * - @ref head
      * - @ref stopped
+     *
+     * Subclasses may use it to protect additional state. It is guaranteed to
+     * be locked when @ref heap_ready is called.
      */
     mutable std::mutex queue_mutex;
 
+private:
     /// @ref stop_received has been called, either externally or by stream control
     bool stopped = false;
 
