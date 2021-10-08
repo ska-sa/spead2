@@ -22,7 +22,7 @@ import spead2.send
 
 from spead2 import _EndpointList
 
-class _AsyncStream(spead2.send._Stream):
+class AsyncStream(spead2.send.Stream):
     @property
     def fd(self) -> int: ...
     def flush(self) -> None: ...
@@ -33,13 +33,13 @@ class _AsyncStream(spead2.send._Stream):
                          mode: spead2.send.GroupMode) -> asyncio.Future[int]: ...
     async def async_flush(self) -> None: ...
 
-class UdpStream(spead2.send._UdpStream, _AsyncStream):
+class UdpStream(spead2.send._UdpStream, AsyncStream):
     pass
 
-class UdpIbvStream(spead2.send._UdpIbvStream, _AsyncStream):
+class UdpIbvStream(spead2.send._UdpIbvStream, AsyncStream):
     pass
 
-class TcpStream(spead2.send._TcpStream, _AsyncStream):
+class TcpStream(spead2.send._TcpStream, AsyncStream):
     def __init__(self, thread_pool: spead2.ThreadPool, socket: socket.socket,
                  config: spead2.send.StreamConfig = ...) -> None: ...
     @overload
@@ -56,5 +56,5 @@ class TcpStream(spead2.send._TcpStream, _AsyncStream):
                       buffer_size: int = ..., interface_address: str = ...) -> None: ...
 
 
-class InprocStream(spead2.send._InprocStream, _AsyncStream):
+class InprocStream(spead2.send._InprocStream, AsyncStream):
     pass
