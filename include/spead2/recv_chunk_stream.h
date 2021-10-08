@@ -499,7 +499,10 @@ void chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::stop()
     free_ring->stop();
     data_ring->stop();
     chunk_stream::stop();
-    graveyard.clear(); // free chunks that didn't make it into data_ring
+    {
+        std::lock_guard<std::mutex> lock(queue_mutex);
+        graveyard.clear(); // free chunks that didn't make it into data_ring
+    }
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
