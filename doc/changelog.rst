@@ -22,6 +22,8 @@ Changelog
   values rather than creating new heap objects.
 - Make :py:class:`spead2.send.Stream`, :py:class:`spead2.send.SyncStream` and
   :py:class:`spead2.send.asyncio.AsyncStream` available for type annotations.
+- Fix an occasional segfault when stopping a
+  :py:class:`spead2.recv.ChunkRingStream`.
 
 .. rubric:: 3.4.0
 
