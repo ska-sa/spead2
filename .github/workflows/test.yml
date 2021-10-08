@@ -66,15 +66,15 @@ jobs:
           - os: ubuntu-20.04
             cc: gcc
             cxx: g++
-            python-version: 3.10
+            python-version: '3.10'
           - os: ubuntu-20.04
             cc: clang
             cxx: clang++
-            python-version: 3.10
+            python-version: '3.10'
           - os: macos-10.15
             cc: clang
             cxx: clang++
-            python-version: 3.10
+            python-version: '3.10'
     runs-on: ${{ matrix.os }}
     env:
       CC: ${{ matrix.cc }} -Werror
@@ -135,7 +135,7 @@ jobs:
         run: ./.ci/ccache-path.sh
       - uses: actions/setup-python@v2
         with:
-          python-version: '3.9'
+          python-version: '3.10'
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
       - run: ./bootstrap.sh
@@ -171,13 +171,13 @@ jobs:
       - uses: actions/cache@v2
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-3.9-${{ hashFiles('requirements*.txt') }}
+          key: ${{ runner.os }}-pip-3.10-${{ hashFiles('requirements*.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-3.9-
+            ${{ runner.os }}-pip-3.10-
             ${{ runner.os }}-pip-
       - uses: actions/setup-python@v2
         with:
-          python-version: '3.9'
+          python-version: '3.10'
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
       - run: ./bootstrap.sh
