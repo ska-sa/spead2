@@ -210,6 +210,15 @@ public:
     stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config,
                  std::vector<std::uint64_t> values);
 
+    /* Copy constructor and copy assignment need to be implemented manually
+     * because of the embedded references. This will suppress the implicit
+     * move assignment (which would also be unsafe). The implicit move
+     * constructor is safe so we default it.
+     */
+    stream_stats(const stream_stats &other);
+    stream_stats &operator=(const stream_stats &other);
+    stream_stats(stream_stats &&other) = default;
+
     /// Get the configuration of the statistics
     const std::vector<stream_stat_config> &get_config() const { return *config; }
 
