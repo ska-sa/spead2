@@ -1131,6 +1131,9 @@ class TestStreamStats:
         assert list(custom_stats.items()) == [
             (s.name, custom_stats[s.name]) for s in custom_stats.config
         ]
+        assert list(custom_stats.values()) == [
+            custom_stats[s.name] for s in custom_stats.config
+        ]
 
 
 class TestUdpReader:
