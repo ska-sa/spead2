@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <utility>
 #include <boost/test/unit_test.hpp>
 #include <spead2/recv_stream.h>
 
@@ -169,6 +170,43 @@ BOOST_AUTO_TEST_CASE(test_count)
     spead2::recv::stream_stats stats;
     BOOST_TEST(stats.count("heaps") == 1);
     BOOST_TEST(stats.count("missing") == 0);
+}
+
+BOOST_AUTO_TEST_CASE(test_copy)
+{
+    spead2::recv::stream_stats stats1;
+    stats1.packets = 10;
+    spead2::recv::stream_stats stats2(stats1);
+    BOOST_TEST(&stats2.packets == &stats2["packets"]);
+    stats1.packets = 20;
+    BOOST_TEST(stats2.packets == 10);
+}
+
+BOOST_AUTO_TEST_CASE(test_copy_assign)
+{
+    spead2::recv::stream_stats stats1, stats2;
+    stats1.packets = 10;
+    stats2 = stats1;
+    BOOST_TEST(stats2.packets == 10);
+    BOOST_TEST(&stats2.packets == &stats2["packets"]);
+}
+
+BOOST_AUTO_TEST_CASE(test_move)
+{
+    spead2::recv::stream_stats stats1;
+    stats1.packets = 10;
+    spead2::recv::stream_stats stats2(std::move(stats1));
+    BOOST_TEST(&stats2.packets == &stats2["packets"]);
+    BOOST_TEST(stats2.packets == 10);
+}
+
+BOOST_AUTO_TEST_CASE(test_move_assign)
+{
+    spead2::recv::stream_stats stats1, stats2;
+    stats1.packets = 10;
+    stats2 = std::move(stats1);
+    BOOST_TEST(stats2.packets == 10);
+    BOOST_TEST(&stats2.packets == &stats2["packets"]);
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // stream_stats

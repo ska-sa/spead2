@@ -153,6 +153,20 @@ stream_stats::stream_stats(std::shared_ptr<std::vector<stream_stat_config>> conf
     assert(this->config->size() == this->values.size());
 }
 
+stream_stats::stream_stats(const stream_stats &other)
+    : stream_stats(other.config, other.values)
+{
+}
+
+stream_stats &stream_stats::operator=(const stream_stats &other)
+{
+    if (config != other.config && *config != *other.config)
+        throw std::invalid_argument("config must match to assign stats");
+    for (std::size_t i = 0; i < values.size(); i++)
+        values[i] = other.values[i];
+    return *this;
+}
+
 std::uint64_t &stream_stats::operator[](const std::string &name)
 {
     return at(name);
