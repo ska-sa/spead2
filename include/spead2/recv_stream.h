@@ -198,7 +198,7 @@ public:
     using pointer = value_type *;
     using const_pointer = const value_type *;
     using iterator = detail::stream_stats_iterator<stream_stats, std::pair<const std::string &, std::uint64_t &>>;
-    using const_iterator = detail::stream_stats_iterator<const stream_stats, const std::pair<const std::string &, std::uint64_t>>;
+    using const_iterator = detail::stream_stats_iterator<const stream_stats, const std::pair<const std::string &, const std::uint64_t &>>;
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 

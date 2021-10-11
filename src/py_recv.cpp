@@ -582,6 +582,10 @@ py::module register_module(py::module &parent)
             auto pos = self.find(name);
             return pos != self.end() ? py::int_(pos->second) : default_;
         }, py::arg(), py::arg() = py::none())
+        /* TODO: keys, values and items should ideally return view that
+         * simulate Python's dictionary views (py::bind_map does this, but it
+         * can't be used because it expects the map to implement erase).
+         */
         .def(
             "items",
             [](const stream_stats &self) { return py::make_iterator(self.begin(), self.end()); },
@@ -597,7 +601,11 @@ py::module register_module(py::module &parent)
             [](const stream_stats &self) { return py::make_key_iterator(self.begin(), self.end()); },
             py::keep_alive<0, 1>()  // keep the stats alive while it is iterated
         )
-        // TODO: add "values" after https://github.com/pybind/pybind11/pull/3271 lands
+        .def(
+            "values",
+            [](const stream_stats &self) { return py::make_value_iterator(self.begin(), self.end()); },
+            py::keep_alive<0, 1>()  // keep the stats alive while it is iterated
+        )
         .def("__len__", SPEAD2_PTMF(stream_stats, size))
         .def_property_readonly("config", SPEAD2_PTMF(stream_stats, get_config))
         .def(py::self + py::self)
