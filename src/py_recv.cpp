@@ -584,7 +584,7 @@ py::module register_module(py::module &parent)
         }, py::arg(), py::arg() = py::none())
         /* TODO: keys, values and items should ideally return view that
          * simulate Python's dictionary views (py::bind_map does this, but it
-         * can't be used because it expects the map to implement erase.
+         * can't be used because it expects the map to implement erase).
          */
         .def(
             "items",
