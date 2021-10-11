@@ -86,6 +86,16 @@ public:
     bool get_warn_on_empty() const;
     void set_warn_on_empty(bool warn);
     virtual pointer allocate(std::size_t size, void *hint) override;
+
+    /**
+     * Get the underlying deleter.
+     *
+     * This is like <code>ptr.get_deleter()()</code>, but if the pointer is
+     * managed by the memory pool, it will fetch the deleter provided by the
+     * underlying allocator.
+     */
+    static const memory_allocator::deleter &get_base_deleter(const memory_allocator::pointer &ptr);
+    static memory_allocator::deleter &get_base_deleter(memory_allocator::pointer &ptr);
 };
 
 } // namespace spead2
