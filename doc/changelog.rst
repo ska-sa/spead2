@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 3.5.0
 
 - Add support for :ref:`custom-stats`.
 - Change the allocate and ready callbacks on
