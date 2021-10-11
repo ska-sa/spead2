@@ -49,7 +49,10 @@ public:
 
     virtual pointer allocate(std::size_t size, void *hint) override
     {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Walloc-size-larger-than="
         std::uint8_t *data = new std::uint8_t[size];
+#pragma GCC diagnostic pop
         return pointer(data, deleter(shared_from_this(), hint));
     };
 
