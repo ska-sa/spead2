@@ -1,4 +1,4 @@
-/* Copyright 2016, 2019 National Research Foundation (SARAO)
+/* Copyright 2016, 2019, 2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -22,7 +22,9 @@
 
 #include <boost/test/unit_test.hpp>
 #include <boost/mpl/list.hpp>
+#include <vector>
 #include <memory>
+#include <utility>
 #include <spead2/common_memory_allocator.h>
 
 namespace spead2
@@ -40,7 +42,35 @@ public:
     huge_mmap_allocator() : spead2::mmap_allocator(0, true) {}
 };
 
-typedef boost::mpl::list<spead2::memory_allocator, spead2::mmap_allocator, huge_mmap_allocator> test_types;
+class legacy_allocator : public spead2::memory_allocator
+{
+public:
+    std::vector<std::pair<std::uint8_t *, void *>> deleted;
+
+    virtual pointer allocate(std::size_t size, void *hint) override
+    {
+        /* The size is copied to a volatile to outsmart the compiler, which
+         * sees that there is code that tries to allocate more than PTRDIFF_MAX
+         * elements (to test out-of-memory) and complains.
+         */
+        volatile std::size_t size_copy = size;
+        std::uint8_t *data = new std::uint8_t[size_copy];
+        return pointer(data, deleter(shared_from_this(), hint));
+    };
+
+private:
+    virtual void free(std::uint8_t *ptr, void *user) override
+    {
+        delete[] ptr;
+        deleted.emplace_back(ptr, user);
+    }
+};
+
+typedef boost::mpl::list<
+    spead2::memory_allocator,
+    spead2::mmap_allocator,
+    huge_mmap_allocator,
+    legacy_allocator> test_types;
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(allocator_test, T, test_types)
 {
@@ -57,6 +87,26 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(out_of_memory, T, test_types)
 {
     std::shared_ptr<T> allocator = std::make_shared<T>();
     BOOST_CHECK_THROW(allocator->allocate(SIZE_MAX - 1, nullptr), std::bad_alloc);
+}
+
+BOOST_AUTO_TEST_CASE(legacy)
+{
+    auto allocator = std::make_shared<legacy_allocator>();
+    auto ptr = allocator->allocate(123, nullptr);
+    BOOST_TEST(allocator->deleted.empty());
+    std::uint8_t *raw = ptr.get();
+    ptr.reset();
+    BOOST_TEST(allocator->deleted.size() == 1);
+    BOOST_TEST(allocator->deleted[0].first == raw);
+    BOOST_TEST(allocator->deleted[0].second == nullptr);
+
+    // Now a pointer with a non-null user value (set via hint)
+    ptr = allocator->allocate(234, &raw);
+    raw = ptr.get();
+    ptr.reset();
+    BOOST_TEST(allocator->deleted.size() == 2);
+    BOOST_TEST(allocator->deleted[1].first == raw);
+    BOOST_TEST(allocator->deleted[1].second == &raw);
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // memory_allocator

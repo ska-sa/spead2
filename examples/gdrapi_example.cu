@@ -166,12 +166,12 @@ void gdrapi_memory_allocator::deleter::operator()(std::uint8_t *ptr) const
 
 void *gdrapi_memory_allocator::get_device_ptr(const pointer &ptr)
 {
-    return ptr.get_deleter().target<deleter>()->dptr;
+    return spead2::memory_pool::get_base_deleter(ptr).target<deleter>()->dptr;
 }
 
 gdr_mh_t gdrapi_memory_allocator::get_mh(const pointer &ptr)
 {
-    return ptr.get_deleter().target<deleter>()->mh;
+    return spead2::memory_pool::get_base_deleter(ptr).target<deleter>()->mh;
 }
 
 /**

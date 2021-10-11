@@ -1,4 +1,4 @@
-/* Copyright 2016, 2017, 2019 National Research Foundation (SARAO)
+/* Copyright 2016, 2017, 2019, 2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -70,6 +70,25 @@ public:
         void *ptr;
     };
 
+    struct deleter
+    {
+        std::shared_ptr<mock_allocator> allocator;
+        // ptr + 1, used to check that state is preserved with each pointer
+        std::uint8_t *next_ptr;
+
+        deleter(std::shared_ptr<mock_allocator> allocator, std::uint8_t *ptr)
+            : allocator(std::move(allocator)), next_ptr(ptr + 1)
+        {
+        }
+
+        void operator()(std::uint8_t *ptr) const
+        {
+            BOOST_CHECK_EQUAL(ptr + 1, next_ptr);
+            allocator->records.push_back(record{false, 0, ptr});
+            allocator->saved.emplace_back(ptr);
+        }
+    };
+
     std::vector<record> records;
     std::vector<std::unique_ptr<std::uint8_t[]>> saved;
 
@@ -78,15 +97,9 @@ public:
         (void) hint;
         std::uint8_t *ptr = new std::uint8_t[size];
         records.push_back(record{true, size, ptr});
-        return pointer(ptr, deleter(shared_from_this(), ptr - 1));
-    }
-
-private:
-    virtual void free(std::uint8_t *ptr, void *user) override
-    {
-        BOOST_CHECK_EQUAL(ptr - 1, user);
-        records.push_back(record{false, 0, ptr});
-        saved.emplace_back(ptr);
+        std::shared_ptr<mock_allocator> shared_this =
+            std::static_pointer_cast<mock_allocator>(shared_from_this());
+        return pointer(ptr, deleter(shared_this, ptr));
     }
 };
 
@@ -114,9 +127,8 @@ public:
     }
 };
 
-// Check that the user pointer is passed through to the underlying allocator,
-// and generally interacts with the underlying allocator correctly
-BOOST_AUTO_TEST_CASE(memory_pool_pass_user)
+// Check that the underlying deleter is preserved.
+BOOST_AUTO_TEST_CASE(memory_pool_pass_deleter)
 {
     typedef spead2::memory_allocator::pointer pointer;
     std::shared_ptr<mock_allocator> allocator = std::make_shared<mock_allocator>();
@@ -126,6 +138,10 @@ BOOST_AUTO_TEST_CASE(memory_pool_pass_user)
 
     // Pooled allocation, comes from the pre-allocated slot
     pointer p1 = pool->allocate(1536, nullptr);
+    mock_allocator::deleter *base_deleter;
+    base_deleter = spead2::memory_pool::get_base_deleter(p1).target<mock_allocator::deleter>();
+    BOOST_TEST_REQUIRE(base_deleter != nullptr);
+    BOOST_TEST(base_deleter->next_ptr == p1.get() + 1);
     // Pooled allocations, newly allocated
     pointer p2 = pool->allocate(1500, nullptr);
     pointer p3 = pool->allocate(1024, nullptr);
@@ -139,6 +155,9 @@ BOOST_AUTO_TEST_CASE(memory_pool_pass_user)
     pointer p4 = pool->allocate(1600, nullptr);
     // Allocation not from the pool
     pointer p5 = pool->allocate(2049, nullptr);
+    base_deleter = spead2::memory_pool::get_base_deleter(p5).target<mock_allocator::deleter>();
+    BOOST_TEST_REQUIRE(base_deleter != nullptr);
+    BOOST_TEST(base_deleter->next_ptr == p5.get() + 1);
 
     // Release our reference to the pool. It should be destroyed once p4 is freed
     pool.reset();

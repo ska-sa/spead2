@@ -83,6 +83,9 @@ public:
         // Allow the allocator to be freed even if the unique_ptr lingers on.
         state->allocator.reset();
     }
+
+    memory_allocator::deleter &get_base_deleter() { return state->base_deleter; }    
+    const memory_allocator::deleter &get_base_deleter() const { return state->base_deleter; }
 };
 
 } // namespace detail
@@ -228,6 +231,24 @@ bool memory_pool::get_warn_on_empty() const
 {
     std::lock_guard<std::mutex> lock(mutex);
     return warn_on_empty;
+}
+
+const memory_allocator::deleter &memory_pool::get_base_deleter(const memory_allocator::pointer &ptr)
+{
+    const memory_allocator::deleter *out = &ptr.get_deleter();
+    const detail::memory_pool_deleter *pool_del;
+    while ((pool_del = out->target<detail::memory_pool_deleter>()) != nullptr)
+        out = &pool_del->get_base_deleter();
+    return *out;
+}
+
+memory_allocator::deleter &memory_pool::get_base_deleter(memory_allocator::pointer &ptr)
+{
+    memory_allocator::deleter *out = &ptr.get_deleter();
+    detail::memory_pool_deleter *pool_del;
+    while ((pool_del = out->target<detail::memory_pool_deleter>()) != nullptr)
+        out = &pool_del->get_base_deleter();
+    return *out;
 }
 
 } // namespace spead2
