@@ -49,10 +49,12 @@ public:
 
     virtual pointer allocate(std::size_t size, void *hint) override
     {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Walloc-size-larger-than="
-        std::uint8_t *data = new std::uint8_t[size];
-#pragma GCC diagnostic pop
+        /* The size is copied to a volatile to outsmart the compiler, which
+         * sees that there is code that tries to allocate more than PTRDIFF_MAX
+         * elements (to test out-of-memory) and complains.
+         */
+        volatile std::size_t size_copy = size;
+        std::uint8_t *data = new std::uint8_t[size_copy];
         return pointer(data, deleter(shared_from_this(), hint));
     };
 
