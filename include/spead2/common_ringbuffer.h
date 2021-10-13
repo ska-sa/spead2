@@ -1,4 +1,4 @@
-/* Copyright 2015 National Research Foundation (SARAO)
+/* Copyright 2015, 2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -89,6 +89,7 @@ private:
     mutable std::mutex tail_mutex;
     std::size_t tail = 0;   ///< first slot without data
     bool stopped = false;   ///< Whether stop has been called
+    std::size_t producers = 0;  ///< Number of producers registered with @ref add_producer
 
     /// Gets pointer to the slot number @a idx
     T *get(std::size_t idx);
@@ -129,8 +130,13 @@ protected:
     /// Implementation of popping functions, which doesn't touch semaphores
     T pop_internal();
 
-    /// Implementation of stopping, without the semaphores
-    void stop_internal();
+    /**
+     * Implementation of stopping, without the semaphores.
+     *
+     * @param remove_producer If true, remove a producer and only stop if none are left
+     * @returns whether the ringbuffer was stopped (i.e., this is the first call)
+     */
+    bool stop_internal(bool remove_producer = false);
 
 public:
     /// Maximum number of items that can be held at once
@@ -143,6 +149,12 @@ public:
      * the result could be out of date by the time it is returned.
      */
     std::size_t size() const;
+
+    /**
+     * Register a new producer. Producers only need to call this if they
+     * want to call @ref ringbuffer::remove_producer.
+     */
+    void add_producer();
 };
 
 template<typename T>
@@ -239,14 +251,19 @@ T ringbuffer_base<T>::pop_internal()
 }
 
 template<typename T>
-void ringbuffer_base<T>::stop_internal()
+bool ringbuffer_base<T>::stop_internal(bool remove_producer)
 {
     std::size_t saved_tail;
 
     {
         std::lock_guard<std::mutex> tail_lock(this->tail_mutex);
-        if (stopped)
-            return;
+        if (remove_producer)
+        {
+            assert(producers != 0);
+            producers--;
+            if (producers != 0)
+                return false;
+        }
         stopped = true;
         saved_tail = tail;
     }
@@ -255,6 +272,14 @@ void ringbuffer_base<T>::stop_internal()
         std::lock_guard<std::mutex> head_lock(this->head_mutex);
         stop_position = saved_tail;
     }
+    return true;
+}
+
+template<typename T>
+void ringbuffer_base<T>::add_producer()
+{
+    std::lock_guard<std::mutex> tail_lock(this->tail_mutex);
+    producers++;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -265,6 +290,12 @@ void ringbuffer_base<T>::stop_internal()
  * has finished producing data by calling @ref stop, which will gracefully shut
  * down consumers as well as other producers. This class is fully thread-safe
  * for multiple producers and consumers.
+ *
+ * With multiple producers it is sometimes desirable to only stop the
+ * ringbuffer once all the producers are finished. To support this, a
+ * producer may register itself with @ref add_producer, and indicate
+ * completion with @ref remove_producer. If this causes the number of
+ * producers to fall to zero, the stream is stopped.
  *
  * \internal
  *
@@ -356,8 +387,19 @@ public:
      * stop consumers if there are still items in the queue; instead,
      * consumers will continue to retrieve remaining items, and will only be
      * signalled once the queue has drained.
+     *
+     * @returns whether the ringbuffer was stopped
      */
-    void stop();
+    bool stop();
+
+    /**
+     * Indicate that a producer registered with @ref add_producer is
+     * finished with the ringbuffer. If this was the last producer, the
+     * ringbuffer is stopped.
+     *
+     * @returns whether the ringbuffer was stopped
+     */
+    bool remove_producer();
 
     /// Get access to the data semaphore
     const DataSemaphore &get_data_sem() const { return data_sem; }
@@ -486,11 +528,29 @@ T ringbuffer<T, DataSemaphore, SpaceSemaphore>::try_pop()
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
-void ringbuffer<T, DataSemaphore, SpaceSemaphore>::stop()
+bool ringbuffer<T, DataSemaphore, SpaceSemaphore>::stop()
 {
-    this->stop_internal();
-    space_sem.put();
-    data_sem.put();
+    if (this->stop_internal())
+    {
+        space_sem.put();
+        data_sem.put();
+        return true;
+    }
+    else
+        return false;
+}
+
+template<typename T, typename DataSemaphore, typename SpaceSemaphore>
+bool ringbuffer<T, DataSemaphore, SpaceSemaphore>::remove_producer()
+{
+    if (this->stop_internal(true))
+    {
+        space_sem.put();
+        data_sem.put();
+        return true;
+    }
+    else
+        return false;
 }
 
 } // namespace spead2

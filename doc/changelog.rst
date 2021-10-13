@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Allow a ringbuffer to be stopped only once the last producer has indicated
+  completion, rather than the first.
+
 .. rubric:: 3.5.0
 
 - Add support for :ref:`custom-stats`.
