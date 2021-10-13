@@ -77,18 +77,18 @@ private:
     /// Mutex held when reading from the head (needed for safe multi-consumer)
     mutable std::mutex head_mutex;
     std::size_t head = 0;   ///< first slot with data
-    bool stopped = false;   ///< Whether stop has been called
+    /**
+     * Position in the queue which the receiver should treat as "please stop",
+     * or an invalid position if not yet stopped. Unlike @ref stopped, this is
+     * updated with @ref head_mutex rather than @ref tail_mutex held. Once
+     * set, it is guaranteed to always equal @ref tail.
+     */
+    std::size_t stop_position = SIZE_MAX;
 
     /// Mutex held when writing to the tail (needed for safe multi-producer)
     mutable std::mutex tail_mutex;
     std::size_t tail = 0;   ///< first slot without data
-    /**
-     * Position in the queue which the receiver should treat as "please stop",
-     * or an invalid position if not yet stopped. Unlike @ref stopped, this is
-     * updated with @ref tail_mutex rather than @ref head_mutex held. Once
-     * set, it is guaranteed to always equal @ref tail.
-     */
-    std::size_t stop_position = SIZE_MAX;
+    bool stopped = false;   ///< Whether stop has been called
 
     /// Gets pointer to the slot number @a idx
     T *get(std::size_t idx);
