@@ -941,6 +941,8 @@ py::module register_module(py::module &parent)
         .def("empty", [](const chunk_ringbuffer &ring) { return ring.size() == 0; })
         .def("full", [](const chunk_ringbuffer &ring) { return ring.size() == ring.capacity(); })
         .def("stop", SPEAD2_PTMF(chunk_ringbuffer, stop))
+        .def("add_producer", SPEAD2_PTMF(chunk_ringbuffer, add_producer))
+        .def("remove_producer", SPEAD2_PTMF(chunk_ringbuffer, remove_producer))
         .def("__iter__", [](py::object self) { return self; })
         .def(
             "__next__", [](chunk_ringbuffer &ring)

@@ -281,6 +281,18 @@ class TestChunkRingbuffer:
         assert chunk.label == "a"
         thread.join()
 
+    def test_add_remove_producer(self, chunk_ringbuffer):
+        chunk_ringbuffer.add_producer()
+        chunk_ringbuffer.add_producer()
+        # Removing first producer should not stop the ringbuffer
+        assert not chunk_ringbuffer.remove_producer()
+        with pytest.raises(spead2.Empty):
+            chunk_ringbuffer.get_nowait()
+        # Removing the second should stop it
+        assert chunk_ringbuffer.remove_producer()
+        with pytest.raises(spead2.Stopped):
+            chunk_ringbuffer.get_nowait()
+
 
 class TestChunkRingStream:
     @pytest.fixture
