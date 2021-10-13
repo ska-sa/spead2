@@ -452,6 +452,38 @@ class TestChunkRingStream:
         assert recv_stream.stats["too_old_heaps"] == 1
         assert recv_stream.stats["rejected_heaps"] == 2  # Descriptors and stop heap
 
+    def test_shared_ringbuffer(self, send_stream, recv_stream, item_group):
+        recv_stream2 = spead2.recv.ChunkRingStream(
+            spead2.ThreadPool(),
+            spead2.recv.StreamConfig(stream_id=1),
+            spead2.recv.ChunkStreamConfig(
+                items=[0x1000, spead2.HEAP_LENGTH_ID],
+                max_chunks=4,
+                place=place_plain_llc
+            ),
+            recv_stream.data_ringbuffer,
+            recv_stream.free_ringbuffer
+        )
+        queue2 = spead2.InprocQueue()
+        recv_stream2.add_inproc_reader(queue2)
+        send_stream2 = send.InprocStream(spead2.ThreadPool(), [queue2], send.StreamConfig())
+
+        n_heaps = [17, 23]
+        self.send_heaps(send_stream, item_group, range(n_heaps[0]))
+        self.send_heaps(send_stream2, item_group, range(n_heaps[1]))
+        seen = [0, 0]
+        for chunk in recv_stream.data_ringbuffer:
+            assert 0 <= chunk.stream_id < 2
+            expected_present = np.ones(HEAPS_PER_CHUNK, np.uint8)
+            if chunk.chunk_id == n_heaps[chunk.stream_id] // HEAPS_PER_CHUNK:
+                # It's the last chunk for the stream
+                expected_present[n_heaps[chunk.stream_id] % HEAPS_PER_CHUNK :] = 0
+            self.check_chunk(chunk, seen[chunk.stream_id], expected_present)
+            seen[chunk.stream_id] += 1
+            recv_stream.add_free_chunk(chunk)
+        assert seen[0] == n_heaps[0] // HEAPS_PER_CHUNK + 1
+        assert seen[1] == n_heaps[1] // HEAPS_PER_CHUNK + 1
+
     def test_missing_place_callback(self, data_ring, free_ring):
         with pytest.raises(ValueError):
             spead2.recv.ChunkRingStream(

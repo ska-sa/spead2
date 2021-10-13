@@ -114,9 +114,11 @@ produced the chunk. Set the :cpp:func:`stream ID
 <spead2::recv::stream_config::set_stream_id>` when constructing each stream;
 it is available as an attribute of the corresponding chunks.
 
-When the stream is stopped (either by the user or due to network activity),
-both ringbuffers are stopped too. This makes sharing ringbuffers appropriate
-only when the streams have the same lifetime.
+When the stream is stopped by the user, both ringbuffers are stopped too. This
+makes sharing ringbuffers appropriate only when the streams have the same
+lifetime. However (since version 3.6.0), if a stream is stopped due to network
+activity, the free ringbuffer is not stopped, and the data ringbuffer is only
+stopped if this was the last stream sharing the ringbuffer.
 
 Examples
 --------

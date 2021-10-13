@@ -5,6 +5,9 @@ Changelog
 
 - Allow a ringbuffer to be stopped only once the last producer has indicated
   completion, rather than the first.
+- Change :py:class:`ChunkRingStream` so that stops received from the network
+  only shut down a shared ringbuffer once all the streams have stopped. A user
+  call to ``stop`` will still stop the ringbuffer immediately.
 
 .. rubric:: 3.5.0
 
