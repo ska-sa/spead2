@@ -421,6 +421,7 @@ chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::chunk_ring_stream(
     data_ring(std::move(data_ring)),
     free_ring(std::move(free_ring))
 {
+    this->data_ring->add_producer();
     // Ensure that we don't run out of memory during shutdown
     graveyard.reserve(get_chunk_config().get_max_chunks());
 }
@@ -487,8 +488,7 @@ template<typename DataRingbuffer, typename FreeRingbuffer>
 void chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::stop_received()
 {
     chunk_stream::stop_received();
-    free_ring->stop();
-    data_ring->stop();
+    data_ring->remove_producer();
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
@@ -497,7 +497,7 @@ void chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::stop()
     // Stop the ringbuffers first, so that if the calling code is no longer
     // servicing them it will not lead to a deadlock as we flush.
     free_ring->stop();
-    data_ring->stop();
+    data_ring->stop();  // NB: NOT remove_producer as that might not break a deadlock
     chunk_stream::stop();
     {
         std::lock_guard<std::mutex> lock(queue_mutex);

@@ -1,6 +1,16 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Allow a ringbuffer to be stopped only once the last producer has indicated
+  completion, rather than the first.
+- Change :py:class:`.ChunkRingStream` so that stops received from the network
+  only shut down a shared ringbuffer once all the streams have stopped. A user
+  call to ``stop`` will still stop the ringbuffer immediately.
+- :py:meth:`.ChunkRingbuffer.stop` now returns a boolean to indicate whether
+  this is the first time the ringbuffer was stopped.
+
 .. rubric:: 3.5.0
 
 - Add support for :ref:`custom-stats`.

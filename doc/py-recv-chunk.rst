@@ -185,6 +185,19 @@ Reference
    Consumers will be able to retrieve existing items, after which they will
    receive :exc:`spead2.Stopped`, and iterators will terminate.
 
+   Returns true if this call stopped the ringbuffer, otherwise false.
+
+   .. py:method:: add_producer()
+
+   Register a new producer. Producers only need to call this if they want to
+   call :meth:`remove_producer`.
+
+   .. py:method:: remove_producer()
+
+   Indicate that a producer registered with :meth:`add_producer` is finished
+   with the ringbuffer. If this was the last producer, the ringbuffer is
+   stopped. Returns true if this call stopped the ringbuffer, otherwise false.
+
 .. autoclass:: spead2.recv.asyncio.ChunkRingbuffer
    :members:
 
