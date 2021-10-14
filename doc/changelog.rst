@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 3.6.0
 
 - Allow a ringbuffer to be stopped only once the last producer has indicated
   completion, rather than the first.
