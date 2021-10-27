@@ -44,7 +44,7 @@ int main(int argc, char **argv)
 
     if (argc < 2)
     {
-        fprintf(stderr, "Usage: cap_net_raw <program> [<args>...]\n");
+        fprintf(stderr, "Usage: spead2_net_raw <program> [<args>...]\n");
         return 2;
     }
 
