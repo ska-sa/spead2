@@ -45,7 +45,8 @@ from spead2._spead2 import (             # noqa: F401
     CTRL_STREAM_STOP,
     CTRL_DESCRIPTOR_UPDATE,
     MEMCPY_STD,
-    MEMCPY_NONTEMPORAL)
+    MEMCPY_NONTEMPORAL,
+    MEMCPY_NONTEMPORAL_RW)
 try:
     from spead2._spead2 import IbvContext      # noqa: F401
 except ImportError:

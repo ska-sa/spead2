@@ -649,7 +649,7 @@ py::module register_module(py::module &parent)
         .def_property("memcpy",
              [](const stream_config &self) {
                  stream_config cmp;
-                 memcpy_function_id ids[] = {MEMCPY_STD, MEMCPY_NONTEMPORAL};
+                 memcpy_function_id ids[] = {MEMCPY_STD, MEMCPY_NONTEMPORAL, MEMCPY_NONTEMPORAL_RW};
                  for (memcpy_function_id id : ids)
                  {
                      cmp.set_memcpy(id);

@@ -20,6 +20,9 @@
 #include <cstddef>
 #include <spead2/common_features.h>
 
+namespace spead2
+{
+
 /**
  * Variant of memcpy that uses a non-temporal hint for the destination.
  * This is not necessarily any faster on its own (and may be slower), but it
@@ -27,10 +30,16 @@
  *
  * If compiler support is not available, this falls back to regular memcpy.
  */
-namespace spead2
-{
-
 void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
+
+/**
+ * Variant of memcpy that uses non-temporal hints for the source and
+ * destination.  This is not necessarily any faster on its own (and may be
+ * slower), but it avoids polluting the cache.
+ *
+ * If compiler support is not available, this falls back to regular memcpy.
+ */
+void *memcpy_nontemporal_rw(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
 
 } // namespace spead2
 

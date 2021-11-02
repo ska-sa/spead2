@@ -254,6 +254,11 @@ static void packet_memcpy_nontemporal(const spead2::memory_allocator::pointer &a
     spead2::memcpy_nontemporal(allocation.get() + packet.payload_offset, packet.payload, packet.payload_length);
 }
 
+static void packet_memcpy_nontemporal_rw(const spead2::memory_allocator::pointer &allocation, const packet_header &packet)
+{
+    spead2::memcpy_nontemporal_rw(allocation.get() + packet.payload_offset, packet.payload, packet.payload_length);
+}
+
 stream_config::stream_config()
     : memcpy(packet_memcpy_std),
     allocator(std::make_shared<memory_allocator>()),
@@ -315,6 +320,9 @@ stream_config &stream_config::set_memcpy(memcpy_function_id id)
         break;
     case MEMCPY_NONTEMPORAL:
         set_memcpy(packet_memcpy_nontemporal);
+        break;
+    case MEMCPY_NONTEMPORAL_RW:
+        set_memcpy(packet_memcpy_nontemporal_rw);
         break;
     default:
         throw std::invalid_argument("Unknown memcpy function");

@@ -53,6 +53,7 @@ CTRL_DESCRIPTOR_UPDATE: int
 
 MEMCPY_STD: int
 MEMCPY_NONTEMPORAL: int
+MEMCPY_NONTEMPORAL_RW: int
 
 class Stopped(RuntimeError):
     pass

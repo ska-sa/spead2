@@ -275,6 +275,7 @@ void register_module(py::module m)
 
     EXPORT_ENUM(MEMCPY_STD);
     EXPORT_ENUM(MEMCPY_NONTEMPORAL);
+    EXPORT_ENUM(MEMCPY_NONTEMPORAL_RW);
 #undef EXPORT_ENUM
 
     m.def("log_info", [](const std::string &msg) { log_info("%s", msg); },

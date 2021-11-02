@@ -96,7 +96,8 @@ enum ctrl_mode : unsigned int
 enum memcpy_function_id : unsigned int
 {
     MEMCPY_STD,
-    MEMCPY_NONTEMPORAL
+    MEMCPY_NONTEMPORAL,
+    MEMCPY_NONTEMPORAL_RW
 };
 
 typedef std::function<void *(void * __restrict__, const void * __restrict__, std::size_t)> memcpy_function;
