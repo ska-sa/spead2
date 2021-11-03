@@ -1,4 +1,4 @@
-/* Copyright 2016 National Research Foundation (SARAO)
+/* Copyright 2016, 2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -44,6 +44,7 @@ BOOST_AUTO_TEST_CASE(memcpy_nontemporal_alignments)
 
     std::uint8_t src_buffer[buffer_size];
     std::uint8_t dest_buffer[buffer_size];
+    std::uint8_t expected[buffer_size];
     for (int i = 0; i < align_range; i++)
         for (int j = 0; j < align_range; j++)
             for (int len = 0; len <= max_len; len++)
@@ -53,12 +54,11 @@ BOOST_AUTO_TEST_CASE(memcpy_nontemporal_alignments)
                     src_buffer[k] = k % 255;
                 spead2::memcpy_nontemporal(dest_buffer + head_pad + i,
                                            src_buffer + head_pad + j, len);
-                for (int k = 0; k < head_pad + i; k++)
-                    BOOST_CHECK_EQUAL(255, dest_buffer[k]);
+
+                std::memset(expected, 255, sizeof(expected));
                 for (int k = 0; k < len; k++)
-                    BOOST_CHECK_EQUAL(src_buffer[head_pad + j + k], dest_buffer[head_pad + i + k]);
-                for (int k = head_pad + i + len; k < buffer_size; k++)
-                    BOOST_CHECK_EQUAL(255, dest_buffer[k]);
+                    expected[head_pad + i + k] = src_buffer[head_pad + j + k];
+                BOOST_TEST(dest_buffer == expected);
             }
 }
 
