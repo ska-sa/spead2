@@ -133,7 +133,7 @@ static void show_heap(const spead2::recv::heap &fheap, const options &opts)
         {
             std::cout
                 << "Descriptor for " << descriptor.name
-                << " (" << std::hex << descriptor.id << ")\n"
+                << " (" << std::hex << descriptor.id << std::dec << ")\n"
                 << "  description: " << descriptor.description << '\n'
                 << "  format:      [";
             bool first = true;
@@ -168,7 +168,7 @@ static void show_heap(const spead2::recv::heap &fheap, const options &opts)
         std::cout << std::hex << item.id << std::dec
             << " = [" << item.length << " bytes]";
         if (item.is_immediate)
-            std::cout << " = " << std::hex << item.immediate_value;
+            std::cout << " = " << std::hex << item.immediate_value << std::dec;
         std::cout << '\n';
     }
     std::cout << std::noshowbase;
@@ -391,16 +391,7 @@ int main(int argc, const char **argv)
     }
 
     std::cout << "Received " << n_complete << " heaps\n";
-#define REPORT_STAT(field) (std::cout << #field ": " << stats.field << '\n')
-    REPORT_STAT(heaps);
-    REPORT_STAT(incomplete_heaps_evicted);
-    REPORT_STAT(incomplete_heaps_flushed);
-    REPORT_STAT(packets);
-    REPORT_STAT(batches);
-    REPORT_STAT(worker_blocked);
-    REPORT_STAT(max_batch);
-    REPORT_STAT(single_packet_heaps);
-    REPORT_STAT(search_dist);
-#undef REPORT_STAT
+    for (const auto field : stats)
+        std::cout << field.first << ": " << field.second << '\n';
     return 0;
 }
