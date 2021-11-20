@@ -1,4 +1,4 @@
-# Copyright 2015, 2019-2020 National Research Foundation (SARAO)
+# Copyright 2015, 2019-2021 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -78,11 +78,11 @@ class BaseTestPassthrough:
 
     def _test_item_groups(self, item_groups, *,
                           memcpy=spead2.MEMCPY_STD, allocator=None,
-                          new_order='=', round_robin=False):
+                          new_order='=', group_mode=None):
         received_item_groups = self.transmit_item_groups(
             item_groups,
             memcpy=memcpy, allocator=allocator,
-            new_order=new_order, round_robin=round_robin)
+            new_order=new_order, group_mode=group_mode)
         assert len(received_item_groups) == len(item_groups)
         for received_item_group, item_group in zip(received_item_groups, item_groups):
             assert_item_groups_equal(item_group, received_item_group)
@@ -92,13 +92,13 @@ class BaseTestPassthrough:
 
     def _test_item_group(self, item_group, *,
                          memcpy=spead2.MEMCPY_STD, allocator=None,
-                         new_order='=', round_robin=False):
+                         new_order='=', group_mode=None):
         self._test_item_groups(
             [item_group],
             memcpy=memcpy,
             allocator=allocator,
             new_order=new_order,
-            round_robin=round_robin)
+            group_mode=group_mode)
 
     def test_numpy_simple(self):
         """A basic array with numpy encoding"""
@@ -213,7 +213,7 @@ class BaseTestPassthrough:
         self._test_item_group(ig)
 
     def transmit_item_groups(self, item_groups, *,
-                             memcpy, allocator, new_order='=', round_robin=False):
+                             memcpy, allocator, new_order='=', group_mode=None):
         """Transmit `item_groups` over the chosen transport.
 
         Return the item groups received at the other end. Each item group will
@@ -238,20 +238,20 @@ class BaseTestPassthrough:
         if len(item_groups) != 1:
             # Use reversed order so that if everything is actually going
             # through the same transport it will get picked up.
-            if round_robin:
+            if group_mode is not None:
                 sender.send_heaps(
                     [
                         spead2.send.HeapReference(gen.get_heap(), substream_index=i)
                         for i, gen in reversed(list(enumerate(gens)))
                     ],
-                    spead2.send.GroupMode.ROUND_ROBIN
+                    group_mode
                 )
                 sender.send_heaps(
                     [
                         spead2.send.HeapReference(gen.get_end(), substream_index=i)
                         for i, gen in enumerate(gens)
                     ],
-                    spead2.send.GroupMode.ROUND_ROBIN
+                    group_mode
                 )
             else:
                 for i, gen in reversed(list(enumerate(gens))):
@@ -309,7 +309,9 @@ class BaseTestPassthroughSubstreams(BaseTestPassthrough):
         self._test_item_groups(item_groups)
 
     @pytest.mark.parametrize('size', [10, 20000])
-    def test_round_robin(self, size):
+    @pytest.mark.parametrize('group_mode', [spead2.send.GroupMode.ROUND_ROBIN,
+                                            spead2.send.GroupMode.SERIAL])
+    def test_group_modes(self, size, group_mode):
         # The interleaving and substream features are independent, but the
         # test framework is set up for one item group per substream.
         item_groups = []
@@ -319,9 +321,11 @@ class BaseTestPassthroughSubstreams(BaseTestPassthrough):
             ig.add_item(id=0x2345, name='arr', description='a random array',
                         shape=(size,), dtype='u8', value=value)
             item_groups.append(ig)
-        self._test_item_groups(item_groups, round_robin=True)
+        self._test_item_groups(item_groups, group_mode=group_mode)
 
-    def test_round_robin_mixed_sizes(self):
+    @pytest.mark.parametrize('group_mode', [spead2.send.GroupMode.ROUND_ROBIN,
+                                            spead2.send.GroupMode.SERIAL])
+    def test_group_modes_mixed_sizes(self, group_mode):
         sizes = [20000, 2000, 40000, 30000]
         item_groups = []
         for size in sizes:
@@ -330,7 +334,7 @@ class BaseTestPassthroughSubstreams(BaseTestPassthrough):
             ig.add_item(id=0x2345, name='arr', description='a random array',
                         shape=(size,), dtype='u8', value=value)
             item_groups.append(ig)
-        self._test_item_groups(item_groups, round_robin=True)
+        self._test_item_groups(item_groups, group_mode=group_mode)
 
     def prepare_receivers(self, receivers):
         raise NotImplementedError()
@@ -600,9 +604,9 @@ class TestPassthroughTcp6(BaseTestPassthrough):
 
 class TestPassthroughMem(BaseTestPassthrough):
     def transmit_item_groups(self, item_groups, *,
-                             memcpy, allocator, new_order='=', round_robin=False):
+                             memcpy, allocator, new_order='=', group_mode=None):
         assert len(item_groups) == 1
-        assert not round_robin
+        assert group_mode is None
         thread_pool = spead2.ThreadPool(2)
         sender = spead2.send.BytesStream(thread_pool)
         gen = spead2.send.HeapGenerator(item_groups[0])
@@ -634,11 +638,11 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreams):
             return spead2.send.InprocStream(thread_pool, self._queues)
 
     def transmit_item_groups(self, item_groups, *,
-                             memcpy, allocator, new_order='=', round_robin=False):
+                             memcpy, allocator, new_order='=', group_mode=None):
         self._queues = [spead2.InprocQueue() for ig in item_groups]
         ret = super().transmit_item_groups(
             item_groups, memcpy=memcpy, allocator=allocator,
-            new_order=new_order, round_robin=round_robin)
+            new_order=new_order, group_mode=group_mode)
         for queue in self._queues:
             queue.stop()
         return ret

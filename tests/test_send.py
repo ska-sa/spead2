@@ -1,4 +1,4 @@
-# Copyright 2015, 2019-2020 National Research Foundation (SARAO)
+# Copyright 2015, 2019-2021 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -637,7 +637,7 @@ class TestStream:
             ])
         assert hexlify(self.stream.getvalue()) == hexlify(expected)
 
-    def test_interleave(self):
+    def test_round_robin(self):
         n = 3
         igs = [send.ItemGroup(flavour=self.flavour) for i in range(n)]
         for i in range(n):
@@ -682,6 +682,68 @@ class TestStream:
             self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 40),
             self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 32),
             igs[1]['test'].value.tobytes()[40 : 72],
+            # Heap 2, packet 1
+            self.flavour.make_header(4),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 3),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 136),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 40),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 48),
+            igs[2]['test'].value.tobytes()[40 : 88],
+            # Heap 2, packet 2
+            self.flavour.make_header(4),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 3),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 136),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 88),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 48),
+            igs[2]['test'].value.tobytes()[88 : 136]
+        ])
+        assert hexlify(self.stream.getvalue()) == hexlify(expected)
+
+    def test_serial(self):
+        n = 3
+        igs = [send.ItemGroup(flavour=self.flavour) for i in range(n)]
+        for i in range(n):
+            data = np.arange(i, i + i * 64 + 8).astype(np.uint8)
+            igs[i].add_item(0x1000 + i, 'test', 'Test item',
+                            shape=data.shape, dtype=data.dtype, value=data)
+        self.stream = send.BytesStream(
+            spead2.ThreadPool(),
+            send.StreamConfig(max_heaps=n, max_packet_size=88))
+        self.stream.send_heaps(
+            [send.HeapReference(ig.get_heap(descriptors='none', data='all')) for ig in igs],
+            send.GroupMode.SERIAL)
+        expected = b''.join([
+            # Heap 0, packet 0 (only packet)
+            self.flavour.make_header(5),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 1),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 8),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 8),
+            self.flavour.make_address(0x1000, 0),
+            igs[0]['test'].value.tobytes(),
+            # Heap 1, packet 0
+            self.flavour.make_header(5),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 2),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 72),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 40),
+            self.flavour.make_address(0x1001, 0),
+            igs[1]['test'].value.tobytes()[0 : 40],
+            # Heap 1, packet 1
+            self.flavour.make_header(4),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 2),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 72),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 40),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 32),
+            igs[1]['test'].value.tobytes()[40 : 72],
+            # Heap 2, packet 0
+            self.flavour.make_header(5),
+            self.flavour.make_immediate(spead2.HEAP_CNT_ID, 3),
+            self.flavour.make_immediate(spead2.HEAP_LENGTH_ID, 136),
+            self.flavour.make_immediate(spead2.PAYLOAD_OFFSET_ID, 0),
+            self.flavour.make_immediate(spead2.PAYLOAD_LENGTH_ID, 40),
+            self.flavour.make_address(0x1002, 0),
+            igs[2]['test'].value.tobytes()[0 : 40],
             # Heap 2, packet 1
             self.flavour.make_header(4),
             self.flavour.make_immediate(spead2.HEAP_CNT_ID, 3),

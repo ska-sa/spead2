@@ -188,13 +188,16 @@ but does not currently exist at runtime).
 .. py:class:: spead2.send.GroupMode
 
    Enumeration selecting the packet ordering for a group of heaps sent with
-   :py:meth:`~spead2.send.AbstractStream.send_heaps`. At present there is only one
-   option, but there is the possibility of other options in future.
+   :py:meth:`~spead2.send.AbstractStream.send_heaps`.
 
    .. py:attribute:: ROUND_ROBIN
 
-    Interleave the packets of the heaps. One packet is sent from each heap
-    in turn (skipping those that have run out of packets).
+     Interleave the packets of the heaps. One packet is sent from each heap
+     in turn (skipping those that have run out of packets).
+
+   .. py::attribute:: SERIAL
+
+     Send the heaps one after another.
 
 UDP
 ^^^
