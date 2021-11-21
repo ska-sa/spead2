@@ -88,9 +88,8 @@ async def run_stream(stream, name, args):
             except (spead2.Stopped, asyncio.CancelledError):
                 print(f"Shutting down stream {name} after {num_heaps} heaps")
                 stats = stream.stats
-                for key in dir(stats):
-                    if not key.startswith('_'):
-                        print("{}: {}".format(key, getattr(stats, key)))
+                for key, value in stats.items():
+                    print("{}: {}".format(key, getattr(stats, key)))
                 break
     finally:
         stream.stop()
