@@ -116,50 +116,51 @@ writer::packet_result writer::get_packet(transmit_packet &data, std::uint8_t *sc
         rate_bytes += data.size;
     data.last = false;
 
-    std::size_t next_active;
-    detail::queue_item *next;
     switch (cur->mode)
     {
     case group_mode::ROUND_ROBIN:
-        // Find the heap to use for the next packet, skipping exhausted heaps
-        next_active = cur->group_next;
-        next = (next_active == active) ? cur : get_owner()->get_queue(next_active);
-        while (!next->gen.has_next_packet())
         {
-            if (next_active == active)
+            std::size_t next_active = active;
+            // Find the heap to use for the next packet, skipping exhausted heaps
+            next_active = cur->group_next;
+            detail::queue_item *next = (next_active == active) ? cur : get_owner()->get_queue(next_active);
+            while (!next->gen.has_next_packet())
             {
-                // We've gone all the way around the group and not found anything,
-                // so the group is exhausted.
-                data.last = true;
-                active = cur->group_end;
-                active_start = active;
-                return packet_result::SUCCESS;
+                if (next_active == active)
+                {
+                    // We've gone all the way around the group and not found anything,
+                    // so the group is exhausted.
+                    data.last = true;
+                    active = cur->group_end;
+                    active_start = active;
+                    return packet_result::SUCCESS;
+                }
+                next_active = next->group_next;
+                next = get_owner()->get_queue(next_active);
             }
-            next_active = next->group_next;
-            next = get_owner()->get_queue(next_active);
+            // Cache the result so that we can skip the search next time
+            cur->group_next = next_active;
+            active = next_active;
         }
-        // Cache the result so that we can skip the search next time
-        cur->group_next = next_active;
         break;
     case group_mode::SERIAL:
-        next_active = active;
-        next = cur;
-        while (!next->gen.has_next_packet())
         {
-            next_active++;
-            if (next_active == cur->group_end)
+            detail::queue_item *next = cur;
+            while (!next->gen.has_next_packet())
             {
-                // We've finished all the heaps in the group
-                data.last = true;
-                active = next_active;
-                active_start = active;
-                return packet_result::SUCCESS;
+                active++;
+                if (active == cur->group_end)
+                {
+                    // We've finished all the heaps in the group
+                    data.last = true;
+                    active_start = active;
+                    return packet_result::SUCCESS;
+                }
+                next = get_owner()->get_queue(active);
             }
-            next = get_owner()->get_queue(next_active);
         }
         break;
     }
-    active = next_active;
     return packet_result::SUCCESS;
 }
 
