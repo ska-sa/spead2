@@ -119,7 +119,7 @@ bool stream::async_send_heap(const heap &h, completion_handler handler,
 {
     heap_reference ref(h, cnt, substream_index);
     return async_send_heaps_impl<null_unwinder>(
-        &ref, &ref + 1, std::move(handler), group_mode::ROUND_ROBIN);
+        &ref, &ref + 1, std::move(handler), group_mode::SERIAL);
 }
 
 void stream::flush()

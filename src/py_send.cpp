@@ -904,7 +904,8 @@ py::module register_module(py::module &parent)
         .value("AUTO", rate_method::AUTO);
 
     py::enum_<group_mode>(m, "GroupMode")
-        .value("ROUND_ROBIN", group_mode::ROUND_ROBIN);
+        .value("ROUND_ROBIN", group_mode::ROUND_ROBIN)
+        .value("SERIAL", group_mode::SERIAL);
 
     py::class_<heap_reference>(m, "HeapReference")
         .def(py::init<const heap_wrapper &, s_item_pointer_t, std::size_t>(),

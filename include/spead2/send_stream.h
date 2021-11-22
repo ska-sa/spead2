@@ -55,7 +55,11 @@ enum class group_mode
      * Interleave the packets of the heaps. One packet is sent from each heap
      * in turn (skipping those that have run out of packets).
      */
-    ROUND_ROBIN
+    ROUND_ROBIN,
+    /**
+     * Send the heaps serially, as if they were added one at a time.
+     */
+    SERIAL
 };
 
 /**
@@ -125,6 +129,8 @@ struct queue_item
      * item in the group.
      */
     std::size_t group_next;
+    // Type of group
+    group_mode mode;
 
     // These fields are only relevant for the first item in a group
     item_pointer_t bytes_sent = 0;
@@ -134,11 +140,11 @@ struct queue_item
     std::forward_list<std::promise<void>> waiters;
 
     queue_item(const heap &h, item_pointer_t cnt, std::size_t substream_index,
-               std::size_t group_end, std::size_t group_next,
+               std::size_t group_end, std::size_t group_next, group_mode mode,
                std::size_t max_packet_size)
         : gen(h, cnt, max_packet_size),
         substream_index(substream_index),
-        group_end(group_end), group_next(group_next)
+        group_end(group_end), group_next(group_next), mode(mode)
     {
     }
 };
@@ -267,8 +273,8 @@ private:
     {
         // Need a slot to put the handler in; caller must handle the exception case
         assert(first != last);
-        // Only mode so far - when we add more we'll need to update this function.
-        assert(mode == group_mode::ROUND_ROBIN);
+        // Only modes so far - when we add more we'll need to update this function.
+        assert(mode == group_mode::ROUND_ROBIN || mode == group_mode::SERIAL);
         std::unique_lock<std::mutex> lock(tail_mutex);
         std::size_t tail = queue_tail.load(std::memory_order_relaxed);
         std::size_t orig_tail = tail;
@@ -316,7 +322,7 @@ private:
             // and repaired later if that's not the case.
             auto *cur = get_queue(tail);
             new (cur) detail::queue_item(
-                h, cnt, substream_index, tail + 1, tail,
+                h, cnt, substream_index, tail + 1, tail, mode,
                 max_packet_size);
             tail++;
             unwind.set_tail(tail);
@@ -330,7 +336,15 @@ private:
             {
                 auto *cur = get_queue(i);
                 cur->group_end = tail;
-                cur->group_next = (i + 1 == tail) ? orig_tail : i + 1;
+                if (i + 1 == tail)
+                {
+                    /* In ROUND_ROBIN mode, cycle back around to the start.
+                     * In SERIAL mode, mark the last heap as terminal.
+                     */
+                    cur->group_next = (mode == group_mode::ROUND_ROBIN) ? orig_tail : i;
+                }
+                else
+                    cur->group_next = i + 1;
             }
         }
         this->next_cnt = next_cnt;
