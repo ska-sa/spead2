@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -100,6 +100,16 @@ static py::object make_io_error(const boost::system::error_code &ec)
         return py::none();
 }
 
+class heap_reference_list
+{
+private:
+    std::vector<heap_reference> value;
+
+public:
+    heap_reference_list(std::vector<heap_reference> &&value) : value(std::move(value)) {}
+    const std::vector<heap_reference> &get() const { return value; }
+};
+
 template<typename Base>
 class stream_wrapper : public Base
 {
@@ -149,8 +159,9 @@ public:
     }
 
     /// Sends multiple heaps synchronously
-    item_pointer_t send_heaps(const std::vector<heap_reference> &heaps, group_mode mode)
+    item_pointer_t send_heaps(const heap_reference_list &heap_list, group_mode mode)
     {
+        const std::vector<heap_reference> &heaps = heap_list.get();
         // See comments in send_heap
         auto state = std::make_shared<callback_state>();
         Base::async_send_heaps(
@@ -246,9 +257,10 @@ public:
             cnt, substream_index);
     }
 
-    bool async_send_heaps_obj(const std::vector<heap_reference> &heaps,
+    bool async_send_heaps_obj(const heap_reference_list &heap_list,
                               py::object callback, group_mode mode)
     {
+        const std::vector<heap_reference> &heaps = heap_list.get();
         // See comments in async_send_heap_obj
         std::vector<py::handle> h_ptrs;
         h_ptrs.reserve(heaps.size());
@@ -917,6 +929,10 @@ py::module register_module(py::module &parent)
             py::return_value_policy::reference)
         .def_readwrite("cnt", &heap_reference::cnt)
         .def_readwrite("substream_index", &heap_reference::substream_index);
+
+    py::class_<heap_reference_list>(m, "HeapReferenceList")
+        .def(py::init<std::vector<heap_reference> &&>(), "heaps"_a);
+    py::implicitly_convertible<std::vector<heap_reference> &&, heap_reference_list>();
 
     py::class_<stream_config>(m, "StreamConfig")
         .def(py::init(&data_class_constructor<stream_config>))
