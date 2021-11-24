@@ -104,22 +104,20 @@ class heap_reference_list
 {
 private:
     std::vector<heap_reference> heaps;
+    // Python references to the heaps, to keep them alive
     std::vector<py::object> objects;
 
 public:
-    heap_reference_list(std::vector<py::object> &&value);
+    heap_reference_list(std::vector<heap_reference> heaps);
     const std::vector<heap_reference> &get_heaps() const { return heaps; }
 };
 
-heap_reference_list::heap_reference_list(std::vector<py::object> &&value)
+heap_reference_list::heap_reference_list(std::vector<heap_reference> heaps)
 {
-    heaps.reserve(value.size());
-    for (const auto &h : value)
-    {
-        // TODO: accept Heap as well as HeapReference?
-        heaps.push_back(h.cast<heap_reference>());
-    }
-    objects = std::move(value);
+    objects.reserve(heaps.size());
+    for (const heap_reference &h : heaps)
+        objects.push_back(py::cast(static_cast<const heap_wrapper *>(&h.heap)));
+    this->heaps = std::move(heaps);
 }
 
 template<typename Base>
@@ -972,7 +970,7 @@ py::module register_module(py::module &parent)
         .def_readwrite("substream_index", &heap_reference::substream_index);
 
     py::class_<heap_reference_list>(m, "HeapReferenceList")
-        .def(py::init<std::vector<py::object> &&>(), "heaps"_a);
+        .def(py::init<std::vector<heap_reference>>(), "heaps"_a);
 
     py::class_<stream_config>(m, "StreamConfig")
         .def(py::init(&data_class_constructor<stream_config>))
