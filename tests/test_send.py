@@ -761,6 +761,10 @@ class TestStream:
         ])
         assert hexlify(self.stream.getvalue()) == hexlify(expected)
 
+    def test_heap_reference_list_type_error(self):
+        with pytest.raises(TypeError):
+            send.HeapReferenceList(["not a heap reference"])
+
 
 class TestTcpStream:
     def test_failed_connect(self):

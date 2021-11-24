@@ -246,13 +246,14 @@ class BaseTestPassthrough:
                     ],
                     group_mode
                 )
-                sender.send_heaps(
+                # For the stop heaps, use a HeapReferenceList to test it.
+                hrl = spead2.send.HeapReferenceList(
                     [
                         spead2.send.HeapReference(gen.get_end(), substream_index=i)
                         for i, gen in enumerate(gens)
-                    ],
-                    group_mode
+                    ]
                 )
+                sender.send_heaps(hrl, group_mode)
             else:
                 for i, gen in reversed(list(enumerate(gens))):
                     sender.send_heap(gen.get_heap(), substream_index=i)
