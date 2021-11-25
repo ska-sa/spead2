@@ -435,7 +435,7 @@ heaps to be sent at once. There are a few reasons one might want to do this:
      Interleave the packets of the heaps. One packet is sent from each heap
      in turn (skipping those that have run out of packets).
 
-   .. py::attribute:: SERIAL
+   .. py:attribute:: SERIAL
 
      Send the heaps one after another.
 

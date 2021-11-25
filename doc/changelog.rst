@@ -1,6 +1,17 @@
 Changelog
 =========
 
+.. rubric:: 3.7.0
+
+- Add :py:const:`spead2.send.GroupMode.SERIAL`.
+- Add :py:class:`spead2.send.HeapReferenceList`.
+- Speed up C++ unit tests.
+- Fix some spurious output in the statistics report from
+  :program:`spead2_recv.py` (introduced in 3.5.0).
+- Fix the help message from :program:`spead2_net_raw` to have the right name
+  for the program.
+- Update to latest version of pybind11.
+
 .. rubric:: 3.6.0
 
 - Allow a ringbuffer to be stopped only once the last producer has indicated
