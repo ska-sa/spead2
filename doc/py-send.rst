@@ -111,8 +111,8 @@ Substreams
 ----------
 For some transport types it is possible to create a stream with multiple
 "substreams". Each substream typically has a separate destination address, but
-all the heaps within the stream are sent in order and the stream configuration
-(including the rate limits) apply to the stream as a whole. Using substreams
+all the heaps within the stream are sent in order, and the stream configuration
+(including the rate limits) applies to the stream as a whole. Using substreams
 rather than independent streams gives better control over the overall
 transmission rate, and uses fewer system resources.
 
@@ -131,7 +131,7 @@ but does not currently exist at runtime).
 
    .. py:method:: send_heap(heap, cnt=-1, substream_index=0)
 
-      Sends a :py:class:`spead2.send.Heap` to the peer, and wait for
+      Send a :py:class:`spead2.send.Heap` to the peer, and wait for
       completion. There is currently no indication of whether it successfully
       arrived, but :py:exc:`IOError` is raised if it could not be sent.
 
@@ -144,10 +144,7 @@ but does not currently exist at runtime).
 
    .. py:method:: send_heaps(heaps, mode)
 
-      Sends a group of heaps. This is primarily intended to be combined with
-      :ref:`py-substreams`, where one wishes to send a heap on each
-      substream, with their packets interleaved on the network (rather than
-      all the packets for one heap, then all the packets for the next etc).
+      Send a group of heaps. See :ref:`py-batching` for more information.
 
       This function will either enqueue all of the heaps, or none of them. In
       particular, there must be space in the queue for all of them.
@@ -157,7 +154,7 @@ but does not currently exist at runtime).
       future.
 
       :param heaps: A list of heaps to send
-      :type heaps: List[spead2.send.HeapReference]
+      :type heaps: List[spead2.send.HeapReference] | spead2.send.HeapReferenceList
       :param spead2.send.GroupMode mode: Controls the packet ordering
 
    .. py:method:: set_cnt_sequence(next, step)
@@ -178,26 +175,6 @@ but does not currently exist at runtime).
 
       Number of substreams in this stream (read-only).
 
-.. py:class:: spead2.send.HeapReference(heap, *, cnt=-1, substream_index=0)
-
-   A thin wrapper around a :class:`~spead2.send.Heap`, heap cnt and substream
-   index, for passing to :py:meth:`~spead2.send.AbstractStream.send_heaps`. The
-   parameters have the same meaning as the corresponding arguments to
-   :py:meth:`~spead2.send.AbstractStream.send_heap`.
-
-.. py:class:: spead2.send.GroupMode
-
-   Enumeration selecting the packet ordering for a group of heaps sent with
-   :py:meth:`~spead2.send.AbstractStream.send_heaps`.
-
-   .. py:attribute:: ROUND_ROBIN
-
-     Interleave the packets of the heaps. One packet is sent from each heap
-     in turn (skipping those that have run out of packets).
-
-   .. py::attribute:: SERIAL
-
-     Send the heaps one after another.
 
 UDP
 ^^^
@@ -303,7 +280,7 @@ TCP
 ^^^
 
 TCP/IP is a reliable protocol, so heap delivery is guaranteed. However, if
-multiple threads all call :py:meth:`~spead2.send.AbstractStream.send_heap` at
+multiple threads all call :py:meth:`~spead2.send.SyncStream.send_heap` at
 the same time, they can exceed the configured `max_heaps` and heaps will be dropped.
 
 Because spead2 was originally designed for UDP, the default packet size in
@@ -380,7 +357,7 @@ the MTU).
 
 The classes exist in the :py:mod:`spead2.send.asyncio` modules, and mostly
 implement the same constructors as the synchronous classes. They implement the
-following interface (the class exists at a type annotation, but does not
+following interface (the class exists as a type annotation, but does not
 currently exist at runtime):
 
 .. class:: spead2.send.asyncio.AsyncStream()
@@ -397,15 +374,16 @@ currently exist at runtime):
 
    .. py:method:: async_send_heaps(heaps, mode)
 
-      Send a group of heaps asynchronously. Note that this is *not* a
+      Send a group of heaps asynchronously. See :ref:`py-batching` for more information.
+      Note that this is *not* a
       coroutine: it returns a future. Adding the heaps to the queue is done
       synchronously, to ensure proper ordering.
 
       The parameters have the same meaning as for
-      :py:meth:`~spead2.send.AbstractStream.send_heaps`.
+      :py:meth:`~spead2.send.SyncStream.send_heaps`.
 
       :param heaps: A list of heaps to send
-      :type heaps: List[spead2.send.HeapReference]
+      :type heaps: List[spead2.send.HeapReference] | spead2.send.HeapReferenceList
       :param spead2.send.GroupMode mode: Controls the packet ordering
 
    .. py:method:: flush
@@ -425,3 +403,52 @@ For TCP, construction is slightly different: except when providing a custom
 socket, one uses a coroutine to connect:
 
 .. automethod:: spead2.send.asyncio.TcpStream.connect
+
+.. _py-batching:
+
+Batching
+--------
+Instead of sending one heap at a time, it is possible to pass a whole list of
+heaps to be sent at once. There are a few reasons one might want to do this:
+
+1. It is generally more efficient, particularly if the heaps are small.
+
+2. The packets of the heaps can be sent in an interleaved order. This is
+   useful when combined with :ref:`py-substreams`, as each substream can have
+   a steady flow of packets rather than sending a full heap to one substream,
+   then a full heap to the next etc.
+
+.. py:class:: spead2.send.HeapReference(heap, *, cnt=-1, substream_index=0)
+
+   A thin wrapper around a :class:`~spead2.send.Heap`, heap cnt and substream
+   index, for passing to :py:meth:`~spead2.send.SyncStream.send_heaps`. The
+   parameters have the same meaning as the corresponding arguments to
+   :py:meth:`~spead2.send.SyncStream.send_heap`.
+
+.. py:class:: spead2.send.GroupMode
+
+   Enumeration selecting the packet ordering for a group of heaps sent with
+   :py:meth:`~spead2.send.SyncStream.send_heaps`.
+
+   .. py:attribute:: ROUND_ROBIN
+
+     Interleave the packets of the heaps. One packet is sent from each heap
+     in turn (skipping those that have run out of packets).
+
+   .. py::attribute:: SERIAL
+
+     Send the heaps one after another.
+
+Passing a large list has some overhead as the list has to be converted from
+Python to C++. If exactly the same list will be used multiple times, this cost
+can be amortised by converting the list to a :py:class:`.HeapReferenceList` up
+front and then using repeatedly.
+
+.. py:class:: spead2.send.HeapReferenceList(heaps)
+
+   An opaque copy of a list of :class:`~spead2.send.HeapReference`. It can
+   be passed to :py:meth:`~spead2.send.SyncStream.send_heaps` in place of
+   a list.
+
+   :param heaps: The heap references to store
+   :type heaps: List[spead2.send.HeapReference]

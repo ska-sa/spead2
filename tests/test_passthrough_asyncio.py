@@ -68,12 +68,14 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
                         for i, gen in reversed(list(enumerate(gens)))
                     ], group_mode
                 )
-                await sender.async_send_heaps(
+                # Use a HeapReferenceList to test it
+                hrl = spead2.send.HeapReferenceList(
                     [
                         spead2.send.HeapReference(gen.get_end(), substream_index=i)
                         for i, gen in enumerate(gens)
-                    ], group_mode
+                    ]
                 )
+                await sender.async_send_heaps(hrl, group_mode)
             else:
                 for i, gen in reversed(list(enumerate(gens))):
                     await sender.async_send_heap(gen.get_heap(), substream_index=i)

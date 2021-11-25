@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2021 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -100,6 +100,26 @@ static py::object make_io_error(const boost::system::error_code &ec)
         return py::none();
 }
 
+class heap_reference_list
+{
+private:
+    std::vector<heap_reference> heaps;
+    // Python references to the heaps, to keep them alive
+    std::vector<py::object> objects;
+
+public:
+    heap_reference_list(std::vector<heap_reference> heaps);
+    const std::vector<heap_reference> &get_heaps() const { return heaps; }
+};
+
+heap_reference_list::heap_reference_list(std::vector<heap_reference> heaps)
+{
+    objects.reserve(heaps.size());
+    for (const heap_reference &h : heaps)
+        objects.push_back(py::cast(static_cast<const heap_wrapper *>(&h.heap)));
+    this->heaps = std::move(heaps);
+}
+
 template<typename Base>
 class stream_wrapper : public Base
 {
@@ -166,6 +186,12 @@ public:
             throw boost_io_error(state->ec);
         else
             return state->bytes_transferred;
+    }
+
+    /// Sends multiple heaps synchronously, from a pre-built heap_reference_list
+    item_pointer_t send_heaps_hrl(const heap_reference_list &heaps, group_mode mode)
+    {
+        return send_heaps(heaps.get_heaps(), mode);
     }
 };
 
@@ -258,9 +284,30 @@ public:
         callback_ptr.inc_ref();
         return Base::async_send_heaps(
             heaps.begin(), heaps.end(),
+            // TODO: this copies h_ptrs twice (once into the lambda, once into the handler)
             [this, callback_ptr, h_ptrs] (const boost::system::error_code &ec, item_pointer_t bytes_transferred)
             {
                 handler(callback_ptr, h_ptrs, ec, bytes_transferred);
+            },
+            mode);
+    }
+
+    // Overload that takes a HeapReferenceList
+    bool async_send_heaps_hrl(const heap_reference_list &heaps,
+                              py::object callback, group_mode mode)
+    {
+        /* In this overload, we just keep the heap_reference_list alive (in Python),
+         * and it in turn keeps the individual heaps alive - this requires less
+         * reference counting.
+         */
+        py::handle h_ptr = py::cast(&heaps).release();
+        py::handle callback_ptr = callback.ptr();
+        callback_ptr.inc_ref();
+        return Base::async_send_heaps(
+            heaps.get_heaps().begin(), heaps.get_heaps().end(),
+            [this, callback_ptr, h_ptr] (const boost::system::error_code &ec, item_pointer_t bytes_transferred)
+            {
+                handler(callback_ptr, {h_ptr}, ec, bytes_transferred);
             },
             mode);
     }
@@ -854,6 +901,8 @@ static void sync_stream_register(py::class_<T, stream> &stream_class)
                      "substream_index"_a = std::size_t(0));
     stream_class.def("send_heaps", SPEAD2_PTMF(T, send_heaps),
                      "heaps"_a, "mode"_a);
+    stream_class.def("send_heaps", SPEAD2_PTMF(T, send_heaps_hrl),
+                     "heaps"_a, "mode"_a);
 }
 
 template<typename T>
@@ -866,6 +915,8 @@ static void async_stream_register(py::class_<T, stream> &stream_class)
              "heap"_a, "callback"_a, "cnt"_a = s_item_pointer_t(-1),
              "substream_index"_a = std::size_t(0))
         .def("async_send_heaps", SPEAD2_PTMF(T, async_send_heaps_obj),
+             "heaps"_a, "callback"_a, "mode"_a)
+        .def("async_send_heaps", SPEAD2_PTMF(T, async_send_heaps_hrl),
              "heaps"_a, "callback"_a, "mode"_a)
         .def("flush", SPEAD2_PTMF(T, flush))
         .def("process_callbacks", SPEAD2_PTMF(T, process_callbacks));
@@ -917,6 +968,9 @@ py::module register_module(py::module &parent)
             py::return_value_policy::reference)
         .def_readwrite("cnt", &heap_reference::cnt)
         .def_readwrite("substream_index", &heap_reference::substream_index);
+
+    py::class_<heap_reference_list>(m, "HeapReferenceList")
+        .def(py::init<std::vector<heap_reference>>(), "heaps"_a);
 
     py::class_<stream_config>(m, "StreamConfig")
         .def(py::init(&data_class_constructor<stream_config>))
