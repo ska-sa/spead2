@@ -81,6 +81,9 @@ struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
 
 struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
                                 uint64_t iova, unsigned int access);
+
+struct ibv_mr *ibv_reg_dmabuf_mr(struct ibv_pd *pd, uint64_t offset, size_t length,
+                                 uint64_t iova, int fd, int access);
 '''
 
 RDMACM_DECLS = '''
@@ -248,7 +251,7 @@ def main(argv):
         lib = Library('ibv', ['infiniband/verbs.h'], 'libibverbs.so.1', 'SPEAD2_USE_IBV',
                       IBV_DECLS,
                       ['ibv_create_qp', 'ibv_query_device'],
-                      ['ibv_reg_mr_iova2'])
+                      ['ibv_reg_mr_iova2', 'ibv_reg_dmabuf_mr'])
     else:
         lib = Library('mlx5dv', ['infiniband/mlx5dv.h'], 'libmlx5.so.1', 'SPEAD2_USE_MLX5DV',
                       MLX5DV_DECLS, fail_log_level='debug')

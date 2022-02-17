@@ -63,6 +63,13 @@ private:
 
         memory_region(const ibv_pd_t &pd, const void *ptr, std::size_t size);
 
+        /* Construct from a dmabuf. The ptr is used to match pointers used in
+         * heaps, so needs to use some address space that will not conflict
+         * with any other data used in heaps.
+         */
+        memory_region(const ibv_pd_t &pd, const void *ptr, std::size_t size,
+                      int fd, std::uint64_t offset);
+
         /* Used purely to construct a memory region for comparison e.g. with
          * std::set<memory_region>::lower_bound. Remove once c++14 is the
          * minimum version, since it allows types other than the key type for
@@ -152,6 +159,13 @@ public:
 udp_ibv_writer::memory_region::memory_region(
     const ibv_pd_t &pd, const void *ptr, std::size_t size)
     : ptr(ptr), size(size), mr(pd, const_cast<void *>(ptr), size, IBV_ACCESS_LOCAL_WRITE)
+{
+}
+
+udp_ibv_writer::memory_region::memory_region(
+    const ibv_pd_t &pd, const void *ptr, std::size_t size, int fd, std::uint64_t offset)
+    : ptr(ptr), size(size),
+    mr(ibv_mr_t::from_dmabuf(pd, offset, size, reinterpret_cast<std::uint64_t>(ptr), fd, IBV_ACCESS_LOCAL_WRITE))
 {
 }
 
@@ -474,11 +488,13 @@ udp_ibv_writer::udp_ibv_writer(
     if (interface_address.is_unspecified())
         throw std::invalid_argument("interface address has not been specified");
     // Check that registered memory regions don't overlap
-    auto config_regions = ibv_config.get_memory_regions();
-    std::sort(config_regions.begin(), config_regions.end());
+    auto config_regions = ibv_config.get_memory_regions2();
+    std::sort(config_regions.begin(), config_regions.end(),
+              [](const udp_ibv_config::memory_region2 &a,
+                 const udp_ibv_config::memory_region2 &b) { return a.ptr < b.ptr; });
     for (std::size_t i = 1; i < config_regions.size(); i++)
-        if (static_cast<const std::uint8_t *>(config_regions[i - 1].first)
-            + config_regions[i - 1].second > config_regions[i].first)
+        if (static_cast<const std::uint8_t *>(config_regions[i - 1].ptr)
+            + config_regions[i - 1].size > config_regions[i].ptr)
             throw std::invalid_argument("memory regions overlap");
 
     socket.bind(boost::asio::ip::udp::endpoint(interface_address, 0));
@@ -519,8 +535,13 @@ udp_ibv_writer::udp_ibv_writer(
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(max_raw_size * n_slots, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
-    for (const auto &region : ibv_config.get_memory_regions())
-        memory_regions.emplace(pd, region.first, region.second);
+    for (const auto &region : ibv_config.get_memory_regions2())
+    {
+        if (region.fd >= 0)
+            memory_regions.emplace(pd, region.ptr, region.size, region.fd, region.offset);
+        else
+            memory_regions.emplace(pd, region.ptr, region.size);
+    }
     slots.reset(new slot[n_slots]);
     // We fill in the destination details for the first endpoint. If there are
     // multiple endpoints, they'll get updated for each packet.
@@ -568,9 +589,9 @@ void udp_ibv_config::validate_endpoint(const boost::asio::ip::udp::endpoint &end
         throw std::invalid_argument("endpoint is not an IPv4 multicast address");
 }
 
-void udp_ibv_config::validate_memory_region(const udp_ibv_config::memory_region &region)
+void udp_ibv_config::validate_memory_region(const udp_ibv_config::memory_region2 &region)
 {
-    if (region.second == 0)
+    if (region.size == 0)
         throw std::invalid_argument("memory region must have non-zero size");
 }
 
@@ -580,9 +601,27 @@ udp_ibv_config &udp_ibv_config::set_ttl(std::uint8_t ttl)
     return *this;
 }
 
+std::vector<udp_ibv_config::memory_region> udp_ibv_config::get_memory_regions() const
+{
+    std::vector<memory_region> out;
+    out.reserve(memory_regions.size());
+    for (const memory_region2 &region : memory_regions)
+        out.emplace_back(region.ptr, region.size);
+    return out;
+}
+
 udp_ibv_config &udp_ibv_config::set_memory_regions(const std::vector<memory_region> &memory_regions)
 {
+    std::vector<memory_region2> new_regions;
+    new_regions.reserve(memory_regions.size());
     for (const memory_region &region : memory_regions)
+        new_regions.push_back(region);
+    return set_memory_regions(new_regions);
+}
+
+udp_ibv_config &udp_ibv_config::set_memory_regions(const std::vector<memory_region2> &memory_regions)
+{
+    for (const memory_region2 &region : memory_regions)
         validate_memory_region(region);
     this->memory_regions = memory_regions;
     return *this;
@@ -590,7 +629,15 @@ udp_ibv_config &udp_ibv_config::set_memory_regions(const std::vector<memory_regi
 
 udp_ibv_config &udp_ibv_config::add_memory_region(const void *ptr, std::size_t size)
 {
-    memory_region region(ptr, size);
+    memory_region2 region(ptr, size);
+    validate_memory_region(region);
+    memory_regions.push_back(region);
+    return *this;
+}
+
+udp_ibv_config &udp_ibv_config::add_memory_region(const void *ptr, std::size_t size, int fd, std::uint64_t offset)
+{
+    memory_region2 region(ptr, size, fd, offset);
     validate_memory_region(region);
     memory_regions.push_back(region);
     return *this;

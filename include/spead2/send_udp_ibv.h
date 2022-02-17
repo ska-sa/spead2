@@ -52,7 +52,23 @@ namespace send
 class udp_ibv_config : public spead2::detail::udp_ibv_config_base<udp_ibv_config>
 {
 public:
+    /// Backwards-compatibility memory region, covering a range of memory
     typedef std::pair<const void *, std::size_t> memory_region;
+
+    /// Memory region, optionally backed by a dmabuf
+    struct memory_region2
+    {
+        const void *ptr;
+        std::size_t size;
+        int fd = -1;  ///< dmabuf file descriptor
+        std::uint64_t offset = 0;  ///< dmabuf offset
+
+        memory_region2() = default;
+        memory_region2(const void *ptr, std::size_t size) : ptr(ptr), size(size) {}
+        memory_region2(const void *ptr, std::size_t size, int fd, std::uint64_t offset)
+            : ptr(ptr), size(size), fd(fd), offset(offset) {}
+        memory_region2(const memory_region &m) : ptr(m.first), size(m.second) {}
+    };
 
     /// Default send buffer size
     static constexpr std::size_t default_buffer_size = 512 * 1024;
@@ -62,10 +78,10 @@ public:
 private:
     friend class spead2::detail::udp_ibv_config_base<udp_ibv_config>;
     static void validate_endpoint(const boost::asio::ip::udp::endpoint &endpoint);
-    static void validate_memory_region(const udp_ibv_config::memory_region &region);
+    static void validate_memory_region(const udp_ibv_config::memory_region2 &region);
 
     std::uint8_t ttl = 1;
-    std::vector<memory_region> memory_regions;
+    std::vector<memory_region2> memory_regions;
 
 public:
     /// Get the IP TTL
@@ -73,8 +89,20 @@ public:
     /// Set the IP TTL
     udp_ibv_config &set_ttl(std::uint8_t ttl);
 
+    /**
+     * Get currently registered memory regions.
+     *
+     * @deprecated use @ref get_memory_regions2 instead.
+     */
+    std::vector<memory_region> get_memory_regions() const;
     /// Get currently registered memory regions
-    const std::vector<memory_region> &get_memory_regions() const { return memory_regions; }
+    const std::vector<memory_region2> &get_memory_regions2() const { return memory_regions; }
+    /**
+     * Register a set of memory regions.
+     *
+     * @deprecated use the overload taking a vector of memory_region2 instead.
+     */
+    udp_ibv_config &set_memory_regions(const std::vector<memory_region> &memory_regions);
     /**
      * Register a set of memory regions (replacing any previous). Items stored
      * inside such pre-registered memory regions can (in most cases) be
@@ -83,10 +111,14 @@ public:
      *
      * Memory regions must not overlap; this is only validating when constructing
      * the stream.
+     *
+     * @deprecated use the overload taking a vector of memory_region2 instead.
      */
-    udp_ibv_config &set_memory_regions(const std::vector<memory_region> &memory_regions);
+    udp_ibv_config &set_memory_regions(const std::vector<memory_region2> &memory_regions);
     /// Append a memory region (see @ref set_memory_regions)
     udp_ibv_config &add_memory_region(const void *ptr, std::size_t size);
+    /// Append a memory region backed by a dmabuf
+    udp_ibv_config &add_memory_region(const void *ptr, std::size_t size, int fd, std::uint64_t offset);
 };
 
 class udp_ibv_stream : public stream

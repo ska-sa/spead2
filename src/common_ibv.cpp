@@ -401,6 +401,22 @@ ibv_mr_t::ibv_mr_t(const ibv_pd_t &pd, void *addr, std::size_t length, int acces
     reset(mr);
 }
 
+ibv_mr_t ibv_mr_t::from_dmabuf(const ibv_pd_t &pd, std::uint64_t offset, std::size_t length,
+                               std::uint64_t iova, int fd, int access,
+                               bool allow_relaxed_ordering)
+{
+#ifndef IBV_ACCESS_RELAXED_ORDERING
+    const int IBV_ACCESS_RELAXED_ORDERING = 1 << 20;
+#endif
+    if (allow_relaxed_ordering)
+        access |= IBV_ACCESS_RELAXED_ORDERING;
+    ibv_mr *mr;
+    mr = ibv_reg_dmabuf_mr(pd.get(), offset, length, iova, fd, access);
+    ibv_mr_t out;
+    out.reset(mr);
+    return out;
+}
+
 void ibv_qp_t::modify(ibv_qp_attr *attr, int attr_mask)
 {
     assert(get());

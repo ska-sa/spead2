@@ -310,6 +310,11 @@ public:
      */
     ibv_mr_t(const ibv_pd_t &pd, void *addr, std::size_t length, int access,
              bool allow_relaxed_ordering = true);
+
+    /* Create from a dmabuf */
+    static ibv_mr_t from_dmabuf(const ibv_pd_t &pd, std::uint64_t offset, std::size_t length,
+                                std::uint64_t iova, int fd, int access,
+                                bool allow_relaxed_ordering = true);
 };
 
 class ibv_flow_t : public std::unique_ptr<ibv_flow, detail::ibv_flow_deleter>
