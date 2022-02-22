@@ -55,7 +55,7 @@ jobs:
           - os: ubuntu-20.04
             cc: gcc
             cxx: g++
-            python-version: 3.6
+            python-version: 3.7
           # Disabled for now because numba/llvmlite (needed for tests)
           # doesn't have a pypy wheel, and it's not worth the effect to
           # install all the dependencies needed to make that work.
