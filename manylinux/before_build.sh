@@ -3,5 +3,5 @@
 
 set -e -u
 
-pip install jinja2==3.0.3 pycparser==2.21
+pip install -c requirements.txt jinja2 pycparser
 ./bootstrap.sh
