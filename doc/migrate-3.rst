@@ -114,9 +114,8 @@ details.
 Loop argument to asyncio functions
 ----------------------------------
 The Python asyncio-based classes and functions no longer take a `loop`
-argument. As of Python 3.6 (which is now the minimum supported version),
-:py:func:`asyncio.get_event_loop` returns the executing event loop, so there
-is no need to pass the loop explicitly.
+argument. As of Python 3.6, :py:func:`asyncio.get_event_loop` returns the
+executing event loop, so there is no need to pass the loop explicitly.
 
 Command-line arguments in tools
 -------------------------------

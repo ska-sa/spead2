@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Drop support for Python 3.6, which has reached end-of-life.
+
 .. rubric:: 3.7.0
 
 - Add :py:const:`spead2.send.GroupMode.SERIAL`.

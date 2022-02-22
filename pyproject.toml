@@ -1,5 +1,7 @@
 [build-system]
-requires = ["setuptools", "wheel", "pybind11==2.8.1", "setuptools_scm==6.0.1"]
+# Setuptools is pinned to an older version due to
+# https://github.com/pypa/setuptools/issues/3130
+requires = ["setuptools==59.8.0", "wheel", "pybind11==2.9.1", "setuptools_scm==6.4.2"]
 
 [tool.cibuildwheel]
 build-frontend = "build"
@@ -8,7 +10,7 @@ before-build = "manylinux/before_build.sh"
 manylinux-x86_64-image="manylinux2014"
 manylinux-i686-image="manylinux2014"
 manylinux-aarch64-image="manylinux2014"
-build = ["cp36*", "cp37*", "cp38*", "cp39*", "cp310*"]
+build = ["cp37-manylinux*", "cp38-manylinux*", "cp39-manylinux*", "cp310-manylinux*"]
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
