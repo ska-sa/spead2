@@ -30,8 +30,8 @@ automatically and support for them will be included.
 
 If you are installing spead2 from a git checkout, it is first necessary to run
 ``./bootstrap.sh`` to prepare the configure script and related files. This
-requires a Python installation with pycparser and jinja2 installed. When
-building from a packaged download this is not required.
+requires a Python installation with pycparser, jinja2 and packaging installed.
+When building from a packaged download this is not required.
 
 High-performance usage requires larger buffer sizes than Linux allows by
 default. The following commands will increase the permitted buffer sizes on

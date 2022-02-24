@@ -7,6 +7,8 @@ Changelog
 - Improve the accuracy of the rate limiter. Previously it could send
   slightly too fast due to rounding sleep times to whole numbers of
   nanoseconds.
+- Eliminate dependence on distutils, which is deprecated in Python 3.10
+  (#175).
 
 .. rubric:: 3.7.0
 

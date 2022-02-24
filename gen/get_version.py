@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2020 National Research Foundation (SARAO)
+# Copyright 2020, 2022 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -18,7 +18,7 @@
 import argparse
 import re
 import sys
-from distutils.version import StrictVersion
+from packaging.version import Version
 
 
 parser = argparse.ArgumentParser()
@@ -32,14 +32,14 @@ if not match:
     print('src/spead2/_version.py does not match the expected format', file=sys.stderr)
     sys.exit(1)
 version_str = match.group(1)
-version = StrictVersion(version_str)
+version = Version(version_str)
 
 mode = args.mode
 if mode == 'major':
-    print(version.version[0], end='')
+    print(version.major, end='')
 elif mode == 'minor':
-    print(version.version[1], end='')
+    print(version.minor, end='')
 elif mode == 'patch':
-    print(version.version[2], end='')
+    print(version.micro, end='')
 else:
     print(version_str, end='')
