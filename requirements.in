@@ -3,6 +3,7 @@ jinja2
 netifaces
 numba
 numpy
+packaging
 pycparser
 pytest
 pytest-asyncio

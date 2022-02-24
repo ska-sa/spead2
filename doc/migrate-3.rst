@@ -40,7 +40,7 @@ include the breaking changes.
    Full spead2 version number, as a string constant.
 
 In Python, one can get the full version string from
-:py:data:`spead2.__version__`. Use the classes in :py:mod:`distutils.version`
+:py:data:`spead2.__version__`. Use the classes in :py:mod:`packaging.version`
 to analyse it.
 
 Receive stream configuration

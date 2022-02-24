@@ -33,7 +33,9 @@ numpy==1.21.5
     #   numba
     #   scipy
 packaging==21.3
-    # via pytest
+    # via
+    #   -r requirements.in
+    #   pytest
 pluggy==1.0.0
     # via pytest
 py==1.11.0
