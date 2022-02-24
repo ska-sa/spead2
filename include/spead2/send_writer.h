@@ -91,6 +91,31 @@ private:
     friend class stream;
 
     typedef boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock> timer_type;
+    /**
+     * timer_type::time_point is typically nanoseconds, and rounding delays
+     * to nanoseconds can lead to bias (since the rounding will typically go
+     * in the same direction every time). Storing an absolute time in
+     * double precision is no good because it doesn't have enough precision.
+     * So we store a time_point plus a small correction, which is always
+     * between 0 and 1.
+     */
+    class precise_time
+    {
+        using coarse_type = timer_type::time_point;
+        using correction_type = std::chrono::duration<double, timer_type::time_point::period>;
+    private:
+        coarse_type coarse;
+        correction_type correction;
+
+        void normalize();  // ensure correction is in [0, 1)
+    public:
+        precise_time() = default;
+        precise_time(timer_type::time_point coarse);
+        precise_time &operator+=(const correction_type &delta);
+        bool operator<(const precise_time &other) const;
+
+        coarse_type get_coarse() const { return coarse; }
+    };
 
     const stream_config config;    // TODO: probably doesn't need the whole thing
     const double seconds_per_byte_burst, seconds_per_byte;
@@ -100,9 +125,9 @@ private:
     /// Timer for sleeping for rate limiting
     timer_type timer;
     /// Time at which next burst should be sent, considering the burst rate
-    timer_type::time_point send_time_burst;
+    precise_time send_time_burst;
     /// Time at which next burst should be sent, considering the average rate
-    timer_type::time_point send_time;
+    precise_time send_time;
     /// If true, rate_bytes is never incremented and hence we never sleep
     bool hw_rate = false;
     /// If true, we're not handling more packets until we've slept
