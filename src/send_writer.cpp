@@ -33,7 +33,7 @@ namespace spead2
 namespace send
 {
 
-writer::precise_time::precise_time(timer_type::time_point coarse)
+writer::precise_time::precise_time(const coarse_type &coarse)
     : coarse(coarse), correction(0.0)
 {
 }
@@ -43,11 +43,8 @@ void writer::precise_time::precise_time::normalize()
     auto floor = std::chrono::duration_cast<coarse_type::duration>(correction);
     if (correction < floor)
         floor -= coarse_type::duration(1);  // cast rounds negative values up instead of down
-    if (floor != coarse_type::duration::zero())
-    {
-        coarse += floor;
-        correction -= floor;
-    }
+    coarse += floor;
+    correction -= floor;
 }
 
 writer::precise_time &writer::precise_time::operator+=(const correction_type &delta)
