@@ -349,7 +349,8 @@ class Item(Descriptor):
         .. warning:: If you modify a mutable value in-place, the change will
           not be detected, and by default :py:meth:`.HeapGenerator.get_heap`
           will not add the item to the heap it returns. In this case, either
-          manually increment the version number, or reassign the value.
+          manually increment the version number, reassign the value, or pass
+          ``data="all"`` to :py:meth:`~.HeapGenerator.get_heap`.
         """
         return self._value
 
