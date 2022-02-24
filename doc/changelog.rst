@@ -4,6 +4,9 @@ Changelog
 .. rubric:: Development version
 
 - Drop support for Python 3.6, which has reached end-of-life.
+- Improve the accuracy of the rate limiter. Previously it could send
+  slightly too fast due to rounding sleep times to whole numbers of
+  nanoseconds.
 
 .. rubric:: 3.7.0
 

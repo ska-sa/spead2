@@ -23,6 +23,7 @@
 #include <chrono>
 #include <forward_list>
 #include <algorithm>
+#include <tuple>
 #include <boost/utility/in_place_factory.hpp>
 #include <spead2/send_writer.h>
 #include <spead2/send_stream.h>
@@ -31,6 +32,35 @@ namespace spead2
 {
 namespace send
 {
+
+writer::precise_time::precise_time(timer_type::time_point coarse)
+    : coarse(coarse), correction(0.0)
+{
+}
+
+void writer::precise_time::precise_time::normalize()
+{
+    auto floor = std::chrono::duration_cast<coarse_type::duration>(correction);
+    if (correction < floor)
+        floor -= coarse_type::duration(1);  // cast rounds negative values up instead of down
+    if (floor != coarse_type::duration::zero())
+    {
+        coarse += floor;
+        correction -= floor;
+    }
+}
+
+writer::precise_time &writer::precise_time::operator+=(const correction_type &delta)
+{
+    correction += delta;
+    normalize();
+    return *this;
+}
+
+bool writer::precise_time::operator<(const precise_time &other) const
+{
+    return std::tie(coarse, correction) < std::tie(other.coarse, other.correction);
+}
 
 void writer::set_owner(stream *owner)
 {
@@ -49,28 +79,30 @@ writer::timer_type::time_point writer::update_send_times(timer_type::time_point 
 {
     std::chrono::duration<double> wait_burst(rate_bytes * seconds_per_byte_burst);
     std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
-    send_time_burst += std::chrono::duration_cast<timer_type::clock_type::duration>(wait_burst);
-    send_time += std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
+    send_time_burst += wait_burst;
+    send_time += wait;
     rate_bytes = 0;
 
     /* send_time_burst needs to reflect the time the burst
      * was actually sent (as well as we can estimate it), even if
      * send_time or now is later.
      */
-    timer_type::time_point target_time = std::max(send_time_burst, send_time);
-    send_time_burst = std::max(now, target_time);
-    return target_time;
+    precise_time target_time = std::max(send_time_burst, send_time);
+    send_time_burst = std::max(precise_time(now), target_time);
+    return target_time.get_coarse();
 }
 
 void writer::update_send_time_empty()
 {
     timer_type::time_point now = timer_type::clock_type::now();
-    // Compute what send_time would need to be to make the next packet due to be
-    // transmitted now.
+    /* Compute what send_time would need to be to make the next packet due to be
+     * transmitted now. The calculations are mostly done without using
+     * precise_time, because "now" is coarse to start with.
+     */
     std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
     auto wait2 = std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
     timer_type::time_point backdate = now - wait2;
-    send_time = std::max(send_time, backdate);
+    send_time = std::max(send_time, precise_time(backdate));
 }
 
 writer::packet_result writer::get_packet(transmit_packet &data, std::uint8_t *scratch)
@@ -78,7 +110,7 @@ writer::packet_result writer::get_packet(transmit_packet &data, std::uint8_t *sc
     if (must_sleep)
     {
         auto now = timer_type::clock_type::now();
-        if (now < send_time_burst)
+        if (now < send_time_burst.get_coarse())
             return packet_result::SLEEP;
         else
             must_sleep = false;
@@ -235,7 +267,7 @@ void writer::sleep()
 {
     if (must_sleep)
     {
-        timer.expires_at(send_time_burst);
+        timer.expires_at(send_time_burst.get_coarse());
         timer.async_wait(
             [this](const boost::system::error_code &) {
                 must_sleep = false;
