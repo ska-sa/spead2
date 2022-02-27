@@ -104,8 +104,8 @@ private:
         using coarse_type = timer_type::time_point;
         using correction_type = std::chrono::duration<double, timer_type::time_point::period>;
     private:
-        coarse_type coarse;
-        correction_type correction;
+        coarse_type coarse{};
+        correction_type correction{0};
 
         void normalize();  // ensure correction is in [0, 1)
     public:
