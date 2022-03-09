@@ -149,7 +149,7 @@ process you run is a shell.
 .. warning::
 
    After doing the above, any user on the system that can run
-   :program:`cap_net_raw` will be able to intercept any incoming network
+   :program:`spead2_net_raw` will be able to intercept any incoming network
    traffic or generate arbitrary outgoing traffic. You should not do this
    blindly if there are untrusted users on your system, or if the system
    allows untrusted code to run outside of a secure sandbox.
