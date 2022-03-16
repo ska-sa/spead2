@@ -43,7 +43,7 @@ bool udp_reader_base::process_one_packet(
         // If it's bigger, the packet might have been truncated
         packet_header packet;
         std::size_t size = decode_packet(packet, data, length);
-        if (size == length || size + 24 == length)
+        if (size == length || size == length + 24)
         {
             state.add_packet(packet);
             if (state.is_stopped())
