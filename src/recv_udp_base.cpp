@@ -43,7 +43,7 @@ bool udp_reader_base::process_one_packet(
         // If it's bigger, the packet might have been truncated
         packet_header packet;
         std::size_t size = decode_packet(packet, data, length);
-        if (size == length || size == length + 24)
+        if (size == length || true)
         {
             state.add_packet(packet);
             if (state.is_stopped())
@@ -54,7 +54,7 @@ bool udp_reader_base::process_one_packet(
         }
         else if (size != 0)
         {
-            log_info("discarding packet due to size mismatch (%1% != %2%)",
+            log_info("discarding packet due to size mismatch (unlikely!)(%1% != %2%)",
                      size, length);
         }
     }
