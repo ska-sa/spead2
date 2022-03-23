@@ -36,6 +36,7 @@
 #include <type_traits>
 #include <boost/asio.hpp>
 #include <boost/iterator/iterator_facade.hpp>
+#include <libdivide.h>
 #include <spead2/recv_live_heap.h>
 #include <spead2/recv_reader.h>
 #include <spead2/common_memory_pool.h>
@@ -337,8 +338,10 @@ public:
     static constexpr std::size_t default_max_heaps = 4;
 
 private:
-    /// Maximum number of live heaps permitted
+    /// Maximum number of live heaps permitted per substream
     std::size_t max_heaps = default_max_heaps;
+    /// Number of substreams
+    std::size_t substreams = 1;
     /// Protocol bugs to be compatible with
     bug_compat_mask bug_compat = 0;
 
@@ -361,13 +364,22 @@ public:
     stream_config();
 
     /**
-     * Set maximum number of partial heaps that can be live at one time.
-     * This affects how intermingled heaps can be (due to out-of-order packet
-     * delivery) before heaps get dropped.
+     * Set maximum number of partial heaps that can be live at one time
+     * (per substream). This affects how intermingled heaps can be (due to
+     * out-of-order packet delivery) before heaps get dropped.
      */
     stream_config &set_max_heaps(std::size_t max_heaps);
     /// Get maximum number of partial heaps that can be live at one time.
     std::size_t get_max_heaps() const { return max_heaps; }
+
+    /**
+     * Set number of substreams. The substream is determined by taking the
+     * heap cnt modulo the number of substreams. The value set by
+     * @ref set_max_heaps applies independently for each substream.
+     */
+    stream_config &set_substreams(std::size_t substreams);
+    /// Get number of substreams.
+    std::size_t get_substreams() const { return substreams; }
 
     /// Set an allocator to use for allocating heap memory.
     stream_config &set_memory_allocator(std::shared_ptr<memory_allocator> allocator);
@@ -481,7 +493,10 @@ public:
  * std::unordered_map, we use a custom hash table implementation (with a
  * fixed number of buckets).
  *
- * @internal
+ * When using multiple substreams, each substream has its own circular queue;
+ * all the queues are held consecutively in a single storage allocation, but
+ * each has a separate head pointer that wraps within its own portion of the
+ * storage.
  *
  * Avoiding deadlocks requires a careful design with several mutexes. It's
  * governed by the requirement that @ref heap_ready may block indefinitely, and
@@ -511,6 +526,15 @@ private:
          */
     };
 
+    // Per-substream data
+    struct substream
+    {
+        /// Start of this substream within the queue
+        std::size_t start;
+        /// Position of the most recently-added heap
+        std::size_t head;
+    };
+
     typedef typename std::aligned_storage<sizeof(queue_entry), alignof(queue_entry)>::type storage_type;
     /**
      * Circular queue for heaps.
@@ -525,8 +549,13 @@ private:
     const int bucket_shift;
     /// Pointer to the first heap in each bucket, or NULL
     const std::unique_ptr<queue_entry *[]> buckets;
-    /// Position of the most recently added heap
-    std::size_t head;
+    /**
+     * Per-substream data. There is one extra entry to indicate the end
+     * position of the last substream.
+     */
+    const std::unique_ptr<substream[]> substreams;
+    /// Fast division by number of substreams
+    libdivide::divider<item_pointer_t> substream_div;
 
     /// Stream configuration
     const stream_config config;
@@ -549,7 +578,10 @@ private:
     bool stopped = false;
 
     /// Compute bucket number for a heap cnt
-    std::size_t get_bucket(s_item_pointer_t heap_cnt) const;
+    std::size_t get_bucket(item_pointer_t heap_cnt) const;
+
+    /// Compute substream from a heap cnt
+    std::size_t get_substream(item_pointer_t heap_cnt) const;
 
     /// Get an entry from @ref queue_storage with the right type
     queue_entry *cast(std::size_t index);

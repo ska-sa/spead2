@@ -38,7 +38,7 @@ writer::precise_time::precise_time(const coarse_type &coarse)
 {
 }
 
-void writer::precise_time::precise_time::normalize()
+void writer::precise_time::normalize()
 {
     auto floor = std::chrono::duration_cast<coarse_type::duration>(correction);
     if (correction < floor)
