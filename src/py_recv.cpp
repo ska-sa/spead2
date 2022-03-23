@@ -643,6 +643,9 @@ py::module register_module(py::module &parent)
         .def_property("max_heaps",
                       SPEAD2_PTMF(stream_config, get_max_heaps),
                       SPEAD2_PTMF(stream_config, set_max_heaps))
+        .def_property("substreams",
+                      SPEAD2_PTMF(stream_config, get_substreams),
+                      SPEAD2_PTMF(stream_config, set_substreams))
         .def_property("bug_compat",
                       SPEAD2_PTMF(stream_config, get_bug_compat),
                       SPEAD2_PTMF(stream_config, set_bug_compat))
