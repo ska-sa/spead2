@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Added ``substreams`` to :py:class:`spead2.recv.StreamConfig` to improve
+  handling of interleaved heaps from multiple senders.
+- Add libdivide to the dependencies.
+
 .. rubric:: 3.8.0
 
 - Drop support for Python 3.6, which has reached end-of-life.
