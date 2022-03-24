@@ -141,7 +141,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme_file:
 
 setup(
     author='Bruce Merry',
-    author_email='bmerry@ska.ac.za',
+    author_email='bmerry@sarao.ac.za',
     name='spead2',
     version=find_version(),
     description='High-performance SPEAD implementation',
