@@ -506,9 +506,9 @@ class TestDecode:
         payload = bytearray(96)
         payload[:] = range(96)
         packets = self.flavour.make_packet_heap(1, [
-                Item(0x1600, 12345, True),
-                Item(0x5000, payload, False)],
-                packets=[(5, 12), (32, 64)])
+            Item(0x1600, 12345, True),
+            Item(0x5000, payload, False)],
+            packets=[(5, 12), (32, 64)])
         heaps = self.data_to_heaps(b''.join(packets),
                                    contiguous_only=False,
                                    incomplete_keep_payload_ranges=True,
