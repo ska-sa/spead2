@@ -558,7 +558,6 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
 
 void stream_base::flush_unlocked()
 {
-    const std::size_t max_heaps = get_config().get_max_heaps();
     const std::size_t num_substreams = get_config().get_substreams();
     std::size_t n_flushed = 0;
     for (std::size_t i = 0; i < num_substreams; i++)
