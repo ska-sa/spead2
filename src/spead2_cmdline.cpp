@@ -146,6 +146,7 @@ stream_config receiver_options::make_stream_config(const protocol_options &proto
 {
     stream_config config;
     config.set_max_heaps(max_heaps);
+    config.set_substreams(substreams);
     if (mem_pool)
     {
         std::shared_ptr<spead2::memory_pool> pool = std::make_shared<spead2::memory_pool>(

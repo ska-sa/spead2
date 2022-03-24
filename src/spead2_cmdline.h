@@ -179,6 +179,7 @@ struct receiver_options
     bool ring = false;
     bool memcpy_nt = false;
     std::size_t max_heaps = stream_config::default_max_heaps;
+    std::size_t substreams = 1;
     std::size_t ring_heaps = ring_stream_config::default_heaps;
     bool mem_pool = false;
     std::size_t mem_lower = 16384;
@@ -202,7 +203,8 @@ struct receiver_options
         callback("bind", "Interface address", &interface_address);
         callback("packet", "Maximum packet size to accept", &max_packet_size);
         callback("buffer", "Socket buffer size", &buffer_size);
-        callback("concurrent-heaps", "Maximum number of in-flight heaps", &max_heaps);
+        callback("concurrent-heaps", "Maximum number of in-flight heaps, per substream", &max_heaps);
+        callback("substreams", "Number of parallel substreams", &substreams);
         callback("ring-heaps", "Ring buffer capacity in heaps", &ring_heaps);
         callback("mem-pool", "Use a memory pool", &mem_pool);
         callback("mem-lower", "Minimum allocation which will use the memory pool", &mem_lower);
