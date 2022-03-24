@@ -14,7 +14,8 @@ if [ "$(uname -s)" = "Linux" ]; then
         libpcap-dev \
         libcap-dev \
         librdmacm-dev \
-        libibverbs-dev
+        libibverbs-dev \
+        libdivide-dev
 else
-    brew install autoconf automake boost ccache
+    brew install autoconf automake boost ccache libdivide
 fi
