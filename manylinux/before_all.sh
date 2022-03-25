@@ -32,6 +32,9 @@ ninja-build -v install
 # See https://github.com/pypa/manylinux/issues/731
 cp /usr/share/aclocal/pkg.m4 /usr/local/share/aclocal/
 
+# Install libdivide
+wget https://raw.githubusercontent.com/ridiculousfish/libdivide/5.0/libdivide.h -O /usr/local/include/libdivide.h
+
 # Prepare for split debug symbols for the wheels
 cat <<EOF > "$package/setup.cfg"
 [build_ext]

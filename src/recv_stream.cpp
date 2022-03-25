@@ -221,10 +221,10 @@ stream_stats &stream_stats::operator+=(const stream_stats &other)
 
 constexpr std::size_t stream_config::default_max_heaps;
 
-static std::size_t compute_bucket_count(std::size_t max_heaps)
+static std::size_t compute_bucket_count(std::size_t total_max_heaps)
 {
     std::size_t buckets = 4;
-    while (buckets < max_heaps)
+    while (buckets < total_max_heaps)
         buckets *= 2;
     buckets *= 4;    // Make sure the table has a low load factor
     return buckets;
@@ -266,6 +266,14 @@ stream_config &stream_config::set_max_heaps(std::size_t max_heaps)
     if (max_heaps == 0)
         throw std::invalid_argument("max_heaps cannot be 0");
     this->max_heaps = max_heaps;
+    return *this;
+}
+
+stream_config &stream_config::set_substreams(std::size_t substreams)
+{
+    if (substreams == 0)
+        throw std::invalid_argument("substreams cannot be 0");
+    this->substreams = substreams;
     return *this;
 }
 
@@ -366,24 +374,30 @@ std::size_t stream_config::get_stat_index(const std::string &name) const
 
 
 stream_base::stream_base(const stream_config &config)
-    : queue_storage(new storage_type[config.get_max_heaps()]),
-    bucket_count(compute_bucket_count(config.get_max_heaps())),
+    : queue_storage(new storage_type[config.get_max_heaps() * config.get_substreams()]),
+    bucket_count(compute_bucket_count(config.get_max_heaps() * config.get_substreams())),
     bucket_shift(compute_bucket_shift(bucket_count)),
     buckets(new queue_entry *[bucket_count]),
-    head(0),
+    substreams(new substream[config.get_substreams() + 1]),
+    substream_div(config.get_substreams()),
     config(config),
     stats(config.get_stats().size()),
     batch_stats(config.get_stats().size())
 {
-    for (std::size_t i = 0; i < config.get_max_heaps(); i++)
+    for (std::size_t i = 0; i < config.get_max_heaps() * config.get_substreams(); i++)
         cast(i)->next = INVALID_ENTRY;
     for (std::size_t i = 0; i < bucket_count; i++)
         buckets[i] = NULL;
+    for (std::size_t i = 0; i <= config.get_substreams(); i++)
+    {
+        substreams[i].start = i * config.get_max_heaps();
+        substreams[i].head = substreams[i].start;
+    }
 }
 
 stream_base::~stream_base()
 {
-    for (std::size_t i = 0; i < get_config().get_max_heaps(); i++)
+    for (std::size_t i = 0; i < get_config().get_max_heaps() * get_config().get_substreams(); i++)
     {
         queue_entry *entry = cast(i);
         if (entry->next != INVALID_ENTRY)
@@ -394,10 +408,16 @@ stream_base::~stream_base()
     }
 }
 
-std::size_t stream_base::get_bucket(s_item_pointer_t heap_cnt) const
+std::size_t stream_base::get_bucket(item_pointer_t heap_cnt) const
 {
     // Look up Fibonacci hashing for an explanation of the magic number
     return (heap_cnt * 11400714819323198485ULL) >> bucket_shift;
+}
+
+std::size_t stream_base::get_substream(item_pointer_t heap_cnt) const
+{
+    // libdivide doesn't provide operator %
+    return heap_cnt - (heap_cnt / substream_div * config.get_substreams());
 }
 
 stream_base::queue_entry *stream_base::cast(std::size_t index)
@@ -494,9 +514,11 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
             return false;
         }
 
-        if (++head == config.get_max_heaps())
-            head = 0;
-        entry = cast(head);
+        std::size_t substream_id = get_substream(heap_cnt);
+        substream &ss = substreams[substream_id];
+        if (++ss.head == substreams[substream_id + 1].start)
+            ss.head = ss.start;
+        entry = cast(ss.head);
         if (entry->next != INVALID_ENTRY)
         {
             state.incomplete_heaps_evicted++;
@@ -536,19 +558,24 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
 
 void stream_base::flush_unlocked()
 {
-    const std::size_t max_heaps = get_config().get_max_heaps();
+    const std::size_t num_substreams = get_config().get_substreams();
     std::size_t n_flushed = 0;
-    for (std::size_t i = 0; i < max_heaps; i++)
+    for (std::size_t i = 0; i < num_substreams; i++)
     {
-        if (++head == max_heaps)
-            head = 0;
-        queue_entry *entry = cast(head);
-        if (entry->next != INVALID_ENTRY)
+        substream &ss = substreams[i];
+        const std::size_t end = substreams[i + 1].start;
+        for (std::size_t j = ss.start; j < end; j++)
         {
-            n_flushed++;
-            unlink_entry(entry);
-            heap_ready(std::move(entry->heap));
-            entry->heap.~live_heap();
+            if (++ss.head == substreams[i + 1].start)
+                ss.head = ss.start;
+            queue_entry *entry = cast(ss.head);
+            if (entry->next != INVALID_ENTRY)
+            {
+                n_flushed++;
+                unlink_entry(entry);
+                heap_ready(std::move(entry->heap));
+                entry->heap.~live_heap();
+            }
         }
     }
     std::lock_guard<std::mutex> stats_lock(stats_mutex);

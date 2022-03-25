@@ -1,4 +1,4 @@
-# Copyright 2016, 2017, 2019-2020 National Research Foundation (SARAO)
+# Copyright 2016, 2017, 2019-2020, 2022 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -44,6 +44,8 @@ SPEAD2_CHECK_LIB([boost/system/system_error.hpp], [boost_system], [boost::system
                  [], [AC_MSG_ERROR([boost_system is required])])
 SPEAD2_CHECK_HEADER([boost/asio.hpp], [boost_system,pthread], [boost::asio::io_service io_service],
                     [], [AC_MSG_ERROR([boost_asio is required])])
+SPEAD2_CHECK_HEADER([libdivide.h], [], [libdivide::divider<unsigned long long> div],
+                    [], [AC_MSG_ERROR([libdivide is required])])
 
 ### Optional libraries/features
 

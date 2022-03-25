@@ -1,4 +1,4 @@
-# Copyright 2020 National Research Foundation (SARAO)
+# Copyright 2020, 2022 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -154,6 +154,7 @@ class ReceiverOptions(SharedOptions):
         super().__init__(protocol, name_map)
         self.memcpy_nt = False
         self.concurrent_heaps = spead2.recv.StreamConfig.DEFAULT_MAX_HEAPS
+        self.substreams = 1
         self.ring_heaps = spead2.recv.RingStreamConfig.DEFAULT_HEAPS
         self.mem_pool = False
         self.mem_lower = 16384
@@ -168,7 +169,9 @@ class ReceiverOptions(SharedOptions):
         self._add_argument(parser, 'memcpy_nt', action='store_true',
                            help='Use non-temporal memcpy')
         self._add_argument(parser, 'concurrent_heaps', type=int,
-                           help='Maximum number of in-flight heaps [%(default)s]')
+                           help='Maximum number of in-flight heaps per substream [%(default)s]')
+        self._add_argument(parser, 'substreams', type=int,
+                           help='Number of parallel substreams [%(default)s]')
         self._add_argument(parser, 'ring_heaps', type=int,
                            help='Ring buffer capacity in heaps [%(default)s]')
         self._add_argument(parser, 'mem_pool', action='store_true', help='Use a memory pool')
@@ -210,6 +213,7 @@ class ReceiverOptions(SharedOptions):
     def make_stream_config(self):
         config = spead2.recv.StreamConfig()
         config.max_heaps = self.concurrent_heaps
+        config.substreams = self.substreams
         config.bug_compat = spead2.BUG_COMPAT_PYSPEAD_0_5_2 if self._protocol.pyspead else 0
         if self.mem_pool:
             config.memory_allocator = spead2.MemoryPool(self.mem_lower, self.mem_upper,

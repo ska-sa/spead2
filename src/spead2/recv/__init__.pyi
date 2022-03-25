@@ -95,6 +95,7 @@ class StreamStats:
 class StreamConfig:
     DEFAULT_MAX_HEAPS: ClassVar[int] = ...
     max_heaps: int
+    substreams: int
     bug_compat: int
     memcpy: int
     memory_allocator: spead2.MemoryAllocator
@@ -104,7 +105,7 @@ class StreamConfig:
     stream_id: int
     @property
     def stats(self) -> List[StreamStatConfig]: ...
-    def __init__(self, *, max_heaps: int = ..., bug_compat: int = ...,
+    def __init__(self, *, max_heaps: int = ..., substreams: int = ..., bug_compat: int = ...,
                  memcpy: int = ..., memory_allocator: spead2.MemoryAllocator = ...,
                  stop_on_stop_item: bool = ..., allow_unsized_heaps: bool = ...,
                  allow_out_of_order: bool = ..., stream_id: int = ...) -> None: ...

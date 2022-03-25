@@ -47,9 +47,14 @@ properties after construction.
 .. py:class:: spead2.recv.StreamConfig(**kwargs)
 
    :param int max_heaps:
-     The number of partial heaps that can be live at one time.
-     This affects how intermingled heaps can be (due to out-of-order packet
-     delivery) before heaps get dropped.
+     The number of partial heaps that can be live at one time,
+     per substream. This affects how intermingled heaps can be (due to
+     out-of-order packet delivery) before heaps get dropped.
+     See :ref:`py-packet-ordering` for details.
+   :param int substreams:
+     Set the number of parallel streams. The remainder when the heap cnt is
+     divided by this value is used to identify the substream. See
+     :ref:`py-packet-ordering` for details.
    :param int bug_compat:
      Bug compatibility flags (see :ref:`py-flavour`)
    :param int memcpy:
@@ -320,6 +325,15 @@ multiple senders. We consider two sorts of packet ordering issues:
    complete. When there are many producers it will likely to be necessary to
    increase this value. Larger values increase the memory usage for partial
    heaps, and have a small performance impact.
+
+   It's possible to get more predictable results when the producers
+   interleave their heap cnts (for example, by using
+   :py:meth:`spead2.send.Stream.set_cnt_sequence`) such that the remainder
+   when dividing the heap cnt by the number of producers identifies the
+   producer. In this case, set the :py:attr:`substreams` attribute of
+   :py:class:`spead2.recv.StreamConfig` to the number of producers. Note that
+   :py:attr:`max_heaps` applies separately to each producer, and can
+   usually be very low (1 or 2) if the producer sends one heap at a time.
 
 .. _py-memory-allocators:
 

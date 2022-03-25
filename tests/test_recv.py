@@ -1,4 +1,4 @@
-# Copyright 2015, 2017, 2019-2021 National Research Foundation (SARAO)
+# Copyright 2015, 2017, 2019-2022 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -99,29 +99,59 @@ class Flavour:
                 raise ValueError('Shape must contain non-negative values and None')
         return b''.join(data)
 
-    def make_packet_heap(self, heap_cnt, items):
-        """Construct a single-packet heap."""
+    def make_packet_heap(self, heap_cnt, items, *, duplicate_item_pointers=False, packets=None):
+        """Construct all the packets in a heap.
+
+        The `packets` arguments can be
+
+        - None, to generate a single heap.
+        - An integer, to generate a list of heaps, with the payload evenly
+          split.
+        - A list of 2-tuples containing payload ranges, to generate a list of
+          packets containing those interals.
+        """
         payload_size = 0
         for item in items:
             if not item.immediate:
                 payload_size += len(bytes(item.value))
 
-        all_items = [
-            Item(spead2.HEAP_CNT_ID, heap_cnt, True),
-            Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
-            Item(spead2.PAYLOAD_LENGTH_ID, payload_size, True),
-            Item(spead2.HEAP_LENGTH_ID, payload_size, True)]
-        offset = 0
+        if packets is None:
+            payload_ranges = [(0, payload_size)]
+        elif isinstance(packets, int):
+            payload_ranges = [
+                (i * payload_size // packets, (i + 1) * payload_size // packets)
+                for i in range(packets)
+            ]
+        else:
+            payload_ranges = packets
+
         payload = bytearray(payload_size)
+        item_ptrs = []
+        offset = 0
         for item in items:
             if not item.immediate:
                 value = bytes(item.value)
-                all_items.append(Item(item.id, value, offset=offset))
+                item_ptrs.append(Item(item.id, value, offset=offset))
                 payload[offset : offset + len(value)] = value
                 offset += len(value)
             else:
-                all_items.append(item)
-        return self.make_packet(all_items, payload)
+                item_ptrs.append(item)
+
+        out = []
+        for start, stop in payload_ranges:
+            packet_items = [
+                Item(spead2.HEAP_CNT_ID, heap_cnt, True),
+                Item(spead2.PAYLOAD_OFFSET_ID, start, True),
+                Item(spead2.PAYLOAD_LENGTH_ID, stop - start, True),
+                Item(spead2.HEAP_LENGTH_ID, payload_size, True)]
+            packet_items.extend(item_ptrs)
+            if not duplicate_item_pointers:
+                item_ptrs.clear()  # Only put them in the first packet
+            out.append(self.make_packet(packet_items, payload[start : stop]))
+        if packets is None:
+            return out[0]
+        else:
+            return out
 
     def make_plain_descriptor(self, id, name, description, format, shape):
         if not isinstance(name, bytes):
@@ -185,15 +215,16 @@ class TestDecode:
     def data_to_heaps(self, data, **kwargs):
         """Take some data and pass it through the receiver to obtain a set of heaps.
 
-        Keyword arguments are passed to the receiver constructor.
+        Keyword arguments are passed to the stream config.
         """
         thread_pool = spead2.ThreadPool()
         config = recv.StreamConfig(bug_compat=self.flavour.bug_compat)
         ring_config = recv.RingStreamConfig()
-        for key in ['stop_on_stop_item', 'allow_unsized_heaps', 'allow_out_of_order']:
+        for key in {'stop_on_stop_item', 'allow_unsized_heaps', 'allow_out_of_order',
+                    'max_heaps', 'substreams'}:
             if key in kwargs:
                 setattr(config, key, kwargs.pop(key))
-        for key in ['contiguous_only', 'incomplete_keep_payload_ranges']:
+        for key in {'contiguous_only', 'incomplete_keep_payload_ranges'}:
             if key in kwargs:
                 setattr(ring_config, key, kwargs.pop(key))
         if kwargs:
@@ -394,22 +425,10 @@ class TestDecode:
     def test_duplicate_item_pointers(self):
         payload = bytearray(64)
         payload[:] = range(64)
-        packets = [
-            self.flavour.make_packet([
-                Item(spead2.HEAP_CNT_ID, 1, True),
-                Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
-                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
-                Item(spead2.HEAP_LENGTH_ID, 64, True),
-                Item(0x1600, 12345, True),
-                Item(0x5000, 0, False, offset=0)], payload[0 : 32]),
-            self.flavour.make_packet([
-                Item(spead2.HEAP_CNT_ID, 1, True),
-                Item(spead2.PAYLOAD_OFFSET_ID, 32, True),
-                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
-                Item(spead2.HEAP_LENGTH_ID, 64, True),
-                Item(0x1600, 12345, True),
-                Item(0x5000, 0, False, offset=0)], payload[32 : 64])
-        ]
+        packets = self.flavour.make_packet_heap(1, [
+            Item(0x1600, 12345, True),
+            Item(0x5000, payload, False)],
+            packets=2)
         heaps = self.data_to_heaps(b''.join(packets))
         assert len(heaps) == 1
         items = heaps[0].get_items()
@@ -425,20 +444,10 @@ class TestDecode:
     def test_out_of_order_packets(self):
         payload = bytearray(64)
         payload[:] = range(64)
-        packets = [
-            self.flavour.make_packet([
-                Item(spead2.HEAP_CNT_ID, 1, True),
-                Item(spead2.PAYLOAD_OFFSET_ID, 32, True),
-                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
-                Item(spead2.HEAP_LENGTH_ID, 64, True),
-                Item(0x1600, 12345, True),
-                Item(0x5000, 0, False, offset=0)], payload[32 : 64]),
-            self.flavour.make_packet([
-                Item(spead2.HEAP_CNT_ID, 1, True),
-                Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
-                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
-                Item(spead2.HEAP_LENGTH_ID, 64, True)], payload[0 : 32])
-        ]
+        packets = self.flavour.make_packet_heap(1, [
+            Item(0x1600, 12345, True),
+            Item(0x5000, payload, False)],
+            packets=[(32, 64), (0, 32)])
         heaps = self.data_to_heaps(b''.join(packets), allow_out_of_order=True)
         assert len(heaps) == 1
         items = heaps[0].get_items()
@@ -454,20 +463,10 @@ class TestDecode:
     def test_out_of_order_disallowed(self):
         payload = bytearray(64)
         payload[:] = range(64)
-        packets = [
-            self.flavour.make_packet([
-                Item(spead2.HEAP_CNT_ID, 1, True),
-                Item(spead2.PAYLOAD_OFFSET_ID, 32, True),
-                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
-                Item(spead2.HEAP_LENGTH_ID, 64, True),
-                Item(0x1600, 12345, True),
-                Item(0x5000, 0, False, offset=0)], payload[32 : 64]),
-            self.flavour.make_packet([
-                Item(spead2.HEAP_CNT_ID, 1, True),
-                Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
-                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
-                Item(spead2.HEAP_LENGTH_ID, 64, True)], payload[0 : 32])
-        ]
+        packets = self.flavour.make_packet_heap(1, [
+            Item(0x1600, 12345, True),
+            Item(0x5000, payload, False)],
+            packets=[(32, 64), (0, 32)])
         heaps = self.data_to_heaps(b''.join(packets),
                                    contiguous_only=False,
                                    incomplete_keep_payload_ranges=True)
@@ -478,23 +477,38 @@ class TestDecode:
         assert heaps[0].received_length == 32
         assert heaps[0].payload_ranges == [(0, 32)]
 
-    def test_incomplete_heaps(self):
+    def test_substreams(self):
         payload = bytearray(64)
         payload[:] = range(64)
-        packets = [
-            self.flavour.make_packet([
-                Item(spead2.HEAP_CNT_ID, 1, True),
-                Item(spead2.PAYLOAD_OFFSET_ID, 5, True),
-                Item(spead2.PAYLOAD_LENGTH_ID, 7, True),
-                Item(spead2.HEAP_LENGTH_ID, 96, True),
-                Item(0x1600, 12345, True),
-                Item(0x5000, 0, False, offset=0)], payload[5 : 12]),
-            self.flavour.make_packet([
-                Item(spead2.HEAP_CNT_ID, 1, True),
-                Item(spead2.PAYLOAD_OFFSET_ID, 32, True),
-                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
-                Item(spead2.HEAP_LENGTH_ID, 96, True)], payload[32 : 64])
-        ]
+        stream0_packets = self.flavour.make_packet_heap(2, [
+            Item(0x1600, 12345, True),
+            Item(0x5000, payload, False)],
+            packets=2)
+        stream1_packets = []
+        for i in range(3, 20, 2):
+            stream1_packets.extend(self.flavour.make_packet_heap(i, [
+                Item(0x1600, 54321, True),
+                Item(0x5001, payload, False)],
+                packets=2))
+        # Interleave the packets from stream 1 into the middle of the substream
+        # 0 packet.
+        packets = stream0_packets[0:1] + stream1_packets + stream0_packets[1:]
+        heaps = self.data_to_heaps(b''.join(packets), substreams=2)
+        assert len(heaps) == 10
+        assert heaps[-1].cnt == 2
+        items = heaps[-1].get_items()
+        assert len(items) == 2
+        items.sort(key=lambda item: item.id)
+        assert items[0].id == 0x1600
+        assert items[0].immediate_value == 12345
+
+    def test_incomplete_heaps(self):
+        payload = bytearray(96)
+        payload[:] = range(96)
+        packets = self.flavour.make_packet_heap(1, [
+            Item(0x1600, 12345, True),
+            Item(0x5000, payload, False)],
+            packets=[(5, 12), (32, 64)])
         heaps = self.data_to_heaps(b''.join(packets),
                                    contiguous_only=False,
                                    incomplete_keep_payload_ranges=True,
