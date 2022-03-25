@@ -1,7 +1,5 @@
 [build-system]
-# Setuptools is pinned to an older version due to
-# https://github.com/pypa/setuptools/issues/3130
-requires = ["setuptools==59.8.0", "wheel", "pybind11==2.9.1", "setuptools_scm==6.4.2"]
+requires = ["setuptools", "wheel", "pybind11==2.9.1", "setuptools_scm==6.4.2"]
 
 [tool.cibuildwheel]
 build-frontend = "build"
