@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 3.9.0
 
 - Added ``substreams`` to :py:class:`spead2.recv.StreamConfig` to improve
   handling of interleaved heaps from multiple senders.

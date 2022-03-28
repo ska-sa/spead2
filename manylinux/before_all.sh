@@ -15,16 +15,16 @@ yum install -y \
 unset SSL_CERT_FILE
 
 # Install boost
-wget --progress=dot:mega https://ufpr.dl.sourceforge.net/project/boost/boost/1.74.0/boost_1_74_0.tar.bz2 -O /tmp/boost_1_74_0.tar.bz2
-tar -C /tmp -jxf /tmp/boost_1_74_0.tar.bz2
-cd /tmp/boost_1_74_0
+wget --progress=dot:mega https://ufpr.dl.sourceforge.net/project/boost/boost/1.78.0/boost_1_78_0.tar.bz2 -O /tmp/boost_1_78_0.tar.bz2
+tar -C /tmp -jxf /tmp/boost_1_78_0.tar.bz2
+cd /tmp/boost_1_78_0
 ./bootstrap.sh --prefix=/usr --with-libraries=program_options,system
 ./b2 cxxflags=-fPIC link=static install
 
 # Install rdma-core
-wget --progress=dot:mega https://github.com/linux-rdma/rdma-core/releases/download/v31.0/rdma-core-31.0.tar.gz -O /tmp/rdma-core-31.0.tar.gz
-tar -C /tmp -zxf /tmp/rdma-core-31.0.tar.gz
-cd /tmp/rdma-core-31.0
+wget --progress=dot:mega https://github.com/linux-rdma/rdma-core/releases/download/v39.0/rdma-core-39.0.tar.gz -O /tmp/rdma-core-39.0.tar.gz
+tar -C /tmp -zxf /tmp/rdma-core-39.0.tar.gz
+cd /tmp/rdma-core-39.0
 mkdir build
 cd build
 cmake3 -GNinja -DCMAKE_BUILD_TYPE=Release ..
