@@ -1,4 +1,4 @@
-# Copyright 2015, 2019-2020 National Research Foundation (SARAO)
+# Copyright 2015, 2019-2022 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -14,6 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
+import logging
 import gc
 import weakref
 
@@ -85,6 +86,19 @@ class TestUdpStream:
         for i in range(5):  # Try extra hard to make PyPy release things
             gc.collect()
         assert weak() is None
+
+    async def test_cancel(self, caplog):
+        """Cancelling the future must work gracefully."""
+        with caplog.at_level(logging.ERROR):
+            future = self.stream.async_send_heap(self.heap)
+            future.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await future
+            # Send another heap to ensure that process_callbacks has time to run.
+            await self.stream.async_send_heap(self.heap)
+        # An exception in process_callbacks doesn't propagate anywhere we can
+        # easily access it, but it does cause the event loop to log an error.
+        assert not caplog.records
 
 
 @pytest.mark.asyncio

@@ -1,4 +1,4 @@
-# Copyright 2015, 2019-2020 National Research Foundation (SARAO)
+# Copyright 2015, 2019-2020, 2022 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -25,6 +25,16 @@ from spead2._spead2.send import TcpStreamAsyncio as _TcpStreamAsyncio
 from spead2._spead2.send import InprocStreamAsyncio as _InprocStreamAsyncio
 
 
+def _set_result(future, result):
+    if not future.done():
+        future.set_result(result)
+
+
+def _set_exception(future, exc):
+    if not future.done():
+        future.set_exception(exc)
+
+
 def _wrap_class(name, base_class):
     class Wrapped(base_class):
         def __init__(self, *args, **kwargs):
@@ -38,9 +48,9 @@ def _wrap_class(name, base_class):
 
             def callback(exc, bytes_transferred):
                 if exc is not None:
-                    future.set_exception(exc)
+                    _set_exception(future, exc)
                 else:
-                    future.set_result(bytes_transferred)
+                    _set_result(future, bytes_transferred)
                 self._active -= 1
                 if self._active == 0:
                     loop.remove_reader(self.fd)
@@ -137,11 +147,10 @@ class TcpStream(_TcpStreamBase):
         loop = asyncio.get_event_loop()
 
         def callback(arg):
-            if not future.done():
-                if isinstance(arg, Exception):
-                    loop.call_soon_threadsafe(future.set_exception, arg)
-                else:
-                    loop.call_soon_threadsafe(future.set_result, arg)
+            if isinstance(arg, Exception):
+                loop.call_soon_threadsafe(_set_exception, future, arg)
+            else:
+                loop.call_soon_threadsafe(_set_result, future, arg)
 
         stream = cls(callback, *args, **kwargs)
         await future
