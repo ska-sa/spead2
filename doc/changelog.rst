@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Fix an :exc:`asyncio.InvalidStateError` that occurs when the future returned by
+  :py:meth:`~.async_send_heap` or :py:meth:`~.async_send_heaps` is cancelled
+  before it completes.
+
 .. rubric:: 3.9.0
 
 - Added ``substreams`` to :py:class:`spead2.recv.StreamConfig` to improve
