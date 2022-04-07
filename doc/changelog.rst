@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 3.9.1
 
 - Fix an :exc:`asyncio.InvalidStateError` that occurs when the future returned by
   :py:meth:`~.async_send_heap` or :py:meth:`~.async_send_heaps` is cancelled
