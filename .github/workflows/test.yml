@@ -143,9 +143,7 @@ jobs:
         run: |
           echo '[build_ext]' > setup.cfg
           echo 'coverage = yes' >> setup.cfg
-      # An in-tree build is needed for the coverage files to be written to
-      # the right places.
-      - run: pip install --use-feature=in-tree-build -v .
+      - run: pip install -v .
       - name: Run Python tests
         run: ./.ci/py-tests.sh
       - name: Run configure
