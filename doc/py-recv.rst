@@ -321,8 +321,8 @@ multiple senders. We consider two sorts of packet ordering issues:
    around indefinitely in the hope that the packet may arrive. The
    :py:attr:`max_heaps` attribute of :py:class:`spead2.recv.StreamConfig`
    determines the amount of overlap allowed: once a packet in heap :math:`n`
-   is observed, it is assumed that heap :math:`n - \text{max_heaps}` is
-   complete. When there are many producers it will likely to be necessary to
+   is observed, it is assumed that heap :math:`n - \text{max\_heaps}` is
+   complete. When there are many producers it will likely be necessary to
    increase this value. Larger values increase the memory usage for partial
    heaps, and have a small performance impact.
 

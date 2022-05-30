@@ -5,3 +5,5 @@ python:
     - requirements: requirements-readthedocs.txt
     - method: pip
       path: .
+formats:
+  - pdf
