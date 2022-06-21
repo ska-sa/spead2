@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <string>
 #include <pcap/pcap.h>
+#include <spead2/common_raw_packet.h>
 #include <spead2/recv_reader.h>
 #include <spead2/recv_udp_base.h>
 #include <spead2/recv_stream.h>
@@ -42,7 +43,9 @@ namespace recv
 class udp_pcap_file_reader : public udp_reader_base
 {
 private:
+    using udp_unpacker = packet_buffer (*)(void *, size_t);
     pcap_t *handle;
+    udp_unpacker udp_from_frame;
 
     void run();
 

@@ -20,7 +20,9 @@
 
 #include <spead2/common_features.h>
 #if SPEAD2_USE_PCAP
+#include <cassert>
 #include <cstdint>
+#include <pcap/dlt.h>
 #include <string>
 #include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
@@ -59,7 +61,7 @@ void udp_pcap_file_reader::run()
                 try
                 {
                     void *bytes = const_cast<void *>((const void *) pkt_data);
-                    packet_buffer payload = udp_from_ethernet(bytes, h->len);
+                    packet_buffer payload = udp_from_frame(bytes, h->len);
                     process_one_packet(state, payload.data(), payload.size(), payload.size());
                 }
                 catch (packet_type_error &e)
@@ -109,6 +111,12 @@ udp_pcap_file_reader::udp_pcap_file_reader(stream &owner, const std::string &fil
         throw error;
     }
     pcap_freecode(&filter);
+    // The link type used to record this file
+    auto linktype = pcap_datalink(handle);
+    assert(linktype != PCAP_ERROR_NOT_ACTIVATED);
+    if (linktype != DLT_EN10MB && linktype != DLT_LINUX_SLL)
+        throw packet_type_error("pcap linktype is neither ethernet nor linux sll");
+    udp_from_frame = (linktype == DLT_EN10MB) ? udp_from_ethernet : udp_from_linux_sll;
 
     // Process the file
     get_io_service().post([this] { run(); });
