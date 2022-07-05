@@ -106,7 +106,10 @@ jobs:
         env:
           CC: ${{ matrix.cc }}  # Do not pass -Werror when building dependencies
       - run: ./bootstrap.sh
-      - run: CPPFLAGS="-I/usr/local/include" pip install -v .
+        # CPPFLAGS and LDFLAGS are to work around Python config oddities that
+        # cause it to run clang with options that prevent these locations being
+        # searched.
+      - run: CPPFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" pip install -v .
       - name: Run tests
         run: ./.ci/py-tests.sh
       - run: flake8
