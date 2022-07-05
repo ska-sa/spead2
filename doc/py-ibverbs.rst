@@ -2,7 +2,7 @@ Support for ibverbs
 ===================
 Receiver performance can be significantly improved by using the Infiniband
 Verbs API instead of the BSD sockets API. This is currently only tested on
-Linux with ConnectX®-5 NICs. It depends on device managed flow steering
+Linux with ConnectX® NICs. It depends on device managed flow steering
 (DMFS).
 
 There are a number of limitations in the current implementation:
@@ -39,7 +39,7 @@ Add the following to :file:`/etc/modprobe.d/mlnx.conf`::
    manual_ for details), but can improve performance when capturing a large
    number of multicast groups.
 
-   .. _manual: http://www.mellanox.com/related-docs/prod_software/Mellanox_EN_for_Linux_User_Manual_v4_3.pdf
+   .. _manual: https://docs.nvidia.com/networking/display/MLNXENv495100/Flow+Steering
 
 ConnectX®-4+, MLNX OFED up to 4.9
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -51,10 +51,20 @@ All other cases
 ^^^^^^^^^^^^^^^
 No system configuration is needed, but the ``CAP_NET_RAW`` capability is
 required. Running as root will achieve this; a full discussion of Linux
-capabilities is beyond the scope of this manual.
+capabilities is beyond the scope of this manual. The :ref:`spead2_net_raw`
+utility can also be used to give users access to this capability without
+exposing full root access.
 For more information, see the `libvma documentation`_.
 
 .. _libvma documentation: https://docs.mellanox.com/category/vma
+
+Multicast loopback
+^^^^^^^^^^^^^^^^^^
+By default, multicast traffic sent using ibverbs can also be received on the
+same port. While convenient, this is a slow path in the NIC, and can limit
+performance. To disable this loopback, write ``1`` to
+:samp:`/sys/class/net/{interface}/settings/force_local_lb_disable` (note that
+the setting does not persist across reboots).
 
 Receiving
 ---------
