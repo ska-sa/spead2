@@ -106,7 +106,7 @@ jobs:
         env:
           CC: ${{ matrix.cc }}  # Do not pass -Werror when building dependencies
       - run: ./bootstrap.sh
-      - run: pip install -v .
+      - run: CPPFLAGS="-I/usr/local/include" pip install -v .
       - name: Run tests
         run: ./.ci/py-tests.sh
       - run: flake8
