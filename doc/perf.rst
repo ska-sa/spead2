@@ -10,16 +10,25 @@ This guide focuses mostly on the problem of receiving data, because my
 experience with high-bandwidth SPEAD has been with data produced by FPGAs.
 Nevertheless, some of these tips also apply to sending data.
 
-All advice is for a GNU/Linux system with an Intel CPU. You will need to
+All advice is for a GNU/Linux system with an x86-64 CPU. You will need to
 consult other documentation to find equivalent commands for other systems.
 
 System tuning
 -------------
 
-Networking
-^^^^^^^^^^
-The first thing to do is to increase the maximum socket buffer sizes. See
-:doc:`introduction` for details.
+Kernel bypass networking
+^^^^^^^^^^^^^^^^^^^^^^^^
+For the best performance it is necessary to bypass the kernel networking stack.
+At present the only kernel bypass technology supported by spead2 is
+:doc:`ibverbs <py-ibverbs>`. Refer to that documentation for setup and tuning
+instructions. Note that at present this is only known to work with NVIDIA
+NICs.
+
+Kernel network stack
+^^^^^^^^^^^^^^^^^^^^
+If you're unable to bypass the kernel networking stack, this section has some
+advice on tuning it. The first thing to do is to increase the maximum socket
+buffer sizes. See :doc:`introduction` for details.
 
 The kernel firewall can affect performance, particularly if
 small packets are being used (in this context, anything that isn't a jumbo
@@ -56,7 +65,7 @@ routing`_ configured.
 CPU
 ^^^
 On a system with multiple CPU sockets, it is important to pin the process
-using spead2 to a single socket, so that memory accesses do not cross the QPI
+using spead2 to a single socket, so that memory accesses do not cross the inter-socket
 bus. For best performance, use the same socket as the NIC, which can be
 determined from the output of :command:`hwloc-ls`. See :manpage:`numactl(8)`,
 :manpage:`hwloc-ls(1)`, :manpage:`hwloc-bind(1)`.
@@ -69,7 +78,7 @@ stream starts and the system must ramp up performance in response.
 - Disable hyperthreading.
 - Disable CPU frequency scaling.
 - Disable C states beyond C1 (for example, by passing
-  ``intel_idle.max_state=1`` to the Linux kernel). Disabling
+  ``processor.max_cstate=1`` to the Linux kernel). Disabling
   C1 as well may reduce latency, but will likely limit the gains from Turbo
   Boost.
 - Investigate disabling the P-state driver by passing ``intel_pstate=disable``
@@ -79,7 +88,7 @@ stream starts and the system must ramp up performance in response.
 - Disable adaptive interrupt moderation on the NIC: :samp:`ethtool
   -C {interface} adaptive-rx off adaptive-tx off`. You may then need to
   experiment to tune the interrupt moderation settings — consult
-  :manpage:`ethtool(8)` for details.
+  :manpage:`ethtool(8)` for details (does not apply if using ibverbs).
 - Disable Ethernet flow control: :samp:`ethtool -A {interface}
   rx off tx off`.
 - Use the isolcpus_ kernel option to completely isolate some CPU cores from
@@ -92,6 +101,48 @@ stream starts and the system must ramp up performance in response.
 .. [#pstate1] https://www.phoronix.com/scan.php?page=article&item=intel_pstate_linux315
 .. [#pstate2] https://www.phoronix.com/scan.php?page=article&item=linux-47-schedutil
 .. [#pstate3] https://www.phoronix.com/scan.php?page=news_item&px=Linux-4.4-CPUFreq-P-State-Gov
+
+AMD Epyc tuning
+~~~~~~~~~~~~~~~
+There are also some specific BIOS settings that are important for AMD Epyc
+systems (these have been tried on Rome and Milan systems):
+
+- Set APBDIS to 1 and Fixed SOC PState to P0. This prevents the bus from going
+  into low-power states when it thinks there isn't enough work.
+- Disable DF Cstates.
+- Enable PCIe relaxed ordering.
+- Experiment to find the best NUMA-per-socket setting. NPS4 gives slightly
+  higher throughput but it also seems to let GPUs starve the NIC.
+- When placing cards into slots, be aware that slots that connect to the same
+  quadrant of the CPU (NUMA node, in NPS4 mode) contend for bandwidth to the
+  CPU.
+
+The above have all been observed to make significant differences in spead2
+applications. Below are some other general tuning recommendations found on the
+internet, for which it's unclear whether it will make a difference:
+
+- Disable IOMMU.
+- Set local APIC mode to x2APIC.
+- Set Preferred I/O to manual and Preferred I/O bus to the bus containing the
+  NIC (only really useful for a single NIC).
+- On Milan, set LCLK frequency control to the maximum frequency.
+
+Interrupt affinity
+~~~~~~~~~~~~~~~~~~
+NICs typically have multiple send and receive queues with their own interrupt
+numbers, and each interrupt is typically directed to a particular CPU core.
+This means that not all CPU cores are equal when it comes to pinning threads.
+Generally you want the receiver to run "close" to the core handling the
+interrupts, so that the interrupt handler can wake it up easily, and driver
+data structures can be cached; but if they are on the same core it can
+sometimes reduce performance by contending for resources.
+
+The drivers for NVIDIA NICs include some tools
+(:program:`show_irq_affinity.sh`, :program:`set_irq_affinity.sh`) to show and
+set IRQ affinities, which can help to set the affinities in a predictable way.
+Note that for this to be effective, the :program:`irqbalance` daemon needs to
+be disabled, as it will try to dynamically adjust IRQ affinities based on
+usage patterns.
 
 Protocol design
 ---------------
@@ -165,19 +216,6 @@ provided :ref:`benchmarking tool <spead2_bench>` which measures the sustained
 performance on a connection. This makes it possible to quickly identify the
 techniques that will make the most difference before implementing them.
 
-Kernel bypass APIs
-^^^^^^^^^^^^^^^^^^
-Kernel bypass APIs provide a zero-copy path from the NIC into the spead2
-library, without the kernel being involved. This can make a huge performance
-difference, particularly for small packet sizes.
-
-These APIs are not a free lunch: they will only work with some NICs, require
-special kernel drivers and setup, have limitations in what networking features
-they can support, and require the application to specify which network device
-to use.
-
-Currently only one kernel bypass API is supported: :doc:`ibverbs <py-ibverbs>`.
-
 Memory allocation
 ^^^^^^^^^^^^^^^^^
 Using a :ref:`memory pool <py-memory-allocators>` is the single most important
@@ -206,6 +244,12 @@ In general, it is best to err on the side of adding a few extra, provided that
 this does not consume too much memory. At present there are unfortunately no
 good tools for analysing memory pool performance.
 
+Chunking receiver
+~~~~~~~~~~~~~~~~~
+An alternative to using memory pools is to use the :doc:`recv-chunk`. It has
+the same benefit of keeping memory allocated within the application rather
+than returning it to the OS.
+
 Heap lifetime (Python)
 ~~~~~~~~~~~~~~~~~~~~~~
 All the payload for a heap is stored in a single memory allocation, and where
@@ -220,12 +264,13 @@ the same frequency, rather than mixing low- and high-frequency items in the
 same heap. Receivers can avoid this problem by copying values that are known to
 be slowly varying.
 
-Custom allocators (C++)
-~~~~~~~~~~~~~~~~~~~~~~~
+Custom allocators
+~~~~~~~~~~~~~~~~~
 If you are doing an extra copy purely to put values into a special memory type
 (for example, shared memory to communicate with another process, or pinned
 memory for transfer to a GPU), then consider subclassing
-:cpp:class:`spead2::memory_allocator`.
+:cpp:class:`spead2::memory_allocator` (C++ only), or using a
+:doc:`recv-chunk`.
 
 Tuning based on heap size
 ^^^^^^^^^^^^^^^^^^^^^^^^^
