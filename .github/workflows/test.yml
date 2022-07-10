@@ -22,8 +22,8 @@ jobs:
     env:
       CXX: ${{ matrix.cxx }} -Werror
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v2
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
         with:
           path: ~/.ccache
           key: ${{ runner.os }}-cxx-ccache-${{ hashFiles('**') }}
@@ -33,7 +33,7 @@ jobs:
         run: ./.ci/install-sys-pkgs.sh
       - name: Set up ccache
         run: ./.ci/ccache-path.sh
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.8'
       - run: pip install jinja2 pycparser packaging
@@ -80,14 +80,14 @@ jobs:
       CC: ${{ matrix.cc }} -Werror
       CXX: ${{ matrix.cxx }} -Werror
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v2
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
         with:
           path: ~/.ccache
           key: ${{ runner.os }}-py-ccache-${{ hashFiles('**') }}
           restore-keys: |
             ${{ runner.os }}-py-ccache-
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements*.txt') }}
@@ -98,7 +98,7 @@ jobs:
         run: ./.ci/install-sys-pkgs.sh
       - name: Set up ccache
         run: ./.ci/ccache-path.sh
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Python dependencies
@@ -106,7 +106,10 @@ jobs:
         env:
           CC: ${{ matrix.cc }}  # Do not pass -Werror when building dependencies
       - run: ./bootstrap.sh
-      - run: pip install -v .
+        # CPPFLAGS and LDFLAGS are to work around Python config oddities that
+        # cause it to run clang with options that prevent these locations being
+        # searched.
+      - run: CPPFLAGS="-I/usr/local/include" LDFLAGS="-L/usr/local/lib" pip install -v .
       - name: Run tests
         run: ./.ci/py-tests.sh
       - run: flake8
@@ -116,14 +119,14 @@ jobs:
   coverage:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v2
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
         with:
           path: ~/.ccache
           key: ${{ runner.os }}-coverage-ccache-${{ hashFiles('**') }}
           restore-keys: |
             ${{ runner.os }}-coverage-ccache-
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
@@ -133,7 +136,7 @@ jobs:
         run: ./.ci/install-sys-pkgs.sh
       - name: Set up ccache
         run: ./.ci/ccache-path.sh
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       - name: Install Python dependencies
@@ -165,15 +168,15 @@ jobs:
     needs: [test-cxx, test-python, coverage]
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v2
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-3.10-${{ hashFiles('requirements*.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-3.10-
             ${{ runner.os }}-pip-
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       - name: Install Python dependencies
@@ -181,7 +184,7 @@ jobs:
       - run: ./bootstrap.sh
       - run: pip install build==0.7.0
       - run: python -m build --sdist .
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: sdist
           path: ./dist/*.tar.gz
@@ -190,15 +193,15 @@ jobs:
     needs: [test-cxx, test-python, coverage]
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: pypa/cibuildwheel@v2.3.1
-      - uses: actions/upload-artifact@v2
+      - uses: actions/checkout@v3
+      - uses: pypa/cibuildwheel@v2.7.0
+      - uses: actions/upload-artifact@v3
         with:
           name: wheels
           path: ./wheelhouse/*.whl
       - name: Tar debug symbols
         run: cd wheelhouse && tar -Jcvf "spead2-$(sed 's/.*"\(.*\)"/\1/' ../src/spead2/_version.py)-debug.tar.xz" _spead2*.debug
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: debug_symbols
           path: ./wheelhouse/spead2-*-debug.tar.xz
