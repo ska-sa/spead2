@@ -29,15 +29,23 @@ namespace spead2
 namespace unittest
 {
 
-// A packet captured with tcpdump, containing "Hello world\n" in the UDP payload
-static const std::uint8_t sample_packet[] =
+// Two packets captured with tcpdump with the same "Hello world\n" UDP payload.
+// One was captured directly exclusively from an ethernet device, the other from the "any" device.
+static const std::uint8_t sample_ethernet_header[] =
 {
-    0x01, 0x00, 0x5e, 0x66, 0xfe, 0x01, 0x1c, 0x1b, 0x0d, 0xe0, 0xd0, 0xfd, 0x08, 0x00, 0x45, 0x00,
-    0x00, 0x28, 0xae, 0xa3, 0x40, 0x00, 0x01, 0x11, 0xd0, 0xfe, 0x0a, 0x08, 0x02, 0xb3, 0xef, 0x66,
-    0xfe, 0x01, 0x87, 0x5d, 0x22, 0xb8, 0x00, 0x14, 0xe9, 0xb4, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20,
-    0x77, 0x6f, 0x72, 0x6c, 0x64, 0x0a
+    0x01, 0x00, 0x5e, 0x66, 0xfe, 0x01, 0x1c, 0x1b, 0x0d, 0xe0, 0xd0, 0xfd, 0x08, 0x00
 };
-// Properties of this sample packet
+static const std::uint8_t sample_sll_header[] =
+{
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x06, 0x1c, 0x1b, 0x0d, 0xe0, 0xd0, 0xfd, 0x00, 0x60, 0x08, 0x00
+};
+static const std::uint8_t sample_ipv4_packet[] =
+{
+    0x45, 0x00, 0x00, 0x28, 0xae, 0xa3, 0x40, 0x00, 0x01, 0x11, 0xd0, 0xfe, 0x0a, 0x08, 0x02, 0xb3,
+    0xef, 0x66, 0xfe, 0x01, 0x87, 0x5d, 0x22, 0xb8, 0x00, 0x14, 0xe9, 0xb4, 0x48, 0x65, 0x6c, 0x6c,
+    0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x0a
+};
+// Properties of these sample packets
 static const mac_address source_mac = {{0x1c, 0x1b, 0x0d, 0xe0, 0xd0, 0xfd}};
 static const mac_address destination_mac = {{0x01, 0x00, 0x5e, 0x66, 0xfe, 0x01}};
 static const auto source_address = boost::asio::ip::address_v4::from_string("10.8.2.179");
@@ -49,13 +57,18 @@ static const std::uint16_t ipv4_checksum = 0xd0fe;
 static const std::uint16_t udp_checksum = 0xe9b4;
 static const std::string sample_payload = "Hello world\n";
 
+
 struct packet_data
 {
-    std::array<std::uint8_t, sizeof(sample_packet)> data;
+    std::array<std::uint8_t, sizeof(sample_ethernet_header) + sizeof(sample_ipv4_packet)> data;
+    std::array<std::uint8_t, sizeof(sample_sll_header) + sizeof(sample_ipv4_packet)> sll_data;
 
     packet_data()
     {
-        std::memcpy(data.data(), sample_packet, sizeof(sample_packet));
+        std::memcpy(data.data(), sample_ethernet_header, sizeof(sample_ethernet_header));
+        std::memcpy(data.data() + sizeof(sample_ethernet_header), sample_ipv4_packet, sizeof(sample_ipv4_packet));
+        std::memcpy(sll_data.data(), sample_sll_header, sizeof(sample_sll_header));
+        std::memcpy(sll_data.data() + sizeof(sample_sll_header), sample_ipv4_packet, sizeof(sample_ipv4_packet));
     }
 };
 
@@ -202,6 +215,12 @@ BOOST_AUTO_TEST_CASE(udp_bad_length)
 BOOST_AUTO_TEST_CASE(udp_from_ethernet)
 {
     boost::asio::mutable_buffer payload = spead2::udp_from_ethernet(data.data(), data.size());
+    BOOST_CHECK_EQUAL(buffer_to_string(payload), sample_payload);
+}
+
+BOOST_AUTO_TEST_CASE(udp_from_linux_sll)
+{
+    boost::asio::mutable_buffer payload = spead2::udp_from_linux_sll(sll_data.data(), sll_data.size());
     BOOST_CHECK_EQUAL(buffer_to_string(payload), sample_payload);
 }
 
