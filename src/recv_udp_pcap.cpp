@@ -22,7 +22,6 @@
 #if SPEAD2_USE_PCAP
 #include <cassert>
 #include <cstdint>
-#include <pcap/dlt.h>
 #include <string>
 #include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
@@ -30,6 +29,15 @@
 #include <spead2/recv_udp_pcap.h>
 #include <spead2/common_raw_packet.h>
 #include <spead2/common_logging.h>
+
+// These are defined in pcap/dlt.h for libpcap >= 1.8.0, but in pcap/bfp.h otherwise
+// We define them here to avoid having to guess which file to include
+#ifndef DLT_EN10MB
+#define DLT_EN10MB 1
+#endif
+#ifndef DLT_LINUX_SLL
+#define DLT_LINUX_SLL 113
+#endif
 
 namespace spead2
 {
