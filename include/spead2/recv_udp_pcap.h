@@ -39,6 +39,8 @@ namespace recv
 
 /**
  * Reader class that feeds data from a pcap file to a stream.
+ *
+ * An optional filter selects a subset of the packets in the capture file.
  */
 class udp_pcap_file_reader : public udp_reader_base
 {
@@ -55,10 +57,11 @@ public:
      *
      * @param owner Owning stream
      * @param filename Filename of the capture file
+     * @param filter Filter to apply to packets from the capture file
      *
      * @throws std::runtime_error if @a filename could not read
      */
-    udp_pcap_file_reader(stream &owner, const std::string &filename);
+    udp_pcap_file_reader(stream &owner, const std::string &filename, const std::string &filter = "");
     virtual ~udp_pcap_file_reader();
 
     virtual void stop() override;

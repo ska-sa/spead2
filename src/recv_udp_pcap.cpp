@@ -98,7 +98,7 @@ void udp_pcap_file_reader::run()
         stopped();
 }
 
-udp_pcap_file_reader::udp_pcap_file_reader(stream &owner, const std::string &filename)
+udp_pcap_file_reader::udp_pcap_file_reader(stream &owner, const std::string &filename, const std::string &user_filter)
     : udp_reader_base(owner)
 {
     // Open the file
@@ -108,8 +108,11 @@ udp_pcap_file_reader::udp_pcap_file_reader(stream &owner, const std::string &fil
         throw std::runtime_error(errbuf);
     // Set a filter to ensure that we only get UDP4 packets with no fragmentation
     bpf_program filter;
+    std::string filter_expression = "ip proto \\udp and ip[6:2] & 0x3fff = 0";
+    if (!user_filter.empty())
+        filter_expression += " and (" + user_filter + ')';
     if (pcap_compile(handle, &filter,
-                     "ip proto \\udp and ip[6:2] & 0x3fff = 0",
+                     filter_expression.data(),
                      1, PCAP_NETMASK_UNKNOWN) != 0)
         throw std::runtime_error(pcap_geterr(handle));
     if (pcap_setfilter(handle, &filter) != 0)
