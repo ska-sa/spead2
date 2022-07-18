@@ -276,10 +276,10 @@ static void add_udp_ibv_reader_new(stream &s, const udp_ibv_config_wrapper &conf
 #endif  // SPEAD2_USE_IBV
 
 #if SPEAD2_USE_PCAP
-static void add_udp_pcap_file_reader(stream &s, const std::string &filename)
+static void add_udp_pcap_file_reader(stream &s, const std::string &filename, const std::string &filter)
 {
     py::gil_scoped_release gil;
-    s.emplace_reader<udp_pcap_file_reader>(filename);
+    s.emplace_reader<udp_pcap_file_reader>(filename, filter);
 }
 #endif
 
@@ -773,7 +773,7 @@ py::module register_module(py::module &parent)
 #endif
 #if SPEAD2_USE_PCAP
         .def("add_udp_pcap_file_reader", add_udp_pcap_file_reader,
-             "filename"_a)
+             "filename"_a, "filter"_a = "")
 #endif
         .def("add_inproc_reader", add_inproc_reader,
              "queue"_a)
