@@ -112,7 +112,7 @@ udp_pcap_file_reader::udp_pcap_file_reader(stream &owner, const std::string &fil
     if (!user_filter.empty())
         filter_expression += " and (" + user_filter + ')';
     if (pcap_compile(handle, &filter,
-                     filter_expression.data(),
+                     filter_expression.c_str(),
                      1, PCAP_NETMASK_UNKNOWN) != 0)
         throw std::runtime_error(pcap_geterr(handle));
     if (pcap_setfilter(handle, &filter) != 0)
