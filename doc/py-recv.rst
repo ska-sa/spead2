@@ -226,11 +226,15 @@ it, or repeatedly call :py:meth:`~spead2.recv.Stream.get`.
       :param socket.socket acceptor: Listening socket
       :param int max_size: Largest packet size that will be accepted.
 
-   .. py:method:: add_udp_pcap_file_reader(filename)
+   .. py:method:: add_udp_pcap_file_reader(filename, filter='')
 
       Feed data from a pcap file (for example, captured with :program:`tcpdump`
-      or :ref:`mcdump`). This is only available if libpcap development files
-      were found at compile time.
+      or :ref:`mcdump`). An optional filter selects a subset of the packets from
+      the capture file. This is only available if libpcap development files were
+      found at compile time.
+
+      :param str filename: Filename of the capture file
+      :param str filter: Filter to apply to packets from the capture file
 
    .. py:method:: add_inproc_reader(queue)
 
