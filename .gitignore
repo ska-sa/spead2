@@ -12,6 +12,8 @@ Makefile.in
 /config.status
 /config.sub
 /configure
+/m4/lt*.m4
+/m4/libtool.m4
 /spead2.pc
 /python-build.cfg
 /wheelhouse

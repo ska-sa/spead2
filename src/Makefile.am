@@ -1,4 +1,4 @@
-# Copyright 2016, 2020 National Research Foundation (SARAO)
+# Copyright 2016, 2020, 2022 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -100,3 +100,12 @@ libspead2_a_SOURCES = \
 	send_udp.cpp \
 	send_udp_ibv.cpp \
 	send_writer.cpp
+
+if SHARED_LIBRARY
+lib_LTLIBRARIES = libspead2.la
+libspead2_la_SOURCES = $(libspead2_a_SOURCES)
+libspead2_la_LDFLAGS = -shared -version-info 1:0:0
+# Dummy CXXFLAGS to force automake to build the sources independently for
+# this target.
+libspead2_la_CXXFLAGS = $(AM_CXXFLAGS)
+endif

@@ -110,5 +110,16 @@ usage is
     ./configure --enable-lto AR=gcc-ar RANLIB=gcc-ranlib
 
 The installation will install some benchmark tools, a static library, and the
-header files. At the moment there is no intention to create a shared library,
-because the ABI is not stable.
+header files.
+
+Shared library
+^^^^^^^^^^^^^^
+There is experimental support for building a shared library. Pass
+``--enable-shared`` to ``configure``. It's not recommended for general use
+because the binary interface is likely to be incompatible between spead2
+versions, requiring software linked against the shared library to be
+recompiled after upgrading spead2 (which defeats one of the points of a shared
+library). It also exports a lot of symbols (e.g., from Boost) that may clash
+with other libraries. Performance may be lower than using the static library.
+It is made available for users who need to load the library dynamically as part
+of a plugin system.

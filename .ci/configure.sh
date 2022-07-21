@@ -16,4 +16,5 @@ shift
     --with-mlx5dv=$extras \
     --with-pcap=$extras \
     --with-cap=$extras \
+    --enable-shared=$extras \
     "$@"
