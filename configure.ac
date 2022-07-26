@@ -26,6 +26,7 @@ AC_PROG_RANLIB
 AC_ARG_VAR(AR, [Static library archiver command])
 AC_ARG_VAR(RANLIB, [Generate index to static library])
 AC_LANG(C++)
+LT_INIT([disable-static disable-shared])
 
 ### Check for -std=c++11
 
@@ -246,6 +247,7 @@ AM_CONDITIONAL([DEBUG_LOG], [test "x$enable_debug_log" = "xyes"])
 AM_CONDITIONAL([OPTIMIZED], [test "x$enable_optimized" != "xno"])
 AM_CONDITIONAL([COVERAGE], [test "x$enable_coverage" = "xyes"])
 AM_CONDITIONAL([LTO], [test "x$enable_lto" = "xyes"])
+AM_CONDITIONAL([SHARED_LIBRARY], [test "x$enable_shared" = "xyes"])
 AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
 AM_CONDITIONAL([SPEAD2_USE_CUDA], [test "x$SPEAD2_USE_CUDA" = "x1"])
 AM_CONDITIONAL([SPEAD2_USE_GDRAPI], [test "x$SPEAD2_USE_GDRAPI" = "x1"])
@@ -272,6 +274,7 @@ SPEAD2_PRINT_CONDITION([debug logging], [DEBUG_LOG])
 SPEAD2_PRINT_CONDITION([compiler optimization], [OPTIMIZED])
 SPEAD2_PRINT_CONDITION([link-time optimization], [LTO])
 SPEAD2_PRINT_CONDITION([coverage], [COVERAGE])
+SPEAD2_PRINT_CONDITION([shared library], [SHARED_LIBRARY])
 SPEAD2_PRINT_FEATURE([MOVNTDQ instruction], [test "x$SPEAD2_USE_MOVNTDQ" = "x1"])
 echo ""
 echo "System calls:"

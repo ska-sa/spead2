@@ -1,5 +1,8 @@
 - Update version number in doc/changelog.rst
 - Update version number in src/spead2/_version.py
+- Update the shared library version number in src/Makefile.am:
+  - If there are ABI changes, update the first number and reset the second to zero.
+  - Otherwise, increment the second number.
 - Check that .pyi stubs have been updated
 - Check that Github Actions successfully tested the release and built wheels
 - Install the sdist from Github Actions and check that it passes pytest
