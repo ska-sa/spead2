@@ -41,7 +41,7 @@ jobs:
       - name: Run configure
         run: ./.ci/configure.sh ${{ matrix.extras }}
       - name: Build
-        run: make -C build -j
+        run: make -C build -j4
       - name: Run tests
         run: ./.ci/cxx-tests.sh
       - name: Show ccache stats
@@ -152,7 +152,7 @@ jobs:
       - name: Run configure
         run: ./.ci/configure.sh yes --disable-optimized --enable-coverage
       - name: Build
-        run: make -C build -j
+        run: make -C build -j4
       - name: Run C++ tests
         run: ./.ci/cxx-tests.sh
       - name: Collect coverage
