@@ -1,6 +1,18 @@
 Changelog
 =========
 
+.. rubric:: 3.10.0
+
+- Support pcap dumps that use the SLL format.
+- Support a user-defined filter in the pcap file reader.
+- Add experimental support for building a shared library.
+- Assorted documentation updates
+
+  - The SPEAD specification is now stored in the repository (the upstream
+    link is broken).
+  - Build PDFs on readthedocs.
+  - Update the tuning documentation.
+
 .. rubric:: 3.9.1
 
 - Fix an :exc:`asyncio.InvalidStateError` that occurs when the future returned by
