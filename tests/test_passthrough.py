@@ -1,4 +1,4 @@
-# Copyright 2015, 2019-2021 National Research Foundation (SARAO)
+# Copyright 2015, 2019-2022 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -62,19 +62,26 @@ class BaseTestPassthrough:
 
     is_lossy = False
     requires_ipv6 = False
+    requires_ipv6_multicast = False
 
     @classmethod
     def check_ipv6(cls):
         if not socket.has_ipv6:
             pytest.skip('platform does not support IPv6')
-        # Travis build systems fail to bind to an IPv6 address
-        sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-        try:
-            sock.bind(("::1", 8888))
-        except OSError:
-            pytest.skip('platform cannot bind IPv6 localhost address')
-        finally:
-            sock.close()
+        with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as sock:
+            # Travis build systems fail to bind to an IPv6 address
+            try:
+                sock.bind(("::1", 8888))
+            except OSError:
+                pytest.skip('platform cannot bind IPv6 localhost address')
+        if cls.requires_ipv6_multicast:
+            with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as sock:
+                # Github Actions on MacOS doesn't have routes to multicast
+                try:
+                    sock.connect(("ff14::1234", 8888))
+                    sock.send(b"test")
+                except OSError:
+                    pytest.skip('platform cannot transmit to an IPv6 multicast address')
 
     def _test_item_groups(self, item_groups, *,
                           memcpy=spead2.MEMCPY_STD, allocator=None,
@@ -456,6 +463,7 @@ class TestPassthroughUdpMulticast(BaseTestPassthroughSubstreams):
 
 
 class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
+    requires_ipv6_multicast = True
     MCAST_GROUP = 'ff14::1234'
 
     @classmethod
