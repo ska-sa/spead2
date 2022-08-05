@@ -118,7 +118,7 @@ rtd = os.environ.get('READTHEDOCS') == 'True'
 if not rtd:
     if not os.path.exists(os.path.join(os.path.dirname(__file__), 'configure')):
         raise SystemExit("configure not found. Either download a release " +
-                         "from https://pypi.python.org/pypi/spead2 or run " +
+                         "from https://pypi.org/project/spead2 or run " +
                          "./bootstrap.sh if not using a release.")
 
     extensions = [
