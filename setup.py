@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2015, 2017, 2019-2020 National Research Foundation (SARAO)
+# Copyright 2015, 2017, 2019-2022 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -25,16 +25,6 @@ from setuptools import setup, find_packages, Extension
 from setuptools.command.build_ext import build_ext
 
 import pybind11
-
-
-def find_version():
-    # Cannot simply import it, since that tries to import spead2 as well, which
-    # isn't built yet.
-    globals_ = {}
-    with open(os.path.join(os.path.dirname(__file__), 'src', 'spead2', '_version.py')) as f:
-        code = f.read()
-    exec(code, globals_)
-    return globals_['__version__']
 
 
 class BuildExt(build_ext):
@@ -136,50 +126,8 @@ if not rtd:
 else:
     extensions = []
 
-with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as readme_file:
-    readme = readme_file.read()
-
 setup(
-    author='Bruce Merry',
-    author_email='bmerry@sarao.ac.za',
-    name='spead2',
-    version=find_version(),
-    description='High-performance SPEAD implementation',
-    long_description=readme,
-    url='https://github.com/ska-sa/spead2',
-    license='LGPLv3+',
-    classifiers=[
-        'Development Status :: 5 - Production/Stable',
-        'Framework :: AsyncIO',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)',
-        'Operating System :: POSIX',
-        'Programming Language :: Python :: 3',
-        'Topic :: Software Development :: Libraries',
-        'Topic :: System :: Networking'],
     ext_package='spead2',
     ext_modules=extensions,
-    cmdclass={'build_ext': BuildExt},
-    install_requires=[
-        'numpy>=1.9.2'
-    ],
-    tests_require=[
-        'netifaces',
-        'numba',
-        'pytest',
-        'pytest-asyncio',
-        'pytest-timeout',
-        'scipy'
-    ],
-    python_requires='>=3.7',
-    packages=find_packages('src'),
-    package_dir={'': 'src'},
-    package_data={'': ['py.typed', '*.pyi']},
-    entry_points={
-        'console_scripts': [
-            'spead2_send.py = spead2.tools.send_asyncio:main',
-            'spead2_recv.py = spead2.tools.recv_asyncio:main',
-            'spead2_bench.py = spead2.tools.bench_asyncio:main'
-        ]
-    }
+    cmdclass={'build_ext': BuildExt}
 )
