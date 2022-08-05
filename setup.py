@@ -21,7 +21,7 @@ import os
 import os.path
 import subprocess
 
-from setuptools import setup, find_packages, Extension
+from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 
 import pybind11
