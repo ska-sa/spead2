@@ -1,11 +1,6 @@
 Chunking receiver
 =================
 
-.. warning::
-
-   This feature is **experimental**. Future releases of spead2 may change it
-   in backwards-incompatible ways, and it could even be removed entirely.
-
 For some high-bandwidth use cases, dealing with heaps one at a time is not
 practical. For example, transferring data to an accelerator (such as a GPU) or
 another process may have a high overhead that needs to be amortised over many

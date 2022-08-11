@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- The chunking receiver is no longer experimental.
+
 .. rubric:: 3.10.0
 
 - Support pcap dumps that use the SLL format.
