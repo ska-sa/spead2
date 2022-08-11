@@ -1,11 +1,6 @@
 Chunking receiver
 =================
 
-.. warning::
-
-   This feature is **experimental**. Future releases of spead2 may change it
-   in backwards-incompatible ways, and it could even be removed entirely.
-
 For an overview, refer to :doc:`recv-chunk`. This page is a reference for the
 C++ API.
 
