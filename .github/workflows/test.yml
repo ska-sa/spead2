@@ -141,7 +141,7 @@ jobs:
       - run: ./bootstrap.sh
       - name: Prepare Python build for coverage
         run: |
-          echo '[build_ext]' > setup.cfg
+          echo '[build_ext]' >> setup.cfg
           echo 'coverage = yes' >> setup.cfg
       - run: pip install -v .
       - name: Run Python tests
