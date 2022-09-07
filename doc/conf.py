@@ -27,12 +27,7 @@ if rtd:
     subprocess.check_call(['doxygen'])
     # ReadTheDocs can't build the extension (no Boost), so we have to mock it
     # See http://docs.readthedocs.io/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules
-    import unittest.mock
-    MOCK_MODULES = ['spead2._spead2', 'spead2._spead2.send', 'spead2._spead2.recv']
-    sys.modules.update((mod_name, unittest.mock.Mock()) for mod_name in MOCK_MODULES)
-    # Mocking certain classes causes subclasses not to be documented properly
-    sys.modules['spead2._spead2.send'].UdpStreamAsyncio = object
-    sys.modules['spead2._spead2.send'].UdpIbvStreamAsyncio = object
+    autodoc_mock_imports = ['spead2._spead2']
 
 # -- Project information -----------------------------------------------------
 
