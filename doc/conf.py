@@ -25,6 +25,8 @@ sys.path.insert(0, os.path.abspath('..'))
 rtd = os.environ.get('READTHEDOCS') == 'True'
 if rtd:
     subprocess.check_call(['doxygen'])
+    # ReadTheDocs can't build the extension (no Boost), so we have to mock it
+    # See http://docs.readthedocs.io/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules
     autodoc_mock_imports = ['spead2._spead2', 'spead2._spead2.send', 'spead2._spead2.recv']
 
 # -- Project information -----------------------------------------------------
