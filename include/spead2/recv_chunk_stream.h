@@ -1,4 +1,4 @@
-/* Copyright 2021 National Research Foundation (SARAO)
+/* Copyright 2021-2022 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -52,6 +52,8 @@ public:
     std::size_t present_size = 0;
     /// Chunk payload
     memory_allocator::pointer data;
+    /// Optional storage area for per-heap metadata
+    memory_allocator::pointer extra;
 
     chunk() = default;
     // These need to be explicitly declared, because there is an explicit destructor.
@@ -67,17 +69,22 @@ public:
  * a plain C structure that can easily be handled by language bindings. As far
  * as possible, new fields will be added to the end but existing fields will
  * be retained, to preserve ABI compatibility.
+ *
+ * Do not modify any of the pointers in the structure.
  */
 struct chunk_place_data
 {
     const std::uint8_t *packet;      ///< Pointer to the original packet data
     std::size_t packet_size;         ///< Number of bytes referenced by @ref packet
-    const s_item_pointer_t *items;   ///< Values of requested item pointers
+    s_item_pointer_t *items;         ///< Values of requested item pointers
     /// Chunk ID (output). Set to -1 (or leave unmodified) to discard the heap.
     std::int64_t chunk_id;
     std::size_t heap_index;          ///< Number of this heap within the chunk (output)
     std::size_t heap_offset;         ///< Byte offset of this heap within the chunk payload (output)
     std::uint64_t *batch_stats;      ///< Pointer to staging area for statistics
+    std::uint8_t *extra;             ///< Pointer to data to be copied to @ref chunk::extra
+    std::size_t extra_offset;        ///< Offset within @ref chunk::extra to write
+    std::size_t extra_size;          ///< Number of bytes to copy to @ref chunk::extra
     // Note: when adding new fields, remember to update src/spead2/recv/numba.py
 };
 
@@ -116,6 +123,7 @@ public:
 private:
     std::vector<item_pointer_t> item_ids;
     std::size_t max_chunks = default_max_chunks;
+    std::size_t max_heap_extra = 0;
 
     chunk_place_function place;
     chunk_allocate_function allocate;
@@ -177,6 +185,11 @@ public:
      * Retrieve the @c payload_size if packet presence is enabled, or 0 if not.
      */
     std::size_t get_packet_presence_payload_size() const { return packet_presence_payload_size; }
+
+    /// Set maximum amount of data a placement function may write to @ref chunk_place_data::extra.
+    chunk_stream_config &set_max_heap_extra(std::size_t max_heap_extra);
+    /// Get maximum amount of data a placement function may write to @ref chunk_place_data::extra.
+    std::size_t get_max_heap_extra() const { return max_heap_extra; }
 };
 
 namespace detail
@@ -195,6 +208,11 @@ class chunk_stream_allocator;
 class chunk_stream_state
 {
 private:
+    struct free_place_data
+    {
+        void operator()(unsigned char *ptr);
+    };
+
     const packet_memcpy_function orig_memcpy;  ///< Packet memcpy provided by the user
     const chunk_stream_config chunk_config;
     const std::uintptr_t stream_id;
@@ -203,6 +221,13 @@ private:
     std::vector<std::unique_ptr<chunk>> chunks;
     std::int64_t head_chunk = 0, tail_chunk = 0;  ///< chunk IDs of valid chunk range
     std::size_t head_pos = 0, tail_pos = 0;  ///< Positions corresponding to @ref head and @ref tail in @ref chunks
+    /**
+     * Scratch area for use by @ref allocate. This contains not just the @ref
+     * chunk_place_data, but also the various arrays it points to. They're
+     * allocated contiguously to minimise the number of cache lines accessed.
+     */
+    std::unique_ptr<unsigned char[], free_place_data> place_data_storage;
+    chunk_place_data *place_data;
 
     void packet_memcpy(const spead2::memory_allocator::pointer &allocation,
                        const packet_header &packet) const;

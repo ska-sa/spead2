@@ -1,4 +1,4 @@
-/* Copyright 2021 National Research Foundation (SARAO)
+/* Copyright 2021-2022 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -89,9 +89,21 @@ chunk_stream_config &chunk_stream_config::disable_packet_presence()
     return *this;
 }
 
+chunk_stream_config &chunk_stream_config::set_max_heap_extra(std::size_t max_heap_extra)
+{
+    this->max_heap_extra = max_heap_extra;
+    return *this;
+}
+
 
 namespace detail
 {
+
+// Round a size up to the next multiple of align
+static std::size_t round_up(std::size_t size, std::size_t align)
+{
+    return (size + align - 1) / align * align;
+}
 
 chunk_stream_state::chunk_stream_state(
     const stream_config &config, const chunk_stream_config &chunk_config)
@@ -107,6 +119,47 @@ chunk_stream_state::chunk_stream_state(
         throw std::invalid_argument("chunk_config.allocate is not set");
     if (!this->chunk_config.get_ready())
         throw std::invalid_argument("chunk_config.ready is not set");
+
+    /* Compute the memory required for place_data_storage. The layout is
+     * - chunk_place_data
+     * - item pointers (with s_item_pointer_t alignment)
+     * - extra (with max_align_t alignment)
+     */
+    constexpr std::size_t max_align = alignof(std::max_align_t);
+    const std::size_t n_items = chunk_config.get_items().size();
+    std::size_t space = sizeof(chunk_place_data);
+    space = round_up(space, alignof(s_item_pointer_t));
+    std::size_t item_offset = space;
+    space += n_items * sizeof(s_item_pointer_t);
+    space = round_up(space, max_align);
+    std::size_t extra_offset = space;
+    space += chunk_config.get_max_heap_extra();
+    /* operator new is required to return a pointer suitably aligned for an
+     * object of the requested size. Round up to a multiple of max_align so
+     * that the library cannot infer a smaller alignment.
+     */
+    space = round_up(space, max_align);
+
+    // Allocate the memory, and use placement new to initialise it.
+    unsigned char *ptr = reinterpret_cast<unsigned char *>(operator new(space));
+    place_data = new(ptr) chunk_place_data();
+    if (n_items > 0)
+        place_data->items = reinterpret_cast<s_item_pointer_t *>(ptr + item_offset);
+    else
+        place_data->items = nullptr;
+    if (chunk_config.get_max_heap_extra() > 0)
+        place_data->extra = ptr + extra_offset;
+    else
+        place_data->extra = nullptr;
+    place_data_storage.reset(ptr);
+}
+
+void chunk_stream_state::free_place_data::operator()(unsigned char *ptr)
+{
+    // TODO: should this use std::launder in C++17?
+    auto *place_data = reinterpret_cast<chunk_place_data *>(ptr);
+    place_data->~chunk_place_data();
+    operator delete[](ptr);
 }
 
 void chunk_stream_state::packet_memcpy(
@@ -185,13 +238,12 @@ std::pair<std::uint8_t *, chunk_stream_state::heap_metadata>
 chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
 {
     /* Extract the user's requested items.
-     * TODO: this can be optimised in several ways. The most important is to
-     * have storage in the class (since I think the queue mutex should be
-     * held), but one could possible construct a perfect hash function in
-     * advance, and/or do something with bit masks
+     * TODO: this could possibly be optimised with a hash table (with a
+     * perfect hash function chosen in advance), but for the expected
+     * sizes the overheads will probably outweight the benefits.
      */
     const auto &item_ids = get_chunk_config().get_items();
-    std::vector<s_item_pointer_t> items(item_ids.size(), -1);
+    std::fill(place_data->items, place_data->items + item_ids.size(), -1);
     pointer_decoder decoder(packet.heap_address_bits);
     /* packet.pointers and packet.n_items skips initial "special" item
      * pointers. To allow them to be matched as well, we start from the
@@ -205,7 +257,7 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
             item_pointer_t id = decoder.get_id(pointer);
             for (std::size_t j = 0; j < item_ids.size(); j++)
                 if (item_ids[j] == id)
-                    items[j] = decoder.get_immediate(pointer);
+                    place_data->items[j] = decoder.get_immediate(pointer);
         }
     }
 
@@ -217,33 +269,34 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
     out.first = &dummy_uint8;  // Use a non-null value to avoid confusion with empty pointers
     heap_metadata &metadata = out.second;
 
-    chunk_place_data data;
-    data.packet = packet.packet;
-    data.packet_size = packet.payload + packet.payload_length - packet.packet;
-    data.items = items.data();
-    data.chunk_id = -1;
-    data.heap_index = 0;
-    data.heap_offset = 0;
-    data.batch_stats = static_cast<chunk_stream *>(this)->batch_stats.data();
-    chunk_config.get_place()(&data, sizeof(data));
-    if (data.chunk_id < head_chunk)
+    place_data->packet = packet.packet;
+    place_data->packet_size = packet.payload + packet.payload_length - packet.packet;
+    place_data->chunk_id = -1;
+    place_data->heap_index = 0;
+    place_data->heap_offset = 0;
+    place_data->batch_stats = static_cast<chunk_stream *>(this)->batch_stats.data();
+    place_data->extra_offset = 0;
+    place_data->extra_size = 0;
+    chunk_config.get_place()(place_data, sizeof(*place_data));
+    auto chunk_id = place_data->chunk_id;
+    if (chunk_id < head_chunk)
     {
         // We don't want this heap.
         metadata.chunk_id = -1;
         metadata.chunk_ptr = nullptr;
-        std::size_t stat_offset = (data.chunk_id >= 0) ? too_old_heaps_offset : rejected_heaps_offset;
-        data.batch_stats[base_stat_index + stat_offset]++;
+        std::size_t stat_offset = (chunk_id >= 0) ? too_old_heaps_offset : rejected_heaps_offset;
+        place_data->batch_stats[base_stat_index + stat_offset]++;
         return out;
     }
     else
     {
         std::size_t max_chunks = chunk_config.get_max_chunks();
-        if (data.chunk_id >= tail_chunk)
+        if (chunk_id >= tail_chunk)
         {
             // We've moved beyond the end of our current window, and need to
             // allocate fresh chunks.
             const auto &allocate = chunk_config.get_allocate();
-            if (data.chunk_id >= tail_chunk + std::int64_t(max_chunks))
+            if (chunk_id >= tail_chunk + std::int64_t(max_chunks))
             {
                 /* We've jumped ahead so far that the entire current window
                  * is stale. Flush it all and fast-forward to the new window.
@@ -251,14 +304,14 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
                  * the chunks.
                  */
                 flush_chunks();
-                head_chunk = tail_chunk = data.chunk_id - (max_chunks - 1);
+                head_chunk = tail_chunk = chunk_id - (max_chunks - 1);
                 head_pos = tail_pos = 0;
             }
-            while (data.chunk_id >= tail_chunk)
+            while (chunk_id >= tail_chunk)
             {
                 if (std::size_t(tail_chunk - head_chunk) == max_chunks)
                     flush_head();
-                chunks[tail_pos] = allocate(tail_chunk, data.batch_stats);
+                chunks[tail_pos] = allocate(tail_chunk, place_data->batch_stats);
                 if (chunks[tail_pos])
                 {
                     chunks[tail_pos]->chunk_id = tail_chunk;
@@ -271,16 +324,16 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
             }
         }
         // Find position of chunk within the storage
-        std::size_t pos = data.chunk_id - head_chunk + head_pos;
+        std::size_t pos = chunk_id - head_chunk + head_pos;
         if (pos >= max_chunks)
             pos -= max_chunks;  // wrap around the circular storage
         if (chunks[pos])
         {
             chunk &c = *chunks[pos];
-            out.first = c.data.get() + data.heap_offset;
-            metadata.chunk_id = data.chunk_id;
-            metadata.heap_index = data.heap_index;
-            metadata.heap_offset = data.heap_offset;
+            out.first = c.data.get() + place_data->heap_offset;
+            metadata.chunk_id = chunk_id;
+            metadata.heap_index = place_data->heap_index;
+            metadata.heap_offset = place_data->heap_offset;
             metadata.chunk_ptr = &c;
             return out;
         }
