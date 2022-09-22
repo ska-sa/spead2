@@ -335,6 +335,12 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
             metadata.heap_index = place_data->heap_index;
             metadata.heap_offset = place_data->heap_offset;
             metadata.chunk_ptr = &c;
+            if (place_data->extra_size > 0)
+            {
+                assert(place_data->extra_size <= chunk_config.get_max_heap_extra());
+                assert(c.extra);
+                std::memcpy(c.extra.get() + place_data->extra_offset, place_data->extra, place_data->extra_size);
+            }
             return out;
         }
         else

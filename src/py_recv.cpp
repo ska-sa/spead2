@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2020-2021 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2020-2022 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -849,12 +849,15 @@ py::module register_module(py::module &parent)
         .def("disable_packet_presence", SPEAD2_PTMF(chunk_stream_config, disable_packet_presence))
         .def_property_readonly("packet_presence_payload_size",
                                SPEAD2_PTMF(chunk_stream_config, get_packet_presence_payload_size))
+        .def_property("max_heap_extra",
+                      SPEAD2_PTMF(chunk_stream_config, get_max_heap_extra),
+                      SPEAD2_PTMF(chunk_stream_config, set_max_heap_extra))
         .def_readonly_static("DEFAULT_MAX_CHUNKS", &chunk_stream_config::default_max_chunks);
     py::class_<chunk>(m, "Chunk")
         .def(py::init(&data_class_constructor<chunk>))
         .def_readwrite("chunk_id", &chunk::chunk_id)
         .def_readwrite("stream_id", &chunk::stream_id)
-        // Can't use def_readwrite for present and data because they're
+        // Can't use def_readwrite for present, data, extra because they're
         // non-copyable types
         .def_property(
             "present",
@@ -874,7 +877,11 @@ py::module register_module(py::module &parent)
         .def_property(
             "data",
             [](const chunk &c) -> const memory_allocator::pointer & { return c.data; },
-            [](chunk &c, memory_allocator::pointer &&value) { c.data = std::move(value); });
+            [](chunk &c, memory_allocator::pointer &&value) { c.data = std::move(value); })
+        .def_property(
+            "extra",
+            [](const chunk &c) -> const memory_allocator::pointer & { return c.extra; },
+            [](chunk &c, memory_allocator::pointer &&value) { c.extra = std::move(value); });
     py::class_<chunk_ring_stream_wrapper, stream>(m, "ChunkRingStream")
         .def(py::init<std::shared_ptr<thread_pool_wrapper>,
                       const stream_config &,
