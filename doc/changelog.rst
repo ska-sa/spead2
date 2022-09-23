@@ -4,6 +4,8 @@ Changelog
 .. rubric:: Development version
 
 - The chunking receiver is no longer experimental.
+- The place callback for the chunking receiver can now provide extra data to be
+  written to the chunk.
 
 .. rubric:: 3.10.0
 
