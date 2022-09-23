@@ -140,15 +140,27 @@ chunk_stream_state::chunk_stream_state(
      */
     space = round_up(space, max_align);
 
-    // Allocate the memory, and use placement new to initialise it.
+    /* Allocate the memory, and use placement new to initialise it. For the
+     * arrays the placement new shouldn't actually run any code, but it
+     * officially starts the lifetime of the object in terms of the C++ spec.
+     * It's not if it's actually portable in C++11: implementations used to be
+     * allowed to add overhead for array new, even when using placement new.
+     * CWG 2382 disallowed that for placement new, and in practice it sounds
+     * like no compiler ever added overhead for scalar types (MSVC used to do
+     * it for polymorphic classes).
+     *
+     * In C++20 it's probably not necessary to use the placement new due to
+     * the rules about implicit-lifetime types, although the examples imply
+     * it is necessary to use std::launder so it wouldn't be any simpler.
+     */
     unsigned char *ptr = reinterpret_cast<unsigned char *>(operator new(space));
     place_data = new(ptr) chunk_place_data();
     if (n_items > 0)
-        place_data->items = reinterpret_cast<s_item_pointer_t *>(ptr + item_offset);
+        place_data->items = new(ptr + item_offset) s_item_pointer_t[n_items];
     else
         place_data->items = nullptr;
     if (chunk_config.get_max_heap_extra() > 0)
-        place_data->extra = ptr + extra_offset;
+        place_data->extra = new(ptr + extra_offset) std::uint8_t[chunk_config.get_max_heap_extra()];
     else
         place_data->extra = nullptr;
     place_data_storage.reset(ptr);
