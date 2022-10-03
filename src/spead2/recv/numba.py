@@ -1,4 +1,4 @@
-# Copyright 2021 National Research Foundation (SARAO)
+# Copyright 2021-2022 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -18,15 +18,23 @@
 from numba import types
 
 
-# numba.types doesn't have a size_t, so assume it is the same as uintptr_t
+try:
+    _size_t = types.size_t
+except AttributeError:
+    # Older versions of numba.types doesn't have a size_t, so assume it is the same as uintptr_t
+    _size_t = types.uintp
+
 chunk_place_data = types.Record.make_c_struct([
     ('packet', types.intp),  # uint8_t *
-    ('packet_size', types.uintp),
+    ('packet_size', _size_t),
     ('items', types.intp),   # s_item_pointer_t *
     ('chunk_id', types.int64),
-    ('heap_index', types.uintp),
-    ('heap_offset', types.uintp),
-    ('batch_stats', types.intp)  # uint64_t *
+    ('heap_index', _size_t),
+    ('heap_offset', _size_t),
+    ('batch_stats', types.intp),  # uint64_t *
+    ('extra', types.intp),  # uint8_t *
+    ('extra_offset', _size_t),
+    ('extra_size', _size_t)
 ])
 """Numba record type representing the C structure used in the chunk placement callback.
 

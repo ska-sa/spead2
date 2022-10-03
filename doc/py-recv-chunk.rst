@@ -65,6 +65,13 @@ Reference
    as it is contiguous and writable. It can also be set to ``None`` to clear
    it.
 
+   .. py:attribute:: extra
+
+   Data storage for extra data to be written by the place callback. This
+   can be set to any object that supports the Python buffer protocol, as long
+   as it is contiguous and writable. It can also be set to ``None`` to clear
+   it.
+
    .. py:attribute:: chunk_id
 
    The chunk ID determined by the placement function.
@@ -89,6 +96,9 @@ Reference
      heaps from a previous chunk will be accepted.
    :param tuple place:
      See :ref:`place-callback`.
+   :param int max_heap_extra:
+     The maximum amount of data a placement function may write to
+     :cpp:member:`spead2::recv::chunk_place_data::extra`.
    :raises ValueError: if `max_chunks` is zero.
 
    .. py:method:: enable_packet_presence(payload_size: int)

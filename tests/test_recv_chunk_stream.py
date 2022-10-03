@@ -1,4 +1,4 @@
-# Copyright 2021 National Research Foundation (SARAO)
+# Copyright 2021-2022 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -96,11 +96,31 @@ def place_bind(data_ptr, data_size, user_data_ptr):
         batch_stats[user_data[0].placed_heaps_index] += 1
 
 
+@numba.cfunc(
+    types.void(types.CPointer(chunk_place_data), types.uintp, types.CPointer(user_data_type)),
+    nopython=True)
+def place_extra(data_ptr, data_size, user_data_ptr):
+    # Writes the 'extra' SPEAD item (items[3]) to the extra output array
+    data = numba.carray(data_ptr, 1)
+    items = numba.carray(intp_to_voidptr(data[0].items), 2, dtype=np.int64)
+    extra = numba.carray(intp_to_voidptr(data[0].extra), 1, dtype=np.int64)
+    heap_cnt = items[0]
+    payload_size = items[1]
+    if payload_size == HEAP_PAYLOAD_SIZE:
+        data[0].chunk_id = heap_cnt // HEAPS_PER_CHUNK
+        data[0].heap_index = heap_cnt % HEAPS_PER_CHUNK
+        data[0].heap_offset = data[0].heap_index * HEAP_PAYLOAD_SIZE
+        data[0].extra_size = 8  # np.dtype(np.int64).itemsize, but numba doesn't support it
+        data[0].extra_offset = data[0].heap_index * data[0].extra_size
+        extra[0] = items[2]
+
+
 # ctypes doesn't distinguish equivalent integer types, so we have to
 # specify the signature explicitly.
 place_plain_llc = scipy.LowLevelCallable(place_plain.ctypes, signature='void (void *, size_t)')
 place_bind_llc = scipy.LowLevelCallable(
     place_bind.ctypes, signature='void (void *, size_t, void *)')
+place_extra_llc = scipy.LowLevelCallable(place_extra.ctypes, signature='void (void *, size_t)')
 
 
 class TestChunkStreamConfig:
@@ -306,7 +326,8 @@ class TestChunkRingStream:
             ring.put(
                 recv.Chunk(
                     present=np.zeros(HEAPS_PER_CHUNK, np.uint8),
-                    data=np.zeros(CHUNK_PAYLOAD_SIZE, np.uint8)
+                    data=np.zeros(CHUNK_PAYLOAD_SIZE, np.uint8),
+                    extra=np.zeros(HEAPS_PER_CHUNK, np.int64)
                 )
             )
         return ring
@@ -316,22 +337,24 @@ class TestChunkRingStream:
         ig = spead2.send.ItemGroup()
         ig.add_item(0x1000, 'position', 'position in stream', (), format=[('u', 32)])
         ig.add_item(0x1001, 'payload', 'payload data', (HEAP_PAYLOAD_SIZE,), dtype=np.uint8)
+        ig.add_item(0x1002, 'extra', 'extra data to capture', (), format=[('u', 32)])
         return ig
 
     @pytest.fixture
     def queue(self):
         return spead2.InprocQueue()
 
-    @pytest.fixture
-    def recv_stream(self, data_ring, free_ring, queue):
+    @pytest.fixture(params=[place_plain_llc])
+    def recv_stream(self, request, data_ring, free_ring, queue):
         stream = spead2.recv.ChunkRingStream(
             spead2.ThreadPool(),
             # max_heaps is artificially high to make test_packet_too_old work
             spead2.recv.StreamConfig(max_heaps=128),
             spead2.recv.ChunkStreamConfig(
-                items=[0x1000, spead2.HEAP_LENGTH_ID],
+                items=[0x1000, spead2.HEAP_LENGTH_ID, 0x1002],
                 max_chunks=4,
-                place=place_plain_llc
+                max_heap_extra=np.dtype(np.int64).itemsize,
+                place=request.param,
             ),
             data_ring,
             free_ring
@@ -373,10 +396,11 @@ class TestChunkRingStream:
         for i in positions:
             item_group['position'].value = i
             item_group['payload'].value = self.make_heap_payload(i)
+            item_group['extra'].value = i ^ 0xBEEF
             send_stream.send_heap(item_group.get_heap(descriptors='none', data='all'))
         send_stream.send_heap(item_group.get_end())
 
-    def check_chunk(self, chunk, expected_chunk_id, expected_present):
+    def check_chunk(self, chunk, expected_chunk_id, expected_present, extra=False):
         """Validate a chunk."""
         assert chunk.chunk_id == expected_chunk_id
         assert chunk.present.dtype == np.dtype(np.uint8)
@@ -388,6 +412,8 @@ class TestChunkRingStream:
                     chunk.data[i * HEAP_PAYLOAD_SIZE : (i + 1) * HEAP_PAYLOAD_SIZE],
                     self.make_heap_payload(position)
                 )
+                if extra:
+                    assert chunk.extra[i] == position ^ 0xBEEF
 
     def check_chunk_packets(self, chunk, expected_chunk_id, expected_present):
         """Validate a chunk from test_packet_presence."""
@@ -405,7 +431,14 @@ class TestChunkRingStream:
                     self.make_heap_payload(heap_index)[start:end]
                 )
 
-    def test_basic(self, send_stream, recv_stream, item_group):
+    @pytest.mark.parametrize(
+        'recv_stream, extra',
+        [
+            (place_plain_llc, False),
+            (place_extra_llc, True)
+        ], indirect=['recv_stream']
+    )
+    def test_basic(self, send_stream, recv_stream, item_group, extra):
         n_heaps = 103
         self.send_heaps(send_stream, item_group, range(n_heaps))
         seen = 0
@@ -414,7 +447,7 @@ class TestChunkRingStream:
             if i == n_heaps // HEAPS_PER_CHUNK:
                 # It's the last chunk
                 expected_present[n_heaps % HEAPS_PER_CHUNK :] = 0
-            self.check_chunk(chunk, i, expected_present)
+            self.check_chunk(chunk, i, expected_present, extra)
             seen += 1
             recv_stream.add_free_chunk(chunk)
         assert seen == n_heaps // HEAPS_PER_CHUNK + 1
@@ -463,6 +496,22 @@ class TestChunkRingStream:
         recv_stream.stop()  # Ensure that stats are brought up to date
         assert recv_stream.stats["too_old_heaps"] == 1
         assert recv_stream.stats["rejected_heaps"] == 2  # Descriptors and stop heap
+
+    @pytest.mark.parametrize('recv_stream', [place_extra_llc], indirect=True)
+    def test_extra(self, send_stream, recv_stream, item_group):
+        """Test writing extra data about each heap."""
+        n_heaps = 103
+        self.send_heaps(send_stream, item_group, range(n_heaps))
+        seen = 0
+        for i, chunk in enumerate(recv_stream.data_ringbuffer):
+            expected_present = np.ones(HEAPS_PER_CHUNK, np.uint8)
+            if i == n_heaps // HEAPS_PER_CHUNK:
+                # It's the last chunk
+                expected_present[n_heaps % HEAPS_PER_CHUNK :] = 0
+            self.check_chunk(chunk, i, expected_present)
+            seen += 1
+            recv_stream.add_free_chunk(chunk)
+        assert seen == n_heaps // HEAPS_PER_CHUNK + 1
 
     def test_shared_ringbuffer(self, send_stream, recv_stream, item_group):
         recv_stream2 = spead2.recv.ChunkRingStream(

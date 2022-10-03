@@ -1,4 +1,4 @@
-# Copyright 2019-2021 National Research Foundation (SARAO)
+# Copyright 2019-2022 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -210,6 +210,7 @@ class ChunkStreamConfig:
     items: List[int]
     max_chunks: int
     place: Optional[tuple]
+    max_heap_extra: int
     def enable_packet_presence(self, payload_size: int) -> None: ...
     def disable_packet_presence(self) -> None: ...
     @property
@@ -217,17 +218,18 @@ class ChunkStreamConfig:
 
     def __init__(
         self, *, items: List[int] = ..., max_chunks: int = ...,
-        place: Optional[tuple] = ...) -> None: ...
+        place: Optional[tuple] = ..., max_heap_extra: int = ...) -> None: ...
 
 class Chunk:
     chunk_id: int
     stream_id: int
     present: object  # optional buffer protocol
     data: object     # optional buffer protocol
+    extra: object    # optional buffer protocol
 
     def __init__(
         self, *, chunk_id: int = ..., stream_id: int = ...,
-        present: object = ..., data: object = ...) -> None: ...
+        present: object = ..., data: object = ..., extra: object = ...) -> None: ...
 
 # Dummy base class because the async ChunkRingbuffer.get has a different
 # signature to the synchronous version.
