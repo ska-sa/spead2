@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: 3.11.1
+
+- Fix a packaging issue that meant automake and similar tools were required to
+  compile (since 3.10).
+
 .. rubric:: 3.11.0
 
 - The chunking receiver is no longer experimental.
