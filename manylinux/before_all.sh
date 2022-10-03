@@ -15,7 +15,7 @@ yum install -y \
 unset SSL_CERT_FILE
 
 # Install boost
-wget --progress=dot:mega https://ufpr.dl.sourceforge.net/project/boost/boost/1.78.0/boost_1_78_0.tar.bz2 -O /tmp/boost_1_78_0.tar.bz2
+wget --progress=dot:mega https://boostorg.jfrog.io/artifactory/main/release/1.78.0/source/boost_1_78_0.tar.bz2 -O /tmp/boost_1_78_0.tar.bz2
 tar -C /tmp -jxf /tmp/boost_1_78_0.tar.bz2
 cd /tmp/boost_1_78_0
 ./bootstrap.sh --prefix=/usr --with-libraries=program_options,system
