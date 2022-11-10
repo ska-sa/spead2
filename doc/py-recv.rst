@@ -504,7 +504,7 @@ synchronisation.
 .. py:module:: spead2.recv.stream_stat_indices
 
 The :py:mod:`spead2.recv.stream_stat_indices` module contains constants for
-indices that can be used to retrieve core statisticsby index, without needing
+indices that can be used to retrieve core statistics by index, without needing
 to look up the index.
 
 .. py:data:: HEAPS
