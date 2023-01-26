@@ -9,10 +9,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             cxx: g++
             extras: yes
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             cxx: clang++
             extras: yes
           - os: macos-12
@@ -53,29 +53,29 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             cc: gcc
             cxx: g++
-            python-version: 3.7
+            python-version: '3.7'
           # Disabled for now because numba/llvmlite (needed for tests)
           # doesn't have a pypy wheel, and it's not worth the effect to
           # install all the dependencies needed to make that work.
-          # - os: ubuntu-20.04
+          # - os: ubuntu-22.04
           #   cc: gcc
           #   cxx: g++
           #   python-version: pypy-3.7
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             cc: gcc
             cxx: g++
-            python-version: '3.10'
-          - os: ubuntu-20.04
+            python-version: '3.11'
+          - os: ubuntu-22.04
             cc: clang
             cxx: clang++
-            python-version: '3.10'
+            python-version: '3.11'
           - os: macos-12
             cc: clang
             cxx: clang++
-            python-version: '3.10'
+            python-version: '3.11'
     runs-on: ${{ matrix.os }}
     env:
       # Don't error on deprecations: Xcode marks sprintf deprecated and Boost references it
@@ -116,7 +116,7 @@ jobs:
         run: ccache -s
 
   coverage:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -137,7 +137,7 @@ jobs:
         run: ./.ci/ccache-path.sh
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
       - run: ./bootstrap.sh
@@ -165,23 +165,23 @@ jobs:
 
   sdist:
     needs: [test-cxx, test-python, coverage]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-3.10-${{ hashFiles('requirements*.txt') }}
+          key: ${{ runner.os }}-pip-3.11-${{ hashFiles('requirements*.txt') }}
           restore-keys: |
-            ${{ runner.os }}-pip-3.10-
+            ${{ runner.os }}-pip-3.11-
             ${{ runner.os }}-pip-
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
       - run: ./bootstrap.sh
-      - run: pip install build==0.7.0
+      - run: pip install build==0.10.0
       - run: python -m build --sdist .
       - uses: actions/upload-artifact@v3
         with:
@@ -190,10 +190,10 @@ jobs:
 
   cibuildwheel:
     needs: [test-cxx, test-python, coverage]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - uses: pypa/cibuildwheel@v2.11.4
+      - uses: pypa/cibuildwheel@v2.12.0
       - uses: actions/upload-artifact@v3
         with:
           name: wheels
