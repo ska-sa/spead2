@@ -17,6 +17,5 @@ if [ "$(uname -s)" = "Linux" ]; then
         libibverbs-dev \
         libdivide-dev
 else
-    brew install autoconf automake boost ccache
-    wget https://raw.githubusercontent.com/ridiculousfish/libdivide/5.0/libdivide.h -O /usr/local/include/libdivide.h
+    brew install autoconf automake boost ccache libdivide
 fi

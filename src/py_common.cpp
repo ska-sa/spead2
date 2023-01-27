@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -444,7 +444,7 @@ buffer_allocation *get_buffer_allocation(const memory_allocator::pointer &ptr)
 
 } // namespace spead2
 
-namespace pybind11
+namespace PYBIND11_NAMESPACE
 {
 namespace detail
 {
@@ -479,4 +479,4 @@ handle type_caster<spead2::memory_allocator::pointer>::cast(
 }
 
 } // namespace detail
-} // namespace pybind11
+} // namespace PYBIND11_NAMESPACE
