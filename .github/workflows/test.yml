@@ -193,7 +193,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - uses: pypa/cibuildwheel@v2.12.0
+      - uses: pypa/cibuildwheel@v2.12.1
       - uses: actions/upload-artifact@v3
         with:
           name: wheels
