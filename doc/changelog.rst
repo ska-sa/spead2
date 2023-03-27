@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Update test_send_asyncio.py's :py:meth:`test_async_flush` and
+  :py:meth:`test_async_flush_fail` to keep handles on its async Tasks.
+
 .. rubric:: 3.11.1
 
 - Fix a packaging issue that meant automake and similar tools were required to
