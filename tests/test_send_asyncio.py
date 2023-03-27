@@ -44,18 +44,23 @@ class TestUdpStream:
         assert self.stream._active == 0
 
     async def test_async_flush(self):
+        send_heap_futures = []
         for i in range(3):
-            asyncio.ensure_future(self.stream.async_send_heap(self.heap))
+            send_heap_futures.append(asyncio.ensure_future(self.stream.async_send_heap(self.heap)))
         await self._test_async_flush()
+        await asyncio.gather(*send_heap_futures)
 
     async def test_async_flush_fail(self):
         """Test async_flush in the case that the last heap sent failed.
 
         This is arranged by filling up the queue slots first.
         """
+        send_heap_futures = []
         for i in range(5):
-            asyncio.ensure_future(self.stream.async_send_heap(self.heap))
+            send_heap_futures.append(asyncio.ensure_future(self.stream.async_send_heap(self.heap)))
         await self._test_async_flush()
+        with pytest.raises(BlockingIOError):
+            await asyncio.gather(*send_heap_futures)
 
     async def test_send_error(self):
         """An error in sending must be reported through the future."""
