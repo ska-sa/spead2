@@ -3,8 +3,8 @@ Changelog
 
 .. rubric:: Development version
 
-- Update :program:`test_send_asyncio.py`'s ``test_async_flush`` and
-  ``test_async_flush_fail`` to keep handles on its async Tasks.
+- Update :meth:`!test_async_flush` and :meth:`!test_async_flush_fail` to keep
+  handles to async tasks, to prevent them being garbage collected too early.
 
 .. rubric:: 3.11.1
 
