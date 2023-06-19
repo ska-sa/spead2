@@ -104,6 +104,8 @@ static std::size_t round_up(std::size_t size, std::size_t align)
     return (size + align - 1) / align * align;
 }
 
+chunk_window::chunk_window(std::size_t max_chunks) : chunks(max_chunks) {}
+
 chunk_stream_state_base::chunk_stream_state_base(
     const stream_config &config, const chunk_stream_config &chunk_config)
     : orig_memcpy(config.get_memcpy()),
@@ -174,7 +176,7 @@ void chunk_stream_state_base::packet_memcpy(
     const packet_header &packet) const
 {
     const heap_metadata &metadata = *get_heap_metadata(allocation);
-    if (metadata.chunk_id < head_chunk)
+    if (metadata.chunk_id < get_head_chunk())
     {
         // The packet corresponds to a chunk that has already been aged out
         // TODO: increment a counter / log a warning

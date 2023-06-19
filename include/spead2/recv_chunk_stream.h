@@ -21,6 +21,7 @@
 #ifndef SPEAD2_RECV_CHUNK_STREAM
 #define SPEAD2_RECV_CHUNK_STREAM
 
+#include <cassert>
 #include <memory>
 #include <vector>
 #include <functional>
@@ -201,6 +202,92 @@ public:
 namespace detail
 {
 
+/**
+ * Sliding window of chunk pointers.
+ */
+class chunk_window
+{
+private:
+    /// Circular buffer of chunks under construction.
+    std::vector<chunk *> chunks;
+    std::int64_t head_chunk = 0, tail_chunk = 0;  ///< chunk IDs of valid chunk range
+    std::size_t head_pos = 0, tail_pos = 0;  ///< Positions corresponding to @ref head and @ref tail in @ref chunks
+
+public:
+    /// Send the oldest chunk to the ready callback
+    template<typename F>
+    void flush_head(const F &ready_chunk)
+    {
+        assert(head_chunk < tail_chunk);
+        if (chunks[head_pos])
+        {
+            ready_chunk(chunks[head_pos]);
+            chunks[head_pos] = nullptr;
+        }
+        head_chunk++;
+        head_pos++;
+        if (head_pos == chunks.size())
+            head_pos = 0;  // wrap around the circular buffer
+    }
+
+    explicit chunk_window(std::size_t max_chunks);
+
+    /**
+     * Obtain a pointer to a chunk with ID @a chunk_id.
+     *
+     * If @a chunk_id is behind the window, returns nullptr. If it is ahead of
+     * the window, the window is advanced using @a ready_chunk and @a allocate_chunk.
+     */
+    template<typename F1, typename F2>
+    chunk *get_chunk(
+        std::uint64_t chunk_id, std::uintptr_t stream_id, const F1 &allocate_chunk, const F2 &ready_chunk)
+    {
+        const std::size_t max_chunks = chunks.size();
+        if (chunk_id >= head_chunk)
+        {
+            // We've moved beyond the end of our current window, and need to
+            // allocate fresh chunks.
+            if (chunk_id >= tail_chunk + std::int64_t(max_chunks))
+            {
+                /* We've jumped ahead so far that the entire current window
+                 * is stale. Flush it all and fast-forward to the new window.
+                 * We leave it to the while loop below to actually allocate
+                 * the chunks.
+                 */
+                while (head_chunk != tail_chunk)
+                    flush_head(ready_chunk);
+                head_chunk = tail_chunk = chunk_id - (max_chunks - 1);
+                head_pos = tail_pos = 0;
+            }
+            while (chunk_id >= tail_chunk)
+            {
+                if (std::size_t(tail_chunk - head_chunk) == max_chunks)
+                    flush_head(ready_chunk);
+                chunks[tail_pos] = allocate_chunk(tail_chunk);
+                if (chunks[tail_pos])
+                {
+                    chunks[tail_pos]->chunk_id = tail_chunk;
+                    chunks[tail_pos]->stream_id = stream_id;
+                }
+                tail_chunk++;
+                tail_pos++;
+                if (tail_pos == max_chunks)
+                    tail_pos = 0;  // wrap around circular buffer
+            }
+            // Find position of chunk within the storage
+            std::size_t pos = chunk_id - head_chunk + head_pos;
+            if (pos >= max_chunks)
+                pos -= max_chunks;  // wrap around the circular storage
+            return chunks[pos];
+        }
+        else
+            return nullptr;
+    }
+
+    std::int64_t get_head_chunk() const { return head_chunk; }
+    std::int64_t get_tail_chunk() const { return tail_chunk; }
+};
+
 template<typename CM> class chunk_stream_allocator;
 
 /// Parts of chunk_stream_state that don't depend on the chunk manager
@@ -223,9 +310,8 @@ protected:
      * This class might or might not have exclusive ownership of the chunks,
      * depending on the template parameter.
      */
-    std::vector<chunk *> chunks;
-    std::int64_t head_chunk = 0, tail_chunk = 0;  ///< chunk IDs of valid chunk range
-    std::size_t head_pos = 0, tail_pos = 0;  ///< Positions corresponding to @ref head and @ref tail in @ref chunks
+    chunk_window chunks;
+
     /**
      * Scratch area for use by @ref allocate. This contains not just the @ref
      * chunk_place_data, but also the various arrays it points to. They're
@@ -236,6 +322,10 @@ protected:
 
     void packet_memcpy(const spead2::memory_allocator::pointer &allocation,
                        const packet_header &packet) const;
+
+protected:
+    std::int64_t get_head_chunk() const { return chunks.get_head_chunk(); }
+    std::int64_t get_tail_chunk() const { return chunks.get_tail_chunk(); }
 
 public:
     /// Constructor
@@ -290,10 +380,6 @@ private:
     chunk_manager_t chunk_manager;
     /// Send the oldest chunk to the ready callback
     void flush_head();
-
-protected:
-    std::int64_t get_head_chunk() const { return head_chunk; }
-    std::int64_t get_tail_chunk() const { return tail_chunk; }
 
 public:
     /// Constructor
@@ -533,22 +619,13 @@ stream_config chunk_stream_state<CM>::adjust_config(const stream_config &config)
 template<typename CM>
 void chunk_stream_state<CM>::flush_head()
 {
-    assert(head_chunk < tail_chunk);
-    if (chunks[head_pos])
-    {
-        chunk_manager.ready_chunk(*this, chunks[head_pos]);
-        chunks[head_pos] = nullptr;
-    }
-    head_chunk++;
-    head_pos++;
-    if (head_pos == chunks.size())
-        head_pos = 0;  // wrap around the circular buffer
+    chunks.flush_head([this](chunk *c) { chunk_manager.ready_chunk(*this, c); });
 }
 
 template<typename CM>
 void chunk_stream_state<CM>::flush_chunks()
 {
-    while (head_chunk != tail_chunk)
+    while (get_head_chunk() != get_tail_chunk())
         flush_head();
 }
 
@@ -605,7 +682,7 @@ chunk_stream_state<CM>::allocate(std::size_t size, const packet_header &packet)
     place_data->extra_size = 0;
     chunk_config.get_place()(place_data, sizeof(*place_data));
     auto chunk_id = place_data->chunk_id;
-    if (chunk_id < head_chunk)
+    if (chunk_id < get_head_chunk())
     {
         // We don't want this heap.
         metadata.chunk_id = -1;
@@ -616,45 +693,15 @@ chunk_stream_state<CM>::allocate(std::size_t size, const packet_header &packet)
     }
     else
     {
-        std::size_t max_chunks = chunk_config.get_max_chunks();
-        if (chunk_id >= tail_chunk)
+        chunk *chunk_ptr = chunks.get_chunk(
+            chunk_id,
+            stream_id,
+            [this](std::int64_t chunk_id) { return chunk_manager.allocate_chunk(*this, chunk_id); },
+            [this](chunk *c) { chunk_manager.ready_chunk(*this, c); }
+        );
+        if (chunk_ptr)
         {
-            // We've moved beyond the end of our current window, and need to
-            // allocate fresh chunks.
-            if (chunk_id >= tail_chunk + std::int64_t(max_chunks))
-            {
-                /* We've jumped ahead so far that the entire current window
-                 * is stale. Flush it all and fast-forward to the new window.
-                 * We leave it to the while loop below to actually allocate
-                 * the chunks.
-                 */
-                flush_chunks();
-                head_chunk = tail_chunk = chunk_id - (max_chunks - 1);
-                head_pos = tail_pos = 0;
-            }
-            while (chunk_id >= tail_chunk)
-            {
-                if (std::size_t(tail_chunk - head_chunk) == max_chunks)
-                    flush_head();
-                chunks[tail_pos] = chunk_manager.allocate_chunk(*this, tail_chunk);
-                if (chunks[tail_pos])
-                {
-                    chunks[tail_pos]->chunk_id = tail_chunk;
-                    chunks[tail_pos]->stream_id = stream_id;
-                }
-                tail_chunk++;
-                tail_pos++;
-                if (tail_pos == max_chunks)
-                    tail_pos = 0;  // wrap around circular buffer
-            }
-        }
-        // Find position of chunk within the storage
-        std::size_t pos = chunk_id - head_chunk + head_pos;
-        if (pos >= max_chunks)
-            pos -= max_chunks;  // wrap around the circular storage
-        if (chunks[pos])
-        {
-            chunk &c = *chunks[pos];
+            chunk &c = *chunk_ptr;
             out.first = c.data.get() + place_data->heap_offset;
             metadata.chunk_id = chunk_id;
             metadata.heap_index = place_data->heap_index;
