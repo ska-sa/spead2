@@ -31,6 +31,7 @@
 #include <spead2/common_defines.h>
 #include <spead2/common_memory_allocator.h>
 #include <spead2/common_ringbuffer.h>
+#include <spead2/common_endian.h>
 #include <spead2/recv_packet.h>
 #include <spead2/recv_stream.h>
 
@@ -341,6 +342,25 @@ public:
     virtual pointer allocate(std::size_t size, void *hint) override;
 };
 
+template<typename CM>
+chunk_stream_allocator<CM>::chunk_stream_allocator(chunk_stream_state<CM> &stream)
+    : stream(stream)
+{
+}
+
+template<typename CM>
+memory_allocator::pointer chunk_stream_allocator<CM>::allocate(std::size_t size, void *hint)
+{
+    if (hint)
+    {
+        auto alloc = stream.allocate(size, *reinterpret_cast<const packet_header *>(hint));
+        // Use the heap_metadata as the deleter
+        return pointer(alloc.first, std::move(alloc.second));
+    }
+    // Probably unreachable, but provides a safety net
+    return memory_allocator::allocate(size, hint);
+}
+
 extern template class chunk_stream_state<chunk_manager_simple>;
 extern template class chunk_stream_allocator<chunk_manager_simple>;
 
@@ -476,6 +496,189 @@ public:
     virtual void stop() override;
     virtual ~chunk_ring_stream();
 };
+
+namespace detail
+{
+
+template<typename CM>
+chunk_stream_state<CM>::chunk_stream_state(
+    const stream_config &config,
+    const chunk_stream_config &chunk_config,
+    chunk_manager_t chunk_manager)
+    : chunk_stream_state_base(config, chunk_config),
+    chunk_manager(std::move(chunk_manager))
+{
+    if (!this->chunk_config.get_allocate())
+        throw std::invalid_argument("chunk_config.allocate is not set");
+    if (!this->chunk_config.get_ready())
+        throw std::invalid_argument("chunk_config.ready is not set");
+}
+
+template<typename CM>
+stream_config chunk_stream_state<CM>::adjust_config(const stream_config &config)
+{
+    using namespace std::placeholders;
+    stream_config new_config = config;
+    // Unsized heaps won't work with the custom allocator
+    new_config.set_allow_unsized_heaps(false);
+    new_config.set_memory_allocator(std::make_shared<chunk_stream_allocator<chunk_manager_t>>(*this));
+    // Override the original memcpy with our custom version
+    new_config.set_memcpy(std::bind(&chunk_stream_state::packet_memcpy, this, _1, _2));
+    // Add custom statistics
+    new_config.add_stat("too_old_heaps");
+    new_config.add_stat("rejected_heaps");
+    return new_config;
+}
+
+template<typename CM>
+void chunk_stream_state<CM>::flush_head()
+{
+    assert(head_chunk < tail_chunk);
+    if (chunks[head_pos])
+    {
+        chunk_manager.ready_chunk(*this, chunks[head_pos]);
+        chunks[head_pos] = nullptr;
+    }
+    head_chunk++;
+    head_pos++;
+    if (head_pos == chunks.size())
+        head_pos = 0;  // wrap around the circular buffer
+}
+
+template<typename CM>
+void chunk_stream_state<CM>::flush_chunks()
+{
+    while (head_chunk != tail_chunk)
+        flush_head();
+}
+
+template<typename CM>
+std::pair<std::uint8_t *, chunk_stream_state_base::heap_metadata>
+chunk_stream_state<CM>::allocate(std::size_t size, const packet_header &packet)
+{
+    // Used to get a non-null pointer
+    static std::uint8_t dummy_uint8;
+
+    // Keep these in sync with stats added in adjust_config
+    static constexpr std::size_t too_old_heaps_offset = 0;
+    static constexpr std::size_t rejected_heaps_offset = 1;
+
+    /* Extract the user's requested items.
+     * TODO: this could possibly be optimised with a hash table (with a
+     * perfect hash function chosen in advance), but for the expected
+     * sizes the overheads will probably outweight the benefits.
+     */
+    const auto &item_ids = get_chunk_config().get_items();
+    std::fill(place_data->items, place_data->items + item_ids.size(), -1);
+    pointer_decoder decoder(packet.heap_address_bits);
+    /* packet.pointers and packet.n_items skips initial "special" item
+     * pointers. To allow them to be matched as well, we start from the
+     * original packet and skip over the 8-byte header.
+     */
+    for (const std::uint8_t *p = packet.packet + 8; p != packet.payload; p += sizeof(item_pointer_t))
+    {
+        item_pointer_t pointer = load_be<item_pointer_t>(p);
+        if (decoder.is_immediate(pointer))
+        {
+            item_pointer_t id = decoder.get_id(pointer);
+            for (std::size_t j = 0; j < item_ids.size(); j++)
+                if (item_ids[j] == id)
+                    place_data->items[j] = decoder.get_immediate(pointer);
+        }
+    }
+
+    /* TODO: see if the storage can be in the class with the deleter
+     * just referencing it. That will avoid the implied memory allocation
+     * in constructing the std::function underlying the deleter.
+     */
+    std::pair<std::uint8_t *, heap_metadata> out;
+    out.first = &dummy_uint8;  // Use a non-null value to avoid confusion with empty pointers
+    heap_metadata &metadata = out.second;
+
+    place_data->packet = packet.packet;
+    place_data->packet_size = packet.payload + packet.payload_length - packet.packet;
+    place_data->chunk_id = -1;
+    place_data->heap_index = 0;
+    place_data->heap_offset = 0;
+    place_data->batch_stats = static_cast<chunk_stream *>(this)->batch_stats.data();
+    place_data->extra_offset = 0;
+    place_data->extra_size = 0;
+    chunk_config.get_place()(place_data, sizeof(*place_data));
+    auto chunk_id = place_data->chunk_id;
+    if (chunk_id < head_chunk)
+    {
+        // We don't want this heap.
+        metadata.chunk_id = -1;
+        metadata.chunk_ptr = nullptr;
+        std::size_t stat_offset = (chunk_id >= 0) ? too_old_heaps_offset : rejected_heaps_offset;
+        place_data->batch_stats[base_stat_index + stat_offset]++;
+        return out;
+    }
+    else
+    {
+        std::size_t max_chunks = chunk_config.get_max_chunks();
+        if (chunk_id >= tail_chunk)
+        {
+            // We've moved beyond the end of our current window, and need to
+            // allocate fresh chunks.
+            if (chunk_id >= tail_chunk + std::int64_t(max_chunks))
+            {
+                /* We've jumped ahead so far that the entire current window
+                 * is stale. Flush it all and fast-forward to the new window.
+                 * We leave it to the while loop below to actually allocate
+                 * the chunks.
+                 */
+                flush_chunks();
+                head_chunk = tail_chunk = chunk_id - (max_chunks - 1);
+                head_pos = tail_pos = 0;
+            }
+            while (chunk_id >= tail_chunk)
+            {
+                if (std::size_t(tail_chunk - head_chunk) == max_chunks)
+                    flush_head();
+                chunks[tail_pos] = chunk_manager.allocate_chunk(*this, tail_chunk);
+                if (chunks[tail_pos])
+                {
+                    chunks[tail_pos]->chunk_id = tail_chunk;
+                    chunks[tail_pos]->stream_id = stream_id;
+                }
+                tail_chunk++;
+                tail_pos++;
+                if (tail_pos == max_chunks)
+                    tail_pos = 0;  // wrap around circular buffer
+            }
+        }
+        // Find position of chunk within the storage
+        std::size_t pos = chunk_id - head_chunk + head_pos;
+        if (pos >= max_chunks)
+            pos -= max_chunks;  // wrap around the circular storage
+        if (chunks[pos])
+        {
+            chunk &c = *chunks[pos];
+            out.first = c.data.get() + place_data->heap_offset;
+            metadata.chunk_id = chunk_id;
+            metadata.heap_index = place_data->heap_index;
+            metadata.heap_offset = place_data->heap_offset;
+            metadata.chunk_ptr = &c;
+            if (place_data->extra_size > 0)
+            {
+                assert(place_data->extra_size <= chunk_config.get_max_heap_extra());
+                assert(c.extra);
+                std::memcpy(c.extra.get() + place_data->extra_offset, place_data->extra, place_data->extra_size);
+            }
+            return out;
+        }
+        else
+        {
+            // the allocator didn't allocate a chunk for this slot.
+            metadata.chunk_id = -1;
+            metadata.chunk_ptr = nullptr;
+            return out;
+        }
+    }
+}
+
+} // namespace detail
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
 chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::chunk_ring_stream(
