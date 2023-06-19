@@ -1,4 +1,4 @@
-/* Copyright 2021-2022 National Research Foundation (SARAO)
+/* Copyright 2021-2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -105,7 +105,7 @@ static std::size_t round_up(std::size_t size, std::size_t align)
     return (size + align - 1) / align * align;
 }
 
-chunk_stream_state::chunk_stream_state(
+chunk_stream_state_base::chunk_stream_state_base(
     const stream_config &config, const chunk_stream_config &chunk_config)
     : orig_memcpy(config.get_memcpy()),
     chunk_config(chunk_config),
@@ -115,10 +115,6 @@ chunk_stream_state::chunk_stream_state(
 {
     if (!this->chunk_config.get_place())
         throw std::invalid_argument("chunk_config.place is not set");
-    if (!this->chunk_config.get_allocate())
-        throw std::invalid_argument("chunk_config.allocate is not set");
-    if (!this->chunk_config.get_ready())
-        throw std::invalid_argument("chunk_config.ready is not set");
 
     /* Compute the memory required for place_data_storage. The layout is
      * - chunk_place_data
@@ -166,7 +162,7 @@ chunk_stream_state::chunk_stream_state(
     place_data_storage.reset(ptr);
 }
 
-void chunk_stream_state::free_place_data::operator()(unsigned char *ptr)
+void chunk_stream_state_base::free_place_data::operator()(unsigned char *ptr) const
 {
     // TODO: should this use std::launder in C++17?
     auto *place_data = reinterpret_cast<chunk_place_data *>(ptr);
@@ -174,7 +170,7 @@ void chunk_stream_state::free_place_data::operator()(unsigned char *ptr)
     operator delete[](ptr);
 }
 
-void chunk_stream_state::packet_memcpy(
+void chunk_stream_state_base::packet_memcpy(
     const memory_allocator::pointer &allocation,
     const packet_header &packet) const
 {
@@ -196,13 +192,34 @@ void chunk_stream_state::packet_memcpy(
     }
 }
 
-stream_config chunk_stream_state::adjust_config(const stream_config &config)
+const chunk_stream_state_base::heap_metadata *chunk_stream_state_base::get_heap_metadata(
+    const memory_allocator::pointer &ptr)
+{
+    return ptr.get_deleter().target<heap_metadata>();
+}
+
+template<typename CM>
+chunk_stream_state<CM>::chunk_stream_state(
+    const stream_config &config,
+    const chunk_stream_config &chunk_config,
+    chunk_manager_t chunk_manager)
+    : chunk_stream_state_base(config, chunk_config),
+    chunk_manager(std::move(chunk_manager))
+{
+    if (!this->chunk_config.get_allocate())
+        throw std::invalid_argument("chunk_config.allocate is not set");
+    if (!this->chunk_config.get_ready())
+        throw std::invalid_argument("chunk_config.ready is not set");
+}
+
+template<typename CM>
+stream_config chunk_stream_state<CM>::adjust_config(const stream_config &config)
 {
     using namespace std::placeholders;
     stream_config new_config = config;
     // Unsized heaps won't work with the custom allocator
     new_config.set_allow_unsized_heaps(false);
-    new_config.set_memory_allocator(std::make_shared<chunk_stream_allocator>(*this));
+    new_config.set_memory_allocator(std::make_shared<chunk_stream_allocator<chunk_manager_t>>(*this));
     // Override the original memcpy with our custom version
     new_config.set_memcpy(std::bind(&chunk_stream_state::packet_memcpy, this, _1, _2));
     // Add custom statistics
@@ -211,15 +228,14 @@ stream_config chunk_stream_state::adjust_config(const stream_config &config)
     return new_config;
 }
 
-void chunk_stream_state::flush_head()
+template<typename CM>
+void chunk_stream_state<CM>::flush_head()
 {
     assert(head_chunk < tail_chunk);
     if (chunks[head_pos])
     {
-        std::uint64_t *batch_stats = static_cast<chunk_stream *>(this)->batch_stats.data();
-        chunk_config.get_ready()(std::move(chunks[head_pos]), batch_stats);
-        // If the ready callback didn't take over ownership, free it.
-        chunks[head_pos].reset();
+        chunk_manager.ready_chunk(*this, chunks[head_pos]);
+        chunks[head_pos] = nullptr;
     }
     head_chunk++;
     head_pos++;
@@ -227,16 +243,11 @@ void chunk_stream_state::flush_head()
         head_pos = 0;  // wrap around the circular buffer
 }
 
-void chunk_stream_state::flush_chunks()
+template<typename CM>
+void chunk_stream_state<CM>::flush_chunks()
 {
     while (head_chunk != tail_chunk)
         flush_head();
-}
-
-const chunk_stream_state::heap_metadata *chunk_stream_state::get_heap_metadata(
-    const memory_allocator::pointer &ptr)
-{
-    return ptr.get_deleter().target<heap_metadata>();
 }
 
 // Used to get a non-null pointer
@@ -246,8 +257,9 @@ static std::uint8_t dummy_uint8;
 static constexpr std::size_t too_old_heaps_offset = 0;
 static constexpr std::size_t rejected_heaps_offset = 1;
 
-std::pair<std::uint8_t *, chunk_stream_state::heap_metadata>
-chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
+template<typename CM>
+std::pair<std::uint8_t *, chunk_stream_state_base::heap_metadata>
+chunk_stream_state<CM>::allocate(std::size_t size, const packet_header &packet)
 {
     /* Extract the user's requested items.
      * TODO: this could possibly be optimised with a hash table (with a
@@ -307,7 +319,6 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
         {
             // We've moved beyond the end of our current window, and need to
             // allocate fresh chunks.
-            const auto &allocate = chunk_config.get_allocate();
             if (chunk_id >= tail_chunk + std::int64_t(max_chunks))
             {
                 /* We've jumped ahead so far that the entire current window
@@ -323,7 +334,7 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
             {
                 if (std::size_t(tail_chunk - head_chunk) == max_chunks)
                     flush_head();
-                chunks[tail_pos] = allocate(tail_chunk, place_data->batch_stats);
+                chunks[tail_pos] = chunk_manager.allocate_chunk(*this, tail_chunk);
                 if (chunks[tail_pos])
                 {
                     chunks[tail_pos]->chunk_id = tail_chunk;
@@ -365,12 +376,28 @@ chunk_stream_state::allocate(std::size_t size, const packet_header &packet)
     }
 }
 
-chunk_stream_allocator::chunk_stream_allocator(chunk_stream_state &stream)
+chunk *chunk_manager_simple::allocate_chunk(chunk_stream_state<chunk_manager_simple> &state, std::int64_t chunk_id)
+{
+    const auto &allocate = state.chunk_config.get_allocate();
+    std::unique_ptr<chunk> owned = allocate(chunk_id, state.place_data->batch_stats);
+    return owned.release();  // ready_chunk will re-take ownership
+}
+
+void chunk_manager_simple::ready_chunk(chunk_stream_state<chunk_manager_simple> &state, chunk *c)
+{
+    std::uint64_t *batch_stats = static_cast<chunk_stream *>(&state)->batch_stats.data();
+    std::unique_ptr<chunk> owned(c);
+    state.chunk_config.get_ready()(std::move(owned), batch_stats);
+}
+
+template<typename CM>
+chunk_stream_allocator<CM>::chunk_stream_allocator(chunk_stream_state<CM> &stream)
     : stream(stream)
 {
 }
 
-memory_allocator::pointer chunk_stream_allocator::allocate(std::size_t size, void *hint)
+template<typename CM>
+memory_allocator::pointer chunk_stream_allocator<CM>::allocate(std::size_t size, void *hint)
 {
     if (hint)
     {
@@ -382,13 +409,16 @@ memory_allocator::pointer chunk_stream_allocator::allocate(std::size_t size, voi
     return memory_allocator::allocate(size, hint);
 }
 
+template class chunk_stream_state<chunk_manager_simple>;
+template class chunk_stream_allocator<chunk_manager_simple>;
+
 } // namespace detail
 
 chunk_stream::chunk_stream(
     io_service_ref io_service,
     const stream_config &config,
     const chunk_stream_config &chunk_config)
-    : chunk_stream_state(config, chunk_config),
+    : chunk_stream_state(config, chunk_config, detail::chunk_manager_simple()),
     stream(std::move(io_service), adjust_config(config))
 {
 }

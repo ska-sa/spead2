@@ -1,4 +1,4 @@
-/* Copyright 2021-2022 National Research Foundation (SARAO)
+/* Copyright 2021-2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <utility>
+#include <mutex>
 #include <spead2/common_defines.h>
 #include <spead2/common_memory_allocator.h>
 #include <spead2/common_ringbuffer.h>
@@ -41,6 +42,10 @@ namespace recv
 /// Storage for a chunk with metadata
 class chunk
 {
+private:
+    /// Reference count for chunks belonging to stream groups
+    std::size_t ref_count = 0;
+
 public:
     /// Chunk ID
     std::int64_t chunk_id = -1;
@@ -195,30 +200,29 @@ public:
 namespace detail
 {
 
-class chunk_stream_allocator;
+template<typename CM> class chunk_stream_allocator;
 
-/**
- * Base class that holds the internal state of @ref
- * spead2::recv::chunk_stream.
- *
- * This is split into a separate class to avoid some initialisation ordering
- * problems: it is constructed before the @ref spead2::recv::stream base class,
- * allowing the latter to use function objects that reference this class.
- */
-class chunk_stream_state
+/// Parts of chunk_stream_state that don't depend on the chunk manager
+class chunk_stream_state_base
 {
-private:
+protected:
     struct free_place_data
     {
-        void operator()(unsigned char *ptr);
+        void operator()(unsigned char *ptr) const;
     };
 
     const packet_memcpy_function orig_memcpy;  ///< Packet memcpy provided by the user
     const chunk_stream_config chunk_config;
     const std::uintptr_t stream_id;
     const std::size_t base_stat_index;         ///< Index of first custom stat
-    /// Circular buffer of chunks under construction
-    std::vector<std::unique_ptr<chunk>> chunks;
+
+    /**
+     * Circular buffer of chunks under construction.
+     *
+     * This class might or might not have exclusive ownership of the chunks,
+     * depending on the template parameter.
+     */
+    std::vector<chunk *> chunks;
     std::int64_t head_chunk = 0, tail_chunk = 0;  ///< chunk IDs of valid chunk range
     std::size_t head_pos = 0, tail_pos = 0;  ///< Positions corresponding to @ref head and @ref tail in @ref chunks
     /**
@@ -232,14 +236,12 @@ private:
     void packet_memcpy(const spead2::memory_allocator::pointer &allocation,
                        const packet_header &packet) const;
 
-    /// Send the oldest chunk to the ready callback
-    void flush_head();
-
-protected:
-    std::int64_t get_head_chunk() const { return head_chunk; }
-    std::int64_t get_tail_chunk() const { return tail_chunk; }
-
 public:
+    /// Constructor
+    chunk_stream_state_base(
+        const stream_config &config,
+        const chunk_stream_config &chunk_config);
+
     /**
      * Structure associated with each heap, as the deleter of the
      * allocated pointer.
@@ -255,11 +257,49 @@ public:
         void operator()(std::uint8_t *) const {}
     };
 
-    /// Constructor
-    chunk_stream_state(const stream_config &config, const chunk_stream_config &chunk_config);
-
     /// Get the stream's chunk configuration
     const chunk_stream_config &get_chunk_config() const { return chunk_config; }
+
+    /**
+     * Get the @ref heap_metadata associated with a heap payload pointer.
+     * If the pointer was not allocated by a chunk stream, returns @c
+     * nullptr.
+     */
+    static const heap_metadata *get_heap_metadata(const memory_allocator::pointer &ptr);
+};
+
+/**
+ * Base class that holds the internal state of @ref
+ * spead2::recv::chunk_stream.
+ *
+ * This is split into a separate class to avoid some initialisation ordering
+ * problems: it is constructed before the @ref spead2::recv::stream base class,
+ * allowing the latter to use function objects that reference this class.
+ *
+ * The template parameter allows the policy for allocating and releasing
+ * chunks to be customised. See @ref chunk_manager_simple for the API.
+ */
+template<typename CM>
+class chunk_stream_state : public chunk_stream_state_base
+{
+private:
+    using chunk_manager_t = CM;
+    friend chunk_manager_t;
+
+    chunk_manager_t chunk_manager;
+    /// Send the oldest chunk to the ready callback
+    void flush_head();
+
+protected:
+    std::int64_t get_head_chunk() const { return head_chunk; }
+    std::int64_t get_tail_chunk() const { return tail_chunk; }
+
+public:
+    /// Constructor
+    chunk_stream_state(
+        const stream_config &config,
+        const chunk_stream_config &chunk_config,
+        chunk_manager_t chunk_manager);
 
     /// Compute the config to pass down to @ref spead2::recv::stream.
     stream_config adjust_config(const stream_config &config);
@@ -275,13 +315,13 @@ public:
 
     /// Send all in-flight chunks to the ready callback
     void flush_chunks();
+};
 
-    /**
-     * Get the @ref heap_metadata associated with a heap payload pointer.
-     * If the pointer was not allocated by a chunk stream, returns @c
-     * nullptr.
-     */
-    static const heap_metadata *get_heap_metadata(const memory_allocator::pointer &ptr);
+class chunk_manager_simple
+{
+public:
+    chunk *allocate_chunk(chunk_stream_state<chunk_manager_simple> &state, std::int64_t chunk_id);
+    void ready_chunk(chunk_stream_state<chunk_manager_simple> &state, chunk *c);
 };
 
 /**
@@ -289,30 +329,35 @@ public:
  *
  * It forwards allocation requests to @ref chunk_stream_state.
  */
+template<typename CM>
 class chunk_stream_allocator final : public memory_allocator
 {
 private:
-    chunk_stream_state &stream;
+    chunk_stream_state<CM> &stream;
 
 public:
-    explicit chunk_stream_allocator(chunk_stream_state &stream);
+    explicit chunk_stream_allocator(chunk_stream_state<CM> &stream);
 
     virtual pointer allocate(std::size_t size, void *hint) override;
 };
+
+extern template class chunk_stream_state<chunk_manager_simple>;
+extern template class chunk_stream_allocator<chunk_manager_simple>;
 
 } // namespace detail
 
 /**
  * Stream that writes incoming heaps into chunks.
  */
-class chunk_stream : private detail::chunk_stream_state, public stream
+class chunk_stream : private detail::chunk_stream_state<detail::chunk_manager_simple>, public stream
 {
-    friend class chunk_stream_state;
+    friend class detail::chunk_stream_state<detail::chunk_manager_simple>;
+    friend class detail::chunk_manager_simple;
 
     virtual void heap_ready(live_heap &&) override;
 
 public:
-    using heap_metadata = detail::chunk_stream_state::heap_metadata;
+    using heap_metadata = detail::chunk_stream_state_base::heap_metadata;
 
     /**
      * Constructor.
@@ -346,8 +391,8 @@ public:
         const stream_config &config,
         const chunk_stream_config &chunk_config);
 
-    using detail::chunk_stream_state::get_chunk_config;
-    using detail::chunk_stream_state::get_heap_metadata;
+    using detail::chunk_stream_state<detail::chunk_manager_simple>::get_chunk_config;
+    using detail::chunk_stream_state<detail::chunk_manager_simple>::get_heap_metadata;
 
     virtual void stop_received() override;
     virtual void stop() override;
