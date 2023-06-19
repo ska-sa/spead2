@@ -1,4 +1,4 @@
-# Copyright 2016-2021 National Research Foundation (SARAO)
+# Copyright 2016-2021, 2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -37,6 +37,7 @@ nobase_include_HEADERS = \
 	spead2/common_unbounded_queue.h \
 	spead2/portable_endian.h \
 	spead2/recv_chunk_stream.h \
+	spead2/recv_chunk_stream_group.h \
 	spead2/recv_heap.h \
 	spead2/recv_inproc.h \
 	spead2/recv_live_heap.h \

@@ -44,8 +44,14 @@ namespace recv
 /// Storage for a chunk with metadata
 class chunk
 {
+    friend class chunk_stream_group;
 private:
-    /// Reference count for chunks belonging to stream groups
+    /**
+     * Reference count for chunks belonging to stream groups.
+     *
+     * This must only be manipulated from a single thread at a time e.g.
+     * with the group's mutex locked.
+     */
     std::size_t ref_count = 0;
 
 public:
@@ -323,6 +329,9 @@ protected:
     void packet_memcpy(const spead2::memory_allocator::pointer &allocation,
                        const packet_header &packet) const;
 
+    /// Implementation of @ref stream::heap_ready
+    void do_heap_ready(live_heap &&lh);
+
 protected:
     std::int64_t get_head_chunk() const { return chunks.get_head_chunk(); }
     std::int64_t get_tail_chunk() const { return chunks.get_tail_chunk(); }
@@ -407,6 +416,9 @@ public:
 class chunk_manager_simple
 {
 public:
+    explicit chunk_manager_simple(const chunk_stream_config &chunk_config);
+
+    std::uint64_t *get_batch_stats(chunk_stream_state<chunk_manager_simple> &state) const;
     chunk *allocate_chunk(chunk_stream_state<chunk_manager_simple> &state, std::int64_t chunk_id);
     void ready_chunk(chunk_stream_state<chunk_manager_simple> &state, chunk *c);
 };
@@ -489,7 +501,7 @@ public:
      * @param config           Basic stream configuration
      * @param chunk_config     Configuration for chunking
      *
-     * @throw invalid_value if any of the function pointers in @a chunk_config
+     * @throw invalid_argument if any of the function pointers in @a chunk_config
      * have not been set.
      */
     chunk_stream(
@@ -497,8 +509,8 @@ public:
         const stream_config &config,
         const chunk_stream_config &chunk_config);
 
-    using detail::chunk_stream_state<detail::chunk_manager_simple>::get_chunk_config;
-    using detail::chunk_stream_state<detail::chunk_manager_simple>::get_heap_metadata;
+    using detail::chunk_stream_state_base::get_chunk_config;
+    using detail::chunk_stream_state_base::get_heap_metadata;
 
     virtual void stop_received() override;
     virtual void stop() override;
@@ -594,10 +606,6 @@ chunk_stream_state<CM>::chunk_stream_state(
     : chunk_stream_state_base(config, chunk_config),
     chunk_manager(std::move(chunk_manager))
 {
-    if (!this->chunk_config.get_allocate())
-        throw std::invalid_argument("chunk_config.allocate is not set");
-    if (!this->chunk_config.get_ready())
-        throw std::invalid_argument("chunk_config.ready is not set");
 }
 
 template<typename CM>
@@ -677,7 +685,7 @@ chunk_stream_state<CM>::allocate(std::size_t size, const packet_header &packet)
     place_data->chunk_id = -1;
     place_data->heap_index = 0;
     place_data->heap_offset = 0;
-    place_data->batch_stats = static_cast<chunk_stream *>(this)->batch_stats.data();
+    place_data->batch_stats = chunk_manager.get_batch_stats(*this);
     place_data->extra_offset = 0;
     place_data->extra_size = 0;
     chunk_config.get_place()(place_data, sizeof(*place_data));

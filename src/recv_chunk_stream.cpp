@@ -193,41 +193,7 @@ void chunk_stream_state_base::packet_memcpy(
     }
 }
 
-const chunk_stream_state_base::heap_metadata *chunk_stream_state_base::get_heap_metadata(
-    const memory_allocator::pointer &ptr)
-{
-    return ptr.get_deleter().target<heap_metadata>();
-}
-
-chunk *chunk_manager_simple::allocate_chunk(chunk_stream_state<chunk_manager_simple> &state, std::int64_t chunk_id)
-{
-    const auto &allocate = state.chunk_config.get_allocate();
-    std::unique_ptr<chunk> owned = allocate(chunk_id, state.place_data->batch_stats);
-    return owned.release();  // ready_chunk will re-take ownership
-}
-
-void chunk_manager_simple::ready_chunk(chunk_stream_state<chunk_manager_simple> &state, chunk *c)
-{
-    std::uint64_t *batch_stats = static_cast<chunk_stream *>(&state)->batch_stats.data();
-    std::unique_ptr<chunk> owned(c);
-    state.chunk_config.get_ready()(std::move(owned), batch_stats);
-}
-
-template class chunk_stream_state<chunk_manager_simple>;
-template class chunk_stream_allocator<chunk_manager_simple>;
-
-} // namespace detail
-
-chunk_stream::chunk_stream(
-    io_service_ref io_service,
-    const stream_config &config,
-    const chunk_stream_config &chunk_config)
-    : chunk_stream_state(config, chunk_config, detail::chunk_manager_simple()),
-    stream(std::move(io_service), adjust_config(config))
-{
-}
-
-void chunk_stream::heap_ready(live_heap &&lh)
+void chunk_stream_state_base::do_heap_ready(live_heap &&lh)
 {
     if (lh.is_complete())
     {
@@ -242,6 +208,57 @@ void chunk_stream::heap_ready(live_heap &&lh)
             metadata->chunk_ptr->present[metadata->heap_index] = true;
         }
     }
+}
+
+const chunk_stream_state_base::heap_metadata *chunk_stream_state_base::get_heap_metadata(
+    const memory_allocator::pointer &ptr)
+{
+    return ptr.get_deleter().target<heap_metadata>();
+}
+
+chunk_manager_simple::chunk_manager_simple(const chunk_stream_config &chunk_config)
+{
+    if (!chunk_config.get_allocate())
+        throw std::invalid_argument("chunk_config.allocate is not set");
+    if (!chunk_config.get_ready())
+        throw std::invalid_argument("chunk_config.ready is not set");
+}
+
+std::uint64_t *chunk_manager_simple::get_batch_stats(chunk_stream_state<chunk_manager_simple> &state) const
+{
+    return static_cast<chunk_stream *>(&state)->batch_stats.data();
+}
+
+chunk *chunk_manager_simple::allocate_chunk(chunk_stream_state<chunk_manager_simple> &state, std::int64_t chunk_id)
+{
+    const auto &allocate = state.chunk_config.get_allocate();
+    std::unique_ptr<chunk> owned = allocate(chunk_id, state.place_data->batch_stats);
+    return owned.release();  // ready_chunk will re-take ownership
+}
+
+void chunk_manager_simple::ready_chunk(chunk_stream_state<chunk_manager_simple> &state, chunk *c)
+{
+    std::unique_ptr<chunk> owned(c);
+    state.chunk_config.get_ready()(std::move(owned), get_batch_stats(state));
+}
+
+template class chunk_stream_state<chunk_manager_simple>;
+template class chunk_stream_allocator<chunk_manager_simple>;
+
+} // namespace detail
+
+chunk_stream::chunk_stream(
+    io_service_ref io_service,
+    const stream_config &config,
+    const chunk_stream_config &chunk_config)
+    : chunk_stream_state(config, chunk_config, detail::chunk_manager_simple(chunk_config)),
+    stream(std::move(io_service), adjust_config(config))
+{
+}
+
+void chunk_stream::heap_ready(live_heap &&lh)
+{
+    do_heap_ready(std::move(lh));
 }
 
 void chunk_stream::stop_received()

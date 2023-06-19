@@ -1,4 +1,4 @@
-# Copyright 2016, 2020, 2022 National Research Foundation (SARAO)
+# Copyright 2016, 2020-2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -76,6 +76,7 @@ libspead2_a_SOURCES = \
 	common_socket.cpp \
 	common_thread_pool.cpp \
 	recv_chunk_stream.cpp \
+	recv_chunk_stream_group.cpp \
 	recv_heap.cpp \
 	recv_inproc.cpp \
 	recv_live_heap.cpp \
