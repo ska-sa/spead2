@@ -828,7 +828,7 @@ void chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::stop()
     data_ring->stop();  // NB: NOT remove_producer as that might not break a deadlock
     chunk_stream::stop();
     {
-        std::lock_guard<std::mutex> lock(queue_mutex);
+        std::lock_guard<std::mutex> lock(shared->queue_mutex);
         graveyard.clear(); // free chunks that didn't make it into data_ring
     }
 }

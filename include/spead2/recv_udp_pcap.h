@@ -1,4 +1,4 @@
-/* Copyright 2016-2017 National Research Foundation (SARAO)
+/* Copyright 2016-2017, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -28,7 +28,6 @@
 #include <string>
 #include <pcap/pcap.h>
 #include <spead2/common_raw_packet.h>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_udp_base.h>
 #include <spead2/recv_stream.h>
 
@@ -49,7 +48,7 @@ private:
     pcap_t *handle;
     udp_unpacker udp_from_frame;
 
-    void run();
+    void run(stream_base::add_packet_state &state);
 
 public:
     /**
@@ -64,7 +63,6 @@ public:
     udp_pcap_file_reader(stream &owner, const std::string &filename, const std::string &filter = "");
     virtual ~udp_pcap_file_reader();
 
-    virtual void stop() override;
     virtual bool lossy() const override;
 };
 

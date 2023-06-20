@@ -1,4 +1,4 @@
-/* Copyright 2018-2019 National Research Foundation (SARAO)
+/* Copyright 2018-2019, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -24,7 +24,7 @@
 #include <spead2/common_inproc.h>
 #include <spead2/common_logging.h>
 #include <spead2/recv_inproc.h>
-#include <spead2/recv_reader.h>
+#include <spead2/recv_stream.h>
 
 namespace spead2
 {
@@ -58,32 +58,25 @@ void inproc_reader::process_one_packet(stream_base::add_packet_state &state,
 }
 
 void inproc_reader::packet_handler(
+    stream_base::add_packet_state &state,
     const boost::system::error_code &error,
     std::size_t bytes_transferred)
 {
-    stream_base::add_packet_state state(get_stream_base());
     if (!error)
     {
-        if (state.is_stopped())
+        try
         {
-            log_info("inproc reader: discarding packet received after stream stopped");
+            inproc_queue::packet packet = queue->buffer.try_pop();
+            process_one_packet(state, packet);
+            /* TODO: could grab a batch of packets to amortise costs */
         }
-        else
+        catch (ringbuffer_stopped &)
         {
-            try
-            {
-                inproc_queue::packet packet = queue->buffer.try_pop();
-                process_one_packet(state, packet);
-                /* TODO: could grab a batch of packets to amortise costs */
-            }
-            catch (ringbuffer_stopped &)
-            {
-                state.stop();
-            }
-            catch (ringbuffer_empty &)
-            {
-                // spurious wakeup - no action needed
-            }
+            state.stop();
+        }
+        catch (ringbuffer_empty &)
+        {
+            // spurious wakeup - no action needed
         }
     }
     else if (error != boost::asio::error::operation_aborted)
@@ -91,11 +84,6 @@ void inproc_reader::packet_handler(
 
     if (!state.is_stopped())
         enqueue();
-    else
-    {
-        data_sem_wrapper.close();
-        stopped();
-    }
 }
 
 void inproc_reader::enqueue()
@@ -103,12 +91,7 @@ void inproc_reader::enqueue()
     using namespace std::placeholders;
     data_sem_wrapper.async_read_some(
         boost::asio::null_buffers(),
-        std::bind(&inproc_reader::packet_handler, this, _1, _2));
-}
-
-void inproc_reader::stop()
-{
-    data_sem_wrapper.close();
+        bind_handler(std::bind(&inproc_reader::packet_handler, this, _1, _2, _3)));
 }
 
 bool inproc_reader::lossy() const

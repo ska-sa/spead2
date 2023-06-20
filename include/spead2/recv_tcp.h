@@ -29,7 +29,6 @@
 #include <spead2/common_features.h>
 #include <cstdint>
 #include <boost/asio.hpp>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_base.h>
 
@@ -44,10 +43,13 @@ namespace recv
 class tcp_reader : public reader
 {
 private:
-    /// The acceptor object
-    boost::asio::ip::tcp::acceptor acceptor;
-    /// TCP peer socket (i.e., the one connected to the remote end)
-    boost::asio::ip::tcp::socket peer;
+    /* The definition order is important here: the buffer must outlive the peer
+     * socket, so that the destructor cancels an asynchronous buffer read
+     * before the buffer is destroyed.
+     *
+     * Similarly, the accepter must be destroyed before the peer.
+     */
+
     /// Maximum packet size we will accept. Needed mostly for the underlying packet deserialization logic
     std::size_t max_size;
     /// Buffer for packet data reception
@@ -63,15 +65,22 @@ private:
     /// Number of packets to hold on each buffer for asynchronous receive
     static constexpr std::size_t pkts_per_buffer = 64;
 
+    /// TCP peer socket (i.e., the one connected to the remote end)
+    boost::asio::ip::tcp::socket peer;
+    /// The acceptor object
+    boost::asio::ip::tcp::acceptor acceptor;
+
     /// Start an asynchronous receive
     void enqueue_receive();
 
     /// Callback on completion of asynchronous accept
     void accept_handler(
+        stream_base::add_packet_state &state,
         const boost::system::error_code &error);
 
     /// Callback on completion of asynchronous receive
     void packet_handler(
+        stream_base::add_packet_state &state,
         const boost::system::error_code &error,
         std::size_t bytes_transferred);
 
@@ -139,8 +148,6 @@ public:
         stream &owner,
         boost::asio::ip::tcp::acceptor &&acceptor,
         std::size_t max_size = default_max_size);
-
-    virtual void stop() override;
 
     virtual bool lossy() const override;
 

@@ -30,7 +30,7 @@
 #include <cstdlib>
 #include <functional>
 #include <boost/asio.hpp>
-#include <spead2/recv_reader.h>
+#include <spead2/recv_stream.h>
 #include <spead2/recv_tcp.h>
 #include <spead2/common_endian.h>
 #include <spead2/common_logging.h>
@@ -50,17 +50,25 @@ tcp_reader::tcp_reader(
     boost::asio::ip::tcp::acceptor &&acceptor,
     std::size_t max_size,
     std::size_t buffer_size)
-    : reader(owner), acceptor(std::move(acceptor)),
-    peer(get_socket_io_service(this->acceptor)),
+    : reader(owner),
     max_size(max_size),
     buffer(new std::uint8_t[max_size * pkts_per_buffer]),
     head(buffer.get()),
-    tail(buffer.get())
+    tail(buffer.get()),
+    peer(get_socket_io_service(acceptor)),
+    acceptor(std::move(acceptor))
 {
     assert(socket_uses_io_service(this->acceptor, get_io_service()));
     set_socket_recv_buffer_size(this->acceptor, buffer_size);
-    this->acceptor.async_accept(peer,
-        std::bind(&tcp_reader::accept_handler, this, std::placeholders::_1));
+    /* We need to hold the stream's queue_mutex, because that guards access
+     * to the sockets. This is a heavy-weight way to do it, but since it
+     * only happens once per connection it is probably not worth trying to
+     * add a lighter-weight interface to stream.
+     */
+    using namespace std::placeholders;
+    this->acceptor.async_accept(
+        peer,
+        bind_handler(std::bind(&tcp_reader::accept_handler, this, _1, _2)));
 }
 
 tcp_reader::tcp_reader(
@@ -84,11 +92,10 @@ tcp_reader::tcp_reader(
 }
 
 void tcp_reader::packet_handler(
+    stream_base::add_packet_state &state,
     const boost::system::error_code &error,
     std::size_t bytes_transferred)
 {
-    stream_base::add_packet_state state(get_stream_base());
-
     bool read_more = false;
     if (!error)
     {
@@ -107,11 +114,6 @@ void tcp_reader::packet_handler(
 
     if (read_more)
         enqueue_receive();
-    else
-    {
-        peer.close();
-        stopped();
-    }
 }
 
 bool tcp_reader::parse_packet(stream_base::add_packet_state &state)
@@ -214,15 +216,8 @@ bool tcp_reader::skip_bytes()
     return to_skip > 0;
 }
 
-void tcp_reader::accept_handler(const boost::system::error_code &error)
+void tcp_reader::accept_handler(stream_base::add_packet_state &state, const boost::system::error_code &error)
 {
-    /* We need to hold the stream's queue_mutex, because that guards access
-     * to the sockets. This is a heavy-weight way to do it, but since it
-     * only happens once per connection it is probably not worth trying to
-     * add a lighter-weight interface to @c stream.
-     */
-    stream_base::add_packet_state state(get_stream_base());
-
     acceptor.close();
     if (!error)
         enqueue_receive();
@@ -230,7 +225,6 @@ void tcp_reader::accept_handler(const boost::system::error_code &error)
     {
         if (error != boost::asio::error::operation_aborted)
             log_warning("Error in TCP accept: %1%", error.message());
-        stopped();
     }
 }
 
@@ -254,20 +248,7 @@ void tcp_reader::enqueue_receive()
 
     peer.async_receive(
         boost::asio::buffer(tail, bufsize - (tail - buf)),
-        std::bind(&tcp_reader::packet_handler, this, _1, _2));
-}
-
-void tcp_reader::stop()
-{
-    /* asio guarantees that closing a socket will cancel any pending
-     * operations on it.
-     * Don't put any logging here: it could be running in a shutdown
-     * path where it is no longer safe to do so.
-     */
-    if (peer.is_open())
-        peer.close();
-    if (acceptor.is_open())
-        acceptor.close();
+        bind_handler(std::bind(&tcp_reader::packet_handler, this, _1, _2, _3)));
 }
 
 bool tcp_reader::lossy() const

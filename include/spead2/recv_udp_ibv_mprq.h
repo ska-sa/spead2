@@ -1,4 +1,4 @@
-/* Copyright 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -35,7 +35,6 @@
 #include <vector>
 #include <boost/asio.hpp>
 #include <spead2/common_ibv.h>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_base.h>
 #include <spead2/recv_udp_ibv.h>

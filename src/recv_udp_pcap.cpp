@@ -1,4 +1,4 @@
-/* Copyright 2016-2017, 2019 National Research Foundation (SARAO)
+/* Copyright 2016-2017, 2019, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -23,7 +23,6 @@
 #include <cassert>
 #include <cstdint>
 #include <string>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_base.h>
 #include <spead2/recv_udp_pcap.h>
@@ -44,11 +43,10 @@ namespace spead2
 namespace recv
 {
 
-void udp_pcap_file_reader::run()
+void udp_pcap_file_reader::run(stream_base::add_packet_state &state)
 {
     const int BATCH = 64;  // maximum number of packets to process in one go
 
-    spead2::recv::stream_base::add_packet_state state(get_stream_base());
     for (int pass = 0; pass < BATCH; pass++)
     {
         if (state.is_stopped())
@@ -93,9 +91,7 @@ void udp_pcap_file_reader::run()
     }
     // Run ourselves again
     if (!state.is_stopped())
-        get_io_service().post([this] { run(); });
-    else
-        stopped();
+        get_io_service().post(bind_handler([this] (stream_base::add_packet_state &state) { run(state); }));
 }
 
 udp_pcap_file_reader::udp_pcap_file_reader(stream &owner, const std::string &filename, const std::string &user_filter)
@@ -130,17 +126,13 @@ udp_pcap_file_reader::udp_pcap_file_reader(stream &owner, const std::string &fil
     udp_from_frame = (linktype == DLT_EN10MB) ? udp_from_ethernet : udp_from_linux_sll;
 
     // Process the file
-    get_io_service().post([this] { run(); });
+    get_io_service().post(bind_handler([this] (stream_base::add_packet_state &state) { run(state); }));
 }
 
 udp_pcap_file_reader::~udp_pcap_file_reader()
 {
     if (handle)
         pcap_close(handle);
-}
-
-void udp_pcap_file_reader::stop()
-{
 }
 
 bool udp_pcap_file_reader::lossy() const

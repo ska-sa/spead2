@@ -1,4 +1,4 @@
-/* Copyright 2016-2020 National Research Foundation (SARAO)
+/* Copyright 2016-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -35,7 +35,6 @@
 #include <algorithm>
 #include <boost/asio.hpp>
 #include <unistd.h>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_ibv.h>
 #include <spead2/common_endian.h>
@@ -89,8 +88,7 @@ udp_ibv_reader_core::udp_ibv_reader_core(
     event_channel(nullptr),
     comp_channel_wrapper(owner.get_io_service()),
     max_size(config.get_max_size()),
-    max_poll(config.get_max_poll()),
-    stop_poll(false)
+    max_poll(config.get_max_poll())
 {
     if (config.get_endpoints().empty())
         throw std::invalid_argument("endpoints is empty");
@@ -118,14 +116,6 @@ void udp_ibv_reader_core::join_groups(
             join_socket.set_option(boost::asio::ip::multicast::join_group(
                 endpoint.address().to_v4(), interface_address.to_v4()));
         }
-}
-
-void udp_ibv_reader_core::stop()
-{
-    if (comp_channel)
-        comp_channel_wrapper.close();
-    else
-        stop_poll = true;
 }
 
 } // namespace detail

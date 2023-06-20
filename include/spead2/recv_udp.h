@@ -1,4 +1,4 @@
-/* Copyright 2015, 2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -31,7 +31,6 @@
 #endif
 #include <cstdint>
 #include <boost/asio.hpp>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_base.h>
 
@@ -46,8 +45,10 @@ namespace recv
 class udp_reader : public udp_reader_base
 {
 private:
-    /// UDP socket we are listening on
-    boost::asio::ip::udp::socket socket;
+    /* Note: declaration order is import for correct destruction
+     * (the stream must be closed before we start destroying buffers).
+     */
+
     /// Unused, but need to provide the memory for asio to write to
     boost::asio::ip::udp::endpoint endpoint;
     /// Maximum packet size we will accept
@@ -63,12 +64,15 @@ private:
     /// Buffer for asynchronous receive, of size @a max_size + 1.
     std::unique_ptr<std::uint8_t[]> buffer;
 #endif
+    /// UDP socket we are listening on
+    boost::asio::ip::udp::socket socket;
 
     /// Start an asynchronous receive
     void enqueue_receive();
 
     /// Callback on completion of asynchronous receive
     void packet_handler(
+        stream_base::add_packet_state &state,
         const boost::system::error_code &error,
         std::size_t bytes_transferred);
 
@@ -166,8 +170,6 @@ public:
         stream &owner,
         boost::asio::ip::udp::socket &&socket,
         std::size_t max_size = default_max_size);
-
-    virtual void stop() override;
 };
 
 /**

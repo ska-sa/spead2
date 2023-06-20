@@ -82,7 +82,6 @@ libspead2_a_SOURCES = \
 	recv_live_heap.cpp \
 	recv_mem.cpp \
 	recv_packet.cpp \
-	recv_reader.cpp \
 	recv_ring_stream.cpp \
 	recv_stream.cpp \
 	recv_tcp.cpp \

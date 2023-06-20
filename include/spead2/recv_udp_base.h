@@ -1,4 +1,4 @@
-/* Copyright 2016 National Research Foundation (SARAO)
+/* Copyright 2016, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -23,7 +23,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
 
 namespace spead2
