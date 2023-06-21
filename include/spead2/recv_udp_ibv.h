@@ -147,6 +147,7 @@ protected:
      * from the completion channel.
      */
     void packet_handler(
+        handler_context ctx,
         stream_base::add_packet_state &state,
         const boost::system::error_code &error,
         bool consume_event);
@@ -155,13 +156,14 @@ protected:
      * Request a callback when there is data (or as soon as possible, in
      * polling mode or when @a need_poll is true).
      */
-    void enqueue_receive(bool needs_poll);
+    void enqueue_receive(handler_context ctx, bool needs_poll);
 
     using udp_ibv_reader_core::udp_ibv_reader_core;
 };
 
 template<typename Derived>
 void udp_ibv_reader_base<Derived>::packet_handler(
+    handler_context ctx,
     stream_base::add_packet_state &state,
     const boost::system::error_code &error,
     bool consume_event)
@@ -216,12 +218,12 @@ void udp_ibv_reader_base<Derived>::packet_handler(
 
     if (!state.is_stopped())
     {
-        enqueue_receive(need_poll);
+        enqueue_receive(std::move(ctx), need_poll);
     }
 }
 
 template<typename Derived>
-void udp_ibv_reader_base<Derived>::enqueue_receive(bool need_poll)
+void udp_ibv_reader_base<Derived>::enqueue_receive(handler_context ctx, bool need_poll)
 {
     using namespace std::placeholders;
     if (comp_channel && !need_poll)
@@ -229,14 +231,18 @@ void udp_ibv_reader_base<Derived>::enqueue_receive(bool need_poll)
         // Asynchronous mode
         comp_channel_wrapper.async_read_some(
             boost::asio::null_buffers(),
-            bind_handler(std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1, _2, true)));
+            bind_handler(
+                std::move(ctx),
+                std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1, _2, _3, true)));
     }
     else
     {
         // Polling mode
-        get_io_service().post(
+        boost::asio::post(
+            get_io_service(),
             bind_handler(
-                std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1,
+                std::move(ctx),
+                std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1, _2,
                           boost::system::error_code(), false)
             )
         );

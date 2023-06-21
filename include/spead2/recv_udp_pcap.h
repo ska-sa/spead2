@@ -48,7 +48,7 @@ private:
     pcap_t *handle;
     udp_unpacker udp_from_frame;
 
-    void run(stream_base::add_packet_state &state);
+    void run(handler_context ctx, stream_base::add_packet_state &state);
 
 public:
     /**

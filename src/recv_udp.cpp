@@ -85,7 +85,7 @@ udp_reader::udp_reader(
     }
 #endif
 
-    enqueue_receive();
+    enqueue_receive(make_handler_context());
 }
 
 static boost::asio::ip::udp::socket make_bound_v4_socket(
@@ -183,6 +183,7 @@ udp_reader::udp_reader(
 }
 
 void udp_reader::packet_handler(
+    handler_context ctx,
     stream_base::add_packet_state &state,
     const boost::system::error_code &error,
     std::size_t bytes_transferred)
@@ -214,11 +215,11 @@ void udp_reader::packet_handler(
 
     if (!state.is_stopped())
     {
-        enqueue_receive();
+        enqueue_receive(std::move(ctx));
     }
 }
 
-void udp_reader::enqueue_receive()
+void udp_reader::enqueue_receive(handler_context ctx)
 {
     using namespace std::placeholders;
     socket.async_receive_from(
@@ -228,7 +229,7 @@ void udp_reader::enqueue_receive()
         boost::asio::buffer(buffer.get(), max_size + 1),
 #endif
         endpoint,
-        bind_handler(std::bind(&udp_reader::packet_handler, this, _1, _2, _3)));
+        bind_handler(std::move(ctx), std::bind(&udp_reader::packet_handler, this, _1, _2, _3, _4)));
 }
 
 /////////////////////////////////////////////////////////////////////////////

@@ -23,6 +23,7 @@
 #include <cassert>
 #include <cstdint>
 #include <string>
+#include <functional>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_base.h>
 #include <spead2/recv_udp_pcap.h>
@@ -43,7 +44,7 @@ namespace spead2
 namespace recv
 {
 
-void udp_pcap_file_reader::run(stream_base::add_packet_state &state)
+void udp_pcap_file_reader::run(handler_context ctx, stream_base::add_packet_state &state)
 {
     const int BATCH = 64;  // maximum number of packets to process in one go
 
@@ -91,7 +92,10 @@ void udp_pcap_file_reader::run(stream_base::add_packet_state &state)
     }
     // Run ourselves again
     if (!state.is_stopped())
-        get_io_service().post(bind_handler([this] (stream_base::add_packet_state &state) { run(state); }));
+    {
+        using namespace std::placeholders;
+        boost::asio::post(get_io_service(), bind_handler(std::move(ctx), std::bind(&udp_pcap_file_reader::run, this, _1, _2)));
+    }
 }
 
 udp_pcap_file_reader::udp_pcap_file_reader(stream &owner, const std::string &filename, const std::string &user_filter)
@@ -126,7 +130,8 @@ udp_pcap_file_reader::udp_pcap_file_reader(stream &owner, const std::string &fil
     udp_from_frame = (linktype == DLT_EN10MB) ? udp_from_ethernet : udp_from_linux_sll;
 
     // Process the file
-    get_io_service().post(bind_handler([this] (stream_base::add_packet_state &state) { run(state); }));
+    using namespace std::placeholders;
+    boost::asio::post(get_io_service(), bind_handler(std::bind(&udp_pcap_file_reader::run, this, _1, _2)));
 }
 
 udp_pcap_file_reader::~udp_pcap_file_reader()

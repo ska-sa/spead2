@@ -752,7 +752,9 @@ public:
  * handled. Since destruction may happen on a separate thread to the one
  * running in-flight handlers, care must be taken not to access the stream or
  * the reader after the stream is stopped. In many cases this can be
- * facilitated using @ref bind_handler.
+ * facilitated using @ref bind_handler, although it is still important to
+ * re-check whether the stream has stopped after calling
+ * @ref stream_base::add_packet_state::add_packet.
  */
 class reader
 {
@@ -761,33 +763,94 @@ private:
     std::shared_ptr<stream_base::shared_state> owner;  ///< Access to owning stream
 
 protected:
+    class handler_context
+    {
+        friend class reader;
+    private:
+        std::shared_ptr<stream_base::shared_state> owner;
+
+    public:
+        explicit handler_context(std::shared_ptr<stream_base::shared_state> owner)
+            : owner(std::move(owner))
+        {
+            assert(this->owner);
+        }
+
+        // Whether the context is still valid
+        explicit operator bool() const noexcept { return bool(owner); }
+        bool operator!() const noexcept { return !owner; }
+
+        /* Prevent copy construction and assignment. They're perfectly safe,
+         * but potentially slow (atomic reference count manipulation) so
+         * they're disabled to prevent them being used by accident.
+         */
+        handler_context(handler_context &) = delete;
+        handler_context &operator=(handler_context &) = delete;
+        handler_context(handler_context &&) = default;
+        handler_context &operator=(handler_context &&) = default;
+    };
+
     template<typename T>
     class bound_handler
     {
     private:
-        std::shared_ptr<stream_base::shared_state> owner;
+        handler_context ctx;
         T orig;
 
     public:
         template<typename U>
-        bound_handler(std::shared_ptr<stream_base::shared_state> owner, U &&orig)
-        : owner(std::move(owner)), orig(std::forward<U>(orig))
+        bound_handler(handler_context ctx, U &&orig)
+        : ctx(std::move(ctx)), orig(std::forward<U>(orig))
         {
         }
 
         template<typename... Args>
         void operator()(Args&&... args)
         {
-            stream_base::add_packet_state state(*owner);
+            // Note: because we give away our shared pointer, this can only be
+            // called once. Fortunately, asio makes that guarantee.
+            assert(ctx);
+            stream_base::add_packet_state state(*ctx.owner);
             if (!state.is_stopped())
-                orig(state, std::forward<Args>(args)...);
+                orig(std::move(ctx), state, std::forward<Args>(args)...);
         }
     };
 
-    template<typename T>
-    bound_handler<T> bind_handler(T &&handler) const
+    handler_context make_handler_context() const
     {
-        return bound_handler<typename std::decay<T>::type>(owner, std::forward<T>(handler));
+        return handler_context(owner);
+    }
+
+    /**
+     * Wrap a function object to manage locking and lifetime. This is intended
+     * to be used to bind a completion handler. The wrapper handler is called
+     * with extra arguments prefixed, so it should have the signature
+     * <code>void handler(handler_context ctx, stream_base::add_packet_state &state, ...);</code>
+     *
+     * The @ref handler_context can be passed (by rvalue
+     * reference) to a single call to @ref bind_handler, which is cheaper
+     * than the overload that doesn't take it (it avoids manipulating reference
+     * counts on a @c std::shared_ptr).
+     *
+     * At the time the wrapped handler is invoked, the stream is guaranteed to still
+     * exist and not yet have been stopped. After calling
+     * @ref stream_base::add_packet_state::add_packet one must again check whether
+     * the stream has been stopped, as this can cause the reader to be destroyed.
+     */
+    template<typename T>
+    bound_handler<typename std::decay<T>::type> bind_handler(T &&handler) const
+    {
+        return bind_handler(make_handler_context(), std::forward<T>(handler));
+    }
+
+    /**
+     * Overload that takes an existing @ref handler_context.
+     */
+    template<typename T>
+    bound_handler<typename std::decay<T>::type> bind_handler(handler_context ctx, T &&handler) const
+    {
+        assert(ctx);  // make sure it hasn't already been used
+        return bound_handler<typename std::decay<T>::type>(std::move(ctx), std::forward<T>(handler));
     }
 
 public:

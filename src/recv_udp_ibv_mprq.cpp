@@ -226,7 +226,7 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
         post_wr(i * wqe_size);
 
     flows = create_flows(qp, config.get_endpoints(), cm_id->port_num);
-    enqueue_receive(true);
+    enqueue_receive(make_handler_context(), true);
     join_groups(config.get_endpoints(), config.get_interface_address());
 }
 

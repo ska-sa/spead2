@@ -39,7 +39,7 @@ inproc_reader::inproc_reader(
     data_sem_wrapper(wrap_fd(owner.get_io_service(),
                              this->queue->buffer.get_data_sem().get_fd()))
 {
-    enqueue();
+    enqueue(make_handler_context());
 }
 
 void inproc_reader::process_one_packet(stream_base::add_packet_state &state,
@@ -58,6 +58,7 @@ void inproc_reader::process_one_packet(stream_base::add_packet_state &state,
 }
 
 void inproc_reader::packet_handler(
+    handler_context ctx,
     stream_base::add_packet_state &state,
     const boost::system::error_code &error,
     std::size_t bytes_transferred)
@@ -83,15 +84,15 @@ void inproc_reader::packet_handler(
         log_warning("Error in inproc receiver: %1%", error.message());
 
     if (!state.is_stopped())
-        enqueue();
+        enqueue(std::move(ctx));
 }
 
-void inproc_reader::enqueue()
+void inproc_reader::enqueue(handler_context ctx)
 {
     using namespace std::placeholders;
     data_sem_wrapper.async_read_some(
         boost::asio::null_buffers(),
-        bind_handler(std::bind(&inproc_reader::packet_handler, this, _1, _2, _3)));
+        bind_handler(std::move(ctx), std::bind(&inproc_reader::packet_handler, this, _1, _2, _3, _4)));
 }
 
 bool inproc_reader::lossy() const

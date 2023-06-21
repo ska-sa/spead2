@@ -265,7 +265,7 @@ udp_ibv_reader::udp_ibv_reader(
         qp.post_recv(&slots[i].wr);
     }
 
-    enqueue_receive(true);
+    enqueue_receive(make_handler_context(), true);
     qp.modify(IBV_QPS_RTR);
     join_groups(config.get_endpoints(), config.get_interface_address());
 }

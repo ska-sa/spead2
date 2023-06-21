@@ -43,10 +43,11 @@ private:
     void process_one_packet(stream_base::add_packet_state &state,
                             const inproc_queue::packet &packet);
     void packet_handler(
+        handler_context ctx,
         stream_base::add_packet_state &state,
         const boost::system::error_code &error,
         std::size_t bytes_received);
-    void enqueue();
+    void enqueue(handler_context ctx);
 
 public:
     /// Constructor.

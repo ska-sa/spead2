@@ -68,10 +68,11 @@ private:
     boost::asio::ip::udp::socket socket;
 
     /// Start an asynchronous receive
-    void enqueue_receive();
+    void enqueue_receive(handler_context ctx);
 
     /// Callback on completion of asynchronous receive
     void packet_handler(
+        handler_context ctx,
         stream_base::add_packet_state &state,
         const boost::system::error_code &error,
         std::size_t bytes_transferred);

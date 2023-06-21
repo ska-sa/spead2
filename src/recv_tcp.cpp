@@ -68,7 +68,7 @@ tcp_reader::tcp_reader(
     using namespace std::placeholders;
     this->acceptor.async_accept(
         peer,
-        bind_handler(std::bind(&tcp_reader::accept_handler, this, _1, _2)));
+        bind_handler(std::bind(&tcp_reader::accept_handler, this, _1, _2, _3)));
 }
 
 tcp_reader::tcp_reader(
@@ -92,6 +92,7 @@ tcp_reader::tcp_reader(
 }
 
 void tcp_reader::packet_handler(
+    handler_context ctx,
     stream_base::add_packet_state &state,
     const boost::system::error_code &error,
     std::size_t bytes_transferred)
@@ -113,7 +114,7 @@ void tcp_reader::packet_handler(
         log_warning("Error in TCP receiver: %1%", error.message());
 
     if (read_more)
-        enqueue_receive();
+        enqueue_receive(std::move(ctx));
 }
 
 bool tcp_reader::parse_packet(stream_base::add_packet_state &state)
@@ -216,11 +217,11 @@ bool tcp_reader::skip_bytes()
     return to_skip > 0;
 }
 
-void tcp_reader::accept_handler(stream_base::add_packet_state &state, const boost::system::error_code &error)
+void tcp_reader::accept_handler(handler_context ctx, stream_base::add_packet_state &state, const boost::system::error_code &error)
 {
     acceptor.close();
     if (!error)
-        enqueue_receive();
+        enqueue_receive(std::move(ctx));
     else
     {
         if (error != boost::asio::error::operation_aborted)
@@ -228,7 +229,7 @@ void tcp_reader::accept_handler(stream_base::add_packet_state &state, const boos
     }
 }
 
-void tcp_reader::enqueue_receive()
+void tcp_reader::enqueue_receive(handler_context ctx)
 {
     using namespace std::placeholders;
 
@@ -248,7 +249,7 @@ void tcp_reader::enqueue_receive()
 
     peer.async_receive(
         boost::asio::buffer(tail, bufsize - (tail - buf)),
-        bind_handler(std::bind(&tcp_reader::packet_handler, this, _1, _2, _3)));
+        bind_handler(std::move(ctx), std::bind(&tcp_reader::packet_handler, this, _1, _2, _3, _4)));
 }
 
 bool tcp_reader::lossy() const
