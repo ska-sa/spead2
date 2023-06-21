@@ -18,6 +18,9 @@
  * @file
  */
 
+#include <cstddef>
+#include <vector>
+#include <mutex>
 #include <spead2/recv_chunk_stream.h>
 #include <spead2/recv_chunk_stream_group.h>
 
@@ -80,12 +83,27 @@ chunk_stream_group::chunk_stream_group(const chunk_stream_group_config &config)
 
 chunk_stream_group::~chunk_stream_group()
 {
-    flush_chunks();
+    stop();
 }
 
-void chunk_stream_group::flush_chunks()
+void chunk_stream_group::stop()
 {
-    std::lock_guard<std::mutex> lock(mutex);
+    /* Streams will try to lock the group (and modify `streams`) while
+     * stopping, so we need to take a copy. During the destructor there
+     * should be no streams left, so this is not allocating memory during
+     * destruction.
+     *
+     * The copy is not protected by the mutex, so streams can asynchronously
+     * stop under us. That's okay because the contract for this function is
+     * that it's not allowed to occur concurrently with destroying streams.
+     */
+    std::unique_lock<std::mutex> lock(mutex);
+    std::vector<chunk_stream_group_member *> streams_copy(streams.begin(), streams.end());
+    lock.unlock();
+    for (auto stream : streams_copy)
+        stream->stop();
+
+    lock.lock();
     while (chunks.get_head_chunk() != chunks.get_tail_chunk())
         chunks.flush_head([this](chunk *c) { release_chunk_unlocked(c, nullptr); });
 }
@@ -122,6 +140,19 @@ void chunk_stream_group::release_chunk(chunk *c, std::uint64_t *batch_stats)
     release_chunk_unlocked(c, batch_stats);
 }
 
+void chunk_stream_group::stream_added(chunk_stream_group_member &s)
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    bool added = streams.insert(&s).second;
+    assert(added); // should be impossible to add the same stream twice
+}
+
+void chunk_stream_group::stream_stop_received(chunk_stream_group_member &s)
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    streams.erase(&s);
+}
+
 
 chunk_stream_group_member::chunk_stream_group_member(
     io_service_ref io_service,
@@ -129,8 +160,10 @@ chunk_stream_group_member::chunk_stream_group_member(
     const chunk_stream_config &chunk_config,
     chunk_stream_group &group)
     : chunk_stream_state(config, chunk_config, detail::chunk_manager_group(group)),
-    stream(std::move(io_service), adjust_config(config))
+    stream(std::move(io_service), adjust_config(config)),
+    group(group)
 {
+    group.stream_added(*this);
 }
 
 void chunk_stream_group_member::heap_ready(live_heap &&lh)
@@ -141,11 +174,13 @@ void chunk_stream_group_member::heap_ready(live_heap &&lh)
 void chunk_stream_group_member::stop_received()
 {
     stream::stop_received();
+    group.stream_stop_received(*this);
     flush_chunks();
 }
 
 void chunk_stream_group_member::stop()
 {
+    group.stream_pre_stop(*this);
     {
         std::lock_guard<std::mutex> lock(shared->queue_mutex);
         flush_chunks();

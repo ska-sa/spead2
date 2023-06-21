@@ -521,6 +521,43 @@ public:
     virtual ~chunk_stream() override;
 };
 
+namespace detail
+{
+
+/// Common functionality between @ref chunk_ring_stream and @ref chunk_stream_ring_group
+template<typename DataRingbuffer = ringbuffer<std::unique_ptr<chunk>>,
+         typename FreeRingbuffer = ringbuffer<std::unique_ptr<chunk>>>
+class chunk_ring_pair
+{
+protected:
+    const std::shared_ptr<DataRingbuffer> data_ring;
+    const std::shared_ptr<FreeRingbuffer> free_ring;
+    /// Temporary stroage for linked list of in-flight chunks while stopping
+    std::unique_ptr<chunk> graveyard;
+
+    chunk_ring_pair(std::shared_ptr<DataRingbuffer> data_ring, std::shared_ptr<FreeRingbuffer> free_ring);
+
+public:
+    /**
+     * Add a chunk to the free ringbuffer. This takes care of zeroing out
+     * the @ref spead2::recv::chunk::present array, and it will suppress the
+     * @ref spead2::ringbuffer_stopped error if the free ringbuffer has been
+     * stopped (in which case the argument will not have been moved from).
+     *
+     * If the free ring is full, it will throw @ref spead2::ringbuffer_full
+     * rather than blocking. The free ringbuffer should be constructed with
+     * enough slots that this does not happen.
+     */
+    void add_free_chunk(std::unique_ptr<chunk> &&c);
+
+    /// Retrieve the data ringbuffer passed to the constructor
+    std::shared_ptr<DataRingbuffer> get_data_ringbuffer() const { return data_ring; }
+    /// Retrieve the free ringbuffer passed to the constructor
+    std::shared_ptr<FreeRingbuffer> get_free_ringbuffer() const { return free_ring; }
+};
+
+} // namespace detail
+
 /**
  * Wrapper around @ref chunk_stream that uses ringbuffers to manage chunks.
  *
@@ -532,22 +569,12 @@ public:
  *
  * When @ref stop is called, any in-flight chunks (that are not in either
  * of the ringbuffers) will be freed from the thread that called @ref stop.
- *
- * It's important to note that the free ring is also stopped if the stream
- * is stopped by a stream control item. The user must thus be prepared to
- * deal gracefully with a @ref ringbuffer_stopped exception when
- * pushing to the free ring.
  */
 template<typename DataRingbuffer = ringbuffer<std::unique_ptr<chunk>>,
          typename FreeRingbuffer = ringbuffer<std::unique_ptr<chunk>>>
-class chunk_ring_stream : public chunk_stream
+class chunk_ring_stream : public detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer>, public chunk_stream
 {
 private:
-    std::shared_ptr<DataRingbuffer> data_ring;
-    std::shared_ptr<FreeRingbuffer> free_ring;
-    /// Temporary storage for linked list of in-flight chunks during @ref stop
-    std::unique_ptr<chunk> graveyard;
-
     /// Create a new @ref spead2::recv::chunk_stream_config that uses the ringbuffers
     static chunk_stream_config adjust_chunk_config(
         const chunk_stream_config &chunk_config,
@@ -576,23 +603,6 @@ public:
         const chunk_stream_config &chunk_config,
         std::shared_ptr<DataRingbuffer> data_ring,
         std::shared_ptr<FreeRingbuffer> free_ring);
-
-    /**
-     * Add a chunk to the free ringbuffer. This takes care of zeroing out
-     * the @ref spead2::recv::chunk::present array, and it will suppress the
-     * @ref spead2::ringbuffer_stopped error if the free ringbuffer has been
-     * stopped (in which case the argument will not have been moved from).
-     *
-     * If the free ring is full, it will throw @ref spead2::ringbuffer_full
-     * rather than blocking. The free ringbuffer should be constructed with
-     * enough slots that this does not happen.
-     */
-    void add_free_chunk(std::unique_ptr<chunk> &&c);
-
-    /// Retrieve the data ringbuffer passed to the constructor
-    std::shared_ptr<DataRingbuffer> get_data_ringbuffer() const { return data_ring; }
-    /// Retrieve the free ringbuffer passed to the constructor
-    std::shared_ptr<FreeRingbuffer> get_free_ringbuffer() const { return free_ring; }
 
     virtual void stop_received() override;
     virtual void stop() override;
@@ -737,6 +747,29 @@ chunk_stream_state<CM>::allocate(std::size_t size, const packet_header &packet)
     }
 }
 
+template<typename DataRingbuffer, typename FreeRingbuffer>
+chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::chunk_ring_pair(
+    std::shared_ptr<DataRingbuffer> data_ring,
+    std::shared_ptr<FreeRingbuffer> free_ring)
+    : data_ring(std::move(data_ring)), free_ring(std::move(free_ring))
+{
+}
+
+template<typename DataRingbuffer, typename FreeRingbuffer>
+void chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::add_free_chunk(std::unique_ptr<chunk> &&c)
+{
+    // Mark all heaps as not yet present
+    std::memset(c->present.get(), 0, c->present_size);
+    try
+    {
+        free_ring->try_push(std::move(c));
+    }
+    catch (spead2::ringbuffer_stopped &)
+    {
+        // Suppress the error
+    }
+}
+
 } // namespace detail
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
@@ -746,12 +779,11 @@ chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::chunk_ring_stream(
         const chunk_stream_config &chunk_config,
         std::shared_ptr<DataRingbuffer> data_ring,
         std::shared_ptr<FreeRingbuffer> free_ring)
-    : chunk_stream(
+    : detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer>(std::move(data_ring), std::move(free_ring)),
+    chunk_stream(
         io_service,
         config,
-        adjust_chunk_config(chunk_config, *data_ring, *free_ring, graveyard)),
-    data_ring(std::move(data_ring)),
-    free_ring(std::move(free_ring))
+        adjust_chunk_config(chunk_config, *this->data_ring, *this->free_ring, this->graveyard))
 {
     this->data_ring->add_producer();
 }
@@ -802,25 +834,10 @@ chunk_stream_config chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::adjust_ch
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
-void chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::add_free_chunk(std::unique_ptr<chunk> &&c)
-{
-    // Mark all heaps as not yet present
-    std::memset(c->present.get(), 0, c->present_size);
-    try
-    {
-        free_ring->try_push(std::move(c));
-    }
-    catch (spead2::ringbuffer_stopped &)
-    {
-        // Suppress the error
-    }
-}
-
-template<typename DataRingbuffer, typename FreeRingbuffer>
 void chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::stop_received()
 {
     chunk_stream::stop_received();
-    data_ring->remove_producer();
+    this->data_ring->remove_producer();
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
@@ -828,12 +845,14 @@ void chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::stop()
 {
     // Stop the ringbuffers first, so that if the calling code is no longer
     // servicing them it will not lead to a deadlock as we flush.
-    free_ring->stop();
-    data_ring->stop();  // NB: NOT remove_producer as that might not break a deadlock
+    this->free_ring->stop();
+    this->data_ring->stop();  // NB: NOT remove_producer as that might not break a deadlock
     chunk_stream::stop();
     {
+        // Locking is probably not needed, as all readers are terminated by
+        // chunk_stream::stop(). But it should be safe.
         std::lock_guard<std::mutex> lock(shared->queue_mutex);
-        graveyard.reset(); // free chunks that didn't make it into data_ring
+        this->graveyard.reset(); // free chunks that didn't make it into data_ring
     }
 }
 

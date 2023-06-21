@@ -24,7 +24,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include <set>
 #include <mutex>
+#include <memory>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_chunk_stream.h>
 
@@ -88,6 +90,8 @@ public:
 
 } // namespace detail
 
+class chunk_stream_group_member;
+
 /**
  * A holder for a collection of streams that share chunks.
  *
@@ -97,6 +101,7 @@ class chunk_stream_group
 {
 private:
     friend class detail::chunk_manager_group;
+    friend class chunk_stream_group_member;
 
     const chunk_stream_group_config config;
 
@@ -111,6 +116,15 @@ private:
      * object, and to facilitate code sharing with @ref chunk_stream.
      */
     detail::chunk_window chunks;
+
+    /**
+     * References to the component streams that have not yet been stopped.
+     *
+     * Note that these are insufficient to actually keep the streams alive.
+     * The stream_stop_received callback ensures that we don't end up with
+     * dangling pointers.
+     */
+    std::set<chunk_stream_group_member *> streams;
 
     /**
      * Obtain the chunk with a given ID.
@@ -136,14 +150,32 @@ private:
     /// Version of release_chunk that does not take the lock
     void release_chunk_unlocked(chunk *c, std::uint64_t *batch_stats);
 
+    /// Called by newly-constructed streams
+    virtual void stream_added(chunk_stream_group_member &s);
+    /**
+     * Called when a stream stops (whether from the network or the user).
+     *
+     * The stream's @c queue_mutex is locked when this is called.
+     */
+    virtual void stream_stop_received(chunk_stream_group_member &s);
+    /**
+     * Called when the user stops (or destroys) a stream.
+     *
+     * This is called before the caller actually stops the stream, and without
+     * the stream's @c queue_mutex.
+     */
+    virtual void stream_pre_stop(chunk_stream_group_member &s) {}
+
 public:
     chunk_stream_group(const chunk_stream_group_config &config);
-    ~chunk_stream_group();
+    virtual ~chunk_stream_group();
 
     /**
-     * Release all chunks. This function is thread-safe.
+     * Stop all streams and release all chunks. This function is mostly
+     * thread-safe, but it is unsafe to call it at the same time as a stream is
+     * being destroyed.
      */
-    void flush_chunks();
+    virtual void stop();
 };
 
 /**
@@ -152,6 +184,9 @@ public:
 class chunk_stream_group_member : private detail::chunk_stream_state<detail::chunk_manager_group>, public stream
 {
     friend class detail::chunk_manager_group;
+
+private:
+    chunk_stream_group &group;  // TODO: redundant - also stored inside the manager
 
     virtual void heap_ready(live_heap &&) override;
 
@@ -191,6 +226,103 @@ public:
     virtual void stop() override;
     virtual ~chunk_stream_group_member() override;
 };
+
+/**
+ * Wrapper around @ref chunk_stream_group that uses ringbuffers to manage
+ * chunks.
+ *
+ * When a fresh chunk is needed, it is retrieved from a ringbuffer of free
+ * chunks (the "free ring"). When a chunk is flushed, it is pushed to a
+ * "data ring". These may be shared between groups, but both will be
+ * stopped as soon as any of the members streams are stopped. The intended use
+ * case is parallel groups that are started and stopped together.
+ *
+ * When @ref stream::stop is called on any member stream, the ringbuffers
+ * are both stopped, and readied chunks are diverted into a graveyard.
+ * When @ref stop is called, the graveyard is emptied from the stream calling
+ * @ref stop. This makes it safe to use chunks that can only safely be freed
+ * from the caller's thread (e.g. a Python thread holding the GIL).
+ */
+template<typename DataRingbuffer = ringbuffer<std::unique_ptr<chunk>>,
+         typename FreeRingbuffer = ringbuffer<std::unique_ptr<chunk>>>
+class chunk_stream_ring_group
+: public detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer>, public chunk_stream_group
+{
+private:
+    /// Create a new @ref chunk_stream_group_config that uses the ringbuffers
+    static chunk_stream_group_config adjust_group_config(
+        const chunk_stream_group_config &config,
+        DataRingbuffer &data_ring,
+        FreeRingbuffer &free_ring,
+        std::unique_ptr<chunk> &graveyard);
+
+    virtual void stream_added(chunk_stream_group_member &s) override;
+    virtual void stream_stop_received(chunk_stream_group_member &s) override;
+    virtual void stream_pre_stop(chunk_stream_group_member &s) override;
+
+public:
+    chunk_stream_ring_group(
+        const chunk_stream_group_config &group_config,
+        std::shared_ptr<DataRingbuffer> data_ring,
+        std::shared_ptr<FreeRingbuffer> free_ring);
+    virtual void stop() override;
+
+    ~chunk_stream_ring_group();
+};
+
+template<typename DataRingbuffer, typename FreeRingbuffer>
+chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::chunk_stream_ring_group(
+    const chunk_stream_group_config &group_config,
+    std::shared_ptr<DataRingbuffer> data_ring,
+    std::shared_ptr<FreeRingbuffer> free_ring)
+    : detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer>(std::move(data_ring), std::move(free_ring)),
+    chunk_stream_group(adjust_group_config(this->data_ring, this->free_ring, this->graveyard))
+{
+}
+
+template<typename DataRingbuffer, typename FreeRingbuffer>
+void chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::stream_added(
+    chunk_stream_group_member &s)
+{
+    chunk_stream_group::stream_added(s);
+    this->data_ring.add_producer();
+}
+
+template<typename DataRingbuffer, typename FreeRingbuffer>
+void chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::stream_stop_received(
+    chunk_stream_group_member &s)
+{
+    chunk_stream_group::stream_stop_received(s);
+    this->data_ring.remove_producer();
+}
+
+template<typename DataRingbuffer, typename FreeRingbuffer>
+void chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::stream_pre_stop(
+    chunk_stream_group_member &s)
+{
+    // Shut down the rings so that if the caller is no longer servicing them, it will
+    // not lead to a deadlock during shutdown.
+    this->data_ring.stop();
+    this->free_ring.stop();
+    chunk_stream_group::stream_pre_stop(s);
+}
+
+template<typename DataRingbuffer, typename FreeRingbuffer>
+void chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::stop()
+{
+    // Stopping the first stream should do this anyway, but this ensures
+    // they're stopped even if there are no streams
+    this->data_ring.stop();
+    this->free_ring.stop();
+    chunk_stream_group::stop();
+    this->graveyard.reset();  // Release chunks from the graveyard
+}
+
+template<typename DataRingbuffer, typename FreeRingbuffer>
+chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::~chunk_stream_ring_group()
+{
+    stop();
+}
 
 } // namespace recv
 } // namespace spead2
