@@ -45,6 +45,7 @@ namespace recv
 class chunk
 {
     friend class chunk_stream_group;
+    template<typename DataRingbuffer, typename FreeRingbuffer> friend class chunk_ring_stream;
 private:
     /**
      * Reference count for chunks belonging to stream groups.
@@ -53,6 +54,9 @@ private:
      * with the group's mutex locked.
      */
     std::size_t ref_count = 0;
+
+    /// Linked list of chunks to dispose of at shutdown
+    std::unique_ptr<chunk> graveyard_next;
 
 public:
     /// Chunk ID
@@ -541,15 +545,15 @@ class chunk_ring_stream : public chunk_stream
 private:
     std::shared_ptr<DataRingbuffer> data_ring;
     std::shared_ptr<FreeRingbuffer> free_ring;
-    /// Temporary storage for in-flight chunks during @ref stop
-    std::vector<std::unique_ptr<chunk>> graveyard;
+    /// Temporary storage for linked list of in-flight chunks during @ref stop
+    std::unique_ptr<chunk> graveyard;
 
     /// Create a new @ref spead2::recv::chunk_stream_config that uses the ringbuffers
     static chunk_stream_config adjust_chunk_config(
         const chunk_stream_config &chunk_config,
         DataRingbuffer &data_ring,
         FreeRingbuffer &free_ring,
-        std::vector<std::unique_ptr<chunk>> &graveyard);
+        std::unique_ptr<chunk> &graveyard);
 
 public:
     /**
@@ -750,8 +754,6 @@ chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::chunk_ring_stream(
     free_ring(std::move(free_ring))
 {
     this->data_ring->add_producer();
-    // Ensure that we don't run out of memory during shutdown
-    graveyard.reserve(get_chunk_config().get_max_chunks());
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
@@ -759,7 +761,7 @@ chunk_stream_config chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::adjust_ch
     const chunk_stream_config &chunk_config,
     DataRingbuffer &data_ring,
     FreeRingbuffer &free_ring,
-    std::vector<std::unique_ptr<chunk>> &graveyard)
+    std::unique_ptr<chunk> &graveyard)
 {
     chunk_stream_config new_config = chunk_config;
     // Set the allocate callback to get a chunk from the free ringbuffer
@@ -791,7 +793,9 @@ chunk_stream_config chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::adjust_ch
         {
             // Suppress the error, move the chunk to the graveyard
             log_info("dropped chunk %d due to external stop", c->chunk_id);
-            graveyard.push_back(std::move(c));
+            assert(!c->graveyard_next);  // chunk should not already be in a linked list
+            c->graveyard_next = std::move(graveyard);
+            graveyard = std::move(c);
         }
     });
     return new_config;
@@ -829,7 +833,7 @@ void chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::stop()
     chunk_stream::stop();
     {
         std::lock_guard<std::mutex> lock(shared->queue_mutex);
-        graveyard.clear(); // free chunks that didn't make it into data_ring
+        graveyard.reset(); // free chunks that didn't make it into data_ring
     }
 }
 
