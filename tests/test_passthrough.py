@@ -1,4 +1,4 @@
-# Copyright 2015, 2019-2022 National Research Foundation (SARAO)
+# Copyright 2015, 2019-2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -508,7 +508,7 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
             pytest.skip('Envar SPEAD2_TEST_IBV_INTERFACE_ADDRESS not set')
         return ifaddr
 
-    def setup(self):
+    def setup_method(self):
         # mlx5 drivers only enable multicast loopback if there are multiple
         # device contexts. The sender and receiver end up sharing one, so we
         # need to explicitly create another.
@@ -516,7 +516,7 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
             pytest.skip('IBV support not compiled in')
         self._extra_context = spead2.IbvContext(self._interface_address())
 
-    def teardown(self):
+    def teardown_method(self):
         self._extra_context.reset()
 
     def prepare_receivers(self, receivers):
