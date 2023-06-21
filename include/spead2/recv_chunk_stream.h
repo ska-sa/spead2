@@ -246,7 +246,7 @@ public:
      */
     template<typename F1, typename F2>
     chunk *get_chunk(
-        std::uint64_t chunk_id, std::uintptr_t stream_id, const F1 &allocate_chunk, const F2 &ready_chunk)
+        std::int64_t chunk_id, std::uintptr_t stream_id, const F1 &allocate_chunk, const F2 &ready_chunk)
     {
         const std::size_t max_chunks = chunks.size();
         if (chunk_id >= head_chunk)
