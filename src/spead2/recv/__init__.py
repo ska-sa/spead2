@@ -55,9 +55,20 @@ bytes, in the order they appeared in the original packet.
 """
 
 from spead2._spead2.recv import (           # noqa: F401
-    StreamConfig, RingStreamConfig, Stream, Heap, IncompleteHeap,
-    Chunk, ChunkStreamConfig, ChunkRingStream, ChunkRingbuffer,
-    StreamStats, StreamStatConfig
+    Chunk,
+    ChunkRingStream,
+    ChunkRingbuffer,
+    ChunkStreamConfig,
+    ChunkStreamGroupConfig,
+    ChunkStreamGroupMember,
+    ChunkStreamRingGroup,
+    Heap,
+    IncompleteHeap,
+    RingStreamConfig,
+    Stream,
+    StreamConfig,
+    StreamStatConfig,
+    StreamStats,
 )
 from . import stream_stat_indices           # noqa: F401
 try:

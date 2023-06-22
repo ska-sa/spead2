@@ -987,7 +987,8 @@ py::module register_module(py::module &parent)
         .def(py::init(&data_class_constructor<chunk_stream_group_config>))
         .def_property("max_chunks",
                       SPEAD2_PTMF(chunk_stream_group_config, get_max_chunks),
-                      SPEAD2_PTMF(chunk_stream_group_config, set_max_chunks));
+                      SPEAD2_PTMF(chunk_stream_group_config, set_max_chunks))
+        .def_readonly_static("DEFAULT_MAX_CHUNKS", &chunk_stream_group_config::default_max_chunks);
 
     py::class_<chunk_stream_ring_group_wrapper,
                detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>>(m, "ChunkStreamRingGroup")
