@@ -79,7 +79,7 @@ void chunk_manager_group::ready_chunk(chunk_stream_state<chunk_manager_group> &s
 } // namespace detail
 
 chunk_stream_group::chunk_stream_group(const chunk_stream_group_config &config)
-    : chunks(config.get_max_chunks())
+    : config(config), chunks(config.get_max_chunks())
 {
 }
 
