@@ -127,7 +127,6 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
 
 void chunk_stream_group::release_chunk_unlocked(chunk *c, std::uint64_t *batch_stats)
 {
-    std::lock_guard<std::mutex> lock(mutex);
     if (--c->ref_count == 0)
     {
         std::unique_ptr<chunk> owned(c);
