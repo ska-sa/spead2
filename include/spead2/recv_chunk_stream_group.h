@@ -167,7 +167,7 @@ protected:
     virtual void stream_pre_stop(chunk_stream_group_member &s) {}
 
 public:
-    chunk_stream_group(const chunk_stream_group_config &config);
+    explicit chunk_stream_group(const chunk_stream_group_config &config);
     virtual ~chunk_stream_group();
 
     /**
