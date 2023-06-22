@@ -144,6 +144,7 @@ void chunk_stream_group::stream_added(chunk_stream_group_member &s)
     std::lock_guard<std::mutex> lock(mutex);
     bool added = streams.insert(&s).second;
     assert(added); // should be impossible to add the same stream twice
+    (void) added; // suppress warning when NDEBUG is defined
 }
 
 void chunk_stream_group::stream_stop_received(chunk_stream_group_member &s)
