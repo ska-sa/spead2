@@ -41,11 +41,18 @@ namespace spead2
 namespace recv
 {
 
+namespace detail
+{
+
+template<typename DataRingbuffer, typename FreeRingbuffer> class chunk_ring_pair;
+
+} // namespace detail
+
 /// Storage for a chunk with metadata
 class chunk
 {
     friend class chunk_stream_group;
-    template<typename DataRingbuffer, typename FreeRingbuffer> friend class chunk_ring_stream;
+    template<typename DataRingbuffer, typename FreeRingbuffer> friend class detail::chunk_ring_pair;
 private:
     /**
      * Reference count for chunks belonging to stream groups.
@@ -538,6 +545,15 @@ protected:
     chunk_ring_pair(std::shared_ptr<DataRingbuffer> data_ring, std::shared_ptr<FreeRingbuffer> free_ring);
 
 public:
+    /// Create an allocate function that obtains chunks from the free ring
+    chunk_allocate_function make_allocate();
+    /**
+     * Create a ready function that pushes chunks to the data ring.
+     *
+     * The orig_ready function is called first.
+     */
+    chunk_ready_function make_ready(const chunk_ready_function &orig_ready);
+
     /**
      * Add a chunk to the free ringbuffer. This takes care of zeroing out
      * the @ref spead2::recv::chunk::present array, and it will suppress the
@@ -578,9 +594,7 @@ private:
     /// Create a new @ref spead2::recv::chunk_stream_config that uses the ringbuffers
     static chunk_stream_config adjust_chunk_config(
         const chunk_stream_config &chunk_config,
-        DataRingbuffer &data_ring,
-        FreeRingbuffer &free_ring,
-        std::unique_ptr<chunk> &graveyard);
+        detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer> &ring_pair);
 
 public:
     /**
@@ -770,34 +784,11 @@ void chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::add_free_chunk(std::unique
     }
 }
 
-} // namespace detail
-
 template<typename DataRingbuffer, typename FreeRingbuffer>
-chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::chunk_ring_stream(
-        io_service_ref io_service,
-        const stream_config &config,
-        const chunk_stream_config &chunk_config,
-        std::shared_ptr<DataRingbuffer> data_ring,
-        std::shared_ptr<FreeRingbuffer> free_ring)
-    : detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer>(std::move(data_ring), std::move(free_ring)),
-    chunk_stream(
-        io_service,
-        config,
-        adjust_chunk_config(chunk_config, *this->data_ring, *this->free_ring, this->graveyard))
+chunk_allocate_function chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::make_allocate()
 {
-    this->data_ring->add_producer();
-}
-
-template<typename DataRingbuffer, typename FreeRingbuffer>
-chunk_stream_config chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::adjust_chunk_config(
-    const chunk_stream_config &chunk_config,
-    DataRingbuffer &data_ring,
-    FreeRingbuffer &free_ring,
-    std::unique_ptr<chunk> &graveyard)
-{
-    chunk_stream_config new_config = chunk_config;
-    // Set the allocate callback to get a chunk from the free ringbuffer
-    new_config.set_allocate([&free_ring] (std::int64_t, std::uint64_t *) -> std::unique_ptr<chunk> {
+    FreeRingbuffer &free_ring = *this->free_ring;
+    return [&free_ring] (std::int64_t, std::uint64_t *) -> std::unique_ptr<chunk> {
         try
         {
             return free_ring.pop();
@@ -808,12 +799,17 @@ chunk_stream_config chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::adjust_ch
             // ignore this chunk
             return nullptr;
         }
-    });
-    // Set the ready callback to push chunks to the data ringbuffer
-    auto orig_ready = chunk_config.get_ready();
-    new_config.set_ready(
-        [&data_ring, &graveyard, orig_ready] (std::unique_ptr<chunk> &&c,
-                                              std::uint64_t *batch_stats) {
+    };
+}
+
+template<typename DataRingbuffer, typename FreeRingbuffer>
+chunk_ready_function chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::make_ready(
+    const chunk_ready_function &orig_ready)
+{
+    DataRingbuffer &data_ring = *this->data_ring;
+    std::unique_ptr<chunk> &graveyard = this->graveyard;
+    return [&data_ring, &graveyard, orig_ready] (std::unique_ptr<chunk> &&c,
+                                                 std::uint64_t *batch_stats) {
         try
         {
             if (orig_ready)
@@ -829,7 +825,38 @@ chunk_stream_config chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::adjust_ch
             c->graveyard_next = std::move(graveyard);
             graveyard = std::move(c);
         }
-    });
+    };
+}
+
+} // namespace detail
+
+template<typename DataRingbuffer, typename FreeRingbuffer>
+chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::chunk_ring_stream(
+        io_service_ref io_service,
+        const stream_config &config,
+        const chunk_stream_config &chunk_config,
+        std::shared_ptr<DataRingbuffer> data_ring,
+        std::shared_ptr<FreeRingbuffer> free_ring)
+    : detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer>(std::move(data_ring), std::move(free_ring)),
+    chunk_stream(
+        io_service,
+        config,
+        adjust_chunk_config(chunk_config, *this))
+{
+    this->data_ring->add_producer();
+}
+
+template<typename DataRingbuffer, typename FreeRingbuffer>
+chunk_stream_config chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::adjust_chunk_config(
+    const chunk_stream_config &chunk_config,
+    detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer> &ring_pair)
+{
+    chunk_stream_config new_config = chunk_config;
+    // Set the allocate callback to get a chunk from the free ringbuffer
+    new_config.set_allocate(ring_pair.make_allocate());
+    // Set the ready callback to push chunks to the data ringbuffer
+    auto orig_ready = chunk_config.get_ready();
+    new_config.set_ready(ring_pair.make_ready(chunk_config.get_ready()));
     return new_config;
 }
 

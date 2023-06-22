@@ -252,9 +252,7 @@ private:
     /// Create a new @ref chunk_stream_group_config that uses the ringbuffers
     static chunk_stream_group_config adjust_group_config(
         const chunk_stream_group_config &config,
-        DataRingbuffer &data_ring,
-        FreeRingbuffer &free_ring,
-        std::unique_ptr<chunk> &graveyard);
+        detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer> &ring_pair);
 
 protected:
     virtual void stream_added(chunk_stream_group_member &s) override;
@@ -277,8 +275,19 @@ chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::chunk_stream_ring_group
     std::shared_ptr<DataRingbuffer> data_ring,
     std::shared_ptr<FreeRingbuffer> free_ring)
     : detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer>(std::move(data_ring), std::move(free_ring)),
-    chunk_stream_group(adjust_group_config(this->data_ring, this->free_ring, this->graveyard))
+    chunk_stream_group(adjust_group_config(group_config, *this))
 {
+}
+
+template<typename DataRingbuffer, typename FreeRingbuffer>
+chunk_stream_group_config chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::adjust_group_config(
+    const chunk_stream_group_config &config,
+    detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer> &ring_pair)
+{
+    chunk_stream_group_config new_config = config;
+    new_config.set_allocate(ring_pair.make_allocate());
+    new_config.set_ready(ring_pair.make_ready(config.get_ready()));
+    return new_config;
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
@@ -286,7 +295,7 @@ void chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::stream_added(
     chunk_stream_group_member &s)
 {
     chunk_stream_group::stream_added(s);
-    this->data_ring.add_producer();
+    this->data_ring->add_producer();
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
@@ -294,7 +303,7 @@ void chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::stream_stop_receiv
     chunk_stream_group_member &s)
 {
     chunk_stream_group::stream_stop_received(s);
-    this->data_ring.remove_producer();
+    this->data_ring->remove_producer();
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
@@ -303,8 +312,8 @@ void chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::stream_pre_stop(
 {
     // Shut down the rings so that if the caller is no longer servicing them, it will
     // not lead to a deadlock during shutdown.
-    this->data_ring.stop();
-    this->free_ring.stop();
+    this->data_ring->stop();
+    this->free_ring->stop();
     chunk_stream_group::stream_pre_stop(s);
 }
 
@@ -313,8 +322,8 @@ void chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::stop()
 {
     // Stopping the first stream should do this anyway, but this ensures
     // they're stopped even if there are no streams
-    this->data_ring.stop();
-    this->free_ring.stop();
+    this->data_ring->stop();
+    this->free_ring->stop();
     chunk_stream_group::stop();
     this->graveyard.reset();  // Release chunks from the graveyard
 }
