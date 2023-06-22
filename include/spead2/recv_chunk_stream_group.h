@@ -256,6 +256,7 @@ private:
         FreeRingbuffer &free_ring,
         std::unique_ptr<chunk> &graveyard);
 
+protected:
     virtual void stream_added(chunk_stream_group_member &s) override;
     virtual void stream_stop_received(chunk_stream_group_member &s) override;
     virtual void stream_pre_stop(chunk_stream_group_member &s) override;
