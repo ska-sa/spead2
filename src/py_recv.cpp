@@ -897,12 +897,12 @@ py::module register_module(py::module &parent)
     py::class_<detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>>(m, "ChunkRingPair")
         .def(
             "add_free_chunk",
-            [](chunk_ring_stream_wrapper &stream, chunk &c)
+            [](detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer> &self, chunk &c)
             {
                 push_chunk(
-                    [&stream](std::unique_ptr<chunk> &&wrapper)
+                    [&self](std::unique_ptr<chunk> &&wrapper)
                     {
-                        stream.add_free_chunk(std::move(wrapper));
+                        self.add_free_chunk(std::move(wrapper));
                     },
                     c
                 );
