@@ -149,6 +149,7 @@ private:
     /// Version of release_chunk that does not take the lock
     void release_chunk_unlocked(chunk *c, std::uint64_t *batch_stats);
 
+protected:
     /// Called by newly-constructed streams
     virtual void stream_added(chunk_stream_group_member &s);
     /**
