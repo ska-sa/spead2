@@ -168,7 +168,7 @@ void chunk_stream_state_base::free_place_data::operator()(unsigned char *ptr) co
     // TODO: should this use std::launder in C++17?
     auto *place_data = reinterpret_cast<chunk_place_data *>(ptr);
     place_data->~chunk_place_data();
-    operator delete[](ptr);
+    operator delete(ptr);
 }
 
 void chunk_stream_state_base::packet_memcpy(
