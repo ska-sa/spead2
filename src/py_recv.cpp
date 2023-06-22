@@ -1001,8 +1001,8 @@ py::module register_module(py::module &parent)
             // Keep the Python ringbuffer objects alive, not just the C++ side.
             // This allows Python subclasses to be passed then later retrieved
             // from properties.
-            py::keep_alive<1, 2>(),
-            py::keep_alive<1, 3>())
+            py::keep_alive<1, 3>(),
+            py::keep_alive<1, 4>())
         .def("stop", SPEAD2_PTMF(chunk_stream_ring_group_wrapper, stop));
     py::class_<chunk_stream_group_member_wrapper, stream>(m, "ChunkStreamGroupMember")
         .def(py::init<std::shared_ptr<thread_pool_wrapper>,
@@ -1013,7 +1013,7 @@ py::module register_module(py::module &parent)
              "config"_a = stream_config(),
              "chunk_stream_config"_a,
              "group"_a,
-             py::keep_alive<1, 4>());  // Keep the group alive
+             py::keep_alive<1, 5>());  // Keep the group alive
 
     return m;
 }
