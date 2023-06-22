@@ -23,7 +23,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <vector>
 #include <set>
 #include <mutex>
 #include <memory>
@@ -171,9 +170,9 @@ public:
     virtual ~chunk_stream_group();
 
     /**
-     * Stop all streams and release all chunks. This function is mostly
-     * thread-safe, but it is unsafe to call it at the same time as a stream is
-     * being destroyed.
+     * Stop all streams and release all chunks. This function must not be
+     * called concurrently with creating or destroying streams, and no
+     * new streams should be created after calling this.
      */
     virtual void stop();
 };

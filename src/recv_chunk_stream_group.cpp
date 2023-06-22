@@ -89,18 +89,17 @@ chunk_stream_group::~chunk_stream_group()
 void chunk_stream_group::stop()
 {
     /* Streams will try to lock the group (and modify `streams`) while
-     * stopping, so we need to take a copy. During the destructor there
-     * should be no streams left, so this is not allocating memory during
-     * destruction.
+     * stopping, so we move the streams set into a local variable.
      *
-     * The copy is not protected by the mutex, so streams can asynchronously
-     * stop under us. That's okay because the contract for this function is
-     * that it's not allowed to occur concurrently with destroying streams.
+     * The mutex is not held while stopping streams, so streams can
+     * asynchronously stop under us. That's okay because the contract for this
+     * function is that it's not allowed to occur concurrently with destroying
+     * streams.
      */
     std::unique_lock<std::mutex> lock(mutex);
-    std::vector<chunk_stream_group_member *> streams_copy(streams.begin(), streams.end());
+    auto streams_local = std::move(streams);
     lock.unlock();
-    for (auto stream : streams_copy)
+    for (auto stream : streams_local)
         stream->stop();
 
     lock.lock();
