@@ -232,7 +232,7 @@ void chunk_stream_group_member::async_flush_until(std::int64_t chunk_id)
         if (!shared->self)
             return; // We've stopped, which means everything is flushed
         chunk_stream_group_member *self = static_cast<chunk_stream_group_member *>(shared->self);
-        while (self->chunks.get_head_chunk() < chunk_id)
+        while (self->chunks.get_head_chunk() < chunk_id && !self->chunks.empty())
         {
             self->chunks.flush_head([self](chunk *c) {
                 self->group.release_chunk(c, self->batch_stats.data());
