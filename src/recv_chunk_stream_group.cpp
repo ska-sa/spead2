@@ -72,7 +72,8 @@ chunk *chunk_manager_group::allocate_chunk(
 
 void chunk_manager_group::ready_chunk(chunk_stream_state<chunk_manager_group> &state, chunk *c)
 {
-    group.release_chunk(c);
+    std::uint64_t *batch_stats = static_cast<chunk_stream_group_member *>(&state)->batch_stats.data();
+    group.release_chunk(c, batch_stats);
 }
 
 } // namespace detail
@@ -121,7 +122,7 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
      * state after a wait.
      */
     const std::size_t max_chunks = config.get_max_chunks();
-    if (chunk_id >= chunks.get_head_chunk() + max_chunks)
+    if (chunk_id >= chunks.get_head_chunk() + std::int64_t(max_chunks))
     {
         std::int64_t target = chunk_id - max_chunks + 1;  // first chunk we don't need to flush
         for (chunk_stream_group_member *s : streams)
@@ -166,11 +167,26 @@ void chunk_stream_group::ready_chunk(chunk *c, std::uint64_t *batch_stats)
     config.get_ready()(std::move(owned), batch_stats);
 }
 
-void chunk_stream_group::release_chunk(chunk *c)
+void chunk_stream_group::release_chunk(chunk *c, std::uint64_t *batch_stats)
 {
     std::lock_guard<std::mutex> lock(mutex);
     if (--c->ref_count == 0)
+    {
+        /* Proactively flush chunks that have been fully released.
+         * This ensures that if the member stream is stopping, we
+         * have a chance to make the chunks ready before we shut
+         * everything down.
+         */
+        while (chunks.get_head_chunk() != chunks.get_tail_chunk())
+        {
+            chunk *c = chunks.get_chunk(chunks.get_head_chunk());
+            if (c && c->ref_count == 0)
+                chunks.flush_head([this, batch_stats](chunk *c2) { ready_chunk(c2, batch_stats); });
+            else
+                break;
+        }
         ready_condition.notify_all();
+    }
 }
 
 void chunk_stream_group::stream_added(chunk_stream_group_member &s)
@@ -219,7 +235,7 @@ void chunk_stream_group_member::async_flush_until(std::int64_t chunk_id)
         while (self->chunks.get_head_chunk() < chunk_id)
         {
             self->chunks.flush_head([self](chunk *c) {
-                self->group.release_chunk(c);
+                self->group.release_chunk(c, self->batch_stats.data());
             });
         }
     });
@@ -228,8 +244,8 @@ void chunk_stream_group_member::async_flush_until(std::int64_t chunk_id)
 void chunk_stream_group_member::stop_received()
 {
     stream::stop_received();
-    group.stream_stop_received(*this);
     flush_chunks();
+    group.stream_stop_received(*this);
 }
 
 void chunk_stream_group_member::stop()

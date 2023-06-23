@@ -147,7 +147,7 @@ private:
      *
      * This function is thread-safe.
      */
-    void release_chunk(chunk *c);
+    void release_chunk(chunk *c, std::uint64_t *batch_stats);
 
     /// Pass a chunk to the user-provided ready function
     void ready_chunk(chunk *c, std::uint64_t *batch_stats);
