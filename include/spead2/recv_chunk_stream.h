@@ -290,7 +290,7 @@ public:
                  * We leave it to the while loop below to actually allocate
                  * the chunks.
                  */
-                while (head_chunk != tail_chunk)
+                while (!empty())
                     flush_head(ready_chunk);
                 head_chunk = tail_chunk = chunk_id - (max_chunks - 1);
                 head_pos = tail_pos = 0;
@@ -322,6 +322,7 @@ public:
 
     std::int64_t get_head_chunk() const { return head_chunk; }
     std::int64_t get_tail_chunk() const { return tail_chunk; }
+    bool empty() const { return head_chunk == tail_chunk; }
 };
 
 template<typename CM> class chunk_stream_allocator;
@@ -417,8 +418,6 @@ private:
     friend chunk_manager_t;
 
     chunk_manager_t chunk_manager;
-    /// Send the oldest chunk to the ready callback
-    void flush_head();
 
 public:
     /// Constructor
@@ -439,7 +438,7 @@ public:
     std::pair<std::uint8_t *, heap_metadata> allocate(
         std::size_t size, const packet_header &packet);
 
-    /// Send all in-flight chunks to the ready callback
+    /// Send all in-flight chunks to the ready callback (not thread-safe)
     void flush_chunks();
 };
 
@@ -672,16 +671,10 @@ stream_config chunk_stream_state<CM>::adjust_config(const stream_config &config)
 }
 
 template<typename CM>
-void chunk_stream_state<CM>::flush_head()
-{
-    chunks.flush_head([this](chunk *c) { chunk_manager.ready_chunk(*this, c); });
-}
-
-template<typename CM>
 void chunk_stream_state<CM>::flush_chunks()
 {
-    while (get_head_chunk() != get_tail_chunk())
-        flush_head();
+    while (!chunks.empty())
+        chunks.flush_head([this](chunk *c) { chunk_manager.ready_chunk(*this, c); });
 }
 
 template<typename CM>

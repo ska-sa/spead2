@@ -105,7 +105,7 @@ void chunk_stream_group::stop()
         stream->stop();
 
     lock.lock();
-    while (chunks.get_head_chunk() != chunks.get_tail_chunk())
+    while (!chunks.empty())
         chunks.flush_head([this](chunk *c) { ready_chunk(c, nullptr); });
 }
 
@@ -177,7 +177,7 @@ void chunk_stream_group::release_chunk(chunk *c, std::uint64_t *batch_stats)
          * have a chance to make the chunks ready before we shut
          * everything down.
          */
-        while (chunks.get_head_chunk() != chunks.get_tail_chunk())
+        while (!chunks.empty())
         {
             chunk *c = chunks.get_chunk(chunks.get_head_chunk());
             if (c && c->ref_count == 0)
