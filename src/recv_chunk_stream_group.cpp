@@ -197,6 +197,8 @@ chunk_stream_group_member::chunk_stream_group_member(
     stream(std::move(io_service), adjust_config(config)),
     group(group)
 {
+    if (chunk_config.get_max_chunks() > group.config.get_max_chunks())
+        throw std::invalid_argument("stream max_chunks must not be larger than group max_chunks");
     group.stream_added(*this);
 }
 
