@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <set>
+#include <condition_variable>
 #include <mutex>
 #include <memory>
 #include <spead2/recv_stream.h>
@@ -104,7 +105,9 @@ private:
 
     const chunk_stream_group_config config;
 
-    std::mutex mutex; // Protects all the mutable state
+    std::mutex mutex; ///< Protects all the mutable state
+    /// Notified when the reference count of a chunk reaches zero
+    std::condition_variable ready_condition;
 
     /**
      * Circular buffer of chunks under construction.
@@ -139,15 +142,15 @@ private:
     /**
      * Decrement chunk reference count.
      *
-     * If the reference count reaches zero, the chunk is passed to the ready
-     * callback.
+     * If the reference count reaches zero, the chunk is valid to pass to
+     * the ready callback.
      *
      * This function is thread-safe.
      */
-    void release_chunk(chunk *c, std::uint64_t *batch_stats);
+    void release_chunk(chunk *c);
 
-    /// Version of release_chunk that does not take the lock
-    void release_chunk_unlocked(chunk *c, std::uint64_t *batch_stats);
+    /// Pass a chunk to the user-provided ready function
+    void ready_chunk(chunk *c, std::uint64_t *batch_stats);
 
 protected:
     /// Called by newly-constructed streams
@@ -184,11 +187,20 @@ public:
 class chunk_stream_group_member : private detail::chunk_stream_state<detail::chunk_manager_group>, public stream
 {
     friend class detail::chunk_manager_group;
+    friend class chunk_stream_group;
 
 private:
     chunk_stream_group &group;  // TODO: redundant - also stored inside the manager
 
     virtual void heap_ready(live_heap &&) override;
+
+    /**
+     * Flush all chunks with an ID strictly less than @a chunk_id.
+     *
+     * This function returns immediately, and the work is done later on the
+     * io_service. It is safe to call from any thread.
+     */
+    void async_flush_until(std::int64_t chunk_id);
 
 public:
     using heap_metadata = detail::chunk_stream_state_base::heap_metadata;

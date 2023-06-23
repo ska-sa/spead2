@@ -252,6 +252,25 @@ public:
     /**
      * Obtain a pointer to a chunk with ID @a chunk_id.
      *
+     * If @a chunk_id falls outside the window, returns nullptr.
+     */
+    chunk *get_chunk(std::int64_t chunk_id) const
+    {
+        if (chunk_id >= head_chunk && chunk_id < tail_chunk)
+        {
+            std::size_t pos = chunk_id - head_chunk + head_pos;
+            const std::size_t max_chunks = chunks.size();
+            if (pos >= max_chunks)
+                pos -= max_chunks;  // wrap around the circular storage
+            return chunks[pos];
+        }
+        else
+            return nullptr;
+    }
+
+    /**
+     * Obtain a pointer to a chunk with ID @a chunk_id.
+     *
      * If @a chunk_id is behind the window, returns nullptr. If it is ahead of
      * the window, the window is advanced using @a ready_chunk and @a allocate_chunk.
      */
