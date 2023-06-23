@@ -983,12 +983,19 @@ py::module register_module(py::module &parent)
                 }
             });
 
-    py::class_<chunk_stream_group_config>(m, "ChunkStreamGroupConfig")
+    py::class_<chunk_stream_group_config> chunk_stream_group_config_cls(m, "ChunkStreamGroupConfig");
+    chunk_stream_group_config_cls
         .def(py::init(&data_class_constructor<chunk_stream_group_config>))
         .def_property("max_chunks",
                       SPEAD2_PTMF(chunk_stream_group_config, get_max_chunks),
                       SPEAD2_PTMF(chunk_stream_group_config, set_max_chunks))
+        .def_property("eviction_mode",
+                      SPEAD2_PTMF(chunk_stream_group_config, get_eviction_mode),
+                      SPEAD2_PTMF(chunk_stream_group_config, set_eviction_mode))
         .def_readonly_static("DEFAULT_MAX_CHUNKS", &chunk_stream_group_config::default_max_chunks);
+    py::enum_<chunk_stream_group_config::eviction_mode>(chunk_stream_group_config_cls, "EvictionMode")
+        .value("LOSSY", chunk_stream_group_config::eviction_mode::LOSSY)
+        .value("LOSSLESS", chunk_stream_group_config::eviction_mode::LOSSLESS);
 
     py::class_<chunk_stream_ring_group_wrapper,
                detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>>(m, "ChunkStreamRingGroup")

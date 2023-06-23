@@ -39,6 +39,12 @@ chunk_stream_group_config &chunk_stream_group_config::set_max_chunks(std::size_t
     return *this;
 }
 
+chunk_stream_group_config &chunk_stream_group_config::set_eviction_mode(eviction_mode eviction_mode_)
+{
+    this->eviction_mode_ = eviction_mode_;
+    return *this;
+}
+
 chunk_stream_group_config &chunk_stream_group_config::set_allocate(chunk_allocate_function allocate)
 {
     this->allocate = std::move(allocate);
@@ -125,8 +131,9 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
     if (chunk_id >= chunks.get_head_chunk() + std::int64_t(max_chunks))
     {
         std::int64_t target = chunk_id - max_chunks + 1;  // first chunk we don't need to flush
-        for (chunk_stream_group_member *s : streams)
-            s->async_flush_until(target);
+        if (config.get_eviction_mode() == chunk_stream_group_config::eviction_mode::LOSSY)
+            for (chunk_stream_group_member *s : streams)
+                s->async_flush_until(target);
         std::int64_t to_check = chunks.get_head_chunk(); // next chunk to wait for
         while (true)
         {

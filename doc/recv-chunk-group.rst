@@ -19,13 +19,19 @@ chunks that fall out the back of the window are provided to a ready callback.
 Each member stream also has its own sliding window, which can be smaller (but not
 larger) than the group's window. When the group's window slides forward, the
 streams' windows are adjusted to ensure they still fit within the group's
-window. This can lead to chunks being removed from a stream even though there
-is still data for them in the stream. In other words, a stream's window
-determines how much reordering is tolerated within a stream, while the group's
-window determines how out of sync the streams are allowed to become. When
-choosing window sizes, one needs to remember that desynchronisation isn't
-confined to the network: it can also happen if the threads servicing the
-streams aren't all getting the same amount of CPU time.
+window. In other words, a stream's window determines how much reordering is
+tolerated within a stream, while the group's window determines how out of sync
+the streams are allowed to become.
+
+When desynchronisation does occur, there is a choice of strategies. The default
+strategy is eager but potentially lossy: when the group's window moves forward,
+the trailing chunk is marked ready as soon as possible, even if this causes
+some stream windows to shrink below their normal size. An alternative strategy
+is lossless: when the group's window needs to move forward, it is blocked
+until all the member streams have caught up. This latter mode is intended for
+use with lossless transports such as TCP. However, if one of the component streams
+stops functioning (for example, because it is routed on a network path that is
+down) it prevents the entire group from making forward progress.
 
 The general flow (in C++) is
 
@@ -71,7 +77,5 @@ performance, and thus some care is needed to use it safely.
   stream's batch statistics pointer will be passed. For the ready callback,
   the `batch_stats` parameter may also be null (currently this can only happen
   during :cpp:func:`spead2::recv::chunk_stream_group::stop`).
-- Data can be lost, even if the member streams are all lossless, if a stream
-  falls behind the others. A lossless mode may be added in future.
 - Two streams must not write to the same bytes of a chunk (in the payload,
   present array or extra data), as this is undefined behaviour in C++.

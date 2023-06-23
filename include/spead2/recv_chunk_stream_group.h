@@ -42,8 +42,15 @@ public:
     /// Default value for @ref set_max_chunks
     static constexpr std::size_t default_max_chunks = chunk_stream_config::default_max_chunks;
 
+    enum class eviction_mode
+    {
+        LOSSY,
+        LOSSLESS
+    };
+
 private:
     std::size_t max_chunks = default_max_chunks;
+    eviction_mode eviction_mode_ = eviction_mode::LOSSY;
     chunk_allocate_function allocate;
     chunk_ready_function ready;
 
@@ -58,6 +65,23 @@ public:
     chunk_stream_group_config &set_max_chunks(std::size_t max_chunks);
     /// Return the maximum number of chunks that can be live at the same time.
     std::size_t get_max_chunks() const { return max_chunks; }
+
+    /**
+     * Set chunk eviction mode. When set to @ref eviction_mode::LOSSLESS, a
+     * chunk will only be marked ready when all streams have marked it ready
+     * (due to either stopping or receiving newer data). This is recommended
+     * when the individual streams have lossless transports (such as TCP). If
+     * one of the streams stops receiving data (due to a broken network link),
+     * it will prevent forward progress of the entire group.
+     *
+     * Conversely, using @ref eviction_mode::LOSSY (the default) will allow
+     * progress to continue (with partial data) if one of the streams stops
+     * receiving data, but one stream falling behind another can lead data
+     * being discarded even when the underlying transports are lossless.
+     */
+    chunk_stream_group_config &set_eviction_mode(eviction_mode eviction_mode_);
+    /// Return the current eviction mode
+    eviction_mode get_eviction_mode() const { return eviction_mode_; }
 
     /// Set the function used to allocate a chunk.
     chunk_stream_group_config &set_allocate(chunk_allocate_function allocate);

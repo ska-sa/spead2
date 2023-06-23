@@ -34,6 +34,7 @@ class TestChunkStreamGroupConfig:
     def test_default_construct(self):
         config = recv.ChunkStreamGroupConfig()
         assert config.max_chunks == config.DEFAULT_MAX_CHUNKS
+        assert config.eviction_mode == recv.ChunkStreamGroupConfig.EvictionMode.LOSSY
 
     def test_zero_max_chunks(self):
         with pytest.raises(ValueError):
@@ -44,6 +45,13 @@ class TestChunkStreamGroupConfig:
         assert config.max_chunks == 3
         config.max_chunks = 4
         assert config.max_chunks == 4
+
+    def test_eviction_mode(self):
+        EvictionMode = recv.ChunkStreamGroupConfig.EvictionMode
+        config = recv.ChunkStreamGroupConfig(eviction_mode=EvictionMode.LOSSLESS)
+        assert config.eviction_mode == EvictionMode.LOSSLESS
+        config.eviction_mode = EvictionMode.LOSSY
+        assert config.eviction_mode == EvictionMode.LOSSY
 
 
 class TestChunkStreamRingGroup:
