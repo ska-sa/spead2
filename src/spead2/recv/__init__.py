@@ -56,6 +56,7 @@ bytes, in the order they appeared in the original packet.
 
 from spead2._spead2.recv import (           # noqa: F401
     Chunk,
+    ChunkRingPair,
     ChunkRingStream,
     ChunkRingbuffer,
     ChunkStreamConfig,
