@@ -76,14 +76,9 @@ class TestChunkStreamRingGroup:
         return [spead2.InprocQueue() for _ in range(STREAMS)]
 
     @pytest.fixture
-    def group(self, data_ring, free_ring):
+    def group(self, data_ring, free_ring, queues):
         group_config = recv.ChunkStreamGroupConfig(max_chunks=4)
         group = recv.ChunkStreamRingGroup(group_config, data_ring, free_ring)
-        yield group
-        group.stop()
-
-    @pytest.fixture
-    def recv_streams(self, queues, group):
         # max_heaps is artificially high to make test_packet_too_old work
         config = spead2.recv.StreamConfig(max_heaps=128)
         chunk_stream_config = spead2.recv.ChunkStreamConfig(
@@ -91,17 +86,16 @@ class TestChunkStreamRingGroup:
             max_chunks=4,
             place=place_plain_llc,
         )
-        streams = [spead2.recv.ChunkStreamGroupMember(
-            spead2.ThreadPool(),
-            config=config,
-            chunk_stream_config=chunk_stream_config,
-            group=group
-        ) for _ in queues]
-        for stream, queue in zip(streams, queues):
+        for queue in queues:
+            group.emplace_back(
+                spead2.ThreadPool(),
+                config=config,
+                chunk_stream_config=chunk_stream_config
+            )
+        for stream, queue in zip(group, queues):
             stream.add_inproc_reader(queue)
-        yield streams
-        for stream in streams:
-            stream.stop()
+        yield group
+        group.stop()
 
     @pytest.fixture
     def send_stream(self, queues):
@@ -134,7 +128,7 @@ class TestChunkStreamRingGroup:
         for queue in send_stream.queues:
             queue.stop()
 
-    def test_full_in_order(self, group, queues, recv_streams, send_stream, data_ring, free_ring):
+    def test_full_in_order(self, group, queues, send_stream, data_ring, free_ring):
         """Send all the data, in order."""
         chunks = 20
         rng = np.random.default_rng(seed=1)
@@ -156,7 +150,7 @@ class TestChunkStreamRingGroup:
 
         send_thread.join()
 
-    def test_missing_stream(self, group, queues, recv_streams, send_stream, data_ring, free_ring):
+    def test_missing_stream(self, group, queues, send_stream, data_ring, free_ring):
         """Skip sending data to one of the streams."""
         chunks = 20
         rng = np.random.default_rng(seed=1)

@@ -494,7 +494,8 @@ using chunk_stream_ring_group_orig = chunk_stream_ring_group<chunk_ringbuffer, c
 
 EXIT_STOPPER_WRAPPER(chunk_ring_stream_wrapper, chunk_ring_stream_orig);
 EXIT_STOPPER_WRAPPER(chunk_stream_ring_group_wrapper, chunk_stream_ring_group_orig);
-EXIT_STOPPER_WRAPPER(chunk_stream_group_member_wrapper, chunk_stream_group_member);
+// We don't need to wrap chunk_stream_group_member, because we've wrapped
+// chunk_stream_ring_group and its stop will stop the member streams.
 
 #undef EXIT_STOPPER_WRAPPER
 
@@ -997,6 +998,8 @@ py::module register_module(py::module &parent)
         .value("LOSSY", chunk_stream_group_config::eviction_mode::LOSSY)
         .value("LOSSLESS", chunk_stream_group_config::eviction_mode::LOSSLESS);
 
+    py::class_<chunk_stream_group_member, stream>(m, "ChunkStreamGroupMember");
+
     py::class_<chunk_stream_ring_group_wrapper,
                detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>>(m, "ChunkStreamRingGroup")
         .def(py::init<const chunk_stream_group_config &,
@@ -1010,17 +1013,36 @@ py::module register_module(py::module &parent)
             // from properties.
             py::keep_alive<1, 3>(),
             py::keep_alive<1, 4>())
+        .def(
+            "emplace_back",
+            [](chunk_stream_ring_group_wrapper &group,
+               std::shared_ptr<thread_pool_wrapper> thread_pool,
+               const stream_config &config,
+               const chunk_stream_config &chunk_stream_config) -> chunk_stream_group_member & {
+                return group.emplace_back(std::move(thread_pool), config, chunk_stream_config);
+            },
+            "thread_pool"_a, "config"_a, "chunk_stream_config"_a,
+            py::return_value_policy::reference_internal
+        )
+        .def("__len__", SPEAD2_PTMF(chunk_stream_ring_group_wrapper, size))
+        .def(
+            "__getitem__",
+            [](chunk_stream_ring_group_wrapper &group, std::size_t index) -> chunk_stream_group_member & {
+                if (index < group.size())
+                    return group[index];
+                else
+                    throw py::index_error();
+            },
+            py::return_value_policy::reference_internal
+        )
+        .def(
+            "__iter__",
+            [](chunk_stream_ring_group_wrapper &group) {
+                return py::make_iterator(group.begin(), group.end());
+            },
+            py::keep_alive<0, 1>()  // keep the group alive while it is iterated
+        )
         .def("stop", SPEAD2_PTMF(chunk_stream_ring_group_wrapper, stop));
-    py::class_<chunk_stream_group_member_wrapper, stream>(m, "ChunkStreamGroupMember")
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>,
-                      const stream_config &,
-                      const chunk_stream_config &,
-                      chunk_stream_ring_group_wrapper &>(),
-             "thread_pool"_a.none(false),
-             "config"_a = stream_config(),
-             "chunk_stream_config"_a,
-             "group"_a,
-             py::keep_alive<1, 5>());  // Keep the group alive
 
     return m;
 }

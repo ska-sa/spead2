@@ -27,6 +27,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <memory>
+#include <boost/iterator/transform_iterator.hpp>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_chunk_stream.h>
 
@@ -119,6 +120,8 @@ class chunk_stream_group_member;
 /**
  * A holder for a collection of streams that share chunks.
  *
+ * The public interface must only be called from one thread at a time.
+ *
  * @todo write more documentation here
  */
 class chunk_stream_group
@@ -144,13 +147,14 @@ private:
     detail::chunk_window chunks;
 
     /**
-     * References to the component streams that have not yet been stopped.
+     * The component streams.
      *
-     * Note that these are insufficient to actually keep the streams alive.
-     * The stream_stop_received callback ensures that we don't end up with
-     * dangling pointers.
+     * This is protected by the mutex, except that read-only access is always
+     * permitted in methods called by the user. This is safe because writes
+     * only happen in methods called by the user (@ref emplace_back), and the
+     * user is required to serialise their calls.
      */
-    std::set<chunk_stream_group_member *> streams;
+    std::vector<std::unique_ptr<chunk_stream_group_member>> streams;
 
     /**
      * Obtain the chunk with a given ID.
@@ -176,15 +180,30 @@ private:
     /// Pass a chunk to the user-provided ready function
     void ready_chunk(chunk *c, std::uint64_t *batch_stats);
 
+    // Helper classes for implementing iterators
+    template<typename T>
+    class dereference
+    {
+    public:
+        decltype(*std::declval<T>()) operator()(const T &ptr) const { return *ptr; }
+    };
+
+    template<typename T>
+    class dereference_const
+    {
+    public:
+        const decltype(*std::declval<T>()) operator()(const T &ptr) const { return *ptr; }
+    };
+
 protected:
-    /// Called by newly-constructed streams
-    virtual void stream_added(chunk_stream_group_member &s);
+    /// Called by @ref emplace_back for newly-constructed streams
+    virtual void stream_added(chunk_stream_group_member &s) {}
     /**
      * Called when a stream stops (whether from the network or the user).
      *
      * The stream's @c queue_mutex is locked when this is called.
      */
-    virtual void stream_stop_received(chunk_stream_group_member &s);
+    virtual void stream_stop_received(chunk_stream_group_member &s) {}
     /**
      * Called when the user stops (or destroys) a stream.
      *
@@ -194,8 +213,39 @@ protected:
     virtual void stream_pre_stop(chunk_stream_group_member &s) {}
 
 public:
+    using iterator = boost::transform_iterator<
+        dereference<std::unique_ptr<chunk_stream_group_member>>,
+        std::vector<std::unique_ptr<chunk_stream_group_member>>::iterator
+    >;
+    using const_iterator = boost::transform_iterator<
+        dereference_const<std::unique_ptr<chunk_stream_group_member>>,
+        std::vector<std::unique_ptr<chunk_stream_group_member>>::const_iterator
+    >;
+
     explicit chunk_stream_group(const chunk_stream_group_config &config);
     virtual ~chunk_stream_group();
+
+    // Add a new stream
+    chunk_stream_group_member &emplace_back(
+        io_service_ref io_service,
+        const stream_config &config,
+        const chunk_stream_config &chunk_config);
+
+    // Add a new stream, possibly of a subclass
+    template<typename T, typename... Args>
+    T &emplace_back(Args&&... args);
+
+    // Provide vector-like access to the streams
+    std::size_t size() const { return streams.size(); }
+    bool empty() const { return streams.empty(); }
+    chunk_stream_group_member &operator[](std::size_t index) { return *streams[index]; }
+    const chunk_stream_group_member &operator[](std::size_t index) const { return *streams[index]; }
+    iterator begin() noexcept;
+    iterator end() noexcept;
+    const_iterator begin() const noexcept;
+    const_iterator end() const noexcept;
+    const_iterator cbegin() const noexcept;
+    const_iterator cend() const noexcept;
 
     /**
      * Stop all streams and release all chunks. This function must not be
@@ -204,6 +254,17 @@ public:
      */
     virtual void stop();
 };
+
+template<typename T, typename... Args>
+T &chunk_stream_group::emplace_back(Args&&... args)
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    std::unique_ptr<chunk_stream_group_member> stream(new T(*this, std::forward<Args>(args)...));
+    chunk_stream_group_member &ret = *stream;
+    streams.push_back(std::move(stream));
+    stream_added(ret);
+    return ret;
+}
 
 /**
  * Single single within a group managed by @ref chunk_stream_group.
@@ -226,9 +287,7 @@ private:
      */
     void async_flush_until(std::int64_t chunk_id);
 
-public:
-    using heap_metadata = detail::chunk_stream_state_base::heap_metadata;
-
+protected:
     /**
      * Constructor.
      *
@@ -239,21 +298,22 @@ public:
      * @link chunk_stream_config::set_ready ready@endlink callbacks are
      * ignored, and the group's callbacks are used instead.
      *
-     * Instances of this class must not outlive the group.
-     *
+     * @param group            Group to which this stream belongs
      * @param io_service       I/O service (also used by the readers).
      * @param config           Basic stream configuration
      * @param chunk_config     Configuration for chunking
-     * @param group            Group to which this stream belongs
      *
      * @throw invalid_argument if the place function pointer in @a chunk_config
      * has not been set.
      */
     chunk_stream_group_member(
+        chunk_stream_group &group,
         io_service_ref io_service,
         const stream_config &config,
-        const chunk_stream_config &chunk_config,
-        chunk_stream_group &group);
+        const chunk_stream_config &chunk_config);
+
+public:
+    using heap_metadata = detail::chunk_stream_state_base::heap_metadata;
 
     using detail::chunk_stream_state_base::get_chunk_config;
     using detail::chunk_stream_state_base::get_heap_metadata;

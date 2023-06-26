@@ -94,23 +94,53 @@ chunk_stream_group::~chunk_stream_group()
     stop();
 }
 
+chunk_stream_group::iterator chunk_stream_group::begin() noexcept
+{
+    return iterator(streams.begin());
+}
+
+chunk_stream_group::iterator chunk_stream_group::end() noexcept
+{
+    return iterator(streams.end());
+}
+
+chunk_stream_group::const_iterator chunk_stream_group::begin() const noexcept
+{
+    return const_iterator(streams.begin());
+}
+
+chunk_stream_group::const_iterator chunk_stream_group::end() const noexcept
+{
+    return const_iterator(streams.end());
+}
+
+chunk_stream_group::const_iterator chunk_stream_group::cbegin() const noexcept
+{
+    return const_iterator(streams.begin());
+}
+
+chunk_stream_group::const_iterator chunk_stream_group::cend() const noexcept
+{
+    return const_iterator(streams.end());
+}
+
+chunk_stream_group_member &chunk_stream_group::emplace_back(
+    io_service_ref io_service,
+    const stream_config &config,
+    const chunk_stream_config &chunk_config)
+{
+    return emplace_back<chunk_stream_group_member>(std::move(io_service), config, chunk_config);
+}
+
 void chunk_stream_group::stop()
 {
-    /* Streams will try to lock the group (and modify `streams`) while
-     * stopping, so we move the streams set into a local variable.
-     *
-     * The mutex is not held while stopping streams, so streams can
-     * asynchronously stop under us. That's okay because the contract for this
-     * function is that it's not allowed to occur concurrently with destroying
-     * streams.
+    /* The mutex is not held while stopping streams, so that callbacks
+     * triggered by stopping the streams can take the lock if necessary.
      */
-    std::unique_lock<std::mutex> lock(mutex);
-    auto streams_local = std::move(streams);
-    lock.unlock();
-    for (auto stream : streams_local)
+    for (const auto &stream : streams)
         stream->stop();
 
-    lock.lock();
+    std::lock_guard<std::mutex> lock(mutex);
     while (!chunks.empty())
         chunks.flush_head([this](chunk *c) { ready_chunk(c, nullptr); });
 }
@@ -132,7 +162,7 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
     {
         std::int64_t target = chunk_id - max_chunks + 1;  // first chunk we don't need to flush
         if (config.get_eviction_mode() == chunk_stream_group_config::eviction_mode::LOSSY)
-            for (chunk_stream_group_member *s : streams)
+            for (const auto &s : streams)
                 s->async_flush_until(target);
         std::int64_t to_check = chunks.get_head_chunk(); // next chunk to wait for
         while (true)
@@ -196,33 +226,17 @@ void chunk_stream_group::release_chunk(chunk *c, std::uint64_t *batch_stats)
     }
 }
 
-void chunk_stream_group::stream_added(chunk_stream_group_member &s)
-{
-    std::lock_guard<std::mutex> lock(mutex);
-    bool added = streams.insert(&s).second;
-    assert(added); // should be impossible to add the same stream twice
-    (void) added; // suppress warning when NDEBUG is defined
-}
-
-void chunk_stream_group::stream_stop_received(chunk_stream_group_member &s)
-{
-    std::lock_guard<std::mutex> lock(mutex);
-    streams.erase(&s);
-}
-
-
 chunk_stream_group_member::chunk_stream_group_member(
+    chunk_stream_group &group,
     io_service_ref io_service,
     const stream_config &config,
-    const chunk_stream_config &chunk_config,
-    chunk_stream_group &group)
+    const chunk_stream_config &chunk_config)
     : chunk_stream_state(config, chunk_config, detail::chunk_manager_group(group)),
     stream(std::move(io_service), adjust_config(config)),
     group(group)
 {
     if (chunk_config.get_max_chunks() > group.config.get_max_chunks())
         throw std::invalid_argument("stream max_chunks must not be larger than group max_chunks");
-    group.stream_added(*this);
 }
 
 void chunk_stream_group_member::heap_ready(live_heap &&lh)
