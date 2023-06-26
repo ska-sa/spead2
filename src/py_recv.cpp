@@ -895,10 +895,11 @@ py::module register_module(py::module &parent)
             [](chunk &c, memory_allocator::pointer &&value) { c.extra = std::move(value); });
     // Don't allow ChunkRingPair to be constructed from Python. It exists
     // purely to be a base class.
-    py::class_<detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>>(m, "ChunkRingPair")
+    using chunk_ring_pair = detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>;
+    py::class_<chunk_ring_pair>(m, "ChunkRingPair")
         .def(
             "add_free_chunk",
-            [](detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer> &self, chunk &c)
+            [](chunk_ring_pair &self, chunk &c)
             {
                 push_chunk(
                     [&self](std::unique_ptr<chunk> &&wrapper)
@@ -909,8 +910,8 @@ py::module register_module(py::module &parent)
                 );
             },
             "chunk"_a)
-        .def_property_readonly("data_ringbuffer", SPEAD2_PTMF(chunk_ring_stream_wrapper, get_data_ringbuffer))
-        .def_property_readonly("free_ringbuffer", SPEAD2_PTMF(chunk_ring_stream_wrapper, get_free_ringbuffer));
+        .def_property_readonly("data_ringbuffer", SPEAD2_PTMF(chunk_ring_pair, get_data_ringbuffer))
+        .def_property_readonly("free_ringbuffer", SPEAD2_PTMF(chunk_ring_pair, get_free_ringbuffer));
 
     py::class_<chunk_ring_stream_wrapper,
                detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>,
