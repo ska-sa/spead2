@@ -13,6 +13,8 @@ Changelog
   :cpp:class:`spead2::recv::stream_config` to construct a
   :cpp:class:`spead2::recv::chunk_stream` would modify the config. Passing
   the same config to construct two chunk streams would fail with an error.
+- Fix the type annotation for the :py:class:`~.ChunkRingStream` constructor:
+  the parameter name for `chunk_stream_config` was incorrect.
 
 .. rubric:: 3.11.1
 

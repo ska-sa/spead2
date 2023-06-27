@@ -265,7 +265,7 @@ class ChunkRingPair:
 class ChunkRingStream(_Stream, ChunkRingPair):
     def __init__(
         self, thread_pool: spead2.ThreadPool, config: StreamConfig,
-        chunk_config: ChunkStreamConfig,
+        chunk_stream_config: ChunkStreamConfig,
         data_ringbuffer: _ChunkRingbuffer, free_ringbuffer: _ChunkRingbuffer) -> None: ...
 
 class ChunkStreamGroupConfig:
