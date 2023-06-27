@@ -246,17 +246,12 @@ void chunk_stream_group_member::heap_ready(live_heap &&lh)
 
 void chunk_stream_group_member::async_flush_until(std::int64_t chunk_id)
 {
-    std::shared_ptr<stream_base::shared_state> shared = this->shared;
-    // TODO: once we depend on C++14, move rather than copying into the lambda
-    boost::asio::post(get_io_service(), [shared, chunk_id]() {
-        std::lock_guard<std::mutex> lock(shared->queue_mutex);
-        if (!shared->self)
-            return; // We've stopped, which means everything is flushed
-        chunk_stream_group_member *self = static_cast<chunk_stream_group_member *>(shared->self);
-        while (self->chunks.get_head_chunk() < chunk_id && !self->chunks.empty())
+    post([chunk_id](stream_base &s) {
+        chunk_stream_group_member &self = static_cast<chunk_stream_group_member &>(s);
+        while (self.chunks.get_head_chunk() < chunk_id && !self.chunks.empty())
         {
-            self->chunks.flush_head([self](chunk *c) {
-                self->group.release_chunk(c, self->batch_stats.data());
+            self.chunks.flush_head([&self](chunk *c) {
+                self.group.release_chunk(c, self.batch_stats.data());
             });
         }
     });
@@ -273,7 +268,7 @@ void chunk_stream_group_member::stop()
 {
     group.stream_pre_stop(*this);
     {
-        std::lock_guard<std::mutex> lock(shared->queue_mutex);
+        std::lock_guard<std::mutex> lock(get_queue_mutex());
         flush_chunks();
     }
     stream::stop();

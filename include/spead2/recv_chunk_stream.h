@@ -890,7 +890,7 @@ void chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::stop()
     {
         // Locking is probably not needed, as all readers are terminated by
         // chunk_stream::stop(). But it should be safe.
-        std::lock_guard<std::mutex> lock(shared->queue_mutex);
+        std::lock_guard<std::mutex> lock(get_queue_mutex());
         this->graveyard.reset(); // free chunks that didn't make it into data_ring
     }
 }

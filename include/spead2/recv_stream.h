@@ -570,7 +570,7 @@ private:
     /// Stream configuration
     const stream_config config;
 
-protected:
+private:
     struct shared_state
     {
         /**
@@ -666,6 +666,50 @@ protected:
      * stop.
      */
     virtual void stop_received();
+
+    std::mutex &get_queue_mutex() const { return shared->queue_mutex; }
+
+    /**
+     * Schedule a function to be called on an executor, with the lock held.
+     * This is a fire-and-forget operation. If the stream is stopped before the
+     * callback fires, the callback is silently ignored.
+     */
+    template<typename ExecutionContext, typename F>
+    void post(ExecutionContext &ex, F &&func)
+    {
+        class wrapper
+        {
+        private:
+            std::shared_ptr<shared_state> shared;
+            typename std::decay<F>::type func;
+
+        public:
+            wrapper(std::shared_ptr<shared_state> shared, F&& func)
+                : shared(std::move(shared)), func(std::forward<F>(func))
+            {
+            }
+
+            /* Prevent copying, while allowing moving (copying is safe but inefficient)
+             * Move assignment is not implemented because it fails to compile if
+             * F is not move-assignable. This can probably be solved with
+             * std::enable_if, but it doesn't seem worth the effort.
+             */
+            wrapper(const wrapper &) = delete;
+            wrapper &operator=(const wrapper &) = delete;
+            wrapper(wrapper &&) = default;
+
+            void operator()() const
+            {
+                std::lock_guard<std::mutex>(shared->queue_mutex);
+                stream_base *self = shared->self;
+                if (self)
+                    func(*self);
+            }
+        };
+
+        // TODO: can do this with a lambda (with perfect forwarding) in C++14
+        boost::asio::post(ex, wrapper(shared, std::forward<F>(func)));
+    }
 
 public:
     /**
@@ -939,6 +983,19 @@ protected:
 
     /// Actual implementation of @ref stop
     void stop_impl();
+
+    using stream_base::post; // Make base class version visible, despite being overloaded
+
+    /**
+     * Schedule a function to be called on the stream's io_service, with the
+     * lock held. This is a fire-and-forget operation. If the stream is stopped
+     * before the callback fires, the callback is silently dropped.
+     */
+    template<typename F>
+    void post(F &&func)
+    {
+        post(get_io_service(), std::forward<F>(func));
+    }
 
 public:
     using stream_base::get_config;
