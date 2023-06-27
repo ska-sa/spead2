@@ -98,7 +98,7 @@ static std::size_t get_stat_index(
 }
 
 
-static std::shared_ptr<std::vector<stream_stat_config>> make_default_stats()
+static std::shared_ptr<const std::vector<stream_stat_config>> make_default_stats()
 {
     auto stats = std::make_shared<std::vector<stream_stat_config>>();
     // Keep this in sync with the stream_stat_* constexprs in the header
@@ -121,21 +121,21 @@ static std::shared_ptr<std::vector<stream_stat_config>> make_default_stats()
  * Sharing this means the compatibility check for operator+ requires only a
  * pointer comparison rather than comparing arrays.
  */
-static std::shared_ptr<std::vector<stream_stat_config>> default_stats = make_default_stats();
+static std::shared_ptr<const std::vector<stream_stat_config>> default_stats = make_default_stats();
 
 stream_stats::stream_stats()
     : stream_stats(default_stats)
 {
 }
 
-stream_stats::stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config)
+stream_stats::stream_stats(std::shared_ptr<const std::vector<stream_stat_config>> config)
     : stream_stats(config, std::vector<std::uint64_t>(config->size()))
 {
     // Note: annoyingly, can't use std::move(config) above, because we access
     // config to get the size to use for the vector.
 }
 
-stream_stats::stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config,
+stream_stats::stream_stats(std::shared_ptr<const std::vector<stream_stat_config>> config,
                            std::vector<std::uint64_t> values)
     : config(std::move(config)),
     values(std::move(values)),
@@ -358,12 +358,11 @@ std::size_t stream_config::add_stat(std::string name, stream_stat_config::mode m
 {
     if (spead2::recv::get_stat_index_nothrow(*stats, name) != stats->size())
         throw std::invalid_argument("A statistic called " + name + " already exists");
-    // If we're pointing at the default, make a copy so that we don't modify
-    // the default.
-    if (stats == default_stats)
-        stats = std::make_shared<std::vector<stream_stat_config>>(*default_stats);
-    std::size_t index = stats->size();
-    stats->emplace_back(std::move(name), mode);
+    // Make a copy so that we don't modify any shared copies
+    auto new_stats = std::make_shared<std::vector<stream_stat_config>>(*stats);
+    std::size_t index = new_stats->size();
+    new_stats->emplace_back(std::move(name), mode);
+    stats = std::move(new_stats);
     return index;
 }
 

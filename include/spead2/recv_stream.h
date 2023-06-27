@@ -184,7 +184,7 @@ public:
 class stream_stats
 {
 private:
-    std::shared_ptr<std::vector<stream_stat_config>> config;
+    std::shared_ptr<const std::vector<stream_stat_config>> config;
     std::vector<std::uint64_t> values;
 
 public:
@@ -206,9 +206,9 @@ public:
     /// Construct with the default set of statistics, and all zero values
     stream_stats();
     /// Construct with all zero values
-    explicit stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config);
+    explicit stream_stats(std::shared_ptr<const std::vector<stream_stat_config>> config);
     /// Construct with provided values
-    stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config,
+    stream_stats(std::shared_ptr<const std::vector<stream_stat_config>> config,
                  std::vector<std::uint64_t> values);
 
     /* Copy constructor and copy assignment need to be implemented manually
@@ -357,8 +357,15 @@ private:
     bool allow_out_of_order = false;
     /// A user-defined identifier for a stream
     std::uintptr_t stream_id = 0;
-    /// Statistics (includes the built-in ones)
-    std::shared_ptr<std::vector<stream_stat_config>> stats;
+    /** Statistics (includes the built-in ones)
+     *
+     * This is a shared_ptr so that instances of @ref stream_stats can share
+     * it. Every modification creates a new vector (copy-on-write). This is
+     * potentially very inefficient, since it creates a copy even when there
+     * are no sharers, but there are not expected to be huge numbers of
+     * statistics.
+     */
+    std::shared_ptr<const std::vector<stream_stat_config>> stats;
 
 public:
     stream_config();

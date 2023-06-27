@@ -5,6 +5,14 @@ Changelog
 
 - Update :meth:`!test_async_flush` and :meth:`!test_async_flush_fail` to keep
   handles to async tasks, to prevent them being garbage collected too early.
+- Fix a bug where copying a :cpp:class:`spead2::recv::stream_config` would not
+  deep copy the names of custom statistics, and so any statistics added to the
+  copy would also affect the original, and there were also potential race
+  conditions if a stream config was modified while holding stream statistics.
+- Fix a bug (caused by the bug above) where passing a
+  :cpp:class:`spead2::recv::stream_config` to construct a
+  :cpp:class:`spead2::recv::chunk_stream` would modify the config. Passing
+  the same config to construct two chunk streams would fail with an error.
 
 .. rubric:: 3.11.1
 
