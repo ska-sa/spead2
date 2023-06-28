@@ -43,10 +43,15 @@ public:
     /// Default value for @ref set_max_chunks
     static constexpr std::size_t default_max_chunks = chunk_stream_config::default_max_chunks;
 
+    /**
+     * Eviction mode when it is necessary to advance the group window. See the
+     * @verbatim embed:rst:inline :doc:`overview <recv-chunk-group>` @endverbatim
+     * for more details.
+     */
     enum class eviction_mode
     {
-        LOSSY,
-        LOSSLESS
+        LOSSY,    ///< force streams to release incomplete chunks
+        LOSSLESS  ///< a chunk will only be marked ready when all streams have marked it ready
     };
 
 private:
@@ -67,19 +72,7 @@ public:
     /// Return the maximum number of chunks that can be live at the same time.
     std::size_t get_max_chunks() const { return max_chunks; }
 
-    /**
-     * Set chunk eviction mode. When set to @ref eviction_mode::LOSSLESS, a
-     * chunk will only be marked ready when all streams have marked it ready
-     * (due to either stopping or receiving newer data). This is recommended
-     * when the individual streams have lossless transports (such as TCP). If
-     * one of the streams stops receiving data (due to a broken network link),
-     * it will prevent forward progress of the entire group.
-     *
-     * Conversely, using @ref eviction_mode::LOSSY (the default) will allow
-     * progress to continue (with partial data) if one of the streams stops
-     * receiving data, but one stream falling behind another can lead data
-     * being discarded even when the underlying transports are lossless.
-     */
+    /// Set chunk eviction mode. See @ref eviction_mode.
     chunk_stream_group_config &set_eviction_mode(eviction_mode eviction_mode_);
     /// Return the current eviction mode
     eviction_mode get_eviction_mode() const { return eviction_mode_; }
@@ -118,11 +111,11 @@ public:
 class chunk_stream_group_member;
 
 /**
- * A holder for a collection of streams that share chunks.
+ * A holder for a collection of streams that share chunks. The group owns the
+ * component streams, and takes care of stopping and destroying them when the
+ * group is stopped or destroyed.
  *
  * The public interface must only be called from one thread at a time.
- *
- * @todo write more documentation here
  */
 class chunk_stream_group
 {
@@ -335,9 +328,10 @@ public:
  *
  * When @ref stream::stop is called on any member stream, the ringbuffers
  * are both stopped, and readied chunks are diverted into a graveyard.
- * When @ref stop is called, the graveyard is emptied from the stream calling
- * @ref stop. This makes it safe to use chunks that can only safely be freed
- * from the caller's thread (e.g. a Python thread holding the GIL).
+ * When @ref chunk_stream_group::stop is called, the graveyard is emptied from
+ * the stream calling @ref stop. This makes it safe to use chunks that can only
+ * safely be freed from the caller's thread (e.g. a Python thread holding the
+ * GIL).
  */
 template<typename DataRingbuffer = ringbuffer<std::unique_ptr<chunk>>,
          typename FreeRingbuffer = ringbuffer<std::unique_ptr<chunk>>>
