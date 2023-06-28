@@ -218,27 +218,44 @@ public:
     explicit chunk_stream_group(const chunk_stream_group_config &config);
     virtual ~chunk_stream_group();
 
-    // Add a new stream
+    /// Add a new stream
     chunk_stream_group_member &emplace_back(
         io_service_ref io_service,
         const stream_config &config,
         const chunk_stream_config &chunk_config);
 
-    // Add a new stream, possibly of a subclass
+    /// Add a new stream, possibly of a subclass
     template<typename T, typename... Args>
     T &emplace_back(Args&&... args);
 
-    // Provide vector-like access to the streams
+    /**
+     * @name Vector-like access to the streams.
+     * Iterator invalidation rules are the same as for @c std::vector.
+     * @{
+     */
+    /// Number of streams
     std::size_t size() const { return streams.size(); }
+    /// Whether there are any streams
     bool empty() const { return streams.empty(); }
+    /// Get the stream at a given index
     chunk_stream_group_member &operator[](std::size_t index) { return *streams[index]; }
+    /// Get the stream at a given index
     const chunk_stream_group_member &operator[](std::size_t index) const { return *streams[index]; }
+    /// Get an iterator to the first stream
     iterator begin() noexcept;
+    /// Get an iterator past the last stream
     iterator end() noexcept;
+    /// Get an iterator to the first stream
     const_iterator begin() const noexcept;
+    /// Get a const iterator past the last stream
     const_iterator end() const noexcept;
+    /// Get an iterator to the first stream
     const_iterator cbegin() const noexcept;
+    /// Get a const iterator past the last stream
     const_iterator cend() const noexcept;
+    /**
+     * @}
+     */
 
     /**
      * Stop all streams and release all chunks. This function must not be

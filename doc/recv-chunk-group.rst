@@ -37,15 +37,13 @@ The general flow (in C++) is
 
 1. Create a :cpp:class:`~spead2::recv::chunk_stream_group_config`.
 2. Create a :cpp:class:`~spead2::recv::chunk_stream_group`.
-3. Create multiple instances of
-   :cpp:class:`~spead2::recv::chunk_stream_group_member`, each referencing the
-   group.
+3. Use :cpp:func:`~spead2::recv::chunk_stream_group::emplace_back` to
+   create the streams.
 4. Add readers to the streams.
 5. Process the data.
 6. Optionally, call :cpp:func:`spead2::recv::chunk_stream_group::stop()`
    (otherwise it will be called on destruction).
-7. Destroy the member streams (this must be done before destroying the group).
-8. Destroy the group.
+7. Destroy the group.
 
 In Python the process is similar, although garbage collection replaces
 explicit destruction.
