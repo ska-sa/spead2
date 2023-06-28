@@ -625,7 +625,7 @@ private:
     /**
      * Callback called when a heap is being ejected from the live list.
      * The heap might or might not be complete. The
-     * @ref shared_state::queue_mutex will be
+     * @ref spead2::recv::stream_base::shared_state::queue_mutex will be
      * locked during this call, which will block @ref stop and @ref flush.
      */
     virtual void heap_ready(live_heap &&) {}
@@ -661,7 +661,7 @@ protected:
      * It is undefined what happens if @ref add_packet is called after a stream
      * is stopped.
      *
-     * This is called with @ref shared_state::queue_mutex
+     * This is called with @ref spead2::recv::stream_base::shared_state::queue_mutex
      * locked. Users must not call this function themselves; instead, call @ref
      * stop.
      */
@@ -878,7 +878,7 @@ protected:
      * with extra arguments prefixed, so it should have the signature
      * <code>void handler(handler_context ctx, stream_base::add_packet_state &state, ...);</code>
      *
-     * The @ref handler_context can be passed (by rvalue
+     * The @ref reader::handler_context can be passed (by rvalue
      * reference) to a single call to @ref bind_handler, which is cheaper
      * than the overload that doesn't take it (it avoids manipulating reference
      * counts on a @c std::shared_ptr).
@@ -895,7 +895,7 @@ protected:
     }
 
     /**
-     * Overload that takes an existing @ref handler_context.
+     * Overload that takes an existing @ref reader::handler_context.
      */
     template<typename T>
     bound_handler<typename std::decay<T>::type> bind_handler(handler_context ctx, T &&handler) const

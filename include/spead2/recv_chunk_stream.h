@@ -327,7 +327,7 @@ public:
 
 template<typename CM> class chunk_stream_allocator;
 
-/// Parts of chunk_stream_state that don't depend on the chunk manager
+/// Parts of @ref chunk_stream_state that don't depend on the chunk manager
 class chunk_stream_state_base
 {
 protected:
@@ -350,9 +350,10 @@ protected:
     chunk_window chunks;
 
     /**
-     * Scratch area for use by @ref allocate. This contains not just the @ref
-     * chunk_place_data, but also the various arrays it points to. They're
-     * allocated contiguously to minimise the number of cache lines accessed.
+     * Scratch area for use by @ref chunk_place_function. This contains not
+     * just the @ref chunk_place_data, but also the various arrays it points
+     * to. They're allocated contiguously to minimise the number of cache lines
+     * accessed.
      */
     std::unique_ptr<unsigned char[], free_place_data> place_data_storage;
     chunk_place_data *place_data;
@@ -392,9 +393,8 @@ public:
     const chunk_stream_config &get_chunk_config() const { return chunk_config; }
 
     /**
-     * Get the @ref heap_metadata associated with a heap payload pointer.
-     * If the pointer was not allocated by a chunk stream, returns @c
-     * nullptr.
+     * Get the metadata associated with a heap payload pointer.  If the pointer
+     * was not allocated by a chunk stream, returns @c nullptr.
      */
     static const heap_metadata *get_heap_metadata(const memory_allocator::pointer &ptr);
 };
