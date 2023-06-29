@@ -303,7 +303,6 @@ public:
                 while (!empty())
                     flush_head(ready_chunk);
                 head_chunk = tail_chunk = chunk_id - (max_chunks - 1);
-                head_pos = tail_pos = 0;
             }
             while (chunk_id >= tail_chunk)
             {
