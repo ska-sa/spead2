@@ -246,12 +246,9 @@ void chunk_stream_group_member::async_flush_until(std::int64_t chunk_id)
 {
     post([chunk_id](stream_base &s) {
         chunk_stream_group_member &self = static_cast<chunk_stream_group_member &>(s);
-        while (self.chunks.get_head_chunk() < chunk_id && !self.chunks.empty())
-        {
-            self.chunks.flush_head([&self](chunk *c) {
-                self.group.release_chunk(c, self.batch_stats.data());
-            });
-        }
+        self.chunks.flush_until(chunk_id, [&self](chunk *c) {
+            self.group.release_chunk(c, self.batch_stats.data());
+        });
     });
 }
 

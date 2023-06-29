@@ -247,6 +247,16 @@ public:
             head_pos = 0;  // wrap around the circular buffer
     }
 
+    /// Flush until the head is at least @a target
+    template<typename F>
+    void flush_until(std::int64_t target, const F &ready_chunk)
+    {
+        while (head_chunk != tail_chunk && head_chunk < target)
+            flush_head(ready_chunk);
+        if (head_chunk == tail_chunk && head_chunk < target)
+            head_chunk = tail_chunk = target;
+    }
+
     explicit chunk_window(std::size_t max_chunks);
 
     /**
