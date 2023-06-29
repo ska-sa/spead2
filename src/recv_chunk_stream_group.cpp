@@ -136,13 +136,33 @@ void chunk_stream_group::stop()
 {
     /* The mutex is not held while stopping streams, so that callbacks
      * triggered by stopping the streams can take the lock if necessary.
+     *
+     * It's safe to iterate streams without the mutex because this function
+     * is called by the user, so a simultaneous call to emplace_back would
+     * violate the requirement that the user doesn't call the API from more
+     * than one thread at a time.
+     *
+     * The last stream to stop will flush the window (see
+     * stream_stop_received).
      */
     for (const auto &stream : streams)
         stream->stop();
+}
 
+void chunk_stream_group::stream_stop_received(chunk_stream_group_member &s)
+{
     std::lock_guard<std::mutex> lock(mutex);
-    while (!chunks.empty())
-        chunks.flush_head([this](chunk *c) { ready_chunk(c, nullptr); });
+    if (--live_streams == 0)
+    {
+        // Once all the streams have stopped, make all the chunks in the
+        // window available. It's not necessary to check c->ref_count
+        // because no stream can have a reference once they're all stopped.
+        std::uint64_t *batch_stats = s.batch_stats.data();
+        while (!chunks.empty())
+        {
+            chunks.flush_head([this, batch_stats](chunk *c) { ready_chunk(c, batch_stats); });
+        }
+    }
 }
 
 chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats)
@@ -208,22 +228,7 @@ void chunk_stream_group::release_chunk(chunk *c, std::uint64_t *batch_stats)
 {
     std::lock_guard<std::mutex> lock(mutex);
     if (--c->ref_count == 0)
-    {
-        /* Proactively flush chunks that have been fully released.
-         * This ensures that if the member stream is stopping, we
-         * have a chance to make the chunks ready before we shut
-         * everything down.
-         */
-        while (!chunks.empty())
-        {
-            chunk *c = chunks.get_chunk(chunks.get_head_chunk());
-            if (c && c->ref_count == 0)
-                chunks.flush_head([this, batch_stats](chunk *c2) { ready_chunk(c2, batch_stats); });
-            else
-                break;
-        }
         ready_condition.notify_all();
-    }
 }
 
 chunk_stream_group_member::chunk_stream_group_member(

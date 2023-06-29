@@ -152,6 +152,9 @@ private:
      */
     std::vector<std::unique_ptr<chunk_stream_group_member>> streams;
 
+    /// Number of elements of stream for which stream_stop_received has not been called.
+    std::size_t live_streams = 0;
+
     /**
      * Obtain the chunk with a given ID.
      *
@@ -173,7 +176,10 @@ private:
      */
     void release_chunk(chunk *c, std::uint64_t *batch_stats);
 
-    /// Pass a chunk to the user-provided ready function
+    /**
+     * Pass a chunk to the user-provided ready function. The caller is
+     * responsible for ensuring that c->ref_count is zero.
+     */
     void ready_chunk(chunk *c, std::uint64_t *batch_stats);
 
     // Helper classes for implementing iterators
@@ -192,14 +198,17 @@ private:
     };
 
 protected:
-    /// Called by @ref emplace_back for newly-constructed streams
+    /**
+     * Called by @ref emplace_back for newly-constructed streams. The group's
+     * mutex is held when this is called.
+     */
     virtual void stream_added(chunk_stream_group_member &s) {}
     /**
      * Called when a stream stops (whether from the network or the user).
      *
      * The stream's @c queue_mutex is locked when this is called.
      */
-    virtual void stream_stop_received(chunk_stream_group_member &s) {}
+    virtual void stream_stop_received(chunk_stream_group_member &s);
     /**
      * Called when the user stops (or destroys) a stream.
      *
@@ -276,6 +285,7 @@ T &chunk_stream_group::emplace_back(Args&&... args)
     std::unique_ptr<chunk_stream_group_member> stream(new T(*this, std::forward<Args>(args)...));
     chunk_stream_group_member &ret = *stream;
     streams.push_back(std::move(stream));
+    live_streams++;
     stream_added(ret);
     return ret;
 }
