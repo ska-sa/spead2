@@ -1,4 +1,4 @@
-# Copyright 2016 National Research Foundation (SARAO)
+# Copyright 2016, 2020-2021, 2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -18,6 +18,7 @@ include $(top_srcdir)/src/Makefile.inc.am
 noinst_PROGRAMS = \
 	recv_chunk_example \
 	recv_chunk_ring_example \
+	recv_chunk_group_example \
 	test_recv \
 	test_send \
 	test_ringbuffer
@@ -32,6 +33,8 @@ test_ringbuffer_LDADD = -lboost_program_options $(LDADD)
 recv_chunk_example_SOURCES = recv_chunk_example.cpp
 
 recv_chunk_ring_example_SOURCES = recv_chunk_ring_example.cpp
+
+recv_chunk_group_example_SOURCES = recv_chunk_group_example.cpp
 
 if SPEAD2_USE_CUDA
 
