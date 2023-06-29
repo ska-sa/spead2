@@ -184,24 +184,13 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
         if (config.get_eviction_mode() == chunk_stream_group_config::eviction_mode::LOSSY)
             for (const auto &s : streams)
                 s->async_flush_until(target);
-        std::int64_t to_check = chunks.get_head_chunk(); // next chunk to wait for
-        while (true)
+        while (chunks.get_head_chunk() < std::min(chunks.get_tail_chunk(), target))
         {
-            bool good = true;
-            std::int64_t limit = std::min(chunks.get_tail_chunk(), target);
-            to_check = std::max(chunks.get_head_chunk(), to_check);
-            for (; to_check < limit; to_check++)
-            {
-                chunk *c = chunks.get_chunk(to_check);
-                if (c && c->ref_count > 0)
-                {
-                    good = false;  // Still need to wait longer for this chunk
-                    break;
-                }
-            }
-            if (good)
-                break;
-            ready_condition.wait(lock);
+            chunk *c = chunks.get_chunk(chunks.get_head_chunk());
+            if (c->ref_count == 0)
+                chunks.flush_head([this, batch_stats](chunk *c2) { ready_chunk(c2, batch_stats); });
+            else
+                ready_condition.wait(lock);
         }
     }
 
@@ -211,7 +200,10 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
         [this, batch_stats](std::int64_t id) {
             return config.get_allocate()(id, batch_stats).release();
         },
-        [this, batch_stats](chunk *c) { ready_chunk(c, batch_stats); }
+        [](chunk *) {
+            // Should be unreachable, as we've done the necessary flushing above
+            assert(false);
+        }
     );
     if (c)
         c->ref_count++;
@@ -220,6 +212,7 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
 
 void chunk_stream_group::ready_chunk(chunk *c, std::uint64_t *batch_stats)
 {
+    assert(c->ref_count == 0);
     std::unique_ptr<chunk> owned(c);
     config.get_ready()(std::move(owned), batch_stats);
 }
