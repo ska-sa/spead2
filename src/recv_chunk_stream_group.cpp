@@ -181,9 +181,13 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
     if (chunk_id >= chunks.get_head_chunk() + std::int64_t(max_chunks))
     {
         std::int64_t target = chunk_id - max_chunks + 1;  // first chunk we don't need to flush
-        if (config.get_eviction_mode() == chunk_stream_group_config::eviction_mode::LOSSY)
+        if (config.get_eviction_mode() == chunk_stream_group_config::eviction_mode::LOSSY
+            && target > last_flush_until)
+        {
             for (const auto &s : streams)
                 s->async_flush_until(target);
+            last_flush_until = target;
+        }
         while (chunks.get_head_chunk() < std::min(chunks.get_tail_chunk(), target))
         {
             chunk *c = chunks.get_chunk(chunks.get_head_chunk());

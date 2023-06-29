@@ -152,6 +152,11 @@ private:
      */
     std::vector<std::unique_ptr<chunk_stream_group_member>> streams;
 
+    /**
+     * Last value passed to all streams' async_flush_until.
+     */
+    std::int64_t last_flush_until = 0;
+
     /// Number of elements of stream for which stream_stop_received has not been called.
     std::size_t live_streams = 0;
 
@@ -278,18 +283,6 @@ public:
     virtual void stop();
 };
 
-template<typename T, typename... Args>
-T &chunk_stream_group::emplace_back(Args&&... args)
-{
-    std::lock_guard<std::mutex> lock(mutex);
-    std::unique_ptr<chunk_stream_group_member> stream(new T(*this, std::forward<Args>(args)...));
-    chunk_stream_group_member &ret = *stream;
-    streams.push_back(std::move(stream));
-    live_streams++;
-    stream_added(ret);
-    return ret;
-}
-
 /**
  * Single single within a group managed by @ref chunk_stream_group.
  */
@@ -389,6 +382,24 @@ public:
 
     ~chunk_stream_ring_group();
 };
+
+
+template<typename T, typename... Args>
+T &chunk_stream_group::emplace_back(Args&&... args)
+{
+    std::lock_guard<std::mutex> lock(mutex);
+    std::unique_ptr<chunk_stream_group_member> stream(new T(*this, std::forward<Args>(args)...));
+    chunk_stream_group_member &ret = *stream;
+    streams.push_back(std::move(stream));
+    live_streams++;
+    if (config.get_eviction_mode() == chunk_stream_group_config::eviction_mode::LOSSY
+        && last_flush_until > 0)
+    {
+        ret.async_flush_until(last_flush_until);
+    }
+    stream_added(ret);
+    return ret;
+}
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
 chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::chunk_stream_ring_group(
