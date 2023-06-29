@@ -115,6 +115,9 @@ class chunk_stream_group_member;
  * component streams, and takes care of stopping and destroying them when the
  * group is stopped or destroyed.
  *
+ * It presents an interface similar to @c std::vector for observing the set
+ * of attached streams.
+ *
  * The public interface must only be called from one thread at a time.
  */
 class chunk_stream_group
@@ -230,7 +233,8 @@ public:
 
     /**
      * @name Vector-like access to the streams.
-     * Iterator invalidation rules are the same as for @c std::vector.
+     * Iterator invalidation rules are the same as for @c std::vector i.e.,
+     * modifying the set of streams invalidates iterators.
      * @{
      */
     /// Number of streams
