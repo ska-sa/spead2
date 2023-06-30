@@ -21,6 +21,8 @@
 #include <cstddef>
 #include <vector>
 #include <mutex>
+#include <algorithm>
+#include <limits>
 #include <spead2/recv_chunk_stream.h>
 #include <spead2/recv_chunk_stream_group.h>
 
@@ -76,10 +78,10 @@ chunk *chunk_manager_group::allocate_chunk(
     return group.get_chunk(chunk_id, state.stream_id, state.place_data->batch_stats);
 }
 
-void chunk_manager_group::ready_chunk(chunk_stream_state<chunk_manager_group> &state, chunk *c)
+void chunk_manager_group::head_updated(
+    chunk_stream_state<chunk_manager_group> &state, std::int64_t head_chunk)
 {
-    std::uint64_t *batch_stats = static_cast<chunk_stream_group_member *>(&state)->batch_stats.data();
-    group.release_chunk(c, batch_stats);
+    group.stream_head_updated(static_cast<chunk_stream_group_member &>(state), head_chunk);
 }
 
 } // namespace detail
@@ -152,16 +154,18 @@ void chunk_stream_group::stop()
 void chunk_stream_group::stream_stop_received(chunk_stream_group_member &s)
 {
     std::lock_guard<std::mutex> lock(mutex);
+    // Set the head_chunk to the largest possible value, so that this stream
+    // no longer blocks anything.
+    stream_head_updated_unlocked(s, std::numeric_limits<std::int64_t>::max());
     if (--live_streams == 0)
     {
         // Once all the streams have stopped, make all the chunks in the
-        // window available. It's not necessary to check c->ref_count
-        // because no stream can have a reference once they're all stopped.
+        // window available.
         std::uint64_t *batch_stats = s.batch_stats.data();
-        while (!chunks.empty())
-        {
-            chunks.flush_head([this, batch_stats](chunk *c) { ready_chunk(c, batch_stats); });
-        }
+        chunks.flush_all(
+            [this, batch_stats](chunk *c) { ready_chunk(c, batch_stats); },
+            [](std::int64_t) {}
+        );
     }
 }
 
@@ -190,9 +194,8 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
         }
         while (chunks.get_head_chunk() < std::min(chunks.get_tail_chunk(), target))
         {
-            chunk *c = chunks.get_chunk(chunks.get_head_chunk());
-            if (!c || c->ref_count == 0)
-                chunks.flush_head([this, batch_stats](chunk *c2) { ready_chunk(c2, batch_stats); });
+            if (min_head_chunk > chunks.get_head_chunk())
+                chunks.flush_head([this, batch_stats](chunk *c) { ready_chunk(c, batch_stats); });
             else
                 ready_condition.wait(lock);
         }
@@ -207,35 +210,48 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
         [](chunk *) {
             // Should be unreachable, as we've done the necessary flushing above
             assert(false);
-        }
+        },
+        [](std::int64_t) {}  // Don't need notification for head moving
     );
-    if (c)
-        c->ref_count++;
     return c;
 }
 
 void chunk_stream_group::ready_chunk(chunk *c, std::uint64_t *batch_stats)
 {
-    assert(c->ref_count == 0);
+    assert(c->chunk_id < min_head_chunk);
     std::unique_ptr<chunk> owned(c);
     config.get_ready()(std::move(owned), batch_stats);
 }
 
-void chunk_stream_group::release_chunk(chunk *c, std::uint64_t *batch_stats)
+void chunk_stream_group::stream_head_updated_unlocked(chunk_stream_group_member &s, std::int64_t head_chunk)
+{
+    std::size_t stream_index = s.group_index;
+    std::int64_t old = head_chunks[stream_index];
+    head_chunks[stream_index] = head_chunk;
+    // Update min_head_chunk. We can skip the work if we weren't previously the oldest.
+    if (min_head_chunk == old)
+    {
+        min_head_chunk = *std::min_element(head_chunks.begin(), head_chunks.end());
+        if (min_head_chunk != old)
+            ready_condition.notify_all();
+    }
+}
+
+void chunk_stream_group::stream_head_updated(chunk_stream_group_member &s, std::int64_t head_chunk)
 {
     std::lock_guard<std::mutex> lock(mutex);
-    if (--c->ref_count == 0)
-        ready_condition.notify_all();
+    stream_head_updated_unlocked(s, head_chunk);
 }
 
 chunk_stream_group_member::chunk_stream_group_member(
     chunk_stream_group &group,
+    std::size_t group_index,
     io_service_ref io_service,
     const stream_config &config,
     const chunk_stream_config &chunk_config)
     : chunk_stream_state(config, chunk_config, detail::chunk_manager_group(group)),
     stream(std::move(io_service), adjust_config(config)),
-    group(group)
+    group(group), group_index(group_index)
 {
     if (chunk_config.get_max_chunks() > group.config.get_max_chunks())
         throw std::invalid_argument("stream max_chunks must not be larger than group max_chunks");
@@ -250,9 +266,13 @@ void chunk_stream_group_member::async_flush_until(std::int64_t chunk_id)
 {
     post([chunk_id](stream_base &s) {
         chunk_stream_group_member &self = static_cast<chunk_stream_group_member &>(s);
-        self.chunks.flush_until(chunk_id, [&self](chunk *c) {
-            self.group.release_chunk(c, self.batch_stats.data());
-        });
+        self.chunks.flush_until(
+            chunk_id,
+            [](chunk *) {},
+            [&self](std::int64_t head_chunk) {
+                self.group.stream_head_updated(self, head_chunk);
+            }
+        );
     });
 }
 

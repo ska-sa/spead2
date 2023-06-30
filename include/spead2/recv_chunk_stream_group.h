@@ -27,6 +27,7 @@
 #include <condition_variable>
 #include <mutex>
 #include <memory>
+#include <stdexcept>
 #include <boost/iterator/transform_iterator.hpp>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_chunk_stream.h>
@@ -103,7 +104,8 @@ public:
 
     std::uint64_t *get_batch_stats(chunk_stream_state<chunk_manager_group> &state) const;
     chunk *allocate_chunk(chunk_stream_state<chunk_manager_group> &state, std::int64_t chunk_id);
-    void ready_chunk(chunk_stream_state<chunk_manager_group> &state, chunk *c);
+    void ready_chunk(chunk_stream_state<chunk_manager_group> &state, chunk *c) {}
+    void head_updated(chunk_stream_state<chunk_manager_group> &state, std::int64_t head_chunk);
 };
 
 } // namespace detail
@@ -153,6 +155,15 @@ private:
     std::vector<std::unique_ptr<chunk_stream_group_member>> streams;
 
     /**
+     * Copy of the head chunk ID from each stream. This copy is protected by
+     * the group's mutex rather than the streams'.
+     */
+    std::vector<std::int64_t> head_chunks;
+
+    /// Minimum element of head_chunks
+    std::int64_t min_head_chunk = 0;
+
+    /**
      * Last value passed to all streams' async_flush_until.
      */
     std::int64_t last_flush_until = 0;
@@ -172,18 +183,22 @@ private:
     chunk *get_chunk(std::int64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats);
 
     /**
-     * Decrement chunk reference count.
-     *
-     * If the reference count reaches zero, the chunk is valid to pass to
-     * the ready callback.
-     *
-     * This function is thread-safe.
+     * Update the head_chunk copy for a stream. This version assumes the caller takes
+     * the mutex, and is only used internally.
      */
-    void release_chunk(chunk *c, std::uint64_t *batch_stats);
+    void stream_head_updated_unlocked(chunk_stream_group_member &s, std::int64_t head_chunk);
+
+    /**
+     * Called by a stream to report movement in its head pointer. This function
+     * takes the group mutex.
+     */
+    void stream_head_updated(chunk_stream_group_member &s, std::int64_t head_chunk);
 
     /**
      * Pass a chunk to the user-provided ready function. The caller is
-     * responsible for ensuring that c->ref_count is zero.
+     * responsible for ensuring that the chunk is no longer in use.
+     *
+     * The caller must hold the group mutex.
      */
     void ready_chunk(chunk *c, std::uint64_t *batch_stats);
 
@@ -295,6 +310,7 @@ class chunk_stream_group_member : private detail::chunk_stream_state<detail::chu
 
 private:
     chunk_stream_group &group;  // TODO: redundant - also stored inside the manager
+    const std::size_t group_index;  ///< Position of the chunk within the group
 
     virtual void heap_ready(live_heap &&) override;
 
@@ -318,6 +334,7 @@ protected:
      * ignored, and the group's callbacks are used instead.
      *
      * @param group            Group to which this stream belongs
+     * @param index            Position of this stream within the group
      * @param io_service       I/O service (also used by the readers).
      * @param config           Basic stream configuration
      * @param chunk_config     Configuration for chunking
@@ -327,6 +344,7 @@ protected:
      */
     chunk_stream_group_member(
         chunk_stream_group &group,
+        std::size_t group_index,
         io_service_ref io_service,
         const stream_config &config,
         const chunk_stream_config &chunk_config);
@@ -390,15 +408,17 @@ template<typename T, typename... Args>
 T &chunk_stream_group::emplace_back(Args&&... args)
 {
     std::lock_guard<std::mutex> lock(mutex);
-    std::unique_ptr<chunk_stream_group_member> stream(new T(*this, std::forward<Args>(args)...));
+    if (chunks.get_tail_chunk() != 0 || last_flush_until != 0)
+    {
+        throw std::runtime_error("Cannot add a stream after group has started receiving data");
+    }
+    std::unique_ptr<chunk_stream_group_member> stream(new T(
+        *this, streams.size(), std::forward<Args>(args)...));
     chunk_stream_group_member &ret = *stream;
     streams.push_back(std::move(stream));
+    head_chunks.push_back(0);
+    min_head_chunk = 0; // shouldn't be necessary, but just in case
     live_streams++;
-    if (config.get_eviction_mode() == chunk_stream_group_config::eviction_mode::LOSSY
-        && last_flush_until > 0)
-    {
-        ret.async_flush_until(last_flush_until);
-    }
     stream_added(ret);
     return ret;
 }

@@ -54,14 +54,6 @@ class chunk
     friend class chunk_stream_group;
     template<typename DataRingbuffer, typename FreeRingbuffer> friend class detail::chunk_ring_pair;
 private:
-    /**
-     * Reference count for chunks belonging to stream groups.
-     *
-     * This must only be manipulated from a single thread at a time e.g.
-     * with the group's mutex locked.
-     */
-    std::size_t ref_count = 0;
-
     /// Linked list of chunks to dispose of at shutdown
     std::unique_ptr<chunk> graveyard_next;
 
@@ -247,14 +239,38 @@ public:
             head_pos = 0;  // wrap around the circular buffer
     }
 
-    /// Flush until the head is at least @a target
-    template<typename F>
-    void flush_until(std::int64_t target, const F &ready_chunk)
+    /// Send the oldest chunk to the ready callback
+    template<typename F1, typename F2>
+    void flush_head(const F1 &ready_chunk, const F2 &head_updated)
     {
-        while (head_chunk != tail_chunk && head_chunk < target)
-            flush_head(ready_chunk);
-        if (head_chunk == tail_chunk && head_chunk < target)
-            head_chunk = tail_chunk = target;
+        flush_head(ready_chunk);
+        head_updated(head_chunk);
+    }
+
+    /// Send all the chunks to the ready callback
+    template<typename F1, typename F2>
+    void flush_all(const F1 &ready_chunk, const F2 &head_updated)
+    {
+        if (!empty())
+        {
+            while (!empty())
+                flush_head(ready_chunk);
+            head_updated(head_chunk);
+        }
+    }
+
+    /// Flush until the head is at least @a target
+    template<typename F1, typename F2>
+    void flush_until(std::int64_t target, const F1 &ready_chunk, const F2 &head_updated)
+    {
+        if (head_chunk < target)
+        {
+            while (head_chunk != tail_chunk && head_chunk < target)
+                flush_head(ready_chunk);
+            if (head_chunk == tail_chunk && head_chunk < target)
+                head_chunk = tail_chunk = target;
+            head_updated(target);
+        }
     }
 
     explicit chunk_window(std::size_t max_chunks);
@@ -282,11 +298,14 @@ public:
      * Obtain a pointer to a chunk with ID @a chunk_id.
      *
      * If @a chunk_id is behind the window, returns nullptr. If it is ahead of
-     * the window, the window is advanced using @a ready_chunk and @a allocate_chunk.
+     * the window, the window is advanced using @a allocate_chunk and
+     * @a ready_chunk. If the head_chunk is updated, the new value is passed to
+     * @a head_updated.
      */
-    template<typename F1, typename F2>
+    template<typename F1, typename F2, typename F3>
     chunk *get_chunk(
-        std::int64_t chunk_id, std::uintptr_t stream_id, const F1 &allocate_chunk, const F2 &ready_chunk)
+        std::int64_t chunk_id, std::uintptr_t stream_id,
+        const F1 &allocate_chunk, const F2 &ready_chunk, const F3 &head_updated)
     {
         const std::size_t max_chunks = chunks.size();
         if (chunk_id >= head_chunk)
@@ -300,14 +319,13 @@ public:
                  * We leave it to the while loop below to actually allocate
                  * the chunks.
                  */
-                while (!empty())
-                    flush_head(ready_chunk);
+                flush_all(ready_chunk, head_updated);
                 head_chunk = tail_chunk = chunk_id - (max_chunks - 1);
             }
             while (chunk_id >= tail_chunk)
             {
                 if (std::size_t(tail_chunk - head_chunk) == max_chunks)
-                    flush_head(ready_chunk);
+                    flush_head(ready_chunk, head_updated);
                 chunks[tail_pos] = allocate_chunk(tail_chunk);
                 if (chunks[tail_pos])
                 {
@@ -459,6 +477,7 @@ public:
     std::uint64_t *get_batch_stats(chunk_stream_state<chunk_manager_simple> &state) const;
     chunk *allocate_chunk(chunk_stream_state<chunk_manager_simple> &state, std::int64_t chunk_id);
     void ready_chunk(chunk_stream_state<chunk_manager_simple> &state, chunk *c);
+    void head_updated(chunk_stream_state<chunk_manager_simple> &state, std::int64_t head_chunk) {}
 };
 
 /**
@@ -682,8 +701,10 @@ stream_config chunk_stream_state<CM>::adjust_config(const stream_config &config)
 template<typename CM>
 void chunk_stream_state<CM>::flush_chunks()
 {
-    while (!chunks.empty())
-        chunks.flush_head([this](chunk *c) { chunk_manager.ready_chunk(*this, c); });
+    chunks.flush_all(
+        [this](chunk *c) { chunk_manager.ready_chunk(*this, c); },
+        [this](std::int64_t head_chunk) { chunk_manager.head_updated(*this, head_chunk); }
+    );
 }
 
 template<typename CM>
@@ -754,7 +775,8 @@ chunk_stream_state<CM>::allocate(std::size_t size, const packet_header &packet)
             chunk_id,
             stream_id,
             [this](std::int64_t chunk_id) { return chunk_manager.allocate_chunk(*this, chunk_id); },
-            [this](chunk *c) { chunk_manager.ready_chunk(*this, c); }
+            [this](chunk *c) { chunk_manager.ready_chunk(*this, c); },
+            [this](std::int64_t head_chunk) { chunk_manager.head_updated(*this, head_chunk); }
         );
         if (chunk_ptr)
         {

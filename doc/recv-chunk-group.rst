@@ -66,9 +66,9 @@ performance, and thus some care is needed to use it safely.
   as otherwise deadlocks can occur. For example, if they share a thread pool,
   the pool must have at least as many threads as streams. It's recommended
   that each stream has its own single-threaded thread pool.
-- The streams should all be added to the group before adding any readers to
-  the streams. Things will probably work even if this is not done, but the
-  design is sufficiently complicated that it is not advisable.
+- The streams must all be added to the group before adding any readers to
+  the streams. Once data has group has received some data, an exception will
+  be thrown if one attempts to add a new stream.
 - The stream ID associated with each chunk will be the stream ID of one of the
   component streams, but it is undefined which one.
 - When the allocate and ready callbacks are invoked, it's not specified which

@@ -18,16 +18,16 @@ to the chunk at the time. Additionally, it might not be possible to allocate a
 new chunk until an old chunk is flushed e.g., if there is a fixed pool of
 chunks rather than dynamic allocation.
 
-Each chunk has a reference count, indicating the number of streams that still
-have the chunk in their window. This reference count is non-atomic since it is
-protected by the group's mutex. When the group wishes to evict a chunk, it
-first needs to wait for the reference count of the head chunk to drop to zero.
-It needs a way to be notified that it should try again, which is provided by a
-condition variable. Using a condition variable (rather than, say, replacing
-the simple reference count with a semaphore) allows the group mutex to be
-dropped while waiting, which prevents the deadlocks that might otherwise occur
-if the mutex was held while waiting and another stream was attemping to lock
-the group mutex to make forward progress.
+The group keeps its own copy of the head pointers (oldest heap) from the
+individual streams, protected by the group mutex rather than the stream
+mutexes. This allows the group to track the oldest chunk that any stream owns
+or may potentially own in future (``min_head_chunk``). When the group wishes to
+evict a chunk, it first needs to wait for ``min_head_chunk`` to become greater
+than the ID of the chunk to be evicted. The wait is achieved using a condition
+variable that is notified whenever ``min_head_chunk`` increases. This allows
+the group mutex to be dropped while waiting, which prevents the deadlocks that
+might otherwise occur if the mutex was held while waiting and another stream
+was attemping to lock the group mutex to make forward progress.
 
 In lossless eviction mode, this is all that is needed, although it is
 non-trivial to see that this won't deadlock with all the streams sitting in
