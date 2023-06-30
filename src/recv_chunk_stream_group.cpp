@@ -170,6 +170,10 @@ void chunk_stream_group::stream_stop_received(chunk_stream_group_member &s)
 chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats)
 {
     std::unique_lock<std::mutex> lock(mutex);
+    /* Streams should not be requesting chunks older than their heads, and the group
+     * head is at least as old as any stream head.
+     */
+    assert(chunk_id >= chunks.get_head_chunk());
     /* Any chunk old enough be made ready needs to first be released by the
      * member streams. To do that, we request all the streams to flush, then
      * wait until it is safe, using the condition variable to wake up
@@ -180,7 +184,7 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
      * state after a wait.
      */
     const std::size_t max_chunks = config.get_max_chunks();
-    if (chunk_id >= chunks.get_head_chunk() + std::int64_t(max_chunks))
+    if (std::uint64_t(chunk_id - chunks.get_head_chunk()) >= max_chunks)
     {
         std::int64_t target = chunk_id - max_chunks + 1;  // first chunk we don't need to flush
         if (config.get_eviction_mode() == chunk_stream_group_config::eviction_mode::LOSSY
@@ -213,7 +217,6 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
 
 void chunk_stream_group::ready_chunk(chunk *c, std::uint64_t *batch_stats)
 {
-    assert(c->chunk_id < min_head_chunk);
     std::unique_ptr<chunk> owned(c);
     config.get_ready()(std::move(owned), batch_stats);
 }
@@ -223,19 +226,16 @@ void chunk_stream_group::stream_head_updated_unlocked(chunk_stream_group_member 
     std::size_t stream_index = s.group_index;
     std::int64_t old = head_chunks[stream_index];
     head_chunks[stream_index] = head_chunk;
-    // Update min_head_chunk. We can skip the work if we weren't previously the oldest.
-    if (min_head_chunk == old)
+    // Update so that our head chunk is min(head_chunks). We can skip the work
+    // if we weren't previously the oldest.
+    if (chunks.get_head_chunk() == old)
     {
-        min_head_chunk = *std::min_element(head_chunks.begin(), head_chunks.end());
-        if (min_head_chunk != old)
-        {
-            chunks.flush_until(
-                min_head_chunk,
-                [this, &s](chunk *c) { ready_chunk(c, s.batch_stats.data()); },
-                [](std::int64_t) {}
-            );
-            ready_condition.notify_all();
-        }
+        auto min_head_chunk = *std::min_element(head_chunks.begin(), head_chunks.end());
+        chunks.flush_until(
+            min_head_chunk,
+            [this, &s](chunk *c) { ready_chunk(c, s.batch_stats.data()); },
+            [this](std::int64_t) { ready_condition.notify_all(); }
+        );
     }
 }
 

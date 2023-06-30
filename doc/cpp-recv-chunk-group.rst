@@ -16,3 +16,4 @@ C++ API.
 Ringbuffer convenience API
 --------------------------
 .. doxygenclass:: spead2::recv::chunk_stream_ring_group
+   :members:

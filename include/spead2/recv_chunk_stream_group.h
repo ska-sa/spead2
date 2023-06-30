@@ -120,7 +120,8 @@ class chunk_stream_group_member;
  * It presents an interface similar to @c std::vector for observing the set
  * of attached streams.
  *
- * The public interface must only be called from one thread at a time.
+ * The public interface must only be called from one thread at a time, and
+ * all streams must be added before any readers are attached to them.
  */
 class chunk_stream_group
 {
@@ -157,11 +158,10 @@ private:
     /**
      * Copy of the head chunk ID from each stream. This copy is protected by
      * the group's mutex rather than the streams'.
+     *
+     * The minimum element must always be equal to @c chunks.get_head_chunk().
      */
     std::vector<std::int64_t> head_chunks;
-
-    /// Minimum element of head_chunks
-    std::int64_t min_head_chunk = 0;
 
     /**
      * Last value passed to all streams' async_flush_until.
@@ -282,11 +282,7 @@ public:
      * @}
      */
 
-    /**
-     * Stop all streams and release all chunks. This function must not be
-     * called concurrently with creating or destroying streams, and no
-     * new streams should be created after calling this.
-     */
+    /// Stop all streams and release all chunks.
     virtual void stop();
 };
 
@@ -324,7 +320,7 @@ protected:
      * ignored, and the group's callbacks are used instead.
      *
      * @param group            Group to which this stream belongs
-     * @param index            Position of this stream within the group
+     * @param group_index      Position of this stream within the group
      * @param io_service       I/O service (also used by the readers).
      * @param config           Basic stream configuration
      * @param chunk_config     Configuration for chunking
@@ -373,10 +369,9 @@ public:
  * stopped as soon as any of the members streams are stopped. The intended use
  * case is parallel groups that are started and stopped together.
  *
- * When @ref stream::stop is called on any member stream, the ringbuffers
- * are both stopped, and readied chunks are diverted into a graveyard.
- * When @ref chunk_stream_group::stop is called, the graveyard is emptied from
- * the stream calling @ref stop. This makes it safe to use chunks that can only
+ * When the group is stopped, the ringbuffers are both stopped, and readied
+ * chunks are diverted into a graveyard. The graveyard is then emptied from
+ * the thread calling @ref stop. This makes it safe to use chunks that can only
  * safely be freed from the caller's thread (e.g. a Python thread holding the
  * GIL).
  */
@@ -419,7 +414,6 @@ T &chunk_stream_group::emplace_back(Args&&... args)
     chunk_stream_group_member &ret = *stream;
     streams.push_back(std::move(stream));
     head_chunks.push_back(0);
-    min_head_chunk = 0; // shouldn't be necessary, but just in case
     stream_added(ret);
     return ret;
 }

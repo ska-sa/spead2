@@ -1,5 +1,6 @@
 Chunking stream groups
 ======================
+.. cpp:namespace-push:: spead2::recv
 
 While the :doc:`recv-chunk` allows for high-bandwidth streams to be received
 with low overhead, it still has a fundamental scaling limitation: each chunk
@@ -35,13 +36,13 @@ down) it prevents the entire group from making forward progress.
 
 The general flow (in C++) is
 
-1. Create a :cpp:class:`~spead2::recv::chunk_stream_group_config`.
-2. Create a :cpp:class:`~spead2::recv::chunk_stream_group`.
-3. Use :cpp:func:`~spead2::recv::chunk_stream_group::emplace_back` to
+1. Create a :cpp:class:`chunk_stream_group_config`.
+2. Create a :cpp:class:`chunk_stream_group`.
+3. Use :cpp:func:`chunk_stream_group::emplace_back` to
    create the streams.
 4. Add readers to the streams.
 5. Process the data.
-6. Optionally, call :cpp:func:`spead2::recv::chunk_stream_group::stop()`
+6. Optionally, call :cpp:func:`chunk_stream_group::stop()`
    (otherwise it will be called on destruction).
 7. Destroy the group.
 
@@ -52,7 +53,7 @@ Ringbuffer convenience API
 --------------------------
 As for standalone chunk streams, there is a simplified API using ringbuffers,
 which is also the only API available for Python. A
-:cpp:class:`~spead2::recv::chunk_stream_ring_group` is a group that allocates
+:cpp:class:`chunk_stream_ring_group` is a group that allocates
 data from one ringbuffer and send ready data to another. The description of
 :ref:`that api <recv-chunk-ringbuffer>` largely applies here too. The
 ringbuffers can be shared between groups.
@@ -67,13 +68,15 @@ performance, and thus some care is needed to use it safely.
   the pool must have at least as many threads as streams. It's recommended
   that each stream has its own single-threaded thread pool.
 - The streams must all be added to the group before adding any readers to
-  the streams. Once data has group has received some data, an exception will
-  be thrown if one attempts to add a new stream.
+  the streams. Once a group has received some data, an exception will be thrown
+  if one attempts to add a new stream.
 - The stream ID associated with each chunk will be the stream ID of one of the
   component streams, but it is undefined which one.
 - When the allocate and ready callbacks are invoked, it's not specified which
-  stream's batch statistics pointer will be passed. For the ready callback,
-  the `batch_stats` parameter may also be null (currently this can only happen
-  during :cpp:func:`spead2::recv::chunk_stream_group::stop`).
+  stream's batch statistics pointer will be passed.
 - Two streams must not write to the same bytes of a chunk (in the payload,
   present array or extra data), as this is undefined behaviour in C++.
+- Calling :cpp:func:`~stream::stop` on a member stream will stop the whole
+  group.
+
+.. cpp:namespace-pop::

@@ -18,16 +18,18 @@ to the chunk at the time. Additionally, it might not be possible to allocate a
 new chunk until an old chunk is flushed e.g., if there is a fixed pool of
 chunks rather than dynamic allocation.
 
-The group keeps its own copy of the head pointers (oldest heap) from the
+The group keeps its own copy of the head positions (oldest chunk) from the
 individual streams, protected by the group mutex rather than the stream
-mutexes. This allows the group to track the oldest chunk that any stream owns
-or may potentially own in future (``min_head_chunk``). When the group wishes to
-evict a chunk, it first needs to wait for ``min_head_chunk`` to become greater
-than the ID of the chunk to be evicted. The wait is achieved using a condition
-variable that is notified whenever ``min_head_chunk`` increases. This allows
-the group mutex to be dropped while waiting, which prevents the deadlocks that
-might otherwise occur if the mutex was held while waiting and another stream
-was attemping to lock the group mutex to make forward progress.
+mutexes. The group then maintains its head chunk position to match the oldest
+head position of any of the member streams. When the group wishes to
+evict a chunk, it simply needs to wait for all streams to make enough progress
+that the group's head moves past that chunk.
+
+The wait is achieved using a condition variable that is notified whenever the
+head position increases. This allows the group mutex to be dropped while
+waiting, which prevents the deadlocks that might otherwise occur if the mutex
+was held while waiting and another stream was attemping to lock the group mutex
+to make forward progress.
 
 In lossless eviction mode, this is all that is needed, although it is
 non-trivial to see that this won't deadlock with all the streams sitting in
@@ -44,6 +46,13 @@ only on streams that are not blocked in
 In lossy eviction mode, we need to make sure that such streams make forward
 progress even if no new packets arrive on them. This is achieved by posting an
 asynchronous callback to all streams requesting them to flush out chunks that
-are now too old.
+are now too old. The callback will never reach streams that have already
+stopped; we handle this at the time the stream stops, by treating it as having
+a head of ``INT64_MAX``.
+
+While lossless mode is normally allowed to block indefinitely, we do need to
+interrupt things in :cpp:func:`chunk_stream_group::stop`. This is handled
+similarly to lossy eviction mode, where all streams are requested to flush up
+to ``INT64_MAX``.
 
 .. cpp:namespace-pop::
