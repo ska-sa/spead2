@@ -157,16 +157,6 @@ void chunk_stream_group::stream_stop_received(chunk_stream_group_member &s)
     // Set the head_chunk to the largest possible value, so that this stream
     // no longer blocks anything.
     stream_head_updated_unlocked(s, std::numeric_limits<std::int64_t>::max());
-    if (--live_streams == 0)
-    {
-        // Once all the streams have stopped, make all the chunks in the
-        // window available.
-        std::uint64_t *batch_stats = s.batch_stats.data();
-        chunks.flush_all(
-            [this, batch_stats](chunk *c) { ready_chunk(c, batch_stats); },
-            [](std::int64_t) {}
-        );
-    }
 }
 
 chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats)
@@ -192,12 +182,9 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
                 s->async_flush_until(target);
             last_flush_until = target;
         }
-        while (chunks.get_head_chunk() < std::min(chunks.get_tail_chunk(), target))
+        while (chunks.get_head_chunk() < target)
         {
-            if (min_head_chunk > chunks.get_head_chunk())
-                chunks.flush_head([this, batch_stats](chunk *c) { ready_chunk(c, batch_stats); });
-            else
-                ready_condition.wait(lock);
+            ready_condition.wait(lock);
         }
     }
 
@@ -208,7 +195,7 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
             return config.get_allocate()(id, batch_stats).release();
         },
         [](chunk *) {
-            // Should be unreachable, as we've done the necessary flushing above
+            // Should be unreachable, as we've ensured this by waiting above
             assert(false);
         },
         [](std::int64_t) {}  // Don't need notification for head moving
@@ -233,7 +220,14 @@ void chunk_stream_group::stream_head_updated_unlocked(chunk_stream_group_member 
     {
         min_head_chunk = *std::min_element(head_chunks.begin(), head_chunks.end());
         if (min_head_chunk != old)
+        {
+            chunks.flush_until(
+                min_head_chunk,
+                [this, &s](chunk *c) { ready_chunk(c, s.batch_stats.data()); },
+                [](std::int64_t) {}
+            );
             ready_condition.notify_all();
+        }
     }
 }
 

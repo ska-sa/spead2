@@ -168,9 +168,6 @@ private:
      */
     std::int64_t last_flush_until = 0;
 
-    /// Number of elements of stream for which stream_stop_received has not been called.
-    std::size_t live_streams = 0;
-
     /**
      * Obtain the chunk with a given ID.
      *
@@ -418,7 +415,6 @@ T &chunk_stream_group::emplace_back(Args&&... args)
     streams.push_back(std::move(stream));
     head_chunks.push_back(0);
     min_head_chunk = 0; // shouldn't be necessary, but just in case
-    live_streams++;
     stream_added(ret);
     return ret;
 }
