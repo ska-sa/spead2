@@ -1006,7 +1006,7 @@ py::module register_module(py::module &parent)
         .def(py::init<const chunk_stream_group_config &,
                       std::shared_ptr<chunk_ringbuffer>,
                       std::shared_ptr<chunk_ringbuffer>>(),
-             "group_config"_a,
+             "config"_a,
              "data_ringbuffer"_a.none(false),
              "free_ringbuffer"_a.none(false),
             // Keep the Python ringbuffer objects alive, not just the C++ side.
@@ -1014,6 +1014,8 @@ py::module register_module(py::module &parent)
             // from properties.
             py::keep_alive<1, 3>(),
             py::keep_alive<1, 4>())
+        .def_property_readonly(
+            "config", SPEAD2_PTMF(chunk_stream_ring_group_wrapper, get_config))
         .def(
             "emplace_back",
             [](chunk_stream_ring_group_wrapper &group,

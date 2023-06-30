@@ -235,6 +235,8 @@ public:
     explicit chunk_stream_group(const chunk_stream_group_config &config);
     virtual ~chunk_stream_group();
 
+    const chunk_stream_group_config &get_config() const { return config; }
+
     /// Add a new stream
     chunk_stream_group_member &emplace_back(
         io_service_ref io_service,

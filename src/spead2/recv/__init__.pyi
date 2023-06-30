@@ -283,8 +283,10 @@ class ChunkStreamGroupConfig:
 
 class ChunkStreamRingGroup(ChunkRingPair):
     def __init__(
-        self, group_config: ChunkStreamGroupConfig, data_ringbuffer: _ChunkRingbuffer,
+        self, config: ChunkStreamGroupConfig, data_ringbuffer: _ChunkRingbuffer,
         free_ringbuffer: _ChunkRingbuffer) -> None: ...
+    @property
+    def config(self) -> ChunkStreamGroupConfig: ...
     def emplace_back(
         self, thread_pool: spead2.ThreadPool, config: spead2.StreamConfig,
         chunk_stream_config: spead2.ChunkStreamConfig) -> None: ...
