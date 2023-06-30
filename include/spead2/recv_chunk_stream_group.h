@@ -226,13 +226,6 @@ protected:
      * The stream's @c queue_mutex is locked when this is called.
      */
     virtual void stream_stop_received(chunk_stream_group_member &s);
-    /**
-     * Called when the user stops (or destroys) a stream.
-     *
-     * This is called before the caller actually stops the stream, and without
-     * the stream's @c queue_mutex.
-     */
-    virtual void stream_pre_stop(chunk_stream_group_member &s) {}
 
 public:
     using iterator = boost::transform_iterator<
@@ -346,6 +339,14 @@ protected:
         const stream_config &config,
         const chunk_stream_config &chunk_config);
 
+    /**
+     * Stop just this stream. This does the real work of stopping the stream,
+     * whereas the public @ref stop function stops the entire group.
+     *
+     * This should only be called from @ref chunk_stream_group::stop.
+     */
+    virtual void stop1();
+
 public:
     using heap_metadata = detail::chunk_stream_state_base::heap_metadata;
 
@@ -354,7 +355,12 @@ public:
 
     virtual void stop_received() override;
     virtual void stop() override;
-    virtual ~chunk_stream_group_member() override;
+    /* Note: most stream classes have a destructor that calls stop(),
+     * but that's not required nor safe for this class: stop() calls
+     * group.stop(), but the stream is only destroyed as part of destroying
+     * the group. Instead, the group's destructor ensures that stop1 is
+     * called.
+     */
 };
 
 /**
@@ -388,7 +394,6 @@ private:
 protected:
     virtual void stream_added(chunk_stream_group_member &s) override;
     virtual void stream_stop_received(chunk_stream_group_member &s) override;
-    virtual void stream_pre_stop(chunk_stream_group_member &s) override;
 
 public:
     chunk_stream_ring_group(
@@ -457,21 +462,10 @@ void chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::stream_stop_receiv
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
-void chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::stream_pre_stop(
-    chunk_stream_group_member &s)
+void chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::stop()
 {
     // Shut down the rings so that if the caller is no longer servicing them, it will
     // not lead to a deadlock during shutdown.
-    this->data_ring->stop();
-    this->free_ring->stop();
-    chunk_stream_group::stream_pre_stop(s);
-}
-
-template<typename DataRingbuffer, typename FreeRingbuffer>
-void chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::stop()
-{
-    // Stopping the first stream should do this anyway, but this ensures
-    // they're stopped even if there are no streams
     this->data_ring->stop();
     this->free_ring->stop();
     chunk_stream_group::stop();

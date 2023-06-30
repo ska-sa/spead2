@@ -143,12 +143,20 @@ void chunk_stream_group::stop()
      * is called by the user, so a simultaneous call to emplace_back would
      * violate the requirement that the user doesn't call the API from more
      * than one thread at a time.
-     *
-     * The last stream to stop will flush the window (see
-     * stream_stop_received).
      */
+    if (config.get_eviction_mode() == chunk_stream_group_config::eviction_mode::LOSSLESS)
+    {
+        /* Stopping a stream that is currently waiting in get_chunk could
+         * deadlock. In lossy mode, there are already provisions to guarantee
+         * forward progress, but in lossless mode we need some help.
+         */
+        for (const auto &stream : streams)
+        {
+            stream->async_flush_until(std::numeric_limits<std::int64_t>::max());
+        }
+    }
     for (const auto &stream : streams)
-        stream->stop();
+        stream->stop1();
 }
 
 void chunk_stream_group::stream_stop_received(chunk_stream_group_member &s)
@@ -270,6 +278,15 @@ void chunk_stream_group_member::async_flush_until(std::int64_t chunk_id)
     });
 }
 
+void chunk_stream_group_member::stop1()
+{
+    {
+        std::lock_guard<std::mutex> lock(get_queue_mutex());
+        flush_chunks();
+    }
+    stream::stop();
+}
+
 void chunk_stream_group_member::stop_received()
 {
     stream::stop_received();
@@ -279,17 +296,7 @@ void chunk_stream_group_member::stop_received()
 
 void chunk_stream_group_member::stop()
 {
-    group.stream_pre_stop(*this);
-    {
-        std::lock_guard<std::mutex> lock(get_queue_mutex());
-        flush_chunks();
-    }
-    stream::stop();
-}
-
-chunk_stream_group_member::~chunk_stream_group_member()
-{
-    stop();
+    group.stop();
 }
 
 } // namespace recv

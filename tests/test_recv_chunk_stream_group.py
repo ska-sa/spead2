@@ -152,7 +152,6 @@ class TestChunkStreamRingGroup:
         """Send a given set of heaps (in order) and check that they arrive correctly."""
         rng = np.random.default_rng(seed=1)
         data = rng.integers(0, 256, chunks * CHUNK_PAYLOAD_SIZE, np.uint8)
-        data_by_heap = data.reshape(chunks, HEAPS_PER_CHUNK, -1)
 
         def send():
             self._send_data(send_stream, data, group.config.eviction_mode, heaps)
@@ -185,8 +184,8 @@ class TestChunkStreamRingGroup:
     @pytest.mark.parametrize("eviction_mode", [LOSSLESS_PARAM])
     def test_lossless_late_stream(self, group, send_stream):
         """Send one stream later than the others, to make sure lossless mode really works."""
-        rng = np.random.default_rng(seed=1)
         chunks = 20
+        rng = np.random.default_rng(seed=1)
         data = rng.integers(0, 256, chunks * CHUNK_PAYLOAD_SIZE, np.uint8)
         heaps1 = [i for i in range(chunks * HEAPS_PER_CHUNK) if i % STREAMS != 2]
         heaps2 = [i for i in range(chunks * HEAPS_PER_CHUNK) if i % STREAMS == 2]
@@ -207,3 +206,22 @@ class TestChunkStreamRingGroup:
         self._verify(group, data, expected_present)
 
         send_thread.join()
+
+    def test_unblock_stop(self, group, send_stream):
+        """Stop the group without stopping the queues."""
+        chunks = 20
+        # Leave one stream half-missing, to really jam things up
+        n_heaps = chunks * HEAPS_PER_CHUNK
+        heaps = [i for i in range(n_heaps) if i < n_heaps // 2 or i % STREAMS != 2]
+        rng = np.random.default_rng(seed=1)
+        data = rng.integers(0, 256, chunks * CHUNK_PAYLOAD_SIZE, np.uint8)
+
+        self._send_data(send_stream, data, group.config.eviction_mode, heaps)
+        time.sleep(0.01)  # Give it time to consume some of the data
+        group.stop()
+
+        # We don't care how many chunks we get, as long as the loop
+        # terminates.
+        for i, chunk in enumerate(group.data_ringbuffer):
+            assert chunk.chunk_id == i
+            group.add_free_chunk(chunk)
