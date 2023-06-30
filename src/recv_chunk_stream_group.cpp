@@ -191,7 +191,7 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
         while (chunks.get_head_chunk() < std::min(chunks.get_tail_chunk(), target))
         {
             chunk *c = chunks.get_chunk(chunks.get_head_chunk());
-            if (c->ref_count == 0)
+            if (!c || c->ref_count == 0)
                 chunks.flush_head([this, batch_stats](chunk *c2) { ready_chunk(c2, batch_stats); });
             else
                 ready_condition.wait(lock);
