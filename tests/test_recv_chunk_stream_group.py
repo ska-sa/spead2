@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import collections.abc
 import threading
 import time
 
@@ -54,6 +55,100 @@ class TestChunkStreamGroupConfig:
         assert config.eviction_mode == EvictionMode.LOSSLESS
         config.eviction_mode = EvictionMode.LOSSY
         assert config.eviction_mode == EvictionMode.LOSSY
+
+
+class TestChunkStreamRingGroupSequence:
+    """Test that ChunkStreamRingGroup behaves like a sequence."""
+    @pytest.fixture
+    def config(self):
+        return spead2.recv.ChunkStreamGroupConfig()
+
+    @pytest.fixture
+    def data_ring(self):
+        return spead2.recv.ChunkRingbuffer(4)
+
+    @pytest.fixture
+    def free_ring(self):
+        ring = spead2.recv.ChunkRingbuffer(4)
+
+    def make_group(self, n_streams):
+        group = spead2.recv.ChunkStreamRingGroup(
+            spead2.recv.ChunkStreamGroupConfig(),
+            spead2.recv.ChunkRingbuffer(4),
+            spead2.recv.ChunkRingbuffer(4)
+        )
+        streams = []
+        for _ in range(n_streams):
+            streams.append(
+                group.emplace_back(
+                    spead2.ThreadPool(),
+                    spead2.recv.StreamConfig(),
+                    spead2.recv.ChunkStreamConfig(place=place_plain_llc)
+                )
+            )
+        return group, streams
+
+    def test_len(self):
+        group, _ = self.make_group(5)
+        assert len(group) == 5
+
+    def test_getitem_simple(self):
+        group, streams = self.make_group(3)
+        assert group[0] is streams[0]
+        assert group[1] is streams[1]
+        assert group[2] is streams[2]
+
+    def test_getitem_wrap(self):
+        group, streams = self.make_group(3)
+        assert group[-1] is streams[-1]
+        assert group[-2] is streams[-2]
+        assert group[-3] is streams[-3]
+
+    def test_getitem_bad(self):
+        group, streams = self.make_group(3)
+        with pytest.raises(IndexError):
+            group[3]
+        with pytest.raises(IndexError):
+            group[-4]
+
+    def test_getitem_slice(self):
+        group, streams = self.make_group(5)
+        assert group[1:3] == streams[1:3]
+        assert group[4:0:-2] == streams[4:0:-2]
+        assert group[1:-1:2] == streams[1:-1:2]
+
+    def test_iter(self):
+        group, streams = self.make_group(5)
+        assert list(group) == streams
+
+    def test_reversed(self):
+        group, streams = self.make_group(5)
+        assert list(reversed(group)) == list(reversed(streams))
+
+    def test_contains(self):
+        group, streams = self.make_group(2)
+        assert streams[0] in group
+        assert streams[1] in group
+        assert None not in group
+
+    def test_count(self):
+        group, streams = self.make_group(2)
+        assert group.count(streams[0]) == 1
+        assert group.count(streams[1]) == 1
+        assert group.count(group) == 0
+
+    def test_index(self):
+        group, streams = self.make_group(2)
+        assert group.index(streams[0]) == 0
+        assert group.index(streams[1]) == 1
+        assert group.index(streams[1], 1, 2) == 1
+        with pytest.raises(ValueError):
+            group.index(None)
+        with pytest.raises(ValueError):
+            group.index(streams[0], 1)
+
+    def test_registered(self):
+        assert issubclass(spead2.recv.ChunkStreamRingGroup, collections.abc.Sequence)
 
 
 class TestChunkStreamRingGroup:

@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import collections.abc
 import enum
 import socket
 from typing import Iterator, Iterable, Any, List, Tuple, Sequence, Union, Text, Optional, ClassVar, overload
@@ -281,7 +282,7 @@ class ChunkStreamGroupConfig:
 
     def __init__(self, *, max_chunks=..., eviction_mode=...) -> None: ...
 
-class ChunkStreamRingGroup(ChunkRingPair):
+class ChunkStreamRingGroup(ChunkRingPair, collections.abc.Sequence[ChunkStreamGroupMember]):
     def __init__(
         self, config: ChunkStreamGroupConfig, data_ringbuffer: _ChunkRingbuffer,
         free_ringbuffer: _ChunkRingbuffer) -> None: ...
@@ -290,9 +291,6 @@ class ChunkStreamRingGroup(ChunkRingPair):
     def emplace_back(
         self, thread_pool: spead2.ThreadPool, config: spead2.StreamConfig,
         chunk_stream_config: spead2.ChunkStreamConfig) -> ChunkStreamGroupMember: ...
-    def __len__(self) -> int: ...
-    def __getitem__(self, index: int) -> ChunkStreamGroupMember: ...
-    def __iter__(self) -> Iterator[ChunkStreamGroupMember]: ...
     def stop(self) -> None: ...
 
 class ChunkStreamGroupMember(_Stream):

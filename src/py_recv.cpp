@@ -1030,8 +1030,10 @@ py::module register_module(py::module &parent)
         .def("__len__", SPEAD2_PTMF(chunk_stream_ring_group_wrapper, size))
         .def(
             "__getitem__",
-            [](chunk_stream_ring_group_wrapper &group, std::size_t index) -> chunk_stream_group_member & {
-                if (index < group.size())
+            [](chunk_stream_ring_group_wrapper &group, std::ptrdiff_t index) -> chunk_stream_group_member & {
+                if (index < 0)
+                    index += group.size();
+                if (index >= 0 && std::size_t(index) < group.size())
                     return group[index];
                 else
                     throw py::index_error();
@@ -1039,11 +1041,19 @@ py::module register_module(py::module &parent)
             py::return_value_policy::reference_internal
         )
         .def(
-            "__iter__",
-            [](chunk_stream_ring_group_wrapper &group) {
-                return py::make_iterator(group.begin(), group.end());
-            },
-            py::keep_alive<0, 1>()  // keep the group alive while it is iterated
+            "__getitem__",
+            [](chunk_stream_ring_group_wrapper &group, const py::slice &slice) {
+                py::list out;
+                std::size_t start, stop, step, length;
+                if (!slice.compute(group.size(), &start, &stop, &step, &length))
+                    throw py::error_already_set();
+                py::object self = py::cast(group);
+                for (std::size_t i = 0; i < length; i++) {
+                    out.append(py::cast(group[start], py::return_value_policy::reference_internal, self));
+                    start += step;
+                }
+                return out;
+            }
         )
         .def("stop", SPEAD2_PTMF(chunk_stream_ring_group_wrapper, stop));
 
