@@ -267,6 +267,7 @@ class TestChunkStreamRingGroup:
 
     def _verify(self, group, data, expected_present, chunk_id_bias=0):
         expected_present = expected_present.reshape(-1, HEAPS_PER_CHUNK)
+        expected_chunk_ids = np.nonzero(np.any(expected_present, axis=1))[0]
         chunks = len(expected_present)
         data_by_heap = data.reshape(chunks, HEAPS_PER_CHUNK, -1)
 
@@ -279,7 +280,7 @@ class TestChunkStreamRingGroup:
                 else:
                     group.add_free_chunk(chunk)
 
-        for i in range(len(expected_present)):
+        for i in expected_chunk_ids:
             chunk = next_real_chunk()
             assert chunk.chunk_id == i + chunk_id_bias
             np.testing.assert_equal(chunk.present, expected_present[i])
