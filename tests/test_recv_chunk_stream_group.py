@@ -59,17 +59,6 @@ class TestChunkStreamGroupConfig:
 
 class TestChunkStreamRingGroupSequence:
     """Test that ChunkStreamRingGroup behaves like a sequence."""
-    @pytest.fixture
-    def config(self):
-        return spead2.recv.ChunkStreamGroupConfig()
-
-    @pytest.fixture
-    def data_ring(self):
-        return spead2.recv.ChunkRingbuffer(4)
-
-    @pytest.fixture
-    def free_ring(self):
-        ring = spead2.recv.ChunkRingbuffer(4)
 
     def make_group(self, n_streams):
         group = spead2.recv.ChunkStreamRingGroup(
