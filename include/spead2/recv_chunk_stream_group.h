@@ -180,12 +180,6 @@ private:
     chunk *get_chunk(std::uint64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats);
 
     /**
-     * Update the head_chunk copy for a stream. This version assumes the caller takes
-     * the mutex, and is only used internally.
-     */
-    void stream_head_updated_unlocked(chunk_stream_group_member &s, std::uint64_t head_chunk);
-
-    /**
      * Called by a stream to report movement in its head pointer. This function
      * takes the group mutex.
      */
@@ -225,7 +219,7 @@ protected:
      *
      * The stream's @c queue_mutex is locked when this is called.
      */
-    virtual void stream_stop_received(chunk_stream_group_member &s);
+    virtual void stream_stop_received(chunk_stream_group_member &s) {}
 
 public:
     using iterator = boost::transform_iterator<

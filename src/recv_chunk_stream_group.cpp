@@ -159,14 +159,6 @@ void chunk_stream_group::stop()
         stream->stop1();
 }
 
-void chunk_stream_group::stream_stop_received(chunk_stream_group_member &s)
-{
-    std::lock_guard<std::mutex> lock(mutex);
-    // Set the head_chunk to the largest possible value, so that this stream
-    // no longer blocks anything.
-    stream_head_updated_unlocked(s, std::numeric_limits<std::uint64_t>::max());
-}
-
 chunk *chunk_stream_group::get_chunk(std::uint64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats)
 {
     std::unique_lock<std::mutex> lock(mutex);
@@ -221,8 +213,9 @@ void chunk_stream_group::ready_chunk(chunk *c, std::uint64_t *batch_stats)
     config.get_ready()(std::move(owned), batch_stats);
 }
 
-void chunk_stream_group::stream_head_updated_unlocked(chunk_stream_group_member &s, std::uint64_t head_chunk)
+void chunk_stream_group::stream_head_updated(chunk_stream_group_member &s, std::uint64_t head_chunk)
 {
+    std::lock_guard<std::mutex> lock(mutex);
     std::size_t stream_index = s.group_index;
     std::uint64_t old = head_chunks[stream_index];
     head_chunks[stream_index] = head_chunk;
@@ -237,12 +230,6 @@ void chunk_stream_group::stream_head_updated_unlocked(chunk_stream_group_member 
             [this](std::uint64_t) { ready_condition.notify_all(); }
         );
     }
-}
-
-void chunk_stream_group::stream_head_updated(chunk_stream_group_member &s, std::uint64_t head_chunk)
-{
-    std::lock_guard<std::mutex> lock(mutex);
-    stream_head_updated_unlocked(s, head_chunk);
 }
 
 chunk_stream_group_member::chunk_stream_group_member(
