@@ -218,6 +218,7 @@ void chunk_stream_group::stream_head_updated(chunk_stream_group_member &s, std::
     std::lock_guard<std::mutex> lock(mutex);
     std::size_t stream_index = s.group_index;
     std::uint64_t old = head_chunks[stream_index];
+    assert(head_chunk > old);  // head_updated should only be called on forward progress
     head_chunks[stream_index] = head_chunk;
     // Update so that our head chunk is min(head_chunks). We can skip the work
     // if we weren't previously the oldest.
