@@ -105,7 +105,7 @@ public:
     std::uint64_t *get_batch_stats(chunk_stream_state<chunk_manager_group> &state) const;
     chunk *allocate_chunk(chunk_stream_state<chunk_manager_group> &state, std::int64_t chunk_id);
     void ready_chunk(chunk_stream_state<chunk_manager_group> &state, chunk *c) {}
-    void head_updated(chunk_stream_state<chunk_manager_group> &state, std::int64_t head_chunk);
+    void head_updated(chunk_stream_state<chunk_manager_group> &state, std::uint64_t head_chunk);
 };
 
 } // namespace detail
@@ -161,12 +161,12 @@ private:
      *
      * The minimum element must always be equal to @c chunks.get_head_chunk().
      */
-    std::vector<std::int64_t> head_chunks;
+    std::vector<std::uint64_t> head_chunks;
 
     /**
      * Last value passed to all streams' async_flush_until.
      */
-    std::int64_t last_flush_until = 0;
+    std::uint64_t last_flush_until = 0;
 
     /**
      * Obtain the chunk with a given ID.
@@ -177,19 +177,19 @@ private:
      *
      * This function is thread-safe.
      */
-    chunk *get_chunk(std::int64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats);
+    chunk *get_chunk(std::uint64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats);
 
     /**
      * Update the head_chunk copy for a stream. This version assumes the caller takes
      * the mutex, and is only used internally.
      */
-    void stream_head_updated_unlocked(chunk_stream_group_member &s, std::int64_t head_chunk);
+    void stream_head_updated_unlocked(chunk_stream_group_member &s, std::uint64_t head_chunk);
 
     /**
      * Called by a stream to report movement in its head pointer. This function
      * takes the group mutex.
      */
-    void stream_head_updated(chunk_stream_group_member &s, std::int64_t head_chunk);
+    void stream_head_updated(chunk_stream_group_member &s, std::uint64_t head_chunk);
 
     /**
      * Pass a chunk to the user-provided ready function. The caller is
@@ -306,7 +306,7 @@ private:
      * This function returns immediately, and the work is done later on the
      * io_service. It is safe to call from any thread.
      */
-    void async_flush_until(std::int64_t chunk_id);
+    void async_flush_until(std::uint64_t chunk_id);
 
 protected:
     /**

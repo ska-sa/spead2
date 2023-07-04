@@ -14,17 +14,23 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import collections.abc
+import ctypes
 import gc
 import threading
 import time
 import weakref
 
+import numba
+from numba import types
 import numpy as np
 import pytest
+import scipy
 
 import spead2
 import spead2.recv as recv
 import spead2.send as send
+from spead2.numba import intp_to_voidptr
+from spead2.recv.numba import chunk_place_data
 
 from tests.test_recv_chunk_stream import (
     CHUNK_PAYLOAD_SIZE, HEAP_PAYLOAD_SIZE, HEAPS_PER_CHUNK, place_plain_llc
@@ -33,6 +39,26 @@ from tests.test_recv_chunk_stream import (
 STREAMS = 4
 LOSSY_PARAM = pytest.param(recv.ChunkStreamGroupConfig.EvictionMode.LOSSY, id="lossy")
 LOSSLESS_PARAM = pytest.param(recv.ChunkStreamGroupConfig.EvictionMode.LOSSLESS, id="lossless")
+
+
+@numba.cfunc(
+    types.void(types.CPointer(chunk_place_data), types.uintp, types.CPointer(types.int64)),
+    nopython=True)
+def place_bias(data_ptr, data_size, user_data_ptr):
+    # Biases the chunk_id by the user parameter
+    data = numba.carray(data_ptr, 1)
+    items = numba.carray(intp_to_voidptr(data[0].items), 2, dtype=np.int64)
+    heap_cnt = items[0]
+    payload_size = items[1]
+    user_data = numba.carray(user_data_ptr, 1)
+    if payload_size == HEAP_PAYLOAD_SIZE:
+        data[0].chunk_id = heap_cnt // HEAPS_PER_CHUNK + user_data[0]
+        data[0].heap_index = heap_cnt % HEAPS_PER_CHUNK
+        data[0].heap_offset = data[0].heap_index * HEAP_PAYLOAD_SIZE
+
+
+place_bias_llc = scipy.LowLevelCallable(
+    place_bias.ctypes, signature='void (void *, size_t, void *)')
 
 
 class TestChunkStreamGroupConfig:
@@ -178,15 +204,23 @@ class TestChunkStreamRingGroup:
         return request.param
 
     @pytest.fixture
-    def group(self, eviction_mode, data_ring, free_ring, queues):
+    def chunk_id_bias(self):
+        return np.array([0], np.int64)
+
+    @pytest.fixture
+    def group(self, eviction_mode, data_ring, free_ring, queues, chunk_id_bias):
         group_config = recv.ChunkStreamGroupConfig(max_chunks=4, eviction_mode=eviction_mode)
         group = recv.ChunkStreamRingGroup(group_config, data_ring, free_ring)
         # max_heaps is artificially high to make test_packet_too_old work
         config = spead2.recv.StreamConfig(max_heaps=128)
+        place_llc = scipy.LowLevelCallable(
+            place_bias.ctypes,
+            user_data=chunk_id_bias.ctypes.data_as(ctypes.c_void_p),
+            signature='void (void *, size_t, void *)')
         chunk_stream_config = spead2.recv.ChunkStreamConfig(
             items=[0x1000, spead2.HEAP_LENGTH_ID],
             max_chunks=4,
-            place=place_plain_llc,
+            place=place_llc,
         )
         for queue in queues:
             group.emplace_back(
@@ -225,14 +259,23 @@ class TestChunkStreamRingGroup:
             if lossy:
                 time.sleep(0.001)
 
-    def _verify(self, group, data, expected_present):
+    def _verify(self, group, data, expected_present, chunk_id_bias=0):
         expected_present = expected_present.reshape(-1, HEAPS_PER_CHUNK)
         chunks = len(expected_present)
         data_by_heap = data.reshape(chunks, HEAPS_PER_CHUNK, -1)
 
+        def next_real_chunk():
+            # Skip padding chunks
+            while True:
+                chunk = group.data_ringbuffer.get()
+                if any(chunk.present):
+                    return chunk
+                else:
+                    group.add_free_chunk(chunk)
+
         for i in range(len(expected_present)):
-            chunk = group.data_ringbuffer.get()
-            assert chunk.chunk_id == i
+            chunk = next_real_chunk()
+            assert chunk.chunk_id == i + chunk_id_bias
             np.testing.assert_equal(chunk.present, expected_present[i])
             actual_data = chunk.data.reshape(HEAPS_PER_CHUNK, -1)
             for j in range(HEAPS_PER_CHUNK):
@@ -244,7 +287,7 @@ class TestChunkStreamRingGroup:
         with pytest.raises(spead2.Stopped):
             group.data_ringbuffer.get()
 
-    def _test_simple(self, group, send_stream, chunks, heaps):
+    def _test_simple(self, group, send_stream, chunks, heaps, chunk_id_bias=0):
         """Send a given set of heaps (in order) and check that they arrive correctly."""
         rng = np.random.default_rng(seed=1)
         data = rng.integers(0, 256, chunks * CHUNK_PAYLOAD_SIZE, np.uint8)
@@ -261,7 +304,7 @@ class TestChunkStreamRingGroup:
 
         expected_present = np.zeros(chunks * HEAPS_PER_CHUNK, np.uint8)
         expected_present[heaps] = True
-        self._verify(group, data, expected_present)
+        self._verify(group, data, expected_present, chunk_id_bias)
 
         send_thread.join()
 
@@ -275,6 +318,22 @@ class TestChunkStreamRingGroup:
         """Skip sending data to one of the streams."""
         chunks = 20
         heaps = [i for i in range(chunks * HEAPS_PER_CHUNK) if i % STREAMS != 2]
+        self._test_simple(group, send_stream, chunks, heaps)
+
+    def test_half_missing_stream(self, group, send_stream):
+        """Skip sending data to one of the streams after a certain point."""
+        chunks = 20
+        heaps = [
+            i for i in range(chunks * HEAPS_PER_CHUNK)
+            if i < 7 * HEAPS_PER_CHUNK or i % STREAMS != 2
+        ]
+        self._test_simple(group, send_stream, chunks, heaps)
+
+    def test_missing_chunks(self, group, send_stream):
+        """Skip sending some whole chunks."""
+        chunks = 20
+        skip = [1, 6, 7, 13, 14, 15, 16, 17, 18]
+        heaps = [i for i in range(chunks * HEAPS_PER_CHUNK) if i // HEAPS_PER_CHUNK not in skip]
         self._test_simple(group, send_stream, chunks, heaps)
 
     @pytest.mark.parametrize("eviction_mode", [LOSSLESS_PARAM])
@@ -302,6 +361,13 @@ class TestChunkStreamRingGroup:
         self._verify(group, data, expected_present)
 
         send_thread.join()
+
+    def test_large_chunk_ids(self, group, send_stream, chunk_id_bias):
+        chunks = 20
+        heaps = list(range(chunks * HEAPS_PER_CHUNK))
+        # Ensure that the last chunk will have the maximum possible chunk ID (2**63-1)
+        chunk_id_bias[0] = 2**63 - chunks
+        self._test_simple(group, send_stream, chunks, heaps, chunk_id_bias=chunk_id_bias[0])
 
     def test_unblock_stop(self, group, send_stream):
         """Stop the group without stopping the queues."""

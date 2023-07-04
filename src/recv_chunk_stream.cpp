@@ -176,7 +176,7 @@ void chunk_stream_state_base::packet_memcpy(
     const packet_header &packet) const
 {
     const heap_metadata &metadata = *get_heap_metadata(allocation);
-    if (metadata.chunk_id < get_head_chunk())
+    if (chunk_too_old(metadata.chunk_id))
     {
         // The packet corresponds to a chunk that has already been aged out
         // TODO: increment a counter / log a warning
@@ -201,7 +201,8 @@ void chunk_stream_state_base::do_heap_ready(live_heap &&lh)
         auto metadata = get_heap_metadata(h.get_payload());
         // We need to check the chunk_id because the chunk might have been aged
         // out while the heap was incomplete.
-        if (metadata && metadata->chunk_ptr && metadata->chunk_id >= get_head_chunk()
+        if (metadata && metadata->chunk_ptr
+            && !chunk_too_old(metadata->chunk_id)
             && !get_chunk_config().get_packet_presence_payload_size())
         {
             assert(metadata->heap_index < metadata->chunk_ptr->present_size);

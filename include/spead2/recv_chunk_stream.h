@@ -214,13 +214,16 @@ namespace detail
 
 /**
  * Sliding window of chunk pointers.
+ *
+ * @internal The chunk IDs are kept as unsigned values, so that the tail can
+ * be larger than any actual chunk ID.
  */
 class chunk_window
 {
 private:
     /// Circular buffer of chunks under construction.
     std::vector<chunk *> chunks;
-    std::int64_t head_chunk = 0, tail_chunk = 0;  ///< chunk IDs of valid chunk range
+    std::uint64_t head_chunk = 0, tail_chunk = 0;  ///< chunk IDs of valid chunk range
     std::size_t head_pos = 0, tail_pos = 0;  ///< Positions corresponding to @ref head and @ref tail in @ref chunks
 
 public:
@@ -253,9 +256,9 @@ public:
      * the head and tail are both advanced to @a next_chunk.
      */
     template<typename F1, typename F2>
-    void flush_all(std::int64_t next_chunk, const F1 &ready_chunk, const F2 &head_updated)
+    void flush_all(std::uint64_t next_chunk, const F1 &ready_chunk, const F2 &head_updated)
     {
-        std::int64_t orig_head = head_chunk;
+        std::uint64_t orig_head = head_chunk;
         while (!empty())
             flush_head(ready_chunk);
         head_chunk = tail_chunk = next_chunk;
@@ -265,13 +268,13 @@ public:
 
     /// Flush until the head is at least @a target
     template<typename F1, typename F2>
-    void flush_until(std::int64_t target, const F1 &ready_chunk, const F2 &head_updated)
+    void flush_until(std::uint64_t target, const F1 &ready_chunk, const F2 &head_updated)
     {
         if (head_chunk < target)
         {
             while (head_chunk != tail_chunk && head_chunk < target)
                 flush_head(ready_chunk);
-            if (head_chunk == tail_chunk && head_chunk < target)
+            if (head_chunk < target)
                 head_chunk = tail_chunk = target;
             head_updated(target);
         }
@@ -284,7 +287,7 @@ public:
      *
      * If @a chunk_id falls outside the window, returns nullptr.
      */
-    chunk *get_chunk(std::int64_t chunk_id) const
+    chunk *get_chunk(std::uint64_t chunk_id) const
     {
         if (chunk_id >= head_chunk && chunk_id < tail_chunk)
         {
@@ -308,15 +311,17 @@ public:
      */
     template<typename F1, typename F2, typename F3>
     chunk *get_chunk(
-        std::int64_t chunk_id, std::uintptr_t stream_id,
+        std::uint64_t chunk_id, std::uintptr_t stream_id,
         const F1 &allocate_chunk, const F2 &ready_chunk, const F3 &head_updated)
     {
+        // chunk_id must be a valid int64_t
+        assert(chunk_id <= std::uint64_t(std::numeric_limits<std::int64_t>::max()));
         const std::size_t max_chunks = chunks.size();
         if (chunk_id >= head_chunk)
         {
             // We've moved beyond the end of our current window, and need to
             // allocate fresh chunks.
-            if (chunk_id >= tail_chunk + std::int64_t(max_chunks))
+            if (chunk_id >= tail_chunk && chunk_id - tail_chunk >= max_chunks)
             {
                 /* We've jumped ahead so far that the entire current window
                  * is stale. Flush it all and fast-forward to the new window.
@@ -327,7 +332,7 @@ public:
             }
             while (chunk_id >= tail_chunk)
             {
-                if (std::size_t(tail_chunk - head_chunk) == max_chunks)
+                if (tail_chunk - head_chunk == max_chunks)
                     flush_head(ready_chunk, head_updated);
                 chunks[tail_pos] = allocate_chunk(tail_chunk);
                 if (chunks[tail_pos])
@@ -350,8 +355,8 @@ public:
             return nullptr;
     }
 
-    std::int64_t get_head_chunk() const { return head_chunk; }
-    std::int64_t get_tail_chunk() const { return tail_chunk; }
+    std::uint64_t get_head_chunk() const { return head_chunk; }
+    std::uint64_t get_tail_chunk() const { return tail_chunk; }
     bool empty() const { return head_chunk == tail_chunk; }
 };
 
@@ -395,8 +400,13 @@ protected:
     void do_heap_ready(live_heap &&lh);
 
 protected:
-    std::int64_t get_head_chunk() const { return chunks.get_head_chunk(); }
-    std::int64_t get_tail_chunk() const { return chunks.get_tail_chunk(); }
+    std::uint64_t get_head_chunk() const { return chunks.get_head_chunk(); }
+    std::uint64_t get_tail_chunk() const { return chunks.get_tail_chunk(); }
+    bool chunk_too_old(std::int64_t chunk_id) const
+    {
+        // Need to check against 0 explicitly to avoid signed/unsigned mixup
+        return chunk_id < 0 || std::uint64_t(chunk_id) < chunks.get_head_chunk();
+    }
 
 public:
     /// Constructor
@@ -480,7 +490,7 @@ public:
     std::uint64_t *get_batch_stats(chunk_stream_state<chunk_manager_simple> &state) const;
     chunk *allocate_chunk(chunk_stream_state<chunk_manager_simple> &state, std::int64_t chunk_id);
     void ready_chunk(chunk_stream_state<chunk_manager_simple> &state, chunk *c);
-    void head_updated(chunk_stream_state<chunk_manager_simple> &state, std::int64_t head_chunk) {}
+    void head_updated(chunk_stream_state<chunk_manager_simple> &state, std::uint64_t head_chunk) {}
 };
 
 /**
@@ -705,9 +715,9 @@ template<typename CM>
 void chunk_stream_state<CM>::flush_chunks()
 {
     chunks.flush_all(
-        std::numeric_limits<std::int64_t>::max(),
+        std::numeric_limits<std::uint64_t>::max(),
         [this](chunk *c) { chunk_manager.ready_chunk(*this, c); },
-        [this](std::int64_t head_chunk) { chunk_manager.head_updated(*this, head_chunk); }
+        [this](std::uint64_t head_chunk) { chunk_manager.head_updated(*this, head_chunk); }
     );
 }
 
@@ -763,8 +773,8 @@ chunk_stream_state<CM>::allocate(std::size_t size, const packet_header &packet)
     place_data->extra_offset = 0;
     place_data->extra_size = 0;
     chunk_config.get_place()(place_data, sizeof(*place_data));
-    auto chunk_id = place_data->chunk_id;
-    if (chunk_id < get_head_chunk())
+    std::int64_t chunk_id = place_data->chunk_id;
+    if (chunk_too_old(chunk_id))
     {
         // We don't want this heap.
         metadata.chunk_id = -1;
@@ -780,7 +790,7 @@ chunk_stream_state<CM>::allocate(std::size_t size, const packet_header &packet)
             stream_id,
             [this](std::int64_t chunk_id) { return chunk_manager.allocate_chunk(*this, chunk_id); },
             [this](chunk *c) { chunk_manager.ready_chunk(*this, c); },
-            [this](std::int64_t head_chunk) { chunk_manager.head_updated(*this, head_chunk); }
+            [this](std::uint64_t head_chunk) { chunk_manager.head_updated(*this, head_chunk); }
         );
         if (chunk_ptr)
         {

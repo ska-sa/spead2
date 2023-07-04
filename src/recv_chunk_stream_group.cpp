@@ -79,7 +79,7 @@ chunk *chunk_manager_group::allocate_chunk(
 }
 
 void chunk_manager_group::head_updated(
-    chunk_stream_state<chunk_manager_group> &state, std::int64_t head_chunk)
+    chunk_stream_state<chunk_manager_group> &state, std::uint64_t head_chunk)
 {
     group.stream_head_updated(static_cast<chunk_stream_group_member &>(state), head_chunk);
 }
@@ -152,7 +152,7 @@ void chunk_stream_group::stop()
          */
         for (const auto &stream : streams)
         {
-            stream->async_flush_until(std::numeric_limits<std::int64_t>::max());
+            stream->async_flush_until(std::numeric_limits<std::uint64_t>::max());
         }
     }
     for (const auto &stream : streams)
@@ -164,10 +164,10 @@ void chunk_stream_group::stream_stop_received(chunk_stream_group_member &s)
     std::lock_guard<std::mutex> lock(mutex);
     // Set the head_chunk to the largest possible value, so that this stream
     // no longer blocks anything.
-    stream_head_updated_unlocked(s, std::numeric_limits<std::int64_t>::max());
+    stream_head_updated_unlocked(s, std::numeric_limits<std::uint64_t>::max());
 }
 
-chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats)
+chunk *chunk_stream_group::get_chunk(std::uint64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats)
 {
     std::unique_lock<std::mutex> lock(mutex);
     /* Streams should not be requesting chunks older than their heads, and the group
@@ -184,9 +184,9 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
      * state after a wait.
      */
     const std::size_t max_chunks = config.get_max_chunks();
-    if (std::uint64_t(chunk_id - chunks.get_head_chunk()) >= max_chunks)
+    if (chunk_id - chunks.get_head_chunk() >= max_chunks)
     {
-        std::int64_t target = chunk_id - max_chunks + 1;  // first chunk we don't need to flush
+        std::uint64_t target = chunk_id - (max_chunks - 1);  // first chunk we don't need to flush
         if (config.get_eviction_mode() == chunk_stream_group_config::eviction_mode::LOSSY
             && target > last_flush_until)
         {
@@ -210,7 +210,7 @@ chunk *chunk_stream_group::get_chunk(std::int64_t chunk_id, std::uintptr_t strea
             // Should be unreachable, as we've ensured this by waiting above
             assert(false);
         },
-        [](std::int64_t) {}  // Don't need notification for head moving
+        [](std::uint64_t) {}  // Don't need notification for head moving
     );
     return c;
 }
@@ -221,10 +221,10 @@ void chunk_stream_group::ready_chunk(chunk *c, std::uint64_t *batch_stats)
     config.get_ready()(std::move(owned), batch_stats);
 }
 
-void chunk_stream_group::stream_head_updated_unlocked(chunk_stream_group_member &s, std::int64_t head_chunk)
+void chunk_stream_group::stream_head_updated_unlocked(chunk_stream_group_member &s, std::uint64_t head_chunk)
 {
     std::size_t stream_index = s.group_index;
-    std::int64_t old = head_chunks[stream_index];
+    std::uint64_t old = head_chunks[stream_index];
     head_chunks[stream_index] = head_chunk;
     // Update so that our head chunk is min(head_chunks). We can skip the work
     // if we weren't previously the oldest.
@@ -234,12 +234,12 @@ void chunk_stream_group::stream_head_updated_unlocked(chunk_stream_group_member 
         chunks.flush_until(
             min_head_chunk,
             [this, &s](chunk *c) { ready_chunk(c, s.batch_stats.data()); },
-            [this](std::int64_t) { ready_condition.notify_all(); }
+            [this](std::uint64_t) { ready_condition.notify_all(); }
         );
     }
 }
 
-void chunk_stream_group::stream_head_updated(chunk_stream_group_member &s, std::int64_t head_chunk)
+void chunk_stream_group::stream_head_updated(chunk_stream_group_member &s, std::uint64_t head_chunk)
 {
     std::lock_guard<std::mutex> lock(mutex);
     stream_head_updated_unlocked(s, head_chunk);
@@ -264,14 +264,14 @@ void chunk_stream_group_member::heap_ready(live_heap &&lh)
     do_heap_ready(std::move(lh));
 }
 
-void chunk_stream_group_member::async_flush_until(std::int64_t chunk_id)
+void chunk_stream_group_member::async_flush_until(std::uint64_t chunk_id)
 {
     post([chunk_id](stream_base &s) {
         chunk_stream_group_member &self = static_cast<chunk_stream_group_member &>(s);
         self.chunks.flush_until(
             chunk_id,
             [](chunk *) {},
-            [&self](std::int64_t head_chunk) {
+            [&self](std::uint64_t head_chunk) {
                 self.group.stream_head_updated(self, head_chunk);
             }
         );
