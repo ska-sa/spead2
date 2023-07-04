@@ -700,7 +700,7 @@ protected:
 
             void operator()() const
             {
-                std::lock_guard<std::mutex>(shared->queue_mutex);
+                std::lock_guard<std::mutex> lock(shared->queue_mutex);
                 stream_base *self = shared->self;
                 if (self)
                     func(*self);
