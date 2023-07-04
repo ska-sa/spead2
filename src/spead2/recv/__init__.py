@@ -79,6 +79,7 @@ try:
 except ImportError:
     pass
 
+
 # Ideally we'd inherit from _Sequence, but that gives errors about
 # mismatched metaclasses. So instead we copy the mixin methods.
 class ChunkStreamRingGroup(_ChunkStreamRingGroup):
