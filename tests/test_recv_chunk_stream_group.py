@@ -144,6 +144,12 @@ class TestChunkStreamRingGroupSequence:
             gc.collect()
         assert group_weak() is not None
 
+        # Now delete the things that are keeping it alive
+        streams.clear()
+        for i in range(5):
+            gc.collect()
+        assert group_weak() is None
+
     def test_iter(self):
         group, streams = self.make_group(5)
         assert list(group) == streams
