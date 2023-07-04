@@ -14,8 +14,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import collections.abc
+import gc
 import threading
 import time
+import weakref
 
 import numpy as np
 import pytest
@@ -105,6 +107,16 @@ class TestChunkStreamRingGroupSequence:
         assert group[1:3] == streams[1:3]
         assert group[4:0:-2] == streams[4:0:-2]
         assert group[1:-1:2] == streams[1:-1:2]
+
+    def test_getitem_slice_gc(self):
+        """Test that the streams returned by getitem keep the group alive."""
+        group = self.make_group(5)[0]
+        group_weak = weakref.ref(group)
+        streams = group[1:3]
+        del group
+        for i in range(5):  # Try extra hard to GC on pypy
+            gc.collect()
+        assert group_weak() is not None
 
     def test_iter(self):
         group, streams = self.make_group(5)
