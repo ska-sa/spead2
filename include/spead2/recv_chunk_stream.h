@@ -29,6 +29,7 @@
 #include <cstddef>
 #include <utility>
 #include <mutex>
+#include <limits>
 #include <spead2/common_defines.h>
 #include <spead2/common_memory_allocator.h>
 #include <spead2/common_ringbuffer.h>
@@ -247,16 +248,19 @@ public:
         head_updated(head_chunk);
     }
 
-    /// Send all the chunks to the ready callback
+    /**
+     * Send all the chunks to the ready callback. Afterwards,
+     * the head and tail are both advanced to @a next_chunk.
+     */
     template<typename F1, typename F2>
-    void flush_all(const F1 &ready_chunk, const F2 &head_updated)
+    void flush_all(std::int64_t next_chunk, const F1 &ready_chunk, const F2 &head_updated)
     {
-        if (!empty())
-        {
-            while (!empty())
-                flush_head(ready_chunk);
+        std::int64_t orig_head = head_chunk;
+        while (!empty())
+            flush_head(ready_chunk);
+        head_chunk = tail_chunk = next_chunk;
+        if (head_chunk != orig_head)
             head_updated(head_chunk);
-        }
     }
 
     /// Flush until the head is at least @a target
@@ -319,8 +323,7 @@ public:
                  * We leave it to the while loop below to actually allocate
                  * the chunks.
                  */
-                flush_all(ready_chunk, head_updated);
-                head_chunk = tail_chunk = chunk_id - (max_chunks - 1);
+                flush_all(chunk_id - (max_chunks - 1), ready_chunk, head_updated);
             }
             while (chunk_id >= tail_chunk)
             {
@@ -702,6 +705,7 @@ template<typename CM>
 void chunk_stream_state<CM>::flush_chunks()
 {
     chunks.flush_all(
+        std::numeric_limits<std::int64_t>::max(),
         [this](chunk *c) { chunk_manager.ready_chunk(*this, c); },
         [this](std::int64_t head_chunk) { chunk_manager.head_updated(*this, head_chunk); }
     );
