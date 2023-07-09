@@ -21,7 +21,7 @@ Each member stream also has its own sliding window, which can be smaller (but no
 larger) than the group's window. When the group's window slides forward, the
 streams' windows are adjusted to ensure they still fit within the group's
 window. In other words, a stream's window determines how much reordering is
-tolerated within a stream, while the group's window determines how out of sync
+tolerated within a stream, while the group's window determines how out-of-sync
 the streams are allowed to become.
 
 When desynchronisation does occur, there is a choice of strategies. The default
@@ -60,7 +60,7 @@ ringbuffers can be shared between groups.
 
 Caveats
 -------
-This is an advanced API that sacrifices some user-friendlyness for
+This is an advanced API that sacrifices some user-friendliness for
 performance, and thus some care is needed to use it safely.
 
 - It is vital that all the streams can make forward progress independently,
