@@ -3,6 +3,9 @@ Changelog
 
 .. rubric:: Development version
 
+- Add support for :doc:`recv-chunk-group` to assemble chunks in parallel.
+- Simplify the way receive streams shut down. Users should not notice any
+  change, but custom reader implementations will need to be updated.
 - Update :meth:`!test_async_flush` and :meth:`!test_async_flush_fail` to keep
   handles to async tasks, to prevent them being garbage collected too early.
 - Fix a bug where copying a :cpp:class:`spead2::recv::stream_config` would not
