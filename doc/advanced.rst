@@ -5,4 +5,5 @@ Advanced features
    :maxdepth: 2
 
    recv-chunk
+   recv-chunk-group
    recv-stats

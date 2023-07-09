@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -35,7 +35,7 @@
 #include <functional>
 #include <boost/asio.hpp>
 #include <boost/lexical_cast.hpp>
-#include <spead2/recv_reader.h>
+#include <spead2/recv_stream.h>
 #include <spead2/recv_udp.h>
 #include <spead2/recv_udp_base.h>
 #include <spead2/recv_udp_ibv.h>
@@ -63,12 +63,13 @@ udp_reader::udp_reader(
     stream &owner,
     boost::asio::ip::udp::socket &&socket,
     std::size_t max_size)
-    : udp_reader_base(owner), socket(std::move(socket)), max_size(max_size),
+    : udp_reader_base(owner), max_size(max_size),
 #if SPEAD2_USE_RECVMMSG
-    buffer(mmsg_count), iov(mmsg_count), msgvec(mmsg_count)
+    buffer(mmsg_count), iov(mmsg_count), msgvec(mmsg_count),
 #else
-    buffer(new std::uint8_t[max_size + 1])
+    buffer(new std::uint8_t[max_size + 1]),
 #endif
+    socket(std::move(socket))
 {
     assert(socket_uses_io_service(this->socket, get_io_service()));
 #if SPEAD2_USE_RECVMMSG
@@ -84,7 +85,7 @@ udp_reader::udp_reader(
     }
 #endif
 
-    enqueue_receive();
+    enqueue_receive(make_handler_context());
 }
 
 static boost::asio::ip::udp::socket make_bound_v4_socket(
@@ -182,53 +183,43 @@ udp_reader::udp_reader(
 }
 
 void udp_reader::packet_handler(
+    handler_context ctx,
+    stream_base::add_packet_state &state,
     const boost::system::error_code &error,
     std::size_t bytes_transferred)
 {
-    stream_base::add_packet_state state(get_stream_base());
     if (!error)
     {
-        if (state.is_stopped())
-        {
-            log_info("UDP reader: discarding packet received after stream stopped");
-        }
-        else
-        {
 #if SPEAD2_USE_RECVMMSG
-            int received = recvmmsg(socket.native_handle(), msgvec.data(), msgvec.size(),
-                                    MSG_DONTWAIT, nullptr);
-            log_debug("recvmmsg returned %1%", received);
-            if (received == -1 && errno != EAGAIN && errno != EWOULDBLOCK)
-            {
-                std::error_code code(errno, std::system_category());
-                log_warning("recvmmsg failed: %1% (%2%)", code.value(), code.message());
-            }
-            for (int i = 0; i < received; i++)
-            {
-                bool stopped = process_one_packet(state,
-                                                  buffer[i].get(), msgvec[i].msg_len, max_size);
-                if (stopped)
-                    break;
-            }
-#else
-            process_one_packet(state, buffer.get(), bytes_transferred, max_size);
-#endif
+        int received = recvmmsg(socket.native_handle(), msgvec.data(), msgvec.size(),
+                                MSG_DONTWAIT, nullptr);
+        log_debug("recvmmsg returned %1%", received);
+        if (received == -1 && errno != EAGAIN && errno != EWOULDBLOCK)
+        {
+            std::error_code code(errno, std::system_category());
+            log_warning("recvmmsg failed: %1% (%2%)", code.value(), code.message());
         }
+        for (int i = 0; i < received; i++)
+        {
+            bool stopped = process_one_packet(state,
+                                              buffer[i].get(), msgvec[i].msg_len, max_size);
+            if (stopped)
+                break;
+        }
+#else
+        process_one_packet(state, buffer.get(), bytes_transferred, max_size);
+#endif
     }
     else if (error != boost::asio::error::operation_aborted)
         log_warning("Error in UDP receiver: %1%", error.message());
 
     if (!state.is_stopped())
     {
-        enqueue_receive();
-    }
-    else
-    {
-        stopped();
+        enqueue_receive(std::move(ctx));
     }
 }
 
-void udp_reader::enqueue_receive()
+void udp_reader::enqueue_receive(handler_context ctx)
 {
     using namespace std::placeholders;
     socket.async_receive_from(
@@ -238,17 +229,7 @@ void udp_reader::enqueue_receive()
         boost::asio::buffer(buffer.get(), max_size + 1),
 #endif
         endpoint,
-        std::bind(&udp_reader::packet_handler, this, _1, _2));
-}
-
-void udp_reader::stop()
-{
-    /* asio guarantees that closing a socket will cancel any pending
-     * operations on it.
-     * Don't put any logging here: it could be running in a shutdown
-     * path where it is no longer safe to do so.
-     */
-    socket.close();
+        bind_handler(std::move(ctx), std::bind(&udp_reader::packet_handler, this, _1, _2, _3, _4)));
 }
 
 /////////////////////////////////////////////////////////////////////////////

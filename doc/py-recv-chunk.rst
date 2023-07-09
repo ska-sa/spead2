@@ -225,18 +225,18 @@ Reference
 
    .. py:attribute:: data_ringbuffer
 
-   The data ringbuffer given to the constructor.
+      The data ringbuffer given to the constructor.
 
    .. py:attribute:: free_ringbuffer
 
-   The free ringbuffer given to the constructor.
+      The free ringbuffer given to the constructor.
 
    .. py:method:: add_free_chunk(chunk)
 
-    Add a chunk to the free ringbuffer. This takes care of zeroing out the
-    :py:attr:`.Chunk.present` array, and it will suppress the
-    :exc:`spead2.Stopped` exception if the free ringbuffer has been stopped.
+      Add a chunk to the free ringbuffer. This takes care of zeroing out the
+      :py:attr:`.Chunk.present` array, and it will suppress the
+      :exc:`spead2.Stopped` exception if the free ringbuffer has been stopped.
 
-    If the free ring is full, it will raise :exc:`spead2.Full` rather than
-    blocking. The free ringbuffer should be constructed with enough slots that
-    this does not happen.
+      If the free ring is full, it will raise :exc:`spead2.Full` rather than
+      blocking. The free ringbuffer should be constructed with enough slots that
+      this does not happen.

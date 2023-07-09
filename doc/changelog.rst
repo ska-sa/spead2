@@ -3,8 +3,21 @@ Changelog
 
 .. rubric:: Development version
 
+- Add support for :doc:`recv-chunk-group` to assemble chunks in parallel.
+- Simplify the way receive streams shut down. Users should not notice any
+  change, but custom reader implementations will need to be updated.
 - Update :meth:`!test_async_flush` and :meth:`!test_async_flush_fail` to keep
   handles to async tasks, to prevent them being garbage collected too early.
+- Fix a bug where copying a :cpp:class:`spead2::recv::stream_config` would not
+  deep copy the names of custom statistics, and so any statistics added to the
+  copy would also affect the original, and there were also potential race
+  conditions if a stream config was modified while holding stream statistics.
+- Fix a bug (caused by the bug above) where passing a
+  :cpp:class:`spead2::recv::stream_config` to construct a
+  :cpp:class:`spead2::recv::chunk_stream` would modify the config. Passing
+  the same config to construct two chunk streams would fail with an error.
+- Fix the type annotation for the :py:class:`~.ChunkRingStream` constructor:
+  the parameter name for `chunk_stream_config` was incorrect.
 
 .. rubric:: 3.11.1
 

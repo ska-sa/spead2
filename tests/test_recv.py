@@ -1,4 +1,4 @@
-# Copyright 2015, 2017, 2019-2022 National Research Foundation (SARAO)
+# Copyright 2015, 2017, 2019-2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -209,7 +209,7 @@ FLAVOUR = Flavour(48)
 class TestDecode:
     """Various types of descriptors must be correctly interpreted to decode data"""
 
-    def setup(self):
+    def setup_method(self):
         self.flavour = FLAVOUR
 
     def data_to_heaps(self, data, **kwargs):
@@ -955,7 +955,7 @@ class TestUdpIbvConfig:
 class TestStream:
     """Tests for the stream API."""
 
-    def setup(self):
+    def setup_method(self):
         self.flavour = FLAVOUR
 
     def test_full_stop(self):
@@ -1167,7 +1167,7 @@ class TestUdpReader:
 
 
 class TestTcpReader:
-    def setup(self):
+    def setup_method(self):
         self.receiver = recv.Stream(spead2.ThreadPool())
         recv_sock = socket.socket()
         recv_sock.bind(("127.0.0.1", 0))
@@ -1179,7 +1179,7 @@ class TestTcpReader:
         self.send_sock = socket.socket()
         self.send_sock.connect(("127.0.0.1", port))
 
-    def teardown(self):
+    def teardown_method(self):
         self.close()
 
     def close(self):

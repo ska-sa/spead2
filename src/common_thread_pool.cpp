@@ -124,7 +124,7 @@ void thread_pool::stop()
         }
         catch (std::exception &e)
         {
-            log_warning("worker thread throw an exception: %s", e.what());
+            log_warning("worker thread threw an exception: %s", e.what());
         }
     }
     workers.clear();

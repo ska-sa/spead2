@@ -1,4 +1,4 @@
-/* Copyright 2015 National Research Foundation (SARAO)
+/* Copyright 2015, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -22,7 +22,7 @@
 #define SPEAD2_RECV_MEM_H
 
 #include <cstdint>
-#include <spead2/recv_reader.h>
+#include <spead2/recv_stream.h>
 
 namespace spead2
 {
@@ -51,7 +51,6 @@ public:
     mem_reader(stream &owner,
                const std::uint8_t *ptr, std::size_t length);
 
-    virtual void stop() override {}
     virtual bool lossy() const override;
 };
 

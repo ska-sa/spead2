@@ -1,4 +1,4 @@
-# Copyright 2015, 2019-2021 National Research Foundation (SARAO)
+# Copyright 2015, 2019-2021, 2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -111,7 +111,7 @@ def offset_generator(fields):
 class TestEncode:
     """Test heap encoding of various data"""
 
-    def setup(self):
+    def setup_method(self):
         self.flavour = Flavour(4, 64, 48, 0)
 
     def test_empty(self):
@@ -525,7 +525,7 @@ class TestStreamConfig:
 
 
 class TestStream:
-    def setup(self):
+    def setup_method(self):
         # A slow stream, so that we can test overflowing the queue
         self.flavour = Flavour(4, 64, 48, 0)
         self.stream = send.BytesStream(
@@ -538,7 +538,7 @@ class TestStream:
         self.heap = ig.get_heap()
         self.threads = []
 
-    def teardown(self):
+    def teardown_method(self):
         for thread in self.threads:
             thread.join()
 
@@ -773,7 +773,7 @@ class TestTcpStream:
 
 
 class TestInprocStream:
-    def setup(self):
+    def setup_method(self):
         self.flavour = Flavour(4, 64, 48, 0)
         self.queue = spead2.InprocQueue()
         self.stream = send.InprocStream(spead2.ThreadPool(), [self.queue])

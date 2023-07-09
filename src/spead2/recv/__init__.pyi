@@ -1,4 +1,4 @@
-# Copyright 2019-2022 National Research Foundation (SARAO)
+# Copyright 2019-2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import collections.abc
 import enum
 import socket
 from typing import Iterator, Iterable, Any, List, Tuple, Sequence, Union, Text, Optional, ClassVar, overload
@@ -255,14 +256,48 @@ class ChunkRingbuffer(_ChunkRingbuffer):
     def put(self, chunk: Chunk) -> None: ...
     def __iter__(self) -> Iterator[Chunk]: ...
 
-class ChunkRingStream(_Stream):
-    def __init__(
-        self, thread_pool: spead2.ThreadPool, config: StreamConfig,
-        chunk_config: ChunkStreamConfig,
-        data_ringbuffer: _ChunkRingbuffer, free_ringbuffer: _ChunkRingbuffer) -> None: ...
-
+class ChunkRingPair:
     def add_free_chunk(self, chunk: Chunk) -> None: ...
     @property
     def data_ringbuffer(self) -> _ChunkRingbuffer: ...
     @property
     def free_ringbuffer(self) -> _ChunkRingbuffer: ...
+
+class ChunkRingStream(_Stream, ChunkRingPair):
+    def __init__(
+        self, thread_pool: spead2.ThreadPool, config: StreamConfig,
+        chunk_stream_config: ChunkStreamConfig,
+        data_ringbuffer: _ChunkRingbuffer, free_ringbuffer: _ChunkRingbuffer) -> None: ...
+
+class ChunkStreamGroupConfig:
+    class EvictionMode(enum.Enum):
+        LOSSY = ...
+        LOSSLESS = ...
+
+    DEFAULT_MAX_CHUNKS: ClassVar[int]
+    @property
+    def max_chunks(self) -> int: ...
+    @property
+    def eviction_mode(self) -> ChunkStreamGroupConfig.EvictionMode: ...
+
+    def __init__(self, *, max_chunks=..., eviction_mode=...) -> None: ...
+
+class ChunkStreamRingGroup(ChunkRingPair, collections.abc.Sequence[ChunkStreamGroupMember]):
+    def __init__(
+        self, config: ChunkStreamGroupConfig, data_ringbuffer: _ChunkRingbuffer,
+        free_ringbuffer: _ChunkRingbuffer) -> None: ...
+    @property
+    def config(self) -> ChunkStreamGroupConfig: ...
+    def emplace_back(
+        self, thread_pool: spead2.ThreadPool, config: spead2.StreamConfig,
+        chunk_stream_config: spead2.ChunkStreamConfig) -> ChunkStreamGroupMember: ...
+    def stop(self) -> None: ...
+    # These are marked abstract in Sequence, so need to be implemented here
+    @overload
+    def __getitem__(self, index: int) -> ChunkStreamGroupMember: ...
+    @overload
+    def __getitem__(self, index: slice) -> Sequence[ChunkStreamGroupMember]: ...
+    def __len__(self) -> int: ...
+
+class ChunkStreamGroupMember(_Stream):
+    pass

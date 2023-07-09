@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017-2021 National Research Foundation (SARAO)
+/* Copyright 2015, 2017-2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -38,7 +38,6 @@
 #include <boost/iterator/iterator_facade.hpp>
 #include <libdivide.h>
 #include <spead2/recv_live_heap.h>
-#include <spead2/recv_reader.h>
 #include <spead2/common_memory_pool.h>
 #include <spead2/common_bind.h>
 #include <spead2/common_semaphore.h>
@@ -53,6 +52,7 @@ namespace recv
 {
 
 struct packet_header;
+class stream;
 
 /// Registration information about a statistic counter.
 class stream_stat_config
@@ -184,7 +184,7 @@ public:
 class stream_stats
 {
 private:
-    std::shared_ptr<std::vector<stream_stat_config>> config;
+    std::shared_ptr<const std::vector<stream_stat_config>> config;
     std::vector<std::uint64_t> values;
 
 public:
@@ -206,9 +206,9 @@ public:
     /// Construct with the default set of statistics, and all zero values
     stream_stats();
     /// Construct with all zero values
-    explicit stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config);
+    explicit stream_stats(std::shared_ptr<const std::vector<stream_stat_config>> config);
     /// Construct with provided values
-    stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config,
+    stream_stats(std::shared_ptr<const std::vector<stream_stat_config>> config,
                  std::vector<std::uint64_t> values);
 
     /* Copy constructor and copy assignment need to be implemented manually
@@ -357,8 +357,15 @@ private:
     bool allow_out_of_order = false;
     /// A user-defined identifier for a stream
     std::uintptr_t stream_id = 0;
-    /// Statistics (includes the built-in ones)
-    std::shared_ptr<std::vector<stream_stat_config>> stats;
+    /** Statistics (includes the built-in ones)
+     *
+     * This is a shared_ptr so that instances of @ref stream_stats can share
+     * it. Every modification creates a new vector (copy-on-write). This is
+     * potentially very inefficient, since it creates a copy even when there
+     * are no sharers, but there are not expected to be huge numbers of
+     * statistics.
+     */
+    std::shared_ptr<const std::vector<stream_stat_config>> stats;
 
 public:
     stream_config();
@@ -456,6 +463,8 @@ public:
     std::size_t next_stat_index() const { return stats->size(); }
 };
 
+class stream_base;
+
 /**
  * Encapsulation of a SPEAD stream. Packets are fed in through @ref add_packet.
  * The base class does nothing with heaps; subclasses will typically override
@@ -501,8 +510,8 @@ public:
  * Avoiding deadlocks requires a careful design with several mutexes. It's
  * governed by the requirement that @ref heap_ready may block indefinitely, and
  * this must not block other functions. Thus, several mutexes are involved:
- *   - @ref queue_mutex: protects values only used by @ref add_packet. This
- *     may be locked for long periods.
+ *   - @ref shared_state::queue_mutex: protects values only used
+ *     by @ref add_packet. This may be locked for long periods.
  *   - @ref stats_mutex: protects stream statistics, and is mostly locked for
  *     writes (assuming the user is only occasionally checking the stats).
  *
@@ -513,6 +522,7 @@ public:
  */
 class stream_base
 {
+    friend class reader;
 public:
     struct add_packet_state;
 
@@ -560,18 +570,36 @@ private:
     /// Stream configuration
     const stream_config config;
 
-protected:
+private:
+    struct shared_state
+    {
+        /**
+         * Mutex protecting the state of the queue. This includes
+         * - @ref queue_storage
+         * - @ref buckets
+         * - @ref head
+         * - @ref stopped
+         *
+         * Subclasses may use it to protect additional state. It is guaranteed to
+         * be locked when @ref heap_ready is called.
+         */
+        mutable std::mutex queue_mutex;
+
+        /**
+         * Pointer back to the owning stream. This is set to @c nullptr
+         * when the stream is stopped.
+         */
+        stream_base *self;
+
+        explicit shared_state(stream_base *self) : self(self) {}
+    };
+
     /**
-     * Mutex protecting the state of the queue. This includes
-     * - @ref queue_storage
-     * - @ref buckets
-     * - @ref head
-     * - @ref stopped
-     *
-     * Subclasses may use it to protect additional state. It is guaranteed to
-     * be locked when @ref heap_ready is called.
+     * State that is indirectly held via @c std::shared_ptr. The indirection
+     * allows readers to have access to the mutex in a way that won't
+     * unexpectedly vanish from under them.
      */
-    mutable std::mutex queue_mutex;
+    std::shared_ptr<shared_state> shared;
 
 private:
     /// @ref stop_received has been called, either externally or by stream control
@@ -596,15 +624,16 @@ private:
 
     /**
      * Callback called when a heap is being ejected from the live list.
-     * The heap might or might not be complete. The @ref queue_mutex will be
+     * The heap might or might not be complete. The
+     * @ref spead2::recv::stream_base::shared_state::queue_mutex will be
      * locked during this call, which will block @ref stop and @ref flush.
      */
     virtual void heap_ready(live_heap &&) {}
 
-    /// Implementation of @ref flush that assumes the caller has locked @ref queue_mutex
+    /// Implementation of @ref flush that assumes the caller has locked @ref shared_state::queue_mutex
     void flush_unlocked();
 
-    /// Implementation of @ref stop that assumes the caller has locked @ref queue_mutex
+    /// Implementation of @ref stop that assumes the caller has locked @ref shared_state::queue_mutex
     void stop_unlocked();
 
     /// Implementation of @ref add_packet_state::add_packet
@@ -632,20 +661,73 @@ protected:
      * It is undefined what happens if @ref add_packet is called after a stream
      * is stopped.
      *
-     * This is called with @ref queue_mutex locked. Users must not call this
-     * function themselves; instead, call @ref stop.
+     * This is called with @ref spead2::recv::stream_base::shared_state::queue_mutex
+     * locked. Users must not call this function themselves; instead, call @ref
+     * stop.
      */
     virtual void stop_received();
+
+    std::mutex &get_queue_mutex() const { return shared->queue_mutex; }
+
+    /**
+     * Schedule a function to be called on an executor, with the lock held.
+     * This is a fire-and-forget operation. If the stream is stopped before the
+     * callback fires, the callback is silently ignored.
+     */
+    template<typename ExecutionContext, typename F>
+    void post(ExecutionContext &ex, F &&func)
+    {
+        class wrapper
+        {
+        private:
+            std::shared_ptr<shared_state> shared;
+            typename std::decay<F>::type func;
+
+        public:
+            wrapper(std::shared_ptr<shared_state> shared, F&& func)
+                : shared(std::move(shared)), func(std::forward<F>(func))
+            {
+            }
+
+            /* Prevent copying, while allowing moving (copying is safe but inefficient)
+             * Move assignment is not implemented because it fails to compile if
+             * F is not move-assignable. This can probably be solved with
+             * std::enable_if, but it doesn't seem worth the effort.
+             */
+            wrapper(const wrapper &) = delete;
+            wrapper &operator=(const wrapper &) = delete;
+            wrapper(wrapper &&) = default;
+
+            void operator()() const
+            {
+                std::lock_guard<std::mutex> lock(shared->queue_mutex);
+                stream_base *self = shared->self;
+                if (self)
+                    func(*self);
+            }
+        };
+
+        // TODO: can do this with a lambda (with perfect forwarding) in C++14
+        boost::asio::post(ex, wrapper(shared, std::forward<F>(func)));
+    }
 
 public:
     /**
      * State for a batch of calls to @ref add_packet. Constructing this object
-     * locks the stream's @ref queue_mutex.
+     * locks the stream's @ref shared_state::queue_mutex.
+     *
+     * After constructing this object, one *must* check whether @ref owner is
+     * null. If so, do not call any methods except for @ref stop and
+     * @ref is_stopped.
+     *
+     * While this object is alive, one must also keep alive a
+     * @c std::shared_ptr to the @ref shared_state.
      */
     struct add_packet_state
     {
-        stream_base &owner;
-        std::lock_guard<std::mutex> lock;    ///< Holds a lock on the owner's @ref queue_mutex
+        /// Holds a lock on the owner's @ref shared_state::queue_mutex
+        std::lock_guard<std::mutex> lock;
+        stream_base *owner;
 
         // Updates to the statistics
         std::uint64_t packets = 0;
@@ -654,12 +736,13 @@ public:
         std::uint64_t single_packet_heaps = 0;
         std::uint64_t search_dist = 0;
 
-        explicit add_packet_state(stream_base &owner);
+        explicit add_packet_state(shared_state &owner);
+        explicit add_packet_state(stream_base &s) : add_packet_state(*s.shared) {}
         ~add_packet_state();
 
-        bool is_stopped() const { return owner.stopped; }
+        bool is_stopped() const { return owner == nullptr || owner->stopped; }
         /// Indicate that the stream has stopped (e.g. because the remote peer disconnected)
-        void stop() { owner.stop_unlocked(); }
+        void stop() { if (owner) owner->stop_unlocked(); }
         /**
          * Add a packet that was received, and which has been examined by @ref
          * decode_packet, and returns @c true if it is consumed. Even though @ref
@@ -667,8 +750,15 @@ public:
          * by @ref live_heap::add_packet e.g., because it is a duplicate.
          *
          * It is an error to call this after the stream has been stopped.
+         *
+         * Calling this function may cause the readers to be destroyed,
+         * including the reader that is calling this function.
          */
-        bool add_packet(const packet_header &packet) { return owner.add_packet(*this, packet); }
+        bool add_packet(const packet_header &packet)
+        {
+            assert(!is_stopped());
+            return owner->add_packet(*this, packet);
+        }
     };
 
     /**
@@ -694,6 +784,155 @@ public:
      * Return statistics about the stream. See the Python documentation.
      */
     stream_stats get_stats() const;
+};
+
+/**
+ * Abstract base class for asynchronously reading data and passing it into
+ * a stream. Subclasses will usually override @ref stop.
+ *
+ * The lifecycle of a reader is:
+ * - The reader mutex is taken
+ *   - construction
+ * - The queue mutex is taken
+ *   - the stream stops
+ *   - the reader mutex is tken
+ *     - destruction
+ * - the stream is destroyed
+ *
+ * Destruction must ensure that any pending asynchronous operations are
+ * handled. Since destruction may happen on a separate thread to the one
+ * running in-flight handlers, care must be taken not to access the stream or
+ * the reader after the stream is stopped. In many cases this can be
+ * facilitated using @ref bind_handler, although it is still important to
+ * re-check whether the stream has stopped after calling
+ * @ref stream_base::add_packet_state::add_packet.
+ */
+class reader
+{
+private:
+    boost::asio::io_service &io_service;
+    std::shared_ptr<stream_base::shared_state> owner;  ///< Access to owning stream
+
+protected:
+    class handler_context
+    {
+        friend class reader;
+    private:
+        std::shared_ptr<stream_base::shared_state> owner;
+
+    public:
+        explicit handler_context(std::shared_ptr<stream_base::shared_state> owner)
+            : owner(std::move(owner))
+        {
+            assert(this->owner);
+        }
+
+        // Whether the context is still valid
+        explicit operator bool() const noexcept { return bool(owner); }
+        bool operator!() const noexcept { return !owner; }
+
+        /* Prevent copy construction and assignment. They're perfectly safe,
+         * but potentially slow (atomic reference count manipulation) so
+         * they're disabled to prevent them being used by accident.
+         */
+        handler_context(handler_context &) = delete;
+        handler_context &operator=(handler_context &) = delete;
+        handler_context(handler_context &&) = default;
+        handler_context &operator=(handler_context &&) = default;
+    };
+
+    template<typename T>
+    class bound_handler
+    {
+    private:
+        handler_context ctx;
+        T orig;
+
+    public:
+        template<typename U>
+        bound_handler(handler_context ctx, U &&orig)
+        : ctx(std::move(ctx)), orig(std::forward<U>(orig))
+        {
+        }
+
+        template<typename... Args>
+        void operator()(Args&&... args)
+        {
+            // Note: because we give away our shared pointer, this can only be
+            // called once. Fortunately, asio makes that guarantee.
+            assert(ctx);
+            stream_base::add_packet_state state(*ctx.owner);
+            if (!state.is_stopped())
+                orig(std::move(ctx), state, std::forward<Args>(args)...);
+        }
+    };
+
+    handler_context make_handler_context() const
+    {
+        return handler_context(owner);
+    }
+
+    /**
+     * Wrap a function object to manage locking and lifetime. This is intended
+     * to be used to bind a completion handler. The wrapper handler is called
+     * with extra arguments prefixed, so it should have the signature
+     * <code>void handler(handler_context ctx, stream_base::add_packet_state &state, ...);</code>
+     *
+     * The @ref reader::handler_context can be passed (by rvalue
+     * reference) to a single call to @ref bind_handler, which is cheaper
+     * than the overload that doesn't take it (it avoids manipulating reference
+     * counts on a @c std::shared_ptr).
+     *
+     * At the time the wrapped handler is invoked, the stream is guaranteed to still
+     * exist and not yet have been stopped. After calling
+     * @ref stream_base::add_packet_state::add_packet one must again check whether
+     * the stream has been stopped, as this can cause the reader to be destroyed.
+     */
+    template<typename T>
+    bound_handler<typename std::decay<T>::type> bind_handler(T &&handler) const
+    {
+        return bind_handler(make_handler_context(), std::forward<T>(handler));
+    }
+
+    /**
+     * Overload that takes an existing @ref reader::handler_context.
+     */
+    template<typename T>
+    bound_handler<typename std::decay<T>::type> bind_handler(handler_context ctx, T &&handler) const
+    {
+        assert(ctx);  // make sure it hasn't already been used
+        return bound_handler<typename std::decay<T>::type>(std::move(ctx), std::forward<T>(handler));
+    }
+
+public:
+    explicit reader(stream &owner);
+    virtual ~reader() = default;
+
+    /// Retrieve the @c io_service corresponding to the owner
+    boost::asio::io_service &get_io_service() { return io_service; }
+
+    /**
+     * Whether the reader risks losing data if it is not given a chance to
+     * run (true by default). This is used to control whether a warning
+     * should be given when the consumer is applying back-pressure.
+     */
+    virtual bool lossy() const;
+};
+
+/**
+ * Factory for creating a new reader. This is used by @ref
+ * stream::emplace_reader to create the reader. The default implementation
+ * simply chains to the constructor, but it can be overloaded in cases where
+ * it is desirable to select the class dynamically.
+ */
+template<typename Reader>
+struct reader_factory
+{
+    template<typename... Args>
+    static std::unique_ptr<reader> make_reader(Args&&... args)
+    {
+        return std::unique_ptr<reader>(new Reader(std::forward<Args>(args)...));
+    }
 };
 
 /**
@@ -745,6 +984,19 @@ protected:
     /// Actual implementation of @ref stop
     void stop_impl();
 
+    using stream_base::post; // Make base class version visible, despite being overloaded
+
+    /**
+     * Schedule a function to be called on the stream's io_service, with the
+     * lock held. This is a fire-and-forget operation. If the stream is stopped
+     * before the callback fires, the callback is silently dropped.
+     */
+    template<typename F>
+    void post(F &&func)
+    {
+        post(get_io_service(), std::forward<F>(func));
+    }
+
 public:
     using stream_base::get_config;
     using stream_base::get_stats;
@@ -756,13 +1008,13 @@ public:
 
     /**
      * Add a new reader by passing its constructor arguments, excluding
-     * the initial @a stream argument.
+     * the initial @a io_service and @a owner arguments.
      */
     template<typename T, typename... Args>
     void emplace_reader(Args&&... args)
     {
         std::lock_guard<std::mutex> lock(reader_mutex);
-        // See comments in stop_impl for why we do this check
+        // See comments in stop_received for why we do this check
         if (!stop_readers)
         {
             // Guarantee space before constructing the reader
@@ -776,9 +1028,9 @@ public:
     }
 
     /**
-     * Stop the stream and block until all the readers have wound up. After
-     * calling this there should be no more outstanding completion handlers
-     * in the thread pool.
+     * Stop the stream. After this returns, the io_service may still have
+     * outstanding completion handlers, but they should be no-ops when they're
+     * called.
      *
      * In most cases subclasses should override @ref stop_received rather than
      * this function. However, if @ref heap_ready can block indefinitely, this
@@ -789,6 +1041,16 @@ public:
 
     bool is_lossy() const;
 };
+
+/**
+ * Push packets found in a block of memory to a stream. Returns a pointer to
+ * after the last packet found in the stream. Processing stops as soon as
+ * after @ref decode_packet fails (because there is no way to find the next
+ * packet after a corrupt one), but packets may still be rejected by the stream.
+ *
+ * The stream is @em not stopped.
+ */
+const std::uint8_t *mem_to_stream(stream_base::add_packet_state &state, const std::uint8_t *ptr, std::size_t length);
 
 /**
  * Push packets found in a block of memory to a stream. Returns a pointer to

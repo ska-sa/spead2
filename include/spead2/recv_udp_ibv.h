@@ -1,4 +1,4 @@
-/* Copyright 2016, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2016, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -39,7 +39,6 @@
 #include <spead2/common_defines.h>
 #include <spead2/common_ibv.h>
 #include <spead2/common_logging.h>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_base.h>
 
@@ -113,8 +112,6 @@ protected:
     const std::size_t max_size;
     ///< Number of times to poll before waiting
     const int max_poll;
-    /// Signals poll-mode to stop
-    std::atomic<bool> stop_poll;
 
     void join_groups(const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
                      const boost::asio::ip::address &interface_address);
@@ -128,8 +125,6 @@ public:
     udp_ibv_reader_core(
         stream &owner,
         const udp_ibv_config &config);
-
-    virtual void stop() override;
 };
 
 /**
@@ -151,24 +146,28 @@ protected:
      * If @a consume_event is true, an event should be removed and consumed
      * from the completion channel.
      */
-    void packet_handler(const boost::system::error_code &error,
-                        bool consume_event);
+    void packet_handler(
+        handler_context ctx,
+        stream_base::add_packet_state &state,
+        const boost::system::error_code &error,
+        bool consume_event);
 
     /**
      * Request a callback when there is data (or as soon as possible, in
      * polling mode or when @a need_poll is true).
      */
-    void enqueue_receive(bool needs_poll);
+    void enqueue_receive(handler_context ctx, bool needs_poll);
 
     using udp_ibv_reader_core::udp_ibv_reader_core;
 };
 
 template<typename Derived>
-void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_code &error,
-                                                  bool consume_event)
+void udp_ibv_reader_base<Derived>::packet_handler(
+    handler_context ctx,
+    stream_base::add_packet_state &state,
+    const boost::system::error_code &error,
+    bool consume_event)
 {
-    stream_base::add_packet_state state(get_stream_base());
-
     bool need_poll = true;
     if (!error)
     {
@@ -184,42 +183,33 @@ void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_cod
                 static_cast<Derived *>(this)->recv_cq.ack_events(1);
             }
         }
-        if (state.is_stopped())
+        for (int i = 0; i < max_poll; i++)
         {
-            log_info("UDP reader: discarding packet received after stream stopped");
-        }
-        else
-        {
-            for (int i = 0; i < max_poll; i++)
+            if (comp_channel)
             {
-                if (comp_channel)
+                if (i == max_poll - 1)
                 {
-                    if (i == max_poll - 1)
-                    {
-                        /* We need to call req_notify_cq *before* the last
-                         * poll_once, because notifications are edge-triggered.
-                         * If we did it the other way around, there is a race
-                         * where a new packet can arrive after poll_once but
-                         * before req_notify_cq, failing to trigger a
-                         * notification.
-                         */
-                        static_cast<Derived *>(this)->recv_cq.req_notify(false);
-                        need_poll = false;
-                    }
-                }
-                else if (stop_poll.load())
-                    break;
-                poll_result result = static_cast<Derived *>(this)->poll_once(state);
-                if (result == poll_result::stopped)
-                    break;
-                else if (result == poll_result::partial)
-                {
-                    /* If we armed req_notify_cq but then didn't drain the CQ, and
-                     * we get no more packets, then we won't get woken up again, so
-                     * we need to poll again next time we go around the event loop.
+                    /* We need to call req_notify_cq *before* the last
+                     * poll_once, because notifications are edge-triggered.
+                     * If we did it the other way around, there is a race
+                     * where a new packet can arrive after poll_once but
+                     * before req_notify_cq, failing to trigger a
+                     * notification.
                      */
-                    need_poll = true;
+                    static_cast<Derived *>(this)->recv_cq.req_notify(false);
+                    need_poll = false;
                 }
+            }
+            poll_result result = static_cast<Derived *>(this)->poll_once(state);
+            if (result == poll_result::stopped)
+                break;
+            else if (result == poll_result::partial)
+            {
+                /* If we armed req_notify_cq but then didn't drain the CQ, and
+                 * we get no more packets, then we won't get woken up again, so
+                 * we need to poll again next time we go around the event loop.
+                 */
+                need_poll = true;
             }
         }
     }
@@ -228,14 +218,12 @@ void udp_ibv_reader_base<Derived>::packet_handler(const boost::system::error_cod
 
     if (!state.is_stopped())
     {
-        enqueue_receive(need_poll);
+        enqueue_receive(std::move(ctx), need_poll);
     }
-    else
-        stopped();
 }
 
 template<typename Derived>
-void udp_ibv_reader_base<Derived>::enqueue_receive(bool need_poll)
+void udp_ibv_reader_base<Derived>::enqueue_receive(handler_context ctx, bool need_poll)
 {
     using namespace std::placeholders;
     if (comp_channel && !need_poll)
@@ -243,14 +231,21 @@ void udp_ibv_reader_base<Derived>::enqueue_receive(bool need_poll)
         // Asynchronous mode
         comp_channel_wrapper.async_read_some(
             boost::asio::null_buffers(),
-            std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1, true));
+            bind_handler(
+                std::move(ctx),
+                std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1, _2, _3, true)));
     }
     else
     {
         // Polling mode
-        get_io_service().post(
-            std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this,
-                      boost::system::error_code(), false));
+        boost::asio::post(
+            get_io_service(),
+            bind_handler(
+                std::move(ctx),
+                std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1, _2,
+                          boost::system::error_code(), false)
+            )
+        );
     }
 }
 

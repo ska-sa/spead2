@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017-2021 National Research Foundation (SARAO)
+/* Copyright 2015, 2017-2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -98,7 +98,7 @@ static std::size_t get_stat_index(
 }
 
 
-static std::shared_ptr<std::vector<stream_stat_config>> make_default_stats()
+static std::shared_ptr<const std::vector<stream_stat_config>> make_default_stats()
 {
     auto stats = std::make_shared<std::vector<stream_stat_config>>();
     // Keep this in sync with the stream_stat_* constexprs in the header
@@ -121,21 +121,21 @@ static std::shared_ptr<std::vector<stream_stat_config>> make_default_stats()
  * Sharing this means the compatibility check for operator+ requires only a
  * pointer comparison rather than comparing arrays.
  */
-static std::shared_ptr<std::vector<stream_stat_config>> default_stats = make_default_stats();
+static std::shared_ptr<const std::vector<stream_stat_config>> default_stats = make_default_stats();
 
 stream_stats::stream_stats()
     : stream_stats(default_stats)
 {
 }
 
-stream_stats::stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config)
+stream_stats::stream_stats(std::shared_ptr<const std::vector<stream_stat_config>> config)
     : stream_stats(config, std::vector<std::uint64_t>(config->size()))
 {
     // Note: annoyingly, can't use std::move(config) above, because we access
     // config to get the size to use for the vector.
 }
 
-stream_stats::stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config,
+stream_stats::stream_stats(std::shared_ptr<const std::vector<stream_stat_config>> config,
                            std::vector<std::uint64_t> values)
     : config(std::move(config)),
     values(std::move(values)),
@@ -358,12 +358,11 @@ std::size_t stream_config::add_stat(std::string name, stream_stat_config::mode m
 {
     if (spead2::recv::get_stat_index_nothrow(*stats, name) != stats->size())
         throw std::invalid_argument("A statistic called " + name + " already exists");
-    // If we're pointing at the default, make a copy so that we don't modify
-    // the default.
-    if (stats == default_stats)
-        stats = std::make_shared<std::vector<stream_stat_config>>(*default_stats);
-    std::size_t index = stats->size();
-    stats->emplace_back(std::move(name), mode);
+    // Make a copy so that we don't modify any shared copies
+    auto new_stats = std::make_shared<std::vector<stream_stat_config>>(*stats);
+    std::size_t index = new_stats->size();
+    new_stats->emplace_back(std::move(name), mode);
+    stats = std::move(new_stats);
     return index;
 }
 
@@ -381,6 +380,7 @@ stream_base::stream_base(const stream_config &config)
     substreams(new substream[config.get_substreams() + 1]),
     substream_div(config.get_substreams()),
     config(config),
+    shared(std::make_shared<shared_state>(this)),
     stats(config.get_stats().size()),
     batch_stats(config.get_stats().size())
 {
@@ -439,35 +439,36 @@ void stream_base::unlink_entry(queue_entry *entry)
     entry->next = INVALID_ENTRY;
 }
 
-stream_base::add_packet_state::add_packet_state(stream_base &owner)
-    : owner(owner), lock(owner.queue_mutex)
+stream_base::add_packet_state::add_packet_state(shared_state &owner)
+    : lock(owner.queue_mutex), owner(owner.self)
 {
-    std::fill(owner.batch_stats.begin(), owner.batch_stats.end(), 0);
+    if (this->owner)
+        std::fill(this->owner->batch_stats.begin(), this->owner->batch_stats.end(), 0);
 }
 
 stream_base::add_packet_state::~add_packet_state()
 {
-    if (!packets && is_stopped())
+    if (!owner || (!packets && is_stopped()))
         return;   // Stream was stopped before we could do anything - don't count as a batch
-    std::lock_guard<std::mutex> stats_lock(owner.stats_mutex);
+    std::lock_guard<std::mutex> stats_lock(owner->stats_mutex);
     // The built-in stats are updated directly; batch_stats is not used
-    owner.stats[stream_stat_indices::packets] += packets;
-    owner.stats[stream_stat_indices::batches]++;
-    owner.stats[stream_stat_indices::heaps] += complete_heaps + incomplete_heaps_evicted;
-    owner.stats[stream_stat_indices::incomplete_heaps_evicted] += incomplete_heaps_evicted;
-    owner.stats[stream_stat_indices::single_packet_heaps] += single_packet_heaps;
-    owner.stats[stream_stat_indices::search_dist] += search_dist;
-    auto &owner_max_batch = owner.stats[stream_stat_indices::max_batch];
+    owner->stats[stream_stat_indices::packets] += packets;
+    owner->stats[stream_stat_indices::batches]++;
+    owner->stats[stream_stat_indices::heaps] += complete_heaps + incomplete_heaps_evicted;
+    owner->stats[stream_stat_indices::incomplete_heaps_evicted] += incomplete_heaps_evicted;
+    owner->stats[stream_stat_indices::single_packet_heaps] += single_packet_heaps;
+    owner->stats[stream_stat_indices::search_dist] += search_dist;
+    auto &owner_max_batch = owner->stats[stream_stat_indices::max_batch];
     owner_max_batch = std::max(owner_max_batch, packets);
     // Update custom statistics
-    const auto &stats_config = owner.get_config().get_stats();
+    const auto &stats_config = owner->get_config().get_stats();
     for (std::size_t i = stream_stat_indices::custom; i < stats_config.size(); i++)
-        owner.stats[i] = stats_config[i].combine(owner.stats[i], owner.batch_stats[i]);
+        owner->stats[i] = stats_config[i].combine(owner->stats[i], owner->batch_stats[i]);
 }
 
 bool stream_base::add_packet(add_packet_state &state, const packet_header &packet)
 {
-    const stream_config &config = state.owner.get_config();
+    const stream_config &config = state.owner->get_config();
     assert(!stopped);
     state.packets++;
     if (packet.heap_length < 0 && !config.get_allow_unsized_heaps())
@@ -585,7 +586,7 @@ void stream_base::flush_unlocked()
 
 void stream_base::flush()
 {
-    std::lock_guard<std::mutex> lock(queue_mutex);
+    std::lock_guard<std::mutex> lock(shared->queue_mutex);
     flush_unlocked();
 }
 
@@ -597,7 +598,7 @@ void stream_base::stop_unlocked()
 
 void stream_base::stop()
 {
-    std::lock_guard<std::mutex> lock(queue_mutex);
+    std::lock_guard<std::mutex> lock(shared->queue_mutex);
     stop_unlocked();
 }
 
@@ -605,6 +606,7 @@ void stream_base::stop_received()
 {
     assert(!stopped);
     stopped = true;
+    shared->self = nullptr;
     flush_unlocked();
 }
 
@@ -613,6 +615,17 @@ stream_stats stream_base::get_stats() const
     std::lock_guard<std::mutex> stats_lock(stats_mutex);
     stream_stats ret(get_config().stats, stats);
     return ret;
+}
+
+
+reader::reader(stream &owner)
+    : io_service(owner.get_io_service()), owner(owner.shared)
+{
+}
+
+bool reader::lossy() const
+{
+    return true;
 }
 
 
@@ -627,38 +640,18 @@ void stream::stop_received()
 {
     stream_base::stop_received();
     std::lock_guard<std::mutex> lock(reader_mutex);
-    for (const auto &reader : readers)
-        reader->stop();
+    readers.clear();
+    /* This ensures that once we clear out the readers, any future call to
+     * emplace_reader will silently be ignored. This avoids issues if there
+     * is a race between the user calling emplace_reader and a stop packet
+     * in the stream.
+     */
+    stop_readers = true;
 }
 
 void stream::stop_impl()
 {
     stream_base::stop();
-
-    std::size_t n_readers;
-    {
-        std::lock_guard<std::mutex> lock(reader_mutex);
-        /* Prevent any further calls to emplace_reader from doing anything, so
-         * that n_readers will remain accurate.
-         */
-        stop_readers = true;
-        n_readers = readers.size();
-    }
-
-    // Wait until all readers have wound up all their completion handlers
-    while (n_readers > 0)
-    {
-        semaphore_get(readers_stopped);
-        n_readers--;
-    }
-
-    {
-        /* This lock is not strictly needed since no other thread can touch
-         * readers any more, but is harmless.
-         */
-        std::lock_guard<std::mutex> lock(reader_mutex);
-        readers.clear();
-    }
 }
 
 void stream::stop()
@@ -678,9 +671,8 @@ stream::~stream()
 }
 
 
-const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::size_t length)
+const std::uint8_t *mem_to_stream(stream_base::add_packet_state &state, const std::uint8_t *ptr, std::size_t length)
 {
-    stream_base::add_packet_state state(s);
     while (length > 0 && !state.is_stopped())
     {
         packet_header packet;
@@ -695,6 +687,12 @@ const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::
             length = 0; // causes loop to exit
     }
     return ptr;
+}
+
+const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::size_t length)
+{
+    stream_base::add_packet_state state(s);
+    return mem_to_stream(state, ptr, length);
 }
 
 } // namespace recv

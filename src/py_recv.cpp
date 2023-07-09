@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2020-2022 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2020-2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -38,6 +38,7 @@
 #include <spead2/recv_stream.h>
 #include <spead2/recv_ring_stream.h>
 #include <spead2/recv_chunk_stream.h>
+#include <spead2/recv_chunk_stream_group.h>
 #include <spead2/recv_live_heap.h>
 #include <spead2/recv_heap.h>
 #include <spead2/common_ringbuffer.h>
@@ -465,28 +466,38 @@ static void push_chunk(T func, chunk &c)
 
 typedef ringbuffer<std::unique_ptr<chunk>, semaphore_fd, semaphore_fd> chunk_ringbuffer;
 
-class chunk_ring_stream_wrapper : public chunk_ring_stream<chunk_ringbuffer, chunk_ringbuffer>
-{
-private:
-    exit_stopper stopper{[this] { stop(); }};
-
-public:
-    using chunk_ring_stream<chunk_ringbuffer, chunk_ringbuffer>::chunk_ring_stream;
-
-    virtual void stop() override
-    {
-        stopper.reset();
-        /* Note: ring_stream_wrapper drops the GIL while stopping. We
-         * can't do that here because stop() can free chunks that were
-         * in flight, which involves interaction with the Python API.
-         * I think the only reason ring_stream_wrapper drops the GIL is
-         * that logging used to directly acquire the GIL, and so if stop()
-         * did any logging it would deadlock. Now that logging is pushed
-         * off to a separate thread that should no longer be an issue.
-         */
-        chunk_ring_stream::stop();
+/* Note: ring_stream_wrapper drops the GIL while stopping. We
+ * can't do that here because stop() can free chunks that were
+ * in flight, which involves interaction with the Python API.
+ * I think the only reason ring_stream_wrapper drops the GIL is
+ * that logging used to directly acquire the GIL, and so if stop()
+ * did any logging it would deadlock. Now that logging is pushed
+ * off to a separate thread that should no longer be an issue.
+ */
+#define EXIT_STOPPER_WRAPPER(cls, base)                   \
+    class cls : public base                               \
+    {                                                     \
+    private:                                              \
+        exit_stopper stopper{[this] { stop(); }};         \
+    public:                                               \
+        using base::base;                                 \
+        virtual void stop() override                      \
+        {                                                 \
+            stopper.reset();                              \
+            base::stop();                                 \
+        }                                                 \
     }
-};
+
+// These aliases are needed because a type passed to a macro cannot contain a comma
+using chunk_ring_stream_orig = chunk_ring_stream<chunk_ringbuffer, chunk_ringbuffer>;
+using chunk_stream_ring_group_orig = chunk_stream_ring_group<chunk_ringbuffer, chunk_ringbuffer>;
+
+EXIT_STOPPER_WRAPPER(chunk_ring_stream_wrapper, chunk_ring_stream_orig);
+EXIT_STOPPER_WRAPPER(chunk_stream_ring_group_wrapper, chunk_stream_ring_group_orig);
+// We don't need to wrap chunk_stream_group_member, because we've wrapped
+// chunk_stream_ring_group and its stop will stop the member streams.
+
+#undef EXIT_STOPPER_WRAPPER
 
 /// Register the receiver module with Python
 py::module register_module(py::module &parent)
@@ -882,7 +893,29 @@ py::module register_module(py::module &parent)
             "extra",
             [](const chunk &c) -> const memory_allocator::pointer & { return c.extra; },
             [](chunk &c, memory_allocator::pointer &&value) { c.extra = std::move(value); });
-    py::class_<chunk_ring_stream_wrapper, stream>(m, "ChunkRingStream")
+    // Don't allow ChunkRingPair to be constructed from Python. It exists
+    // purely to be a base class.
+    using chunk_ring_pair = detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>;
+    py::class_<chunk_ring_pair>(m, "ChunkRingPair")
+        .def(
+            "add_free_chunk",
+            [](chunk_ring_pair &self, chunk &c)
+            {
+                push_chunk(
+                    [&self](std::unique_ptr<chunk> &&wrapper)
+                    {
+                        self.add_free_chunk(std::move(wrapper));
+                    },
+                    c
+                );
+            },
+            "chunk"_a)
+        .def_property_readonly("data_ringbuffer", SPEAD2_PTMF(chunk_ring_pair, get_data_ringbuffer))
+        .def_property_readonly("free_ringbuffer", SPEAD2_PTMF(chunk_ring_pair, get_free_ringbuffer));
+
+    py::class_<chunk_ring_stream_wrapper,
+               detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>,
+               stream>(m, "ChunkRingStream")
         .def(py::init<std::shared_ptr<thread_pool_wrapper>,
                       const stream_config &,
                       const chunk_stream_config &,
@@ -897,22 +930,7 @@ py::module register_module(py::module &parent)
             // This allows Python subclasses to be passed then later retrieved
             // from properties.
              py::keep_alive<1, 5>(),
-             py::keep_alive<1, 6>())
-        .def(
-            "add_free_chunk",
-            [](chunk_ring_stream_wrapper &stream, chunk &c)
-            {
-                push_chunk(
-                    [&stream](std::unique_ptr<chunk> &&wrapper)
-                    {
-                        stream.add_free_chunk(std::move(wrapper));
-                    },
-                    c
-                );
-            },
-            "chunk"_a)
-        .def_property_readonly("data_ringbuffer", SPEAD2_PTMF(chunk_ring_stream_wrapper, get_data_ringbuffer))
-        .def_property_readonly("free_ringbuffer", SPEAD2_PTMF(chunk_ring_stream_wrapper, get_free_ringbuffer));
+             py::keep_alive<1, 6>());
     py::class_<chunk_ringbuffer, std::shared_ptr<chunk_ringbuffer>>(m, "ChunkRingbuffer")
         .def(py::init<std::size_t>(), "maxsize"_a)
         .def("qsize", SPEAD2_PTMF(chunk_ringbuffer, size))
@@ -966,6 +984,78 @@ py::module register_module(py::module &parent)
                     throw py::stop_iteration();
                 }
             });
+
+    py::class_<chunk_stream_group_config> chunk_stream_group_config_cls(m, "ChunkStreamGroupConfig");
+    chunk_stream_group_config_cls
+        .def(py::init(&data_class_constructor<chunk_stream_group_config>))
+        .def_property("max_chunks",
+                      SPEAD2_PTMF(chunk_stream_group_config, get_max_chunks),
+                      SPEAD2_PTMF(chunk_stream_group_config, set_max_chunks))
+        .def_property("eviction_mode",
+                      SPEAD2_PTMF(chunk_stream_group_config, get_eviction_mode),
+                      SPEAD2_PTMF(chunk_stream_group_config, set_eviction_mode))
+        .def_readonly_static("DEFAULT_MAX_CHUNKS", &chunk_stream_group_config::default_max_chunks);
+    py::enum_<chunk_stream_group_config::eviction_mode>(chunk_stream_group_config_cls, "EvictionMode")
+        .value("LOSSY", chunk_stream_group_config::eviction_mode::LOSSY)
+        .value("LOSSLESS", chunk_stream_group_config::eviction_mode::LOSSLESS);
+
+    py::class_<chunk_stream_group_member, stream>(m, "ChunkStreamGroupMember");
+
+    py::class_<chunk_stream_ring_group_wrapper,
+               detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>>(m, "ChunkStreamRingGroup")
+        .def(py::init<const chunk_stream_group_config &,
+                      std::shared_ptr<chunk_ringbuffer>,
+                      std::shared_ptr<chunk_ringbuffer>>(),
+             "config"_a,
+             "data_ringbuffer"_a.none(false),
+             "free_ringbuffer"_a.none(false),
+            // Keep the Python ringbuffer objects alive, not just the C++ side.
+            // This allows Python subclasses to be passed then later retrieved
+            // from properties.
+            py::keep_alive<1, 3>(),
+            py::keep_alive<1, 4>())
+        .def_property_readonly(
+            "config", SPEAD2_PTMF(chunk_stream_ring_group_wrapper, get_config))
+        .def(
+            "emplace_back",
+            [](chunk_stream_ring_group_wrapper &group,
+               std::shared_ptr<thread_pool_wrapper> thread_pool,
+               const stream_config &config,
+               const chunk_stream_config &chunk_stream_config) -> chunk_stream_group_member & {
+                return group.emplace_back(std::move(thread_pool), config, chunk_stream_config);
+            },
+            "thread_pool"_a, "config"_a, "chunk_stream_config"_a,
+            py::return_value_policy::reference_internal
+        )
+        .def("__len__", SPEAD2_PTMF(chunk_stream_ring_group_wrapper, size))
+        .def(
+            "__getitem__",
+            [](chunk_stream_ring_group_wrapper &group, std::ptrdiff_t index) -> chunk_stream_group_member & {
+                if (index < 0)
+                    index += group.size();
+                if (index >= 0 && std::size_t(index) < group.size())
+                    return group[index];
+                else
+                    throw py::index_error();
+            },
+            py::return_value_policy::reference_internal
+        )
+        .def(
+            "__getitem__",
+            [](chunk_stream_ring_group_wrapper &group, const py::slice &slice) {
+                py::list out;
+                std::size_t start, stop, step, length;
+                if (!slice.compute(group.size(), &start, &stop, &step, &length))
+                    throw py::error_already_set();
+                py::object self = py::cast(group);
+                for (std::size_t i = 0; i < length; i++) {
+                    out.append(py::cast(group[start], py::return_value_policy::reference_internal, self));
+                    start += step;
+                }
+                return out;
+            }
+        )
+        .def("stop", SPEAD2_PTMF(chunk_stream_ring_group_wrapper, stop));
 
     return m;
 }

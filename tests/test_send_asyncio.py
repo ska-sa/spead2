@@ -1,4 +1,4 @@
-# Copyright 2015, 2019-2022 National Research Foundation (SARAO)
+# Copyright 2015, 2019-2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -29,7 +29,7 @@ from spead2.send.asyncio import UdpStream
 
 @pytest.mark.asyncio
 class TestUdpStream:
-    def setup(self):
+    def setup_method(self):
         # Make a stream slow enough that we can test async interactions
         config = spead2.send.StreamConfig(rate=5e6)
         self.stream = UdpStream(spead2.ThreadPool(), [('localhost', 8888)], config)

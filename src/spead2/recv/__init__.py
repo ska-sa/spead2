@@ -1,4 +1,4 @@
-# Copyright 2015, 2020-2021 National Research Foundation (SARAO)
+# Copyright 2015, 2020-2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -54,13 +54,40 @@ Immediate values are treated as items with heap_address_bits/8
 bytes, in the order they appeared in the original packet.
 """
 
+from collections.abc import Sequence as _Sequence
+
 from spead2._spead2.recv import (           # noqa: F401
-    StreamConfig, RingStreamConfig, Stream, Heap, IncompleteHeap,
-    Chunk, ChunkStreamConfig, ChunkRingStream, ChunkRingbuffer,
-    StreamStats, StreamStatConfig
+    Chunk,
+    ChunkRingPair,
+    ChunkRingStream,
+    ChunkRingbuffer,
+    ChunkStreamConfig,
+    ChunkStreamGroupConfig,
+    ChunkStreamGroupMember,
+    ChunkStreamRingGroup as _ChunkStreamRingGroup,
+    Heap,
+    IncompleteHeap,
+    RingStreamConfig,
+    Stream,
+    StreamConfig,
+    StreamStatConfig,
+    StreamStats,
 )
 from . import stream_stat_indices           # noqa: F401
 try:
     from spead2._spead2.recv import UdpIbvConfig      # noqa: F401
 except ImportError:
     pass
+
+
+# Ideally we'd inherit from _Sequence, but that gives errors about
+# mismatched metaclasses. So instead we copy the mixin methods.
+class ChunkStreamRingGroup(_ChunkStreamRingGroup):
+    count = _Sequence.count
+    index = _Sequence.index
+    __iter__ = _Sequence.__iter__
+    __contains__ = _Sequence.__contains__
+    __reversed__ = _Sequence.__reversed__
+
+
+_Sequence.register(ChunkStreamRingGroup)

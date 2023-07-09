@@ -18,6 +18,7 @@ Contents:
    perf
    tools
    migrate-3
+   developer
    changelog
    license
 

@@ -105,6 +105,8 @@ At present it is only possible to write a contiguous piece of data per heap.
 The data is transferred to the chunk even if the heap is incomplete (and hence
 not marked in the ``present`` array).
 
+.. _recv-chunk-ringbuffer:
+
 Ringbuffer convenience API
 --------------------------
 A subclass is provided that takes care of the allocation and ready callbacks
