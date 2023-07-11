@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -35,7 +35,15 @@
 #define SPEAD2_USE_SENDMMSG @SPEAD2_USE_SENDMMSG@
 #define SPEAD2_USE_EVENTFD @SPEAD2_USE_EVENTFD@
 #define SPEAD2_USE_PTHREAD_SETAFFINITY_NP @SPEAD2_USE_PTHREAD_SETAFFINITY_NP@
-#define SPEAD2_USE_MOVNTDQ @SPEAD2_USE_MOVNTDQ@
+/* Python on MacOS likes to build universal binaries, so even if it was
+ * detected at configure time, it might not be available for a particular
+ * build architecture.
+ */
+#if defined(__i386__) || defined(__i386) || defined(__x86_64__) || defined(__x86_64)
+# define SPEAD2_USE_MOVNTDQ @SPEAD2_USE_MOVNTDQ@
+#else
+# define SPEAD2_USE_MOVNTDQ 0
+#endif
 #define SPEAD2_USE_POSIX_SEMAPHORES @SPEAD2_USE_POSIX_SEMAPHORES@
 #define SPEAD2_USE_PCAP @SPEAD2_USE_PCAP@
 
