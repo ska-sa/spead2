@@ -403,9 +403,9 @@ T &chunk_stream_group::emplace_back(Args&&... args)
     {
         throw std::runtime_error("Cannot add a stream after group has started receiving data");
     }
-    std::unique_ptr<chunk_stream_group_member> stream(new T(
+    std::unique_ptr<T> stream(new T(
         *this, streams.size(), std::forward<Args>(args)...));
-    chunk_stream_group_member &ret = *stream;
+    T &ret = *stream;
     streams.push_back(std::move(stream));
     head_chunks.push_back(0);
     stream_added(ret);
