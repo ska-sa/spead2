@@ -1,4 +1,4 @@
-# Copyright 2019-2020 National Research Foundation (SARAO)
+# Copyright 2019-2020, 2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -15,7 +15,7 @@
 
 import asyncio
 import socket
-from typing import List, Optional, overload
+from typing import List, Optional, Union, overload
 
 import spead2
 import spead2.send
