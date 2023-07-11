@@ -18,6 +18,8 @@ Changelog
   the same config to construct two chunk streams would fail with an error.
 - Fix the type annotation for the :py:class:`~.ChunkRingStream` constructor:
   the parameter name for `chunk_stream_config` was incorrect.
+- Fix universal binary builds on MacOS (this was preventing Python 3.11 builds
+  from succeeding).
 - Python 3.8 is now the minimum version.
 
 .. rubric:: 3.11.1
