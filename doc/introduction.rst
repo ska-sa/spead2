@@ -61,8 +61,8 @@ Installing a binary wheel
 As from version 1.12, binary wheels are provided on PyPI for x86-64 Linux
 systems. These support all the optional features, and it is now the recommended
 installation method as it does not depend on a compiler, development
-libraries etc. The wheels use the "manylinux2010" tag, which requires at least
-:command:`pip` 19.0 to install.
+libraries etc. The wheels use the "manylinux2014" tag, which requires at least
+:command:`pip` 19.3 to install.
 
 Provided your system meets these requirements, just run::
 
@@ -71,7 +71,7 @@ Provided your system meets these requirements, just run::
 Python install from source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 Installing from source requires a modern C++ compiler supporting C++11 (GCC
-4.8+ or Clang 3.5+, although only GCC 5.4 and Clang 3.8 are tested and support
+4.8+ or Clang 3.5+, although only GCC 11.2 and Clang 14.0 are tested and support
 for older compilers may be dropped) as well as Boost (including compiled
 libraries), libdivide, and the Python development headers. At the moment only
 GNU/Linux and OS X get tested but other POSIX-like systems should work too.
