@@ -494,8 +494,7 @@ using chunk_stream_ring_group_orig = chunk_stream_ring_group<chunk_ringbuffer, c
 
 EXIT_STOPPER_WRAPPER(chunk_ring_stream_wrapper, chunk_ring_stream_orig);
 EXIT_STOPPER_WRAPPER(chunk_stream_ring_group_wrapper, chunk_stream_ring_group_orig);
-// We don't need to wrap chunk_stream_group_member, because we've wrapped
-// chunk_stream_ring_group and its stop will stop the member streams.
+EXIT_STOPPER_WRAPPER(chunk_stream_group_member_wrapper, chunk_stream_group_member);
 
 #undef EXIT_STOPPER_WRAPPER
 
@@ -1022,7 +1021,7 @@ py::module register_module(py::module &parent)
                std::shared_ptr<thread_pool_wrapper> thread_pool,
                const stream_config &config,
                const chunk_stream_config &chunk_stream_config) -> chunk_stream_group_member & {
-                return group.emplace_back(std::move(thread_pool), config, chunk_stream_config);
+                return group.emplace_back<chunk_stream_group_member_wrapper>(std::move(thread_pool), config, chunk_stream_config);
             },
             "thread_pool"_a, "config"_a, "chunk_stream_config"_a,
             py::return_value_policy::reference_internal
