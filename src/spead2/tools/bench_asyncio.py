@@ -1,4 +1,4 @@
-# Copyright 2015, 2017, 2019-2020 National Research Foundation (SARAO)
+# Copyright 2015, 2017, 2019-2020, 2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -43,6 +43,29 @@ import spead2.send.asyncio
 from . import cmdline
 
 
+ARG_ENUMS = {
+    "rate_method": spead2.send.RateMethod
+}
+
+
+def serialize_args(args):
+    """Turn an :class:`argparse.Namespace` into a JSON-serializable dict."""
+    d = dict(vars(args))
+    for key in ARG_ENUMS.keys():
+        if key in d:
+            d[key] = d[key].name
+    return d
+
+
+def deserialize_args(d):
+    """Invert :func:`serialize_args`."""
+    d = dict(d)
+    for key, enum_cls in ARG_ENUMS.items():
+        if key in d:
+            d[key] = enum_cls.__members__[d[key]]
+    return argparse.Namespace(**d)
+
+
 class AgentConnection:
     def __init__(self, reader, writer):
         self.reader = reader
@@ -74,7 +97,7 @@ class AgentConnection:
                     if stream_task is not None:
                         logging.warning("Start received while already running: %s", command)
                         continue
-                    args = argparse.Namespace(**command['args'])
+                    args = deserialize_args(command['args'])
                     protocol = cmdline.ProtocolOptions()
                     receiver = cmdline.ReceiverOptions(protocol)
                     for (key, value) in command['protocol'].items():
@@ -156,7 +179,7 @@ async def measure_connection_once(args, protocol, sender, receiver,
     write(json.dumps(
         {
             'cmd': 'start',
-            'args': vars(args),
+            'args': serialize_args(args),
             'protocol': {key: value for (key, value) in protocol.__dict__.items()
                          if not key.startswith('_')},
             'receiver': {key: value for (key, value) in receiver.__dict__.items()
@@ -223,7 +246,7 @@ async def run_master(args, protocol, sender, receiver):
                                                  0.0, num_heaps, num_heaps - 1)
     if good:
         if not args.quiet:
-            print("Limited by send spead")
+            print("Limited by send speed")
         best_actual = actual_rate
     else:
         print("Send rate: {:.3f} Gbps".format(actual_rate * 8e-9))
@@ -254,7 +277,7 @@ async def run_master(args, protocol, sender, receiver):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--log', metavar='LEVEL', default='INFO', help='Log level [%(default)s]')
-    subparsers = parser.add_subparsers(title='subcommands')
+    subparsers = parser.add_subparsers(title='subcommands', required=True)
 
     master = subparsers.add_parser('master')
     sender_map = {
