@@ -22,6 +22,11 @@ Changelog
   from succeeding).
 - Fix :program:`spead2_bench.py`, which has failed to run at all for some time
   (possibly since 3.0).
+- Avoid including Boost dynamic symbols in the Python module (helps reduce
+  binary size).
+- Strip static symbols out of the Python wheels (reduces size).
+- Build Python wheels with link-time optimisation (small performance
+  improvement).
 - Python 3.8 is now the minimum version.
 
 .. rubric:: 3.11.1

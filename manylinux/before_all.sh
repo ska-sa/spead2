@@ -13,6 +13,10 @@ yum install -y \
 
 # Workaround for https://github.com/pypa/manylinux/issues/1203
 unset SSL_CERT_FILE
+# The config file sets CFLAGS/LDFLAGS for the actual build, but these break
+# building rdma-core
+unset CFLAGS
+unset LDFLAGS
 
 # Install boost
 wget --progress=dot:mega https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.bz2 -O /tmp/boost_1_81_0.tar.bz2

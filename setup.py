@@ -87,7 +87,7 @@ class BuildExt(build_ext):
             basename = os.path.basename(ext_path)
             debug_path = os.path.join(self.split_debug, basename + '.debug')
             self.spawn(['objcopy', '--only-keep-debug', '--', ext_path, debug_path])
-            self.spawn(['strip', '--strip-debug', '--', ext_path])
+            self.spawn(['strip', '--strip-debug', '--strip-unneeded', '--', ext_path])
             old_cwd = os.getcwd()
             # See the documentation for --add-gnu-debuglink for why it needs to be
             # run from the directory containing the file.
@@ -121,6 +121,14 @@ if not rtd:
             depends=glob.glob('include/spead2/*.h'),
             language='c++',
             include_dirs=['include', pybind11.get_include()],
+            # We don't need to pass boost objects across shared library
+            # boundaries. These macros makes -fvisibility=hidden do its job.
+            # The first is asio-specific, while the latter is only used in
+            # Boost 1.81+.
+            define_macros=[
+                ('BOOST_ASIO_DISABLE_VISIBILITY', None),
+                ('BOOST_DISABLE_EXPLICIT_SYMBOL_VISIBILITY', None)
+            ],
             extra_compile_args=['-std=c++11', '-g0', '-fvisibility=hidden'])
     ]
 else:
