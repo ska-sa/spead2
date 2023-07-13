@@ -20,6 +20,11 @@ Changelog
   the parameter name for `chunk_stream_config` was incorrect.
 - Fix universal binary builds on MacOS (this was preventing Python 3.11 builds
   from succeeding).
+- Avoid including Boost dynamic symbols in the Python module (helps reduce
+  binary size).
+- Strip static symbols out of the Python wheels (reduces size).
+- Build Python wheels with link-time optimisation (small performance
+  improvement).
 - Python 3.8 is now the minimum version.
 
 .. rubric:: 3.11.1
