@@ -121,9 +121,14 @@ if not rtd:
             depends=glob.glob('include/spead2/*.h'),
             language='c++',
             include_dirs=['include', pybind11.get_include()],
-            # We don't need to pass boost::asio objects across shared library
-            # boundaries. This macro makes -fvisibility=hidden do its job.
-            define_macros=[('BOOST_ASIO_DISABLE_VISIBILITY', None)],
+            # We don't need to pass boost objects across shared library
+            # boundaries. These macros makes -fvisibility=hidden do its job.
+            # The first is asio-specific, while the latter is only used in
+            # Boost 1.81+.
+            define_macros=[
+                ('BOOST_ASIO_DISABLE_VISIBILITY', None),
+                ('BOOST_DISABLE_EXPLICIT_SYMBOL_VISIBILITY', None)
+            ],
             extra_compile_args=['-std=c++11', '-g0', '-fvisibility=hidden'])
     ]
 else:
