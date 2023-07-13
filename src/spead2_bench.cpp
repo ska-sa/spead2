@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -422,7 +422,7 @@ static void main_master(int argc, const char **argv)
     if (result.first)
     {
         if (!opts.quiet)
-            std::cout << "Limited by send spead\n";
+            std::cout << "Limited by send speed\n";
         best_actual = result.second;
     }
     else
