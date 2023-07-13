@@ -87,7 +87,7 @@ class BuildExt(build_ext):
             basename = os.path.basename(ext_path)
             debug_path = os.path.join(self.split_debug, basename + '.debug')
             self.spawn(['objcopy', '--only-keep-debug', '--', ext_path, debug_path])
-            self.spawn(['strip', '--strip-debug', '--', ext_path])
+            self.spawn(['strip', '--strip-debug', '--strip-unneeded', '--', ext_path])
             old_cwd = os.getcwd()
             # See the documentation for --add-gnu-debuglink for why it needs to be
             # run from the directory containing the file.
