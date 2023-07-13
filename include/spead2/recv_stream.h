@@ -524,7 +524,7 @@ class stream_base
 {
     friend class reader;
 public:
-    struct add_packet_state;
+    class add_packet_state;
 
 private:
     struct queue_entry
@@ -717,14 +717,16 @@ public:
      * locks the stream's @ref shared_state::queue_mutex.
      *
      * After constructing this object, one *must* check whether @ref owner is
-     * null. If so, do not call any methods except for @ref stop and
-     * @ref is_stopped.
+     * null (checking @ref is_stopped implicitly does so). If so, do not call
+     * any methods except for @ref stop and @ref is_stopped.
      *
      * While this object is alive, one must also keep alive a
      * @c std::shared_ptr to the @ref shared_state.
      */
-    struct add_packet_state
+    class add_packet_state
     {
+        friend class stream_base;
+    private:
         /// Holds a lock on the owner's @ref shared_state::queue_mutex
         std::lock_guard<std::mutex> lock;
         stream_base *owner;
@@ -736,13 +738,21 @@ public:
         std::uint64_t single_packet_heaps = 0;
         std::uint64_t search_dist = 0;
 
+        /**
+         * Whether the stream is stopped. If a stop was received during the
+         * lifetime of this add_packet_state, then this flag will be true while
+         * the stream's flag will still be false.
+         */
+        bool stopped;
+
+    public:
         explicit add_packet_state(shared_state &owner);
         explicit add_packet_state(stream_base &s) : add_packet_state(*s.shared) {}
         ~add_packet_state();
 
-        bool is_stopped() const { return owner == nullptr || owner->stopped; }
+        bool is_stopped() const { return stopped; }
         /// Indicate that the stream has stopped (e.g. because the remote peer disconnected)
-        void stop() { if (owner) owner->stop_unlocked(); }
+        void stop() { stopped = true; }
         /**
          * Add a packet that was received, and which has been examined by @ref
          * decode_packet, and returns @c true if it is consumed. Even though @ref
@@ -750,9 +760,6 @@ public:
          * by @ref live_heap::add_packet e.g., because it is a duplicate.
          *
          * It is an error to call this after the stream has been stopped.
-         *
-         * Calling this function may cause the readers to be destroyed,
-         * including the reader that is calling this function.
          */
         bool add_packet(const packet_header &packet)
         {
@@ -795,7 +802,7 @@ public:
  *   - construction
  * - The queue mutex is taken
  *   - the stream stops
- *   - the reader mutex is tken
+ *   - the reader mutex is taken
  *     - destruction
  * - the stream is destroyed
  *
@@ -803,9 +810,8 @@ public:
  * handled. Since destruction may happen on a separate thread to the one
  * running in-flight handlers, care must be taken not to access the stream or
  * the reader after the stream is stopped. In many cases this can be
- * facilitated using @ref bind_handler, although it is still important to
- * re-check whether the stream has stopped after calling
- * @ref stream_base::add_packet_state::add_packet.
+ * facilitated using @ref bind_handler, which will keep the stream alive
+ * and locked for the duration of the bound handler.
  */
 class reader
 {
