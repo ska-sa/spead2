@@ -795,7 +795,7 @@ public:
  *   - construction
  * - The queue mutex is taken
  *   - the stream stops
- *   - the reader mutex is tken
+ *   - the reader mutex is taken
  *     - destruction
  * - the stream is destroyed
  *
