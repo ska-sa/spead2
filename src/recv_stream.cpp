@@ -443,11 +443,20 @@ stream_base::add_packet_state::add_packet_state(shared_state &owner)
     : lock(owner.queue_mutex), owner(owner.self)
 {
     if (this->owner)
+    {
+        stopped = this->owner->stopped;
         std::fill(this->owner->batch_stats.begin(), this->owner->batch_stats.end(), 0);
+    }
+    else
+    {
+        stopped = true;
+    }
 }
 
 stream_base::add_packet_state::~add_packet_state()
 {
+    if (owner && stopped)
+        owner->stop_received();
     if (!owner || (!packets && is_stopped()))
         return;   // Stream was stopped before we could do anything - don't count as a batch
     std::lock_guard<std::mutex> stats_lock(owner->stats_mutex);
@@ -553,7 +562,7 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
     }
 
     if (end_of_stream)
-        stop_received();
+        state.stop();
     return result;
 }
 
