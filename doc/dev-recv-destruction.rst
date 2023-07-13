@@ -1,5 +1,8 @@
 Destruction of receive streams
 ==============================
+
+.. cpp:namespace:: spead2::recv
+
 The asynchronous and parallel nature of spead2 makes destroying a receive
 stream a tricky operation: there may be pending asio completion handlers that
 will try to push packets into the stream, leading to a race condition. While
@@ -9,13 +12,13 @@ has already completed but the completion handler is either pending or is
 currently running.
 
 Up to version 3.11, this was handled by a shutdown protocol
-between :cpp:class:`spead2::recv::stream` and
-:cpp:class:`spead2::recv::reader`. The reader was required to notify the
+between :cpp:class:`stream` and
+:cpp:class:`reader`. The reader was required to notify the
 stream when it had completely shut down, and
-:cpp:func:`spead2::recv::stream::stop` would block until all readers had
+:cpp:func:`stream::stop` would block until all readers had
 performed this notification (via a semaphore). This protocol was complicated,
 and it relied on the reader being able to make forward progress while the
-thread calling :cpp:func:`~spead2::recv::stream::stop` was blocked.
+thread calling :cpp:func:`stream::stop` was blocked.
 
 Newer versions take a different approach based on shared pointers. The ideal
 case would be to have the whole stream always managed by a shared pointer, so
@@ -41,14 +44,17 @@ to access the stream, it should:
 This prevents use-after-free errors because the stream cannot be destroyed
 without first stopping, and stopping locks the mutex. Hence, the stream cannot
 disappear asynchronously during step 3. Note that it can, however, stop
-during step 3 if the completion handler causes it to stop.
+during step 3 if the completion handler causes it to stop. Some protection is
+added for this: :cpp:func:`stream::add_packet_handler::add_packet` will not
+immediately stop the stream if a stop packet is received; instead, it will
+stop it when the :cpp:class:`stream::add_packet_handler` is destroyed.
 
 Using shared pointers in this way can add overhead because atomically
 incrementing and decrementing reference counts can be expensive, particularly
 if it causes cache line migrations between processor cores. To minimise
-reference count manipulation, the :cpp:class:`~spead2::recv::reader` class
+reference count manipulation, the :cpp:class:`reader` class
 encapsulates this workflow in its
-:cpp:class:`~spead2::recv::reader::bind_handler` member function, which
+:cpp:func:`~reader::bind_handler` member function, which
 provides the facilities to move the shared pointer along a linear chain of
 completion handlers so that the reference count does not need to be
 adjusted.
