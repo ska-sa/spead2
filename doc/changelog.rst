@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 3.12.0
 
 - Add support for :doc:`recv-chunk-group` to assemble chunks in parallel.
 - Simplify the way receive streams shut down. Users should not notice any

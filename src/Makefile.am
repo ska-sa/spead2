@@ -104,7 +104,7 @@ libspead2_a_SOURCES = \
 if SHARED_LIBRARY
 lib_LTLIBRARIES = libspead2.la
 libspead2_la_SOURCES = $(libspead2_a_SOURCES)
-libspead2_la_LDFLAGS = -shared -version-info 2:0:0
+libspead2_la_LDFLAGS = -shared -version-info 3:0:0
 # Dummy CXXFLAGS to force automake to build the sources independently for
 # this target.
 libspead2_la_CXXFLAGS = $(AM_CXXFLAGS)
