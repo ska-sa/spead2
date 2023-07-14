@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2015, 2017, 2019-2022 National Research Foundation (SARAO)
+# Copyright 2015, 2017, 2019-2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -21,10 +21,8 @@ import os
 import os.path
 import subprocess
 
-from setuptools import setup, Extension
-from setuptools.command.build_ext import build_ext
-
-import pybind11
+from setuptools import setup
+from pybind11.setup_helpers import ParallelCompile, Pybind11Extension, build_ext
 
 
 class BuildExt(build_ext):
@@ -59,8 +57,7 @@ class BuildExt(build_ext):
             if self.split_debug:
                 extension.extra_compile_args.extend(['-g'])
             extension.include_dirs.insert(0, os.path.join(self.build_temp, 'include'))
-        # distutils uses old-style classes, so no super
-        build_ext.run(self)
+        super().run()
 
     def build_extensions(self):
         # Stop GCC complaining about -Wstrict-prototypes in C++ code
@@ -68,7 +65,7 @@ class BuildExt(build_ext):
             self.compiler.compiler_so.remove('-Wstrict-prototypes')
         except ValueError:
             pass
-        build_ext.build_extensions(self)
+        super().build_extensions()
 
     def build_extension(self, ext):
         ext_path = self.get_ext_fullpath(ext.name)
@@ -81,7 +78,7 @@ class BuildExt(build_ext):
                 os.remove(ext_path)
             except OSError:
                 pass
-        build_ext.build_extension(self, ext)
+        super().build_extension(ext)
         if self.split_debug:
             os.makedirs(self.split_debug, exist_ok=True)
             basename = os.path.basename(ext_path)
@@ -112,7 +109,7 @@ if not rtd:
                          "./bootstrap.sh if not using a release.")
 
     extensions = [
-        Extension(
+        Pybind11Extension(
             '_spead2',
             sources=(glob.glob('src/py_*.cpp') +
                      glob.glob('src/common_*.cpp') +
@@ -120,7 +117,7 @@ if not rtd:
                      glob.glob('src/send_*.cpp')),
             depends=glob.glob('include/spead2/*.h'),
             language='c++',
-            include_dirs=['include', pybind11.get_include()],
+            include_dirs=['include'],
             # We don't need to pass boost objects across shared library
             # boundaries. These macros makes -fvisibility=hidden do its job.
             # The first is asio-specific, while the latter is only used in
@@ -128,12 +125,12 @@ if not rtd:
             define_macros=[
                 ('BOOST_ASIO_DISABLE_VISIBILITY', None),
                 ('BOOST_DISABLE_EXPLICIT_SYMBOL_VISIBILITY', None)
-            ],
-            extra_compile_args=['-std=c++11', '-g0', '-fvisibility=hidden'])
+            ])
     ]
 else:
     extensions = []
 
+ParallelCompile("SPEAD2_NUM_BUILD_JOBS").install()
 setup(
     ext_package='spead2',
     ext_modules=extensions,
