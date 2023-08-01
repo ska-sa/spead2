@@ -357,7 +357,7 @@ namespace detail
 
 // Convert a base class pointer to member function to the derived class
 template<typename Derived, typename Base, typename Result, typename ...Args>
-static inline auto up(Result (Base::*func)(Args...)) -> Result (Derived::*)(Args...) 
+static inline auto up(Result (Base::*func)(Args...)) -> Result (Derived::*)(Args...)
 {
     return static_cast<Result (Derived::*)(Args...)>(func);
 }

@@ -84,7 +84,7 @@ public:
         state->allocator.reset();
     }
 
-    memory_allocator::deleter &get_base_deleter() { return state->base_deleter; }    
+    memory_allocator::deleter &get_base_deleter() { return state->base_deleter; }
     const memory_allocator::deleter &get_base_deleter() const { return state->base_deleter; }
 };
 
