@@ -111,7 +111,7 @@ jobs:
       - run: pip install -v .
       - name: Run tests
         run: ./.ci/py-tests.sh
-      - run: flake8
+      - run: pre-commit run --all-files
       - name: Show ccache stats
         run: ccache -s
 
