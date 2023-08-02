@@ -25,11 +25,14 @@ class AsyncStream(spead2.send.Stream):
     @property
     def fd(self) -> int: ...
     def flush(self) -> None: ...
-    def async_send_heap(self, heap: spead2.send.Heap, cnt: int = ...,
-                        substream_index: int = ...) -> asyncio.Future[int]: ...
-    def async_send_heaps(self,
-                         heaps: Union[List[spead2.send.HeapReference], spead2.send.HeapReferenceList],
-                         mode: spead2.send.GroupMode) -> asyncio.Future[int]: ...
+    def async_send_heap(
+        self, heap: spead2.send.Heap, cnt: int = ..., substream_index: int = ...
+    ) -> asyncio.Future[int]: ...
+    def async_send_heaps(
+        self,
+        heaps: Union[List[spead2.send.HeapReference], spead2.send.HeapReferenceList],
+        mode: spead2.send.GroupMode,
+    ) -> asyncio.Future[int]: ...
     async def async_flush(self) -> None: ...
 
 class UdpStream(spead2.send._UdpStream, AsyncStream):
@@ -39,21 +42,33 @@ class UdpIbvStream(spead2.send._UdpIbvStream, AsyncStream):
     pass
 
 class TcpStream(spead2.send._TcpStream, AsyncStream):
-    def __init__(self, thread_pool: spead2.ThreadPool, socket: socket.socket,
-                 config: spead2.send.StreamConfig = ...) -> None: ...
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        socket: socket.socket,
+        config: spead2.send.StreamConfig = ...,
+    ) -> None: ...
     @overload
     @classmethod
-    async def connect(self, thread_pool: spead2.ThreadPool,
-                      hostname: str, port: int,
-                      config: spead2.send.StreamConfig = ...,
-                      buffer_size: int = ..., interface_address: str = ...) -> None: ...
+    async def connect(
+        self,
+        thread_pool: spead2.ThreadPool,
+        hostname: str,
+        port: int,
+        config: spead2.send.StreamConfig = ...,
+        buffer_size: int = ...,
+        interface_address: str = ...,
+    ) -> None: ...
     @overload
     @classmethod
-    async def connect(self, thread_pool: spead2.ThreadPool,
-                      endpoints: _EndpointList,
-                      config: spead2.send.StreamConfig = ...,
-                      buffer_size: int = ..., interface_address: str = ...) -> None: ...
-
+    async def connect(
+        self,
+        thread_pool: spead2.ThreadPool,
+        endpoints: _EndpointList,
+        config: spead2.send.StreamConfig = ...,
+        buffer_size: int = ...,
+        interface_address: str = ...,
+    ) -> None: ...
 
 class InprocStream(spead2.send._InprocStream, AsyncStream):
     pass

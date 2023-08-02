@@ -49,39 +49,30 @@ def chunk_place(data_ptr, data_size):
 def main():
     NUM_STREAMS = 2
     MAX_CHUNKS = 4
-    place_callback = scipy.LowLevelCallable(
-        chunk_place.ctypes,
-        signature='void (void *, size_t)'
-    )
+    place_callback = scipy.LowLevelCallable(chunk_place.ctypes, signature="void (void *, size_t)")
     chunk_config = spead2.recv.ChunkStreamConfig(
         items=[spead2.HEAP_CNT_ID, spead2.HEAP_LENGTH_ID],
         max_chunks=MAX_CHUNKS,
-        place=place_callback)
+        place=place_callback,
+    )
     group_config = spead2.recv.ChunkStreamGroupConfig(max_chunks=MAX_CHUNKS)
     data_ring = spead2.recv.ChunkRingbuffer(MAX_CHUNKS)
     free_ring = spead2.recv.ChunkRingbuffer(MAX_CHUNKS)
     group = spead2.recv.ChunkStreamRingGroup(group_config, data_ring, free_ring)
     for _ in range(NUM_STREAMS):
-        group.emplace_back(
-            spead2.ThreadPool(),
-            spead2.recv.StreamConfig(),
-            chunk_config
-        )
+        group.emplace_back(spead2.ThreadPool(), spead2.recv.StreamConfig(), chunk_config)
     for _ in range(MAX_CHUNKS):
         chunk = spead2.recv.Chunk(
-            present=np.empty(HEAPS_PER_CHUNK, np.uint8),
-            data=np.empty(CHUNK_PAYLOAD_SIZE, np.uint8)
+            present=np.empty(HEAPS_PER_CHUNK, np.uint8), data=np.empty(CHUNK_PAYLOAD_SIZE, np.uint8)
         )
         group.add_free_chunk(chunk)
     for i in range(NUM_STREAMS):
-        group[i].add_udp_reader(8888 + i, buffer_size=1024 * 1024, bind_hostname='127.0.0.1')
+        group[i].add_udp_reader(8888 + i, buffer_size=1024 * 1024, bind_hostname="127.0.0.1")
     for chunk in data_ring:
         n_present = np.sum(chunk.present)
-        print(
-            f"Received chunk {chunk.chunk_id} with "
-            f"{n_present} / {HEAPS_PER_CHUNK} heaps")
+        print(f"Received chunk {chunk.chunk_id} with {n_present} / {HEAPS_PER_CHUNK} heaps")
         group.add_free_chunk(chunk)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

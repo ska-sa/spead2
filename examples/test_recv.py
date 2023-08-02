@@ -25,11 +25,11 @@ logging.basicConfig(level=logging.INFO)
 thread_pool = spead2.ThreadPool()
 stream = spead2.recv.Stream(
     thread_pool,
-    spead2.recv.StreamConfig(memory_allocator=spead2.MemoryPool(16384, 26214400, 12, 8))
+    spead2.recv.StreamConfig(memory_allocator=spead2.MemoryPool(16384, 26214400, 12, 8)),
 )
 del thread_pool
 if 0:
-    with open('junkspeadfile', 'rb') as f:
+    with open("junkspeadfile", "rb") as f:
         text = f.read()
     stream.add_buffer_reader(text)
 else:

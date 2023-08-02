@@ -56,6 +56,7 @@ def _wrap_class(name, base_class):
                 if self._active == 0:
                     loop.remove_reader(self.fd)
                     self._last_queued_future = None  # Purely to free the memory
+
             queued = call(callback)
             if self._active == 0:
                 loop.add_reader(self.fd, self.process_callbacks)
@@ -79,13 +80,11 @@ def _wrap_class(name, base_class):
                 Substream on which to send the heap
             """
             meth = super().async_send_heap
-            return self._async_send(
-                lambda callback: meth(heap, callback, cnt, substream_index))
+            return self._async_send(lambda callback: meth(heap, callback, cnt, substream_index))
 
         def async_send_heaps(self, heaps, mode):
             meth = super().async_send_heaps
-            return self._async_send(
-                lambda callback: meth(heaps, callback, mode))
+            return self._async_send(lambda callback: meth(heaps, callback, mode))
 
         async def async_flush(self):
             """Asynchronously wait for all enqueued heaps to be sent. Note that
@@ -99,10 +98,11 @@ def _wrap_class(name, base_class):
     return Wrapped
 
 
-UdpStream = _wrap_class('UdpStream', _UdpStreamAsyncio)
-UdpStream.__doc__ = \
-    """SPEAD over UDP with asynchronous sends. The other constructors
-    defined for :py:class:`spead2.send.UdpStream` are also applicable here.
+UdpStream = _wrap_class("UdpStream", _UdpStreamAsyncio)
+UdpStream.__doc__ = """SPEAD over UDP with asynchronous sends.
+
+    The other constructors defined for :py:class:`spead2.send.UdpStream` are
+    also applicable here.
 
     Parameters
     ----------
@@ -117,7 +117,7 @@ UdpStream.__doc__ = \
         to OS limits.
     """
 
-_TcpStreamBase = _wrap_class('TcpStream', _TcpStreamAsyncio)
+_TcpStreamBase = _wrap_class("TcpStream", _TcpStreamAsyncio)
 
 
 class TcpStream(_TcpStreamBase):
@@ -158,9 +158,8 @@ class TcpStream(_TcpStreamBase):
         return stream
 
 
-InprocStream = _wrap_class('InprocStream', _InprocStreamAsyncio)
-InprocStream.__doc__ = \
-    """SPEAD over reliable in-process transport.
+InprocStream = _wrap_class("InprocStream", _InprocStreamAsyncio)
+InprocStream.__doc__ = """SPEAD over reliable in-process transport.
 
     .. note::
 
@@ -182,9 +181,8 @@ InprocStream.__doc__ = \
 try:
     from spead2._spead2.send import UdpIbvStreamAsyncio as _UdpIbvStreamAsyncio
 
-    UdpIbvStream = _wrap_class('UdpIbvStream', _UdpIbvStreamAsyncio)
-    UdpIbvStream.__doc__ = \
-        """Like :class:`UdpStream`, but using the Infiniband Verbs API.
+    UdpIbvStream = _wrap_class("UdpIbvStream", _UdpIbvStreamAsyncio)
+    UdpIbvStream.__doc__ = """Like :class:`UdpStream`, but using the Infiniband Verbs API.
 
         Parameters
         ----------

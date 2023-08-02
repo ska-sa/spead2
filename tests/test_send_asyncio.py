@@ -32,10 +32,10 @@ class TestUdpStream:
     def setup_method(self):
         # Make a stream slow enough that we can test async interactions
         config = spead2.send.StreamConfig(rate=5e6)
-        self.stream = UdpStream(spead2.ThreadPool(), [('localhost', 8888)], config)
+        self.stream = UdpStream(spead2.ThreadPool(), [("localhost", 8888)], config)
         self.ig = spead2.send.ItemGroup()
-        self.ig.add_item(0x1000, 'test', 'Test item', shape=(256 * 1024,), dtype=np.uint8)
-        self.ig['test'].value = np.zeros((256 * 1024,), np.uint8)
+        self.ig.add_item(0x1000, "test", "Test item", shape=(256 * 1024,), dtype=np.uint8)
+        self.ig["test"].value = np.zeros((256 * 1024,), np.uint8)
         self.heap = self.ig.get_heap()
 
     async def _test_async_flush(self):
@@ -67,8 +67,11 @@ class TestUdpStream:
         # Create a stream with a packet size that is bigger than the likely
         # MTU. It should cause an error.
         stream = UdpStream(
-            spead2.ThreadPool(), [("localhost", 8888)],
-            spead2.send.StreamConfig(max_packet_size=100000), buffer_size=0)
+            spead2.ThreadPool(),
+            [("localhost", 8888)],
+            spead2.send.StreamConfig(max_packet_size=100000),
+            buffer_size=0,
+        )
         with pytest.raises(IOError):
             await stream.async_send_heap(self.heap)
 
@@ -84,8 +87,9 @@ class TestUdpStream:
     async def test_async_send_heaps_refcount(self):
         """async_send_heaps must release the reference to the heap."""
         weak = weakref.ref(self.heap)
-        future = self.stream.async_send_heaps([spead2.send.HeapReference(weak())],
-                                              spead2.send.GroupMode.ROUND_ROBIN)
+        future = self.stream.async_send_heaps(
+            [spead2.send.HeapReference(weak())], spead2.send.GroupMode.ROUND_ROBIN
+        )
         self.heap = None
         await future
         for i in range(5):  # Try extra hard to make PyPy release things
@@ -111,4 +115,4 @@ class TestTcpStream:
     async def test_connect_failed(self):
         thread_pool = spead2.ThreadPool()
         with pytest.raises(IOError):
-            await spead2.send.asyncio.TcpStream.connect(thread_pool, [('127.0.0.1', 8887)])
+            await spead2.send.asyncio.TcpStream.connect(thread_pool, [("127.0.0.1", 8887)])

@@ -48,8 +48,8 @@ class MyChunk(spead2.recv.Chunk):
     """Subclasses Chunk to carry extra metadata."""
 
     def __init__(self, label, **kwargs):
-        kwargs.setdefault('data', bytearray(10))
-        kwargs.setdefault('present', bytearray(1))
+        kwargs.setdefault("data", bytearray(10))
+        kwargs.setdefault("present", bytearray(1))
         super().__init__(**kwargs)
         self.label = label
 

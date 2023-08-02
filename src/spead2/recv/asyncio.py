@@ -24,7 +24,7 @@ import spead2.recv
 
 
 class _Waiter:
-    __slots__ = ['callback', 'future']
+    __slots__ = ["callback", "future"]
 
     def __init__(self, callback):
         self.callback = callback

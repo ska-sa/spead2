@@ -45,7 +45,8 @@ LOSSLESS_PARAM = pytest.param(recv.ChunkStreamGroupConfig.EvictionMode.LOSSLESS,
 
 @numba.cfunc(
     types.void(types.CPointer(chunk_place_data), types.uintp, types.CPointer(types.int64)),
-    nopython=True)
+    nopython=True,
+)
 def place_bias(data_ptr, data_size, user_data_ptr):
     # Biases the chunk_id by the user parameter
     data = numba.carray(data_ptr, 1)
@@ -60,7 +61,8 @@ def place_bias(data_ptr, data_size, user_data_ptr):
 
 
 place_bias_llc = scipy.LowLevelCallable(
-    place_bias.ctypes, signature='void (void *, size_t, void *)')
+    place_bias.ctypes, signature="void (void *, size_t, void *)"
+)
 
 
 class TestChunkStreamGroupConfig:
@@ -94,7 +96,7 @@ class TestChunkStreamRingGroupSequence:
         group = spead2.recv.ChunkStreamRingGroup(
             spead2.recv.ChunkStreamGroupConfig(),
             spead2.recv.ChunkRingbuffer(4),
-            spead2.recv.ChunkRingbuffer(4)
+            spead2.recv.ChunkRingbuffer(4),
         )
         streams = []
         for _ in range(n_streams):
@@ -102,7 +104,7 @@ class TestChunkStreamRingGroupSequence:
                 group.emplace_back(
                     spead2.ThreadPool(),
                     spead2.recv.StreamConfig(),
-                    spead2.recv.ChunkStreamConfig(place=place_plain_llc)
+                    spead2.recv.ChunkStreamConfig(place=place_plain_llc),
                 )
             )
         return group, streams
@@ -198,7 +200,7 @@ class TestChunkStreamRingGroup:
             ring.put(
                 recv.Chunk(
                     present=np.zeros(HEAPS_PER_CHUNK, np.uint8),
-                    data=np.zeros(CHUNK_PAYLOAD_SIZE, np.uint8)
+                    data=np.zeros(CHUNK_PAYLOAD_SIZE, np.uint8),
                 )
             )
         return ring
@@ -224,7 +226,8 @@ class TestChunkStreamRingGroup:
         place_llc = scipy.LowLevelCallable(
             place_bias.ctypes,
             user_data=chunk_id_bias.ctypes.data_as(ctypes.c_void_p),
-            signature='void (void *, size_t, void *)')
+            signature="void (void *, size_t, void *)",
+        )
         chunk_stream_config = spead2.recv.ChunkStreamConfig(
             items=[0x1000, spead2.HEAP_LENGTH_ID],
             max_chunks=4,
@@ -232,9 +235,7 @@ class TestChunkStreamRingGroup:
         )
         for queue in queues:
             group.emplace_back(
-                spead2.ThreadPool(),
-                config=config,
-                chunk_stream_config=chunk_stream_config
+                spead2.ThreadPool(), config=config, chunk_stream_config=chunk_stream_config
             )
         for stream, queue in zip(group, queues):
             stream.add_inproc_reader(queue)
@@ -251,18 +252,18 @@ class TestChunkStreamRingGroup:
         To send only a subset of heaps (or to send out of order), pass the
         indices to skip in `heaps`.
         """
-        lossy = (eviction_mode == recv.ChunkStreamGroupConfig.EvictionMode.LOSSY)
+        lossy = eviction_mode == recv.ChunkStreamGroupConfig.EvictionMode.LOSSY
         data_by_heap = data.reshape(-1, HEAP_PAYLOAD_SIZE)
         ig = spead2.send.ItemGroup()
-        ig.add_item(0x1000, 'position', 'position in stream', (), format=[('u', 32)])
-        ig.add_item(0x1001, 'payload', 'payload data', (HEAP_PAYLOAD_SIZE,), dtype=np.uint8)
+        ig.add_item(0x1000, "position", "position in stream", (), format=[("u", 32)])
+        ig.add_item(0x1001, "payload", "payload data", (HEAP_PAYLOAD_SIZE,), dtype=np.uint8)
         # In lossy mode the behaviour is inherently non-deterministic.
         # We just feed the data in slowly enough that we expect heaps provided
         # before a sleep to be processed before those after the sleep.
         for i in heaps:
-            ig['position'].value = i
-            ig['payload'].value = data_by_heap[i]
-            heap = ig.get_heap(data='all', descriptors='none')
+            ig["position"].value = i
+            ig["payload"].value = data_by_heap[i]
+            heap = ig.get_heap(data="all", descriptors="none")
             send_stream.send_heap(heap, substream_index=i % STREAMS)
             if lossy:
                 time.sleep(0.001)
@@ -333,7 +334,8 @@ class TestChunkStreamRingGroup:
         """Skip sending data to one of the streams after a certain point."""
         chunks = 20
         heaps = [
-            i for i in range(chunks * HEAPS_PER_CHUNK)
+            i
+            for i in range(chunks * HEAPS_PER_CHUNK)
             if i < 7 * HEAPS_PER_CHUNK or i % STREAMS != 2
         ]
         self._test_simple(group, send_stream, chunks, heaps)
