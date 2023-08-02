@@ -8,7 +8,7 @@ before-build = "manylinux/before_build.sh"
 manylinux-x86_64-image="manylinux2014"
 manylinux-i686-image="manylinux2014"
 manylinux-aarch64-image="manylinux2014"
-build = ["cp38-manylinux*", "cp39-manylinux*", "cp310-manylinux*", "cp311-manylinux*"]
+build = ["cp38-manylinux*", "cp39-manylinux*", "cp310-manylinux*", "cp311-manylinux*", "cp312-manylinux*"]
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
