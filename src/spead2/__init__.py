@@ -206,8 +206,12 @@ class Descriptor:
 
     @classmethod
     def _make_numpy_header(self, shape, dtype, order):
-        return "{{'descr': {!r}, 'fortran_order': {!r}, 'shape': {!r}}}".format(
-            _np.lib.format.dtype_to_descr(dtype), order == "F", tuple(shape)
+        return repr(
+            {
+                "descr": _np.lib.format.dtype_to_descr(dtype),
+                "fortran_order": order == "F",
+                "shape": tuple(shape),
+            }
         )
 
     @classmethod
