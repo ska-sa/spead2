@@ -270,7 +270,7 @@ async def run_master(args, protocol, sender, receiver):
             print("Limited by send speed")
         best_actual = actual_rate
     else:
-        print("Send rate: {:.3f} Gbps".format(actual_rate * 8e-9))
+        print(f"Send rate: {actual_rate * 8e-9:.3f} Gbps")
         low = 0.0
         high = actual_rate
         while high - low > high * 0.02:

@@ -94,7 +94,7 @@ async def run_stream(stream, name, args):
                 print(f"Shutting down stream {name} after {num_heaps} heaps")
                 stats = stream.stats
                 for key, value in stats.items():
-                    print("{}: {}".format(key, getattr(stats, key)))
+                    print(f"{key}: {getattr(stats, key)}")
                 break
     finally:
         stream.stop()

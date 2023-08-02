@@ -121,7 +121,7 @@ class RenameVisitor(c_ast.NodeVisitor):
     """
 
     def __init__(self, old_name, new_name):
-        super(RenameVisitor, self).__init__()
+        super().__init__()
         self.old_name = old_name
         self.new_name = new_name
 

@@ -457,9 +457,9 @@ class Item(Descriptor):
                     elif length == 64:
                         field = _np.uint64(raw).view(_np.float64)
                     else:
-                        raise ValueError("unhandled float length {}".format((code, length)))
+                        raise ValueError(f"unhandled float length {(code, length)}")
                 else:
-                    raise ValueError("unhandled format {}".format((code, length)))
+                    raise ValueError(f"unhandled format {(code, length)}")
                 fields.append(field)
             if len(fields) == 1:
                 ans = fields[0]
@@ -498,9 +498,9 @@ class Item(Descriptor):
                     elif length == 64:
                         raw = _np.float64(field).view(_np.uint64)
                     else:
-                        raise ValueError("unhandled float length {}".format((code, length)))
+                        raise ValueError(f"unhandled float length {(code, length)}")
                 else:
-                    raise ValueError("unhandled format {}".format((code, length)))
+                    raise ValueError(f"unhandled format {(code, length)}")
                 gen.send((raw, length))
 
     def set_from_raw(self, raw_item, new_order="="):
