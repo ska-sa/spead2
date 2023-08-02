@@ -23,3 +23,7 @@ profile = "black"
 combine_as_imports = true
 line_length = 100
 py_version = 38
+
+[tool.black]
+line-length = 100
+target-versions = ["py38", "py39", "py310", "py311", "py312"]
