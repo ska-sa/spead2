@@ -43,7 +43,7 @@ def get_version():
         code = f.read()
     exec(code, globals_)
     release = globals_["__version__"]
-    match = re.match("^(\d+)\.(\d+)", release)
+    match = re.match(r"^(\d+)\.(\d+)", release)
     return match.group(0), release
 
 
