@@ -515,9 +515,7 @@ class Item(Descriptor):
             elements = _shape_elements(shape)
             if elements > max_elements:
                 raise ValueError(
-                    "Item {} has too few elements for shape ({} < {})".format(
-                        self.name, max_elements, elements
-                    )
+                    f"Item {self.name} has too few elements for shape ({max_elements} < {elements})"
                 )
             size_bytes = elements * self._internal_dtype.itemsize
             if raw_item.is_immediate:
@@ -550,9 +548,7 @@ class Item(Descriptor):
             bits = elements * itemsize_bits
             if elements > max_elements:
                 raise ValueError(
-                    "Item {} has too few elements for shape ({} < {})".format(
-                        self.name, max_elements, elements
-                    )
+                    f"Item {self.name} has too few elements for shape ({max_elements} < {elements})"
                 )
             if raw_item.is_immediate:
                 # Immediates get head padding instead of tail padding

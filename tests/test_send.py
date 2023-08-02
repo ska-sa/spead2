@@ -157,8 +157,12 @@ class TestEncode:
             b"description",
             b"",
             self.flavour.make_shape(shape),
-            "{{'descr': {!r}, 'fortran_order': {!r}, 'shape': {!r}}}".format(
-                str(dtype_str), bool(fortran_order), tuple(shape)
+            repr(
+                {
+                    "descr": str(dtype_str),
+                    "fortran_order": bool(fortran_order),
+                    "shape": tuple(shape),
+                }
             ).encode(),
         ]
         payload = b"".join(payload_fields)

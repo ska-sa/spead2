@@ -116,11 +116,7 @@ async def run(item_group, stream, args):
     elapsed = time.time() - start_time
     if last_error is not None:
         logging.warn("%d errors, last one: %s", n_errors, last_error)
-    print(
-        "Sent {} bytes in {:.6f}s, {:.6f} Gb/s".format(
-            n_bytes, elapsed, n_bytes * 8 / elapsed / 1e9
-        )
-    )
+    print(f"Sent {n_bytes} bytes in {elapsed:.6f}s, {n_bytes * 8 / elapsed / 1e9:.6f} Gb/s")
 
 
 async def async_main():

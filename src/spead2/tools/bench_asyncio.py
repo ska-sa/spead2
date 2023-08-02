@@ -282,11 +282,8 @@ async def run_master(args, protocol, sender, receiver):
                 args, protocol, sender, receiver, rate, num_heaps, num_heaps - 1
             )
             if not args.quiet:
-                print(
-                    "Rate: {:.3f} Gbps ({:.3f} actual): {}".format(
-                        rate * 8e-9, actual_rate * 8e-9, "GOOD" if good else "BAD"
-                    )
-                )
+                result = "GOOD" if good else "BAD"
+                print(f"Rate: {rate * 8e-9:.3f} Gbps ({actual_rate * 8e-9:.3f} actual): {result}")
             if good:
                 low = rate
                 best_actual = actual_rate

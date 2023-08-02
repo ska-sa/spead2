@@ -73,14 +73,12 @@ async def run_stream(stream, name, args):
                         for raw_descriptor in heap.get_descriptors():
                             descriptor = spead2.Descriptor.from_raw(raw_descriptor, heap.flavour)
                             print(
-                                """\
-    Descriptor for {0.name} ({0.id:#x})
-      description: {0.description}
-      format:      {0.format}
-      dtype:       {0.dtype}
-      shape:       {0.shape}""".format(
-                                    descriptor
-                                )
+                                f"""\
+    Descriptor for {descriptor.name} ({descriptor.id:#x})
+      description: {descriptor.description}
+      format:      {descriptor.format}
+      dtype:       {descriptor.dtype}
+      shape:       {descriptor.shape}"""
                             )
                     changed = item_group.update(heap)
                     for key, item in changed.items():
