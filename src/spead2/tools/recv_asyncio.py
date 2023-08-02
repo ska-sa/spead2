@@ -20,14 +20,15 @@ spead2 package. It thus has many more command-line options than are strictly
 necessary, to allow multiple code-paths to be exercised.
 """
 
-import logging
 import argparse
-import signal
 import asyncio
+import logging
+import signal
 
 import spead2
 import spead2.recv
 import spead2.recv.asyncio
+
 from . import cmdline
 
 

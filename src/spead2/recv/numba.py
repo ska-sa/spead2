@@ -17,7 +17,6 @@
 
 from numba import types
 
-
 try:
     _size_t = types.size_t
 except AttributeError:

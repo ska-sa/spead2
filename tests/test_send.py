@@ -18,8 +18,8 @@ import gc
 import math
 import platform
 import struct
-import time
 import threading
+import time
 import weakref
 
 import numpy as np

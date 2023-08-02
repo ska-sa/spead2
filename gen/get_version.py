@@ -18,8 +18,8 @@
 import argparse
 import re
 import sys
-from packaging.version import Version
 
+from packaging.version import Version
 
 parser = argparse.ArgumentParser()
 parser.add_argument('mode', choices=('major', 'minor', 'patch', 'full'))

@@ -16,7 +16,19 @@
 import collections.abc
 import enum
 import socket
-from typing import Iterator, Iterable, Any, List, Tuple, Sequence, Union, Text, Optional, ClassVar, overload
+from typing import (
+    Any,
+    ClassVar,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Text,
+    Tuple,
+    Union,
+    overload,
+)
 
 import spead2
 from spead2 import _EndpointList

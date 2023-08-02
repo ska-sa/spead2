@@ -15,14 +15,14 @@
 
 """Test that data can be passed through the various async transports."""
 
-import socket
 import asyncio
+import socket
 
 import pytest
 
 import spead2
-import spead2.send
 import spead2.recv.asyncio
+import spead2.send
 import spead2.send.asyncio
 
 from . import test_passthrough

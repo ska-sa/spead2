@@ -14,8 +14,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
-import logging
 import gc
+import logging
 import weakref
 
 import numpy as np

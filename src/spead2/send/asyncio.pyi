@@ -19,7 +19,6 @@ from typing import List, Optional, Union, overload
 
 import spead2
 import spead2.send
-
 from spead2 import _EndpointList
 
 class AsyncStream(spead2.send.Stream):

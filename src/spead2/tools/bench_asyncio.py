@@ -24,14 +24,14 @@ stream is used to synchronise the two ends. All configuration is done on
 the master end.
 """
 
-import sys
 import argparse
-import json
-import collections
-import logging
-import traceback
-import timeit
 import asyncio
+import collections
+import json
+import logging
+import sys
+import timeit
+import traceback
 
 import numpy as np
 
@@ -40,8 +40,8 @@ import spead2.recv
 import spead2.recv.asyncio
 import spead2.send
 import spead2.send.asyncio
-from . import cmdline
 
+from . import cmdline
 
 ARG_ENUMS = {
     "rate_method": spead2.send.RateMethod

@@ -15,9 +15,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
+
 import spead2
 import spead2.recv
-import logging
 
 logging.basicConfig(level=logging.INFO)
 

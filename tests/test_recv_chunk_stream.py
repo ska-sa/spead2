@@ -21,17 +21,16 @@ import time
 import weakref
 
 import numba
-from numba import types
 import numpy as np
-import scipy
 import pytest
+import scipy
+from numba import types
 
 import spead2
-from spead2.numba import intp_to_voidptr
 import spead2.recv as recv
-from spead2.recv.numba import chunk_place_data
 import spead2.send as send
-
+from spead2.numba import intp_to_voidptr
+from spead2.recv.numba import chunk_place_data
 
 HEAP_PAYLOAD_SIZE = 1024
 HEAPS_PER_CHUNK = 10

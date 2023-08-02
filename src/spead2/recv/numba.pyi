@@ -15,5 +15,4 @@
 
 import numba.types
 
-
 chunk_place_data: numba.types.Record

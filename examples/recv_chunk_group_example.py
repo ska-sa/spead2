@@ -19,14 +19,14 @@
 # ringbuffers. To test it, run
 # spead2_send localhost:8888 localhost:8889 --heaps 1000 --heap-size 65536 --rate 10
 
-from spead2.numba import intp_to_voidptr
-import spead2.recv
-from spead2.recv.numba import chunk_place_data
-
 import numba
-from numba import types
 import numpy as np
 import scipy
+from numba import types
+
+import spead2.recv
+from spead2.numba import intp_to_voidptr
+from spead2.recv.numba import chunk_place_data
 
 HEAP_PAYLOAD_SIZE = 65536
 HEAPS_PER_CHUNK = 64

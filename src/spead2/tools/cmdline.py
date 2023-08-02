@@ -20,7 +20,6 @@ Command-line processing utilities for the tools in this module.
 import spead2.recv
 import spead2.send
 
-
 _HAVE_IBV = hasattr(spead2.recv.Stream, 'add_udp_ibv_reader')
 
 

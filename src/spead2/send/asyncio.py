@@ -19,10 +19,11 @@ Integration between spead2.send and asyncio
 
 import asyncio
 
-
-from spead2._spead2.send import UdpStreamAsyncio as _UdpStreamAsyncio
-from spead2._spead2.send import TcpStreamAsyncio as _TcpStreamAsyncio
-from spead2._spead2.send import InprocStreamAsyncio as _InprocStreamAsyncio
+from spead2._spead2.send import (
+    InprocStreamAsyncio as _InprocStreamAsyncio,
+    TcpStreamAsyncio as _TcpStreamAsyncio,
+    UdpStreamAsyncio as _UdpStreamAsyncio,
+)
 
 
 def _set_result(future, result):

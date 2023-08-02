@@ -18,19 +18,20 @@
 This is mainly a benchmark application, but also demonstrates the API.
 """
 
+import argparse
+import asyncio
+import collections
+import itertools
 import logging
 import sys
 import time
-import itertools
-import argparse
-import collections
-import asyncio
 
 import numpy as np
 
 import spead2
 import spead2.send
 import spead2.send.asyncio
+
 from . import cmdline
 
 

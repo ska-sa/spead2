@@ -13,11 +13,20 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import (
-    Text, Union, List, Tuple, Iterator, Iterable, Optional, Sequence, ClassVar, overload
-)
 import enum
 import socket
+from typing import (
+    ClassVar,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Text,
+    Tuple,
+    Union,
+    overload,
+)
 
 import spead2
 from spead2 import _EndpointList

@@ -21,8 +21,8 @@ import os
 import os.path
 import subprocess
 
-from setuptools import setup
 from pybind11.setup_helpers import ParallelCompile, Pybind11Extension, build_ext
+from setuptools import setup
 
 
 class BuildExt(build_ext):

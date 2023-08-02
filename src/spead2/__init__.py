@@ -13,45 +13,53 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import numbers as _numbers
 import logging
+import numbers as _numbers
 import struct
 
 import numpy as _np
 
 import spead2._spead2
-from spead2._spead2 import (             # noqa: F401
-    Flavour, ThreadPool, Stopped, Empty, Full,
-    MemoryAllocator, MmapAllocator, MemoryPool, InprocQueue,
+from spead2._spead2 import (  # noqa: F401
     BUG_COMPAT_DESCRIPTOR_WIDTHS,
+    BUG_COMPAT_PYSPEAD_0_5_2,
     BUG_COMPAT_SHAPE_BIT_1,
     BUG_COMPAT_SWAP_ENDIAN,
-    BUG_COMPAT_PYSPEAD_0_5_2,
-    NULL_ID,
+    CTRL_DESCRIPTOR_REISSUE,
+    CTRL_DESCRIPTOR_UPDATE,
+    CTRL_STREAM_START,
+    CTRL_STREAM_STOP,
+    DESCRIPTOR_DESCRIPTION_ID,
+    DESCRIPTOR_DTYPE_ID,
+    DESCRIPTOR_FORMAT_ID,
+    DESCRIPTOR_ID,
+    DESCRIPTOR_ID_ID,
+    DESCRIPTOR_NAME_ID,
+    DESCRIPTOR_SHAPE_ID,
     HEAP_CNT_ID,
     HEAP_LENGTH_ID,
-    PAYLOAD_OFFSET_ID,
-    PAYLOAD_LENGTH_ID,
-    DESCRIPTOR_ID,
-    STREAM_CTRL_ID,
-    DESCRIPTOR_NAME_ID,
-    DESCRIPTOR_DESCRIPTION_ID,
-    DESCRIPTOR_SHAPE_ID,
-    DESCRIPTOR_FORMAT_ID,
-    DESCRIPTOR_ID_ID,
-    DESCRIPTOR_DTYPE_ID,
-    CTRL_STREAM_START,
-    CTRL_DESCRIPTOR_REISSUE,
-    CTRL_STREAM_STOP,
-    CTRL_DESCRIPTOR_UPDATE,
+    MEMCPY_NONTEMPORAL,
     MEMCPY_STD,
-    MEMCPY_NONTEMPORAL)
+    NULL_ID,
+    PAYLOAD_LENGTH_ID,
+    PAYLOAD_OFFSET_ID,
+    STREAM_CTRL_ID,
+    Empty,
+    Flavour,
+    Full,
+    InprocQueue,
+    MemoryAllocator,
+    MemoryPool,
+    MmapAllocator,
+    Stopped,
+    ThreadPool,
+)
+
 try:
-    from spead2._spead2 import IbvContext      # noqa: F401
+    from spead2._spead2 import IbvContext  # noqa: F401
 except ImportError:
     pass
-from spead2._version import __version__       # noqa: F401
-
+from spead2._version import __version__  # noqa: F401
 
 _logger = logging.getLogger(__name__)
 _UNRESERVED_ID = 0x1000      #: First ID that can be auto-allocated

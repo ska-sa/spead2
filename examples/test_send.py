@@ -15,10 +15,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
+
+import numpy as np
+
 import spead2
 import spead2.send
-import logging
-import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 

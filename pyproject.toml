@@ -17,3 +17,9 @@ archs = ["x86_64"]
 CC = "ccache gcc"
 CFLAGS = "-flto"
 LDFLAGS = "-flto"
+
+[tool.isort]
+profile = "black"
+combine_as_imports = true
+line_length = 100
+py_version = 38

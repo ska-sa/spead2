@@ -21,19 +21,21 @@ import time
 import weakref
 
 import numba
-from numba import types
 import numpy as np
 import pytest
 import scipy
+from numba import types
 
 import spead2
 import spead2.recv as recv
 import spead2.send as send
 from spead2.numba import intp_to_voidptr
 from spead2.recv.numba import chunk_place_data
-
 from tests.test_recv_chunk_stream import (
-    CHUNK_PAYLOAD_SIZE, HEAP_PAYLOAD_SIZE, HEAPS_PER_CHUNK, place_plain_llc
+    CHUNK_PAYLOAD_SIZE,
+    HEAP_PAYLOAD_SIZE,
+    HEAPS_PER_CHUNK,
+    place_plain_llc,
 )
 
 STREAMS = 4

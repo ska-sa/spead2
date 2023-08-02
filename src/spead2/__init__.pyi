@@ -13,10 +13,22 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import (List, Sequence, Optional, Tuple, Any, Union,
-                    Dict, KeysView, ValuesView, Text, overload)
+from typing import (
+    Any,
+    Dict,
+    KeysView,
+    List,
+    Optional,
+    Sequence,
+    Text,
+    Tuple,
+    Union,
+    ValuesView,
+    overload,
+)
 
 import numpy as np
+
 try:
     from numpy.typing import DTypeLike as _DTypeLike
 except ImportError:

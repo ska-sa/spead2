@@ -19,13 +19,13 @@ import os
 import socket
 import sys
 
-import numpy as np
 import netifaces
+import numpy as np
 import pytest
 
 import spead2
-import spead2.send
 import spead2.recv
+import spead2.send
 
 
 def _assert_items_equal(item1, item2):

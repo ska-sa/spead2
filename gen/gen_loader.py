@@ -22,9 +22,8 @@ import sys
 
 import jinja2
 from pycparser import c_ast
-from pycparser.c_parser import CParser
 from pycparser.c_generator import CGenerator
-
+from pycparser.c_parser import CParser
 
 # The typedefs are arbitrary and just used to allow pycparser to parse the
 # code. Note that some functions in infiniband/verbs.h are implemented as

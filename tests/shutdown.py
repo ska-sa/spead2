@@ -27,9 +27,9 @@ import scipy
 from numba import types
 
 import spead2
+import spead2._spead2
 import spead2.recv
 import spead2.send
-import spead2._spead2
 from spead2.numba import intp_to_voidptr
 from spead2.recv.numba import chunk_place_data
 
