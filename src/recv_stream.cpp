@@ -649,8 +649,9 @@ void stream::stop_received()
 {
     stream_base::stop_received();
     std::lock_guard<std::mutex> lock(reader_mutex);
-    readers.clear();
-    /* This ensures that once we clear out the readers, any future call to
+    for (const auto &r : readers)
+        r->stop();
+    /* This ensures that once we stop the readers, any future call to
      * emplace_reader will silently be ignored. This avoids issues if there
      * is a race between the user calling emplace_reader and a stop packet
      * in the stream.
