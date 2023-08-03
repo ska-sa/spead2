@@ -19,6 +19,7 @@
 
 #include <cstddef>
 #include <spead2/common_features.h>
+#include <spead2/common_defines.h>
 
 /**
  * Variant of memcpy that uses a non-temporal hint for the destination.
@@ -30,7 +31,15 @@
 namespace spead2
 {
 
+#if SPEAD2_USE_FMV || !SPEAD2_USE_MOVNTDQ
+SPEAD2_FMV_TARGET("default")
 void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
+#endif
+
+#if SPEAD2_USE_MOVNTDQ
+SPEAD2_FMV_TARGET("sse2")
+void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
+#endif
 
 } // namespace spead2
 

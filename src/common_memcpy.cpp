@@ -27,11 +27,18 @@
 namespace spead2
 {
 
+#if SPEAD2_USE_FMV || !SPEAD2_USE_MOVNTDQ
+SPEAD2_FMV_TARGET("default")
 void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept
 {
-#if !SPEAD2_USE_MOVNTDQ
     return std::memcpy(dest, src, n);
-#else
+}
+#endif // SPEAD2_USE_FMV || !SPEAD2_USE_MOVNTDQ
+
+#if SPEAD2_USE_MOVNTDQ
+SPEAD2_FMV_TARGET("sse2")
+void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept
+{
     char * __restrict__ dest_c = (char *) dest;
     const char * __restrict__ src_c = (const char *) src;
     // Align the destination to a cache-line boundary
@@ -73,7 +80,7 @@ void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src
     std::memcpy(dest_c + offset, src_c + offset, tail);
     _mm_sfence();
     return dest;
-#endif // SPEAD2_USE_MOVNTDQ
 }
+#endif // SPEAD2_USE_MOVNTDQ
 
 } // namespace spead2

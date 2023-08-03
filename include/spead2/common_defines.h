@@ -1,4 +1,4 @@
-/* Copyright 2015, 2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -28,6 +28,7 @@
 #include <utility>
 #include <string>
 #include <functional>
+#include <spead2/common_features.h>
 
 #ifndef SPEAD2_MAX_LOG_LEVEL
 #define SPEAD2_MAX_LOG_LEVEL (spead2::log_level::info)
@@ -41,6 +42,12 @@
 #endif
 #ifndef SPEAD2_DEPRECATED
 # define SPEAD2_DEPRECATED(msg)
+#endif
+
+#if SPEAD2_USE_FMV
+# define SPEAD2_FMV_TARGET(x) [[gnu::target(x)]]
+#else
+# define SPEAD2_FMV_TARGET(x)
 #endif
 
 /**

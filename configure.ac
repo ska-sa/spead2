@@ -155,6 +155,20 @@ SPEAD2_ARG_WITH(
     )]
 )
 
+# -Werror is used to get an error (rather than a warning) if the compiler
+# doesn't support the feature.
+SPEAD2_ARG_WITH(
+    [fmv],
+    [AS_HELP_STRING([--without-fmv], [Do not use compiler function multi-versioning support])],
+    [SPEAD2_USE_FMV],
+    [SPEAD2_CHECK_FEATURE(
+        [fmv], [function multi-versioning], [], [], [],
+        [SPEAD2_USE_FMV=1], [],
+        [__attribute__((target("default"))) void foo() {}],
+        [-Werror]
+    )]
+)
+
 SPEAD2_ARG_WITH(
     [movntdq],
     [AS_HELP_STRING([--without-movntdq], [Do not use MOVNTDQ instruction for non-temporal copies])],
@@ -275,6 +289,7 @@ SPEAD2_PRINT_CONDITION([compiler optimization], [OPTIMIZED])
 SPEAD2_PRINT_CONDITION([link-time optimization], [LTO])
 SPEAD2_PRINT_CONDITION([coverage], [COVERAGE])
 SPEAD2_PRINT_CONDITION([shared library], [SHARED_LIBRARY])
+SPEAD2_PRINT_FEATURE([function multi-versioning], [test "x$SPEAD2_USE_FMV" = "x1"])
 SPEAD2_PRINT_FEATURE([MOVNTDQ instruction], [test "x$SPEAD2_USE_MOVNTDQ" = "x1"])
 echo ""
 echo "System calls:"

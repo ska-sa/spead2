@@ -35,11 +35,15 @@
 #define SPEAD2_USE_SENDMMSG @SPEAD2_USE_SENDMMSG@
 #define SPEAD2_USE_EVENTFD @SPEAD2_USE_EVENTFD@
 #define SPEAD2_USE_PTHREAD_SETAFFINITY_NP @SPEAD2_USE_PTHREAD_SETAFFINITY_NP@
+#define SPEAD2_USE_FMV @SPEAD2_USE_FMV@
 /* Python on MacOS likes to build universal binaries, so even if it was
  * detected at configure time, it might not be available for a particular
  * build architecture.
+ *
+ * Additionally, on i386 it is not guaranteed to exist at runtime, and we
+ * need function multi-versioning to make it safe to use.
  */
-#if defined(__i386__) || defined(__i386) || defined(__x86_64__) || defined(__x86_64)
+#if (SPEAD2_USE_FMV && (defined(__i386__) || defined(__i386))) || defined(__x86_64__) || defined(__x86_64)
 # define SPEAD2_USE_MOVNTDQ @SPEAD2_USE_MOVNTDQ@
 #else
 # define SPEAD2_USE_MOVNTDQ 0
