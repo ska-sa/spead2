@@ -171,6 +171,8 @@ public:
         stream &owner,
         boost::asio::ip::udp::socket &&socket,
         std::size_t max_size = default_max_size);
+
+    virtual void stop() override;
 };
 
 /**

@@ -125,6 +125,8 @@ public:
     udp_ibv_reader_core(
         stream &owner,
         const udp_ibv_config &config);
+
+    virtual void stop() override;
 };
 
 /**

@@ -252,6 +252,19 @@ void tcp_reader::enqueue_receive(handler_context ctx)
         bind_handler(std::move(ctx), std::bind(&tcp_reader::packet_handler, this, _1, _2, _3, _4)));
 }
 
+void tcp_reader::stop()
+{
+    /* asio guarantees that closing a socket will cancel any pending
+     * operations on it.
+     * Don't put any logging here: it could be running in a shutdown
+     * path where it is no longer safe to do so.
+     */
+    if (peer.is_open())
+        peer.close();
+    if (acceptor.is_open())
+        acceptor.close();
+}
+
 bool tcp_reader::lossy() const
 {
     return false;

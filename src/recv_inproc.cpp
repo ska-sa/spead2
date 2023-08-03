@@ -95,6 +95,11 @@ void inproc_reader::enqueue(handler_context ctx)
         bind_handler(std::move(ctx), std::bind(&inproc_reader::packet_handler, this, _1, _2, _3, _4)));
 }
 
+void inproc_reader::stop()
+{
+    data_sem_wrapper.close();
+}
+
 bool inproc_reader::lossy() const
 {
     return false;

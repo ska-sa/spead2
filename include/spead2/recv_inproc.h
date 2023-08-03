@@ -55,6 +55,7 @@ public:
         stream &owner,
         std::shared_ptr<inproc_queue> queue);
 
+    virtual void stop() override;
     virtual bool lossy() const override;
 };
 
