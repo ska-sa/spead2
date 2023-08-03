@@ -15,34 +15,40 @@
 
 """Test that data can be passed through the various async transports."""
 
-import socket
 import asyncio
+import socket
 
 import pytest
 
 import spead2
-import spead2.send
 import spead2.recv.asyncio
+import spead2.send
 import spead2.send.asyncio
 
 from . import test_passthrough
 
 
 class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
-    def transmit_item_groups(self, item_groups, *,
-                             memcpy, allocator, new_order='=', group_mode=None):
+    def transmit_item_groups(
+        self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
+    ):
         loop = asyncio.new_event_loop()
         try:
             return loop.run_until_complete(
                 self.transmit_item_groups_async(
                     item_groups,
-                    memcpy=memcpy, allocator=allocator,
-                    new_order=new_order, group_mode=group_mode))
+                    memcpy=memcpy,
+                    allocator=allocator,
+                    new_order=new_order,
+                    group_mode=group_mode,
+                )
+            )
         finally:
             loop.close()
 
-    async def transmit_item_groups_async(self, item_groups, *,
-                                         memcpy, allocator, new_order='=', group_mode=None):
+    async def transmit_item_groups_async(
+        self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
+    ):
         if self.requires_ipv6:
             self.check_ipv6()
         recv_config = spead2.recv.StreamConfig(memcpy=memcpy)
@@ -54,10 +60,7 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
         ]
         await self.prepare_receivers(receivers)
         sender = await self.prepare_senders(spead2.ThreadPool(), len(item_groups))
-        gens = [
-            spead2.send.HeapGenerator(item_group)
-            for item_group in item_groups
-        ]
+        gens = [spead2.send.HeapGenerator(item_group) for item_group in item_groups]
         if len(item_groups) != 1:
             # Use reversed order so that if everything is actually going
             # through the same transport it will get picked up.
@@ -66,7 +69,8 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
                     [
                         spead2.send.HeapReference(gen.get_heap(), substream_index=i)
                         for i, gen in reversed(list(enumerate(gens)))
-                    ], group_mode
+                    ],
+                    group_mode,
                 )
                 # Use a HeapReferenceList to test it
                 hrl = spead2.send.HeapReferenceList(
@@ -107,7 +111,8 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
 
 
 class BaseTestPassthroughSubstreamsAsync(
-        test_passthrough.BaseTestPassthroughSubstreams, BaseTestPassthroughAsync):
+    test_passthrough.BaseTestPassthroughSubstreams, BaseTestPassthroughAsync
+):
     async def prepare_receivers(self, receivers):
         raise NotImplementedError()
 
@@ -124,15 +129,19 @@ class TestPassthroughUdp(BaseTestPassthroughSubstreamsAsync):
         if n == 1:
             with pytest.deprecated_call():
                 return spead2.send.asyncio.UdpStream(
-                    thread_pool, "localhost", 8888,
+                    thread_pool,
+                    "localhost",
+                    8888,
                     spead2.send.StreamConfig(rate=1e7),
-                    buffer_size=0)
+                    buffer_size=0,
+                )
         else:
             return spead2.send.asyncio.UdpStream(
                 thread_pool,
                 [("localhost", 8888 + i) for i in range(n)],
                 spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0)
+                buffer_size=0,
+            )
 
 
 class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreamsAsync):
@@ -140,7 +149,7 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreamsAsync):
         self._ports = []
         for receiver in receivers:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-            sock.bind(('127.0.0.1', 0))
+            sock.bind(("127.0.0.1", 0))
             self._ports.append(sock.getsockname()[1])
             receiver.add_udp_reader(sock)
             sock.close()
@@ -150,13 +159,19 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreamsAsync):
         if n == 1:
             with pytest.deprecated_call():
                 stream = spead2.send.asyncio.UdpStream(
-                    thread_pool, sock, '127.0.0.1', self._ports[0],
-                    spead2.send.StreamConfig(rate=1e7))
+                    thread_pool,
+                    sock,
+                    "127.0.0.1",
+                    self._ports[0],
+                    spead2.send.StreamConfig(rate=1e7),
+                )
         else:
             stream = spead2.send.asyncio.UdpStream(
-                thread_pool, sock,
-                [('127.0.0.1', port) for port in self._ports],
-                spead2.send.StreamConfig(rate=1e7))
+                thread_pool,
+                sock,
+                [("127.0.0.1", port) for port in self._ports],
+                spead2.send.StreamConfig(rate=1e7),
+            )
         sock.close()
         return stream
 
@@ -166,8 +181,7 @@ class TestPassthroughTcp(BaseTestPassthroughAsync):
         receiver.add_tcp_reader(8888, bind_hostname="127.0.0.1")
 
     async def prepare_sender(self, thread_pool):
-        sender = await spead2.send.asyncio.TcpStream.connect(
-            thread_pool, [("127.0.0.1", 8888)])
+        sender = await spead2.send.asyncio.TcpStream.connect(thread_pool, [("127.0.0.1", 8888)])
         return sender
 
 
@@ -175,7 +189,7 @@ class TestPassthroughTcpCustomSocket(BaseTestPassthroughAsync):
     async def prepare_receiver(self, receiver):
         sock = socket.socket()
         # Prevent second iteration of the test from failing
-        sock.bind(('127.0.0.1', 0))
+        sock.bind(("127.0.0.1", 0))
         self._port = sock.getsockname()[1]
         sock.listen(1)
         receiver.add_tcp_reader(sock)
@@ -184,9 +198,8 @@ class TestPassthroughTcpCustomSocket(BaseTestPassthroughAsync):
     async def prepare_sender(self, thread_pool):
         sock = socket.socket()
         sock.setblocking(False)
-        await asyncio.get_event_loop().sock_connect(sock, ('127.0.0.1', self._port))
-        sender = spead2.send.asyncio.TcpStream(
-            thread_pool, sock)
+        await asyncio.get_event_loop().sock_connect(sock, ("127.0.0.1", self._port))
+        sender = spead2.send.asyncio.TcpStream(thread_pool, sock)
         sock.close()
         return sender
 
@@ -205,13 +218,17 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreamsAsync):
         else:
             return spead2.send.asyncio.InprocStream(thread_pool, self._queues)
 
-    async def transmit_item_groups_async(self, item_groups, *,
-                                         memcpy, allocator, new_order='=', group_mode=None):
+    async def transmit_item_groups_async(
+        self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
+    ):
         self._queues = [spead2.InprocQueue() for ig in item_groups]
         ret = await super().transmit_item_groups_async(
             item_groups,
-            memcpy=memcpy, allocator=allocator,
-            new_order=new_order, group_mode=group_mode)
+            memcpy=memcpy,
+            allocator=allocator,
+            new_order=new_order,
+            group_mode=group_mode,
+        )
         for queue in self._queues:
             queue.stop()
         return ret

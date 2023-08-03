@@ -21,17 +21,16 @@ import time
 import weakref
 
 import numba
-from numba import types
 import numpy as np
-import scipy
 import pytest
+import scipy
+from numba import types
 
 import spead2
-from spead2.numba import intp_to_voidptr
 import spead2.recv as recv
-from spead2.recv.numba import chunk_place_data
 import spead2.send as send
-
+from spead2.numba import intp_to_voidptr
+from spead2.recv.numba import chunk_place_data
 
 HEAP_PAYLOAD_SIZE = 1024
 HEAPS_PER_CHUNK = 10
@@ -57,10 +56,12 @@ def check_refcount(objlist):
         assert weak() is None
 
 
-user_data_type = types.Record.make_c_struct([
-    ('scale', types.int_),        # A scale applied to heap_index
-    ('placed_heaps_index', types.uintp)  # Index at which to update stats
-])
+user_data_type = types.Record.make_c_struct(
+    [
+        ("scale", types.int_),  # A scale applied to heap_index
+        ("placed_heaps_index", types.uintp),  # Index at which to update stats
+    ]
+)
 
 
 @numba.cfunc(types.void(types.CPointer(chunk_place_data), types.uintp), nopython=True)
@@ -77,7 +78,8 @@ def place_plain(data_ptr, data_size):
 
 @numba.cfunc(
     types.void(types.CPointer(chunk_place_data), types.uintp, types.CPointer(user_data_type)),
-    nopython=True)
+    nopython=True,
+)
 def place_bind(data_ptr, data_size, user_data_ptr):
     # Takes a np.int_ in via user_data to scale the heap index.
     data = numba.carray(data_ptr, 1)
@@ -91,14 +93,18 @@ def place_bind(data_ptr, data_size, user_data_ptr):
         heap_index = heap_cnt % HEAPS_PER_CHUNK
         data[0].heap_index = heap_index * user_data[0].scale
         data[0].heap_offset = heap_index * HEAP_PAYLOAD_SIZE
-        batch_stats = numba.carray(intp_to_voidptr(data[0].batch_stats),
-                                   user_data[0].placed_heaps_index + 1, dtype=np.uint64)
+        batch_stats = numba.carray(
+            intp_to_voidptr(data[0].batch_stats),
+            user_data[0].placed_heaps_index + 1,
+            dtype=np.uint64,
+        )
         batch_stats[user_data[0].placed_heaps_index] += 1
 
 
 @numba.cfunc(
     types.void(types.CPointer(chunk_place_data), types.uintp, types.CPointer(user_data_type)),
-    nopython=True)
+    nopython=True,
+)
 def place_extra(data_ptr, data_size, user_data_ptr):
     # Writes the 'extra' SPEAD item (items[3]) to the extra output array
     data = numba.carray(data_ptr, 1)
@@ -117,10 +123,11 @@ def place_extra(data_ptr, data_size, user_data_ptr):
 
 # ctypes doesn't distinguish equivalent integer types, so we have to
 # specify the signature explicitly.
-place_plain_llc = scipy.LowLevelCallable(place_plain.ctypes, signature='void (void *, size_t)')
+place_plain_llc = scipy.LowLevelCallable(place_plain.ctypes, signature="void (void *, size_t)")
 place_bind_llc = scipy.LowLevelCallable(
-    place_bind.ctypes, signature='void (void *, size_t, void *)')
-place_extra_llc = scipy.LowLevelCallable(place_extra.ctypes, signature='void (void *, size_t)')
+    place_bind.ctypes, signature="void (void *, size_t, void *)"
+)
+place_extra_llc = scipy.LowLevelCallable(place_extra.ctypes, signature="void (void *, size_t)")
 
 
 class TestChunkStreamConfig:
@@ -153,7 +160,7 @@ class TestChunkStreamConfig:
             recv.ChunkStreamConfig(place=(1,))
 
     def test_set_place_bad_signature(self):
-        place = scipy.LowLevelCallable(place_plain.ctypes, signature='void (void)')
+        place = scipy.LowLevelCallable(place_plain.ctypes, signature="void (void)")
         # One might expect TypeError, but ValueError is what scipy uses for
         # invalid signatures.
         with pytest.raises(ValueError):
@@ -238,7 +245,7 @@ class TestChunkRingbuffer:
             chunk_ringbuffer.get()
         assert chunk_ringbuffer.empty()
 
-    @pytest.mark.parametrize('method', [recv.ChunkRingbuffer.get, recv.ChunkRingbuffer.get_nowait])
+    @pytest.mark.parametrize("method", [recv.ChunkRingbuffer.get, recv.ChunkRingbuffer.get_nowait])
     def test_stop(self, chunk_ringbuffer, method):
         chunk_ringbuffer.put(make_chunk())
         chunk_ringbuffer.stop()
@@ -327,7 +334,7 @@ class TestChunkRingStream:
                 recv.Chunk(
                     present=np.zeros(HEAPS_PER_CHUNK, np.uint8),
                     data=np.zeros(CHUNK_PAYLOAD_SIZE, np.uint8),
-                    extra=np.zeros(HEAPS_PER_CHUNK, np.int64)
+                    extra=np.zeros(HEAPS_PER_CHUNK, np.int64),
                 )
             )
         return ring
@@ -335,9 +342,9 @@ class TestChunkRingStream:
     @pytest.fixture
     def item_group(self):
         ig = spead2.send.ItemGroup()
-        ig.add_item(0x1000, 'position', 'position in stream', (), format=[('u', 32)])
-        ig.add_item(0x1001, 'payload', 'payload data', (HEAP_PAYLOAD_SIZE,), dtype=np.uint8)
-        ig.add_item(0x1002, 'extra', 'extra data to capture', (), format=[('u', 32)])
+        ig.add_item(0x1000, "position", "position in stream", (), format=[("u", 32)])
+        ig.add_item(0x1001, "payload", "payload data", (HEAP_PAYLOAD_SIZE,), dtype=np.uint8)
+        ig.add_item(0x1002, "extra", "extra data to capture", (), format=[("u", 32)])
         return ig
 
     @pytest.fixture
@@ -357,7 +364,7 @@ class TestChunkRingStream:
                 place=request.param,
             ),
             data_ring,
-            free_ring
+            free_ring,
         )
         stream.add_inproc_reader(queue)
         yield stream
@@ -379,25 +386,25 @@ class TestChunkRingStream:
         heap_payload[1::2] = range(HEAP_PAYLOAD_SIZE // 4)
         return heap_payload.view(np.uint8)
 
-    @pytest.mark.parametrize('send_end', [True, False])
+    @pytest.mark.parametrize("send_end", [True, False])
     def test_cleanup(self, send_stream, recv_stream, item_group, send_end):
         """Send some heaps and don't retrieve the chunks, making sure cleanup works."""
-        send_stream.send_heap(item_group.get_heap(descriptors='all', data='none'))
+        send_stream.send_heap(item_group.get_heap(descriptors="all", data="none"))
         for i in range(1000):
-            item_group['position'].value = i
-            item_group['payload'].value = self.make_heap_payload(i)
-            send_stream.send_heap(item_group.get_heap(descriptors='none', data='all'))
+            item_group["position"].value = i
+            item_group["payload"].value = self.make_heap_payload(i)
+            send_stream.send_heap(item_group.get_heap(descriptors="none", data="all"))
         if send_end:
             send_stream.send_heap(item_group.get_end())
 
     def send_heaps(self, send_stream, item_group, positions):
         """Send heaps with given numbers."""
-        send_stream.send_heap(item_group.get_heap(descriptors='all', data='none'))
+        send_stream.send_heap(item_group.get_heap(descriptors="all", data="none"))
         for i in positions:
-            item_group['position'].value = i
-            item_group['payload'].value = self.make_heap_payload(i)
-            item_group['extra'].value = i ^ 0xBEEF
-            send_stream.send_heap(item_group.get_heap(descriptors='none', data='all'))
+            item_group["position"].value = i
+            item_group["payload"].value = self.make_heap_payload(i)
+            item_group["extra"].value = i ^ 0xBEEF
+            send_stream.send_heap(item_group.get_heap(descriptors="none", data="all"))
         send_stream.send_heap(item_group.get_end())
 
     def check_chunk(self, chunk, expected_chunk_id, expected_present, extra=False):
@@ -410,7 +417,7 @@ class TestChunkRingStream:
                 position = chunk.chunk_id * HEAPS_PER_CHUNK + i
                 np.testing.assert_equal(
                     chunk.data[i * HEAP_PAYLOAD_SIZE : (i + 1) * HEAP_PAYLOAD_SIZE],
-                    self.make_heap_payload(position)
+                    self.make_heap_payload(position),
                 )
                 if extra:
                     assert chunk.extra[i] == position ^ 0xBEEF
@@ -428,15 +435,13 @@ class TestChunkRingStream:
                 end = (packet_index + 1) * PACKET_SIZE
                 np.testing.assert_equal(
                     chunk.data[i * PACKET_SIZE : (i + 1) * PACKET_SIZE],
-                    self.make_heap_payload(heap_index)[start:end]
+                    self.make_heap_payload(heap_index)[start:end],
                 )
 
     @pytest.mark.parametrize(
-        'recv_stream, extra',
-        [
-            (place_plain_llc, False),
-            (place_extra_llc, True)
-        ], indirect=['recv_stream']
+        "recv_stream, extra",
+        [(place_plain_llc, False), (place_extra_llc, True)],
+        indirect=["recv_stream"],
     )
     def test_basic(self, send_stream, recv_stream, item_group, extra):
         n_heaps = 103
@@ -492,12 +497,12 @@ class TestChunkRingStream:
             self.check_chunk(chunk, i, expected_present)
             seen += 1
             recv_stream.add_free_chunk(chunk)
-        assert seen == 5    # Will see chunk 0 with no heaps, but won't see it again
+        assert seen == 5  # Will see chunk 0 with no heaps, but won't see it again
         recv_stream.stop()  # Ensure that stats are brought up to date
         assert recv_stream.stats["too_old_heaps"] == 1
         assert recv_stream.stats["rejected_heaps"] == 2  # Descriptors and stop heap
 
-    @pytest.mark.parametrize('recv_stream', [place_extra_llc], indirect=True)
+    @pytest.mark.parametrize("recv_stream", [place_extra_llc], indirect=True)
     def test_extra(self, send_stream, recv_stream, item_group):
         """Test writing extra data about each heap."""
         n_heaps = 103
@@ -518,12 +523,10 @@ class TestChunkRingStream:
             spead2.ThreadPool(),
             spead2.recv.StreamConfig(stream_id=1),
             spead2.recv.ChunkStreamConfig(
-                items=[0x1000, spead2.HEAP_LENGTH_ID],
-                max_chunks=4,
-                place=place_plain_llc
+                items=[0x1000, spead2.HEAP_LENGTH_ID], max_chunks=4, place=place_plain_llc
             ),
             recv_stream.data_ringbuffer,
-            recv_stream.free_ringbuffer
+            recv_stream.free_ringbuffer,
         )
         queue2 = spead2.InprocQueue()
         recv_stream2.add_inproc_reader(queue2)
@@ -552,7 +555,7 @@ class TestChunkRingStream:
                 spead2.recv.StreamConfig(),
                 spead2.recv.ChunkStreamConfig(items=[0x1000, spead2.HEAP_LENGTH_ID]),
                 data_ring,
-                free_ring
+                free_ring,
             )
 
     def make_packet(self, position, start, end):
@@ -571,17 +574,17 @@ class TestChunkRingStream:
         heap_payload = self.make_heap_payload(position)
         parts = [
             # Magic, version, item ID bytes, heap address bytes, flags, number of items
-            struct.pack('>BBBBHH', 0x53, 4, 2, 6, 0, 6),
+            struct.pack(">BBBBHH", 0x53, 4, 2, 6, 0, 6),
             # Item ID (and immediate flag), item value/offset
-            struct.pack('>HxxI', 0x8000 | spead2.HEAP_CNT_ID, position),
-            struct.pack('>HxxI', 0x8000 | spead2.PAYLOAD_OFFSET_ID, start),
-            struct.pack('>HxxI', 0x8000 | spead2.PAYLOAD_LENGTH_ID, end - start),
-            struct.pack('>HxxI', 0x8000 | spead2.HEAP_LENGTH_ID, HEAP_PAYLOAD_SIZE),
-            struct.pack('>HxxI', 0x8000 | 0x1000, position),
-            struct.pack('>HxxI', 0x1001, 0),
-            heap_payload[start:end].tobytes()
+            struct.pack(">HxxI", 0x8000 | spead2.HEAP_CNT_ID, position),
+            struct.pack(">HxxI", 0x8000 | spead2.PAYLOAD_OFFSET_ID, start),
+            struct.pack(">HxxI", 0x8000 | spead2.PAYLOAD_LENGTH_ID, end - start),
+            struct.pack(">HxxI", 0x8000 | spead2.HEAP_LENGTH_ID, HEAP_PAYLOAD_SIZE),
+            struct.pack(">HxxI", 0x8000 | 0x1000, position),
+            struct.pack(">HxxI", 0x1001, 0),
+            heap_payload[start:end].tobytes(),
         ]
-        return b''.join(parts)
+        return b"".join(parts)
 
     def test_packet_too_old(self, recv_stream, queue):
         """Test a packet that adds to an existing heap whose chunk was already aged out."""
@@ -617,7 +620,7 @@ class TestChunkRingStream:
             free_ring.put(
                 recv.Chunk(
                     present=np.zeros(HEAPS_PER_CHUNK * PACKETS_PER_HEAP, np.uint8),
-                    data=np.zeros(CHUNK_PAYLOAD_SIZE, np.uint8)
+                    data=np.zeros(CHUNK_PAYLOAD_SIZE, np.uint8),
                 )
             )
 
@@ -630,7 +633,8 @@ class TestChunkRingStream:
         place_bind_llc = scipy.LowLevelCallable(
             place_bind.ctypes,
             user_data=user_data.ctypes.data_as(ctypes.c_void_p),
-            signature='void (void *, size_t, void *)')
+            signature="void (void *, size_t, void *)",
+        )
         stream = spead2.recv.ChunkRingStream(
             spead2.ThreadPool(),
             stream_config,
@@ -640,7 +644,7 @@ class TestChunkRingStream:
                 place=place_bind_llc,
             ).enable_packet_presence(PACKET_SIZE),
             data_ring,
-            free_ring
+            free_ring,
         )
         stream.add_inproc_reader(queue)
 
@@ -651,9 +655,13 @@ class TestChunkRingStream:
         chunks = list(stream.data_ringbuffer)
         assert len(chunks) == 2
         self.check_chunk_packets(
-            chunks[0], 0,
-            np.array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], np.uint8))
+            chunks[0],
+            0,
+            np.array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], np.uint8),
+        )
         self.check_chunk_packets(
-            chunks[1], 1,
-            np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], np.uint8))
+            chunks[1],
+            1,
+            np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], np.uint8),
+        )
         assert stream.stats["placed_heaps"] == 2

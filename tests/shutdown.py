@@ -27,9 +27,9 @@ import scipy
 from numba import types
 
 import spead2
+import spead2._spead2
 import spead2.recv
 import spead2.send
-import spead2._spead2
 from spead2.numba import intp_to_voidptr
 from spead2.recv.numba import chunk_place_data
 
@@ -42,7 +42,7 @@ def test_logging_shutdown():
     # Set a log level that won't actually display the messages.
     logging.basicConfig(level=logging.ERROR)
     for i in range(20000):
-        spead2._spead2.log_info(f'Test message {i}')
+        spead2._spead2.log_info(f"Test message {i}")
 
 
 def test_running_thread_pool():
@@ -55,10 +55,11 @@ def test_running_stream():
     logging.basicConfig(level=logging.ERROR)
     stream = spead2.recv.Stream(spead2.ThreadPool())
     stream.add_udp_reader(7148)
-    sender = spead2.send.UdpStream(spead2.ThreadPool(), 'localhost', 7148)
+    sender = spead2.send.UdpStream(spead2.ThreadPool(), "localhost", 7148)
     ig = spead2.send.ItemGroup()
-    ig.add_item(id=None, name='test', description='test',
-                shape=(), format=[('u', 32)], value=0xdeadbeef)
+    ig.add_item(
+        id=None, name="test", description="test", shape=(), format=[("u", 32)], value=0xDEADBEEF
+    )
     heap = ig.get_heap()
     for i in range(5):
         sender.send_heap(heap)
@@ -79,25 +80,22 @@ def test_running_chunk_stream_group():
     global group
     group = spead2.recv.ChunkStreamRingGroup(
         spead2.recv.ChunkStreamGroupConfig(
-            max_chunks=2,
-            eviction_mode=spead2.recv.ChunkStreamGroupConfig.EvictionMode.LOSSLESS
+            max_chunks=2, eviction_mode=spead2.recv.ChunkStreamGroupConfig.EvictionMode.LOSSLESS
         ),
         spead2.recv.ChunkRingbuffer(4),
-        spead2.recv.ChunkRingbuffer(4)
+        spead2.recv.ChunkRingbuffer(4),
     )
     for _ in range(group.free_ringbuffer.maxsize):
         chunk = spead2.recv.Chunk(data=np.zeros(1024, np.uint8), present=np.zeros(1, np.uint8))
         group.add_free_chunk(chunk)
-    place_llc = scipy.LowLevelCallable(place.ctypes, signature='void (void *, size_t)')
+    place_llc = scipy.LowLevelCallable(place.ctypes, signature="void (void *, size_t)")
     for _ in range(2):
         group.emplace_back(
             spead2.ThreadPool(),
             spead2.recv.StreamConfig(),
             spead2.recv.ChunkStreamConfig(
-                items=[spead2.HEAP_CNT_ID, spead2.HEAP_LENGTH_ID],
-                max_chunks=2,
-                place=place_llc
-            )
+                items=[spead2.HEAP_CNT_ID, spead2.HEAP_LENGTH_ID], max_chunks=2, place=place_llc
+            ),
         )
     queues = [spead2.InprocQueue() for _ in group]
     for queue, stream in zip(queues, group):

@@ -1,9 +1,9 @@
-flake8
 jinja2
 netifaces
 numba
 numpy
 packaging
+pre-commit
 pycparser
 pytest
 pytest-asyncio

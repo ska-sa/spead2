@@ -19,13 +19,13 @@ import os
 import socket
 import sys
 
-import numpy as np
 import netifaces
+import numpy as np
 import pytest
 
 import spead2
-import spead2.send
 import spead2.recv
+import spead2.send
 
 
 def _assert_items_equal(item1, item2):
@@ -36,16 +36,16 @@ def _assert_items_equal(item1, item2):
     assert item1.format == item2.format
     # Byte order need not match, provided that values are received correctly
     if item1.dtype is not None and item2.dtype is not None:
-        assert item1.dtype.newbyteorder('<') == item2.dtype.newbyteorder('<')
+        assert item1.dtype.newbyteorder("<") == item2.dtype.newbyteorder("<")
     else:
         assert item1.dtype == item2.dtype
     assert item1.order == item2.order
     # Comparing arrays has many issues. Convert them to lists where appropriate
     value1 = item1.value
     value2 = item2.value
-    if hasattr(value1, 'tolist'):
+    if hasattr(value1, "tolist"):
         value1 = value1.tolist()
-    if hasattr(value2, 'tolist'):
+    if hasattr(value2, "tolist"):
         value2 = value2.tolist()
     assert value1 == value2
 
@@ -67,13 +67,13 @@ class BaseTestPassthrough:
     @classmethod
     def check_ipv6(cls):
         if not socket.has_ipv6:
-            pytest.skip('platform does not support IPv6')
+            pytest.skip("platform does not support IPv6")
         with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as sock:
             # Travis build systems fail to bind to an IPv6 address
             try:
                 sock.bind(("::1", 8888))
             except OSError:
-                pytest.skip('platform cannot bind IPv6 localhost address')
+                pytest.skip("platform cannot bind IPv6 localhost address")
         if cls.requires_ipv6_multicast:
             with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as sock:
                 # Github Actions on MacOS doesn't have routes to multicast
@@ -81,15 +81,24 @@ class BaseTestPassthrough:
                     sock.connect(("ff14::1234", 8888))
                     sock.send(b"test")
                 except OSError:
-                    pytest.skip('platform cannot transmit to an IPv6 multicast address')
+                    pytest.skip("platform cannot transmit to an IPv6 multicast address")
 
-    def _test_item_groups(self, item_groups, *,
-                          memcpy=spead2.MEMCPY_STD, allocator=None,
-                          new_order='=', group_mode=None):
+    def _test_item_groups(
+        self,
+        item_groups,
+        *,
+        memcpy=spead2.MEMCPY_STD,
+        allocator=None,
+        new_order="=",
+        group_mode=None,
+    ):
         received_item_groups = self.transmit_item_groups(
             item_groups,
-            memcpy=memcpy, allocator=allocator,
-            new_order=new_order, group_mode=group_mode)
+            memcpy=memcpy,
+            allocator=allocator,
+            new_order=new_order,
+            group_mode=group_mode,
+        )
         assert len(received_item_groups) == len(item_groups)
         for received_item_group, item_group in zip(received_item_groups, item_groups):
             assert_item_groups_equal(item_group, received_item_group)
@@ -97,32 +106,51 @@ class BaseTestPassthrough:
                 if item.dtype is not None:
                     assert item.value.dtype == item.value.dtype.newbyteorder(new_order)
 
-    def _test_item_group(self, item_group, *,
-                         memcpy=spead2.MEMCPY_STD, allocator=None,
-                         new_order='=', group_mode=None):
+    def _test_item_group(
+        self,
+        item_group,
+        *,
+        memcpy=spead2.MEMCPY_STD,
+        allocator=None,
+        new_order="=",
+        group_mode=None,
+    ):
         self._test_item_groups(
             [item_group],
             memcpy=memcpy,
             allocator=allocator,
             new_order=new_order,
-            group_mode=group_mode)
+            group_mode=group_mode,
+        )
 
     def test_numpy_simple(self):
         """A basic array with numpy encoding"""
         ig = spead2.send.ItemGroup()
         data = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.uint16)
-        ig.add_item(id=0x2345, name='name', description='description',
-                    shape=data.shape, dtype=data.dtype, value=data)
+        ig.add_item(
+            id=0x2345,
+            name="name",
+            description="description",
+            shape=data.shape,
+            dtype=data.dtype,
+            value=data,
+        )
         self._test_item_group(ig)
 
     def test_numpy_byteorder(self):
         """A numpy array in non-native byte order"""
         ig = spead2.send.ItemGroup()
         data = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.dtype(np.uint16).newbyteorder())
-        ig.add_item(id=0x2345, name='name', description='description',
-                    shape=data.shape, dtype=data.dtype, value=data)
+        ig.add_item(
+            id=0x2345,
+            name="name",
+            description="description",
+            shape=data.shape,
+            dtype=data.dtype,
+            value=data,
+        )
         self._test_item_group(ig)
-        self._test_item_group(ig, new_order='|')
+        self._test_item_group(ig, new_order="|")
 
     def test_numpy_large(self):
         """A numpy style array split across several packets. It also
@@ -130,12 +158,18 @@ class BaseTestPassthrough:
         to test that those all work."""
         # macOS doesn't have a big enough socket buffer to reliably transmit
         # the whole thing over UDP.
-        if self.is_lossy and sys.platform == 'darwin':
+        if self.is_lossy and sys.platform == "darwin":
             pytest.skip("macOS can't reliably handle large heaps over UDP")
         ig = spead2.send.ItemGroup()
         data = np.random.randn(100, 200)
-        ig.add_item(id=0x2345, name='name', description='description',
-                    shape=data.shape, dtype=data.dtype, value=data)
+        ig.add_item(
+            id=0x2345,
+            name="name",
+            description="description",
+            shape=data.shape,
+            dtype=data.dtype,
+            value=data,
+        )
         allocator = spead2.MmapAllocator()
         pool = spead2.MemoryPool(1, 4096, 4, 4, allocator)
         self._test_item_group(ig, memcpy=spead2.MEMCPY_NONTEMPORAL, allocator=pool)
@@ -144,19 +178,26 @@ class BaseTestPassthrough:
         """A structure with non-byte-aligned elements, but which is
         byte-aligned overall."""
         ig = spead2.send.ItemGroup()
-        format = [('u', 4), ('f', 64), ('i', 4)]
+        format = [("u", 4), ("f", 64), ("i", 4)]
         data = (12, 1.5, -3)
-        ig.add_item(id=0x2345, name='name', description='description',
-                    shape=(), format=format, value=data)
+        ig.add_item(
+            id=0x2345, name="name", description="description", shape=(), format=format, value=data
+        )
         self._test_item_group(ig)
 
     def test_string(self):
         """Byte string is converted to array of characters and back."""
         ig = spead2.send.ItemGroup()
-        format = [('c', 8)]
-        data = 'Hello world'
-        ig.add_item(id=0x2345, name='name', description='description',
-                    shape=(None,), format=format, value=data)
+        format = [("c", 8)]
+        data = "Hello world"
+        ig.add_item(
+            id=0x2345,
+            name="name",
+            description="description",
+            shape=(None,),
+            format=format,
+            value=data,
+        )
         self._test_item_group(ig)
 
     def test_fallback_array_partial_bytes_small(self):
@@ -164,46 +205,61 @@ class BaseTestPassthrough:
         and is small enough to encode in an immediate.
         """
         ig = spead2.send.ItemGroup()
-        format = [('u', 7)]
+        format = [("u", 7)]
         data = [127, 12, 123]
-        ig.add_item(id=0x2345, name='name', description='description',
-                    shape=(len(data),), format=format, value=data)
+        ig.add_item(
+            id=0x2345,
+            name="name",
+            description="description",
+            shape=(len(data),),
+            format=format,
+            value=data,
+        )
         self._test_item_group(ig)
 
     def test_fallback_types(self):
         """An array structure using a mix of types."""
         ig = spead2.send.ItemGroup()
-        format = [('b', 1), ('i', 7), ('c', 8), ('f', 32)]
-        data = [(True, 17, b'y', 1.0), (False, -23, b'n', -1.0)]
-        ig.add_item(id=0x2345, name='name', description='description',
-                    shape=(2,), format=format, value=data)
+        format = [("b", 1), ("i", 7), ("c", 8), ("f", 32)]
+        data = [(True, 17, b"y", 1.0), (False, -23, b"n", -1.0)]
+        ig.add_item(
+            id=0x2345, name="name", description="description", shape=(2,), format=format, value=data
+        )
         self._test_item_group(ig)
 
     def test_numpy_fallback_struct(self):
         """A structure specified using a format, but which is encodable using numpy."""
         ig = spead2.send.ItemGroup()
-        format = [('u', 8), ('f', 32)]
+        format = [("u", 8), ("f", 32)]
         data = (12, 1.5)
-        ig.add_item(id=0x2345, name='name', description='description',
-                    shape=(), format=format, value=data)
+        ig.add_item(
+            id=0x2345, name="name", description="description", shape=(), format=format, value=data
+        )
         self._test_item_group(ig)
 
     def test_fallback_struct_partial_bytes(self):
         """A structure which takes a fractional number of bytes per element."""
         ig = spead2.send.ItemGroup()
-        format = [('u', 4), ('f', 64)]
+        format = [("u", 4), ("f", 64)]
         data = (12, 1.5)
-        ig.add_item(id=0x2345, name='name', description='description',
-                    shape=(), format=format, value=data)
+        ig.add_item(
+            id=0x2345, name="name", description="description", shape=(), format=format, value=data
+        )
         self._test_item_group(ig)
 
     def test_fallback_scalar(self):
         """Send a scalar using fallback format descriptor."""
         ig = spead2.send.ItemGroup()
-        format = [('f', 64)]
+        format = [("f", 64)]
         data = 1.5
-        ig.add_item(id=0x2345, name='scalar name', description='scalar description',
-                    shape=(), format=format, value=data)
+        ig.add_item(
+            id=0x2345,
+            name="scalar name",
+            description="scalar description",
+            shape=(),
+            format=format,
+            value=data,
+        )
         self._test_item_group(ig)
 
     def test_many_items(self):
@@ -214,13 +270,20 @@ class BaseTestPassthrough:
         """
         ig = spead2.send.ItemGroup()
         for i in range(50):
-            name = f'test item {i}'
-            ig.add_item(id=0x2345 + i, name=name, description=name,
-                        shape=(), format=[('u', 40)], value=0x12345 * i)
+            name = f"test item {i}"
+            ig.add_item(
+                id=0x2345 + i,
+                name=name,
+                description=name,
+                shape=(),
+                format=[("u", 40)],
+                value=0x12345 * i,
+            )
         self._test_item_group(ig)
 
-    def transmit_item_groups(self, item_groups, *,
-                             memcpy, allocator, new_order='=', group_mode=None):
+    def transmit_item_groups(
+        self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
+    ):
         """Transmit `item_groups` over the chosen transport.
 
         Return the item groups received at the other end. Each item group will
@@ -233,15 +296,11 @@ class BaseTestPassthrough:
         if allocator is not None:
             recv_config.memory_allocator = allocator
         receivers = [
-            spead2.recv.Stream(spead2.ThreadPool(), recv_config)
-            for i in range(len(item_groups))
+            spead2.recv.Stream(spead2.ThreadPool(), recv_config) for i in range(len(item_groups))
         ]
         self.prepare_receivers(receivers)
         sender = self.prepare_senders(spead2.ThreadPool(), len(item_groups))
-        gens = [
-            spead2.send.HeapGenerator(item_group)
-            for item_group in item_groups
-        ]
+        gens = [spead2.send.HeapGenerator(item_group) for item_group in item_groups]
         if len(item_groups) != 1:
             # Use reversed order so that if everything is actually going
             # through the same transport it will get picked up.
@@ -251,7 +310,7 @@ class BaseTestPassthrough:
                         spead2.send.HeapReference(gen.get_heap(), substream_index=i)
                         for i, gen in reversed(list(enumerate(gens)))
                     ],
-                    group_mode
+                    group_mode,
                 )
                 # For the stop heaps, use a HeapReferenceList to test it.
                 hrl = spead2.send.HeapReferenceList(
@@ -311,14 +370,21 @@ class BaseTestPassthroughSubstreams(BaseTestPassthrough):
         item_groups = []
         for i in range(4):
             ig = spead2.ItemGroup()
-            ig.add_item(id=0x2345, name='int', description='an integer',
-                        shape=(), format=[('i', 32)], value=i)
+            ig.add_item(
+                id=0x2345,
+                name="int",
+                description="an integer",
+                shape=(),
+                format=[("i", 32)],
+                value=i,
+            )
             item_groups.append(ig)
         self._test_item_groups(item_groups)
 
-    @pytest.mark.parametrize('size', [10, 20000])
-    @pytest.mark.parametrize('group_mode', [spead2.send.GroupMode.ROUND_ROBIN,
-                                            spead2.send.GroupMode.SERIAL])
+    @pytest.mark.parametrize("size", [10, 20000])
+    @pytest.mark.parametrize(
+        "group_mode", [spead2.send.GroupMode.ROUND_ROBIN, spead2.send.GroupMode.SERIAL]
+    )
     def test_group_modes(self, size, group_mode):
         # The interleaving and substream features are independent, but the
         # test framework is set up for one item group per substream.
@@ -326,21 +392,34 @@ class BaseTestPassthroughSubstreams(BaseTestPassthrough):
         for i in range(4):
             value = np.random.randint(0, 256, size=size).astype(np.uint8)
             ig = spead2.ItemGroup()
-            ig.add_item(id=0x2345, name='arr', description='a random array',
-                        shape=(size,), dtype='u8', value=value)
+            ig.add_item(
+                id=0x2345,
+                name="arr",
+                description="a random array",
+                shape=(size,),
+                dtype="u8",
+                value=value,
+            )
             item_groups.append(ig)
         self._test_item_groups(item_groups, group_mode=group_mode)
 
-    @pytest.mark.parametrize('group_mode', [spead2.send.GroupMode.ROUND_ROBIN,
-                                            spead2.send.GroupMode.SERIAL])
+    @pytest.mark.parametrize(
+        "group_mode", [spead2.send.GroupMode.ROUND_ROBIN, spead2.send.GroupMode.SERIAL]
+    )
     def test_group_modes_mixed_sizes(self, group_mode):
         sizes = [20000, 2000, 40000, 30000]
         item_groups = []
         for size in sizes:
             value = np.random.randint(0, 256, size=size).astype(np.uint8)
             ig = spead2.ItemGroup()
-            ig.add_item(id=0x2345, name='arr', description='a random array',
-                        shape=(size,), dtype='u8', value=value)
+            ig.add_item(
+                id=0x2345,
+                name="arr",
+                description="a random array",
+                shape=(size,),
+                dtype="u8",
+                value=value,
+            )
             item_groups.append(ig)
         self._test_item_groups(item_groups, group_mode=group_mode)
 
@@ -362,27 +441,31 @@ class TestPassthroughUdp(BaseTestPassthroughSubstreams):
         if n == 1:
             with pytest.deprecated_call():
                 return spead2.send.UdpStream(
-                    thread_pool, "localhost", 8888,
+                    thread_pool,
+                    "localhost",
+                    8888,
                     spead2.send.StreamConfig(rate=1e7),
-                    buffer_size=0)
+                    buffer_size=0,
+                )
         else:
             return spead2.send.UdpStream(
                 thread_pool,
                 [("localhost", 8888 + i) for i in range(n)],
                 spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0)
+                buffer_size=0,
+            )
 
     def test_empty_endpoints(self):
         with pytest.raises(ValueError):
-            spead2.send.UdpStream(
-                spead2.ThreadPool(), [], spead2.send.StreamConfig(rate=1e7))
+            spead2.send.UdpStream(spead2.ThreadPool(), [], spead2.send.StreamConfig(rate=1e7))
 
     def test_mixed_protocols(self):
         with pytest.raises(ValueError):
             spead2.send.UdpStream(
                 spead2.ThreadPool(),
-                [('127.0.0.1', 8888), ('::1', 8888)],
-                spead2.send.StreamConfig(rate=1e7))
+                [("127.0.0.1", 8888), ("::1", 8888)],
+                spead2.send.StreamConfig(rate=1e7),
+            )
 
 
 class TestPassthroughUdp6(BaseTestPassthroughSubstreams):
@@ -397,15 +480,15 @@ class TestPassthroughUdp6(BaseTestPassthroughSubstreams):
         if n == 1:
             with pytest.deprecated_call():
                 return spead2.send.UdpStream(
-                    thread_pool, "::1", 8888,
-                    spead2.send.StreamConfig(rate=1e7),
-                    buffer_size=0)
+                    thread_pool, "::1", 8888, spead2.send.StreamConfig(rate=1e7), buffer_size=0
+                )
         else:
             return spead2.send.UdpStream(
                 thread_pool,
                 [("::1", 8888 + i) for i in range(n)],
                 spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0)
+                buffer_size=0,
+            )
 
 
 class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreams):
@@ -418,7 +501,7 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreams):
             recv_sock.bind(("127.0.0.1", 0))
             self._ports.append(recv_sock.getsockname()[1])
             receiver.add_udp_reader(socket=recv_sock)
-            recv_sock.close()   # spead2 duplicates the socket
+            recv_sock.close()  # spead2 duplicates the socket
 
     def prepare_senders(self, thread_pool, n):
         assert len(self._ports) == n
@@ -426,56 +509,71 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreams):
         if n == 1:
             with pytest.deprecated_call():
                 sender = spead2.send.UdpStream(
-                    thread_pool, send_sock, "127.0.0.1", self._ports[0],
-                    spead2.send.StreamConfig(rate=1e7))
+                    thread_pool,
+                    send_sock,
+                    "127.0.0.1",
+                    self._ports[0],
+                    spead2.send.StreamConfig(rate=1e7),
+                )
         else:
             sender = spead2.send.UdpStream(
-                thread_pool, send_sock,
+                thread_pool,
+                send_sock,
                 [("127.0.0.1", port) for port in self._ports],
-                spead2.send.StreamConfig(rate=1e7))
-        send_sock.close()   # spead2 duplicates the socket
+                spead2.send.StreamConfig(rate=1e7),
+            )
+        send_sock.close()  # spead2 duplicates the socket
         return sender
 
 
 class TestPassthroughUdpMulticast(BaseTestPassthroughSubstreams):
     is_lossy = True
-    MCAST_GROUP = '239.255.88.88'
-    INTERFACE_ADDRESS = '127.0.0.1'
+    MCAST_GROUP = "239.255.88.88"
+    INTERFACE_ADDRESS = "127.0.0.1"
 
     def prepare_receivers(self, receivers):
         for i, receiver in enumerate(receivers):
             receiver.add_udp_reader(
-                self.MCAST_GROUP, 8887 - i, interface_address=self.INTERFACE_ADDRESS)
+                self.MCAST_GROUP, 8887 - i, interface_address=self.INTERFACE_ADDRESS
+            )
 
     def prepare_senders(self, thread_pool, n):
         if n == 1:
             with pytest.deprecated_call():
                 return spead2.send.UdpStream(
-                    thread_pool, self.MCAST_GROUP, 8887,
+                    thread_pool,
+                    self.MCAST_GROUP,
+                    8887,
                     spead2.send.StreamConfig(rate=1e7),
-                    buffer_size=0, ttl=1, interface_address=self.INTERFACE_ADDRESS)
+                    buffer_size=0,
+                    ttl=1,
+                    interface_address=self.INTERFACE_ADDRESS,
+                )
         else:
             return spead2.send.UdpStream(
                 thread_pool,
                 [(self.MCAST_GROUP, 8887 - i) for i in range(n)],
                 spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0, ttl=1, interface_address=self.INTERFACE_ADDRESS)
+                buffer_size=0,
+                ttl=1,
+                interface_address=self.INTERFACE_ADDRESS,
+            )
 
 
 class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
     requires_ipv6_multicast = True
-    MCAST_GROUP = 'ff14::1234'
+    MCAST_GROUP = "ff14::1234"
 
     @classmethod
     def get_interface_index(cls):
-        if not hasattr(socket, 'if_nametoindex'):
-            pytest.skip('socket.if_nametoindex does not exist')
+        if not hasattr(socket, "if_nametoindex"):
+            pytest.skip("socket.if_nametoindex does not exist")
         for iface in netifaces.interfaces():
             addrs = netifaces.ifaddresses(iface).get(netifaces.AF_INET6, [])
             for addr in addrs:
-                if addr['addr'] != '::1':
+                if addr["addr"] != "::1":
                     return socket.if_nametoindex(iface)
-        pytest.skip('could not find suitable interface for test')
+        pytest.skip("could not find suitable interface for test")
 
     def prepare_receivers(self, receivers):
         interface_index = self.get_interface_index()
@@ -487,33 +585,41 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
         if n == 1:
             with pytest.deprecated_call():
                 return spead2.send.UdpStream(
-                    thread_pool, self.MCAST_GROUP, 8887,
+                    thread_pool,
+                    self.MCAST_GROUP,
+                    8887,
                     spead2.send.StreamConfig(rate=1e7),
-                    buffer_size=0, ttl=0, interface_index=interface_index)
+                    buffer_size=0,
+                    ttl=0,
+                    interface_index=interface_index,
+                )
         else:
             return spead2.send.UdpStream(
                 thread_pool,
                 [(self.MCAST_GROUP, 8887 - i) for i in range(n)],
                 spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0, ttl=0, interface_index=interface_index)
+                buffer_size=0,
+                ttl=0,
+                interface_index=interface_index,
+            )
 
 
 class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
     is_lossy = True
-    MCAST_GROUP = '239.255.88.88'
+    MCAST_GROUP = "239.255.88.88"
 
     def _interface_address(self):
-        ifaddr = os.getenv('SPEAD2_TEST_IBV_INTERFACE_ADDRESS')
+        ifaddr = os.getenv("SPEAD2_TEST_IBV_INTERFACE_ADDRESS")
         if not ifaddr:
-            pytest.skip('Envar SPEAD2_TEST_IBV_INTERFACE_ADDRESS not set')
+            pytest.skip("Envar SPEAD2_TEST_IBV_INTERFACE_ADDRESS not set")
         return ifaddr
 
     def setup_method(self):
         # mlx5 drivers only enable multicast loopback if there are multiple
         # device contexts. The sender and receiver end up sharing one, so we
         # need to explicitly create another.
-        if not hasattr(spead2, 'IbvContext'):
-            pytest.skip('IBV support not compiled in')
+        if not hasattr(spead2, "IbvContext"):
+            pytest.skip("IBV support not compiled in")
         self._extra_context = spead2.IbvContext(self._interface_address())
 
     def teardown_method(self):
@@ -524,7 +630,9 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
             receiver.add_udp_ibv_reader(
                 spead2.recv.UdpIbvConfig(
                     endpoints=[(self.MCAST_GROUP, 8876 + i)],
-                    interface_address=self._interface_address()))
+                    interface_address=self._interface_address(),
+                )
+            )
 
     def prepare_senders(self, thread_pool, n):
         # The buffer size is deliberately reduced so that we test the
@@ -532,10 +640,13 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
         if n == 1:
             with pytest.deprecated_call():
                 return spead2.send.UdpIbvStream(
-                    thread_pool, self.MCAST_GROUP, 8876,
+                    thread_pool,
+                    self.MCAST_GROUP,
+                    8876,
                     spead2.send.StreamConfig(rate=1e7),
                     self._interface_address(),
-                    buffer_size=64 * 1024)
+                    buffer_size=64 * 1024,
+                )
         else:
             return spead2.send.UdpIbvStream(
                 thread_pool,
@@ -543,31 +654,38 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
                 spead2.send.UdpIbvConfig(
                     endpoints=[(self.MCAST_GROUP, 8876 + i) for i in range(n)],
                     interface_address=self._interface_address(),
-                    buffer_size=64 * 1024
-                )
+                    buffer_size=64 * 1024,
+                ),
             )
 
-    @pytest.mark.parametrize('num_items', [0, 1, 3, 4, 10])
+    @pytest.mark.parametrize("num_items", [0, 1, 3, 4, 10])
     def test_memory_regions(self, num_items):
         receiver = spead2.recv.Stream(spead2.ThreadPool(), spead2.recv.StreamConfig())
         receiver.add_udp_ibv_reader(
             spead2.recv.UdpIbvConfig(
-                endpoints=[(self.MCAST_GROUP, 8876)],
-                interface_address=self._interface_address()))
+                endpoints=[(self.MCAST_GROUP, 8876)], interface_address=self._interface_address()
+            )
+        )
 
         ig = spead2.send.ItemGroup()
         data = [np.random.randn(50) for i in range(num_items)]
         for i in range(num_items):
-            ig.add_item(id=0x2345 + i, name=f'name {i}', description=f'description {i}',
-                        shape=data[i].shape, dtype=data[i].dtype, value=data[i])
+            ig.add_item(
+                id=0x2345 + i,
+                name=f"name {i}",
+                description=f"description {i}",
+                shape=data[i].shape,
+                dtype=data[i].dtype,
+                value=data[i],
+            )
         sender = spead2.send.UdpIbvStream(
             spead2.ThreadPool(),
             spead2.send.StreamConfig(rate=1e7),
             spead2.send.UdpIbvConfig(
                 endpoints=[(self.MCAST_GROUP, 8876)],
                 interface_address=self._interface_address(),
-                memory_regions=data
-            )
+                memory_regions=data,
+            ),
         )
         sender.send_heap(ig.get_heap())
         sender.send_heap(ig.get_end())
@@ -612,8 +730,9 @@ class TestPassthroughTcp6(BaseTestPassthrough):
 
 
 class TestPassthroughMem(BaseTestPassthrough):
-    def transmit_item_groups(self, item_groups, *,
-                             memcpy, allocator, new_order='=', group_mode=None):
+    def transmit_item_groups(
+        self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
+    ):
         assert len(item_groups) == 1
         assert group_mode is None
         thread_pool = spead2.ThreadPool(2)
@@ -646,12 +765,17 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreams):
         else:
             return spead2.send.InprocStream(thread_pool, self._queues)
 
-    def transmit_item_groups(self, item_groups, *,
-                             memcpy, allocator, new_order='=', group_mode=None):
+    def transmit_item_groups(
+        self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
+    ):
         self._queues = [spead2.InprocQueue() for ig in item_groups]
         ret = super().transmit_item_groups(
-            item_groups, memcpy=memcpy, allocator=allocator,
-            new_order=new_order, group_mode=group_mode)
+            item_groups,
+            memcpy=memcpy,
+            allocator=allocator,
+            new_order=new_order,
+            group_mode=group_mode,
+        )
         for queue in self._queues:
             queue.stop()
         return ret

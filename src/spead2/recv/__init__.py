@@ -56,11 +56,11 @@ bytes, in the order they appeared in the original packet.
 
 from collections.abc import Sequence as _Sequence
 
-from spead2._spead2.recv import (           # noqa: F401
+from spead2._spead2.recv import (  # noqa: F401
     Chunk,
+    ChunkRingbuffer,
     ChunkRingPair,
     ChunkRingStream,
-    ChunkRingbuffer,
     ChunkStreamConfig,
     ChunkStreamGroupConfig,
     ChunkStreamGroupMember,
@@ -73,9 +73,11 @@ from spead2._spead2.recv import (           # noqa: F401
     StreamStatConfig,
     StreamStats,
 )
-from . import stream_stat_indices           # noqa: F401
+
+from . import stream_stat_indices  # noqa: F401
+
 try:
-    from spead2._spead2.recv import UdpIbvConfig      # noqa: F401
+    from spead2._spead2.recv import UdpIbvConfig  # noqa: F401
 except ImportError:
     pass
 

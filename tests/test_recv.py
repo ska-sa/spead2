@@ -13,10 +13,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import platform
 import socket
 import struct
 import sys
-import platform
 import time
 
 import numpy as np
@@ -36,9 +36,9 @@ class Item:
 
     def encode(self, heap_address_bits):
         if self.immediate:
-            return struct.pack('>Q', (1 << 63) | (self.id << heap_address_bits) | self.value)
+            return struct.pack(">Q", (1 << 63) | (self.id << heap_address_bits) | self.value)
         else:
-            return struct.pack('>Q', (self.id << heap_address_bits) | self.offset)
+            return struct.pack(">Q", (self.id << heap_address_bits) | self.offset)
 
 
 class Flavour:
@@ -49,22 +49,29 @@ class Flavour:
     def _encode_be(self, size, value):
         """Encodes `value` as big-endian in `size` bytes"""
         assert size <= 8
-        packed = struct.pack('>Q', value)
-        return packed[8 - size:]
+        packed = struct.pack(">Q", value)
+        return packed[8 - size :]
 
     def make_packet(self, items, payload):
         """Generate data for a packet at a low level. The value of non-immediate
         items are taken from the payload; the values in the objects are ignored.
         """
         data = []
-        data.append(struct.pack('>BBBBHH', 0x53, 0x4,
-                                (64 - self.heap_address_bits) // 8,
-                                self.heap_address_bits // 8, 0,
-                                len(items)))
+        data.append(
+            struct.pack(
+                ">BBBBHH",
+                0x53,
+                0x4,
+                (64 - self.heap_address_bits) // 8,
+                self.heap_address_bits // 8,
+                0,
+                len(items),
+            )
+        )
         for item in items:
             data.append(item.encode(self.heap_address_bits))
         data.append(bytes(payload))
-        return b''.join(data)
+        return b"".join(data)
 
     def make_format(self, format):
         if self.bug_compat & spead2.BUG_COMPAT_DESCRIPTOR_WIDTHS:
@@ -74,9 +81,9 @@ class Flavour:
         data = []
         for field in format:
             assert len(field[0]) == 1
-            data.append(field[0].encode('ascii'))
+            data.append(field[0].encode("ascii"))
             data.append(self._encode_be(field_size, field[1]))
-        return b''.join(data)
+        return b"".join(data)
 
     def make_shape(self, shape):
         if self.bug_compat & spead2.BUG_COMPAT_DESCRIPTOR_WIDTHS:
@@ -91,13 +98,13 @@ class Flavour:
         data = []
         for value in shape:
             if value is None:
-                data.append(struct.pack('>B', variable_marker))
+                data.append(struct.pack(">B", variable_marker))
                 data.append(self._encode_be(field_size - 1, 0))
             elif value >= 0:
                 data.append(self._encode_be(field_size, value))
             else:
-                raise ValueError('Shape must contain non-negative values and None')
-        return b''.join(data)
+                raise ValueError("Shape must contain non-negative values and None")
+        return b"".join(data)
 
     def make_packet_heap(self, heap_cnt, items, *, duplicate_item_pointers=False, packets=None):
         """Construct all the packets in a heap.
@@ -143,11 +150,12 @@ class Flavour:
                 Item(spead2.HEAP_CNT_ID, heap_cnt, True),
                 Item(spead2.PAYLOAD_OFFSET_ID, start, True),
                 Item(spead2.PAYLOAD_LENGTH_ID, stop - start, True),
-                Item(spead2.HEAP_LENGTH_ID, payload_size, True)]
+                Item(spead2.HEAP_LENGTH_ID, payload_size, True),
+            ]
             packet_items.extend(item_ptrs)
             if not duplicate_item_pointers:
                 item_ptrs.clear()  # Only put them in the first packet
-            out.append(self.make_packet(packet_items, payload[start : stop]))
+            out.append(self.make_packet(packet_items, payload[start:stop]))
         if packets is None:
             return out[0]
         else:
@@ -155,41 +163,51 @@ class Flavour:
 
     def make_plain_descriptor(self, id, name, description, format, shape):
         if not isinstance(name, bytes):
-            name = name.encode('ascii')
+            name = name.encode("ascii")
         if not isinstance(description, bytes):
-            description = description.encode('ascii')
-        return Item(spead2.DESCRIPTOR_ID, self.make_packet_heap(
-            1,
-            [
-                Item(spead2.DESCRIPTOR_ID_ID, id, True),
-                Item(spead2.DESCRIPTOR_NAME_ID, name),
-                Item(spead2.DESCRIPTOR_DESCRIPTION_ID, description),
-                Item(spead2.DESCRIPTOR_FORMAT_ID, self.make_format(format)),
-                Item(spead2.DESCRIPTOR_SHAPE_ID, self.make_shape(shape))
-            ]))
+            description = description.encode("ascii")
+        return Item(
+            spead2.DESCRIPTOR_ID,
+            self.make_packet_heap(
+                1,
+                [
+                    Item(spead2.DESCRIPTOR_ID_ID, id, True),
+                    Item(spead2.DESCRIPTOR_NAME_ID, name),
+                    Item(spead2.DESCRIPTOR_DESCRIPTION_ID, description),
+                    Item(spead2.DESCRIPTOR_FORMAT_ID, self.make_format(format)),
+                    Item(spead2.DESCRIPTOR_SHAPE_ID, self.make_shape(shape)),
+                ],
+            ),
+        )
 
     def make_numpy_descriptor_raw(self, id, name, description, header):
         if not isinstance(name, bytes):
-            name = name.encode('ascii')
+            name = name.encode("ascii")
         if not isinstance(description, bytes):
-            description = description.encode('ascii')
+            description = description.encode("ascii")
         if not isinstance(header, bytes):
-            header = header.encode('ascii')
-        return Item(spead2.DESCRIPTOR_ID, self.make_packet_heap(
-            1,
-            [
-                Item(spead2.DESCRIPTOR_ID_ID, id, True),
-                Item(spead2.DESCRIPTOR_NAME_ID, name),
-                Item(spead2.DESCRIPTOR_DESCRIPTION_ID, description),
-                Item(spead2.DESCRIPTOR_DTYPE_ID, header)
-            ]))
+            header = header.encode("ascii")
+        return Item(
+            spead2.DESCRIPTOR_ID,
+            self.make_packet_heap(
+                1,
+                [
+                    Item(spead2.DESCRIPTOR_ID_ID, id, True),
+                    Item(spead2.DESCRIPTOR_NAME_ID, name),
+                    Item(spead2.DESCRIPTOR_DESCRIPTION_ID, description),
+                    Item(spead2.DESCRIPTOR_DTYPE_ID, header),
+                ],
+            ),
+        )
 
     def make_numpy_descriptor(self, id, name, description, dtype, shape, fortran_order=False):
-        header = str({
-            'descr': np.lib.format.dtype_to_descr(np.dtype(dtype)),
-            'fortran_order': bool(fortran_order),
-            'shape': tuple(shape)
-        })
+        header = str(
+            {
+                "descr": np.lib.format.dtype_to_descr(np.dtype(dtype)),
+                "fortran_order": bool(fortran_order),
+                "shape": tuple(shape),
+            }
+        )
         return self.make_numpy_descriptor_raw(id, name, description, header)
 
     def make_numpy_descriptor_from(self, id, name, description, array):
@@ -198,9 +216,10 @@ class Flavour:
         elif array.flags.f_contiguous:
             fortran_order = True
         else:
-            raise ValueError('Array must be C or Fortran-order contiguous')
+            raise ValueError("Array must be C or Fortran-order contiguous")
         return self.make_numpy_descriptor(
-            id, name, description, array.dtype, array.shape, fortran_order)
+            id, name, description, array.dtype, array.shape, fortran_order
+        )
 
 
 FLAVOUR = Flavour(48)
@@ -220,15 +239,20 @@ class TestDecode:
         thread_pool = spead2.ThreadPool()
         config = recv.StreamConfig(bug_compat=self.flavour.bug_compat)
         ring_config = recv.RingStreamConfig()
-        for key in {'stop_on_stop_item', 'allow_unsized_heaps', 'allow_out_of_order',
-                    'max_heaps', 'substreams'}:
+        for key in {
+            "stop_on_stop_item",
+            "allow_unsized_heaps",
+            "allow_out_of_order",
+            "max_heaps",
+            "substreams",
+        }:
             if key in kwargs:
                 setattr(config, key, kwargs.pop(key))
-        for key in {'contiguous_only', 'incomplete_keep_payload_ranges'}:
+        for key in {"contiguous_only", "incomplete_keep_payload_ranges"}:
             if key in kwargs:
                 setattr(ring_config, key, kwargs.pop(key))
         if kwargs:
-            raise ValueError(f'Unexpected keyword arguments ({kwargs})')
+            raise ValueError(f"Unexpected keyword arguments ({kwargs})")
         stream = recv.Stream(thread_pool, config, ring_config)
         stream.add_buffer_reader(data)
         return list(stream)
@@ -259,9 +283,11 @@ class TestDecode:
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_scalar_int', 'a scalar integer', [('i', 32)], []),
-                Item(0x1234, struct.pack('>i', -123456789))
-            ])
+                    0x1234, "test_scalar_int", "a scalar integer", [("i", 32)], []
+                ),
+                Item(0x1234, struct.pack(">i", -123456789)),
+            ],
+        )
         item = self.data_to_item(packet, 0x1234)
         assert isinstance(item.value, np.int32)
         assert item.value == -123456789
@@ -271,9 +297,11 @@ class TestDecode:
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_scalar_int', 'a scalar integer', [('u', 32)], []),
-                Item(0x1234, 0x12345678, True)
-            ])
+                    0x1234, "test_scalar_int", "a scalar integer", [("u", 32)], []
+                ),
+                Item(0x1234, 0x12345678, True),
+            ],
+        )
         item = self.data_to_item(packet, 0x1234)
         assert isinstance(item.value, np.uint32)
         assert item.value == 0x12345678
@@ -283,15 +311,19 @@ class TestDecode:
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_scalar_uint', 'a scalar integer', [('u', 48)], []),
+                    0x1234, "test_scalar_uint", "a scalar integer", [("u", 48)], []
+                ),
                 self.flavour.make_plain_descriptor(
-                    0x1235, 'test_scalar_positive', 'a positive scalar integer', [('i', 48)], []),
+                    0x1235, "test_scalar_positive", "a positive scalar integer", [("i", 48)], []
+                ),
                 self.flavour.make_plain_descriptor(
-                    0x1236, 'test_scalar_negative', 'a negative scalar integer', [('i', 48)], []),
+                    0x1236, "test_scalar_negative", "a negative scalar integer", [("i", 48)], []
+                ),
                 Item(0x1234, 0x9234567890AB, True),
                 Item(0x1235, 0x1234567890AB, True),
-                Item(0x1236, 0x9234567890AB, True)
-            ])
+                Item(0x1236, 0x9234567890AB, True),
+            ],
+        )
         ig = self.data_to_ig(packet)
         assert len(ig) == 3
         assert ig[0x1234].value == 0x9234567890AB
@@ -303,20 +335,24 @@ class TestDecode:
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_string', 'a byte string', [('c', 8)], [None]),
-                Item(0x1234, b'Hello world')
-            ])
+                    0x1234, "test_string", "a byte string", [("c", 8)], [None]
+                ),
+                Item(0x1234, b"Hello world"),
+            ],
+        )
         item = self.data_to_item(packet, 0x1234)
-        assert item.value == 'Hello world'
+        assert item.value == "Hello world"
 
     def test_array(self):
         packet = self.flavour.make_packet_heap(
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_array', 'an array of floats', [('f', 32)], (3, 2)),
-                Item(0x1234, struct.pack('>6f', *np.arange(1.5, 7.5)))
-            ])
+                    0x1234, "test_array", "an array of floats", [("f", 32)], (3, 2)
+                ),
+                Item(0x1234, struct.pack(">6f", *np.arange(1.5, 7.5))),
+            ],
+        )
         item = self.data_to_item(packet, 0x1234)
         expected = np.array([[1.5, 2.5], [3.5, 4.5], [5.5, 6.5]], dtype=np.float32)
         np.testing.assert_equal(expected, item.value)
@@ -326,11 +362,13 @@ class TestDecode:
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_array', 'an array of floats', [('f', 32), ('i', 8)], (3,)),
-                Item(0x1234, struct.pack('>fbfbfb', 1.5, 1, 2.5, 2, 4.5, -4))
-            ])
+                    0x1234, "test_array", "an array of floats", [("f", 32), ("i", 8)], (3,)
+                ),
+                Item(0x1234, struct.pack(">fbfbfb", 1.5, 1, 2.5, 2, 4.5, -4)),
+            ],
+        )
         item = self.data_to_item(packet, 0x1234)
-        dtype = np.dtype('=f4,i1')
+        dtype = np.dtype("=f4,i1")
         assert item.value.dtype == dtype
         expected = np.array([(1.5, 1), (2.5, 2), (4.5, -4)], dtype=dtype)
         np.testing.assert_equal(expected, item.value)
@@ -346,9 +384,11 @@ class TestDecode:
             1,
             [
                 self.flavour.make_numpy_descriptor_from(
-                    0x1234, 'test_array_numpy', 'an array of floats', expected),
-                Item(0x1234, send.data)
-            ])
+                    0x1234, "test_array_numpy", "an array of floats", expected
+                ),
+                Item(0x1234, send.data),
+            ],
+        )
         item = self.data_to_item(packet, 0x1234)
         assert item.value.dtype == expected.dtype
         np.testing.assert_equal(expected, item.value)
@@ -365,9 +405,11 @@ class TestDecode:
             1,
             [
                 self.flavour.make_numpy_descriptor_from(
-                    0x1234, 'test_array_numpy_fortran', 'an array of floats', expected),
-                Item(0x1234, np.ravel(send, 'K').data)
-            ])
+                    0x1234, "test_array_numpy_fortran", "an array of floats", expected
+                ),
+                Item(0x1234, np.ravel(send, "K").data),
+            ],
+        )
         item = self.data_to_item(packet, 0x1234)
         assert item.value.dtype == expected.dtype
         np.testing.assert_equal(expected, item.value)
@@ -378,9 +420,11 @@ class TestDecode:
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_fallback_uint', 'an array of 12-bit uints', [('u', 12)], (3,)),
-                Item(0x1234, b'\xAB\xCD\xEF\x12\x30')
-            ])
+                    0x1234, "test_fallback_uint", "an array of 12-bit uints", [("u", 12)], (3,)
+                ),
+                Item(0x1234, b"\xAB\xCD\xEF\x12\x30"),
+            ],
+        )
         item = self.data_to_item(packet, 0x1234)
         np.testing.assert_equal(expected, item.value)
 
@@ -390,22 +434,29 @@ class TestDecode:
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_fallback_uint', 'an array of 12-bit ints', [('i', 12)], (3,)),
-                Item(0x1234, b'\xAB\xCD\xEF\x12\x30')
-            ])
+                    0x1234, "test_fallback_uint", "an array of 12-bit ints", [("i", 12)], (3,)
+                ),
+                Item(0x1234, b"\xAB\xCD\xEF\x12\x30"),
+            ],
+        )
         item = self.data_to_item(packet, 0x1234)
         np.testing.assert_equal(expected, item.value)
 
     def test_fallback_types(self):
-        expected = np.array([(True, 17, 'y', 1.0), (False, -23, 'n', -1.0)], dtype='O,O,S1,>f4')
+        expected = np.array([(True, 17, "y", 1.0), (False, -23, "n", -1.0)], dtype="O,O,S1,>f4")
         packet = self.flavour.make_packet_heap(
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_fallback_uint', 'an array with bools, int, chars and floats',
-                    [('b', 1), ('i', 7), ('c', 8), ('f', 32)], (2,)),
-                Item(0x1234, b'\x91y\x3F\x80\x00\x00' + b'\x69n\xBF\x80\x00\x00')
-            ])
+                    0x1234,
+                    "test_fallback_uint",
+                    "an array with bools, int, chars and floats",
+                    [("b", 1), ("i", 7), ("c", 8), ("f", 32)],
+                    (2,),
+                ),
+                Item(0x1234, b"\x91y\x3F\x80\x00\x00" + b"\x69n\xBF\x80\x00\x00"),
+            ],
+        )
         item = self.data_to_item(packet, 0x1234)
         np.testing.assert_equal(expected, item.value)
 
@@ -415,21 +466,21 @@ class TestDecode:
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_fallback_scalar', 'a scalar with unusual type',
-                    [('u', 48)], ()),
-                Item(0x1234, b'\x12\x34\x56\x78\x90\xAB')
-            ])
+                    0x1234, "test_fallback_scalar", "a scalar with unusual type", [("u", 48)], ()
+                ),
+                Item(0x1234, b"\x12\x34\x56\x78\x90\xAB"),
+            ],
+        )
         item = self.data_to_item(packet, 0x1234)
         assert item.value == expected
 
     def test_duplicate_item_pointers(self):
         payload = bytearray(64)
         payload[:] = range(64)
-        packets = self.flavour.make_packet_heap(1, [
-            Item(0x1600, 12345, True),
-            Item(0x5000, payload, False)],
-            packets=2)
-        heaps = self.data_to_heaps(b''.join(packets))
+        packets = self.flavour.make_packet_heap(
+            1, [Item(0x1600, 12345, True), Item(0x5000, payload, False)], packets=2
+        )
+        heaps = self.data_to_heaps(b"".join(packets))
         assert len(heaps) == 1
         items = heaps[0].get_items()
         assert len(items) == 2
@@ -444,11 +495,12 @@ class TestDecode:
     def test_out_of_order_packets(self):
         payload = bytearray(64)
         payload[:] = range(64)
-        packets = self.flavour.make_packet_heap(1, [
-            Item(0x1600, 12345, True),
-            Item(0x5000, payload, False)],
-            packets=[(32, 64), (0, 32)])
-        heaps = self.data_to_heaps(b''.join(packets), allow_out_of_order=True)
+        packets = self.flavour.make_packet_heap(
+            1,
+            [Item(0x1600, 12345, True), Item(0x5000, payload, False)],
+            packets=[(32, 64), (0, 32)],
+        )
+        heaps = self.data_to_heaps(b"".join(packets), allow_out_of_order=True)
         assert len(heaps) == 1
         items = heaps[0].get_items()
         assert len(items) == 2
@@ -463,13 +515,14 @@ class TestDecode:
     def test_out_of_order_disallowed(self):
         payload = bytearray(64)
         payload[:] = range(64)
-        packets = self.flavour.make_packet_heap(1, [
-            Item(0x1600, 12345, True),
-            Item(0x5000, payload, False)],
-            packets=[(32, 64), (0, 32)])
-        heaps = self.data_to_heaps(b''.join(packets),
-                                   contiguous_only=False,
-                                   incomplete_keep_payload_ranges=True)
+        packets = self.flavour.make_packet_heap(
+            1,
+            [Item(0x1600, 12345, True), Item(0x5000, payload, False)],
+            packets=[(32, 64), (0, 32)],
+        )
+        heaps = self.data_to_heaps(
+            b"".join(packets), contiguous_only=False, incomplete_keep_payload_ranges=True
+        )
         assert len(heaps) == 1
         items = heaps[0].get_items()
         assert items == []
@@ -480,20 +533,20 @@ class TestDecode:
     def test_substreams(self):
         payload = bytearray(64)
         payload[:] = range(64)
-        stream0_packets = self.flavour.make_packet_heap(2, [
-            Item(0x1600, 12345, True),
-            Item(0x5000, payload, False)],
-            packets=2)
+        stream0_packets = self.flavour.make_packet_heap(
+            2, [Item(0x1600, 12345, True), Item(0x5000, payload, False)], packets=2
+        )
         stream1_packets = []
         for i in range(3, 20, 2):
-            stream1_packets.extend(self.flavour.make_packet_heap(i, [
-                Item(0x1600, 54321, True),
-                Item(0x5001, payload, False)],
-                packets=2))
+            stream1_packets.extend(
+                self.flavour.make_packet_heap(
+                    i, [Item(0x1600, 54321, True), Item(0x5001, payload, False)], packets=2
+                )
+            )
         # Interleave the packets from stream 1 into the middle of the substream
         # 0 packet.
         packets = stream0_packets[0:1] + stream1_packets + stream0_packets[1:]
-        heaps = self.data_to_heaps(b''.join(packets), substreams=2)
+        heaps = self.data_to_heaps(b"".join(packets), substreams=2)
         assert len(heaps) == 10
         assert heaps[-1].cnt == 2
         items = heaps[-1].get_items()
@@ -505,18 +558,21 @@ class TestDecode:
     def test_incomplete_heaps(self):
         payload = bytearray(96)
         payload[:] = range(96)
-        packets = self.flavour.make_packet_heap(1, [
-            Item(0x1600, 12345, True),
-            Item(0x5000, payload, False)],
-            packets=[(5, 12), (32, 64)])
-        heaps = self.data_to_heaps(b''.join(packets),
-                                   contiguous_only=False,
-                                   incomplete_keep_payload_ranges=True,
-                                   allow_out_of_order=True)
+        packets = self.flavour.make_packet_heap(
+            1,
+            [Item(0x1600, 12345, True), Item(0x5000, payload, False)],
+            packets=[(5, 12), (32, 64)],
+        )
+        heaps = self.data_to_heaps(
+            b"".join(packets),
+            contiguous_only=False,
+            incomplete_keep_payload_ranges=True,
+            allow_out_of_order=True,
+        )
         assert len(heaps) == 1
         assert isinstance(heaps[0], recv.IncompleteHeap)
         items = heaps[0].get_items()
-        assert len(items) == 1        # Addressed item must be excluded
+        assert len(items) == 1  # Addressed item must be excluded
         assert items[0].id == 0x1600
         assert heaps[0].heap_length == 96
         assert heaps[0].received_length == 39
@@ -524,51 +580,55 @@ class TestDecode:
 
     def test_is_start_of_stream(self):
         packet = self.flavour.make_packet_heap(
-            1,
-            [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_START, immediate=True)])
+            1, [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_START, immediate=True)]
+        )
         heaps = self.data_to_heaps(packet)
         assert heaps[0].is_start_of_stream() is True
 
         packet = self.flavour.make_packet_heap(
-            1,
-            [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_DESCRIPTOR_REISSUE, immediate=True)])
+            1, [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_DESCRIPTOR_REISSUE, immediate=True)]
+        )
         heaps = self.data_to_heaps(packet)
         assert heaps[0].is_start_of_stream() is False
 
     def test_is_end_of_stream(self):
         packet = self.flavour.make_packet_heap(
-            1,
-            [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_STOP, immediate=True)])
+            1, [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_STOP, immediate=True)]
+        )
         heaps = self.data_to_heaps(packet, stop_on_stop_item=False)
         assert heaps[0].is_end_of_stream() is True
         assert heaps[0].is_start_of_stream() is False
 
     def test_no_stop_on_stop_item(self):
         packet1 = self.flavour.make_packet_heap(
-            1,
-            [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_STOP, immediate=True)])
+            1, [Item(spead2.STREAM_CTRL_ID, spead2.CTRL_STREAM_STOP, immediate=True)]
+        )
         packet2 = self.flavour.make_packet_heap(
             2,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_string', 'a byte string', [('c', 8)], [None]),
-                Item(0x1234, b'Hello world')
-            ])
+                    0x1234, "test_string", "a byte string", [("c", 8)], [None]
+                ),
+                Item(0x1234, b"Hello world"),
+            ],
+        )
         heaps = self.data_to_heaps(packet1 + packet2, stop_on_stop_item=False)
         assert len(heaps) == 2
         ig = spead2.ItemGroup()
         ig.update(heaps[0])
         ig.update(heaps[1])
-        assert ig['test_string'].value == 'Hello world'
+        assert ig["test_string"].value == "Hello world"
 
     def test_size_mismatch(self):
         packet = self.flavour.make_packet_heap(
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'bad', 'an item with insufficient data', [('u', 32)], (5, 5)),
-                Item(0x1234, b'\0' * 99)
-            ])
+                    0x1234, "bad", "an item with insufficient data", [("u", 32)], (5, 5)
+                ),
+                Item(0x1234, b"\0" * 99),
+            ],
+        )
         heaps = self.data_to_heaps(packet)
         assert len(heaps) == 1
         ig = spead2.ItemGroup()
@@ -579,14 +639,16 @@ class TestDecode:
         """numpy dtypes can contain Python objects (by pointer). These can't be
         used for SPEAD.
         """
-        dtype = np.dtype('f4,O')
+        dtype = np.dtype("f4,O")
         packet = self.flavour.make_packet_heap(
             1,
             [
                 self.flavour.make_numpy_descriptor(
-                    0x1234, 'object', 'an item with object pointers', dtype, (5,)),
-                Item(0x1234, b'?' * 100)
-            ])
+                    0x1234, "object", "an item with object pointers", dtype, (5,)
+                ),
+                Item(0x1234, b"?" * 100),
+            ],
+        )
         heaps = self.data_to_heaps(packet)
         assert len(heaps) == 1
         ig = spead2.ItemGroup()
@@ -600,9 +662,11 @@ class TestDecode:
             1,
             [
                 self.flavour.make_numpy_descriptor(
-                    0x1234, 'empty', 'an item with zero-byte dtype', dtype, (5,)),
-                Item(0x1234, b'')
-            ])
+                    0x1234, "empty", "an item with zero-byte dtype", dtype, (5,)
+                ),
+                Item(0x1234, b""),
+            ],
+        )
         heaps = self.data_to_heaps(packet)
         assert len(heaps) == 1
         ig = spead2.ItemGroup()
@@ -611,27 +675,26 @@ class TestDecode:
 
     def test_numpy_malformed(self):
         """Malformed numpy header must raise :py:exc:`ValueError`."""
+
         def helper(header):
             packet = self.flavour.make_packet_heap(
-                1,
-                [
-                    self.flavour.make_numpy_descriptor_raw(
-                        0x1234, 'name', 'description', header)
-                ])
+                1, [self.flavour.make_numpy_descriptor_raw(0x1234, "name", "description", header)]
+            )
             heaps = self.data_to_heaps(packet)
             assert len(heaps) == 1
             ig = spead2.ItemGroup()
             with pytest.raises(ValueError):
                 ig.update(heaps[0])
-        helper("{'descr': 'S1'")   # Syntax error: no closing brace
-        helper("123")              # Not a dictionary
-        helper("import os")        # Security check
+
+        helper("{'descr': 'S1'")  # Syntax error: no closing brace
+        helper("123")  # Not a dictionary
+        helper("import os")  # Security check
         helper("{'descr': 'S1'}")  # Missing keys
         helper("{'descr': 'S1', 'fortran_order': False, 'shape': (), 'foo': 'bar'}")  # Extra keys
-        helper("{'descr': 'S1', 'fortran_order': False, 'shape': (-1,)}")    # Bad shape
-        helper("{'descr': 1, 'fortran_order': False, 'shape': ()}")          # Bad descriptor
-        helper("{'descr': '+-', 'fortran_order': False, 'shape': ()}")       # Bad descriptor
-        helper("{'descr': 'S1', 'fortran_order': 0, 'shape': ()}")           # Bad fortran_order
+        helper("{'descr': 'S1', 'fortran_order': False, 'shape': (-1,)}")  # Bad shape
+        helper("{'descr': 1, 'fortran_order': False, 'shape': ()}")  # Bad descriptor
+        helper("{'descr': '+-', 'fortran_order': False, 'shape': ()}")  # Bad descriptor
+        helper("{'descr': 'S1', 'fortran_order': 0, 'shape': ()}")  # Bad fortran_order
         helper("{'descr': 'S1', 'fortran_order': False, 'shape': (None,)}")  # Bad shape
 
     def test_nonascii_value(self):
@@ -641,9 +704,11 @@ class TestDecode:
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, 'test_string', 'a byte string', [('c', 8)], [None]),
-                Item(0x1234, '\u0200'.encode())
-            ])
+                    0x1234, "test_string", "a byte string", [("c", 8)], [None]
+                ),
+                Item(0x1234, "\u0200".encode()),
+            ],
+        )
         heaps = self.data_to_heaps(packet)
         ig = spead2.ItemGroup()
         with pytest.raises(UnicodeDecodeError):
@@ -656,8 +721,10 @@ class TestDecode:
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, b'\xEF', 'a byte string', [('c', 8)], [None])
-            ])
+                    0x1234, b"\xEF", "a byte string", [("c", 8)], [None]
+                )
+            ],
+        )
         heaps = self.data_to_heaps(packet)
         ig = spead2.ItemGroup()
         with pytest.raises(UnicodeDecodeError):
@@ -667,11 +734,8 @@ class TestDecode:
         """Receiving non-ASCII characters in an item description must raise
         :py:exc:`UnicodeDecodeError`."""
         packet = self.flavour.make_packet_heap(
-            1,
-            [
-                self.flavour.make_plain_descriptor(
-                    0x1234, 'name', b'\xEF', [('c', 8)], [None])
-            ])
+            1, [self.flavour.make_plain_descriptor(0x1234, "name", b"\xEF", [("c", 8)], [None])]
+        )
         heaps = self.data_to_heaps(packet)
         ig = spead2.ItemGroup()
         with pytest.raises(UnicodeDecodeError):
@@ -688,14 +752,18 @@ class TestDecode:
                 Item(spead2.HEAP_CNT_ID, 1, True),
                 Item(0x1000, None, False, offset=0),
                 Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
-                Item(spead2.PAYLOAD_LENGTH_ID, 64, True)
-            ], payload1)
+                Item(spead2.PAYLOAD_LENGTH_ID, 64, True),
+            ],
+            payload1,
+        )
         packet2 = self.flavour.make_packet(
             [
                 Item(spead2.HEAP_CNT_ID, 1, True),
                 Item(spead2.PAYLOAD_OFFSET_ID, 64, True),
-                Item(spead2.PAYLOAD_LENGTH_ID, 32, True)
-            ], payload2)
+                Item(spead2.PAYLOAD_LENGTH_ID, 32, True),
+            ],
+            payload2,
+        )
         heaps = self.data_to_heaps(packet1 + packet2)
         assert len(heaps) == 1
         raw_items = heaps[0].get_items()
@@ -709,13 +777,15 @@ class TestDecode:
                 Item(spead2.HEAP_CNT_ID, 1, True),
                 Item(0x1000, None, False, offset=0),
                 Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
-                Item(spead2.PAYLOAD_LENGTH_ID, 64, True)
-            ], bytes(np.arange(0, 64, dtype=np.uint8).data))
-        with caplog.at_level('INFO', 'spead2'):
+                Item(spead2.PAYLOAD_LENGTH_ID, 64, True),
+            ],
+            bytes(np.arange(0, 64, dtype=np.uint8).data),
+        )
+        with caplog.at_level("INFO", "spead2"):
             heaps = self.data_to_heaps(packet, allow_unsized_heaps=False)
             # Logging is asynchronous, so we have to give it a bit of time
             time.sleep(0.1)
-        assert caplog.messages == ['packet rejected because it has no HEAP_LEN']
+        assert caplog.messages == ["packet rejected because it has no HEAP_LEN"]
         assert len(heaps) == 0
 
     def test_bad_offset(self):
@@ -726,8 +796,10 @@ class TestDecode:
                 Item(spead2.HEAP_LENGTH_ID, 64, True),
                 Item(spead2.PAYLOAD_OFFSET_ID, 0, True),
                 Item(spead2.PAYLOAD_LENGTH_ID, 64, True),
-                Item(0x1000, None, False, offset=65)
-            ], b'\0' * 64)
+                Item(0x1000, None, False, offset=65),
+            ],
+            b"\0" * 64,
+        )
         heaps = self.data_to_heaps(packet)
         assert len(heaps) == 0
 
@@ -736,15 +808,15 @@ class TestStreamConfig:
     """Tests for :class:`spead2.recv.StreamConfig`."""
 
     expected_stats = [
-        recv.StreamStatConfig('heaps'),
-        recv.StreamStatConfig('incomplete_heaps_evicted'),
-        recv.StreamStatConfig('incomplete_heaps_flushed'),
-        recv.StreamStatConfig('packets'),
-        recv.StreamStatConfig('batches'),
-        recv.StreamStatConfig('max_batch', recv.StreamStatConfig.Mode.MAXIMUM),
-        recv.StreamStatConfig('single_packet_heaps'),
-        recv.StreamStatConfig('search_dist'),
-        recv.StreamStatConfig('worker_blocked')
+        recv.StreamStatConfig("heaps"),
+        recv.StreamStatConfig("incomplete_heaps_evicted"),
+        recv.StreamStatConfig("incomplete_heaps_flushed"),
+        recv.StreamStatConfig("packets"),
+        recv.StreamStatConfig("batches"),
+        recv.StreamStatConfig("max_batch", recv.StreamStatConfig.Mode.MAXIMUM),
+        recv.StreamStatConfig("single_packet_heaps"),
+        recv.StreamStatConfig("search_dist"),
+        recv.StreamStatConfig("worker_blocked"),
     ]
 
     def test_default_construct(self):
@@ -786,7 +858,7 @@ class TestStreamConfig:
             stop_on_stop_item=False,
             allow_unsized_heaps=False,
             allow_out_of_order=True,
-            stream_id=123
+            stream_id=123,
         )
         assert config.max_heaps == 5
         assert config.bug_compat == spead2.BUG_COMPAT_PYSPEAD_0_5_2
@@ -803,7 +875,7 @@ class TestStreamConfig:
 
     def test_bad_bug_compat(self):
         with pytest.raises(ValueError):
-            recv.StreamConfig(bug_compat=0xff)
+            recv.StreamConfig(bug_compat=0xFF)
 
     def test_bad_kwarg(self):
         with pytest.raises(TypeError):
@@ -812,22 +884,22 @@ class TestStreamConfig:
     def test_stats(self):
         config = recv.StreamConfig()
         base_index = config.next_stat_index()
-        counter_index = config.add_stat('counter')
-        maximum_index = config.add_stat('maximum', recv.StreamStatConfig.Mode.MAXIMUM)
+        counter_index = config.add_stat("counter")
+        maximum_index = config.add_stat("maximum", recv.StreamStatConfig.Mode.MAXIMUM)
         assert config.stats == self.expected_stats + [
-            recv.StreamStatConfig('counter', recv.StreamStatConfig.Mode.COUNTER),
-            recv.StreamStatConfig('maximum', recv.StreamStatConfig.Mode.MAXIMUM)
+            recv.StreamStatConfig("counter", recv.StreamStatConfig.Mode.COUNTER),
+            recv.StreamStatConfig("maximum", recv.StreamStatConfig.Mode.MAXIMUM),
         ]
         assert counter_index == base_index
-        assert config.get_stat_index('counter') == counter_index
-        assert config.get_stat_index('maximum') == maximum_index
+        assert config.get_stat_index("counter") == counter_index
+        assert config.get_stat_index("maximum") == maximum_index
         with pytest.raises(IndexError):
-            config.get_stat_index('does_not_exist')
+            config.get_stat_index("does_not_exist")
         # Can't add duplicates
         with pytest.raises(ValueError):
-            config.add_stat('heaps')
+            config.add_stat("heaps")
         with pytest.raises(ValueError):
-            config.add_stat('counter')
+            config.add_stat("counter")
 
 
 class TestRingStreamConfig:
@@ -854,12 +926,12 @@ class TestRingStreamConfig:
             recv.RingStreamConfig(heaps=0)
 
 
-@pytest.mark.skipif(not hasattr(spead2, 'IbvContext'), reason='IBV support not compiled in')
+@pytest.mark.skipif(not hasattr(spead2, "IbvContext"), reason="IBV support not compiled in")
 class TestUdpIbvConfig:
     def test_default_construct(self):
         config = recv.UdpIbvConfig()
         assert config.endpoints == []
-        assert config.interface_address == ''
+        assert config.interface_address == ""
         assert config.buffer_size == recv.UdpIbvConfig.DEFAULT_BUFFER_SIZE
         assert config.max_size == recv.UdpIbvConfig.DEFAULT_MAX_SIZE
         assert config.comp_vector == 0
@@ -867,14 +939,15 @@ class TestUdpIbvConfig:
 
     def test_kwargs_construct(self):
         config = recv.UdpIbvConfig(
-            endpoints=[('hello', 1234), ('goodbye', 2345)],
-            interface_address='1.2.3.4',
+            endpoints=[("hello", 1234), ("goodbye", 2345)],
+            interface_address="1.2.3.4",
             buffer_size=100,
             max_size=4321,
             comp_vector=-1,
-            max_poll=1000)
-        assert config.endpoints == [('hello', 1234), ('goodbye', 2345)]
-        assert config.interface_address == '1.2.3.4'
+            max_poll=1000,
+        )
+        assert config.endpoints == [("hello", 1234), ("goodbye", 2345)]
+        assert config.interface_address == "1.2.3.4"
         assert config.buffer_size == 100
         assert config.max_size == 4321
         assert config.comp_vector == -1
@@ -898,50 +971,41 @@ class TestUdpIbvConfig:
             config.max_size = 0
 
     def test_no_endpoints(self):
-        config = recv.UdpIbvConfig(interface_address='10.0.0.1')
-        stream = recv.Stream(
-            spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
-        with pytest.raises(ValueError, match='endpoints is empty'):
+        config = recv.UdpIbvConfig(interface_address="10.0.0.1")
+        stream = recv.Stream(spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
+        with pytest.raises(ValueError, match="endpoints is empty"):
             stream.add_udp_ibv_reader(config)
 
     def test_ipv6_endpoints(self):
-        config = recv.UdpIbvConfig(
-            endpoints=[('::1', 8888)],
-            interface_address='10.0.0.1')
-        stream = recv.Stream(
-            spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
-        with pytest.raises(ValueError, match='endpoint is not an IPv4 address'):
+        config = recv.UdpIbvConfig(endpoints=[("::1", 8888)], interface_address="10.0.0.1")
+        stream = recv.Stream(spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
+        with pytest.raises(ValueError, match="endpoint is not an IPv4 address"):
             stream.add_udp_ibv_reader(config)
 
     def test_no_interface_address(self):
-        config = recv.UdpIbvConfig(
-            endpoints=[('239.255.88.88', 8888)])
-        stream = recv.Stream(
-            spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
-        with pytest.raises(ValueError, match='interface address'):
+        config = recv.UdpIbvConfig(endpoints=[("239.255.88.88", 8888)])
+        stream = recv.Stream(spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
+        with pytest.raises(ValueError, match="interface address"):
             stream.add_udp_ibv_reader(config)
 
     def test_bad_interface_address(self):
         config = recv.UdpIbvConfig(
-            endpoints=[('239.255.88.88', 8888)],
-            interface_address='this is not an interface address')
-        stream = recv.Stream(
-            spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
-        with pytest.raises(RuntimeError, match='Host not found'):
+            endpoints=[("239.255.88.88", 8888)],
+            interface_address="this is not an interface address",
+        )
+        stream = recv.Stream(spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
+        with pytest.raises(RuntimeError, match="Host not found"):
             stream.add_udp_ibv_reader(config)
 
     def test_ipv6_interface_address(self):
-        config = recv.UdpIbvConfig(
-            endpoints=[('239.255.88.88', 8888)],
-            interface_address='::1')
-        stream = recv.Stream(
-            spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
-        with pytest.raises(ValueError, match='interface address'):
+        config = recv.UdpIbvConfig(endpoints=[("239.255.88.88", 8888)], interface_address="::1")
+        stream = recv.Stream(spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
+        with pytest.raises(ValueError, match="interface address"):
             stream.add_udp_ibv_reader(config)
 
     @pytest.mark.skipif(
-        platform.python_implementation() == 'PyPy',
-        reason='Deprecations not being report on PyPy due to pybind/pybind11#3110'
+        platform.python_implementation() == "PyPy",
+        reason="Deprecations not being report on PyPy due to pybind/pybind11#3110",
     )
     def test_deprecated_constants(self):
         with pytest.deprecated_call():
@@ -965,11 +1029,17 @@ class TestStream:
         sender = send.BytesStream(thread_pool)
         ig = send.ItemGroup()
         data = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.uint16)
-        ig.add_item(id=0x2345, name='name', description='description',
-                    shape=data.shape, dtype=data.dtype, value=data)
+        ig.add_item(
+            id=0x2345,
+            name="name",
+            description="description",
+            shape=data.shape,
+            dtype=data.dtype,
+            value=data,
+        )
         gen = send.HeapGenerator(ig)
         for i in range(10):
-            sender.send_heap(gen.get_heap(data='all'))
+            sender.send_heap(gen.get_heap(data="all"))
         recv_ring_config = recv.RingStreamConfig(heaps=4)
         receiver = recv.Stream(thread_pool, ring_config=recv_ring_config)
         receiver.add_buffer_reader(sender.getvalue())
@@ -981,7 +1051,7 @@ class TestStream:
         assert receiver.ringbuffer.capacity() == 4
         assert receiver.ringbuffer.size() == 4
 
-        receiver.stop()            # This unblocks all remaining heaps
+        receiver.stop()  # This unblocks all remaining heaps
         stats = receiver.stats
         assert stats.heaps == 10
         assert stats.packets == 10
@@ -997,10 +1067,16 @@ class TestStream:
         sender = send.BytesStream(thread_pool)
         ig = send.ItemGroup()
         data = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.uint16)
-        ig.add_item(id=0x2345, name='name', description='description',
-                    shape=data.shape, dtype=data.dtype, value=data)
+        ig.add_item(
+            id=0x2345,
+            name="name",
+            description="description",
+            shape=data.shape,
+            dtype=data.dtype,
+            value=data,
+        )
         gen = send.HeapGenerator(ig)
-        sender.send_heap(gen.get_heap(data='all'))
+        sender.send_heap(gen.get_heap(data="all"))
         sender.send_heap(gen.get_end())
         receiver = recv.Stream(thread_pool)
         receiver.add_buffer_reader(sender.getvalue())
@@ -1037,14 +1113,14 @@ class TestStreamStats:
     def custom_stats_fixtures(self):
         stream_config = recv.StreamConfig()
         indices = {}
-        indices['counter'] = stream_config.add_stat('counter')
-        indices['maximum'] = stream_config.add_stat('maximum', recv.StreamStatConfig.Mode.MAXIMUM)
+        indices["counter"] = stream_config.add_stat("counter")
+        indices["maximum"] = stream_config.add_stat("maximum", recv.StreamStatConfig.Mode.MAXIMUM)
         receiver = recv.Stream(spead2.ThreadPool(), stream_config)
         stats = receiver.stats
-        stats['heaps'] = 10
-        stats['max_batch'] = 15
-        stats['counter'] = 123
-        stats['maximum'] = 456
+        stats["heaps"] = 10
+        stats["max_batch"] = 15
+        stats["counter"] = 123
+        stats["maximum"] = 456
         return stats, indices
 
     @pytest.fixture
@@ -1058,14 +1134,14 @@ class TestStreamStats:
     @pytest.fixture
     def custom_stats2(self):
         stream_config = recv.StreamConfig()
-        stream_config.add_stat('counter')
-        stream_config.add_stat('maximum', recv.StreamStatConfig.Mode.MAXIMUM)
+        stream_config.add_stat("counter")
+        stream_config.add_stat("maximum", recv.StreamStatConfig.Mode.MAXIMUM)
         receiver = recv.Stream(spead2.ThreadPool(), stream_config)
         stats = receiver.stats
-        stats['heaps'] = 20
-        stats['max_batch'] = 17
-        stats['counter'] = 300
-        stats['maximum'] = 400
+        stats["heaps"] = 20
+        stats["max_batch"] = 17
+        stats["counter"] = 300
+        stats["maximum"] = 400
         return stats
 
     def test_properties(self, stats):
@@ -1081,19 +1157,19 @@ class TestStreamStats:
         assert stats.config == TestStreamConfig.expected_stats
 
     def test_getitem_name(self, stats):
-        assert stats['heaps'] == 10
-        assert stats['incomplete_heaps_evicted'] == 20
-        assert stats['incomplete_heaps_flushed'] == 30
-        assert stats['packets'] == 40
-        assert stats['batches'] == 50
-        assert stats['max_batch'] == 60
-        assert stats['single_packet_heaps'] == 70
-        assert stats['search_dist'] == 80
-        assert stats['worker_blocked'] == 90
+        assert stats["heaps"] == 10
+        assert stats["incomplete_heaps_evicted"] == 20
+        assert stats["incomplete_heaps_flushed"] == 30
+        assert stats["packets"] == 40
+        assert stats["batches"] == 50
+        assert stats["max_batch"] == 60
+        assert stats["single_packet_heaps"] == 70
+        assert stats["search_dist"] == 80
+        assert stats["worker_blocked"] == 90
 
     def test_getitem_name_missing(self, stats):
         with pytest.raises(KeyError):
-            stats['not_a_stat']
+            stats["not_a_stat"]
 
     def test_getitem_index(self, stats):
         assert stats[recv.stream_stat_indices.HEAPS] == 10
@@ -1104,34 +1180,34 @@ class TestStreamStats:
             stats[1000]
 
     def test_contains(self, stats):
-        assert 'heaps' in stats
-        assert 'not_a_stat' not in stats
+        assert "heaps" in stats
+        assert "not_a_stat" not in stats
 
     def test_len(self, stats):
         assert len(stats) == len(TestStreamConfig.expected_stats)
 
     def test_custom(self, stats, custom_stats, custom_indices):
-        assert custom_stats['counter'] == 123
-        assert custom_stats['maximum'] == 456
-        assert custom_stats[custom_indices['counter']] == 123
-        assert custom_stats[custom_indices['maximum']] == 456
-        assert 'counter' in custom_stats
+        assert custom_stats["counter"] == 123
+        assert custom_stats["maximum"] == 456
+        assert custom_stats[custom_indices["counter"]] == 123
+        assert custom_stats[custom_indices["maximum"]] == 456
+        assert "counter" in custom_stats
         assert len(custom_stats) == len(stats) + 2
 
     def test_add(self, custom_stats, custom_stats2):
         total = custom_stats + custom_stats2
-        assert total['heaps'] == custom_stats['heaps'] + custom_stats2['heaps']
-        assert total['max_batch'] == max(custom_stats['max_batch'], custom_stats2['max_batch'])
-        assert total['counter'] == custom_stats['counter'] + custom_stats2['counter']
-        assert total['maximum'] == max(custom_stats['maximum'], custom_stats2['maximum'])
+        assert total["heaps"] == custom_stats["heaps"] + custom_stats2["heaps"]
+        assert total["max_batch"] == max(custom_stats["max_batch"], custom_stats2["max_batch"])
+        assert total["counter"] == custom_stats["counter"] + custom_stats2["counter"]
+        assert total["maximum"] == max(custom_stats["maximum"], custom_stats2["maximum"])
 
     def test_add_assign(self, custom_stats, custom_stats2):
         total = custom_stats + custom_stats2  # Verified by the previous test
         custom_stats += custom_stats2
-        assert custom_stats['heaps'] == total['heaps']
-        assert custom_stats['max_batch'] == total['max_batch']
-        assert custom_stats['counter'] == total['counter']
-        assert custom_stats['maximum'] == total['maximum']
+        assert custom_stats["heaps"] == total["heaps"]
+        assert custom_stats["max_batch"] == total["max_batch"]
+        assert custom_stats["counter"] == total["counter"]
+        assert custom_stats["maximum"] == total["maximum"]
 
     def test_add_mismatched(self, stats, custom_stats):
         with pytest.raises(ValueError):
@@ -1145,9 +1221,7 @@ class TestStreamStats:
         assert list(custom_stats.items()) == [
             (s.name, custom_stats[s.name]) for s in custom_stats.config
         ]
-        assert list(custom_stats.values()) == [
-            custom_stats[s.name] for s in custom_stats.config
-        ]
+        assert list(custom_stats.values()) == [custom_stats[s.name] for s in custom_stats.config]
 
 
 class TestUdpReader:
@@ -1157,8 +1231,7 @@ class TestUdpReader:
             receiver.add_udp_reader(100000)
 
     @pytest.mark.skipif(
-        sys.platform == 'darwin',
-        reason='Test does not work with macos on Github Actions'
+        sys.platform == "darwin", reason="Test does not work with macos on Github Actions"
     )
     def test_illegal_udp_port(self):
         receiver = recv.Stream(spead2.ThreadPool())
@@ -1222,13 +1295,15 @@ class TestTcpReader:
             1,
             [
                 FLAVOUR.make_plain_descriptor(
-                    0x1234, 'test_scalar_int', 'a scalar integer', [('u', 32)], []),
-                Item(0x1234, 0x12345678, True)
-            ])
+                    0x1234, "test_scalar_int", "a scalar integer", [("u", 32)], []
+                ),
+                Item(0x1234, 0x12345678, True),
+            ],
+        )
 
     def test_bad_header(self):
         """A nonsense header followed by a normal packet"""
-        data = b'deadbeef' + self.simple_packet()
+        data = b"deadbeef" + self.simple_packet()
         item = self.data_to_item(data, 0x1234)
         assert isinstance(item.value, np.uint32)
         assert item.value == 0x12345678
@@ -1240,9 +1315,11 @@ class TestTcpReader:
             1,
             [
                 FLAVOUR.make_numpy_descriptor_from(
-                    0x2345, 'test_big_array', 'over-sized packet', zeros),
-                Item(0x2345, zeros.data)
-            ])
+                    0x2345, "test_big_array", "over-sized packet", zeros
+                ),
+                Item(0x2345, zeros.data),
+            ],
+        )
         data = packet1 + self.simple_packet()
         item = self.data_to_item(data, 0x1234)
         assert isinstance(item.value, np.uint32)

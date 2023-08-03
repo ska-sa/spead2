@@ -1,6 +1,15 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Reformat the Python codebase using black_ and isort_.
+- Add `pre-commit`_ configuration.
+
+.. _black: https://black.readthedocs.io/en/stable/
+.. _isort: https://pycqa.github.io/isort/
+.. _pre-commit: https://pre-commit.com/
+
 .. rubric:: 3.12.0
 
 - Add support for :doc:`recv-chunk-group` to assemble chunks in parallel.

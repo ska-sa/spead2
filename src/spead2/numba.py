@@ -37,6 +37,7 @@ def intp_to_voidptr(typingctx, src):
             rtype = signature.return_type
             llrtype = context.get_value_type(rtype)
             return builder.inttoptr(src, llrtype)
+
         return sig, codegen
 
 

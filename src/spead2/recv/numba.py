@@ -17,25 +17,26 @@
 
 from numba import types
 
-
 try:
     _size_t = types.size_t
 except AttributeError:
     # Older versions of numba.types doesn't have a size_t, so assume it is the same as uintptr_t
     _size_t = types.uintp
 
-chunk_place_data = types.Record.make_c_struct([
-    ('packet', types.intp),  # uint8_t *
-    ('packet_size', _size_t),
-    ('items', types.intp),   # s_item_pointer_t *
-    ('chunk_id', types.int64),
-    ('heap_index', _size_t),
-    ('heap_offset', _size_t),
-    ('batch_stats', types.intp),  # uint64_t *
-    ('extra', types.intp),  # uint8_t *
-    ('extra_offset', _size_t),
-    ('extra_size', _size_t)
-])
+chunk_place_data = types.Record.make_c_struct(
+    [
+        ("packet", types.intp),  # uint8_t *
+        ("packet_size", _size_t),
+        ("items", types.intp),  # s_item_pointer_t *
+        ("chunk_id", types.int64),
+        ("heap_index", _size_t),
+        ("heap_offset", _size_t),
+        ("batch_stats", types.intp),  # uint64_t *
+        ("extra", types.intp),  # uint8_t *
+        ("extra_offset", _size_t),
+        ("extra_size", _size_t),
+    ]
+)
 """Numba record type representing the C structure used in the chunk placement callback.
 
 Numba doesn't (as of 0.54) support pointers in records, so the pointer fields

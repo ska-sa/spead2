@@ -22,14 +22,13 @@ import sys
 
 import jinja2
 from pycparser import c_ast
-from pycparser.c_parser import CParser
 from pycparser.c_generator import CGenerator
-
+from pycparser.c_parser import CParser
 
 # The typedefs are arbitrary and just used to allow pycparser to parse the
 # code. Note that some functions in infiniband/verbs.h are implemented as
 # static inline functions, and so do not get listed here.
-IBV_DECLS = '''
+IBV_DECLS = """
 typedef unsigned long size_t;
 typedef unsigned long uint64_t;
 
@@ -81,9 +80,9 @@ struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
 
 struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
                                 uint64_t iova, unsigned int access);
-'''
+"""
 
-RDMACM_DECLS = '''
+RDMACM_DECLS = """
 int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr);
 
 struct rdma_event_channel *rdma_create_event_channel(void);
@@ -95,9 +94,9 @@ int rdma_create_id(struct rdma_event_channel *channel,
 void rdma_destroy_event_channel(struct rdma_event_channel *channel);
 
 int rdma_destroy_id(struct rdma_cm_id *id);
-'''
+"""
 
-MLX5DV_DECLS = '''
+MLX5DV_DECLS = """
 typedef int bool;
 typedef unsigned long uint64_t;
 
@@ -111,7 +110,7 @@ struct ibv_wq *mlx5dv_create_wq(struct ibv_context *context,
                                 struct mlx5dv_wq_init_attr *mlx5_wq_attr);
 
 int mlx5dv_init_obj(struct mlx5dv_obj *obj, uint64_t obj_type);
-'''
+"""
 
 
 class RenameVisitor(c_ast.NodeVisitor):
@@ -122,7 +121,7 @@ class RenameVisitor(c_ast.NodeVisitor):
     """
 
     def __init__(self, old_name, new_name):
-        super(RenameVisitor, self).__init__()
+        super().__init__()
         self.old_name = old_name
         self.new_name = new_name
 
@@ -199,8 +198,18 @@ class Library:
         @c has_.
     """
 
-    def __init__(self, name, headers, soname, guard, decls, wrappers=(), optional=(),
-                 *, fail_log_level='warning'):
+    def __init__(
+        self,
+        name,
+        headers,
+        soname,
+        guard,
+        decls,
+        wrappers=(),
+        optional=(),
+        *,
+        fail_log_level="warning"
+    ):
         self.name = name
         self.headers = list(headers)
         self.soname = soname
@@ -213,51 +222,63 @@ class Library:
         self.environment = jinja2.Environment(
             autoescape=False,
             trim_blocks=True,
-            loader=jinja2.FileSystemLoader(os.path.dirname(__file__))
+            loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
         )
-        self.environment.filters['gen'] = gen_node
-        self.environment.filters['rename'] = rename_func
-        self.environment.filters['ptr'] = make_func_ptr
-        self.environment.filters['args'] = func_args
-        self.environment.globals['name'] = self.name
-        self.environment.globals['headers'] = self.headers
-        self.environment.globals['soname'] = self.soname
-        self.environment.globals['guard'] = self.guard
-        self.environment.globals['nodes'] = self.nodes
-        self.environment.globals['wrappers'] = set(wrappers)
-        self.environment.globals['optional'] = set(optional)
-        self.environment.globals['fail_log_level'] = fail_log_level
+        self.environment.filters["gen"] = gen_node
+        self.environment.filters["rename"] = rename_func
+        self.environment.filters["ptr"] = make_func_ptr
+        self.environment.filters["args"] = func_args
+        self.environment.globals["name"] = self.name
+        self.environment.globals["headers"] = self.headers
+        self.environment.globals["soname"] = self.soname
+        self.environment.globals["guard"] = self.guard
+        self.environment.globals["nodes"] = self.nodes
+        self.environment.globals["wrappers"] = set(wrappers)
+        self.environment.globals["optional"] = set(optional)
+        self.environment.globals["fail_log_level"] = fail_log_level
 
     def header(self):
-        return self.environment.get_template('template.h').render()
+        return self.environment.get_template("template.h").render()
 
     def cxx(self):
-        return self.environment.get_template('template.cpp').render()
+        return self.environment.get_template("template.cpp").render()
 
 
 def main(argv):
     parser = argparse.ArgumentParser()
-    parser.add_argument('type', choices=['header', 'cxx'])
-    parser.add_argument('library', choices=['rdmacm', 'ibv', 'mlx5dv'])
+    parser.add_argument("type", choices=["header", "cxx"])
+    parser.add_argument("library", choices=["rdmacm", "ibv", "mlx5dv"])
     args = parser.parse_args()
 
-    if args.library == 'rdmacm':
-        lib = Library('rdmacm', ['rdma/rdma_cma.h'], 'librdmacm.so.1', 'SPEAD2_USE_IBV',
-                      RDMACM_DECLS)
-    elif args.library == 'ibv':
-        lib = Library('ibv', ['infiniband/verbs.h'], 'libibverbs.so.1', 'SPEAD2_USE_IBV',
-                      IBV_DECLS,
-                      ['ibv_create_qp', 'ibv_query_device'],
-                      ['ibv_reg_mr_iova2'])
+    if args.library == "rdmacm":
+        lib = Library(
+            "rdmacm", ["rdma/rdma_cma.h"], "librdmacm.so.1", "SPEAD2_USE_IBV", RDMACM_DECLS
+        )
+    elif args.library == "ibv":
+        lib = Library(
+            "ibv",
+            ["infiniband/verbs.h"],
+            "libibverbs.so.1",
+            "SPEAD2_USE_IBV",
+            IBV_DECLS,
+            ["ibv_create_qp", "ibv_query_device"],
+            ["ibv_reg_mr_iova2"],
+        )
     else:
-        lib = Library('mlx5dv', ['infiniband/mlx5dv.h'], 'libmlx5.so.1', 'SPEAD2_USE_MLX5DV',
-                      MLX5DV_DECLS, fail_log_level='debug')
+        lib = Library(
+            "mlx5dv",
+            ["infiniband/mlx5dv.h"],
+            "libmlx5.so.1",
+            "SPEAD2_USE_MLX5DV",
+            MLX5DV_DECLS,
+            fail_log_level="debug",
+        )
 
-    if args.type == 'header':
+    if args.type == "header":
         print(lib.header())
     else:
         print(lib.cxx())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main(sys.argv)

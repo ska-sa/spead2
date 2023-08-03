@@ -16,7 +16,19 @@
 import collections.abc
 import enum
 import socket
-from typing import Iterator, Iterable, Any, List, Tuple, Sequence, Union, Text, Optional, ClassVar, overload
+from typing import (
+    Any,
+    ClassVar,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Text,
+    Tuple,
+    Union,
+    overload,
+)
 
 import spead2
 from spead2 import _EndpointList
@@ -53,7 +65,6 @@ class StreamStatConfig:
     class Mode(enum.Enum):
         COUNTER: int = ...
         MAXIMUM: int = ...
-
     def __init__(self, name: str, mode: StreamStatConfig.Mode = ...) -> None: ...
     @property
     def name(self) -> str: ...
@@ -74,7 +85,6 @@ class StreamStats:
     search_dist: int
     @property
     def config(self) -> List[StreamStatConfig]: ...
-
     @overload
     def __getitem__(self, index: int) -> int: ...
     @overload
@@ -106,10 +116,19 @@ class StreamConfig:
     stream_id: int
     @property
     def stats(self) -> List[StreamStatConfig]: ...
-    def __init__(self, *, max_heaps: int = ..., substreams: int = ..., bug_compat: int = ...,
-                 memcpy: int = ..., memory_allocator: spead2.MemoryAllocator = ...,
-                 stop_on_stop_item: bool = ..., allow_unsized_heaps: bool = ...,
-                 allow_out_of_order: bool = ..., stream_id: int = ...) -> None: ...
+    def __init__(
+        self,
+        *,
+        max_heaps: int = ...,
+        substreams: int = ...,
+        bug_compat: int = ...,
+        memcpy: int = ...,
+        memory_allocator: spead2.MemoryAllocator = ...,
+        stop_on_stop_item: bool = ...,
+        allow_unsized_heaps: bool = ...,
+        allow_out_of_order: bool = ...,
+        stream_id: int = ...
+    ) -> None: ...
     def add_stat(self, name: str, mode: StreamStatConfig.Mode = ...) -> int: ...
     def get_stat_index(self, name: str) -> int: ...
     def next_stat_index(self) -> int: ...
@@ -119,8 +138,13 @@ class RingStreamConfig:
     heaps: int
     contiguous_only: bool
     incomplete_keep_payload_ranges: bool
-    def __init__(self, *, heaps: int = ..., contiguous_only: bool = ...,
-                 incomplete_keep_payload_ranges: bool = ...) -> None: ...
+    def __init__(
+        self,
+        *,
+        heaps: int = ...,
+        contiguous_only: bool = ...,
+        incomplete_keep_payload_ranges: bool = ...
+    ) -> None: ...
 
 class UdpIbvConfig:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
@@ -134,9 +158,16 @@ class UdpIbvConfig:
     comp_vector: int
     max_poll: int
 
-    def __init__(self, *, endpoints: _EndpointList = ..., interface_address: str = ...,
-                 buffer_size: int = ..., max_size: int = ..., comp_vector: int = ...,
-                 max_poll: int = ...) -> None: ...
+    def __init__(
+        self,
+        *,
+        endpoints: _EndpointList = ...,
+        interface_address: str = ...,
+        buffer_size: int = ...,
+        max_size: int = ...,
+        comp_vector: int = ...,
+        max_poll: int = ...
+    ) -> None: ...
 
 class Ringbuffer:
     def size(self) -> int: ...
@@ -153,31 +184,56 @@ class _Stream:
 
     def add_buffer_reader(self, buffer: Any) -> None: ...
     @overload
-    def add_udp_reader(self, port: int, max_size: int = ..., buffer_size: int = ...,
-                       bind_hostname: str = ...) -> None: ...
+    def add_udp_reader(
+        self, port: int, max_size: int = ..., buffer_size: int = ..., bind_hostname: str = ...
+    ) -> None: ...
     @overload
     def add_udp_reader(self, socket: socket.socket, max_size: int = ...) -> None: ...
     @overload
-    def add_udp_reader(self, multicast_group: str, port: int, max_size: int = ...,
-                       buffer_size: int = ..., interface_address: str = ...) -> None: ...
+    def add_udp_reader(
+        self,
+        multicast_group: str,
+        port: int,
+        max_size: int = ...,
+        buffer_size: int = ...,
+        interface_address: str = ...,
+    ) -> None: ...
     @overload
-    def add_udp_reader(self, multicast_group: str, port: int, max_size: int = ...,
-                       buffer_size: int = ..., interface_index: int = ...) -> None: ...
+    def add_udp_reader(
+        self,
+        multicast_group: str,
+        port: int,
+        max_size: int = ...,
+        buffer_size: int = ...,
+        interface_index: int = ...,
+    ) -> None: ...
     @overload
-    def add_tcp_reader(self, port: int, max_size: int = ..., buffer_size: int = ...,
-                       bind_hostname: str = ...) -> None: ...
+    def add_tcp_reader(
+        self, port: int, max_size: int = ..., buffer_size: int = ..., bind_hostname: str = ...
+    ) -> None: ...
     @overload
     def add_tcp_reader(self, acceptor: socket.socket, max_size: int = ...) -> None: ...
     @overload
-    def add_udp_ibv_reader(self, multicast_group: str, port: int,
-                           interface_address: str,
-                           max_size: int = ..., buffer_size: int = ...,
-                           comp_vector: int = ..., max_poll: int = ...) -> None: ...
+    def add_udp_ibv_reader(
+        self,
+        multicast_group: str,
+        port: int,
+        interface_address: str,
+        max_size: int = ...,
+        buffer_size: int = ...,
+        comp_vector: int = ...,
+        max_poll: int = ...,
+    ) -> None: ...
     @overload
-    def add_udp_ibv_reader(self, endpoints: Sequence[Tuple[str, int]],
-                           interface_address: str,
-                           max_size: int = ..., buffer_size: int = ...,
-                           comp_vector: int = ..., max_poll: int = ...) -> None: ...
+    def add_udp_ibv_reader(
+        self,
+        endpoints: Sequence[Tuple[str, int]],
+        interface_address: str,
+        max_size: int = ...,
+        buffer_size: int = ...,
+        comp_vector: int = ...,
+        max_poll: int = ...,
+    ) -> None: ...
     @overload
     def add_udp_ibv_reader(self, config: UdpIbvConfig) -> None: ...
     def add_udp_pcap_file_reader(self, filename: str, filter: str = ...) -> None: ...
@@ -191,8 +247,12 @@ class _Stream:
 # We make a dummy _RingStream base class because mypy objects to the async stream
 # type overloading get as a coroutine.
 class _RingStream(_Stream):
-    def __init__(self, thread_pool: spead2.ThreadPool, config: StreamConfig = ...,
-                 ring_config: RingStreamConfig = ...) -> None: ...
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        config: StreamConfig = ...,
+        ring_config: RingStreamConfig = ...,
+    ) -> None: ...
     def __iter__(self) -> Iterator[Heap]: ...
     def get_nowait(self) -> Heap: ...
     @property
@@ -216,21 +276,31 @@ class ChunkStreamConfig:
     def disable_packet_presence(self) -> None: ...
     @property
     def packet_presence_payload_size(self) -> int: ...
-
     def __init__(
-        self, *, items: List[int] = ..., max_chunks: int = ...,
-        place: Optional[tuple] = ..., max_heap_extra: int = ...) -> None: ...
+        self,
+        *,
+        items: List[int] = ...,
+        max_chunks: int = ...,
+        place: Optional[tuple] = ...,
+        max_heap_extra: int = ...
+    ) -> None: ...
 
 class Chunk:
     chunk_id: int
     stream_id: int
     present: object  # optional buffer protocol
-    data: object     # optional buffer protocol
-    extra: object    # optional buffer protocol
+    data: object  # optional buffer protocol
+    extra: object  # optional buffer protocol
 
     def __init__(
-        self, *, chunk_id: int = ..., stream_id: int = ...,
-        present: object = ..., data: object = ..., extra: object = ...) -> None: ...
+        self,
+        *,
+        chunk_id: int = ...,
+        stream_id: int = ...,
+        present: object = ...,
+        data: object = ...,
+        extra: object = ...
+    ) -> None: ...
 
 # Dummy base class because the async ChunkRingbuffer.get has a different
 # signature to the synchronous version.
@@ -265,32 +335,40 @@ class ChunkRingPair:
 
 class ChunkRingStream(_Stream, ChunkRingPair):
     def __init__(
-        self, thread_pool: spead2.ThreadPool, config: StreamConfig,
+        self,
+        thread_pool: spead2.ThreadPool,
+        config: StreamConfig,
         chunk_stream_config: ChunkStreamConfig,
-        data_ringbuffer: _ChunkRingbuffer, free_ringbuffer: _ChunkRingbuffer) -> None: ...
+        data_ringbuffer: _ChunkRingbuffer,
+        free_ringbuffer: _ChunkRingbuffer,
+    ) -> None: ...
 
 class ChunkStreamGroupConfig:
     class EvictionMode(enum.Enum):
         LOSSY = ...
         LOSSLESS = ...
-
     DEFAULT_MAX_CHUNKS: ClassVar[int]
     @property
     def max_chunks(self) -> int: ...
     @property
     def eviction_mode(self) -> ChunkStreamGroupConfig.EvictionMode: ...
-
     def __init__(self, *, max_chunks=..., eviction_mode=...) -> None: ...
 
 class ChunkStreamRingGroup(ChunkRingPair, collections.abc.Sequence[ChunkStreamGroupMember]):
     def __init__(
-        self, config: ChunkStreamGroupConfig, data_ringbuffer: _ChunkRingbuffer,
-        free_ringbuffer: _ChunkRingbuffer) -> None: ...
+        self,
+        config: ChunkStreamGroupConfig,
+        data_ringbuffer: _ChunkRingbuffer,
+        free_ringbuffer: _ChunkRingbuffer,
+    ) -> None: ...
     @property
     def config(self) -> ChunkStreamGroupConfig: ...
     def emplace_back(
-        self, thread_pool: spead2.ThreadPool, config: spead2.recv.StreamConfig,
-        chunk_stream_config: spead2.recv.ChunkStreamConfig) -> ChunkStreamGroupMember: ...
+        self,
+        thread_pool: spead2.ThreadPool,
+        config: spead2.recv.StreamConfig,
+        chunk_stream_config: spead2.recv.ChunkStreamConfig,
+    ) -> ChunkStreamGroupMember: ...
     def stop(self) -> None: ...
     # These are marked abstract in Sequence, so need to be implemented here
     @overload

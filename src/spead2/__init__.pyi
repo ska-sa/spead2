@@ -13,10 +13,22 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import (List, Sequence, Optional, Tuple, Any, Union,
-                    Dict, KeysView, ValuesView, Text, overload)
+from typing import (
+    Any,
+    Dict,
+    KeysView,
+    List,
+    Optional,
+    Sequence,
+    Text,
+    Tuple,
+    Union,
+    ValuesView,
+    overload,
+)
 
 import numpy as np
+
 try:
     from numpy.typing import DTypeLike as _DTypeLike
 except ImportError:
@@ -62,8 +74,9 @@ class Empty(RuntimeError):
 
 class Flavour:
     @overload
-    def __init__(self, version: int, item_pointer_bits : int,
-                 heap_address_bits: int, bug_compat: int = ...) -> None: ...
+    def __init__(
+        self, version: int, item_pointer_bits: int, heap_address_bits: int, bug_compat: int = ...
+    ) -> None: ...
     @overload
     def __init__(self) -> None: ...
     def __eq__(self, o: object) -> bool: ...
@@ -93,12 +106,25 @@ class MemoryPool(MemoryAllocator):
     warn_on_empty: bool
 
     @overload
-    def __init__(self, lower: int, upper: int, max_free: int, initial: int,
-                 allocator: Optional[MemoryAllocator] = None) -> None: ...
+    def __init__(
+        self,
+        lower: int,
+        upper: int,
+        max_free: int,
+        initial: int,
+        allocator: Optional[MemoryAllocator] = None,
+    ) -> None: ...
     @overload
-    def __init__(self, thread_pool: ThreadPool, lower: int, upper: int, max_free: int, initial: int,
-                 low_water: int, allocator: MemoryAllocator) -> None: ...
-
+    def __init__(
+        self,
+        thread_pool: ThreadPool,
+        lower: int,
+        upper: int,
+        max_free: int,
+        initial: int,
+        low_water: int,
+        allocator: MemoryAllocator,
+    ) -> None: ...
 
 class InprocQueue:
     def __init__(self) -> None: ...
@@ -132,9 +158,16 @@ class Descriptor:
     order: str
     format: Optional[List[Tuple[str, int]]]
 
-    def __init__(self, id: int, name: str, description: str,
-                 shape: Sequence[Optional[int]], dtype: Optional[_DTypeLike] = None,
-                 order: str = ..., format: Optional[List[Tuple[str, int]]] = None) -> None: ...
+    def __init__(
+        self,
+        id: int,
+        name: str,
+        description: str,
+        shape: Sequence[Optional[int]],
+        dtype: Optional[_DTypeLike] = None,
+        order: str = ...,
+        format: Optional[List[Tuple[str, int]]] = None,
+    ) -> None: ...
     @property
     def itemsize_bits(self) -> int: ...
     @property
@@ -150,10 +183,17 @@ class Descriptor:
 class Item(Descriptor):
     version: int
 
-    def __init__(self, id: int, name: str, description: str,
-                 shape: Sequence[Optional[int]], dtype: Optional[_DTypeLike] = None,
-                 order: str = ..., format: Optional[List[Tuple[str, int]]] = None,
-                 value: Any = None) -> None: ...
+    def __init__(
+        self,
+        id: int,
+        name: str,
+        description: str,
+        shape: Sequence[Optional[int]],
+        dtype: Optional[_DTypeLike] = None,
+        order: str = ...,
+        format: Optional[List[Tuple[str, int]]] = None,
+        value: Any = None,
+    ) -> None: ...
     @property
     def value(self) -> Any: ...
     @value.setter
@@ -164,10 +204,17 @@ class Item(Descriptor):
 
 class ItemGroup:
     def __init__(self) -> None: ...
-    def add_item(self, id: Optional[int], name: str, description: str,
-                 shape: Sequence[Optional[int]], dtype: Optional[_DTypeLike] = None,
-                 order: str = 'C', format: Optional[List[Tuple[str, int]]] = None,
-                 value: Any = None) -> Item: ...
+    def add_item(
+        self,
+        id: Optional[int],
+        name: str,
+        description: str,
+        shape: Sequence[Optional[int]],
+        dtype: Optional[_DTypeLike] = None,
+        order: str = "C",
+        format: Optional[List[Tuple[str, int]]] = None,
+        value: Any = None,
+    ) -> Item: ...
     def __getitem__(self, key: Union[int, str]) -> Item: ...
     def __contains__(self, key: Union[int, str]) -> bool: ...
     def keys(self) -> KeysView[str]: ...

@@ -18,28 +18,28 @@
 import argparse
 import re
 import sys
+
 from packaging.version import Version
 
-
 parser = argparse.ArgumentParser()
-parser.add_argument('mode', choices=('major', 'minor', 'patch', 'full'))
+parser.add_argument("mode", choices=("major", "minor", "patch", "full"))
 args = parser.parse_args()
 
-with open('src/spead2/_version.py') as version_file:
+with open("src/spead2/_version.py") as version_file:
     line = version_file.readline().strip()
 match = re.fullmatch(r'__version__ = "(.+)"', line)
 if not match:
-    print('src/spead2/_version.py does not match the expected format', file=sys.stderr)
+    print("src/spead2/_version.py does not match the expected format", file=sys.stderr)
     sys.exit(1)
 version_str = match.group(1)
 version = Version(version_str)
 
 mode = args.mode
-if mode == 'major':
-    print(version.major, end='')
-elif mode == 'minor':
-    print(version.minor, end='')
-elif mode == 'patch':
-    print(version.micro, end='')
+if mode == "major":
+    print(version.major, end="")
+elif mode == "minor":
+    print(version.minor, end="")
+elif mode == "patch":
+    print(version.micro, end="")
 else:
-    print(version_str, end='')
+    print(version_str, end="")
