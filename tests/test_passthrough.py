@@ -711,11 +711,14 @@ class TestPassthroughTcpCustomSocket(BaseTestPassthrough):
         self._port = sock.getsockname()[1]
         sock.listen(1)
         receiver.add_tcp_reader(sock)
+        sock.close()
 
     def prepare_sender(self, thread_pool):
         sock = socket.socket()
         sock.connect(("127.0.0.1", self._port))
-        return spead2.send.TcpStream(thread_pool, sock)
+        sender = spead2.send.TcpStream(thread_pool, sock)
+        sock.close()
+        return sender
 
 
 class TestPassthroughTcp6(BaseTestPassthrough):
