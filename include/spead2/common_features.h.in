@@ -35,19 +35,30 @@
 #define SPEAD2_USE_SENDMMSG @SPEAD2_USE_SENDMMSG@
 #define SPEAD2_USE_EVENTFD @SPEAD2_USE_EVENTFD@
 #define SPEAD2_USE_PTHREAD_SETAFFINITY_NP @SPEAD2_USE_PTHREAD_SETAFFINITY_NP@
-#define SPEAD2_USE_FMV @SPEAD2_USE_FMV@
-/* Python on MacOS likes to build universal binaries, so even if it was
- * detected at configure time, it might not be available for a particular
- * build architecture.
- *
- * Additionally, on i386 it is not guaranteed to exist at runtime, and we
- * need function multi-versioning to make it safe to use.
+/* Python on MacOS likes to build universal binaries, which causes problems
+ * because it doesn't match the compilation environment detected at
+ * configuration time. So features that we only use on x86 are only enabled
+ * if x86 is actually detected at build time.
  */
-#if (SPEAD2_USE_FMV && (defined(__i386__) || defined(__i386))) || defined(__x86_64__) || defined(__x86_64)
-# define SPEAD2_USE_MOVNTDQ @SPEAD2_USE_MOVNTDQ@
-#else
+#if defined(__i386__) || defined(__i386) || defined(__x86_64__) || defined(__x86_64)
+
+# define SPEAD2_USE_FMV @SPEAD2_USE_FMV@
+/* On i386, MOVNTDQ is not guaranteed to exist at runtime, and we need function
+ * multi-versioning to make it safe to use.
+ */
+# if SPEAD2_USE_FMV || defined(__x86_64__) || defined(__x86_64)
+#  define SPEAD2_USE_MOVNTDQ @SPEAD2_USE_MOVNTDQ@
+# else
+#  define SPEAD2_USE_MOVNTDQ 0
+# endif
+
+#else  // not x86
+
+# define SPEAD2_USE_FMV 0
 # define SPEAD2_USE_MOVNTDQ 0
+
 #endif
+
 #define SPEAD2_USE_POSIX_SEMAPHORES @SPEAD2_USE_POSIX_SEMAPHORES@
 #define SPEAD2_USE_PCAP @SPEAD2_USE_PCAP@
 
