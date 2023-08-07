@@ -151,8 +151,8 @@ public:
         boost::asio::ip::tcp::acceptor &&acceptor,
         std::size_t max_size = default_max_size);
 
+    virtual void stop() override;
     virtual bool lossy() const override;
-
 };
 
 } // namespace recv

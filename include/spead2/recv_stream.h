@@ -803,13 +803,18 @@ public:
  * - The queue mutex is taken
  *   - the stream stops
  *   - the reader mutex is taken
- *     - destruction
- * - the stream is destroyed
+ *     - @ref stop is called
+ * - The stream is destroyed
+ *   - destruction of the reader
+ *
+ * @ref stop may be called from any thread (either user call via
+ * @ref stream::stop, or I/O thread for a network stop). The destructor is
+ * always called from @ref stream::stop (possibly via the destructor).
  *
  * Destruction must ensure that any pending asynchronous operations are
  * handled. Since destruction may happen on a separate thread to the one
  * running in-flight handlers, care must be taken not to access the stream or
- * the reader after the stream is stopped. In many cases this can be
+ * the reader after the stream is destroyed. In many cases this can be
  * facilitated using @ref bind_handler, which will keep the stream alive
  * and locked for the duration of the bound handler.
  */
@@ -923,6 +928,15 @@ public:
      * should be given when the consumer is applying back-pressure.
      */
     virtual bool lossy() const;
+
+    /**
+     * Release resources.
+     *
+     * This may be called from any thread, so resources that can only be
+     * safely released from particular threads should be cleaned up in the
+     * destructor instead.
+     */
+    virtual void stop() {}
 };
 
 /**

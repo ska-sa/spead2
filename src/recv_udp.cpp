@@ -232,6 +232,16 @@ void udp_reader::enqueue_receive(handler_context ctx)
         bind_handler(std::move(ctx), std::bind(&udp_reader::packet_handler, this, _1, _2, _3, _4)));
 }
 
+void udp_reader::stop()
+{
+    /* asio guarantees that closing a socket will cancel any pending
+     * operations on it.
+     * Don't put any logging here: it could be running in a shutdown
+     * path where it is no longer safe to do so.
+     */
+    socket.close();
+}
+
 /////////////////////////////////////////////////////////////////////////////
 
 static bool ibv_override;

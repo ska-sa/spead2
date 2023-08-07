@@ -58,3 +58,8 @@ encapsulates this workflow in its
 provides the facilities to move the shared pointer along a linear chain of
 completion handlers so that the reference count does not need to be
 adjusted.
+
+Readers are only destroyed when the stream is destroyed. This ensures that the
+reader's destructor is called from a user's thread (which in Python bindings,
+will hold the GIL). To handle more immediate cleanup when a stream is stopped,
+readers may override :cpp:func:`reader::stop`.

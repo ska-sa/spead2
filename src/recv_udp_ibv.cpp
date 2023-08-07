@@ -118,6 +118,12 @@ void udp_ibv_reader_core::join_groups(
         }
 }
 
+void udp_ibv_reader_core::stop()
+{
+    if (comp_channel)
+        comp_channel_wrapper.close();
+}
+
 } // namespace detail
 
 static std::size_t compute_n_slots(const rdma_cm_id_t &cm_id, std::size_t buffer_size,
