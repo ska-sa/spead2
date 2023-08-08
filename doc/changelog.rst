@@ -1,10 +1,17 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 3.13.0
 
 - Reformat the Python codebase using black_ and isort_.
 - Add `pre-commit`_ configuration.
+- On i386, check for SSE2 support at runtime rather than configure time.
+- Free readers only when the stream is destroyed. This fixes a bug that caused
+  the Python API to be accessed without the GIL when using
+  :py:meth:`~spead2.recv.Stream.add_buffer_reader`.
+- Improve unit tests by explicitly closing TCP sockets, to avoid
+  :exc:`ResourceWarning` when testing with ``python -X dev``.
+- Remove :py:mod:`wheel` from ``build-system.requires``.
 
 .. _black: https://black.readthedocs.io/en/stable/
 .. _isort: https://pycqa.github.io/isort/
