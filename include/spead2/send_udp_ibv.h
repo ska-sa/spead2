@@ -1,4 +1,4 @@
-/* Copyright 2016, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2016, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -92,9 +92,9 @@ public:
 class udp_ibv_stream : public stream
 {
 public:
-    SPEAD2_DEPRECATED("use spead2::send::udp_ibv_config::default_buffer_size")
+    [[deprecated("use spead2::send::udp_ibv_config::default_buffer_size")]]
     static constexpr std::size_t default_buffer_size = udp_ibv_config::default_buffer_size;
-    SPEAD2_DEPRECATED("use spead2::send::udp_ibv_config::default_max_poll")
+    [[deprecated("use spead2::send::udp_ibv_config::default_max_poll")]]
     static constexpr int default_max_poll = udp_ibv_config::default_max_poll;
 
     /**
@@ -105,7 +105,7 @@ public:
      * @throws std::invalid_argument if @a endpoint is not an IPv4 multicast address
      * @throws std::invalid_argument if @a interface_address is not an IPv4 address
      */
-    SPEAD2_DEPRECATED("use udp_ibv_config")
+    [[deprecated("use udp_ibv_config")]]
     udp_ibv_stream(
         io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,

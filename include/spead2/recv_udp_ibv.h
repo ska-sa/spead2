@@ -117,9 +117,9 @@ protected:
                      const boost::asio::ip::address &interface_address);
 
 public:
-    SPEAD2_DEPRECATED("Use spead2::recv::udp_ibv_config::default_buffer_size")
+    [[deprecated("Use spead2::recv::udp_ibv_config::default_buffer_size")]]
     static constexpr std::size_t default_buffer_size = udp_ibv_config::default_buffer_size;
-    SPEAD2_DEPRECATED("Use spead2::recv::udp_ibv_config::default_max_poll")
+    [[deprecated("Use spead2::recv::udp_ibv_config::default_max_poll")]]
     static constexpr int default_max_poll = udp_ibv_config::default_max_poll;
 
     udp_ibv_reader_core(
@@ -328,7 +328,7 @@ public:
      *                               IPv4 address
      * @throws std::invalid_argument If @a interface_address is not an IPv4 address
      */
-    SPEAD2_DEPRECATED("Use udp_ibv_config")
+    [[deprecated("Use udp_ibv_config")]]
     udp_ibv_reader(
         stream &owner,
         const boost::asio::ip::udp::endpoint &endpoint,
@@ -372,7 +372,7 @@ public:
      *                               an IPv4 address
      * @throws std::invalid_argument If @a interface_address is not an IPv4 address
      */
-    SPEAD2_DEPRECATED("Use udp_ibv_config")
+    [[deprecated("Use udp_ibv_config")]]
     udp_ibv_reader(
         stream &owner,
         const std::vector<boost::asio::ip::udp::endpoint> &endpoints,

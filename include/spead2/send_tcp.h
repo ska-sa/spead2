@@ -68,7 +68,7 @@ public:
     /**
      * Backwards-compatibility constructor.
      */
-    SPEAD2_DEPRECATED("use a vector of endpoints")
+    [[deprecated("use a vector of endpoints")]]
     tcp_stream(
         io_service_ref io_service,
         std::function<void(const boost::system::error_code &)> &&connect_handler,

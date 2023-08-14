@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -161,7 +161,7 @@ public:
 
     /// Backwards-compatibility constructor with a single endpoint
     template<typename... Args>
-    SPEAD2_DEPRECATED("use a vector of endpoints")
+    [[deprecated("use a vector of endpoints")]]
     udp_stream(
         io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
@@ -170,7 +170,7 @@ public:
 
     /// Backwards-compatibility constructor with a socket and a single endpoint
     template<typename... Args>
-    SPEAD2_DEPRECATED("use a vector of endpoints")
+    [[deprecated("use a vector of endpoints")]]
     udp_stream(
         io_service_ref io_service,
         boost::asio::ip::udp::socket &&socket,
