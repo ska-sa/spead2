@@ -132,12 +132,11 @@ void memory_pool::free_impl(std::uint8_t *ptr, memory_allocator::deleter &&base_
 
 memory_pool::pointer memory_pool::convert(pointer &&base)
 {
-    /* TODO: in theory this might not be exception-safe, because in C++11
+    /* TODO: in theory this might not be exception-safe, because in C++17
      * the move constructor for std::function is not noexcept. Thus, after
      * constructing the memory_pool_deleter argument, the construction of
-     * the pointer could fail. The lack of noexcept is assumed to be an
-     * oversight in older C++ standards, and GCC 9 at least makes it
-     * no-except.
+     * the pointer could fail. C++20 makes it noexcept, and in practice
+     * library implementations are unlikely to throw exceptions.
      */
     pointer wrapped(base.get(),
                     detail::memory_pool_deleter(shared_this(), std::move(base.get_deleter())));
