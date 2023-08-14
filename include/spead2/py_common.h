@@ -23,8 +23,8 @@
 
 #include <memory>
 #include <utility>
+#include <optional>
 #include <boost/asio.hpp>
-#include <boost/optional.hpp>
 #include <boost/system/system_error.hpp>
 #include <cassert>
 #include <cstring>
@@ -557,28 +557,6 @@ public:
             return false;
 
         value = spead2::socket_wrapper<SocketType>(protocol, fd);
-        return true;
-    }
-};
-
-/* Old versions of boost::optional don't implement emplace (required by
- * pybind11::optional_caster), so we implement the conversion manually.
- */
-template<typename SocketType>
-struct type_caster<boost::optional<spead2::socket_wrapper<SocketType>>>
-{
-    PYBIND11_TYPE_CASTER(boost::optional<spead2::socket_wrapper<SocketType>>, _("Optional[socket.socket]"));
-
-    bool load(handle src, bool convert)
-    {
-        if (!src)
-            return false;
-        else if (src.is_none())
-            return true;
-        make_caster<spead2::socket_wrapper<SocketType>> inner_caster;
-        if (!inner_caster.load(src, convert))
-            return false;
-        value = cast_op<spead2::socket_wrapper<SocketType> &&>(std::move(inner_caster));
         return true;
     }
 };

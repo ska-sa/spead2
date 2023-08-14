@@ -25,7 +25,6 @@
 #include <cstdint>
 #include <boost/asio.hpp>
 #include <boost/asio/high_resolution_timer.hpp>
-#include <boost/optional.hpp>
 #include <spead2/common_thread_pool.h>
 #include <spead2/send_packet.h>
 #include <spead2/send_stream_config.h>

@@ -28,7 +28,6 @@
 #include <cctype>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <boost/optional.hpp>
 #include <spead2/recv_udp.h>
 #include <spead2/recv_udp_ibv.h>
 #include <spead2/recv_udp_pcap.h>

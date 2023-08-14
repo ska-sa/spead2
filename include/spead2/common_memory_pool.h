@@ -1,4 +1,4 @@
-/* Copyright 2015-2017, 2021 National Research Foundation (SARAO)
+/* Copyright 2015-2017, 2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -26,8 +26,8 @@
 #include <mutex>
 #include <stack>
 #include <memory>
+#include <optional>
 #include <boost/asio.hpp>
-#include <boost/optional.hpp>
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_memory_allocator.h>
 
@@ -56,7 +56,7 @@ class memory_pool : public memory_allocator
     friend class detail::memory_pool_deleter;
 
 private:
-    boost::optional<io_service_ref> io_service;
+    std::optional<io_service_ref> io_service;
     const std::size_t lower, upper, max_free, initial, low_water;
     const std::shared_ptr<memory_allocator> base_allocator;
     mutable std::mutex mutex;
@@ -74,8 +74,14 @@ private:
     static void refill(std::size_t upper, std::shared_ptr<memory_allocator> allocator,
                        std::weak_ptr<memory_pool> self_weak);
 
-    memory_pool(boost::optional<io_service_ref> io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water,
-                std::shared_ptr<memory_allocator> allocator);
+    memory_pool(std::optional<io_service_ref> io_service,
+                std::size_t lower,
+                std::size_t upper,
+                std::size_t max_free,
+                std::size_t initial,
+                std::size_t low_water,
+                std::shared_ptr<memory_allocator> allocator,
+                int dummy);  // dummy parameter makes the constructor unambiguous
 
 public:
     memory_pool();

@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -32,7 +32,6 @@
 #include <atomic>
 #include <cassert>
 #include <boost/asio.hpp>
-#include <boost/optional.hpp>
 #include <boost/system/error_code.hpp>
 #include <spead2/send_heap.h>
 #include <spead2/send_packet.h>
