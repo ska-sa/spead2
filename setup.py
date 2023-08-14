@@ -136,6 +136,7 @@ if not rtd:
                 ("BOOST_ASIO_DISABLE_VISIBILITY", None),
                 ("BOOST_DISABLE_EXPLICIT_SYMBOL_VISIBILITY", None),
             ],
+            cxx_std=17,
         )
     ]
 else:

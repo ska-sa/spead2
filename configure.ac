@@ -1,4 +1,4 @@
-# Copyright 2016, 2017, 2019-2020, 2022 National Research Foundation (SARAO)
+# Copyright 2016, 2017, 2019-2020, 2022-2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -28,12 +28,12 @@ AC_ARG_VAR(RANLIB, [Generate index to static library])
 AC_LANG(C++)
 LT_INIT([disable-static disable-shared])
 
-### Check for -std=c++11
+### Check for -std=c++17
 
 save_CXXFLAGS="$CXXFLAGS"
-CXXFLAGS="-std=c++11 $CXXFLAGS"
-SPEAD2_CHECK_FEATURE([compiler_cxx11], [-std=c++11], [unordered_map], [], [std::unordered_map<int, int> m], [],
-                     [AC_MSG_ERROR([C++11 support is required])])
+CXXFLAGS="-std=c++17 $CXXFLAGS"
+SPEAD2_CHECK_FEATURE([compiler_cxx17], [-std=c++17], [utility], [], [std::pair(1, 2)], [],
+                     [AC_MSG_ERROR([C++17 support is required])])
 CXXFLAGS="$save_CXXFLAGS"
 
 ### Required libraries
