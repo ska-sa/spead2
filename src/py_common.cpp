@@ -402,9 +402,7 @@ namespace
 {
 
 /* Function object that acts as a deleter for a wrapped buffer_allocation. It's
- * a class rather than a lambda so that the shared_ptr can be constructed by
- * move instead of copy in C++11 (which doesn't support C++14 generalised
- * lambda captures), and to provide get_allocation.
+ * a class rather than a lambda to provide get_allocation.
  *
  * It needs to hold a shared_ptr rather than a unique_ptr because std::function
  * requires the function to be copyable. In practice it is unlikely to be
