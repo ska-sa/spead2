@@ -39,7 +39,6 @@
 #include <libdivide.h>
 #include <spead2/recv_live_heap.h>
 #include <spead2/common_memory_pool.h>
-#include <spead2/common_bind.h>
 #include <spead2/common_semaphore.h>
 
 namespace spead2

@@ -14,7 +14,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 nobase_include_HEADERS = \
-	spead2/common_bind.h \
 	spead2/common_defines.h \
 	spead2/common_endian.h \
 	spead2/common_features.h \
