@@ -198,14 +198,14 @@ private:
     class dereference
     {
     public:
-        decltype(*std::declval<T>()) operator()(const T &ptr) const { return *ptr; }
+        decltype(auto) operator()(const T &ptr) const { return *ptr; }
     };
 
     template<typename T>
     class dereference_const
     {
     public:
-        const decltype(*std::declval<T>()) operator()(const T &ptr) const { return *ptr; }
+        decltype(auto) operator()(const T &ptr) const { return *ptr; }
     };
 
 protected:
