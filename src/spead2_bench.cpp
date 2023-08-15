@@ -51,6 +51,7 @@
 
 namespace po = boost::program_options;
 namespace asio = boost::asio;
+using namespace std::literals;
 
 class option_writer
 {
@@ -703,11 +704,11 @@ static void main_mem(int argc, const char **argv)
 
 int main(int argc, const char **argv)
 {
-    if (argc >= 2 && argv[1] == std::string("master"))
+    if (argc >= 2 && argv[1] == "master"s)
         main_master(argc - 1, argv + 1);
-    else if (argc >= 2 && argv[1] == std::string("agent"))
+    else if (argc >= 2 && argv[1] == "agent"s)
         main_agent(argc - 1, argv + 1);
-    else if (argc >= 2 && argv[1] == std::string("mem"))
+    else if (argc >= 2 && argv[1] == "mem"s)
         main_mem(argc - 1, argv + 1);
     else
     {

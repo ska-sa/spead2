@@ -47,6 +47,8 @@
 # include <net/if_dl.h>
 #endif
 
+using namespace std::literals;
+
 namespace spead2
 {
 
@@ -141,7 +143,7 @@ mac_address interface_mac(const boost::asio::ip::address &address)
         }
 #endif
     }
-    throw std::runtime_error(std::string("no MAC address found for interface ") + if_name);
+    throw std::runtime_error("no MAC address found for interface "s + if_name);
 }
 
 /////////////////////////////////////////////////////////////////////////////

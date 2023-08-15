@@ -167,6 +167,8 @@ F callback_from_python(
     const char *signature_plain,
     const char *signature_bind)
 {
+    using namespace std::literals;
+
     if (obj.is_none())
         return F();
     else
@@ -193,7 +195,7 @@ F callback_from_python(
         }
         else
             throw std::invalid_argument(
-                std::string("Invalid callback signature \"") + name + "\". Expected one of:\n  "
+                "Invalid callback signature \""s + name + "\". Expected one of:\n  "
                 + signature_plain + "\n  " + signature_bind);
     }
 }

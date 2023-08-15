@@ -30,6 +30,8 @@
 #include <spead2/common_loader_utils.h>
 #include <spead2/common_logging.h>
 
+using namespace std::literals;
+
 namespace spead2
 {
 
@@ -80,7 +82,7 @@ dl_handle::dl_handle(const char *filename)
     if (!handle)
     {
         std::error_code code((int) loader_error::LIBRARY_ERROR, loader_category());
-        throw std::system_error(code, std::string("Could not open ") + filename + ": " + dlerror());
+        throw std::system_error(code, "Could not open "s + filename + ": " + dlerror());
     }
 }
 
@@ -107,7 +109,7 @@ void *dl_handle::sym(const char *name)
     if (!ret)
     {
         std::error_code code((int) loader_error::SYMBOL_ERROR, loader_category());
-        throw std::system_error(code, std::string("Symbol ") + name + " not found: " + dlerror());
+        throw std::system_error(code, "Symbol "s + name + " not found: " + dlerror());
     }
     return ret;
 }
