@@ -127,8 +127,7 @@ static void reader(Ringbuffer &ring, const options &opts)
     {
         while (true)
         {
-            item_t item = ring.pop();
-            (void) item;
+            ring.pop();
         }
     }
     catch (spead2::ringbuffer_stopped &)
