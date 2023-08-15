@@ -158,7 +158,7 @@ public:
 private:
     friend class writer;
 
-    typedef std::aligned_storage<sizeof(detail::queue_item), alignof(detail::queue_item)>::type queue_item_storage;
+    typedef std::aligned_storage_t<sizeof(detail::queue_item), alignof(detail::queue_item)> queue_item_storage;
 
     /* Data are laid out in a manner designed to optimise the cache, which
      * means the logically related items (such as the head and tail indices)

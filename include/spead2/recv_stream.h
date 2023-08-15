@@ -163,7 +163,7 @@ public:
 
     // This is a template constructor to allow iterator to be converted to const_iterator
     template<typename T2, typename V2,
-             typename = typename std::enable_if<std::is_convertible<T2 *, T *>::value>::type>
+             typename = std::enable_if_t<std::is_convertible_v<T2 *, T *>>>
     stream_stats_iterator(const stream_stats_iterator<T2, V2> &other)
         : owner(other.owner), index(other.index) {}
 };
@@ -544,7 +544,7 @@ private:
         std::size_t head;
     };
 
-    typedef typename std::aligned_storage<sizeof(queue_entry), alignof(queue_entry)>::type storage_type;
+    typedef std::aligned_storage_t<sizeof(queue_entry), alignof(queue_entry)> storage_type;
     /**
      * Circular queue for heaps.
      *
@@ -885,7 +885,7 @@ protected:
     auto bind_handler(handler_context ctx, T &&handler) const
     {
         assert(ctx);  // make sure it hasn't already been used
-        return bound_handler<typename std::decay<T>::type>(std::move(ctx), std::forward<T>(handler));
+        return bound_handler<std::decay_t<T>>(std::move(ctx), std::forward<T>(handler));
     }
 
 public:

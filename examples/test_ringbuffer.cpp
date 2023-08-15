@@ -38,7 +38,7 @@
 namespace po = boost::program_options;
 
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
-typedef std::aligned_storage<sizeof(spead2::recv::heap), alignof(spead2::recv::heap)>::type item_t;
+typedef std::aligned_storage_t<sizeof(spead2::recv::heap), alignof(spead2::recv::heap)> item_t;
 
 static constexpr std::size_t alignment = 64;
 

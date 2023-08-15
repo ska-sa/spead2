@@ -1,4 +1,4 @@
-/* Copyright 2015, 2021 National Research Foundation (SARAO)
+/* Copyright 2015, 2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -70,7 +70,7 @@ template<typename T>
 class ringbuffer_base
 {
 private:
-    typedef typename std::aligned_storage<sizeof(T), alignof(T)>::type storage_type;
+    typedef std::aligned_storage_t<sizeof(T), alignof(T)> storage_type;
     std::unique_ptr<storage_type[]> storage;
     const std::size_t cap;  ///< Number of slots
 
