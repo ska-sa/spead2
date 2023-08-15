@@ -1,4 +1,4 @@
-/* Copyright 2016-2020 National Research Foundation (SARAO)
+/* Copyright 2016-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -673,8 +673,7 @@ void capture_base::run()
 {
     using boost::asio::ip::udp;
 
-    std::shared_ptr<spead2::mmap_allocator> allocator =
-        std::make_shared<spead2::mmap_allocator>(0, true);
+    auto allocator = std::make_shared<spead2::mmap_allocator>(0, true);
     bool has_file = opts.filename != "-";
     if (has_file)
     {
@@ -698,12 +697,14 @@ void capture_base::run()
      * off collect_thread, and if it doesn't have a specific affinity we don't
      * want it to inherit network_affinity.
      */
-    std::future<void> alloc_future = std::async(std::launch::async, [this, allocator] {
-        if (opts.network_affinity >= 0)
-            spead2::thread_pool::set_affinity(opts.network_affinity);
-        for (std::size_t i = 0; i < chunking.n_chunks; i++)
-            add_to_free(make_chunk(*allocator));
-    });
+    std::future<void> alloc_future = std::async(
+        std::launch::async, [this, allocator = std::move(allocator)] {
+            if (opts.network_affinity >= 0)
+                spead2::thread_pool::set_affinity(opts.network_affinity);
+            for (std::size_t i = 0; i < chunking.n_chunks; i++)
+                add_to_free(make_chunk(*allocator));
+        }
+    );
     alloc_future.get();
 
     struct sigaction act = {}, old_act;
