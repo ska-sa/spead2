@@ -143,9 +143,8 @@ static void run(const options &opts)
     char ring_storage[sizeof(Ringbuffer) + alignment];
     void *ring_ptr = ring_storage;
     std::size_t space = sizeof(ring_storage);
-    Ringbuffer *ring = reinterpret_cast<Ringbuffer *>(
-        align(alignment, sizeof(Ringbuffer), ring_ptr, space));
-    new (ring) Ringbuffer(opts.capacity);
+    align(alignment, sizeof(Ringbuffer), ring_ptr, space);
+    Ringbuffer *ring = new (ring_ptr) Ringbuffer(opts.capacity);
 
     std::thread thread(std::bind(reader<Ringbuffer>, std::ref(*ring), std::cref(opts)));
     // Give the thread time to get going
