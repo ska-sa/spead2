@@ -33,12 +33,13 @@
 #include <spead2/common_ringbuffer.h>
 #include <spead2/common_semaphore.h>
 #include <spead2/common_thread_pool.h>
+#include <spead2/common_storage.h>
 #include <spead2/recv_heap.h>
 
 namespace po = boost::program_options;
 
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
-typedef std::aligned_storage_t<sizeof(spead2::recv::heap), alignof(spead2::recv::heap)> item_t;
+typedef spead2::detail::storage<spead2::recv::heap> item_t;
 
 static constexpr std::size_t alignment = 64;
 

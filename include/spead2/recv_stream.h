@@ -40,6 +40,7 @@
 #include <spead2/recv_live_heap.h>
 #include <spead2/common_memory_pool.h>
 #include <spead2/common_semaphore.h>
+#include <spead2/common_storage.h>
 
 namespace spead2
 {
@@ -529,7 +530,7 @@ private:
     struct queue_entry
     {
         queue_entry *next;   // Hash table chain
-        live_heap heap;
+        spead2::detail::storage<live_heap> heap;
         /* TODO: pad to a multiple of 16 bytes, so that there is a
          * good chance of next and heap.cnt being in the same cache line.
          */
@@ -544,14 +545,13 @@ private:
         std::size_t head;
     };
 
-    typedef std::aligned_storage_t<sizeof(queue_entry), alignof(queue_entry)> storage_type;
     /**
      * Circular queue for heaps.
      *
      * A particular heap is in a constructed state iff the next pointer is
      * not INVALID_ENTRY.
      */
-    const std::unique_ptr<storage_type[]> queue_storage;
+    const std::unique_ptr<queue_entry[]> queue_storage;
     /// Number of entries in @ref buckets
     const std::size_t bucket_count;
     /// Right shift to map 64-bit unsigned to a bucket index
@@ -609,9 +609,6 @@ private:
 
     /// Compute substream from a heap cnt
     std::size_t get_substream(item_pointer_t heap_cnt) const;
-
-    /// Get an entry from @ref queue_storage with the right type
-    queue_entry *cast(std::size_t index);
 
     /**
      * Unlink an entry from the hash table.

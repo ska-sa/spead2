@@ -1,4 +1,4 @@
-/* Copyright 2015, 2018-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2018-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -22,6 +22,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <new>
 #include <random>
 #include <boost/program_options.hpp>
 #include <boost/asio.hpp>
@@ -226,7 +227,7 @@ static void verify_heap(const spead2::recv::heap &fheap, const options &opts)
                 << " has an inconsistent length\n";
             std::exit(1);
         }
-        const element_t *data = reinterpret_cast<const element_t *>(item.ptr);
+        const element_t *data = std::launder(reinterpret_cast<const element_t *>(item.ptr));
         for (std::size_t i = 0; i < elements; i++)
         {
             element_t expected = generator();

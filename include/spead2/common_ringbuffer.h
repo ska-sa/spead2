@@ -32,8 +32,10 @@
 #include <cassert>
 #include <climits>
 #include <iostream>
+#include <new>
 #include <spead2/common_logging.h>
 #include <spead2/common_semaphore.h>
+#include <spead2/common_storage.h>
 
 namespace spead2
 {
@@ -70,7 +72,7 @@ template<typename T>
 class ringbuffer_base
 {
 private:
-    typedef std::aligned_storage_t<sizeof(T), alignof(T)> storage_type;
+    typedef detail::storage<T> storage_type;
     std::unique_ptr<storage_type[]> storage;
     const std::size_t cap;  ///< Number of slots
 
@@ -90,9 +92,6 @@ private:
     std::size_t tail = 0;   ///< first slot without data
     bool stopped = false;   ///< Whether stop has been called
     std::size_t producers = 0;  ///< Number of producers registered with @ref add_producer
-
-    /// Gets pointer to the slot number @a idx
-    T *get(std::size_t idx);
 
     /// Increments @a idx, wrapping around.
     std::size_t next(std::size_t idx)
@@ -158,12 +157,6 @@ public:
 };
 
 template<typename T>
-T *ringbuffer_base<T>::get(std::size_t idx)
-{
-    return reinterpret_cast<T*>(&storage[idx]);
-}
-
-template<typename T>
 void ringbuffer_base<T>::throw_empty_or_stopped()
 {
     std::lock_guard<std::mutex> lock(head_mutex);
@@ -217,7 +210,7 @@ ringbuffer_base<T>::~ringbuffer_base()
     // Drain any remaining elements
     while (head != tail)
     {
-        get(head)->~T();
+        storage[head].destroy();
         head = next(head);
     }
 }
@@ -232,7 +225,7 @@ void ringbuffer_base<T>::emplace_internal(Args&&... args)
         throw ringbuffer_stopped();
     }
     // Construct in-place
-    new (get(tail)) T(std::forward<Args>(args)...);
+    storage[tail].construct(std::forward<Args>(args)...);
     tail = next(tail);
 }
 
@@ -244,8 +237,9 @@ T ringbuffer_base<T>::pop_internal()
     {
         throw ringbuffer_stopped();
     }
-    T result = std::move(*get(head));
-    get(head)->~T();
+    auto &item = storage[head];
+    T result = std::move(*item);
+    item.destroy();
     head = next(head);
     return result;
 }

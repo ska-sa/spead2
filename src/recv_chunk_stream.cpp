@@ -26,6 +26,7 @@
 #include <functional>
 #include <algorithm>
 #include <utility>
+#include <new>
 #include <spead2/common_defines.h>
 #include <spead2/common_memory_allocator.h>
 #include <spead2/recv_packet.h>
@@ -163,7 +164,9 @@ chunk_stream_state_base::chunk_stream_state_base(
 
 void chunk_stream_state_base::free_place_data::operator()(unsigned char *ptr) const
 {
-    auto *place_data = reinterpret_cast<chunk_place_data *>(ptr);
+    // It's not totally clear whether std::launder is required here, but
+    // better to be safe.
+    auto *place_data = std::launder(reinterpret_cast<chunk_place_data *>(ptr));
     place_data->~chunk_place_data();
     operator delete(ptr);
 }

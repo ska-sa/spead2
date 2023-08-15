@@ -42,6 +42,8 @@ namespace spead2::recv
 static inline item_pointer_t load_bytes_be(const std::uint8_t *ptr, int len)
 {
     assert(0 <= len && len <= int(sizeof(item_pointer_t)));
+    // TODO: not sure if this is entirely defined behaviour in C++. Switch to
+    // std::bit_cast when C++20 is the minimum.
     item_pointer_t out = 0;
     std::memcpy(reinterpret_cast<char *>(&out) + sizeof(item_pointer_t) - len, ptr, len);
     return betoh<item_pointer_t>(out);
