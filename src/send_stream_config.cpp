@@ -1,4 +1,4 @@
-/* Copyright 2020 National Research Foundation (SARAO)
+/* Copyright 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -22,9 +22,7 @@
 #include <cmath>
 #include <spead2/send_stream_config.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 constexpr std::size_t stream_config::default_max_packet_size;
@@ -85,5 +83,4 @@ stream_config::stream_config()
 {
 }
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send

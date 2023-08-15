@@ -37,9 +37,7 @@
 #include <spead2/recv_packet.h>
 #include <spead2/recv_stream.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 namespace detail
@@ -947,7 +945,6 @@ chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::~chunk_ring_stream()
     stop();
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_CHUNK_STREAM

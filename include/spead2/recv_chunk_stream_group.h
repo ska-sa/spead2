@@ -32,9 +32,7 @@
 #include <spead2/recv_stream.h>
 #include <spead2/recv_chunk_stream.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /// Configuration for chunk_stream_group
@@ -466,7 +464,6 @@ chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::~chunk_stream_ring_grou
     stop();
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_CHUNK_STREAM_GROUP

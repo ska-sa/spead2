@@ -1,4 +1,4 @@
-/* Copyright 2015 National Research Foundation (SARAO)
+/* Copyright 2015, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -32,9 +32,7 @@
 #include <spead2/common_logging.h>
 #include <spead2/common_endian.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 /**
@@ -157,5 +155,4 @@ void heap::add_descriptor(const descriptor &descriptor)
     storage.emplace_back(std::move(blob.first));
 }
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send

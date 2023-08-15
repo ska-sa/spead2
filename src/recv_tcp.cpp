@@ -36,9 +36,7 @@
 #include <spead2/common_logging.h>
 #include <spead2/common_socket.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 constexpr std::size_t tcp_reader::pkts_per_buffer;
@@ -270,5 +268,4 @@ bool tcp_reader::lossy() const
     return false;
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

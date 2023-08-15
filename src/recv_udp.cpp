@@ -42,9 +42,7 @@
 #include <spead2/common_logging.h>
 #include <spead2/common_socket.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 constexpr std::size_t udp_reader::default_buffer_size;
@@ -363,5 +361,4 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
             owner, std::move(socket), max_size));
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

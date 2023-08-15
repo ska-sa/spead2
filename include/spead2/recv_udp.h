@@ -34,9 +34,7 @@
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_base.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /**
@@ -208,7 +206,6 @@ struct reader_factory<udp_reader>
         std::size_t max_size = udp_reader::default_max_size);
 };
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_UDP_H

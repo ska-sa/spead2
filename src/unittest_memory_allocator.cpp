@@ -1,4 +1,4 @@
-/* Copyright 2016, 2019, 2021 National Research Foundation (SARAO)
+/* Copyright 2016, 2019, 2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -27,9 +27,7 @@
 #include <utility>
 #include <spead2/common_memory_allocator.h>
 
-namespace spead2
-{
-namespace unittest
+namespace spead2::unittest
 {
 
 BOOST_AUTO_TEST_SUITE(common)
@@ -112,4 +110,4 @@ BOOST_AUTO_TEST_CASE(legacy)
 BOOST_AUTO_TEST_SUITE_END()  // memory_allocator
 BOOST_AUTO_TEST_SUITE_END()  // common
 
-}} // namespace spead2::unittest
+} // namespace spead2::unittest

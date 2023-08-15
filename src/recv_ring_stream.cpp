@@ -1,4 +1,4 @@
-/* Copyright 2015, 2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -22,9 +22,7 @@
 #include <utility>
 #include <spead2/recv_ring_stream.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 constexpr std::size_t ring_stream_config::default_heaps;
@@ -52,5 +50,4 @@ ring_stream_base::ring_stream_base(
 {
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

@@ -39,9 +39,7 @@
 #define DLT_LINUX_SLL 113
 #endif
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 void udp_pcap_file_reader::run(handler_context ctx, stream_base::add_packet_state &state)
@@ -145,7 +143,6 @@ bool udp_pcap_file_reader::lossy() const
     return false;
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_USE_PCAP

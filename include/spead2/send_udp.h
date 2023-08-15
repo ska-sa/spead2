@@ -36,9 +36,7 @@
 #include <initializer_list>
 #include <spead2/send_stream.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 class udp_stream : public stream
@@ -197,7 +195,6 @@ public:
         : udp_stream(std::move(io_service), std::move(socket), std::vector<boost::asio::ip::udp::endpoint>(endpoints), std::forward<Args>(args)...) {}
 };
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_UDP_H

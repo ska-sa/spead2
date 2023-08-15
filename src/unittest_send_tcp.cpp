@@ -1,4 +1,4 @@
-/* Copyright 2020 National Research Foundation (SARAO)
+/* Copyright 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -26,9 +26,7 @@
 #include <spead2/common_thread_pool.h>
 #include <spead2/send_tcp.h>
 
-namespace spead2
-{
-namespace unittest
+namespace spead2::unittest
 {
 
 BOOST_AUTO_TEST_SUITE(send)
@@ -66,4 +64,4 @@ BOOST_AUTO_TEST_CASE(connect_fail)
 BOOST_AUTO_TEST_SUITE_END()  // tcp
 BOOST_AUTO_TEST_SUITE_END()  // send
 
-}} // namespace spead2::unittest
+} // namespace spead2::unittest

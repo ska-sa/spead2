@@ -1,4 +1,4 @@
-/* Copyright 2020 National Research Foundation (SARAO)
+/* Copyright 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -29,10 +29,7 @@
 #include <spead2/send_packet.h>
 #include <spead2/send_stream_config.h>
 
-namespace spead2
-{
-
-namespace send
+namespace spead2::send
 {
 
 namespace detail { struct queue_item; }
@@ -236,7 +233,6 @@ public:
     virtual std::size_t get_num_substreams() const = 0;
 };
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_WRITER_H

@@ -29,9 +29,7 @@
 #include <spead2/common_inproc.h>
 #include <spead2/send_stream.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 class inproc_stream : public stream
@@ -70,7 +68,6 @@ public:
     const std::shared_ptr<inproc_queue> &get_queue() const;
 };
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_INPROC_H

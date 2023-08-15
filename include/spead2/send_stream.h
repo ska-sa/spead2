@@ -41,10 +41,7 @@
 #include <spead2/common_defines.h>
 #include <spead2/common_thread_pool.h>
 
-namespace spead2
-{
-
-namespace send
+namespace spead2::send
 {
 
 /// Determines how to order packets when using @ref spead2::send::stream::async_send_heaps.
@@ -486,7 +483,6 @@ extern template bool stream::async_send_heaps_impl<stream::null_unwinder, heap_r
     heap_reference *first, heap_reference *last,
     completion_handler &&handler, group_mode mode);
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_STREAM_H

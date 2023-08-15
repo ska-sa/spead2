@@ -27,9 +27,7 @@
 #include <initializer_list>
 #include <spead2/send_stream.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 class tcp_stream : public stream
@@ -97,7 +95,6 @@ public:
         const stream_config &config = stream_config());
 };
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_TCP_H

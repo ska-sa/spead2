@@ -25,9 +25,7 @@
 #include <spead2/send_tcp.h>
 #include <spead2/send_writer.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 static boost::asio::ip::tcp::socket make_socket(
@@ -241,5 +239,4 @@ tcp_stream::tcp_stream(
 {
 }
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send

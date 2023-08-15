@@ -31,9 +31,7 @@
 
 #define INVALID_ENTRY ((queue_entry *) -1)
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 stream_stat_config::stream_stat_config(std::string name, mode mode_)
@@ -705,5 +703,4 @@ const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::
     return mem_to_stream(state, ptr, length);
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

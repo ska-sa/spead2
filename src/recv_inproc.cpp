@@ -26,9 +26,7 @@
 #include <spead2/recv_inproc.h>
 #include <spead2/recv_stream.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 inproc_reader::inproc_reader(
@@ -105,5 +103,4 @@ bool inproc_reader::lossy() const
     return false;
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

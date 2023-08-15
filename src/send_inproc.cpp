@@ -1,4 +1,4 @@
-/* Copyright 2018-2020 National Research Foundation (SARAO)
+/* Copyright 2018-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -24,9 +24,7 @@
 #include <spead2/send_inproc.h>
 #include <spead2/send_writer.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 namespace
@@ -158,5 +156,4 @@ const std::shared_ptr<inproc_queue> &inproc_stream::get_queue() const
     return queues[0];
 }
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send

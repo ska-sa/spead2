@@ -1,4 +1,4 @@
-/* Copyright 2020 National Research Foundation (SARAO)
+/* Copyright 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -28,9 +28,7 @@
 #include <spead2/send_writer.h>
 #include <spead2/send_stream.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 writer::precise_time::precise_time(const coarse_type &coarse)
@@ -309,5 +307,4 @@ writer::writer(io_service_ref io_service, const stream_config &config)
 {
 }
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send

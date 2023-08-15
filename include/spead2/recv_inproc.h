@@ -26,9 +26,7 @@
 #include <spead2/common_inproc.h>
 #include <spead2/recv_stream.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /**
@@ -59,7 +57,6 @@ public:
     virtual bool lossy() const override;
 };
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_INPROC_H

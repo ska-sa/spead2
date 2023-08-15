@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -28,9 +28,7 @@
 #include <boost/asio/buffer.hpp>
 #include <spead2/common_defines.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 class heap;
@@ -92,7 +90,6 @@ public:
     std::vector<boost::asio::const_buffer> next_packet(std::uint8_t *scratch);
 };
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_PACKET_H

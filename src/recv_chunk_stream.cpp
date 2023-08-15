@@ -35,9 +35,7 @@
 #include <spead2/recv_stream.h>
 #include <spead2/recv_chunk_stream.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 constexpr std::size_t chunk_stream_config::default_max_chunks;
@@ -282,5 +280,4 @@ chunk_stream::~chunk_stream()
     stop();
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

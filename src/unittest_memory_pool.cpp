@@ -1,4 +1,4 @@
-/* Copyright 2016, 2017, 2019, 2021 National Research Foundation (SARAO)
+/* Copyright 2016, 2017, 2019, 2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -32,9 +32,7 @@
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_logging.h>
 
-namespace spead2
-{
-namespace unittest
+namespace spead2::unittest
 {
 
 BOOST_AUTO_TEST_SUITE(common)
@@ -208,4 +206,4 @@ BOOST_FIXTURE_TEST_CASE(memory_pool_warn_on_empty, logger_fixture)
 BOOST_AUTO_TEST_SUITE_END()  // memory_pool
 BOOST_AUTO_TEST_SUITE_END()  // common
 
-}} // namespace spead2::unittest
+} // namespace spead2::unittest
