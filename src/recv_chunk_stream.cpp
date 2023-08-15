@@ -138,11 +138,11 @@ chunk_stream_state_base::chunk_stream_state_base(
     /* Allocate the memory, and use placement new to initialise it. For the
      * arrays the placement new shouldn't actually run any code, but it
      * officially starts the lifetime of the object in terms of the C++ spec.
-     * It's not if it's actually portable in C++11: implementations used to be
-     * allowed to add overhead for array new, even when using placement new.
-     * CWG 2382 disallowed that for placement new, and in practice it sounds
-     * like no compiler ever added overhead for scalar types (MSVC used to do
-     * it for polymorphic classes).
+     * It's not clear whether it's actually portable in C++17: implementations
+     * used to be allowed to add overhead for array new, even when using
+     * placement new.  CWG 2382 disallowed that for placement new, and in
+     * practice it sounds like no compiler ever added overhead for scalar types
+     * (MSVC used to do it for polymorphic classes).
      *
      * In C++20 it's probably not necessary to use the placement new due to
      * the rules about implicit-lifetime types, although the examples imply
@@ -163,7 +163,6 @@ chunk_stream_state_base::chunk_stream_state_base(
 
 void chunk_stream_state_base::free_place_data::operator()(unsigned char *ptr) const
 {
-    // TODO: should this use std::launder in C++17?
     auto *place_data = reinterpret_cast<chunk_place_data *>(ptr);
     place_data->~chunk_place_data();
     operator delete(ptr);
