@@ -1,4 +1,4 @@
-/* Copyright 2015 National Research Foundation (SARAO)
+/* Copyright 2015, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -105,20 +105,6 @@ static void bind_cpu(int cpu)
     }
 }
 
-// Reimplementation of std::align, since GCC 4.8 doesn't implement it
-static void *align(std::size_t alignment, std::size_t size, void *&ptr, std::size_t &space)
-{
-    std::uintptr_t value = reinterpret_cast<std::uintptr_t>(ptr);
-    std::size_t adjust = alignment - (value & (alignment - 1));
-    if (adjust == alignment)
-        adjust = 0;
-    if (size + adjust > space)
-        return nullptr;
-    ptr = static_cast<void *>(static_cast<char *>(ptr) + adjust);
-    space -= adjust;
-    return ptr;
-}
-
 template<typename Ringbuffer>
 static void reader(Ringbuffer &ring, const options &opts)
 {
@@ -139,27 +125,22 @@ template<typename Ringbuffer>
 static void run(const options &opts)
 {
     // Allocate ring buffer at aligned address
-    char ring_storage[sizeof(Ringbuffer) + alignment];
-    void *ring_ptr = ring_storage;
-    std::size_t space = sizeof(ring_storage);
-    align(alignment, sizeof(Ringbuffer), ring_ptr, space);
-    Ringbuffer *ring = new (ring_ptr) Ringbuffer(opts.capacity);
+    alignas(alignment) Ringbuffer ring(opts.capacity);
 
-    std::thread thread(std::bind(reader<Ringbuffer>, std::ref(*ring), std::cref(opts)));
+    std::thread thread(std::bind(reader<Ringbuffer>, std::ref(ring), std::cref(opts)));
     // Give the thread time to get going
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     time_point start = std::chrono::high_resolution_clock::now();
     for (std::int64_t i = 0; i < opts.items; i++)
     {
-        ring->push(item_t());
+        ring.push(item_t());
     }
-    ring->stop();
+    ring.stop();
     thread.join();
     time_point end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_duration = end - start;
     double elapsed = elapsed_duration.count();
     std::cout << opts.items << " in " << elapsed << "s (" << opts.items / elapsed << "/s)\n";
-    ring->~Ringbuffer();
 }
 
 int main(int argc, const char **argv)
