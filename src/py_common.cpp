@@ -36,6 +36,7 @@
 #if SPEAD2_USE_IBV
 # include <spead2/common_ibv.h>
 #endif
+#include "common_unique.h"
 
 namespace py = pybind11;
 
@@ -124,7 +125,7 @@ void thread_pool_wrapper::stop()
 
 py::buffer_info request_buffer_info(const py::buffer &buffer, int extra_flags)
 {
-    std::unique_ptr<Py_buffer> view(new Py_buffer);
+    auto view = detail::make_unique_for_overwrite<Py_buffer>();
     int flags = PyBUF_STRIDES | PyBUF_FORMAT | extra_flags;
     if (PyObject_GetBuffer(buffer.ptr(), view.get(), flags) != 0)
         throw py::error_already_set();
@@ -321,7 +322,7 @@ void register_module(py::module m)
             py::buffer_info info = request_buffer_info(obj, PyBUF_C_CONTIGUOUS);
             inproc_queue::packet pkt;
             pkt.size = info.size * info.itemsize;
-            pkt.data = std::unique_ptr<std::uint8_t[]>{new std::uint8_t[pkt.size]};
+            pkt.data = detail::make_unique_for_overwrite<std::uint8_t[]>(pkt.size);
             std::memcpy(pkt.data.get(), info.ptr, pkt.size);
             self.add_packet(std::move(pkt));
         }, "packet")

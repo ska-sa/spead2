@@ -78,7 +78,7 @@ int main()
     }
     for (int i = 0; i < max_chunks; i++)
     {
-        std::unique_ptr<spead2::recv::chunk> chunk{new spead2::recv::chunk};
+        auto chunk = std::make_unique<spead2::recv::chunk>();
         chunk->present = allocator->allocate(heaps_per_chunk, nullptr);
         chunk->present_size = heaps_per_chunk;
         chunk->data = allocator->allocate(chunk_payload_size, nullptr);

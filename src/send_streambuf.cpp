@@ -105,8 +105,7 @@ streambuf_stream::streambuf_stream(
     io_service_ref io_service,
     std::streambuf &streambuf,
     const stream_config &config)
-    : stream(std::unique_ptr<writer>(new streambuf_writer(
-        std::move(io_service), streambuf, config)))
+    : stream(std::make_unique<streambuf_writer>(std::move(io_service), streambuf, config))
 {
 }
 

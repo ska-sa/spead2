@@ -1,4 +1,4 @@
-/* Copyright 2021 National Research Foundation (SARAO)
+/* Copyright 2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -78,7 +78,7 @@ static void chunk_place(spead2::recv::chunk_place_data *data, std::size_t data_s
 static std::unique_ptr<spead2::recv::chunk> chunk_allocate(
     std::int64_t chunk_id, std::uint64_t *batch_stats)
 {
-    std::unique_ptr<spead2::recv::chunk> chunk{new spead2::recv::chunk};
+    auto chunk = std::make_unique<spead2::recv::chunk>();
     chunk->present = allocator->allocate(heaps_per_chunk, nullptr);
     chunk->present_size = heaps_per_chunk;
     // Indicate that no heaps are present yet

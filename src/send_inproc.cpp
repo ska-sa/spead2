@@ -139,7 +139,7 @@ inproc_stream::inproc_stream(
     io_service_ref io_service,
     const std::vector<std::shared_ptr<inproc_queue>> &queues,
     const stream_config &config)
-    : stream(std::unique_ptr<writer>(new inproc_writer(std::move(io_service), queues, config)))
+    : stream(std::make_unique<inproc_writer>(std::move(io_service), queues, config))
 {
 }
 

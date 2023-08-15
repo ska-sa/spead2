@@ -364,12 +364,12 @@ udp_stream::udp_stream(
     const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     const stream_config &config,
     std::size_t buffer_size)
-    : stream(std::unique_ptr<writer>(new udp_writer(
+    : stream(std::make_unique<udp_writer>(
         std::move(io_service),
         std::move(socket),
         endpoints,
         config,
-        buffer_size)))
+        buffer_size))
 {
 }
 

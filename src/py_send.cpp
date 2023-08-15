@@ -37,6 +37,7 @@
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_semaphore.h>
 #include <spead2/py_common.h>
+#include "common_unique.h"
 
 namespace py = pybind11;
 
@@ -80,7 +81,7 @@ flavour heap_wrapper::get_flavour() const
 
 py::bytes packet_generator_next(packet_generator &gen)
 {
-    std::unique_ptr<std::uint8_t[]> scratch(new std::uint8_t[gen.get_max_packet_size()]);
+    auto scratch = spead2::detail::make_unique_for_overwrite<std::uint8_t[]>(gen.get_max_packet_size());
     auto buffers = gen.next_packet(scratch.get());
     if (buffers.empty())
         throw py::stop_iteration();
@@ -802,7 +803,7 @@ private:
             state->ec = ec;
             state->sem.put();
         };
-        std::unique_ptr<stream_type> stream{new stream_type(connect_handler, std::forward<Args>(args)...)};
+        auto stream = std::make_unique<stream_type>(connect_handler, std::forward<Args>(args)...);
         semaphore_get(state->sem, gil_release_tag());
         if (state->ec)
             throw boost_io_error(state->ec);
@@ -842,8 +843,7 @@ private:
             py::object callback = py::reinterpret_steal<py::object>(state->callback);
             callback(make_io_error(ec));
         };
-        std::unique_ptr<stream_type> stream{
-            new stream_type(connect_handler, std::forward<Args>(args)...)};
+        auto stream = std::make_unique<stream_type>(connect_handler, std::forward<Args>(args)...);
         /* The state takes over the references. These are dealt with using
          * py::handle rather than py::object to avoid manipulating refcounts
          * without the GIL. Note that while the connect_handler could occur

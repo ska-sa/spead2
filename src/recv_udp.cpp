@@ -309,7 +309,7 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
         }
 #endif
     }
-    return std::unique_ptr<reader>(new udp_reader(owner, endpoint, max_size, buffer_size));
+    return std::make_unique<udp_reader>(owner, endpoint, max_size, buffer_size);
 }
 
 std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
@@ -338,7 +338,7 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
         }
 #endif
     }
-    return std::unique_ptr<reader>(new udp_reader(owner, endpoint, max_size, buffer_size, interface_address));
+    return std::make_unique<udp_reader>(owner, endpoint, max_size, buffer_size, interface_address);
 }
 
 std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
@@ -348,8 +348,7 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
     std::size_t buffer_size,
     unsigned int interface_index)
 {
-    return std::unique_ptr<reader>(new udp_reader(
-            owner, endpoint, max_size, buffer_size, interface_index));
+    return std::make_unique<udp_reader>(owner, endpoint, max_size, buffer_size, interface_index);
 }
 
 std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
@@ -357,8 +356,7 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
     boost::asio::ip::udp::socket &&socket,
     std::size_t max_size)
 {
-    return std::unique_ptr<reader>(new udp_reader(
-            owner, std::move(socket), max_size));
+    return std::make_unique<udp_reader>(owner, std::move(socket), max_size);
 }
 
 } // namespace spead2::recv

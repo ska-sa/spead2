@@ -1,4 +1,4 @@
-/* Copyright 2016, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2016, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -623,8 +623,7 @@ udp_ibv_stream::udp_ibv_stream(
     io_service_ref io_service,
     const stream_config &config,
     const udp_ibv_config &ibv_config)
-    : stream(std::unique_ptr<writer>(new udp_ibv_writer(
-        std::move(io_service), config, ibv_config)))
+    : stream(std::make_unique<udp_ibv_writer>(std::move(io_service), config, ibv_config))
 {
 }
 

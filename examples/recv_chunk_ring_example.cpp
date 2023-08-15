@@ -1,4 +1,4 @@
-/* Copyright 2021 National Research Foundation (SARAO)
+/* Copyright 2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -71,7 +71,7 @@ int main()
     spead2::recv::chunk_ring_stream<> stream(worker, stream_config, chunk_config, data_ring, free_ring);
     for (int i = 0; i < max_chunks; i++)
     {
-        std::unique_ptr<spead2::recv::chunk> chunk{new spead2::recv::chunk};
+        auto chunk = std::make_unique<spead2::recv::chunk>();
         chunk->present = allocator->allocate(heaps_per_chunk, nullptr);
         chunk->present_size = heaps_per_chunk;
         chunk->data = allocator->allocate(chunk_payload_size, nullptr);

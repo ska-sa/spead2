@@ -432,7 +432,7 @@ static std::unique_ptr<chunk_wrapper> wrap_chunk(chunk &c)
         throw std::invalid_argument("data buffer is not set");
     if (!c.present)
         throw std::invalid_argument("present buffer is not set");
-    std::unique_ptr<chunk_wrapper> cw{new chunk_wrapper};
+    auto cw = std::make_unique<chunk_wrapper>();
     static_cast<chunk &>(*cw) = std::move(c);
     cw->obj = py::cast(c);
     return cw;

@@ -417,8 +417,7 @@ struct reader_factory<udp_ibv_reader>
 #if SPEAD2_USE_MLX5DV
         try
         {
-            std::unique_ptr<reader> reader(new udp_ibv_mprq_reader(
-                std::forward<Args>(args)...));
+            auto reader = std::make_unique<udp_ibv_mprq_reader>(std::forward<Args>(args)...);
             log_info("Using multi-packet receive queue for verbs acceleration");
             return reader;
         }
@@ -428,12 +427,10 @@ struct reader_factory<udp_ibv_reader>
                 && e.code() != std::errc::function_not_supported)   // ENOSYS
                 throw;
             log_debug("Multi-packet receive queues not supported (%1%), falling back", e.what());
-            return std::unique_ptr<reader>(new udp_ibv_reader(
-                std::forward<Args>(args)...));
+            return std::make_unique<udp_ibv_reader>(std::forward<Args>(args)...);
         }
 #else
-        return std::unique_ptr<reader>(new udp_ibv_reader(
-            std::forward<Args>(args)...));
+        return std::make_unique<udp_ibv_reader>(std::forward<Args>(args)...);
 #endif
     }
 };

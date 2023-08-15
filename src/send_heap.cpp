@@ -31,6 +31,7 @@
 #include <spead2/common_defines.h>
 #include <spead2/common_logging.h>
 #include <spead2/common_endian.h>
+#include "common_unique.h"
 
 namespace spead2::send
 {
@@ -82,7 +83,7 @@ encode_descriptor(const descriptor &d, const flavour &flavour_)
         + d.shape.size() * shape_size
         + d.numpy_header.size();
     std::size_t total_size = payload_size + n_items * sizeof(item_pointer_t) + 8;
-    std::unique_ptr<std::uint8_t[]> out(new std::uint8_t[total_size]);
+    auto out = detail::make_unique_for_overwrite<std::uint8_t[]>(total_size);
     std::uint64_t *header = reinterpret_cast<std::uint64_t *>(out.get());
     item_pointer_t *pointer = reinterpret_cast<item_pointer_t *>(out.get() + 8);
     std::size_t offset = 0;
