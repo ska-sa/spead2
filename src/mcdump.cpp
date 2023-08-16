@@ -60,6 +60,7 @@
 #include <signal.h>
 
 namespace po = boost::program_options;
+using namespace std::literals;
 
 typedef std::chrono::high_resolution_clock::time_point time_point;
 
@@ -729,7 +730,7 @@ void capture_base::run()
          * down the QP. This makes it more likely that we can avoid incrementing
          * the dropped packets counter on the NIC.
          */
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(200ms);
         if (has_file)
             collect_future.get();
         // Restore SIGINT handler
@@ -896,7 +897,7 @@ void capture::network_thread()
                 if (!opts.quiet)
                 {
                     time_point now = std::chrono::high_resolution_clock::now();
-                    if (now - last_report >= std::chrono::seconds(1))
+                    if (now - last_report >= 1s)
                         report_rates(now);
                 }
             }
@@ -1132,7 +1133,7 @@ void capture_mprq::network_thread()
                 if (!opts.quiet)
                 {
                     time_point now = std::chrono::high_resolution_clock::now();
-                    if (now - last_report >= std::chrono::seconds(1))
+                    if (now - last_report >= 1s)
                         report_rates(now);
                 }
             }

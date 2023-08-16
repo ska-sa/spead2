@@ -37,6 +37,7 @@
 #include <spead2/recv_heap.h>
 
 namespace po = boost::program_options;
+using namespace std::literals;
 
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
 typedef spead2::detail::storage<spead2::recv::heap> item_t;
@@ -130,7 +131,7 @@ static void run(const options &opts)
 
     std::thread thread(std::bind(reader<Ringbuffer>, std::ref(ring), std::cref(opts)));
     // Give the thread time to get going
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(100ms);
     time_point start = std::chrono::high_resolution_clock::now();
     for (std::int64_t i = 0; i < opts.items; i++)
     {

@@ -371,11 +371,11 @@ static std::pair<bool, double> measure_connection_once(
         double actual_rate = transferred / elapsed_duration.count();
 
         /* Get results */
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(100ms);
         control << "stop" << std::endl;
         std::int64_t received_heaps;
         control >> received_heaps;
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(500ms);
         control.close();
         bool good = (received_heaps >= required_heaps);
         return std::pair(good, actual_rate);
