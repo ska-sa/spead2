@@ -46,10 +46,6 @@ namespace spead2
 namespace recv
 {
 
-constexpr std::size_t udp_ibv_config::default_buffer_size;
-constexpr std::size_t udp_ibv_config::default_max_size;
-constexpr int udp_ibv_config::default_max_poll;
-
 void udp_ibv_config::validate_endpoint(const boost::asio::ip::udp::endpoint &endpoint)
 {
     if (!endpoint.address().is_unspecified() && !endpoint.address().is_v4())
@@ -67,8 +63,6 @@ udp_ibv_config &udp_ibv_config::set_max_size(std::size_t max_size)
 namespace detail
 {
 
-constexpr std::size_t udp_ibv_reader_core::default_buffer_size;
-constexpr int udp_ibv_reader_core::default_max_poll;
 static constexpr int header_length =
     ethernet_frame::min_size + ipv4_packet::min_size + udp_packet::min_size;
 

@@ -28,8 +28,6 @@
 namespace spead2::recv
 {
 
-constexpr std::size_t udp_reader_base::default_max_size;
-
 bool udp_reader_base::process_one_packet(
     stream_base::add_packet_state &state,
     const std::uint8_t *data, std::size_t length, std::size_t max_size)

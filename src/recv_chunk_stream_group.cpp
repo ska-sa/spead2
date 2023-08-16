@@ -29,8 +29,6 @@
 namespace spead2::recv
 {
 
-constexpr std::size_t chunk_stream_group_config::default_max_chunks;
-
 chunk_stream_group_config &chunk_stream_group_config::set_max_chunks(std::size_t max_chunks)
 {
     if (max_chunks == 0)

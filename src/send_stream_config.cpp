@@ -25,12 +25,6 @@
 namespace spead2::send
 {
 
-constexpr std::size_t stream_config::default_max_packet_size;
-constexpr std::size_t stream_config::default_max_heaps;
-constexpr std::size_t stream_config::default_burst_size;
-constexpr double stream_config::default_burst_rate_ratio;
-constexpr rate_method stream_config::default_rate_method;
-
 stream_config &stream_config::set_max_packet_size(std::size_t max_packet_size)
 {
     // TODO: validate here instead rather than waiting until packet_generator

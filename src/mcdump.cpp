@@ -259,8 +259,6 @@ public:
     void write(const void *data, std::size_t length);
 };
 
-constexpr std::size_t writer::buffer_size;
-
 std::size_t writer::compute_depth(const options &opts)
 {
     std::size_t depth = opts.disk_buffer / buffer_size;

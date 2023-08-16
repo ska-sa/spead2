@@ -559,9 +559,6 @@ udp_ibv_writer::udp_ibv_writer(
 
 } // anonymous namespace
 
-constexpr std::size_t udp_ibv_config::default_buffer_size;
-constexpr int udp_ibv_config::default_max_poll;
-
 void udp_ibv_config::validate_endpoint(const boost::asio::ip::udp::endpoint &endpoint)
 {
     if (!endpoint.address().is_v4() || !endpoint.address().is_multicast())

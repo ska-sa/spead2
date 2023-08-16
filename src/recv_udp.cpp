@@ -45,8 +45,6 @@
 namespace spead2::recv
 {
 
-constexpr std::size_t udp_reader::default_buffer_size;
-
 static boost::asio::ip::udp::socket bind_socket(
     boost::asio::ip::udp::socket &&socket,
     const boost::asio::ip::udp::endpoint &endpoint,

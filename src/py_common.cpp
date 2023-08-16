@@ -134,7 +134,6 @@ py::buffer_info request_buffer_info(const py::buffer &buffer, int extra_flags)
     return info;
 }
 
-constexpr unsigned int log_function_python::num_levels;
 const char *const log_function_python::level_methods[log_function_python::num_levels] =
 {
     "warning",

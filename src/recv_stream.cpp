@@ -218,8 +218,6 @@ stream_stats &stream_stats::operator+=(const stream_stats &other)
 }
 
 
-constexpr std::size_t stream_config::default_max_heaps;
-
 static std::size_t compute_bucket_count(std::size_t total_max_heaps)
 {
     std::size_t buckets = 4;

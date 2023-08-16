@@ -25,8 +25,6 @@
 namespace spead2::recv
 {
 
-constexpr std::size_t ring_stream_config::default_heaps;
-
 ring_stream_config &ring_stream_config::set_heaps(std::size_t heaps)
 {
     if (heaps == 0)

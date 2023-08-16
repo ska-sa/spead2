@@ -35,8 +35,6 @@
 namespace spead2::send
 {
 
-constexpr std::size_t packet_generator::prefix_size;
-
 static bool use_immediate(const item &it, std::size_t max_immediate_size)
 {
     return it.is_inline

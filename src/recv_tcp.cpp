@@ -39,10 +39,6 @@
 namespace spead2::recv
 {
 
-constexpr std::size_t tcp_reader::pkts_per_buffer;
-constexpr std::size_t tcp_reader::default_max_size;
-constexpr std::size_t tcp_reader::default_buffer_size;
-
 tcp_reader::tcp_reader(
     stream &owner,
     boost::asio::ip::tcp::acceptor &&acceptor,

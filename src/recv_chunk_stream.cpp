@@ -39,8 +39,6 @@
 namespace spead2::recv
 {
 
-constexpr std::size_t chunk_stream_config::default_max_chunks;
-
 chunk_stream_config &chunk_stream_config::set_items(const std::vector<item_pointer_t> &item_ids)
 {
     this->item_ids = item_ids;

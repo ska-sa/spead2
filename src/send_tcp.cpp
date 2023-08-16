@@ -179,8 +179,6 @@ tcp_writer::tcp_writer(
 
 } // anonymous namespace
 
-constexpr std::size_t tcp_stream::default_buffer_size;
-
 tcp_stream::tcp_stream(
     io_service_ref io_service,
     std::function<void(const boost::system::error_code &)> &&connect_handler,

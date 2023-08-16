@@ -63,8 +63,6 @@ public:
     virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
 };
 
-constexpr int udp_writer::max_batch;
-
 #if SPEAD2_USE_SENDMMSG
 
 void udp_writer::send_packets(int first, int last)
@@ -260,8 +258,6 @@ static boost::asio::ip::udp get_protocol(const std::vector<boost::asio::ip::udp:
         throw std::invalid_argument("Endpoint list must be non-empty");
     return endpoints[0].protocol();
 }
-
-constexpr std::size_t udp_stream::default_buffer_size;
 
 udp_stream::udp_stream(
     io_service_ref io_service,
