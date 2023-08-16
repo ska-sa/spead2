@@ -119,11 +119,11 @@ encode_descriptor(const descriptor &d, const flavour &flavour_)
     memcpy_adjust(data, d.name.data(), d.name.size());
     memcpy_adjust(data, d.description.data(), d.description.size());
 
-    for (const auto &field : d.format)
+    for (const auto &[ftype, fsize] : d.format)
     {
-        *data = field.first;
+        *data = ftype;
         // TODO: validate that it fits
-        store_bytes_be(data + 1, field_size - 1, field.second);
+        store_bytes_be(data + 1, field_size - 1, fsize);
         data += field_size;
     }
 
@@ -151,9 +151,9 @@ heap::heap(const flavour &flavour_)
 
 void heap::add_descriptor(const descriptor &descriptor)
 {
-    auto blob = encode_descriptor(descriptor, flavour_);
-    items.emplace_back(DESCRIPTOR_ID, blob.first.get(), blob.second, false);
-    storage.emplace_back(std::move(blob.first));
+    auto [ptr, size] = encode_descriptor(descriptor, flavour_);
+    items.emplace_back(DESCRIPTOR_ID, ptr.get(), size, false);
+    storage.emplace_back(std::move(ptr));
 }
 
 } // namespace spead2::send

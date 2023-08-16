@@ -266,9 +266,8 @@ static void add_udp_ibv_reader_new(stream &s, const udp_ibv_config_wrapper &conf
 {
     py::gil_scoped_release gil;
     udp_ibv_config config = config_wrapper;
-    for (const auto &endpoint : config_wrapper.py_endpoints)
-        config.add_endpoint(make_endpoint<boost::asio::ip::udp>(
-            s, endpoint.first, endpoint.second));
+    for (const auto &[host, port] : config_wrapper.py_endpoints)
+        config.add_endpoint(make_endpoint<boost::asio::ip::udp>(s, host, port));
     config.set_interface_address(
         make_address(s, config_wrapper.py_interface_address));
     s.emplace_reader<udp_ibv_reader>(config);

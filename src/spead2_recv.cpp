@@ -138,12 +138,12 @@ static void show_heap(const spead2::recv::heap &fheap, const options &opts)
                 << "  description: " << descriptor.description << '\n'
                 << "  format:      [";
             bool first = true;
-            for (const auto &field : descriptor.format)
+            for (const auto &[ftype, fsize] : descriptor.format)
             {
                 if (!first)
                     std::cout << ", ";
                 first = false;
-                std::cout << '(' << field.first << ", " << field.second << ')';
+                std::cout << '(' << ftype << ", " << fsize << ')';
             }
             std::cout << "]\n";
             std::cout
@@ -392,7 +392,7 @@ int main(int argc, const char **argv)
     }
 
     std::cout << "Received " << n_complete << " heaps\n";
-    for (const auto field : stats)
-        std::cout << field.first << ": " << field.second << '\n';
+    for (const auto &[name, value] : stats)
+        std::cout << name << ": " << value << '\n';
     return 0;
 }

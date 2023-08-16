@@ -65,9 +65,9 @@ BOOST_AUTO_TEST_CASE(send_fail)
         result_promise.set_value(std::pair(ec, bytes_transferred));
     };
     stream.async_send_heap(h, handler);
-    auto result = result_promise.get_future().get();
-    BOOST_CHECK_EQUAL(result.first, boost::asio::error::eof);
-    BOOST_CHECK_EQUAL(result.second, 20);
+    auto [ec, bytes_transferred] = result_promise.get_future().get();
+    BOOST_CHECK_EQUAL(ec, boost::asio::error::eof);
+    BOOST_CHECK_EQUAL(bytes_transferred, 20);
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // streambuf

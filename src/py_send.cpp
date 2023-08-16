@@ -388,8 +388,8 @@ static std::vector<typename Protocol::endpoint> make_endpoints(
 {
     std::vector<typename Protocol::endpoint> out;
     out.reserve(endpoints.size());
-    for (const auto &ep : endpoints)
-        out.push_back(make_endpoint<Protocol>(io_service, ep.first, ep.second));
+    for (const auto &[host, port] : endpoints)
+        out.push_back(make_endpoint<Protocol>(io_service, host, port));
     return out;
 }
 

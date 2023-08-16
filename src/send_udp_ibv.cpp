@@ -519,8 +519,8 @@ udp_ibv_writer::udp_ibv_writer(
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(max_raw_size * n_slots, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
-    for (const auto &region : ibv_config.get_memory_regions())
-        memory_regions.emplace(pd, region.first, region.second);
+    for (const auto &[ptr, size] : ibv_config.get_memory_regions())
+        memory_regions.emplace(pd, ptr, size);
     slots.reset(new slot[n_slots]);
     // We fill in the destination details for the first endpoint. If there are
     // multiple endpoints, they'll get updated for each packet.

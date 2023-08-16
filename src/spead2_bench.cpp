@@ -401,10 +401,10 @@ static std::pair<bool, double> measure_connection(
     const int passes = 5;
     for (int i = 0; i < passes; i++)
     {
-        std::pair<bool, double> result = measure_connection_once(opts, rate, num_heaps, required_heaps);
-        if (!result.first)
+        auto [success, actual_rate] = measure_connection_once(opts, rate, num_heaps, required_heaps);
+        if (!success)
             good = false;
-        rate_sum += result.second;
+        rate_sum += actual_rate;
     }
     return std::pair(good, rate_sum / passes);
 }
@@ -419,29 +419,27 @@ static void main_master(int argc, const char **argv)
      */
     std::int64_t num_heaps = std::int64_t(1e9 / opts.heap_size) + 2;
     measure_connection_once(opts, 0.0, num_heaps, 0); // warmup
-    std::pair<bool, double> result = measure_connection(opts, 0.0, num_heaps, num_heaps - 1);
-    if (result.first)
+    auto [success, actual_rate] = measure_connection(opts, 0.0, num_heaps, num_heaps - 1);
+    if (success)
     {
         if (!opts.quiet)
             std::cout << "Limited by send speed\n";
-        best_actual = result.second;
+        best_actual = actual_rate;
     }
     else
     {
         if (!opts.quiet)
-            std::cout << boost::format("Send rate: %.3f Gbps\n") % (result.second * 8e-9);
+            std::cout << boost::format("Send rate: %.3f Gbps\n") % (actual_rate * 8e-9);
 
         double low = 0.0;
-        double high = result.second;
+        double high = actual_rate;
         while (high - low > high * 0.02)
         {
             // Need at least 1GB of data to overwhelm cache effects, and want at least
             // 1 second for warmup effects.
             double rate = (low + high) * 0.5;
             num_heaps = std::int64_t(std::max(1e9, rate) / opts.heap_size) + 2;
-            result = measure_connection(opts, rate, num_heaps, num_heaps - 1);
-            bool good = result.first;
-            double actual_rate = result.second;
+            auto [good, actual_rate] = measure_connection(opts, rate, num_heaps, num_heaps - 1);
             if (!opts.quiet)
                 std::cout << boost::format("Rate: %.3f Gbps (%.3f actual): %s\n")
                     % (rate * 8e-9) % (actual_rate * 8e-9) % (good ? "GOOD" : "BAD");

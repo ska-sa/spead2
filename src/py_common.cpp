@@ -160,7 +160,8 @@ void log_function_python::run()
         {
             auto msg = ring.pop();
             py::gil_scoped_acquire gil;
-            log(msg.first, msg.second);
+            auto &[level, text] = msg;
+            log(level, text);
             /* If there are multiple messages queued, consume them while
              * the GIL is held, rather than dropping and regaining the
              * GIL; but limit it, so that we don't starve other threads
@@ -171,7 +172,8 @@ void log_function_python::run()
                 for (int pass = 1; pass < 1024; pass++)
                 {
                     msg = ring.try_pop();
-                    log(msg.first, msg.second);
+                    auto &[level, text] = msg;
+                    log(level, text);
                 }
             }
             catch (ringbuffer_empty &)

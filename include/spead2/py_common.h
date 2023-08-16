@@ -233,10 +233,10 @@ template<typename T>
 T *data_class_constructor(pybind11::kwargs kwargs)
 {
     pybind11::object self = pybind11::cast(new T());
-    for (auto item : kwargs)
+    for (auto &[key, value] : kwargs)
     {
-        if (pybind11::hasattr(self, item.first))
-            pybind11::setattr(self, item.first, item.second);
+        if (pybind11::hasattr(self, key))
+            pybind11::setattr(self, key, value);
         else
         {
             PyErr_SetString(PyExc_TypeError, "got an unexpected keyword argument");
