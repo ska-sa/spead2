@@ -30,6 +30,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
+#include <algorithm>
 #include <memory>
 #include <utility>
 #include <algorithm>
@@ -170,7 +171,7 @@ udp_ibv_reader::poll_result udp_ibv_reader::poll_once(stream_base::add_packet_st
      * not calling post_recv too often (it takes a lock) and not starving the
      * receive queue.
      */
-    const std::size_t post_batch = std::min(std::max(n_slots / 4, std::size_t(1)), std::size_t(64));
+    const std::size_t post_batch = std::clamp(n_slots / 4, std::size_t(1), std::size_t(64));
     int received = recv_cq.poll(n_slots, wc.get());
     ibv_recv_wr *head = nullptr, *tail = nullptr;
     std::size_t cur_batch = 0;

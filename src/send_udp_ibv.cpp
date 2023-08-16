@@ -448,7 +448,7 @@ static std::size_t calc_n_slots(const stream_config &config, std::size_t buffer_
 static std::size_t calc_target_batch(const stream_config &config, std::size_t n_slots)
 {
     std::size_t packet_size = config.get_max_packet_size() + header_length;
-    return std::max(std::size_t(1), std::min(n_slots / 4, 262144 / packet_size));
+    return std::clamp(n_slots / 4, std::size_t(1), 262144 / packet_size);
 }
 
 udp_ibv_writer::udp_ibv_writer(

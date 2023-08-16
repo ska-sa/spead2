@@ -40,6 +40,7 @@
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
+#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <limits>
@@ -1006,11 +1007,6 @@ capture_mprq::capture_mprq(const options &opts)
     wq.modify(IBV_WQS_RDY);
 }
 
-static int clamp(int x, int low, int high)
-{
-    return std::min(std::max(x, low), high);
-}
-
 chunking_scheme capture_mprq::sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id)
 {
     ibv_device_attr attr = cm_id.query_device();
@@ -1029,13 +1025,15 @@ chunking_scheme capture_mprq::sizes(const options &opts, const spead2::rdma_cm_i
      * running out of CQEs.
      */
     std::size_t log_stride_bytes =
-        clamp(6,
-              mlx5dv_attr.striding_rq_caps.min_single_stride_log_num_of_bytes,
-              mlx5dv_attr.striding_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes
+        std::clamp(
+            std::uint32_t(6),
+            mlx5dv_attr.striding_rq_caps.min_single_stride_log_num_of_bytes,
+            mlx5dv_attr.striding_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes
     std::size_t log_strides_per_chunk =
-        clamp(21 - log_stride_bytes,
-              mlx5dv_attr.striding_rq_caps.min_single_wqe_log_num_of_strides,
-              mlx5dv_attr.striding_rq_caps.max_single_wqe_log_num_of_strides);    // 2MB chunks
+        std::clamp(
+            std::uint32_t(21 - log_stride_bytes),
+            mlx5dv_attr.striding_rq_caps.min_single_wqe_log_num_of_strides,
+            mlx5dv_attr.striding_rq_caps.max_single_wqe_log_num_of_strides);    // 2MB chunks
     std::size_t max_records = 1 << log_strides_per_chunk;
     std::size_t chunk_size = max_records << log_stride_bytes;
     std::size_t n_chunks = opts.net_buffer / chunk_size;
