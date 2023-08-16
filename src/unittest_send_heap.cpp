@@ -20,6 +20,7 @@
  * Unit tests for send_heap.
  */
 
+#include <utility>
 #include <boost/test/unit_test.hpp>
 #include <spead2/send_heap.h>
 
@@ -39,7 +40,7 @@ BOOST_AUTO_TEST_CASE(get_item)
     auto handle1 = h.add_item(0x1234, value1);
     auto handle2 = h.add_item(0x2345, &value2, sizeof(value2), false);
     item &item1 = h.get_item(handle1);
-    const item &item2 = const_cast<const heap &>(h).get_item(handle2);
+    const item &item2 = std::as_const(h).get_item(handle2);
 
     BOOST_CHECK_EQUAL(item1.id, 0x1234);
     BOOST_CHECK(item1.is_inline);
