@@ -378,7 +378,7 @@ static std::pair<bool, double> measure_connection_once(
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         control.close();
         bool good = (received_heaps >= required_heaps);
-        return std::make_pair(good, actual_rate);
+        return std::pair(good, actual_rate);
     }
     catch (std::ios::failure &e)
     {
@@ -406,7 +406,7 @@ static std::pair<bool, double> measure_connection(
             good = false;
         rate_sum += result.second;
     }
-    return std::make_pair(good, rate_sum / passes);
+    return std::pair(good, rate_sum / passes);
 }
 
 static void main_master(int argc, const char **argv)

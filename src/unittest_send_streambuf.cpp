@@ -62,7 +62,7 @@ BOOST_AUTO_TEST_CASE(send_fail)
     std::promise<std::pair<boost::system::error_code, std::size_t>> result_promise;
     auto handler = [&](const boost::system::error_code &ec, std::size_t bytes_transferred)
     {
-        result_promise.set_value(std::make_pair(ec, bytes_transferred));
+        result_promise.set_value(std::pair(ec, bytes_transferred));
     };
     stream.async_send_heap(h, handler);
     auto result = result_promise.get_future().get();
