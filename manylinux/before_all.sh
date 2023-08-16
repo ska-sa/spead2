@@ -7,9 +7,11 @@ set -e -u
 package="$1"
 
 yum install -y \
-    wget libpcap libpcap-devel python-devel \
-    cmake3 ninja-build pandoc libnl3-devel \
-    ccache
+    wget libpcap libpcap-devel \
+    cmake3 ninja-build pandoc libnl3-devel
+if [[ "${CC:-}" == ccache* ]]; then
+    yum install -y ccache
+fi
 
 # Workaround for https://github.com/pypa/manylinux/issues/1203
 unset SSL_CERT_FILE

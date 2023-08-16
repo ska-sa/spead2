@@ -7,16 +7,24 @@ before-all = "manylinux/before_all.sh {package}"
 before-build = "manylinux/before_build.sh"
 manylinux-x86_64-image="manylinux2014"
 manylinux-i686-image="manylinux2014"
-manylinux-aarch64-image="manylinux2014"
+# The manylinux2014 AArch64 images don't provide cmake, so build 2_28 wheels instead
+manylinux-aarch64-image="manylinux_2_28"
 build = ["cp38-manylinux*", "cp39-manylinux*", "cp310-manylinux*", "cp311-manylinux*", "cp312-manylinux*"]
 
 before-test = "pip install -r {package}/requirements.txt -r {package}/requirements-3.12.txt"
 test-command = "pytest -v {package}/tests"
 
 [tool.cibuildwheel.linux]
-archs = ["x86_64"]
+archs = ["aarch64", "x86_64"]
 
 [tool.cibuildwheel.linux.environment]
+CFLAGS = "-flto"
+LDFLAGS = "-flto"
+
+# ccache isn't available on all architectures, so only use it conditionally
+[[tool.cibuildwheel.overrides]]
+select = "*linux_x86_64"
+[tool.cibuildwheel.overrides.environment]
 CC = "ccache gcc"
 CFLAGS = "-flto"
 LDFLAGS = "-flto"
