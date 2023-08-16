@@ -131,11 +131,9 @@ static constexpr int maximum_version = 4;
 namespace detail
 {
     /**
-     * Best guess at size of a cache line.
-     *
-     * This could in future be replaced by
-     * std::hardware_destructive_interference_size, but that requires C++17 and
-     * even then neither Clang nor GCC implement it at the time of writing.
+     * Best guess at size of a cache line. While C++17 provides
+     * std::hardware_destructive_interference_size, compiler support is poor,
+     * and GCC 12 additionally spews out a warning if you use it
      */
     static constexpr int cache_line_size = 64;
 }
