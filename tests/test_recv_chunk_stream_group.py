@@ -20,18 +20,20 @@ import threading
 import time
 import weakref
 
-import numba
 import numpy as np
 import pytest
-import scipy
-from numba import types
 
 import spead2
 import spead2.recv as recv
 import spead2.send as send
-from spead2.numba import intp_to_voidptr
-from spead2.recv.numba import chunk_place_data
-from tests.test_recv_chunk_stream import (
+
+numba = pytest.importorskip("numba")
+scipy = pytest.importorskip("scipy")
+from numba import types  # noqa: E402
+
+from spead2.numba import intp_to_voidptr  # noqa: E402
+from spead2.recv.numba import chunk_place_data  # noqa: E402
+from tests.test_recv_chunk_stream import (  # noqa: E402
     CHUNK_PAYLOAD_SIZE,
     HEAP_PAYLOAD_SIZE,
     HEAPS_PER_CHUNK,
