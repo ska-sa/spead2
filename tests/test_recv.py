@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import platform
 import socket
 import struct
@@ -1231,7 +1232,8 @@ class TestUdpReader:
             receiver.add_udp_reader(100000)
 
     @pytest.mark.skipif(
-        sys.platform == "darwin", reason="Test does not work with macos on Github Actions"
+        sys.platform == "darwin" or os.environ.get("CIBUILDWHEEL") == "1",
+        reason="Test does not work with macos on Github Actions or under cibuildwheel",
     )
     def test_illegal_udp_port(self):
         receiver = recv.Stream(spead2.ThreadPool())
