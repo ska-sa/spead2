@@ -211,7 +211,7 @@ private:
     /// Heap cnt for the next heap to send
     item_pointer_t next_cnt = 1;
     /// If true, the writer wants to be woken up when a new heap is added
-    bool need_wakeup;
+    bool need_wakeup = false;
 
     /* Data that's only mostly written by the writer (apart from flush()), and
      * may be read by the stream.
