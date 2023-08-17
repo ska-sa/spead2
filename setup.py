@@ -43,7 +43,9 @@ class BuildExt(build_ext):
 
     def run(self):
         self.mkpath(self.build_temp)
-        subprocess.check_call(os.path.abspath("configure"), cwd=self.build_temp)
+        subprocess.check_call(
+            [os.path.abspath("configure"), "--without-program-options"], cwd=self.build_temp
+        )
         config = configparser.ConfigParser()
         config.read(os.path.join(self.build_temp, "python-build.cfg"))
         for extension in self.extensions:

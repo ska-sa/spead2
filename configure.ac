@@ -38,17 +38,24 @@ CXXFLAGS="$save_CXXFLAGS"
 
 ### Required libraries
 
-SPEAD2_CHECK_LIB([boost/program_options.hpp], [boost_program_options],
-                 [boost::program_options::option_description foo],
-                 [], [AC_MSG_ERROR([boost_program_options is required])])
-SPEAD2_CHECK_LIB([boost/system/system_error.hpp], [boost_system], [boost::system::error_code ec],
-                 [], [AC_MSG_ERROR([boost_system is required])])
-SPEAD2_CHECK_HEADER([boost/asio.hpp], [boost_system,pthread], [boost::asio::io_service io_service],
+SPEAD2_CHECK_HEADER([boost/asio.hpp], [pthread], [boost::asio::io_service io_service],
                     [], [AC_MSG_ERROR([boost_asio is required])])
 SPEAD2_CHECK_HEADER([libdivide.h], [], [libdivide::divider<unsigned long long> div],
                     [], [AC_MSG_ERROR([libdivide is required])])
 
 ### Optional libraries/features
+
+SPEAD2_ARG_WITH(
+    [program_options],
+    [AS_HELP_STRING([--without-program-options], [Do not build utility programs])],
+    [SPEAD2_USE_PROGRAM_OPTIONS],
+    [SPEAD2_CHECK_LIB(
+        [boost/program_options.hpp], [boost_program_options],
+        [boost::program_options::option_description foo],
+        [SPEAD2_USE_PROGRAM_OPTIONS=1],
+        [AC_MSG_ERROR([boost_program_options is required unless --without-program-options is given])]
+    )]
+)
 
 # pkg-config files for libibverbs are quite new, so fall back to searching
 # system paths.
@@ -219,7 +226,7 @@ SPEAD2_ARG_WITH(
 
 ### Determine libraries to link against and include paths
 
-LIBS="-lboost_system -lpthread -ldl"
+LIBS="-lpthread -ldl"
 SPEAD2_CFLAGS=""
 AS_IF([test "x$SPEAD2_USE_PCAP" = "x1"], [
     LIBS="$PCAP_LIBS $LIBS"
@@ -266,6 +273,7 @@ AM_CONDITIONAL([SPEAD2_USE_IBV], [test "x$SPEAD2_USE_IBV" = "x1"])
 AM_CONDITIONAL([SPEAD2_USE_CUDA], [test "x$SPEAD2_USE_CUDA" = "x1"])
 AM_CONDITIONAL([SPEAD2_USE_GDRAPI], [test "x$SPEAD2_USE_GDRAPI" = "x1"])
 AM_CONDITIONAL([SPEAD2_USE_CAP], [test "x$SPEAD2_USE_CAP" = "x1"])
+AM_CONDITIONAL([SPEAD2_USE_PROGRAM_OPTIONS], [test "x$SPEAD2_USE_PROGRAM_OPTIONS" = "x1"])
 
 AC_SUBST(SPEAD2_MAJOR, m4_esyscmd([python3 gen/get_version.py major]))
 AC_SUBST(SPEAD2_MINOR, m4_esyscmd([python3 gen/get_version.py minor]))
