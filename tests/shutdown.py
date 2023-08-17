@@ -21,17 +21,12 @@ shutdown.
 
 import logging
 
-import numba
 import numpy as np
-import scipy
-from numba import types
 
 import spead2
 import spead2._spead2
 import spead2.recv
 import spead2.send
-from spead2.numba import intp_to_voidptr
-from spead2.recv.numba import chunk_place_data
 
 
 def test_logging_shutdown():
@@ -66,6 +61,16 @@ def test_running_stream():
 
 
 def test_running_chunk_stream_group():
+    try:
+        import numba
+        import scipy
+    except ImportError:
+        return  # Skip the test if numba/scipy is not available
+    from numba import types
+
+    from spead2.numba import intp_to_voidptr
+    from spead2.recv.numba import chunk_place_data
+
     @numba.cfunc(types.void(types.CPointer(chunk_place_data), types.uintp), nopython=True)
     def place(data_ptr, data_size):
         data = numba.carray(data_ptr, 1)

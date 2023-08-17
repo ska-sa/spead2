@@ -35,8 +35,10 @@ repos:
         # The pre-commit hook only has python, not pyi.
         types: []
         types_or: [python, pyi]
+        # TODO: unify the versions once Numpy 1.26 ships
         additional_dependencies: [
-          'numpy==1.24.4'
+          'numpy==1.24.4; python_version<"3.12.0rc1"',
+          'numpy==1.26.0b1; python_version>="3.12.0rc1"'
         ]
   - repo: https://github.com/jazzband/pip-tools
     rev: 7.1.0
@@ -45,3 +47,11 @@ repos:
         args: [requirements.in]
         language_version: python3.8
         files: '^requirements\.(?:in|txt)$'
+  - repo: https://github.com/jazzband/pip-tools
+    rev: 7.3.0
+    hooks:
+      - name: pip-compile (py 3.12)
+        id: pip-compile
+        args: [-c, requirements.txt, requirements.in, -o, requirements-3.12.txt]
+        language_version: python3.12
+        files: '^requirements.*\.(?:in|txt)$'

@@ -2,4 +2,4 @@
 set -e -u
 
 pip install -U pip setuptools wheel
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-3.12.txt
