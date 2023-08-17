@@ -67,15 +67,15 @@ jobs:
           - os: ubuntu-22.04
             cc: gcc
             cxx: g++
-            python-version: '3.11'
+            python-version: '3.12.0-rc.1'
           - os: ubuntu-22.04
             cc: clang
             cxx: clang++
-            python-version: '3.11'
+            python-version: '3.12.0-rc.1'
           - os: macos-12
             cc: clang
             cxx: clang++
-            python-version: '3.11'
+            python-version: '3.12.0-rc.1'
     runs-on: ${{ matrix.os }}
     env:
       # Don't error on deprecations: Xcode marks sprintf deprecated and Boost references it
@@ -138,7 +138,7 @@ jobs:
         run: ./.ci/ccache-path.sh
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.11'  # TODO: update to 3.12 after release
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
       - run: ./bootstrap.sh
@@ -178,7 +178,7 @@ jobs:
             ${{ runner.os }}-pip-
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.11'  # TODO: update to 3.12 after release
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
       - run: ./bootstrap.sh
