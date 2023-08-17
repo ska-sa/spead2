@@ -8,7 +8,7 @@ package="$1"
 
 yum install -y \
     wget libpcap libpcap-devel \
-    cmake3 ninja-build pandoc libnl3-devel
+    cmake3 ninja-build libnl3-devel
 if [[ "${CC:-}" == ccache* ]]; then
     yum install -y ccache
 fi
