@@ -47,3 +47,11 @@ repos:
         args: [requirements.in]
         language_version: python3.8
         files: '^requirements\.(?:in|txt)$'
+  - repo: https://github.com/jazzband/pip-tools
+    rev: 7.3.0
+    hooks:
+      - name: pip-compile (py 3.12)
+        id: pip-compile
+        args: [-c, requirements.txt, requirements.in, -o, requirements-3.12.txt]
+        language_version: python3.12
+        files: '^requirements.*\.(?:in|txt)$'
