@@ -15,6 +15,7 @@
 
 """Test that data can be passed over the SPEAD protocol using the various transports."""
 
+import ipaddress
 import os
 import socket
 import sys
@@ -62,18 +63,30 @@ class BaseTestPassthrough:
 
     is_lossy = False
     requires_ipv6 = False
+    requires_ipv4_multicast = False
     requires_ipv6_multicast = False
 
     @classmethod
-    def check_ipv6(cls):
-        if not socket.has_ipv6:
-            pytest.skip("platform does not support IPv6")
-        with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as sock:
-            # Travis build systems fail to bind to an IPv6 address
-            try:
-                sock.bind(("::1", 8888))
-            except OSError:
-                pytest.skip("platform cannot bind IPv6 localhost address")
+    def check_platform(cls):
+        if cls.requires_ipv6:
+            if not socket.has_ipv6:
+                pytest.skip("platform does not support IPv6")
+            with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as sock:
+                # Travis build systems fail to bind to an IPv6 address
+                try:
+                    sock.bind(("::1", 8888))
+                except OSError:
+                    pytest.skip("platform cannot bind IPv6 localhost address")
+        if cls.requires_ipv4_multicast:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                # qemu doesn't yet support IP_MULTICAST_IF socket option
+                # (https://gitlab.com/qemu-project/qemu/-/issues/1837)
+                # Skip the test if it is non-functional.
+                try:
+                    loopback = ipaddress.ip_address("127.0.0.1")
+                    sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, loopback.packed)
+                except OSError:
+                    pytest.skip("platform cannot set multicast interface (might be qemu?)")
         if cls.requires_ipv6_multicast:
             with socket.socket(socket.AF_INET6, socket.SOCK_DGRAM) as sock:
                 # Github Actions on MacOS doesn't have routes to multicast
@@ -290,8 +303,7 @@ class BaseTestPassthrough:
         be transmitted over a separate substream (thus, the transport must
         support substreams if `item_groups` has more than one element).
         """
-        if self.requires_ipv6:
-            self.check_ipv6()
+        self.check_platform()
         recv_config = spead2.recv.StreamConfig(memcpy=memcpy)
         if allocator is not None:
             recv_config.memory_allocator = allocator
@@ -528,6 +540,7 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreams):
 
 class TestPassthroughUdpMulticast(BaseTestPassthroughSubstreams):
     is_lossy = True
+    requires_ipv4_multicast = True
     MCAST_GROUP = "239.255.88.88"
     INTERFACE_ADDRESS = "127.0.0.1"
 
