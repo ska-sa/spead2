@@ -20,6 +20,8 @@ bin_PROGRAMS = spead2_recv spead2_send spead2_bench
 check_PROGRAMS = spead2_unittest
 TESTS = spead2_unittest
 
+if SPEAD2_USE_PROGRAM_OPTIONS
+
 if SPEAD2_USE_IBV
 bin_PROGRAMS += mcdump
 mcdump_SOURCES = mcdump.cpp
@@ -34,6 +36,8 @@ spead2_send_LDADD = -lboost_program_options $(LDADD)
 
 spead2_bench_SOURCES = spead2_bench.cpp spead2_cmdline.cpp
 spead2_bench_LDADD = -lboost_program_options $(LDADD)
+
+endif
 
 if SPEAD2_USE_CAP
 bin_PROGRAMS += spead2_net_raw

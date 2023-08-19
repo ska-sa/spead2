@@ -49,8 +49,7 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
     async def transmit_item_groups_async(
         self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
     ):
-        if self.requires_ipv6:
-            self.check_ipv6()
+        self.check_platform()
         recv_config = spead2.recv.StreamConfig(memcpy=memcpy)
         if allocator is not None:
             recv_config.memory_allocator = allocator

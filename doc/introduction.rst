@@ -72,19 +72,20 @@ Python install from source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 Installing from source requires a modern C++ compiler supporting C++11 (GCC
 4.8+ or Clang 3.5+, although only GCC 11.2 and Clang 14.0 are tested and support
-for older compilers may be dropped) as well as Boost (including compiled
-libraries), libdivide, and the Python development headers. At the moment only
-GNU/Linux and OS X get tested but other POSIX-like systems should work too.
-There are no plans to support Windows.
+for older compilers may be dropped) as well as Boost 1.69+
+(only headers are required), libdivide, and the Python development headers.
+At the moment only GNU/Linux and OS X get tested but other POSIX-like systems
+should work too.  There are no plans to support Windows.
 
 Installation works with standard Python installation methods.
 
 Installing spead2 for C++
 -------------------------
 spead2 requires a modern C++ compiler supporting C++11 (see above for supported
-compilers) as well as Boost (including compiled libraries) and libdivide. At
-the moment only GNU/Linux and OS X get tested but other POSIX-like systems
-should work too.  There are no plans to support Windows.
+compilers) as well as Boost 1.69+ (including the compiled boost_program_options
+library) and libdivide. At the moment only GNU/Linux and OS X get tested but
+other POSIX-like systems should work too. There are no plans to support
+Windows.
 
 The C++ API uses the standard autoconf installation flow i.e.:
 

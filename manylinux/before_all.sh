@@ -7,9 +7,11 @@ set -e -u
 package="$1"
 
 yum install -y \
-    wget libpcap libpcap-devel python-devel \
-    cmake3 ninja-build pandoc libnl3-devel \
-    ccache
+    wget libpcap libpcap-devel \
+    cmake3 ninja-build libnl3-devel
+if [[ "${CC:-}" == ccache* ]]; then
+    yum install -y ccache
+fi
 
 # Workaround for https://github.com/pypa/manylinux/issues/1203
 unset SSL_CERT_FILE
@@ -21,9 +23,8 @@ unset LDFLAGS
 # Install boost
 wget --progress=dot:mega https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.bz2 -O /tmp/boost_1_81_0.tar.bz2
 tar -C /tmp -jxf /tmp/boost_1_81_0.tar.bz2
-cd /tmp/boost_1_81_0
-./bootstrap.sh --prefix=/usr --with-libraries=program_options,system
-./b2 cxxflags=-fPIC link=static install
+# Quick-n-dirty approach (much faster than doing the install, which copies thousands of files)
+ln -s /tmp/boost_1_81_0/boost /usr/include/boost
 
 # Install rdma-core
 wget --progress=dot:mega https://github.com/linux-rdma/rdma-core/releases/download/v44.0/rdma-core-44.0.tar.gz -O /tmp/rdma-core-44.0.tar.gz
