@@ -21,7 +21,7 @@ foreach name : loader_modules
     input : [gen_loader],
     output : [cpp_name],
     depend_files : gen_templates,
-    command : [py.path(), '@INPUT@', 'cxx', name],
+    command : [py.full_path(), '@INPUT@', 'cxx', name],
     capture : true
   )
   gen_sources += gen_cpp
@@ -154,4 +154,39 @@ if boost_unit_test_framework_dep.found()
     dependencies : [st_dep, boost_unit_test_framework_dep]
   )
   test('unit tests', unit_test)
+endif
+
+if get_option('python')
+  py_sources = files(
+    'py_common.cpp',
+    'py_recv.cpp',
+    'py_register.cpp',
+    'py_send.cpp',
+  )
+  pybind11_inc = run_command(
+    py.full_path(), '-c', 'import pybind11; print(pybind11.get_include())',
+    check : true
+  ).stdout().strip()
+  pybind11_dep = declare_dependency(include_directories : pybind11_inc)
+  # We don't need to pass boost objects across shared library
+  # boundaries. These macros makes -fvisibility=hidden do its job.
+  # The first is asio-specific, while the latter is only used in
+  # Boost 1.81+.
+  py_macros = [
+    '-DBOOST_ASIO_DISABLE_VISIBILITY',
+    '-DBOOST_DISABLE_EXPLICIT_SYMBOL_VISIBILITY',
+  ]
+  py.extension_module(
+    '_spead2',
+    [ssconfig.sources(), py_sources],
+    cpp_args : py_macros,
+    gnu_symbol_visibility : 'hidden',
+    include_directories : include_dir,
+    dependencies : [pybind11_dep, ssconfig.dependencies()],
+    install : true,
+    install_tag : 'python-runtime',
+    subdir : 'spead2'
+  )
+
+  subdir('spead2')
 endif

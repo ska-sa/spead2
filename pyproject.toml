@@ -1,5 +1,66 @@
 [build-system]
-requires = ["setuptools", "pybind11==2.11.1", "setuptools_scm==7.1.0"]
+requires = ["meson-python", "ninja", "pybind11==2.11.1", "jinja2", "pycparser", "packaging"]
+build-backend = "mesonpy"
+
+[project]
+name = "spead2"
+description = "High-performance SPEAD implementation"
+readme = "README.rst"
+license = {file = "COPYING.LESSER"}
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: AsyncIO",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+  "Operating System :: POSIX",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: System :: Networking"
+]
+dependencencies = [
+  "numpy>=1.9.2"
+]
+requires-python = ">=3.8"
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = [
+  "netifaces",
+  "pytest",
+  "pytest-asyncio",
+  "pytest-timeout"
+]
+test_numba = [
+  "numba",
+  "scipy"
+]
+
+[project.scripts]
+"spead2_send.py" = "spead2.tools.send_asyncio:main"
+"spead2_recv.py" = "spead2.tools.recv_asyncio:main"
+"spead2_bench.py" = "spead2.tools.bench_asyncio:main"
+
+[[project.authors]]
+name = "Bruce Merry"
+email = "bmerry@sarao.ac.za"
+
+[project.urls]
+Homepage = "https://github.com/ska-sa/spead2"
+Repository = "https://github.com/ska-sa/spead2"
+Documentation = "https://spead2.readthedocs.io/"
+Changelog = "https://spead2.readthedocs.io/en/latest/changelog.html"
+
+[tool.meson-python.args]
+# Disable all the binaries that wouldn't get included in the wheel anyway
+setup = [
+  "-Dtools=disabled",
+  "-Dunit_test=disabled",
+  "-Dcuda=disabled",
+  "-Dgdrapi=disabled",
+  "-Dcap=disabled",
+  "-Dpython=true",
+]
+install = ["--tags=python-runtime"]
 
 [tool.cibuildwheel]
 build-frontend = "build"

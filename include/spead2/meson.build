@@ -41,5 +41,6 @@ endforeach
 install_subdir(
   '.',
   install_dir : header_install_dir,
-  exclude_files : ['common_features.h.in', 'meson.build']
+  exclude_files : ['common_features.h.in', 'meson.build'],
+  install_tag : 'devel'
 )

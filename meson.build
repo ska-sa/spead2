@@ -29,7 +29,7 @@ project(
 )
 
 compiler = meson.get_compiler('cpp')
-py = import('python').find_installation()
+py = import('python').find_installation(pure : false, modules : ['jinja2', 'pycparser', 'packaging'])
 
 # Required dependencies
 boost_dep = dependency('boost', version : '>=1.69')
