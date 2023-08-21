@@ -198,9 +198,11 @@ subdir('include/spead2')  # Generates include/spead2/common_features.h and commo
 include_dir = include_directories('include')
 subdir('src')  # Defines the targets
 
-pkg = import('pkgconfig')
-pkg.generate(
-  st_lib,
-  description : 'Library for sending and receiving data in the SPEAD protocol',
-  filebase : 'spead2',
-)
+if not get_option('python')
+  pkg = import('pkgconfig')
+  pkg.generate(
+    st_lib,
+    description : 'Library for sending and receiving data in the SPEAD protocol',
+    filebase : 'spead2',
+  )
+endif
