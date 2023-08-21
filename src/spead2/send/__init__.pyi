@@ -75,7 +75,7 @@ class StreamConfig:
         burst_size: int = ...,
         max_heaps: int = ...,
         burst_rate_ratio: float = ...,
-        rate_method: RateMethod = ...
+        rate_method: RateMethod = ...,
     ) -> None: ...
     @property
     def burst_rate(self) -> float: ...
@@ -217,7 +217,7 @@ class UdpIbvConfig:
         ttl: int = ...,
         comp_vector: int = ...,
         max_poll: int = ...,
-        memory_regions: list = ...
+        memory_regions: list = ...,
     ) -> None: ...
 
 class _UdpIbvStream:
