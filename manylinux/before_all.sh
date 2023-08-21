@@ -15,10 +15,6 @@ fi
 
 # Workaround for https://github.com/pypa/manylinux/issues/1203
 unset SSL_CERT_FILE
-# The config file sets CFLAGS/LDFLAGS for the actual build, but these break
-# building rdma-core
-unset CFLAGS
-unset LDFLAGS
 
 # Install boost
 wget --progress=dot:mega https://boostorg.jfrog.io/artifactory/main/release/1.81.0/source/boost_1_81_0.tar.bz2 -O /tmp/boost_1_81_0.tar.bz2
@@ -32,10 +28,8 @@ tar -C /tmp -zxf /tmp/rdma-core-44.0.tar.gz
 cd /tmp/rdma-core-44.0
 mkdir build
 cd build
-cmake3 -GNinja -DCMAKE_BUILD_TYPE=Release ..
+cmake3 -GNinja -DCMAKE_BUILD_TYPE=Release -DNO_MAN_PAGES=1 -DCMAKE_INSTALL_PREFIX=/usr ..
 ninja-build -v install
-# See https://github.com/pypa/manylinux/issues/731
-cp /usr/share/aclocal/pkg.m4 /usr/local/share/aclocal/
 
 # Install libdivide
 wget https://raw.githubusercontent.com/ridiculousfish/libdivide/5.0/libdivide.h -O /usr/local/include/libdivide.h
