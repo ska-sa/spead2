@@ -3,7 +3,6 @@ set -e
 
 if [ "$(uname -s)" = "Linux" ]; then
     sudo apt-get install \
-        ccache \
         gcc \
         g++ \
         lcov \
@@ -16,5 +15,5 @@ if [ "$(uname -s)" = "Linux" ]; then
         libibverbs-dev \
         libdivide-dev
 else
-    brew install boost ccache libdivide
+    brew install boost libdivide
 fi

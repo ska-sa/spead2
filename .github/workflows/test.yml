@@ -26,24 +26,20 @@ jobs:
             extras: disabled
     runs-on: ${{ matrix.os }}
     env:
-      CXX: ${{ matrix.cxx }}
+      SCCACHE_GHA_ENABLED: "true"
+      CXX: sccache ${{ matrix.cxx }}
       # Don't error on deprecations: Xcode marks sprintf deprecated and Boost references it
       CXXFLAGS: -Wno-error=deprecated-declarations
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: ~/.ccache
-          key: ${{ runner.os }}-cxx-ccache-${{ hashFiles('**') }}
-          restore-keys: |
-            ${{ runner.os }}-cxx-ccache-
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
-      - name: Set up ccache
-        run: ./.ci/ccache-path.sh
       - uses: actions/setup-python@v4
         with:
           python-version: '3.8'
+          cache: 'pip'
       - name: Install build requirements
         run: ./.ci/py-build-requirements.sh
       - name: Set up build directory
@@ -57,8 +53,6 @@ jobs:
         run: meson compile -C build
       - name: Run tests
         run: meson test -C build
-      - name: Show ccache stats
-        run: ccache -s
 
   test-python:
     strategy:
@@ -98,31 +92,20 @@ jobs:
             extras: disabled
     runs-on: ${{ matrix.os }}
     env:
-      CXX: ${{ matrix.cxx }}
+      SCCACHE_GHA_ENABLED: "true"
+      CXX: sccache ${{ matrix.cxx }}
       # Don't error on deprecations: Xcode marks sprintf deprecated and Boost references it
       CXXFLAGS: -Wno-error=deprecated-declarations
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: ~/.ccache
-          key: ${{ runner.os }}-py-ccache-${{ hashFiles('**') }}
-          restore-keys: |
-            ${{ runner.os }}-py-ccache-
-      - uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-${{ matrix.python-version }}-
-            ${{ runner.os }}-pip-
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
-      - name: Set up ccache
-        run: ./.ci/ccache-path.sh
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
         env:
@@ -137,32 +120,21 @@ jobs:
         run: ./.ci/py-tests.sh
       # Skip pip-compile because not all configurations have a python3.8 binary
       - run: SKIP=pip-compile pre-commit run --all-files
-      - name: Show ccache stats
-        run: ccache -s
 
   coverage:
     runs-on: ubuntu-22.04
+    env:
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: ~/.ccache
-          key: ${{ runner.os }}-coverage-ccache-${{ hashFiles('**') }}
-          restore-keys: |
-            ${{ runner.os }}-coverage-ccache-
-      - uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
-      - name: Set up ccache
-        run: ./.ci/ccache-path.sh
       - uses: actions/setup-python@v4
         with:
           python-version: '3.11'  # TODO: update to 3.12 after release
+          cache: 'pip'
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
       - name: Install build requirements
@@ -200,24 +172,16 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: lcov.info
-      - name: Show ccache stats
-        run: ccache -s
 
   sdist:
     needs: [test-cxx, test-python, coverage]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-3.11-${{ hashFiles('requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-3.11-
-            ${{ runner.os }}-pip-
       - uses: actions/setup-python@v4
         with:
           python-version: '3.11'  # TODO: update to 3.12 after release
+          cache: 'pip'
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
       - name: Install Python dependencies
@@ -237,8 +201,12 @@ jobs:
       matrix:
         arch: [x86_64, aarch64]
         python: [cp38, cp39, cp310, cp311, cp312]
+    env:
+      SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@v3
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - uses: docker/setup-qemu-action@v2
         with:
           platforms: arm64

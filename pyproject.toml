@@ -72,7 +72,9 @@ manylinux-i686-image="manylinux2014"
 manylinux-aarch64-image="manylinux_2_28"
 build = ["cp38-manylinux*", "cp39-manylinux*", "cp310-manylinux*", "cp311-manylinux*", "cp312-manylinux*"]
 
-before-test = "pip install -r {package}/requirements.txt -r {package}/requirements-3.12.txt"
+# We'd like to show sccache stats (to confirm that it's working) after builds.
+# there is no separate after-build in cibuildwheel so we cram it into before-test.
+before-test = "sccache --show-stats && pip install -r {package}/requirements.txt -r {package}/requirements-3.12.txt"
 test-command = "pytest -v {package}/tests"
 
 [tool.cibuildwheel.config-settings]
@@ -91,6 +93,7 @@ setup-args = [
 
 [tool.cibuildwheel.linux]
 archs = ["aarch64", "x86_64"]
+environment-pass = ["SCCACHE_GHA_ENABLED", "ACTIONS_CACHE_URL", "ACTIONS_RUNTIME_TOKEN"]
 
 [tool.isort]
 profile = "black"
