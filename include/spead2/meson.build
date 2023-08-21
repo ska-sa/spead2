@@ -13,15 +13,33 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+header_install_dir = get_option('includedir') / 'spead2'
+
 common_features_h = configure_file(
   input : 'common_features.h.in',
   output : 'common_features.h',
-  configuration : conf
+  configuration : conf,
+  install : true,
+  install_dir : header_install_dir
 )
+
+gen_headers = [common_features_h]
+foreach name : loader_modules
+  h_name = f'common_loader_@name@.h'
+  gen_h = custom_target(
+    input : [gen_loader],
+    output : [h_name],
+    depend_files : gen_templates,
+    command : [py.full_path(), '@INPUT@', 'header', name],
+    capture : true,
+    install : true,
+    install_dir : header_install_dir
+  )
+  gen_headers += gen_h
+endforeach
 
 install_subdir(
   '.',
-  install_dir : get_option('includedir') / 'spead2',
+  install_dir : header_install_dir,
   exclude_files : ['common_features.h.in', 'meson.build']
 )
-install_headers(common_features_h, subdir : 'spead2')

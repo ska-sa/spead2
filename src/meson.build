@@ -13,16 +13,26 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# Common sources
+# Generated sources
+gen_sources = []
+foreach name : loader_modules
+  cpp_name = f'common_loader_@name@.cpp'
+  gen_cpp = custom_target(
+    input : [gen_loader],
+    output : [cpp_name],
+    depend_files : gen_templates,
+    command : [py.path(), '@INPUT@', 'cxx', name],
+    capture : true
+  )
+  gen_sources += gen_cpp
+endforeach
 
+# Common sources
 ssmod = import('sourceset')
 ss = ssmod.source_set()
 ss.add(
   files(
     'common_flavour.cpp',
-    'common_loader_ibv.cpp',
-    'common_loader_mlx5dv.cpp',
-    'common_loader_rdmacm.cpp',
     'common_loader_utils.cpp',
     'common_ibv.cpp',
     'common_inproc.cpp',
@@ -61,6 +71,7 @@ ss.add(
     'send_writer.cpp',
   )
 )
+ss.add(gen_sources, gen_headers)
 ss.add(
   boost_dep,
   ibv_dep,
@@ -86,6 +97,7 @@ st_lib = static_library(
 
 st_dep = declare_dependency(
   include_directories : include_dir,
+  sources : gen_headers,
   link_with : st_lib
 )
 

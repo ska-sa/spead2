@@ -28,6 +28,7 @@ project(
 )
 
 compiler = meson.get_compiler('cpp')
+py = import('python').find_installation()
 
 # Required dependencies
 boost_dep = dependency('boost', version : '>=1.69')
@@ -147,7 +148,11 @@ conf.set10('SPEAD2_USE_PTHREAD_SETAFFINITY_NP', use_pthread_setaffinity_np)
 conf.set10('SPEAD2_USE_FMV', use_fmv)
 conf.set10('SPEAD2_USE_MOVNTDQ', use_movntdq)
 conf.set10('SPEAD2_USE_PCAP', pcap_dep.found())
-subdir('include/spead2')  # Generates include/spead2/common_features.h
+
+gen_loader = files('gen/gen_loader.py')
+gen_templates = files('gen/template.cpp', 'gen/template.h')
+loader_modules = ['rdmacm', 'ibv', 'mlx5dv']
+subdir('include/spead2')  # Generates include/spead2/common_features.h and common_loader_*.h
 
 include_dir = include_directories('include')
 subdir('src')  # Defines the targets
