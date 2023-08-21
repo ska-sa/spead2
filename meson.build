@@ -16,6 +16,7 @@
 project(
   'spead2',
   'cpp',
+  meson_version : '>=1.2.0',
   version : run_command(files('gen/get_version.py'), 'full', check: true).stdout().strip(),
   license : 'LGPL-3.0-or-later',
   license_files : ['COPYING', 'COPYING.LESSER'],
