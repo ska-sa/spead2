@@ -115,7 +115,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(multi_thread, T, semaphore_types)
      * impossible for multi-threading primitives), but it can show up
      * failures.
      */
-    auto worker = [&x, &sem, N] {
+    auto worker = [&x, &sem] {
         for (int i = 0; i < N; i++)
         {
             x[i] = i;
