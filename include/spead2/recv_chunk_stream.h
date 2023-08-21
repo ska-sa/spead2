@@ -721,7 +721,7 @@ void chunk_stream_state<CM>::flush_chunks()
 
 template<typename CM>
 std::pair<std::uint8_t *, chunk_stream_state_base::heap_metadata>
-chunk_stream_state<CM>::allocate([[maybe_unused]] std::size_t size, const packet_header &packet)
+chunk_stream_state<CM>::allocate(std::size_t /* size */, const packet_header &packet)
 {
     // Used to get a non-null pointer
     static std::uint8_t dummy_uint8;
