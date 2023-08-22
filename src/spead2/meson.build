@@ -13,13 +13,19 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
+version_py = configure_file(
+  input : '_version.py.in',
+  output : '_version.py',
+  configuration: {'VERSION': meson.project_version()}
+)
 py.install_sources(
   '__init__.py',
   '__init__.pyi',
   'numba.py',
   'numba.pyi',
   'py.typed',
-  '_version.py',
+  version_py,
   subdir : 'spead2'
 )
 subdir('recv')

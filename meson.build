@@ -17,7 +17,7 @@ project(
   'spead2',
   'cpp',
   meson_version : '>=1.2.0',
-  version : run_command(files('gen/get_version.py'), 'full', check: true).stdout().strip(),
+  version : '4.0.0b1',
   license : 'LGPL-3.0-or-later',
   license_files : ['COPYING', 'COPYING.LESSER'],
   default_options : [
@@ -175,9 +175,9 @@ use_movntdq = get_option('movntdq').require(
 conf = configuration_data()
 conf.set('SPEAD2_VERSION', meson.project_version())
 get_version = files('gen/get_version.py')
-conf.set('SPEAD2_MAJOR', run_command(get_version, 'major', check : true).stdout().strip())
-conf.set('SPEAD2_MINOR', run_command(get_version, 'minor', check : true).stdout().strip())
-conf.set('SPEAD2_PATCH', run_command(get_version, 'patch', check : true).stdout().strip())
+conf.set('SPEAD2_MAJOR', run_command(get_version, 'major', meson.project_version(), check : true).stdout().strip())
+conf.set('SPEAD2_MINOR', run_command(get_version, 'minor', meson.project_version(), check : true).stdout().strip())
+conf.set('SPEAD2_PATCH', run_command(get_version, 'patch', meson.project_version(), check : true).stdout().strip())
 conf.set10('SPEAD2_USE_IBV', use_ibv)
 conf.set10('SPEAD2_USE_IBV_HW_RATE_LIMIT', use_ibv_hw_rate_limit)
 conf.set10('SPEAD2_USE_MLX5DV', mlx5_dep.found())
