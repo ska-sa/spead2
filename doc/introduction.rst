@@ -28,11 +28,6 @@ automatically and support for them will be included.
 .. _ibverbs: https://www.openfabrics.org/downloads/libibverbs/README.html
 .. _pcap: http://www.tcpdump.org/
 
-If you are installing spead2 from a git checkout, it is first necessary to run
-``./bootstrap.sh`` to prepare the configure script and related files. This
-requires a Python installation with pycparser, jinja2 and packaging installed.
-When building from a packaged download this is not required.
-
 High-performance usage requires larger buffer sizes than Linux allows by
 default. The following commands will increase the permitted buffer sizes on
 Linux::
@@ -48,21 +43,23 @@ Installing spead2 for Python
 The only Python dependency is numpy_.
 
 The test suite has additional dependencies; refer to
-:file:`setup.py` if you are developing spead2.
+:file:`pyproject.toml` if you are developing spead2.
 
 There are two ways to install spead2 for Python: compiling from source and
 installing a binary wheel.
 
 .. _numpy: http://www.numpy.org
-.. _six: https://pythonhosted.org/six/
 
 Installing a binary wheel
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 As from version 1.12, binary wheels are provided on PyPI for x86-64 Linux
-systems. These support all the optional features, and it is now the recommended
+systems. These support all the optional features, and it is the recommended
 installation method as it does not depend on a compiler, development
 libraries etc. The wheels use the "manylinux2014" tag, which requires at least
 :command:`pip` 19.3 to install.
+
+Since version 4.0 there are also aarch64 wheels, which use the "manylinux_2_28"
+tag and require at least :command:`pip` 20.3.
 
 Provided your system meets these requirements, just run::
 
@@ -75,46 +72,50 @@ Installing from source requires a modern C++ compiler supporting C++17 (GCC
 versions and support for older compilers may be dropped) as well as Boost 1.69+
 (only headers are required), libdivide, and the Python development headers.
 At the moment only GNU/Linux and OS X get tested but other POSIX-like systems
-should work too.  There are no plans to support Windows.
+should work too. There are no plans to support Windows.
 
 Installation works with standard Python installation methods.
 
 Installing spead2 for C++
 -------------------------
-spead2 requires a modern C++ compiler supporting C++17 (see above for supported
-compilers) as well as Boost 1.69+ (including the compiled boost_program_options
-library) and libdivide. At the moment only GNU/Linux and OS X get tested but
+Installing spead2 requires
+
+- a modern C++ compiler supporting C++17 (see above for supported compilers)
+- Boost 1.69+, including the compiled boost_program_options library
+- libdivide
+- Python 3.x, with the packaging, jinja2, and pycparser packages
+- `Meson`_.
+
+.. _Meson: https://mesonbuild.com/
+
+At the moment only GNU/Linux and OS X get tested but
 other POSIX-like systems should work too. There are no plans to support
 Windows.
 
-The C++ API uses the standard autoconf installation flow i.e.:
+Compilation uses the standard Meson flow (refer to the Meson manual for further
+help):
 
 .. code-block:: sh
 
-    ./configure [options]
-    make
-    make install
+    meson setup [options] build
+    cd build
+    meson compile
+    meson install
 
-For generic help with configuration, see :file:`INSTALL` in the top level of
-the source distribution. Optional features are autodetected by default, but can
-be disabled by passing options to :program:`configure` (run ``./configure -h``
-to see a list of options).
+Optional features are autodetected by default, but can be disabled using
+Meson options. To see the available options, run :command:`meson configure` in
+the build directory.
 
 One option that may squeeze out a very small amount of extra performance is
-:option:`!--enable-lto` to enable link-time optimization. Up to version 1.2.0
-this was enabled by default, but it has been disabled because it often needs
-other compiler or OS-specific configuration to make it work. For GCC, typical
-usage is
-
-.. code-block:: sh
-
-    ./configure --enable-lto AR=gcc-ar RANLIB=gcc-ranlib
+link-time optimization, enabled with :option:`!-Db_lto=true`.
 
 The installation will install some benchmark tools, a static library, and the
 header files.
 
 Shared library
 ^^^^^^^^^^^^^^
+TODO: rewrite this once supported in Meson.
+
 There is experimental support for building a shared library. Pass
 ``--enable-shared`` to ``configure``. It's not recommended for general use
 because the binary interface is likely to be incompatible between spead2
