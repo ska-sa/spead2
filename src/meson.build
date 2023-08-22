@@ -102,21 +102,25 @@ if not get_option('python')
     link_with : st_lib
   )
 
-  executable(
+  spead2_recv = executable(
     'spead2_recv',
     'spead2_recv.cpp', 'spead2_cmdline.cpp',
     dependencies : [boost_program_options_dep, st_dep],
     install : true
   )
+  # Can reuse cmdline.o; no need to bother making a static lib for it
+  cmdline_o = spead2_recv.extract_objects('spead2_cmdline.cpp')
   executable(
     'spead2_send',
-    'spead2_send.cpp', 'spead2_cmdline.cpp',
+    'spead2_send.cpp',
+    objects : [cmdline_o],
     dependencies : [boost_program_options_dep, st_dep],
     install : true
   )
   executable(
     'spead2_bench',
-    'spead2_bench.cpp', 'spead2_cmdline.cpp',
+    'spead2_bench.cpp',
+    objects : [cmdline_o],
     dependencies : [boost_program_options_dep, st_dep],
     install : true
   )
