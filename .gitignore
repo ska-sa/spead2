@@ -1,28 +1,6 @@
-/MANIFEST
-/build
+# Places I keep built artifacts
 /dist
-spead2.egg-info
-Makefile
-Makefile.in
-/aclocal.m4
-/autom4te.cache
-/build-aux
-/config.guess
-/config.log
-/config.status
-/config.sub
-/configure
-/m4/lt*.m4
-/m4/libtool.m4
-/spead2.pc
-/python-build.cfg
 /wheelhouse
 /debug-symbols
-.deps
-*.pyc
-*.o
-.mypy_cache
-/include/spead2/common_features.h
-/examples/test_recv
-/examples/test_ringbuffer
-/examples/test_send
+# Created by pytest
+__pycache__
