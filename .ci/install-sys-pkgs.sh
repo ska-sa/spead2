@@ -8,7 +8,6 @@ if [ "$(uname -s)" = "Linux" ]; then
         g++ \
         lcov \
         clang \
-        libboost-system-dev \
         libboost-test-dev \
         libboost-program-options-dev \
         libpcap-dev \
