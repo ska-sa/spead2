@@ -32,4 +32,4 @@ option('unit_test', type : 'feature', description : 'Build the unit tests')
 
 option('python', type : 'boolean', value : false, description : 'Build Python bindings (for mesonpy; do not use directly)')
 option('debug_log', type : 'boolean', value : false, description : 'Generate debug log messages (slow)')
-option('split_debug', type : 'boolean', value : false, description : 'Split debug symbols into separate files')
+option('python_split_debug', type : 'boolean', value : false, description : 'Split debug symbols into separate files (Python module only)')

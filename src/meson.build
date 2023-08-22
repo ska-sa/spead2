@@ -167,21 +167,38 @@ else  # python
   # boundaries. These macros makes -fvisibility=hidden do its job.
   # The first is asio-specific, while the latter is only used in
   # Boost 1.81+.
-  py_macros = [
+  py_cpp_args = [
     '-DBOOST_ASIO_DISABLE_VISIBILITY',
     '-DBOOST_DISABLE_EXPLICIT_SYMBOL_VISIBILITY',
   ]
-  py.extension_module(
-    '_spead2',
+  split_debug = get_option('python_split_debug')
+  if split_debug
+    py_cpp_args += '-g'
+  endif
+  py_install_dir = py.get_install_dir() / 'spead2'
+  py_ext = py.extension_module(
+    split_debug ? '_spead2_tmp' : '_spead2',
     [ssconfig.sources(), py_sources],
-    cpp_args : py_macros,
+    cpp_args : py_cpp_args,
     gnu_symbol_visibility : 'hidden',
     include_directories : include_dir,
     dependencies : [pybind11_dep, ssconfig.dependencies()],
-    install : true,
+    install : not split_debug,
     install_tag : 'python-runtime',
     subdir : 'spead2'
   )
+  if split_debug
+    fs = import('fs')
+    target = fs.name(py_ext.full_path()).replace('_spead2_tmp', '_spead2')
+    custom_target(
+      input : [py_ext],
+      output : [target, target + '.debug'],
+      command : [py.full_path(), files('../gen/strip_debug.py'), '@INPUT@', '@OUTPUT0@', '@OUTPUT1@'],
+      install : true,
+      install_tag : ['python-runtime', 'devel'],
+      install_dir : [py_install_dir, py_install_dir / '.debug']
+    )
+  endif
 
   subdir('spead2')
 endif

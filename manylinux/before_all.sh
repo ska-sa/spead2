@@ -33,9 +33,3 @@ ninja-build -v install
 
 # Install libdivide
 wget https://raw.githubusercontent.com/ridiculousfish/libdivide/5.0/libdivide.h -O /usr/local/include/libdivide.h
-
-# Prepare for split debug symbols for the wheels
-cat <<EOF >> "$package/setup.cfg"
-[build_ext]
-split_debug = /output
-EOF

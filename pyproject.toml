@@ -86,6 +86,7 @@ setup-args = [
   "-Dibv_hw_rate_limit=enabled",
   "-Dpcap=enabled",
   "-Db_lto=true",
+  "-Dpython_split_debug=true",
 ]
 
 [tool.cibuildwheel.linux]
