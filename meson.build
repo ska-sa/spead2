@@ -40,17 +40,57 @@ compiler.check_header('libdivide.h', required : true)
 # Optional libraries
 boost_program_options_dep = dependency('boost', modules : ['program_options'], required : get_option('tools'))
 boost_unit_test_framework_dep = dependency('boost', modules : ['unit_test_framework'], required : get_option('unit_test'))
-# TODO: fall back to detecting some of these by attempting compilation if pkg-config fails
-ibv_dep = dependency('libibverbs', required : get_option('ibv'))
-rdmacm_dep = dependency('librdmacm', required : get_option('ibv'))
+
+# The rdma-core libraries have pkgconfig files in newer versions, but older
+# versions did not and we still want to support those. This unfortunately
+# requires more complex logic.
+libraries = [
+  {
+    'name': 'ibv',
+    'option': 'ibv',
+    'dep_name': 'libibverbs',
+    'header': 'infiniband/verbs.h',
+    'lib': 'ibverbs',
+    'function': 'ibv_create_wq'
+  },
+  {
+    'name': 'rdmacm',
+    'option': 'ibv',
+    'dep_name': 'librdmacm',
+    'header': 'rdma/rdma_cma.h',
+    'lib': 'rdmacm',
+    'function': 'rdma_create_event_channel'
+  },
+  {
+    'name': 'mlx5',
+    'option': 'mlx5dv',
+    'dep_name': 'libmlx5',
+    'header': 'infiniband/mlx5dv.h',
+    'lib': 'mlx5',
+    'function': 'mlx5dv_create_cq'
+  },
+]
+foreach lib : libraries
+  if get_option(lib['option']).allowed()
+    lib_dep = dependency(lib['dep_name'], required : false)
+    if not lib_dep.found() and compiler.has_function(
+      lib['function'],
+      args : '-l' + lib['lib'],
+      prefix : '#include <' + lib['header'] + '>',
+    )
+      lib_dep = declare_dependency(link_args : '-l' + lib['lib'])
+    endif
+  else
+    lib_dep = dependency('', required : false)  # A not-found dependency
+  endif
+  get_option(lib['option']).require(lib_dep.found())
+  set_variable(lib['name'] + '_dep', lib_dep)
+endforeach
 use_ibv = ibv_dep.found() and rdmacm_dep.found()
-if not use_ibv
-  # If only one was found, disable them both
-  ibv_dep = dependency('', required : false)
-  rdmacm_dep = dependency('', required : false)
-endif
-mlx5_dep = dependency('libmlx5', required : get_option('mlx5dv'))
-pcap_dep = dependency('libpcap', required : get_option('pcap'))
+
+# Note: pass 'pcap' not 'libpcap' to dependency, to trigger the special
+# handling that uses pcap-config if pkgconfig doesn't find it.
+pcap_dep = dependency('pcap', required : get_option('pcap'))
 cap_dep = dependency('libcap', required : get_option('cap'))
 cuda_dep = dependency('cuda', required : get_option('cuda'))
 # TODO: detection for gdrapi
