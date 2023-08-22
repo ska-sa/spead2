@@ -17,7 +17,8 @@ project(
   'spead2',
   'cpp',
   meson_version : '>=1.2.0',
-  version : '4.0.0b1',
+  # The comment on the next line is used by the CI to extract the version number
+  version : '4.0.0b1',  # VERSION-MAGIC
   license : 'LGPL-3.0-or-later',
   license_files : ['COPYING', 'COPYING.LESSER'],
   default_options : [
