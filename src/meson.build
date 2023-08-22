@@ -102,60 +102,53 @@ if not get_option('python')
     link_with : st_lib
   )
 
-  if boost_program_options_dep.found()
+  executable(
+    'spead2_recv',
+    'spead2_recv.cpp', 'spead2_cmdline.cpp',
+    dependencies : [boost_program_options_dep, st_dep],
+    install : true
+  )
+  executable(
+    'spead2_send',
+    'spead2_send.cpp', 'spead2_cmdline.cpp',
+    dependencies : [boost_program_options_dep, st_dep],
+    install : true
+  )
+  executable(
+    'spead2_bench',
+    'spead2_bench.cpp', 'spead2_cmdline.cpp',
+    dependencies : [boost_program_options_dep, st_dep],
+    install : true
+  )
+  if use_ibv
     executable(
-      'spead2_recv',
-      'spead2_recv.cpp', 'spead2_cmdline.cpp',
-      dependencies : [boost_program_options_dep, st_dep],
+      'mcdump',
+      'mcdump.cpp',
+      dependencies: [boost_program_options_dep, st_dep],
       install : true
     )
-    executable(
-      'spead2_send',
-      'spead2_send.cpp', 'spead2_cmdline.cpp',
-      dependencies : [boost_program_options_dep, st_dep],
-      install : true
-    )
-    executable(
-      'spead2_bench',
-      'spead2_bench.cpp', 'spead2_cmdline.cpp',
-      dependencies : [boost_program_options_dep, st_dep],
-      install : true
-    )
-    if use_ibv
-      executable(
-        'mcdump',
-        'mcdump.cpp',
-        dependencies: [boost_program_options_dep, st_dep],
-        install : true
-      )
-    endif
   endif
+  executable('spead2_net_raw', 'spead2_net_raw.cpp', dependencies : [cap_dep], install : true)
 
-  if cap_dep.found()
-    executable('spead2_net_raw', 'spead2_net_raw.cpp', dependencies : [cap_dep], install : true)
-  endif
-
-  if boost_unit_test_framework_dep.found()
-    unit_test = executable(
-      'spead2_unit_test',
-      'unittest_main.cpp',
-      'unittest_logging.cpp',
-      'unittest_memcpy.cpp',
-      'unittest_memory_allocator.cpp',
-      'unittest_memory_pool.cpp',
-      'unittest_raw_packet.cpp',
-      'unittest_recv_live_heap.cpp',
-      'unittest_recv_custom_memcpy.cpp',
-      'unittest_recv_stream_stats.cpp',
-      'unittest_semaphore.cpp',
-      'unittest_send_heap.cpp',
-      'unittest_send_streambuf.cpp',
-      'unittest_send_tcp.cpp',
-      cpp_args : '-DBOOST_TEST_DYN_LINK',
-      dependencies : [st_dep, boost_unit_test_framework_dep]
-    )
-    test('unit tests', unit_test)
-  endif
+  unit_test = executable(
+    'spead2_unit_test',
+    'unittest_main.cpp',
+    'unittest_logging.cpp',
+    'unittest_memcpy.cpp',
+    'unittest_memory_allocator.cpp',
+    'unittest_memory_pool.cpp',
+    'unittest_raw_packet.cpp',
+    'unittest_recv_live_heap.cpp',
+    'unittest_recv_custom_memcpy.cpp',
+    'unittest_recv_stream_stats.cpp',
+    'unittest_semaphore.cpp',
+    'unittest_send_heap.cpp',
+    'unittest_send_streambuf.cpp',
+    'unittest_send_tcp.cpp',
+    cpp_args : '-DBOOST_TEST_DYN_LINK',
+    dependencies : [st_dep, boost_unit_test_framework_dep]
+  )
+  test('unit tests', unit_test)
 
 else  # python
 

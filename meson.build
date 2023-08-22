@@ -38,8 +38,18 @@ thread_dep = dependency('threads')
 compiler.check_header('libdivide.h', required : true)
 
 # Optional libraries
-boost_program_options_dep = dependency('boost', modules : ['program_options'], required : get_option('tools'))
-boost_unit_test_framework_dep = dependency('boost', modules : ['unit_test_framework'], required : get_option('unit_test'))
+boost_program_options_dep = dependency(
+  'boost',
+  modules : ['program_options'],
+  required : get_option('tools'),
+  disabler : true
+)
+boost_unit_test_framework_dep = dependency(
+  'boost',
+  modules : ['unit_test_framework'],
+  required : get_option('unit_test'),
+  disabler : true
+)
 
 # The rdma-core libraries have pkgconfig files in newer versions, but older
 # versions did not and we still want to support those. This unfortunately
@@ -69,6 +79,14 @@ libraries = [
     'lib': 'mlx5',
     'function': 'mlx5dv_create_cq'
   },
+  {
+    'name': 'gdrapi',
+    'option': 'gdrapi',
+    'dep_name': '',  # There is currently no pkgconfig support in gdrcopy
+    'header': 'gdrapi.h',
+    'lib': 'gdrapi',
+    'function': 'gdr_open'
+  },
 ]
 foreach lib : libraries
   if get_option(lib['option']).allowed()
@@ -91,9 +109,12 @@ use_ibv = ibv_dep.found() and rdmacm_dep.found()
 # Note: pass 'pcap' not 'libpcap' to dependency, to trigger the special
 # handling that uses pcap-config if pkgconfig doesn't find it.
 pcap_dep = dependency('pcap', required : get_option('pcap'))
-cap_dep = dependency('libcap', required : get_option('cap'))
-cuda_dep = dependency('cuda', required : get_option('cuda'))
-# TODO: detection for gdrapi
+cap_dep = dependency('libcap', required : get_option('cap'), disabler : true)
+if add_languages('cuda', required : get_option('cuda'), native : false)
+  cuda_dep = dependency('cuda', required : get_option('cuda'), disabler : true)
+else
+  cuda_dep = disabler()
+endif
 
 # Optional features
 use_ibv_hw_rate_limit = get_option('ibv_hw_rate_limit').require(
@@ -199,6 +220,8 @@ include_dir = include_directories('include')
 subdir('src')  # Defines the targets
 
 if not get_option('python')
+  subdir('examples')
+
   pkg = import('pkgconfig')
   pkg.generate(
     st_lib,
