@@ -85,8 +85,6 @@ ssconfig = ss.apply(conf)
 
 # Targets
 
-# TODO: handle debug_log user option
-
 if not get_option('python')
   st_lib = static_library(
     'spead2',

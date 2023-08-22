@@ -36,7 +36,7 @@ below shows corresponding Meson options:
 autotools                              meson
 ====================================== =====================================
 ``--enable-debug-symbols``             ``debug=true`` or ``buildtype=...``
-``--enable-debug-log``                 ``debug_log=true``
+``--enable-debug-log``                 ``max_log_level=debug``
 ``--enable-coverage``                  ``b_coverage=true``
 ``--disable-optimized``                ``optimization=0`` or ``buildtype=debug``
 ``--enable-lto``                       ``b_lto=true``
@@ -74,3 +74,12 @@ instead created as part of the build. This requires Python, with the
 
 An advantage of this approach is that it is now possible to directly build
 from a git checkout without any preparatory steps.
+
+Python configuration
+--------------------
+When building the Python bindings from source, it was previously only possible
+to adjust the build-time configuration by editing source files. With
+the new build system, it's now possible to `pass options`_ on the command
+line.
+
+.. _pass options: https://meson-python.readthedocs.io/en/latest/how-to-guides/config-settings.html

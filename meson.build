@@ -211,6 +211,7 @@ conf.set10('SPEAD2_USE_PTHREAD_SETAFFINITY_NP', use_pthread_setaffinity_np)
 conf.set10('SPEAD2_USE_FMV', use_fmv)
 conf.set10('SPEAD2_USE_MOVNTDQ', use_movntdq)
 conf.set10('SPEAD2_USE_PCAP', pcap_dep.found())
+conf.set('SPEAD2_MAX_LOG_LEVEL', '(spead2::log_level::' + get_option('max_log_level') + ')')
 
 gen_loader = files('gen/gen_loader.py')
 gen_templates = files('gen/template.cpp', 'gen/template.h')
