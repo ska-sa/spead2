@@ -213,5 +213,20 @@ jobs:
           path: ./wheelhouse/*.whl
       - uses: actions/upload-artifact@v3
         with:
-          name: debug_symbols
+          name: debug_symbols_uncompressed
           path: ./wheelhouse/*.debug
+
+  compress-debug:
+    needs: [cibuildwheel]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: debug_symbols_uncompressed
+      - name: Compress debug symbols
+        run: tar -Jcvf "spead2-$(sed 's/.*"\(.*\)"/\1/' src/spead2/_version.py)-debug.tar.xz" _spead*.debug
+      - uses: actions/upload-artifact@v3
+        with:
+          name: debug_symbols
+          path: spead2-*-debug.tar.xz
