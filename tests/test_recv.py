@@ -1084,6 +1084,9 @@ class TestStream:
         heaps = list(receiver)
         assert len(heaps) == 1
 
+        # Stats are updated asynchronously, so if we ask for them immediately
+        # they might not reflect the heap just received.
+        time.sleep(0.01)
         stats = receiver.stats
         assert stats.heaps == 1
         assert stats.packets == 2
