@@ -86,13 +86,20 @@ ssconfig = ss.apply(conf)
 # Targets
 
 if not get_option('python')
-  st_lib = static_library(
+  st_lib = library(
     'spead2',
     include_directories: include_dir,
     sources: ssconfig.sources(),
     dependencies: ssconfig.dependencies(),
-    install : true
+    install : true,
+    version : shared_lib_version
   )
+
+  if get_option('default_library') == 'both'
+    # Link command-line tools against the static library, even if the
+    # shared library is built.
+    st_lib = st_lib.get_static_lib()
+  endif
 
   st_dep = declare_dependency(
     include_directories : include_dir,

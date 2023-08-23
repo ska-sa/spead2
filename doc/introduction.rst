@@ -105,7 +105,6 @@ help):
 Optional features are autodetected by default, but can be disabled using
 Meson options. To see the available options, run :command:`meson configure` in
 the build directory.
-
 One option that may squeeze out a very small amount of extra performance is
 link-time optimization, enabled with :option:`!-Db_lto=true`.
 
@@ -114,14 +113,15 @@ header files.
 
 Shared library
 ^^^^^^^^^^^^^^
-TODO: rewrite this once supported in Meson.
-
 There is experimental support for building a shared library. Pass
-``--enable-shared`` to ``configure``. It's not recommended for general use
-because the binary interface is likely to be incompatible between spead2
-versions, requiring software linked against the shared library to be
-recompiled after upgrading spead2 (which defeats one of the points of a shared
-library). It also exports a lot of symbols (e.g., from Boost) that may clash
-with other libraries. Performance may be lower than using the static library.
-It is made available for users who need to load the library dynamically as part
-of a plugin system.
+``--default_library=both`` to ``meson setup``. It's also possible to pass
+``--default_library=shared``, in which case the static library will not be
+built, and the command-line tools will be linked against the shared library.
+
+It's not recommended for general use because the binary interface is likely to
+be incompatible between spead2 versions, requiring software linked against the
+shared library to be recompiled after upgrading spead2 (which defeats one of
+the points of a shared library). It also exports a lot of symbols (e.g., from
+Boost) that may clash with other libraries. Performance may be lower than using
+the static library. It is made available for users who need to load the
+library dynamically as part of a plugin system.

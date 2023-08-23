@@ -40,6 +40,7 @@ autotools                              meson
 ``--enable-coverage``                  ``b_coverage=true``
 ``--disable-optimized``                ``optimization=0`` or ``buildtype=debug``
 ``--enable-lto``                       ``b_lto=true``
+``--enable-shared``                    ``default_library=both``
 ``--without-program-options``          ``tools=disabled``
 ``--without-ibv``                      ``ibv=disabled``
 ``--without-mlx5dv``                   ``mlx5dv=disabled``

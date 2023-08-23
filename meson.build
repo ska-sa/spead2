@@ -25,9 +25,11 @@ project(
     'cpp_std=c++17',
     'b_ndebug=if-release',
     'buildtype=release',
+    'default_library=static',
     'warning_level=2',
   ]
 )
+shared_lib_version = '4.0.0'
 
 compiler = meson.get_compiler('cpp')
 py = import('python').find_installation(pure : false, modules : ['jinja2', 'pycparser', 'packaging'])
