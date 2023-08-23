@@ -194,8 +194,7 @@ class _UdpStream:
         config: StreamConfig = ...,
     ) -> None: ...
 
-class UdpStream(_UdpStream, SyncStream):
-    pass
+class UdpStream(_UdpStream, SyncStream): ...
 
 class UdpIbvConfig:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
@@ -243,8 +242,7 @@ class _UdpIbvStream:
         self, thread_pool: spead2.ThreadPool, config: StreamConfig, udp_ibv_config: UdpIbvConfig
     ) -> None: ...
 
-class UdpIbvStream(_UdpIbvStream, SyncStream):
-    pass
+class UdpIbvStream(_UdpIbvStream, SyncStream): ...
 
 class _TcpStream:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
@@ -295,15 +293,14 @@ class _InprocStream:
         config: StreamConfig = ...,
     ) -> None: ...
 
-class InprocStream(_InprocStream, SyncStream):
-    pass
+class InprocStream(_InprocStream, SyncStream): ...
 
 class HeapGenerator:
     def __init__(
         self,
         item_group: spead2.ItemGroup,
         descriptor_frequency: int | None = None,
-        flavour: spead2.Flavour = spead2.Flavour(),
+        flavour: spead2.Flavour = ...,
     ) -> None: ...
     def add_to_heap(self, heap: Heap, descriptors: str = ..., data: str = ...) -> Heap: ...
     def get_heap(self, descriptors: str = ..., data: str = ...) -> Heap: ...

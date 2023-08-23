@@ -16,14 +16,15 @@
 from typing import Any, KeysView, Sequence, ValuesView, overload
 
 import numpy as np
+from typing_extensions import TypeAlias
 
 try:
     from numpy.typing import DTypeLike as _DTypeLike
 except ImportError:
-    _DTypeLike = Any  # type: ignore
+    _DTypeLike: TypeAlias = Any  # type: ignore
 import spead2.recv
 
-_EndpointList = list[tuple[str, int]]
+_EndpointList: TypeAlias = list[tuple[str, int]]  # noqa: PYI047
 
 __version__: str
 
@@ -54,11 +55,8 @@ CTRL_DESCRIPTOR_UPDATE: int
 MEMCPY_STD: int
 MEMCPY_NONTEMPORAL: int
 
-class Stopped(RuntimeError):
-    pass
-
-class Empty(RuntimeError):
-    pass
+class Stopped(RuntimeError): ...
+class Empty(RuntimeError): ...
 
 class Flavour:
     @overload

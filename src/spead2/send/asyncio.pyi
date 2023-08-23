@@ -35,11 +35,8 @@ class AsyncStream(spead2.send.Stream):
     ) -> asyncio.Future[int]: ...
     async def async_flush(self) -> None: ...
 
-class UdpStream(spead2.send._UdpStream, AsyncStream):
-    pass
-
-class UdpIbvStream(spead2.send._UdpIbvStream, AsyncStream):
-    pass
+class UdpStream(spead2.send._UdpStream, AsyncStream): ...
+class UdpIbvStream(spead2.send._UdpIbvStream, AsyncStream): ...
 
 class TcpStream(spead2.send._TcpStream, AsyncStream):
     def __init__(
@@ -70,5 +67,4 @@ class TcpStream(spead2.send._TcpStream, AsyncStream):
         interface_address: str = ...,
     ) -> None: ...
 
-class InprocStream(spead2.send._InprocStream, AsyncStream):
-    pass
+class InprocStream(spead2.send._InprocStream, AsyncStream): ...
