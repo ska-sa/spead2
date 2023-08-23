@@ -11,9 +11,6 @@ boost_version=1.81.0
 boost_version_under=${boost_version//./_}
 
 yum install -y wget cmake3 ninja-build flex bison libnl3-devel
-if [[ "${CC:-}" == ccache* ]]; then
-    yum install -y ccache
-fi
 # Workaround for https://github.com/pypa/manylinux/issues/1203
 unset SSL_CERT_FILE
 
