@@ -15,18 +15,7 @@
 
 import enum
 import socket
-from typing import (
-    ClassVar,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Text,
-    Tuple,
-    Union,
-    overload,
-)
+from typing import ClassVar, Iterator, Sequence, overload
 
 import spead2
 from spead2 import _EndpointList
@@ -53,7 +42,7 @@ class HeapReference:
     def heap(self) -> Heap: ...
 
 class HeapReferenceList:
-    def __init__(self, heaps: List[HeapReference]) -> None: ...
+    def __init__(self, heaps: list[HeapReference]) -> None: ...
 
 class PacketGenerator:
     def __init__(self, heap: Heap, cnt: int, max_packet_size: int) -> None: ...
@@ -103,7 +92,7 @@ class Stream:
 class SyncStream(Stream):
     def send_heap(self, heap: Heap, cnt: int = ..., substream_index=...) -> None: ...
     def send_heaps(
-        self, heaps: Union[List[HeapReference], HeapReferenceList], mode: GroupMode
+        self, heaps: list[HeapReference] | HeapReferenceList, mode: GroupMode
     ) -> None: ...
 
 class _UdpStream:
@@ -205,8 +194,7 @@ class _UdpStream:
         config: StreamConfig = ...,
     ) -> None: ...
 
-class UdpStream(_UdpStream, SyncStream):
-    pass
+class UdpStream(_UdpStream, SyncStream): ...
 
 class UdpIbvConfig:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
@@ -254,8 +242,7 @@ class _UdpIbvStream:
         self, thread_pool: spead2.ThreadPool, config: StreamConfig, udp_ibv_config: UdpIbvConfig
     ) -> None: ...
 
-class UdpIbvStream(_UdpIbvStream, SyncStream):
-    pass
+class UdpIbvStream(_UdpIbvStream, SyncStream): ...
 
 class _TcpStream:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
@@ -302,19 +289,18 @@ class _InprocStream:
     def __init__(
         self,
         thread_pool: spead2.ThreadPool,
-        queues: List[spead2.InprocQueue],
+        queues: list[spead2.InprocQueue],
         config: StreamConfig = ...,
     ) -> None: ...
 
-class InprocStream(_InprocStream, SyncStream):
-    pass
+class InprocStream(_InprocStream, SyncStream): ...
 
 class HeapGenerator:
     def __init__(
         self,
         item_group: spead2.ItemGroup,
-        descriptor_frequency: Optional[int] = None,
-        flavour: spead2.Flavour = spead2.Flavour(),
+        descriptor_frequency: int | None = None,
+        flavour: spead2.Flavour = ...,
     ) -> None: ...
     def add_to_heap(self, heap: Heap, descriptors: str = ..., data: str = ...) -> Heap: ...
     def get_heap(self, descriptors: str = ..., data: str = ...) -> Heap: ...
@@ -323,5 +309,5 @@ class HeapGenerator:
 
 class ItemGroup(spead2.ItemGroup, HeapGenerator):
     def __init__(
-        self, descriptor_frequency: Optional[int] = None, flavour: spead2.Flavour = ...
+        self, descriptor_frequency: int | None = None, flavour: spead2.Flavour = ...
     ) -> None: ...

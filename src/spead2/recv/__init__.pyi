@@ -16,19 +16,9 @@
 import collections.abc
 import enum
 import socket
-from typing import (
-    Any,
-    ClassVar,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Text,
-    Tuple,
-    Union,
-    overload,
-)
+from typing import Any, ClassVar, Iterable, Iterator, Sequence, overload
+
+from typing_extensions import Self
 
 import spead2
 from spead2 import _EndpointList
@@ -46,12 +36,12 @@ class _HeapBase:
     def cnt(self) -> int: ...
     @property
     def flavour(self) -> spead2.Flavour: ...
-    def get_items(self) -> List[RawItem]: ...
+    def get_items(self) -> list[RawItem]: ...
     def is_start_of_stream(self) -> bool: ...
     def is_end_of_stream(self) -> bool: ...
 
 class Heap(_HeapBase):
-    def get_descriptors(self) -> List[spead2.RawDescriptor]: ...
+    def get_descriptors(self) -> list[spead2.RawDescriptor]: ...
 
 class IncompleteHeap(_HeapBase):
     @property
@@ -59,7 +49,7 @@ class IncompleteHeap(_HeapBase):
     @property
     def received_length(self) -> int: ...
     @property
-    def payload_ranges(self) -> List[Tuple[int, int]]: ...
+    def payload_ranges(self) -> list[tuple[int, int]]: ...
 
 class StreamStatConfig:
     class Mode(enum.Enum):
@@ -84,7 +74,7 @@ class StreamStats:
     single_packet_heaps: int
     search_dist: int
     @property
-    def config(self) -> List[StreamStatConfig]: ...
+    def config(self) -> list[StreamStatConfig]: ...
     @overload
     def __getitem__(self, index: int) -> int: ...
     @overload
@@ -95,13 +85,13 @@ class StreamStats:
     def __setitem__(self, name: str, value: int) -> None: ...
     def __contains__(self, name: str) -> bool: ...
     def get(self, _name: str, _default: Any = None) -> Any: ...
-    def items(self) -> Iterable[Tuple[str, int]]: ...
+    def items(self) -> Iterable[tuple[str, int]]: ...
     def __iter__(self) -> Iterator[str]: ...
     def keys(self) -> Iterable[str]: ...
     def values(self) -> Iterable[int]: ...
     def __len__(self) -> int: ...
     def __add__(self, other: StreamStats) -> StreamStats: ...
-    def __iadd__(self, other: StreamStats) -> None: ...
+    def __iadd__(self, other: StreamStats) -> Self: ...
 
 class StreamConfig:
     DEFAULT_MAX_HEAPS: ClassVar[int] = ...
@@ -115,7 +105,7 @@ class StreamConfig:
     allow_out_of_order: bool
     stream_id: int
     @property
-    def stats(self) -> List[StreamStatConfig]: ...
+    def stats(self) -> list[StreamStatConfig]: ...
     def __init__(
         self,
         *,
@@ -227,7 +217,7 @@ class _Stream:
     @overload
     def add_udp_ibv_reader(
         self,
-        endpoints: Sequence[Tuple[str, int]],
+        endpoints: Sequence[tuple[str, int]],
         interface_address: str,
         max_size: int = ...,
         buffer_size: int = ...,
@@ -268,9 +258,9 @@ class Stream(_RingStream):
 class ChunkStreamConfig:
     DEFAULT_MAX_CHUNKS: ClassVar[int]
 
-    items: List[int]
+    items: list[int]
     max_chunks: int
-    place: Optional[tuple]
+    place: tuple | None
     max_heap_extra: int
     def enable_packet_presence(self, payload_size: int) -> None: ...
     def disable_packet_presence(self) -> None: ...
@@ -279,9 +269,9 @@ class ChunkStreamConfig:
     def __init__(
         self,
         *,
-        items: List[int] = ...,
+        items: list[int] = ...,
         max_chunks: int = ...,
-        place: Optional[tuple] = ...,
+        place: tuple | None = ...,
         max_heap_extra: int = ...
     ) -> None: ...
 
@@ -377,5 +367,4 @@ class ChunkStreamRingGroup(ChunkRingPair, collections.abc.Sequence[ChunkStreamGr
     def __getitem__(self, index: slice) -> Sequence[ChunkStreamGroupMember]: ...
     def __len__(self) -> int: ...
 
-class ChunkStreamGroupMember(_Stream):
-    pass
+class ChunkStreamGroupMember(_Stream): ...

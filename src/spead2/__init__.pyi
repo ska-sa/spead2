@@ -13,29 +13,18 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import (
-    Any,
-    Dict,
-    KeysView,
-    List,
-    Optional,
-    Sequence,
-    Text,
-    Tuple,
-    Union,
-    ValuesView,
-    overload,
-)
+from typing import Any, KeysView, Sequence, ValuesView, overload
 
 import numpy as np
+from typing_extensions import TypeAlias
 
 try:
     from numpy.typing import DTypeLike as _DTypeLike
 except ImportError:
-    _DTypeLike = Any  # type: ignore
+    _DTypeLike: TypeAlias = Any  # type: ignore
 import spead2.recv
 
-_EndpointList = List[Tuple[str, int]]
+_EndpointList: TypeAlias = list[tuple[str, int]]  # noqa: PYI047
 
 __version__: str
 
@@ -66,11 +55,8 @@ CTRL_DESCRIPTOR_UPDATE: int
 MEMCPY_STD: int
 MEMCPY_NONTEMPORAL: int
 
-class Stopped(RuntimeError):
-    pass
-
-class Empty(RuntimeError):
-    pass
+class Stopped(RuntimeError): ...
+class Empty(RuntimeError): ...
 
 class Flavour:
     @overload
@@ -94,7 +80,7 @@ class ThreadPool:
     @overload
     def __init__(self, threads: int = ...) -> None: ...
     @overload
-    def __init__(self, threads: int, affinity: List[int]) -> None: ...
+    def __init__(self, threads: int, affinity: list[int]) -> None: ...
 
 class MemoryAllocator:
     def __init__(self) -> None: ...
@@ -112,7 +98,7 @@ class MemoryPool(MemoryAllocator):
         upper: int,
         max_free: int,
         initial: int,
-        allocator: Optional[MemoryAllocator] = None,
+        allocator: MemoryAllocator | None = None,
     ) -> None: ...
     @overload
     def __init__(
@@ -136,37 +122,37 @@ class RawDescriptor:
     name: bytes
     description: bytes
     numpy_header: bytes
-    format: List[Tuple[str, int]]
+    format: list[tuple[str, int]]
 
     @property
-    def shape(self) -> List[Optional[int]]: ...
+    def shape(self) -> list[int | None]: ...
     @shape.setter
-    def shape(self, value: Sequence[Optional[int]]) -> None: ...
+    def shape(self, value: Sequence[int | None]) -> None: ...
 
 class IbvContext:
     def __init__(self, interface_address: str) -> None: ...
     def reset(self) -> None: ...
 
-def parse_range_list(ranges: str) -> List[int]: ...
+def parse_range_list(ranges: str) -> list[int]: ...
 
 class Descriptor:
     id: int
     name: str
     description: str
-    shape: Sequence[Optional[int]]
-    dtype: Optional[np.dtype]
+    shape: Sequence[int | None]
+    dtype: np.dtype | None
     order: str
-    format: Optional[List[Tuple[str, int]]]
+    format: list[tuple[str, int]] | None
 
     def __init__(
         self,
         id: int,
         name: str,
         description: str,
-        shape: Sequence[Optional[int]],
-        dtype: Optional[_DTypeLike] = None,
+        shape: Sequence[int | None],
+        dtype: _DTypeLike | None = None,
         order: str = ...,
-        format: Optional[List[Tuple[str, int]]] = None,
+        format: list[tuple[str, int]] | None = None,
     ) -> None: ...
     @property
     def itemsize_bits(self) -> int: ...
@@ -188,10 +174,10 @@ class Item(Descriptor):
         id: int,
         name: str,
         description: str,
-        shape: Sequence[Optional[int]],
-        dtype: Optional[_DTypeLike] = None,
+        shape: Sequence[int | None],
+        dtype: _DTypeLike | None = None,
         order: str = ...,
-        format: Optional[List[Tuple[str, int]]] = None,
+        format: list[tuple[str, int]] | None = None,
         value: Any = None,
     ) -> None: ...
     @property
@@ -206,19 +192,19 @@ class ItemGroup:
     def __init__(self) -> None: ...
     def add_item(
         self,
-        id: Optional[int],
+        id: int | None,
         name: str,
         description: str,
-        shape: Sequence[Optional[int]],
-        dtype: Optional[_DTypeLike] = None,
+        shape: Sequence[int | None],
+        dtype: _DTypeLike | None = None,
         order: str = "C",
-        format: Optional[List[Tuple[str, int]]] = None,
+        format: list[tuple[str, int]] | None = None,
         value: Any = None,
     ) -> Item: ...
-    def __getitem__(self, key: Union[int, str]) -> Item: ...
-    def __contains__(self, key: Union[int, str]) -> bool: ...
+    def __getitem__(self, key: int | str) -> Item: ...
+    def __contains__(self, key: int | str) -> bool: ...
     def keys(self) -> KeysView[str]: ...
     def ids(self) -> KeysView[int]: ...
     def values(self) -> ValuesView[Item]: ...
     def __len__(self) -> int: ...
-    def update(self, heap: spead2.recv.Heap, new_order: str = ...) -> Dict[str, Item]: ...
+    def update(self, heap: spead2.recv.Heap, new_order: str = ...) -> dict[str, Item]: ...
