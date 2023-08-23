@@ -268,7 +268,7 @@ class TestChunkStreamRingGroup:
             heap = ig.get_heap(data="all", descriptors="none")
             send_stream.send_heap(heap, substream_index=i % STREAMS)
             if lossy:
-                time.sleep(0.001)
+                time.sleep(0.003)
 
     def _verify(self, group, data, expected_present, chunk_id_bias=0):
         expected_present = expected_present.reshape(-1, HEAPS_PER_CHUNK)
