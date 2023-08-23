@@ -15,18 +15,7 @@
 
 import enum
 import socket
-from typing import (
-    ClassVar,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Text,
-    Tuple,
-    Union,
-    overload,
-)
+from typing import ClassVar, Iterator, List, Optional, Sequence, Union, overload
 
 import spead2
 from spead2 import _EndpointList

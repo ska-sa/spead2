@@ -15,7 +15,7 @@
 
 import asyncio
 import socket
-from typing import List, Optional, Union, overload
+from typing import List, Union, overload
 
 import spead2
 import spead2.send

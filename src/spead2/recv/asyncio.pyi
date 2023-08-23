@@ -13,8 +13,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import asyncio
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator
 
 import spead2
 import spead2.recv
