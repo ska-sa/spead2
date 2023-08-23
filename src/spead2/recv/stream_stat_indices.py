@@ -15,4 +15,4 @@
 
 """Constants for indexing :class:`spead2.recv.StreamStats`."""
 
-from spead2._spead2.recv.stream_stat_indices import *  # noqa: F401, F403
+from spead2._spead2.recv.stream_stat_indices import *  # noqa: F403

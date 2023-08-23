@@ -40,7 +40,7 @@ line-length = 100
 target-versions = ["py38", "py39", "py310", "py311", "py312"]
 
 [tool.ruff]
-select = ["E", "F", "W", "UP"]
+select = ["E", "F", "W", "UP", "RUF100"]
 line-length = 100
 target-version = "py38"
 
