@@ -15,7 +15,7 @@
 
 import asyncio
 import socket
-from typing import List, Union, overload
+from typing import overload
 
 import spead2
 import spead2.send
@@ -30,7 +30,7 @@ class AsyncStream(spead2.send.Stream):
     ) -> asyncio.Future[int]: ...
     def async_send_heaps(
         self,
-        heaps: Union[List[spead2.send.HeapReference], spead2.send.HeapReferenceList],
+        heaps: list[spead2.send.HeapReference] | spead2.send.HeapReferenceList,
         mode: spead2.send.GroupMode,
     ) -> asyncio.Future[int]: ...
     async def async_flush(self) -> None: ...
