@@ -192,19 +192,41 @@ jobs:
   cibuildwheel:
     needs: [test-cxx, test-python, coverage]
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+        python: [cp38, cp39, cp310, cp311, cp312]
     steps:
       - uses: actions/checkout@v3
       - uses: docker/setup-qemu-action@v2
         with:
           platforms: arm64
+        if: matrix.arch != 'x86_64'
       - uses: pypa/cibuildwheel@v2.15.0
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_BUILD: ${{ matrix.python }}-manylinux*
       - uses: actions/upload-artifact@v3
         with:
           name: wheels
           path: ./wheelhouse/*.whl
-      - name: Tar debug symbols
-        run: cd wheelhouse && tar -Jcvf "spead2-$(sed 's/.*"\(.*\)"/\1/' ../src/spead2/_version.py)-debug.tar.xz" _spead2*.debug
+      - uses: actions/upload-artifact@v3
+        with:
+          name: debug_symbols_uncompressed
+          path: ./wheelhouse/*.debug
+
+  compress-debug:
+    needs: [cibuildwheel]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: debug_symbols_uncompressed
+      - name: Compress debug symbols
+        run: tar -Jcvf "spead2-$(sed 's/.*"\(.*\)"/\1/' src/spead2/_version.py)-debug.tar.xz" _spead*.debug
       - uses: actions/upload-artifact@v3
         with:
           name: debug_symbols
-          path: ./wheelhouse/spead2-*-debug.tar.xz
+          path: spead2-*-debug.tar.xz
