@@ -84,3 +84,10 @@ the new build system, it's now possible to `pass options`_ on the command
 line.
 
 .. _pass options: https://meson-python.readthedocs.io/en/latest/how-to-guides/config-settings.html
+
+Python editable installs
+------------------------
+Meson-python `doesn't support <no-editable_>`_ editable installs with build
+isolation. To make an editable install, use ``pip install --no-build-isolation -e .``.
+
+.. _no-editable: https://meson-python.readthedocs.io/en/latest/how-to-guides/editable-installs.html
