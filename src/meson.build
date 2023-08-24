@@ -189,7 +189,7 @@ else  # python
     split_debug ? '_spead2_tmp' : '_spead2',
     [ssconfig.sources(), py_sources],
     cpp_args : py_cpp_args,
-    gnu_symbol_visibility : 'hidden',
+    gnu_symbol_visibility : 'inlineshidden',
     include_directories : include_dir,
     dependencies : [pybind11_dep, ssconfig.dependencies()],
     install : not split_debug,
