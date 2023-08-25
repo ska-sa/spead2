@@ -28,6 +28,8 @@ features. See :doc:`migrate-4` for more detailed information about upgrading.
 - Make numba and scipy optional for running tests (some tests will be skipped
   if they are not present).
 - Update the libpcap embedded in the wheels to 1.10.4.
+- Update the Boost version used to build wheels to 1.83.
+- Update the rdma-core version used to build wheels to 47.0.
 - Update the pybind11 build dependency to 2.11.1.
 - Replace flake8 with ruff_ for linting.
 - Remove the :file:`spead2/common_bind.h` header, which was unused.
