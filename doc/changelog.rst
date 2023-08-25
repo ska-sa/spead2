@@ -1,6 +1,42 @@
 Changelog
 =========
 
+.. rubric:: 4.0.0b1
+
+This release makes major changes to the build system, and removes deprecated
+features. See :doc:`migrate-4` for more detailed information about upgrading.
+
+- Replace the build system with Meson_.
+- Update the C++ code to use C++17.
+- No longer link against boost_system, and require Boost 1.69+.
+- Remove generated code from release tarballs; some Python packages are now
+  required at build time to build the C++ bindings.
+- Fix an uninitialised variable that could cause a segmentation fault when
+  using TCP to send and the initial connection failed.
+- Fix a large number of compiler warnings that showed up after switching build
+  systems (mainly related to unused function parameters and signed/unsigned
+  comparisons).
+- Fix the debug logging option so logging from inline functions in headers
+  will also do debug logging without the user needing to make preprocessor
+  defines.
+- Remove the need for boost_program_options to be installed to be able to
+  install the Python bindings from source.
+- Produce binary wheels for aarch64.
+- Produce wheels for Python 3.12.
+- Make numba and scipy optional for running tests (some tests will be skipped
+  if they are not present).
+- Update the libpcap embedded in the wheels to 1.10.4.
+- Update the pybind11 build dependency to 2.11.1.
+- Replace flake8 with ruff_ for linting.
+- Remove the :file:`spead2/common_bind.h` header, which was unused.
+- Remove the :c:macro:`!SPEAD2_DEPRECATED` macro.
+- Remove build-time dependencies from :file:`requirements.txt`.
+- Update the :file:`.pyi` files to use more modern syntax e.g., :pep:`585`,
+  :pep:`604`, :pep:`613`.
+
+.. _Meson: https://mesonbuild.com
+.. _ruff: https://beta.ruff.rs/docs/
+
 .. rubric:: 3.13.0
 
 - Reformat the Python codebase using black_ and isort_.
