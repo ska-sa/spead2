@@ -95,7 +95,7 @@ libraries = [
     'header': 'gdrapi.h',
     'lib': 'gdrapi',
     'function': 'gdr_open',
-    'prereq': ['ibv_dep', 'rdmacm_dep', 'cuda_dep'],
+    'prereq': ['cuda_dep'],
     'disabler' : true,
   },
 ]

@@ -24,5 +24,7 @@ foreach name : [
 endforeach
 
 executable('test_ringbuffer', 'test_ringbuffer.cpp', dependencies : [st_dep, boost_program_options_dep])
-executable('gpudirect_example', 'gpudirect_example.cu', dependencies : [st_dep, cuda_dep])
-executable('gdrapi_example', 'gdrapi_example.cu', dependencies : [st_dep, cuda_dep, gdrapi_dep])
+if use_ibv
+  executable('gpudirect_example', 'gpudirect_example.cu', dependencies : [st_dep, cuda_dep])
+  executable('gdrapi_example', 'gdrapi_example.cu', dependencies : [st_dep, cuda_dep, gdrapi_dep])
+endif
