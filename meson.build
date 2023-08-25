@@ -53,6 +53,11 @@ boost_unit_test_framework_dep = dependency(
   required : get_option('unit_test'),
   disabler : true
 )
+if add_languages('cuda', required : get_option('cuda'), native : false)
+  cuda_dep = dependency('cuda', required : get_option('cuda'), disabler : true)
+else
+  cuda_dep = disabler()
+endif
 
 # The rdma-core libraries have pkgconfig files in newer versions, but older
 # versions did not and we still want to support those. This unfortunately
@@ -65,7 +70,6 @@ libraries = [
     'header': 'infiniband/verbs.h',
     'lib': 'ibverbs',
     'function': 'ibv_create_wq',
-    'prereq': [],
   },
   {
     'name': 'rdmacm',
@@ -74,7 +78,6 @@ libraries = [
     'header': 'rdma/rdma_cma.h',
     'lib': 'rdmacm',
     'function': 'rdma_create_event_channel',
-    'prereq': [],
   },
   {
     'name': 'mlx5',
@@ -92,12 +95,13 @@ libraries = [
     'header': 'gdrapi.h',
     'lib': 'gdrapi',
     'function': 'gdr_open',
-    'prereq': [],
+    'prereq': ['ibv_dep', 'rdmacm_dep', 'cuda_dep'],
+    'disabler' : true,
   },
 ]
 foreach lib : libraries
   opt = get_option(lib['option'])
-  foreach prereq : lib['prereq']
+  foreach prereq : lib.get('prereq', [])
     opt = opt.require(get_variable(prereq).found())
   endforeach
   if opt.allowed()
@@ -113,6 +117,9 @@ foreach lib : libraries
     lib_dep = dependency('', required : false)  # A not-found dependency
   endif
   opt.require(lib_dep.found())
+  if lib.get('disabler', false) and not lib_dep.found()
+    lib_dep = disabler()
+  endif
   set_variable(lib['name'] + '_dep', lib_dep)
 endforeach
 use_ibv = ibv_dep.found() and rdmacm_dep.found()
@@ -121,11 +128,6 @@ use_ibv = ibv_dep.found() and rdmacm_dep.found()
 # handling that uses pcap-config if pkgconfig doesn't find it.
 pcap_dep = dependency('pcap', required : get_option('pcap'))
 cap_dep = dependency('libcap', required : get_option('cap'), disabler : true)
-if add_languages('cuda', required : get_option('cuda'), native : false)
-  cuda_dep = dependency('cuda', required : get_option('cuda'), disabler : true)
-else
-  cuda_dep = disabler()
-endif
 
 # Optional features
 use_ibv_hw_rate_limit = use_ibv and get_option('ibv_hw_rate_limit').require(
