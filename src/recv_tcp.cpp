@@ -114,7 +114,7 @@ void tcp_reader::packet_handler(
 bool tcp_reader::parse_packet(stream_base::add_packet_state &state)
 {
     assert(pkt_size > 0);
-    assert(tail - head >= pkt_size);
+    assert(tail - head >= std::ptrdiff_t(pkt_size));
     // Modify private fields first, in case process_one_packet throws
     auto head = this->head;
     auto pkt_size = this->pkt_size;
@@ -211,7 +211,10 @@ bool tcp_reader::skip_bytes()
     return to_skip > 0;
 }
 
-void tcp_reader::accept_handler(handler_context ctx, stream_base::add_packet_state &state, const boost::system::error_code &error)
+void tcp_reader::accept_handler(
+    handler_context ctx,
+    [[maybe_unused]] stream_base::add_packet_state &state,
+    const boost::system::error_code &error)
 {
     acceptor.close();
     if (!error)

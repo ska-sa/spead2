@@ -59,7 +59,7 @@ void inproc_reader::packet_handler(
     handler_context ctx,
     stream_base::add_packet_state &state,
     const boost::system::error_code &error,
-    std::size_t bytes_transferred)
+    [[maybe_unused]] std::size_t bytes_transferred)
 {
     if (!error)
     {

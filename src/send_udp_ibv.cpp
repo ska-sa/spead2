@@ -180,7 +180,7 @@ ibv_qp_t udp_ibv_writer::create_qp(
     return ibv_qp_t(pd, &attr);
 }
 
-bool udp_ibv_writer::setup_hw_rate(const ibv_qp_t &qp, const stream_config &config)
+bool udp_ibv_writer::setup_hw_rate([[maybe_unused]] const ibv_qp_t &qp, [[maybe_unused]] const stream_config &config)
 {
 #if SPEAD2_USE_IBV_HW_RATE_LIMIT
     ibv_device_attr_ex attr;

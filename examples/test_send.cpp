@@ -1,4 +1,4 @@
-/* Copyright 2015, 2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -68,7 +68,7 @@ int main()
 
     spead2::send::heap end(f);
     end.add_end();
-    stream.async_send_heap(end, [] (const boost::system::error_code &ec, spead2::item_pointer_t bytes_transferred) {});
+    stream.async_send_heap(end, [] (const boost::system::error_code &, spead2::item_pointer_t) {});
     stream.flush();
 
     return 0;

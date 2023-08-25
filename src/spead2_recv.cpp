@@ -345,7 +345,8 @@ int main(int argc, const char **argv)
     spead2::thread_pool stopper_thread_pool;
     boost::asio::signal_set signals(stopper_thread_pool.get_io_service());
     signals.add(SIGINT);
-    signals.async_wait([&streams] (const boost::system::error_code &error, int signal_number) {
+    signals.async_wait([&streams] (const boost::system::error_code &error,
+                                   [[maybe_unused]] int signal_number) {
         if (!error)
             for (const std::unique_ptr<spead2::recv::stream> &stream : streams)
             {

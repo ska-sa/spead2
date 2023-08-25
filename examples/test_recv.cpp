@@ -107,7 +107,7 @@ void show_heap(const spead2::recv::heap &fheap)
     std::cout << std::flush;
 }
 
-static void run_trivial()
+[[maybe_unused]] static void run_trivial()
 {
     spead2::thread_pool worker;
     trivial_stream stream(worker);
@@ -117,7 +117,7 @@ static void run_trivial()
     stream.join();
 }
 
-static void run_ringbuffered()
+[[maybe_unused]] static void run_ringbuffered()
 {
     spead2::thread_pool worker;
     std::shared_ptr<spead2::memory_pool> pool = std::make_shared<spead2::memory_pool>(16384, 26214400, 12, 8);

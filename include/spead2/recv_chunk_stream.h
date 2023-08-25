@@ -488,7 +488,7 @@ public:
     std::uint64_t *get_batch_stats(chunk_stream_state<chunk_manager_simple> &state) const;
     chunk *allocate_chunk(chunk_stream_state<chunk_manager_simple> &state, std::int64_t chunk_id);
     void ready_chunk(chunk_stream_state<chunk_manager_simple> &state, chunk *c);
-    void head_updated(chunk_stream_state<chunk_manager_simple> &state, std::uint64_t head_chunk) {}
+    void head_updated(chunk_stream_state<chunk_manager_simple> &, std::uint64_t) {}
 };
 
 /**
@@ -721,7 +721,7 @@ void chunk_stream_state<CM>::flush_chunks()
 
 template<typename CM>
 std::pair<std::uint8_t *, chunk_stream_state_base::heap_metadata>
-chunk_stream_state<CM>::allocate(std::size_t size, const packet_header &packet)
+chunk_stream_state<CM>::allocate([[maybe_unused]] std::size_t size, const packet_header &packet)
 {
     // Used to get a non-null pointer
     static std::uint8_t dummy_uint8;

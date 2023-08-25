@@ -34,7 +34,7 @@ mem_reader::mem_reader(
     assert(ptr != nullptr);
     boost::asio::post(
         get_io_service(),
-        bind_handler([this] (handler_context ctx, stream_base::add_packet_state &state) {
+        bind_handler([this] (handler_context, stream_base::add_packet_state &state) {
             mem_to_stream(state, this->ptr, this->length);
             // There will be no more data, so we can stop the stream immediately.
             state.stop();

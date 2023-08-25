@@ -1,4 +1,4 @@
-/* Copyright 2020-2021 National Research Foundation (SARAO)
+/* Copyright 2020-2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -136,7 +136,8 @@ gdrapi_memory_allocator::~gdrapi_memory_allocator()
     INT_CHECK(gdr_close(gdr));
 }
 
-gdrapi_memory_allocator::pointer gdrapi_memory_allocator::allocate(std::size_t size, void *hint)
+gdrapi_memory_allocator::pointer gdrapi_memory_allocator::allocate(
+    std::size_t size, [[maybe_unused]] void *hint)
 {
     deleter meta;
     meta.allocator = std::static_pointer_cast<gdrapi_memory_allocator>(shared_from_this());

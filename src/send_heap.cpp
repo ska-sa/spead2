@@ -45,7 +45,7 @@ namespace spead2::send
  */
 static inline void store_bytes_be(std::uint8_t *ptr, int len, item_pointer_t value)
 {
-    assert(0 <= len && len <= sizeof(item_pointer_t));
+    assert(0 <= len && len <= int(sizeof(item_pointer_t)));
     assert(len == sizeof(item_pointer_t) || value < (std::uint64_t(1) << (8 * len)));
     value = htobe<item_pointer_t>(value);
     std::memcpy(ptr, reinterpret_cast<const char *>(&value) + sizeof(item_pointer_t) - len, len);

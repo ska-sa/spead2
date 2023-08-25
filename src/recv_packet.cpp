@@ -38,8 +38,8 @@ namespace spead2::recv
 template<typename T>
 static inline T extract_bits(T value, int first, int cnt)
 {
-    assert(0 <= first && first + cnt <= 8 * sizeof(T));
-    assert(cnt > 0 && cnt < 8 * sizeof(T));
+    assert(0 <= first && first + cnt <= 8 * int(sizeof(T)));
+    assert(cnt > 0 && cnt < 8 * int(sizeof(T)));
     return (value >> first) & ((T(1) << cnt) - 1);
 }
 

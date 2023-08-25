@@ -419,7 +419,7 @@ public:
     explicit buffer_allocation_deleter(std::shared_ptr<buffer_allocation> alloc)
         : alloc(std::move(alloc)) {}
 
-    void operator()(std::uint8_t *ptr) const
+    void operator()([[maybe_unused]] std::uint8_t *ptr) const
     {
         alloc->buffer_info = py::buffer_info();
         alloc->obj = py::object();
@@ -449,7 +449,7 @@ namespace PYBIND11_NAMESPACE
 namespace detail
 {
 
-bool type_caster<spead2::memory_allocator::pointer>::load(handle src, bool convert)
+bool type_caster<spead2::memory_allocator::pointer>::load(handle src, [[maybe_unused]] bool convert)
 {
     if (src.is_none())
     {

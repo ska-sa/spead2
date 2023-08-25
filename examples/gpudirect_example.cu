@@ -1,4 +1,4 @@
-/* Copyright 2020 National Research Foundation (SARAO)
+/* Copyright 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -106,7 +106,8 @@ int main(int argc, const char * const *argv)
     // The nv_peer_mem kernel module recognises that dout is a device pointer
     ibv_config.add_memory_region(dout, size);
 
-    auto empty_callback = [](const boost::system::error_code &ec, spead2::item_pointer_t bytes) {
+    auto empty_callback = [](const boost::system::error_code &ec,
+                             [[maybe_unused]] spead2::item_pointer_t bytes) {
         if (ec)
             std::cerr << ec << '\n';
     };

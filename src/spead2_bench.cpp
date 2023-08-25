@@ -62,13 +62,19 @@ public:
     option_writer(std::ostream &o) : out(o) {}
 
     template<typename T>
-    void operator()(const std::string &name, const std::string &description, const T *value) const
+    void operator()(
+        const std::string &name,
+        [[maybe_unused]] const std::string &description,
+        const T *value) const
     {
         out << name << " = " << boost::lexical_cast<std::string>(*value) << '\n';
     }
 
     template<typename T>
-    void operator()(const std::string &name, const std::string &description, const boost::optional<T> *value) const
+    void operator()(
+        const std::string &name,
+        [[maybe_unused]] const std::string &description,
+        const boost::optional<T> *value) const
     {
         if (*value)
             out << name << " = " << boost::lexical_cast<std::string>(**value) << '\n';
@@ -287,11 +293,11 @@ std::int64_t sender::run()
      * posted rather than run directly.
      */
     stream.get_io_service().post([this] {
-        for (int i = 0; i < max_heaps; i++)
+        for (std::size_t i = 0; i < max_heaps; i++)
             stream.async_send_heap(heaps[i], [this, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
                 callback(i, ec, bytes_transferred); });
     });
-    for (int i = 0; i < max_heaps; i++)
+    for (std::size_t i = 0; i < max_heaps; i++)
         semaphore_get(done_sem);
     if (error)
         throw boost::system::system_error(error);
@@ -344,7 +350,6 @@ static std::pair<bool, double> measure_connection_once(
 
         spead2::thread_pool thread_pool;
         spead2::flavour flavour = sender_options.make_flavour(opts.protocol);
-        spead2::send::stream_config config = sender_options.make_stream_config();
 
         /* Build the heaps */
         std::vector<spead2::send::heap> heaps;
@@ -646,7 +651,8 @@ static void build_streambuf(std::streambuf &streambuf, const options &opts, std:
     for (std::int64_t i = 0; i < num_heaps; i++)
     {
         boost::system::error_code last_error;
-        auto callback = [&last_error] (const boost::system::error_code &ec, spead2::item_pointer_t bytes)
+        auto callback = [&last_error] (const boost::system::error_code &ec,
+                                       [[maybe_unused]] spead2::item_pointer_t bytes)
         {
             if (!ec)
                 last_error = ec;

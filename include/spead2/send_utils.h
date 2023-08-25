@@ -40,7 +40,7 @@ public:
         : heap_address_bits(heap_address_bits)
     {
         assert(heap_address_bits > 0);
-        assert(heap_address_bits < 8 * sizeof(item_pointer_t));
+        assert(heap_address_bits < 8 * int(sizeof(item_pointer_t)));
         assert(heap_address_bits % 8 == 0);
     }
 

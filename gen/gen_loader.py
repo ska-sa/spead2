@@ -130,6 +130,13 @@ class RenameVisitor(c_ast.NodeVisitor):
             node.declname = self.new_name
 
 
+class MaybeUnusedGenerator(CGenerator):
+    """Generator variant that prepends `[[maybe_unused]]` to function arguments."""
+
+    def visit_ParamList(self, node):
+        return ", ".join("[[maybe_unused]] " + self.visit(param) for param in node.params)
+
+
 def rename_func(func, new_name):
     """Return a copy of a function declaration with a new name"""
     func = copy.deepcopy(func)
@@ -173,6 +180,10 @@ def gen_node(node):
     return CGenerator().visit(node)
 
 
+def gen_maybe_unused_node(node):
+    return MaybeUnusedGenerator().visit(node)
+
+
 class Library:
     """Symbols from a single DSO.
 
@@ -208,7 +219,7 @@ class Library:
         wrappers=(),
         optional=(),
         *,
-        fail_log_level="warning"
+        fail_log_level="warning",
     ):
         self.name = name
         self.headers = list(headers)
@@ -225,6 +236,7 @@ class Library:
             loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
         )
         self.environment.filters["gen"] = gen_node
+        self.environment.filters["gen_maybe_unused"] = gen_maybe_unused_node
         self.environment.filters["rename"] = rename_func
         self.environment.filters["ptr"] = make_func_ptr
         self.environment.filters["args"] = func_args

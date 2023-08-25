@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_SUITE(custom_memcpy)
 static void reverse_memcpy(const spead2::memory_allocator::pointer &allocation, const spead2::recv::packet_header &packet)
 {
     std::uint8_t *ptr = allocation.get() + (packet.heap_length - packet.payload_offset);
-    for (std::size_t i = 0; i < packet.payload_length; i++)
+    for (s_item_pointer_t i = 0; i < packet.payload_length; i++)
         *--ptr = packet.payload[i];
 }
 
@@ -76,10 +76,10 @@ BOOST_AUTO_TEST_CASE(test_reverse)
     stop_heap.add_end();
     send_stream.async_send_heap(
         send_heap,
-        [&](const boost::system::error_code &ec, item_pointer_t bytes_transferred) {});
+        [&](const boost::system::error_code &, item_pointer_t) {});
     send_stream.async_send_heap(
         stop_heap,
-        [&](const boost::system::error_code &ec, item_pointer_t bytes_transferred) {});
+        [&](const boost::system::error_code &, item_pointer_t) {});
     send_stream.flush();
 
     // Retrieve the heap and check the content

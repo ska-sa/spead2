@@ -274,14 +274,14 @@ std::uint64_t sender::run(spead2::send::stream &stream)
      * otherwise lead to heaps being queued out of order.
      */
     stream.get_io_service().post([this, &stream] {
-        for (int i = 0; i < max_heaps; i++)
+        for (std::size_t i = 0; i < max_heaps; i++)
             stream.async_send_heap(
                 get_heap(i),
                 [this, &stream, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
                     callback(stream, i, ec, bytes_transferred);
                 }, -1, i % n_substreams);
     });
-    for (int i = 0; i < max_heaps; i++)
+    for (std::size_t i = 0; i < max_heaps; i++)
         semaphore_get(done_sem);
     if (error)
         throw boost::system::system_error(error);

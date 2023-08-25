@@ -51,7 +51,8 @@ BOOST_AUTO_TEST_CASE(connect_fail)
     spead2::send::tcp_stream stream(
         tp, [&](const boost::system::error_code &ec) { connect_error = ec; },
         {endpoint});
-    auto handler = [&](const boost::system::error_code &ec, spead2::item_pointer_t bytes_transferred)
+    auto handler = [&](const boost::system::error_code &ec,
+                       [[maybe_unused]] spead2::item_pointer_t bytes_transferred)
     {
         heap_error = ec;
     };

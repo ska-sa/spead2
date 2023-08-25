@@ -338,7 +338,7 @@ std::unique_ptr<stream> sender_options::make_stream(
     boost::asio::io_service &io_service,
     const protocol_options &protocol,
     const std::vector<std::string> &endpoints,
-    const std::vector<std::pair<const void *, std::size_t>> &memory_regions) const
+    [[maybe_unused]] const std::vector<std::pair<const void *, std::size_t>> &memory_regions) const
 {
     std::unique_ptr<stream> stream;
     stream_config config = make_stream_config();

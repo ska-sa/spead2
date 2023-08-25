@@ -804,7 +804,7 @@ chunking_scheme capture::sizes(const options &opts, const spead2::rdma_cm_id_t &
     ibv_device_attr attr = cm_id.query_device();
     unsigned int device_slots = std::min(attr.max_cqe, attr.max_qp_wr);
     unsigned int device_chunks = device_slots / max_records;
-    if (attr.max_mr < device_chunks)
+    if (attr.max_mr < (int) device_chunks)
         device_chunks = attr.max_mr;
 
     bool reduced = false;
@@ -1069,7 +1069,6 @@ void capture_mprq::network_thread()
 
     start_time = std::chrono::high_resolution_clock::now();
     last_report = start_time;
-    const std::size_t max_records = chunking.max_records;
     int until_get_time = GET_TIME_RATE;
     std::uint64_t remaining_count = opts.count;
     spead2::ibv_cq_ex_t::poller poller(cq);
@@ -1098,7 +1097,7 @@ void capture_mprq::network_thread()
                             remaining_count--;
                         std::size_t idx = c.n_records;
                         record_header &record = c.entries[idx].record;
-                        record.incl_len = (len <= opts.snaplen) ? len : opts.snaplen;
+                        record.incl_len = ((int) len <= opts.snaplen) ? len : opts.snaplen;
                         record.orig_len = len;
                         if (timestamp_support)
                         {
