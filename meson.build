@@ -64,7 +64,8 @@ libraries = [
     'dep_name': 'libibverbs',
     'header': 'infiniband/verbs.h',
     'lib': 'ibverbs',
-    'function': 'ibv_create_wq'
+    'function': 'ibv_create_wq',
+    'prereq': [],
   },
   {
     'name': 'rdmacm',
@@ -72,7 +73,8 @@ libraries = [
     'dep_name': 'librdmacm',
     'header': 'rdma/rdma_cma.h',
     'lib': 'rdmacm',
-    'function': 'rdma_create_event_channel'
+    'function': 'rdma_create_event_channel',
+    'prereq': [],
   },
   {
     'name': 'mlx5',
@@ -80,7 +82,8 @@ libraries = [
     'dep_name': 'libmlx5',
     'header': 'infiniband/mlx5dv.h',
     'lib': 'mlx5',
-    'function': 'mlx5dv_create_cq'
+    'function': 'mlx5dv_create_cq',
+    'prereq': ['ibv_dep', 'rdmacm_dep'],
   },
   {
     'name': 'gdrapi',
@@ -88,11 +91,16 @@ libraries = [
     'dep_name': '',  # There is currently no pkgconfig support in gdrcopy
     'header': 'gdrapi.h',
     'lib': 'gdrapi',
-    'function': 'gdr_open'
+    'function': 'gdr_open',
+    'prereq': [],
   },
 ]
 foreach lib : libraries
-  if get_option(lib['option']).allowed()
+  opt = get_option(lib['option'])
+  foreach prereq : lib['prereq']
+    opt = opt.require(get_variable(prereq).found())
+  endforeach
+  if opt.allowed()
     lib_dep = dependency(lib['dep_name'], required : false)
     if not lib_dep.found() and compiler.has_function(
       lib['function'],
@@ -104,7 +112,7 @@ foreach lib : libraries
   else
     lib_dep = dependency('', required : false)  # A not-found dependency
   endif
-  get_option(lib['option']).require(lib_dep.found())
+  opt.require(lib_dep.found())
   set_variable(lib['name'] + '_dep', lib_dep)
 endforeach
 use_ibv = ibv_dep.found() and rdmacm_dep.found()
