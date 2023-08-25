@@ -107,7 +107,7 @@ class AgentConnection:
                         receiver.make_stream_config(),
                         receiver.make_ring_stream_config(),
                     )
-                    if getattr(receiver, "ibv") and not hasattr(stream, "add_udp_ibv_reader"):
+                    if hasattr(receiver, "ibv") and not hasattr(stream, "add_udp_ibv_reader"):
                         logging.error("--recv-ibv passed but agent does not support ibv")
                         sys.exit(1)
 
@@ -351,7 +351,7 @@ def main():
     args = parser.parse_args()
     logging.basicConfig(level=getattr(logging, args.log.upper()))
     if "endpoint" in args:
-        if args.send_ibv and not args.multicast:
+        if vars(args).get("send_ibv") and not args.multicast:
             parser.error("--send-ibv requires --multicast")
         receiver.mem_pool = True
         receiver.mem_lower = args.heap_size

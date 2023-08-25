@@ -19,6 +19,8 @@ features. See :doc:`migrate-4` for more detailed information about upgrading.
 - Fix the debug logging option so logging from inline functions in headers
   will also do debug logging without the user needing to make preprocessor
   defines.
+- Fix :program:`spead2_bench.py` so that it functions when ibverbs support is
+  not compiled in.
 - Remove the need for boost_program_options to be installed to be able to
   install the Python bindings from source.
 - Produce binary wheels for aarch64.
