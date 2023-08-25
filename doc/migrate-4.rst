@@ -5,23 +5,6 @@ Unlike version 3, version 4 does not make changes to the spead2 API. However, it
 replaces the build system and increases the minimum version requirements, which
 may have implications for how you install, link to or use spead2.
 
-C++17
------
-The codebase now uses C++17, whereas older versions used C++11. This might
-require a newer C++ compiler. See the :doc:`Introduction <introduction>` for
-minimum compiler versions.
-
-Additionally, when compiling against the C++ API, you may need to pass
-compiler arguments to select at least C++17 (e.g. :option:`!--std=c++17`). GCC
-11+ and Clang 16+ support C++17 without a compiler flag, but keep in mind that
-your users might use older compilers.
-
-Boost
------
-Boost 1.69+ is now required: from this release, boost_system is
-a header-only library. You no longer need to link against any Boost libraries
-when linking against spead2.
-
 Meson
 -----
 The autotools build system has been replaced by `Meson`_. This mainly affects
@@ -60,6 +43,30 @@ autotools                              meson
 
 Link-time optimization no longer requires intervention to select suitable
 versions of :command:`ar` and :command:`ranlib`; Meson takes care of it.
+
+C++17
+-----
+The codebase now uses C++17, whereas older versions used C++11. This might
+require a newer C++ compiler. See the :doc:`Introduction <introduction>` for
+minimum compiler versions.
+
+Additionally, when compiling against the C++ API, you may need to pass
+compiler arguments to select at least C++17 (e.g. :option:`!--std=c++17`). GCC
+11+ and Clang 16+ support C++17 without a compiler flag, but keep in mind that
+your users might use older compilers.
+
+Boost
+-----
+Boost 1.69+ is now required: from this release, boost_system is
+a header-only library. You no longer need to link against any Boost libraries
+when linking against spead2.
+
+pcap
+----
+The detection logic for libpcap has changed. It used to first try
+:command:`pkg-config`, then fall back to testing compilation. It now tries
+:command:`pkg-config` first and falls back to :command:`pcap-config`. If
+neither of those methods works, you may need to upgrade your pcap library.
 
 Code generation
 ---------------
