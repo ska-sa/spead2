@@ -1,9 +1,80 @@
 Migrating to version 4
 ======================
 
-Unlike version 3, version 4 does not make changes to the spead2 API. However, it
+Unlike version 3, version 4 does not make substantial changes to the spead2
+API, although it does drop deprecated functionality. It
 replaces the build system and increases the minimum version requirements, which
 may have implications for how you install, link to or use spead2.
+
+Removed functionality
+---------------------
+The following deprecated functionality has been removed:
+
+C++
+^^^
+.. cpp:namespace-push:: spead2
+
+.. list-table::
+   :width: 100%
+   :header-rows: 1
+
+   * - Functionality
+     - Replacement
+   * - :cpp:member:`!recv::udp_ibv_reader::default_buffer_size`
+     - :cpp:member:`recv::udp_ibv_config::default_buffer_size`
+   * - :cpp:member:`!recv::udp_ibv_reader::default_max_poll`
+     - :cpp:member:`recv::udp_ibv_config::default_max_poll`
+   * - :cpp:member:`!send::udp_ibv_stream::default_buffer_size`
+     - :cpp:member:`send::udp_ibv_config::default_buffer_size`
+   * - :cpp:member:`!send::udp_ibv_stream::default_max_poll`
+     - :cpp:member:`send::udp_ibv_config::default_max_poll`
+   * - :cpp:class:`recv::udp_ibv_reader` constructors that do
+       not take a :cpp:class:`recv::udp_ibv_config`
+     - constructor that takes a :cpp:class:`recv::udp_ibv_config`
+   * - :cpp:class:`send::udp_ibv_stream` constructor that does
+       not take a :cpp:class:`send::udp_ibv_config`
+     - constructor that takes a :cpp:class:`send::udp_ibv_config`
+   * - :cpp:class:`send::inproc_stream` constructor
+       taking a single queue
+     - pass a vector containing a single queue
+   * - :cpp:func:`!send::inproc_stream::get_queue`
+     - :cpp:func:`send::inproc_stream::get_queues`\ ``[0]``
+   * - :cpp:class:`send::tcp_stream` and :cpp:class:`send::udp_stream`
+       constructors taking a single endpoint
+     - pass a vector containing a single endpoint
+
+.. cpp:namespace-pop::
+
+Python
+^^^^^^
+
+.. list-table::
+   :width: 100%
+   :header-rows: 1
+
+   * - :py:const:`!recv.Stream.DEFAULT_UDP_IBV_BUFFER_SIZE`
+     - :py:const:`.recv.UdpIbvConfig.DEFAULT_BUFFER_SIZE`
+   * - :py:const:`!recv.Stream.DEFAULT_UDP_IBV_MAX_SIZE`
+     - :py:const:`.recv.UdpIbvConfig.DEFAULT_MAX_SIZE`
+   * - :py:const:`!recv.Stream.DEFAULT_UDP_IBV_MAX_POLL`
+     - :py:const:`.recv.UdpIbvConfig.DEFAULT_MAX_POLL`
+   * - :py:const:`!send.UdpIbvStream.DEFAULT_BUFFER_SIZE`
+     - :py:const:`.send.UdpIbvConfig.DEFAULT_BUFFER_SIZE`
+   * - :py:const:`!send.UdpIbvStream.DEFAULT_MAX_POLL`
+     - :py:const:`.send.UdpIbvConfig.DEFAULT_MAX_POLL`
+   * - :py:meth:`.recv.Stream.add_udp_ibv_reader` overload that does not take
+       a :py:class:`.recv.UdpIbvConfig`
+     - Pass a :py:class:`.recv.UdpIbvConfig`
+   * - :py:class:`.send.UdpIbvStream` constructors that do not take a
+       :py:class:`.send.UdpIbvConfig`
+     - Pass a :py:class:`.send.UdpIbvConfig`
+   * - :py:class:`.send.InprocStream` constructor taking a single queue
+     - Pass a list containing a single queue
+   * - :py:attr:`!send.InprocStream.queue`
+     - :py:attr:`.send.InprocStream.queues`\ ``[0]``
+   * - :py:class:`.send.TcpStream` and :py:class:`.send.UdpStream` constructors
+       taking a single hostname and port
+     - Pass a list containing a single :samp:`({host}, {port})` tuple
 
 Meson
 -----

@@ -92,30 +92,6 @@ public:
 class udp_ibv_stream : public stream
 {
 public:
-    [[deprecated("use spead2::send::udp_ibv_config::default_buffer_size")]]
-    static constexpr std::size_t default_buffer_size = udp_ibv_config::default_buffer_size;
-    [[deprecated("use spead2::send::udp_ibv_config::default_max_poll")]]
-    static constexpr int default_max_poll = udp_ibv_config::default_max_poll;
-
-    /**
-     * Backwards-compatibility constructor (taking only a single endpoint).
-     *
-     * Refer to @ref udp_ibv_config for an explanation of the arguments.
-     *
-     * @throws std::invalid_argument if @a endpoint is not an IPv4 multicast address
-     * @throws std::invalid_argument if @a interface_address is not an IPv4 address
-     */
-    [[deprecated("use udp_ibv_config")]]
-    udp_ibv_stream(
-        io_service_ref io_service,
-        const boost::asio::ip::udp::endpoint &endpoint,
-        const stream_config &config,
-        const boost::asio::ip::address &interface_address,
-        std::size_t buffer_size = udp_ibv_config::default_buffer_size,
-        int ttl = 1,
-        int comp_vector = 0,
-        int max_poll = udp_ibv_config::default_max_poll);
-
     /**
      * Constructor.
      *

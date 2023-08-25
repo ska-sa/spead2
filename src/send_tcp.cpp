@@ -198,36 +198,6 @@ tcp_stream::tcp_stream(
 
 tcp_stream::tcp_stream(
     io_service_ref io_service,
-    std::function<void(const boost::system::error_code &)> &&connect_handler,
-    const boost::asio::ip::tcp::endpoint &endpoint,
-    const stream_config &config,
-    std::size_t buffer_size,
-    const boost::asio::ip::address &interface_address)
-    : tcp_stream(
-        std::move(io_service),
-        std::move(connect_handler),
-        std::vector<boost::asio::ip::tcp::endpoint>{endpoint},
-        config, buffer_size, interface_address)
-{
-}
-
-tcp_stream::tcp_stream(
-    io_service_ref io_service,
-    std::function<void(const boost::system::error_code &)> &&connect_handler,
-    std::initializer_list<boost::asio::ip::tcp::endpoint> endpoints,
-    const stream_config &config,
-    std::size_t buffer_size,
-    const boost::asio::ip::address &interface_address)
-    : tcp_stream(
-        std::move(io_service),
-        std::move(connect_handler),
-        std::vector<boost::asio::ip::tcp::endpoint>(endpoints),
-        config, buffer_size, interface_address)
-{
-}
-
-tcp_stream::tcp_stream(
-    io_service_ref io_service,
     boost::asio::ip::tcp::socket &&socket,
     const stream_config &config)
     : stream(std::make_unique<tcp_writer>(

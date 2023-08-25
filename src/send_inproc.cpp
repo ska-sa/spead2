@@ -115,28 +115,6 @@ inproc_writer::inproc_writer(
 
 inproc_stream::inproc_stream(
     io_service_ref io_service,
-    std::shared_ptr<inproc_queue> queue,
-    const stream_config &config)
-    : inproc_stream(
-        std::move(io_service),
-        std::vector<std::shared_ptr<inproc_queue>>{std::move(queue)},
-        config)
-{
-}
-
-inproc_stream::inproc_stream(
-    io_service_ref io_service,
-    std::initializer_list<std::shared_ptr<inproc_queue>> queues,
-    const stream_config &config)
-    : inproc_stream(
-        std::move(io_service),
-        std::vector<std::shared_ptr<inproc_queue>>(queues),
-        config)
-{
-}
-
-inproc_stream::inproc_stream(
-    io_service_ref io_service,
     const std::vector<std::shared_ptr<inproc_queue>> &queues,
     const stream_config &config)
     : stream(std::make_unique<inproc_writer>(std::move(io_service), queues, config))
@@ -146,14 +124,6 @@ inproc_stream::inproc_stream(
 const std::vector<std::shared_ptr<inproc_queue>> &inproc_stream::get_queues() const
 {
     return static_cast<const inproc_writer &>(get_writer()).get_queues();
-}
-
-const std::shared_ptr<inproc_queue> &inproc_stream::get_queue() const
-{
-    const auto &queues = get_queues();
-    if (queues.size() != 1)
-        throw std::runtime_error("get_queue only works when there is a single queue. Use get_queues instead");
-    return queues[0];
 }
 
 } // namespace spead2::send

@@ -18,8 +18,6 @@
 import asyncio
 import socket
 
-import pytest
-
 import spead2
 import spead2.recv.asyncio
 import spead2.send
@@ -125,22 +123,12 @@ class TestPassthroughUdp(BaseTestPassthroughSubstreamsAsync):
             receiver.add_udp_reader(8888 + i, bind_hostname="localhost")
 
     async def prepare_senders(self, thread_pool, n):
-        if n == 1:
-            with pytest.deprecated_call():
-                return spead2.send.asyncio.UdpStream(
-                    thread_pool,
-                    "localhost",
-                    8888,
-                    spead2.send.StreamConfig(rate=1e7),
-                    buffer_size=0,
-                )
-        else:
-            return spead2.send.asyncio.UdpStream(
-                thread_pool,
-                [("localhost", 8888 + i) for i in range(n)],
-                spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0,
-            )
+        return spead2.send.asyncio.UdpStream(
+            thread_pool,
+            [("localhost", 8888 + i) for i in range(n)],
+            spead2.send.StreamConfig(rate=1e7),
+            buffer_size=0,
+        )
 
 
 class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreamsAsync):
@@ -155,22 +143,12 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreamsAsync):
 
     async def prepare_senders(self, thread_pool, n):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        if n == 1:
-            with pytest.deprecated_call():
-                stream = spead2.send.asyncio.UdpStream(
-                    thread_pool,
-                    sock,
-                    "127.0.0.1",
-                    self._ports[0],
-                    spead2.send.StreamConfig(rate=1e7),
-                )
-        else:
-            stream = spead2.send.asyncio.UdpStream(
-                thread_pool,
-                sock,
-                [("127.0.0.1", port) for port in self._ports],
-                spead2.send.StreamConfig(rate=1e7),
-            )
+        stream = spead2.send.asyncio.UdpStream(
+            thread_pool,
+            sock,
+            [("127.0.0.1", port) for port in self._ports],
+            spead2.send.StreamConfig(rate=1e7),
+        )
         sock.close()
         return stream
 
@@ -211,11 +189,7 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreamsAsync):
 
     async def prepare_senders(self, thread_pool, n):
         assert n == len(self._queues)
-        if n == 1:
-            with pytest.deprecated_call():
-                return spead2.send.asyncio.InprocStream(thread_pool, self._queues[0])
-        else:
-            return spead2.send.asyncio.InprocStream(thread_pool, self._queues)
+        return spead2.send.asyncio.InprocStream(thread_pool, self._queues)
 
     async def transmit_item_groups_async(
         self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None

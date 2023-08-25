@@ -4,7 +4,8 @@ Changelog
 .. rubric:: 4.0.0b1
 
 This release makes major changes to the build system, and removes deprecated
-features. See :doc:`migrate-4` for more detailed information about upgrading.
+features. See :doc:`migrate-4` for more detailed information about upgrading
+and the deprecation removals.
 
 - Replace the build system with Meson_.
 - Update the C++ code to use C++17.

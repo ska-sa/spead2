@@ -50,7 +50,7 @@ def test_running_stream():
     logging.basicConfig(level=logging.ERROR)
     stream = spead2.recv.Stream(spead2.ThreadPool())
     stream.add_udp_reader(7148)
-    sender = spead2.send.UdpStream(spead2.ThreadPool(), "localhost", 7148)
+    sender = spead2.send.UdpStream(spead2.ThreadPool(), [("localhost", 7148)])
     ig = spead2.send.ItemGroup()
     ig.add_item(
         id=None, name="test", description="test", shape=(), format=[("u", 32)], value=0xDEADBEEF

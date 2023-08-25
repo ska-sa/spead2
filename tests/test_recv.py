@@ -14,7 +14,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
-import platform
 import socket
 import struct
 import sys
@@ -1003,18 +1002,6 @@ class TestUdpIbvConfig:
         stream = recv.Stream(spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
         with pytest.raises(ValueError, match="interface address"):
             stream.add_udp_ibv_reader(config)
-
-    @pytest.mark.skipif(
-        platform.python_implementation() == "PyPy",
-        reason="Deprecations not being report on PyPy due to pybind/pybind11#3110",
-    )
-    def test_deprecated_constants(self):
-        with pytest.deprecated_call():
-            assert recv.Stream.DEFAULT_UDP_IBV_BUFFER_SIZE == recv.UdpIbvConfig.DEFAULT_BUFFER_SIZE
-        with pytest.deprecated_call():
-            assert recv.Stream.DEFAULT_UDP_IBV_MAX_SIZE == recv.UdpIbvConfig.DEFAULT_MAX_SIZE
-        with pytest.deprecated_call():
-            assert recv.Stream.DEFAULT_UDP_IBV_MAX_POLL == recv.UdpIbvConfig.DEFAULT_MAX_POLL
 
 
 class TestStream:

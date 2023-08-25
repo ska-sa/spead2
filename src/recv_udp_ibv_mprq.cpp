@@ -227,46 +227,6 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     join_groups(config.get_endpoints(), config.get_interface_address());
 }
 
-udp_ibv_mprq_reader::udp_ibv_mprq_reader(
-    stream &owner,
-    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-    const boost::asio::ip::address &interface_address,
-    std::size_t max_size,
-    std::size_t buffer_size,
-    int comp_vector,
-    int max_poll)
-    : udp_ibv_mprq_reader(
-        owner,
-        udp_ibv_config()
-            .set_endpoints(endpoints)
-            .set_interface_address(interface_address)
-            .set_max_size(max_size)
-            .set_buffer_size(buffer_size)
-            .set_comp_vector(comp_vector)
-            .set_max_poll(max_poll))
-{
-}
-
-udp_ibv_mprq_reader::udp_ibv_mprq_reader(
-    stream &owner,
-    const boost::asio::ip::udp::endpoint &endpoint,
-    const boost::asio::ip::address &interface_address,
-    std::size_t max_size,
-    std::size_t buffer_size,
-    int comp_vector,
-    int max_poll)
-    : udp_ibv_mprq_reader(
-        owner,
-        udp_ibv_config()
-            .add_endpoint(endpoint)
-            .set_interface_address(interface_address)
-            .set_max_size(max_size)
-            .set_buffer_size(buffer_size)
-            .set_comp_vector(comp_vector)
-            .set_max_poll(max_poll))
-{
-}
-
 } // namespace recv
 } // namespace spead2
 
