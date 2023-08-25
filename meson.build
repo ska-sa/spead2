@@ -128,7 +128,7 @@ else
 endif
 
 # Optional features
-use_ibv_hw_rate_limit = get_option('ibv_hw_rate_limit').require(
+use_ibv_hw_rate_limit = use_ibv and get_option('ibv_hw_rate_limit').require(
   compiler.has_function(
     'ibv_modify_qp_rate_limit',
     dependencies : [ibv_dep, rdmacm_dep],
