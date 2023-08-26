@@ -73,22 +73,22 @@ jobs:
           - os: ubuntu-22.04
             cc: gcc-12
             cxx: g++-12
-            python-version: '3.12.0-rc.1'
+            python-version: '3.12'
             extras: enabled
           - os: ubuntu-20.04
             cc: clang-10
             cxx: clang++-10
-            python-version: '3.12.0-rc.1'
+            python-version: '3.12'
             extras: enabled
           - os: ubuntu-22.04
             cc: clang-14
             cxx: clang++-14
-            python-version: '3.12.0-rc.1'
+            python-version: '3.12'
             extras: enabled
           - os: macos-12
             cc: clang
             cxx: clang++
-            python-version: '3.12.0-rc.1'
+            python-version: '3.12'
             extras: disabled
     runs-on: ${{ matrix.os }}
     env:
@@ -105,6 +105,7 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true  # TODO: remove once 3.12 is released
           cache: 'pip'
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
@@ -118,8 +119,22 @@ jobs:
           .
       - name: Run tests
         run: ./.ci/py-tests.sh
-      # Skip pip-compile because not all configurations have a python3.8 binary
-      - run: SKIP=pip-compile pre-commit run --all-files
+
+  lint:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          allow-prereleases: true  # TODO: remove once 3.12 is released
+          cache: 'pip'
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
+          cache: 'pip'
+      - run: pip install pre-commit
+      - run: pre-commit run --all-files
 
   coverage:
     runs-on: ubuntu-22.04
@@ -173,8 +188,32 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: lcov.info
 
+  all-builds:
+    runs-on: ubuntu-22.04
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'  # TODO: update to 3.12 after release
+          cache: 'pip'
+      - uses: actions/checkout@v3
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+      - name: Install system packages
+        run: ./.ci/install-sys-pkgs.sh
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'  # TODO: update to 3.12 after release
+          cache: 'pip'
+      - name: Install build requirements
+        run: ./.ci/py-build-requirements.sh
+      - name: Build all the combinations
+        run: ./.ci/all-builds.sh
+
   sdist:
-    needs: [test-cxx, test-python, coverage]
+    needs: [test-cxx, test-python, coverage, lint]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
@@ -194,7 +233,7 @@ jobs:
           path: ./dist/*.tar.gz
 
   cibuildwheel:
-    needs: [test-cxx, test-python, coverage]
+    needs: [test-cxx, test-python, coverage, lint]
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
