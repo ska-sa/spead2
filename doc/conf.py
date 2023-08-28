@@ -30,17 +30,18 @@ if rtd:
 # -- Project information -----------------------------------------------------
 
 project = "spead2"
-copyright = "2015–2021, National Research Foundation (SARAO)"
+copyright = "2015–2023, National Research Foundation (SARAO)"
 author = "National Research Foundation (SARAO)"
 
 
 def get_version():
-    globals_ = {}
     root = os.path.dirname(os.path.dirname(__file__))
-    with open(os.path.join(root, "src", "spead2", "_version.py")) as f:
-        code = f.read()
-    exec(code, globals_)
-    release = globals_["__version__"]
+    with open(os.path.join(root, "meson.build")) as f:
+        for line in f.readlines():
+            match = re.match(" *version : '(.*)', *# VERSION-MAGIC", line)
+            if match:
+                release = match.group(1)
+                break
     match = re.match(r"^(\d+)\.(\d+)", release)
     return match.group(0), release
 

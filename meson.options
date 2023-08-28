@@ -1,0 +1,35 @@
+# Copyright 2023 National Research Foundation (SARAO)
+#
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+option('tools', type : 'feature', value : 'enabled', description : 'Build command-line tools')
+option('ibv', type : 'feature', description : 'Use ibverbs')
+option('mlx5dv', type : 'feature', description : 'Use mlx5 Direct Verbs')
+option('ibv_hw_rate_limit', type : 'feature', description : 'Use ibverbs hardware rate limiting')
+option('pcap', type : 'feature', description : 'Support reading from pcap files')
+option('cap', type : 'feature', description : 'Use libcap')
+option('recvmmsg', type : 'feature', description : 'Use recvmmsg system call')
+option('sendmmsg', type : 'feature', description : 'Use sendmmsg system call')
+option('eventfd', type : 'feature', description : 'Use eventfd system call for semaphores')
+option('posix_semaphores', type : 'feature', description : 'Use POSIX semaphores')
+option('pthread_setaffinity_np', type : 'feature', description : 'Use pthread_setaffinity_np to set thread affinity')
+option('fmv', type : 'feature', description : 'Use function multi-versioning')
+option('movntdq', type : 'feature', description : 'Use MOVNTDQ instruction for non-temporal stores')
+option('cuda', type : 'feature', description : 'Build CUDA examples')
+option('gdrapi', type : 'feature', description : 'Build gdrcopy examples')
+option('unit_test', type : 'feature', description : 'Build the unit tests')
+
+option('python', type : 'boolean', value : false, description : 'Build Python bindings (for mesonpy; do not use directly)')
+option('max_log_level', type : 'combo', choices : ['debug', 'info', 'warning'], value : 'info', description : 'Generate debug log messages (slow)')
+option('python_split_debug', type : 'boolean', value : false, description : 'Split debug symbols into separate files (Python module only)')

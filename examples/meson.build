@@ -1,4 +1,4 @@
-# Copyright 2020 National Research Foundation (SARAO)
+# Copyright 2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -13,14 +13,18 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#serial 1
+foreach name : [
+  'recv_chunk_example',
+  'recv_chunk_ring_example',
+  'recv_chunk_group_example',
+  'test_recv',
+  'test_send',
+]
+  executable(name, name + '.cpp', dependencies : [st_dep])
+endforeach
 
-# SPEAD2_PRINT_FEATURE(PREFIX, TEST)
-# ---------------------------------
-AC_DEFUN([SPEAD2_PRINT_FEATURE],
-         [AS_IF([$2], [echo "    $1: yes"], [echo "    $1: no"])])
-
-# SPEAD2_PRINT_CONDITION(PREFIX, CONDITIONAL)
-# --------------------------------------
-AC_DEFUN([SPEAD2_PRINT_CONDITION],
-         [AM_COND_IF([$2], [echo "    $1: yes"], [echo "    $1: no"])])
+executable('test_ringbuffer', 'test_ringbuffer.cpp', dependencies : [st_dep, boost_program_options_dep])
+if use_ibv
+  executable('gpudirect_example', 'gpudirect_example.cu', dependencies : [st_dep, cuda_dep])
+  executable('gdrapi_example', 'gdrapi_example.cu', dependencies : [st_dep, cuda_dep, gdrapi_dep])
+endif

@@ -1,4 +1,4 @@
-# Copyright 2016 National Research Foundation (SARAO)
+# Copyright 2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -13,7 +13,21 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-SUBDIRS = include src examples
 
-pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = spead2.pc
+version_py = configure_file(
+  input : '_version.py.in',
+  output : '_version.py',
+  configuration: {'VERSION': meson.project_version()}
+)
+py.install_sources(
+  '__init__.py',
+  '__init__.pyi',
+  'numba.py',
+  'numba.pyi',
+  'py.typed',
+  version_py,
+  subdir : 'spead2'
+)
+subdir('recv')
+subdir('send')
+subdir('tools')

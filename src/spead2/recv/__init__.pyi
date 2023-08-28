@@ -117,7 +117,7 @@ class StreamConfig:
         stop_on_stop_item: bool = ...,
         allow_unsized_heaps: bool = ...,
         allow_out_of_order: bool = ...,
-        stream_id: int = ...
+        stream_id: int = ...,
     ) -> None: ...
     def add_stat(self, name: str, mode: StreamStatConfig.Mode = ...) -> int: ...
     def get_stat_index(self, name: str) -> int: ...
@@ -133,7 +133,7 @@ class RingStreamConfig:
         *,
         heaps: int = ...,
         contiguous_only: bool = ...,
-        incomplete_keep_payload_ranges: bool = ...
+        incomplete_keep_payload_ranges: bool = ...,
     ) -> None: ...
 
 class UdpIbvConfig:
@@ -156,7 +156,7 @@ class UdpIbvConfig:
         buffer_size: int = ...,
         max_size: int = ...,
         comp_vector: int = ...,
-        max_poll: int = ...
+        max_poll: int = ...,
     ) -> None: ...
 
 class Ringbuffer:
@@ -272,7 +272,7 @@ class ChunkStreamConfig:
         items: list[int] = ...,
         max_chunks: int = ...,
         place: tuple | None = ...,
-        max_heap_extra: int = ...
+        max_heap_extra: int = ...,
     ) -> None: ...
 
 class Chunk:
@@ -289,7 +289,7 @@ class Chunk:
         stream_id: int = ...,
         present: object = ...,
         data: object = ...,
-        extra: object = ...
+        extra: object = ...,
     ) -> None: ...
 
 # Dummy base class because the async ChunkRingbuffer.get has a different

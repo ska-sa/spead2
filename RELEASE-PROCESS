@@ -1,6 +1,6 @@
 - Update version number in doc/changelog.rst
-- Update version number in src/spead2/_version.py
-- Update the shared library version number in src/Makefile.am:
+- Update version number in meson.build
+- Update the shared library version number in meson.build:
   - If there are ABI changes, update the first number and reset the second to zero.
   - Otherwise, increment the second number.
 - Check that .pyi stubs have been updated
