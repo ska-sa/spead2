@@ -16,9 +16,9 @@
 
 /* This example sends data directly from a GPU to the network, without
  * passing through the CPU, using GPUDirect RDMA. It requires
- * - An NVIDIA GPU
+ * - An NVIDIA data-centre GPU
  * - An NVIDIA (Mellanox) NIC
- * - The nv_peer_mem kernel module (https://github.com/Mellanox/nv_peer_memory)
+ * - The nvidia-peermem kernel module loaded
  * - It doesn't play nicely with IOMMU remapping. Adding "iommu=pt" to the
  *   kernel command line seems to help.
  *
@@ -29,7 +29,8 @@
  * It should print a message as it receives each heap.
  *
  * If the sender reports "ibv_reg_mr failed: Bad address" it probably means
- * that nv_peer_mem is not set up correctly.
+ * that nvidia-peermem is not set up correctly, or that your GPU is not a
+ * data-centre GPU.
  *
  * It should be noted that this example is intended for exposition rather
  * than high performance. For example, a real application would most likely
