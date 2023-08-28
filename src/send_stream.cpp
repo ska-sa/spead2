@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -23,18 +23,22 @@
 #include <cmath>
 #include <thread>
 #include <stdexcept>
+#include <new>
 #include <spead2/common_logging.h>
 #include <spead2/send_stream.h>
 #include <spead2/send_writer.h>
 
-namespace spead2
+namespace spead2::send
 {
-namespace send
+
+stream::queue_item_storage &stream::get_queue_storage(std::size_t idx)
 {
+    return queue[idx & queue_mask];
+}
 
 detail::queue_item *stream::get_queue(std::size_t idx)
 {
-    return reinterpret_cast<detail::queue_item *>(queue.get() + (idx & queue_mask));
+    return get_queue_storage(idx).get();
 }
 
 static std::size_t compute_queue_mask(std::size_t size)
@@ -62,7 +66,7 @@ void stream::unwinder::set_tail(std::size_t tail)
 void stream::unwinder::abort()
 {
     for (std::size_t i = orig_tail; i != tail; i++)
-        s.get_queue(i)->~queue_item();
+        s.get_queue_storage(i).destroy();
 }
 
 void stream::unwinder::commit()
@@ -152,5 +156,4 @@ template bool stream::async_send_heaps_impl<stream::null_unwinder, heap_referenc
     heap_reference *first, heap_reference *last,
     completion_handler &&handler, group_mode mode);
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send

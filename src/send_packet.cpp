@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019 National Research Foundation (SARAO)
+/* Copyright 2015, 2019, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -24,6 +24,7 @@
 #include <climits>
 #include <stdexcept>
 #include <algorithm>
+#include <new>
 #include <spead2/send_heap.h>
 #include <spead2/send_utils.h>
 #include <spead2/send_packet.h>
@@ -31,12 +32,8 @@
 #include <spead2/common_logging.h>
 #include <spead2/common_endian.h>
 
-namespace spead2
+namespace spead2::send
 {
-namespace send
-{
-
-constexpr std::size_t packet_generator::prefix_size;
 
 static bool use_immediate(const item &it, std::size_t max_immediate_size)
 {
@@ -130,13 +127,13 @@ std::vector<boost::asio::const_buffer> packet_generator::next_packet(std::uint8_
         // not 8 bytes.
         static_assert(sizeof(item_pointer_t) == sizeof(std::uint64_t),
                       "item_pointer_t must currently be 64-bit");
-        std::uint64_t *header = reinterpret_cast<std::uint64_t *>(scratch);
+        std::uint64_t *header = std::launder(reinterpret_cast<std::uint64_t *>(scratch));
         *header = htobe<std::uint64_t>(
             (std::uint64_t(0x5304) << 48)
             | (std::uint64_t(8 - max_immediate_size) << 40)
             | (std::uint64_t(max_immediate_size) << 32)
             | (n_item_pointers + 4));
-        item_pointer_t *pointer = reinterpret_cast<item_pointer_t *>(scratch + 8);
+        item_pointer_t *pointer = std::launder(reinterpret_cast<item_pointer_t *>(scratch + 8));
         *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(HEAP_CNT_ID, cnt));
         *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(HEAP_LENGTH_ID, payload_size));
         *pointer++ = htobe<item_pointer_t>(encoder.encode_immediate(PAYLOAD_OFFSET_ID, payload_offset));
@@ -214,5 +211,4 @@ std::vector<boost::asio::const_buffer> packet_generator::next_packet(std::uint8_
     return out;
 }
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send

@@ -1,4 +1,4 @@
-/* Copyright 2016, 2021 National Research Foundation (SARAO)
+/* Copyright 2016, 2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -25,9 +25,7 @@
 #include <cstdint>
 #include <spead2/common_memcpy.h>
 
-namespace spead2
-{
-namespace unittest
+namespace spead2::unittest
 {
 
 BOOST_AUTO_TEST_SUITE(common)
@@ -65,4 +63,4 @@ BOOST_AUTO_TEST_CASE(memcpy_nontemporal_alignments)
 BOOST_AUTO_TEST_SUITE_END()  // memcpy
 BOOST_AUTO_TEST_SUITE_END()  // common
 
-}} // namespace spead2::unittest
+} // namespace spead2::unittest

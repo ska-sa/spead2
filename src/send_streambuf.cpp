@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -21,9 +21,7 @@
 #include <streambuf>
 #include <spead2/send_streambuf.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 namespace
@@ -107,10 +105,8 @@ streambuf_stream::streambuf_stream(
     io_service_ref io_service,
     std::streambuf &streambuf,
     const stream_config &config)
-    : stream(std::unique_ptr<writer>(new streambuf_writer(
-        std::move(io_service), streambuf, config)))
+    : stream(std::make_unique<streambuf_writer>(std::move(io_service), streambuf, config))
 {
 }
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send

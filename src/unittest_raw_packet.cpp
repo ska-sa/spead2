@@ -1,4 +1,4 @@
-/* Copyright 2019 National Research Foundation (SARAO)
+/* Copyright 2019, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -24,9 +24,7 @@
 #include <spead2/common_raw_packet.h>
 #include <stdexcept>
 
-namespace spead2
-{
-namespace unittest
+namespace spead2::unittest
 {
 
 // Two packets captured with tcpdump with the same "Hello world\n" UDP payload.
@@ -291,4 +289,4 @@ BOOST_AUTO_TEST_CASE(build)
 BOOST_AUTO_TEST_SUITE_END()  // raw_packet
 BOOST_AUTO_TEST_SUITE_END()  // common
 
-}} // namespace spead2::unittest
+} // namespace spead2::unittest

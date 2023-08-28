@@ -131,11 +131,6 @@ udp_ibv_mprq_reader::poll_result udp_ibv_mprq_reader::poll_once(stream_base::add
     return poll_result::partial;
 }
 
-static int clamp(int x, int low, int high)
-{
-    return std::min(std::max(x, low), high);
-}
-
 udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     stream &owner,
     const udp_ibv_config &config)
@@ -155,13 +150,15 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     memset(&attr, 0, sizeof(attr));
     attr.comp_mask = MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ;
     attr.striding_rq_attrs.single_stride_log_num_of_bytes =
-        clamp(6,
-              mlx5dv_attr.striding_rq_caps.min_single_stride_log_num_of_bytes,
-              mlx5dv_attr.striding_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes per stride
+        std::clamp(
+            std::uint32_t(6),
+            mlx5dv_attr.striding_rq_caps.min_single_stride_log_num_of_bytes,
+            mlx5dv_attr.striding_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes per stride
     attr.striding_rq_attrs.single_wqe_log_num_of_strides =
-        clamp(20 - attr.striding_rq_attrs.single_stride_log_num_of_bytes,
-              mlx5dv_attr.striding_rq_caps.min_single_wqe_log_num_of_strides,
-              mlx5dv_attr.striding_rq_caps.max_single_wqe_log_num_of_strides);    // 1MB per WQE
+        std::clamp(
+            std::uint32_t(20 - attr.striding_rq_attrs.single_stride_log_num_of_bytes),
+            mlx5dv_attr.striding_rq_caps.min_single_wqe_log_num_of_strides,
+            mlx5dv_attr.striding_rq_caps.max_single_wqe_log_num_of_strides);    // 1MB per WQE
     int log_wqe_size = attr.striding_rq_attrs.single_stride_log_num_of_bytes
         + attr.striding_rq_attrs.single_wqe_log_num_of_strides;
     wqe_size = std::size_t(1) << log_wqe_size;

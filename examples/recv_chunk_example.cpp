@@ -1,4 +1,4 @@
-/* Copyright 2021 National Research Foundation (SARAO)
+/* Copyright 2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -61,7 +61,7 @@ public:
     }
 };
 
-static void chunk_place(spead2::recv::chunk_place_data *data, std::size_t data_size)
+static void chunk_place(spead2::recv::chunk_place_data *data, [[maybe_unused]] std::size_t data_size)
 {
     // We requested only the heap ID and size
     auto heap_cnt = data->items[0];
@@ -76,9 +76,9 @@ static void chunk_place(spead2::recv::chunk_place_data *data, std::size_t data_s
 }
 
 static std::unique_ptr<spead2::recv::chunk> chunk_allocate(
-    std::int64_t chunk_id, std::uint64_t *batch_stats)
+    [[maybe_unused]] std::int64_t chunk_id, [[maybe_unused]] std::uint64_t *batch_stats)
 {
-    std::unique_ptr<spead2::recv::chunk> chunk{new spead2::recv::chunk};
+    auto chunk = std::make_unique<spead2::recv::chunk>();
     chunk->present = allocator->allocate(heaps_per_chunk, nullptr);
     chunk->present_size = heaps_per_chunk;
     // Indicate that no heaps are present yet
@@ -88,7 +88,7 @@ static std::unique_ptr<spead2::recv::chunk> chunk_allocate(
 }
 
 static void chunk_ready(
-    std::unique_ptr<spead2::recv::chunk> &&chunk, std::uint64_t *batch_stats)
+    std::unique_ptr<spead2::recv::chunk> &&chunk, [[maybe_unused]] std::uint64_t *batch_stats)
 {
     auto n_present = std::accumulate(
         chunk->present.get(),

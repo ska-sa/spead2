@@ -1,4 +1,4 @@
-/* Copyright 2018 National Research Foundation (SARAO)
+/* Copyright 2018, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -20,12 +20,11 @@
  * Unit tests for send_heap.
  */
 
+#include <utility>
 #include <boost/test/unit_test.hpp>
 #include <spead2/send_heap.h>
 
-namespace spead2
-{
-namespace unittest
+namespace spead2::unittest
 {
 
 BOOST_AUTO_TEST_SUITE(send)
@@ -41,7 +40,7 @@ BOOST_AUTO_TEST_CASE(get_item)
     auto handle1 = h.add_item(0x1234, value1);
     auto handle2 = h.add_item(0x2345, &value2, sizeof(value2), false);
     item &item1 = h.get_item(handle1);
-    const item &item2 = const_cast<const heap &>(h).get_item(handle2);
+    const item &item2 = std::as_const(h).get_item(handle2);
 
     BOOST_CHECK_EQUAL(item1.id, 0x1234);
     BOOST_CHECK(item1.is_inline);
@@ -58,4 +57,4 @@ BOOST_AUTO_TEST_CASE(get_item)
 BOOST_AUTO_TEST_SUITE_END()  // heap
 BOOST_AUTO_TEST_SUITE_END()  // send
 
-}} // namespace spead2::unittest
+} // namespace spead2::unittest

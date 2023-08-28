@@ -25,9 +25,7 @@
 #include <cstdint>
 #include <spead2/recv_stream.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /**
@@ -58,7 +56,6 @@ public:
     using reader::reader;
 };
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_UDP_BASE_H

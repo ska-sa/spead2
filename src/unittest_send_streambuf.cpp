@@ -1,4 +1,4 @@
-/* Copyright 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -25,9 +25,7 @@
 #include <boost/test/unit_test.hpp>
 #include <spead2/send_streambuf.h>
 
-namespace spead2
-{
-namespace unittest
+namespace spead2::unittest
 {
 
 BOOST_AUTO_TEST_SUITE(send)
@@ -64,15 +62,15 @@ BOOST_AUTO_TEST_CASE(send_fail)
     std::promise<std::pair<boost::system::error_code, std::size_t>> result_promise;
     auto handler = [&](const boost::system::error_code &ec, std::size_t bytes_transferred)
     {
-        result_promise.set_value(std::make_pair(ec, bytes_transferred));
+        result_promise.set_value(std::pair(ec, bytes_transferred));
     };
     stream.async_send_heap(h, handler);
-    auto result = result_promise.get_future().get();
-    BOOST_CHECK_EQUAL(result.first, boost::asio::error::eof);
-    BOOST_CHECK_EQUAL(result.second, 20);
+    auto [ec, bytes_transferred] = result_promise.get_future().get();
+    BOOST_CHECK_EQUAL(ec, boost::asio::error::eof);
+    BOOST_CHECK_EQUAL(bytes_transferred, 20);
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // streambuf
 BOOST_AUTO_TEST_SUITE_END()  // send
 
-}} // namespace spead2::unittest
+} // namespace spead2::unittest

@@ -42,12 +42,8 @@
 #include <spead2/common_logging.h>
 #include <spead2/common_socket.h>
 
-namespace spead2
+namespace spead2::recv
 {
-namespace recv
-{
-
-constexpr std::size_t udp_reader::default_buffer_size;
 
 static boost::asio::ip::udp::socket bind_socket(
     boost::asio::ip::udp::socket &&socket,
@@ -186,7 +182,7 @@ void udp_reader::packet_handler(
     handler_context ctx,
     stream_base::add_packet_state &state,
     const boost::system::error_code &error,
-    std::size_t bytes_transferred)
+    [[maybe_unused]] std::size_t bytes_transferred)
 {
     if (!error)
     {
@@ -311,7 +307,7 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
         }
 #endif
     }
-    return std::unique_ptr<reader>(new udp_reader(owner, endpoint, max_size, buffer_size));
+    return std::make_unique<udp_reader>(owner, endpoint, max_size, buffer_size);
 }
 
 std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
@@ -340,7 +336,7 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
         }
 #endif
     }
-    return std::unique_ptr<reader>(new udp_reader(owner, endpoint, max_size, buffer_size, interface_address));
+    return std::make_unique<udp_reader>(owner, endpoint, max_size, buffer_size, interface_address);
 }
 
 std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
@@ -350,8 +346,7 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
     std::size_t buffer_size,
     unsigned int interface_index)
 {
-    return std::unique_ptr<reader>(new udp_reader(
-            owner, endpoint, max_size, buffer_size, interface_index));
+    return std::make_unique<udp_reader>(owner, endpoint, max_size, buffer_size, interface_index);
 }
 
 std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
@@ -359,9 +354,7 @@ std::unique_ptr<reader> reader_factory<udp_reader>::make_reader(
     boost::asio::ip::udp::socket &&socket,
     std::size_t max_size)
 {
-    return std::unique_ptr<reader>(new udp_reader(
-            owner, std::move(socket), max_size));
+    return std::make_unique<udp_reader>(owner, std::move(socket), max_size);
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

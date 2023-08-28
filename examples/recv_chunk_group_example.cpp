@@ -40,7 +40,7 @@ static constexpr std::size_t heap_payload_size = 65536;
 static constexpr std::size_t heaps_per_chunk = 64;
 static constexpr std::size_t chunk_payload_size = heaps_per_chunk * heap_payload_size;
 
-static void chunk_place(spead2::recv::chunk_place_data *data, std::size_t data_size)
+static void chunk_place(spead2::recv::chunk_place_data *data, [[maybe_unused]] std::size_t data_size)
 {
     // We requested only the heap ID and size
     auto heap_cnt = data->items[0];
@@ -78,7 +78,7 @@ int main()
     }
     for (int i = 0; i < max_chunks; i++)
     {
-        std::unique_ptr<spead2::recv::chunk> chunk{new spead2::recv::chunk};
+        auto chunk = std::make_unique<spead2::recv::chunk>();
         chunk->present = allocator->allocate(heaps_per_chunk, nullptr);
         chunk->present_size = heaps_per_chunk;
         chunk->data = allocator->allocate(chunk_payload_size, nullptr);

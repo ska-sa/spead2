@@ -1,4 +1,4 @@
-/* Copyright 2015 National Research Foundation (SARAO)
+/* Copyright 2015, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -97,7 +97,7 @@ public:
      * so that it will also accept a shared pointer to a subclass of @ref
      * thread_pool.
      */
-    template<typename T, typename SFINAE = typename std::enable_if<std::is_convertible<T *, thread_pool *>::value>::type>
+    template<typename T, typename SFINAE = std::enable_if_t<std::is_convertible_v<T *, thread_pool *>>>
     io_service_ref(std::shared_ptr<T>);
 
     /// Return the referenced @c io_service.

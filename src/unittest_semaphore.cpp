@@ -1,4 +1,4 @@
-/* Copyright 2019 National Research Foundation (SARAO)
+/* Copyright 2019, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -29,9 +29,7 @@
 #include <cerrno>
 #include <poll.h>
 
-namespace spead2
-{
-namespace unittest
+namespace spead2::unittest
 {
 
 BOOST_AUTO_TEST_SUITE(common)
@@ -117,7 +115,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(multi_thread, T, semaphore_types)
      * impossible for multi-threading primitives), but it can show up
      * failures.
      */
-    auto worker = [&x, &sem, N] {
+    auto worker = [&x, &sem] {
         for (int i = 0; i < N; i++)
         {
             x[i] = i;
@@ -171,4 +169,4 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(poll_fd, T, semaphore_fd_types)
 BOOST_AUTO_TEST_SUITE_END()  // semaphore
 BOOST_AUTO_TEST_SUITE_END()  // common
 
-}} // namespace spead2::unittest
+} // namespace spead2::unittest

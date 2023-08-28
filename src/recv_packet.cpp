@@ -1,4 +1,4 @@
-/* Copyright 2015 National Research Foundation (SARAO)
+/* Copyright 2015, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -26,9 +26,7 @@
 #include <spead2/common_logging.h>
 #include <spead2/common_endian.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /**
@@ -40,8 +38,8 @@ namespace recv
 template<typename T>
 static inline T extract_bits(T value, int first, int cnt)
 {
-    assert(0 <= first && first + cnt <= 8 * sizeof(T));
-    assert(cnt > 0 && cnt < 8 * sizeof(T));
+    assert(0 <= first && first + cnt <= 8 * int(sizeof(T)));
+    assert(cnt > 0 && cnt < 8 * int(sizeof(T)));
     return (value >> first) & ((T(1) << cnt) - 1);
 }
 
@@ -177,5 +175,4 @@ std::size_t decode_packet(packet_header &out, const uint8_t *data, std::size_t m
     return size;
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

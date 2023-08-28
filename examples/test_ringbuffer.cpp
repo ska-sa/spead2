@@ -1,4 +1,4 @@
-/* Copyright 2015 National Research Foundation (SARAO)
+/* Copyright 2015, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -33,12 +33,14 @@
 #include <spead2/common_ringbuffer.h>
 #include <spead2/common_semaphore.h>
 #include <spead2/common_thread_pool.h>
+#include <spead2/common_storage.h>
 #include <spead2/recv_heap.h>
 
 namespace po = boost::program_options;
+using namespace std::literals;
 
 typedef std::chrono::time_point<std::chrono::high_resolution_clock> time_point;
-typedef std::aligned_storage<sizeof(spead2::recv::heap), alignof(spead2::recv::heap)>::type item_t;
+typedef spead2::detail::storage<spead2::recv::heap> item_t;
 
 static constexpr std::size_t alignment = 64;
 
@@ -105,20 +107,6 @@ static void bind_cpu(int cpu)
     }
 }
 
-// Reimplementation of std::align, since GCC 4.8 doesn't implement it
-static void *align(std::size_t alignment, std::size_t size, void *&ptr, std::size_t &space)
-{
-    std::uintptr_t value = reinterpret_cast<std::uintptr_t>(ptr);
-    std::size_t adjust = alignment - (value & (alignment - 1));
-    if (adjust == alignment)
-        adjust = 0;
-    if (size + adjust > space)
-        return nullptr;
-    ptr = static_cast<void *>(static_cast<char *>(ptr) + adjust);
-    space -= adjust;
-    return ptr;
-}
-
 template<typename Ringbuffer>
 static void reader(Ringbuffer &ring, const options &opts)
 {
@@ -127,8 +115,7 @@ static void reader(Ringbuffer &ring, const options &opts)
     {
         while (true)
         {
-            item_t item = ring.pop();
-            (void) item;
+            ring.pop();
         }
     }
     catch (spead2::ringbuffer_stopped &)
@@ -140,28 +127,22 @@ template<typename Ringbuffer>
 static void run(const options &opts)
 {
     // Allocate ring buffer at aligned address
-    char ring_storage[sizeof(Ringbuffer) + alignment];
-    void *ring_ptr = ring_storage;
-    std::size_t space = sizeof(ring_storage);
-    Ringbuffer *ring = reinterpret_cast<Ringbuffer *>(
-        align(alignment, sizeof(Ringbuffer), ring_ptr, space));
-    new (ring) Ringbuffer(opts.capacity);
+    alignas(alignment) Ringbuffer ring(opts.capacity);
 
-    std::thread thread(std::bind(reader<Ringbuffer>, std::ref(*ring), std::cref(opts)));
+    std::thread thread(std::bind(reader<Ringbuffer>, std::ref(ring), std::cref(opts)));
     // Give the thread time to get going
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(100ms);
     time_point start = std::chrono::high_resolution_clock::now();
     for (std::int64_t i = 0; i < opts.items; i++)
     {
-        ring->push(item_t());
+        ring.push(item_t());
     }
-    ring->stop();
+    ring.stop();
     thread.join();
     time_point end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed_duration = end - start;
     double elapsed = elapsed_duration.count();
     std::cout << opts.items << " in " << elapsed << "s (" << opts.items / elapsed << "/s)\n";
-    ring->~Ringbuffer();
 }
 
 int main(int argc, const char **argv)

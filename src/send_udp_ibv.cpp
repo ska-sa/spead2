@@ -1,4 +1,4 @@
-/* Copyright 2016, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2016, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -180,7 +180,7 @@ ibv_qp_t udp_ibv_writer::create_qp(
     return ibv_qp_t(pd, &attr);
 }
 
-bool udp_ibv_writer::setup_hw_rate(const ibv_qp_t &qp, const stream_config &config)
+bool udp_ibv_writer::setup_hw_rate([[maybe_unused]] const ibv_qp_t &qp, [[maybe_unused]] const stream_config &config)
 {
 #if SPEAD2_USE_IBV_HW_RATE_LIMIT
     ibv_device_attr_ex attr;
@@ -448,7 +448,7 @@ static std::size_t calc_n_slots(const stream_config &config, std::size_t buffer_
 static std::size_t calc_target_batch(const stream_config &config, std::size_t n_slots)
 {
     std::size_t packet_size = config.get_max_packet_size() + header_length;
-    return std::max(std::size_t(1), std::min(n_slots / 4, 262144 / packet_size));
+    return std::clamp(n_slots / 4, std::size_t(1), 262144 / packet_size);
 }
 
 udp_ibv_writer::udp_ibv_writer(
@@ -519,8 +519,8 @@ udp_ibv_writer::udp_ibv_writer(
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(max_raw_size * n_slots, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
-    for (const auto &region : ibv_config.get_memory_regions())
-        memory_regions.emplace(pd, region.first, region.second);
+    for (const auto &[ptr, size] : ibv_config.get_memory_regions())
+        memory_regions.emplace(pd, ptr, size);
     slots.reset(new slot[n_slots]);
     // We fill in the destination details for the first endpoint. If there are
     // multiple endpoints, they'll get updated for each packet.
@@ -558,9 +558,6 @@ udp_ibv_writer::udp_ibv_writer(
 }
 
 } // anonymous namespace
-
-constexpr std::size_t udp_ibv_config::default_buffer_size;
-constexpr int udp_ibv_config::default_max_poll;
 
 void udp_ibv_config::validate_endpoint(const boost::asio::ip::udp::endpoint &endpoint)
 {
@@ -623,8 +620,7 @@ udp_ibv_stream::udp_ibv_stream(
     io_service_ref io_service,
     const stream_config &config,
     const udp_ibv_config &ibv_config)
-    : stream(std::unique_ptr<writer>(new udp_ibv_writer(
-        std::move(io_service), config, ibv_config)))
+    : stream(std::make_unique<udp_ibv_writer>(std::move(io_service), config, ibv_config))
 {
 }
 

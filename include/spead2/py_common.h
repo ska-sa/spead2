@@ -23,8 +23,8 @@
 
 #include <memory>
 #include <utility>
+#include <optional>
 #include <boost/asio.hpp>
-#include <boost/optional.hpp>
 #include <boost/system/system_error.hpp>
 #include <cassert>
 #include <cstring>
@@ -167,6 +167,8 @@ F callback_from_python(
     const char *signature_plain,
     const char *signature_bind)
 {
+    using namespace std::literals;
+
     if (obj.is_none())
         return F();
     else
@@ -193,7 +195,7 @@ F callback_from_python(
         }
         else
             throw std::invalid_argument(
-                std::string("Invalid callback signature \"") + name + "\". Expected one of:\n  "
+                "Invalid callback signature \""s + name + "\". Expected one of:\n  "
                 + signature_plain + "\n  " + signature_bind);
     }
 }
@@ -231,10 +233,10 @@ template<typename T>
 T *data_class_constructor(pybind11::kwargs kwargs)
 {
     pybind11::object self = pybind11::cast(new T());
-    for (auto item : kwargs)
+    for (auto &[key, value] : kwargs)
     {
-        if (pybind11::hasattr(self, item.first))
-            pybind11::setattr(self, item.first, item.second);
+        if (pybind11::hasattr(self, key))
+            pybind11::setattr(self, key, value);
         else
         {
             PyErr_SetString(PyExc_TypeError, "got an unexpected keyword argument");
@@ -392,105 +394,50 @@ namespace detail
  * type of &T::foo is actually <code>Return (Class::*)(Args...)</code> rather
  * than <code>Return (T::*)(Args...)</code>.
  */
-template<typename T, typename Return, typename Class, typename... Args>
-struct PTMFWrapperGen
+template<typename T, auto PTMF, typename Return, typename Class, typename... Args>
+auto make_ptmf(Return (Class::*)(Args...)) noexcept
 {
-    template<Return (Class::*Ptr)(Args...)>
-    struct PTMFWrapper
+    return [](T &self, Args... args) -> Return
     {
-        typedef Return result_type;
-        Return operator()(T &obj, Args... args) const
-        {
-            // Pragmas are to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
-            return (obj.*Ptr)(std::forward<Args>(args)...);
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-        }
+        // Downcast to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
+        Class *ptr = &self;
+        return (ptr->*PTMF)(std::forward<Args>(args)...);
     };
+}
 
-    template<Return (Class::*Ptr)(Args...)>
-    struct PTMFWrapperVoid
+template<typename T, auto PTMF, typename Return, typename Class, typename... Args>
+auto make_ptmf(Return (Class::*)(Args...) const) noexcept
+{
+    return [](const T &self, Args... args) -> Return
     {
-        typedef void result_type;
-        void operator()(T &obj, Args... args) const
-        {
-            // Pragmas are to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
-            (obj.*Ptr)(std::forward<Args>(args)...);
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-        }
+        const Class *ptr = &self;
+        return (ptr->*PTMF)(std::forward<Args>(args)...);
     };
+}
 
-    template<Return (Class::*Ptr)(Args...) const>
-    struct PTMFWrapperConst
+template<typename T, auto PTMF, typename Return, typename Class, typename... Args>
+auto make_ptmf_void(Return (Class::*)(Args...)) noexcept
+{
+    return [](T &self, Args... args) -> void
     {
-        typedef Return result_type;
-        Return operator()(const T &obj, Args... args) const
-        {
-            // Pragmas are to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
-            return static_cast<Return>((obj.*Ptr)(std::forward<Args>(args)...));
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-        }
+        Class *ptr = &self;
+        (ptr->*PTMF)(std::forward<Args>(args)...);
     };
+}
 
-    template<Return (Class::*Ptr)(Args...) const>
-    struct PTMFWrapperConstVoid
+template<typename T, auto PTMF, typename Return, typename Class, typename... Args>
+auto make_ptmf_void(Return (Class::*)(Args...) const) noexcept
+{
+    return [](const T &self, Args... args) -> void
     {
-        typedef void result_type;
-        void operator()(const T &obj, Args... args) const
-        {
-            // Pragmas are to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
-            static_cast<Return>((obj.*Ptr)(std::forward<Args>(args)...));
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-        }
+        const Class *ptr = &self;
+        (ptr->*PTMF)(std::forward<Args>(args)...);
     };
+}
 
-    template<Return (Class::*Ptr)(Args...)>
-    static constexpr PTMFWrapper<Ptr> make_wrapper() noexcept { return PTMFWrapper<Ptr>(); }
-
-    template<Return (Class::*Ptr)(Args...)>
-    static constexpr PTMFWrapperVoid<Ptr> make_wrapper_void() noexcept { return PTMFWrapperVoid<Ptr>(); }
-
-    template<Return (Class::*Ptr)(Args...) const>
-    static constexpr PTMFWrapperConst<Ptr> make_wrapper() noexcept { return PTMFWrapperConst<Ptr>(); }
-
-    template<Return (Class::*Ptr)(Args...) const>
-    static constexpr PTMFWrapperConstVoid<Ptr> make_wrapper_void() noexcept { return PTMFWrapperConstVoid<Ptr>(); }
-};
-
-// These function are never defined, and is only used as a helper for decltype
-template<typename T, typename Return, typename Class, typename... Args>
-PTMFWrapperGen<T, Return, Class, Args...> ptmf_wrapper_type(Return (Class::*ptmf)(Args...));
-template<typename T, typename Return, typename Class, typename... Args>
-PTMFWrapperGen<T, Return, Class, Args...> ptmf_wrapper_type(Return (Class::*ptmf)(Args...) const);
-
-#define SPEAD2_PTMF(Class, Func) \
-    (decltype(::spead2::detail::ptmf_wrapper_type<Class>(&Class::Func))::template make_wrapper<&Class::Func>())
-// Discards the return value - useful for setters where the C++ function returns *this
-#define SPEAD2_PTMF_VOID(Class, Func) \
-    (decltype(::spead2::detail::ptmf_wrapper_type<Class>(&Class::Func))::template make_wrapper_void<&Class::Func>())
+#define SPEAD2_PTMF(Class, Func) (::spead2::detail::make_ptmf<Class, &Class::Func>(&Class::Func))
+// Like the above, but additionally ignore the return value
+#define SPEAD2_PTMF_VOID(Class, Func) (::spead2::detail::make_ptmf_void<Class, &Class::Func>(&Class::Func))
 
 } // namespace detail
 
@@ -557,28 +504,6 @@ public:
             return false;
 
         value = spead2::socket_wrapper<SocketType>(protocol, fd);
-        return true;
-    }
-};
-
-/* Old versions of boost::optional don't implement emplace (required by
- * pybind11::optional_caster), so we implement the conversion manually.
- */
-template<typename SocketType>
-struct type_caster<boost::optional<spead2::socket_wrapper<SocketType>>>
-{
-    PYBIND11_TYPE_CASTER(boost::optional<spead2::socket_wrapper<SocketType>>, _("Optional[socket.socket]"));
-
-    bool load(handle src, bool convert)
-    {
-        if (!src)
-            return false;
-        else if (src.is_none())
-            return true;
-        make_caster<spead2::socket_wrapper<SocketType>> inner_caster;
-        if (!inner_caster.load(src, convert))
-            return false;
-        value = cast_op<spead2::socket_wrapper<SocketType> &&>(std::move(inner_caster));
         return true;
     }
 };

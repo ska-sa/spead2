@@ -1,4 +1,4 @@
-/* Copyright 2015, 2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -87,8 +87,8 @@ void show_heap(const spead2::recv::heap &fheap)
         if (descriptor.numpy_header.empty())
         {
             std::cout << "        TYPE:  ";
-            for (const auto &field : descriptor.format)
-                std::cout << field.first << field.second << ",";
+            for (const auto &[ftype, fsize] : descriptor.format)
+                std::cout << ftype << fsize << ",";
             std::cout << "\n";
             std::cout << "        SHAPE: ";
             for (const auto &size : descriptor.shape)
@@ -107,7 +107,7 @@ void show_heap(const spead2::recv::heap &fheap)
     std::cout << std::flush;
 }
 
-static void run_trivial()
+[[maybe_unused]] static void run_trivial()
 {
     spead2::thread_pool worker;
     trivial_stream stream(worker);
@@ -117,7 +117,7 @@ static void run_trivial()
     stream.join();
 }
 
-static void run_ringbuffered()
+[[maybe_unused]] static void run_ringbuffered()
 {
     spead2::thread_pool worker;
     std::shared_ptr<spead2::memory_pool> pool = std::make_shared<spead2::memory_pool>(16384, 26214400, 12, 8);

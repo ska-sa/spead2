@@ -28,7 +28,6 @@
 #include <cctype>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <boost/optional.hpp>
 #include <spead2/recv_udp.h>
 #include <spead2/recv_udp_ibv.h>
 #include <spead2/recv_udp_pcap.h>
@@ -267,9 +266,8 @@ static void add_udp_ibv_reader_new(stream &s, const udp_ibv_config_wrapper &conf
 {
     py::gil_scoped_release gil;
     udp_ibv_config config = config_wrapper;
-    for (const auto &endpoint : config_wrapper.py_endpoints)
-        config.add_endpoint(make_endpoint<boost::asio::ip::udp>(
-            s, endpoint.first, endpoint.second));
+    for (const auto &[host, port] : config_wrapper.py_endpoints)
+        config.add_endpoint(make_endpoint<boost::asio::ip::udp>(s, host, port));
     config.set_interface_address(
         make_address(s, config_wrapper.py_interface_address));
     s.emplace_reader<udp_ibv_reader>(config);
@@ -433,7 +431,7 @@ static std::unique_ptr<chunk_wrapper> wrap_chunk(chunk &c)
         throw std::invalid_argument("data buffer is not set");
     if (!c.present)
         throw std::invalid_argument("present buffer is not set");
-    std::unique_ptr<chunk_wrapper> cw{new chunk_wrapper};
+    auto cw = std::make_unique<chunk_wrapper>();
     static_cast<chunk &>(*cw) = std::move(c);
     cw->obj = py::cast(c);
     return cw;

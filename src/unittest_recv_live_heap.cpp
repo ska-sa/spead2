@@ -1,4 +1,4 @@
-/* Copyright 2016, 2018 National Research Foundation (SARAO)
+/* Copyright 2016, 2018, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -42,9 +42,7 @@ ostream &operator<<(ostream &o, const pair<A, B> &v)
 
 } // namespace std
 
-namespace spead2
-{
-namespace unittest
+namespace spead2::unittest
 {
 
 BOOST_AUTO_TEST_SUITE(recv)
@@ -166,4 +164,4 @@ BOOST_AUTO_TEST_CASE(payload_ranges)
 BOOST_AUTO_TEST_SUITE_END()  // live_heap
 BOOST_AUTO_TEST_SUITE_END()  // recv
 
-}} // namespace spead2::unittest
+} // namespace spead2::unittest

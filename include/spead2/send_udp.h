@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -36,9 +36,7 @@
 #include <initializer_list>
 #include <spead2/send_stream.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 class udp_stream : public stream
@@ -161,7 +159,7 @@ public:
 
     /// Backwards-compatibility constructor with a single endpoint
     template<typename... Args>
-    SPEAD2_DEPRECATED("use a vector of endpoints")
+    [[deprecated("use a vector of endpoints")]]
     udp_stream(
         io_service_ref io_service,
         const boost::asio::ip::udp::endpoint &endpoint,
@@ -170,7 +168,7 @@ public:
 
     /// Backwards-compatibility constructor with a socket and a single endpoint
     template<typename... Args>
-    SPEAD2_DEPRECATED("use a vector of endpoints")
+    [[deprecated("use a vector of endpoints")]]
     udp_stream(
         io_service_ref io_service,
         boost::asio::ip::udp::socket &&socket,
@@ -197,7 +195,6 @@ public:
         : udp_stream(std::move(io_service), std::move(socket), std::vector<boost::asio::ip::udp::endpoint>(endpoints), std::forward<Args>(args)...) {}
 };
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_UDP_H

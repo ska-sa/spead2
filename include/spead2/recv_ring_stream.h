@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019-2021 National Research Foundation (SARAO)
+/* Copyright 2015, 2019-2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -29,9 +29,7 @@
 #include <spead2/recv_stream.h>
 #include <utility>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /// Parameters for configuring @ref ring_stream.
@@ -289,7 +287,6 @@ void ring_stream<Ringbuffer>::stop()
     stream::stop();
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_RING_STREAM

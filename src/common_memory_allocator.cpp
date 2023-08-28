@@ -1,4 +1,4 @@
-/* Copyright 2016, 2021 National Research Foundation (SARAO)
+/* Copyright 2016, 2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -19,6 +19,7 @@
  */
 
 #include <spead2/common_memory_pool.h>
+#include "common_unique.h"
 
 // Some operating systems only provide MAP_ANON
 #ifndef MAP_ANONYMOUS
@@ -63,19 +64,17 @@ void memory_allocator::prefault(std::uint8_t *data, std::size_t size)
         data[i] = 0;
 }
 
-memory_allocator::pointer memory_allocator::allocate(std::size_t size, void *hint)
+memory_allocator::pointer memory_allocator::allocate(std::size_t size, [[maybe_unused]] void *hint)
 {
-    (void) hint; // prevent warnings about unused parameters
-    std::uint8_t *ptr = new std::uint8_t[size];
-    prefault(ptr, size);
-    return std::unique_ptr<std::uint8_t[]>(ptr);
+    auto ptr = detail::make_unique_for_overwrite<std::uint8_t[]>(size);
+    prefault(ptr.get(), size);
+    return ptr;
 }
 
-void memory_allocator::free(std::uint8_t *ptr, void *user)
+void memory_allocator::free(std::uint8_t *ptr, [[maybe_unused]] void *user)
 {
     // This implementation is not expected to be called, but is left in place
     // in case of 3rd-party allocators that rely on this default implementation.
-    (void) user; // prevent warnings about unused parameters
     delete[] ptr;
 }
 
@@ -88,9 +87,8 @@ mmap_allocator::mmap_allocator(int flags, bool prefer_huge)
 {
 }
 
-mmap_allocator::pointer mmap_allocator::allocate(std::size_t size, void *hint)
+mmap_allocator::pointer mmap_allocator::allocate(std::size_t size, [[maybe_unused]] void *hint)
 {
-    (void) hint;
     int use_flags = flags | MAP_ANONYMOUS | MAP_PRIVATE
 #ifdef MAP_POPULATE
         | MAP_POPULATE

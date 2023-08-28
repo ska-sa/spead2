@@ -26,6 +26,7 @@
 #include <functional>
 #include <algorithm>
 #include <utility>
+#include <new>
 #include <spead2/common_defines.h>
 #include <spead2/common_memory_allocator.h>
 #include <spead2/recv_packet.h>
@@ -35,12 +36,8 @@
 #include <spead2/recv_stream.h>
 #include <spead2/recv_chunk_stream.h>
 
-namespace spead2
+namespace spead2::recv
 {
-namespace recv
-{
-
-constexpr std::size_t chunk_stream_config::default_max_chunks;
 
 chunk_stream_config &chunk_stream_config::set_items(const std::vector<item_pointer_t> &item_ids)
 {
@@ -140,11 +137,11 @@ chunk_stream_state_base::chunk_stream_state_base(
     /* Allocate the memory, and use placement new to initialise it. For the
      * arrays the placement new shouldn't actually run any code, but it
      * officially starts the lifetime of the object in terms of the C++ spec.
-     * It's not if it's actually portable in C++11: implementations used to be
-     * allowed to add overhead for array new, even when using placement new.
-     * CWG 2382 disallowed that for placement new, and in practice it sounds
-     * like no compiler ever added overhead for scalar types (MSVC used to do
-     * it for polymorphic classes).
+     * It's not clear whether it's actually portable in C++17: implementations
+     * used to be allowed to add overhead for array new, even when using
+     * placement new.  CWG 2382 disallowed that for placement new, and in
+     * practice it sounds like no compiler ever added overhead for scalar types
+     * (MSVC used to do it for polymorphic classes).
      *
      * In C++20 it's probably not necessary to use the placement new due to
      * the rules about implicit-lifetime types, although the examples imply
@@ -165,8 +162,9 @@ chunk_stream_state_base::chunk_stream_state_base(
 
 void chunk_stream_state_base::free_place_data::operator()(unsigned char *ptr) const
 {
-    // TODO: should this use std::launder in C++17?
-    auto *place_data = reinterpret_cast<chunk_place_data *>(ptr);
+    // It's not totally clear whether std::launder is required here, but
+    // better to be safe.
+    auto *place_data = std::launder(reinterpret_cast<chunk_place_data *>(ptr));
     place_data->~chunk_place_data();
     operator delete(ptr);
 }
@@ -282,5 +280,4 @@ chunk_stream::~chunk_stream()
     stop();
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

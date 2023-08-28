@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2021 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -29,13 +29,13 @@ namespace spead2
 {
 
 memory_pool::memory_pool()
-    : memory_pool(boost::none, 0, 0, 0, 0, 0, nullptr)
+    : memory_pool(std::nullopt, 0, 0, 0, 0, 0, nullptr, 0)
 {
 }
 
 memory_pool::memory_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
                          std::shared_ptr<memory_allocator> allocator)
-    : memory_pool(boost::none, lower, upper, max_free, initial, 0, std::move(allocator))
+    : memory_pool(std::nullopt, lower, upper, max_free, initial, 0, std::move(allocator), 0)
 {
 }
 
@@ -44,8 +44,8 @@ memory_pool::memory_pool(
     std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
     std::size_t low_water,
     std::shared_ptr<memory_allocator> allocator)
-    : memory_pool(boost::optional<io_service_ref>(std::move(io_service)),
-                  lower, upper, max_free, initial, low_water, std::move(allocator))
+    : memory_pool(std::optional<io_service_ref>(std::move(io_service)),
+                  lower, upper, max_free, initial, low_water, std::move(allocator), 0)
 {
 }
 
@@ -91,10 +91,11 @@ public:
 } // namespace detail
 
 memory_pool::memory_pool(
-    boost::optional<io_service_ref> io_service,
+    std::optional<io_service_ref> io_service,
     std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
     std::size_t low_water,
-    std::shared_ptr<memory_allocator> allocator)
+    std::shared_ptr<memory_allocator> allocator,
+    int)
     : io_service(std::move(io_service)), lower(lower), upper(upper), max_free(max_free),
     initial(initial), low_water(low_water),
     base_allocator(allocator ? move(allocator) : std::make_shared<memory_allocator>())
@@ -131,12 +132,11 @@ void memory_pool::free_impl(std::uint8_t *ptr, memory_allocator::deleter &&base_
 
 memory_pool::pointer memory_pool::convert(pointer &&base)
 {
-    /* TODO: in theory this might not be exception-safe, because in C++11
+    /* TODO: in theory this might not be exception-safe, because in C++17
      * the move constructor for std::function is not noexcept. Thus, after
      * constructing the memory_pool_deleter argument, the construction of
-     * the pointer could fail. The lack of noexcept is assumed to be an
-     * oversight in older C++ standards, and GCC 9 at least makes it
-     * no-except.
+     * the pointer could fail. C++20 makes it noexcept, and in practice
+     * library implementations are unlikely to throw exceptions.
      */
     pointer wrapped(base.get(),
                     detail::memory_pool_deleter(shared_this(), std::move(base.get_deleter())));

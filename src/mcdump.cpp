@@ -1,4 +1,4 @@
-/* Copyright 2016-2020 National Research Foundation (SARAO)
+/* Copyright 2016-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -40,6 +40,7 @@
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
+#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <limits>
@@ -60,6 +61,7 @@
 #include <signal.h>
 
 namespace po = boost::program_options;
+using namespace std::literals;
 
 typedef std::chrono::high_resolution_clock::time_point time_point;
 
@@ -257,8 +259,6 @@ public:
 
     void write(const void *data, std::size_t length);
 };
-
-constexpr std::size_t writer::buffer_size;
 
 std::size_t writer::compute_depth(const options &opts)
 {
@@ -673,8 +673,7 @@ void capture_base::run()
 {
     using boost::asio::ip::udp;
 
-    std::shared_ptr<spead2::mmap_allocator> allocator =
-        std::make_shared<spead2::mmap_allocator>(0, true);
+    auto allocator = std::make_shared<spead2::mmap_allocator>(0, true);
     bool has_file = opts.filename != "-";
     if (has_file)
     {
@@ -698,12 +697,14 @@ void capture_base::run()
      * off collect_thread, and if it doesn't have a specific affinity we don't
      * want it to inherit network_affinity.
      */
-    std::future<void> alloc_future = std::async(std::launch::async, [this, allocator] {
-        if (opts.network_affinity >= 0)
-            spead2::thread_pool::set_affinity(opts.network_affinity);
-        for (std::size_t i = 0; i < chunking.n_chunks; i++)
-            add_to_free(make_chunk(*allocator));
-    });
+    std::future<void> alloc_future = std::async(
+        std::launch::async, [this, allocator = std::move(allocator)] {
+            if (opts.network_affinity >= 0)
+                spead2::thread_pool::set_affinity(opts.network_affinity);
+            for (std::size_t i = 0; i < chunking.n_chunks; i++)
+                add_to_free(make_chunk(*allocator));
+        }
+    );
     alloc_future.get();
 
     struct sigaction act = {}, old_act;
@@ -728,7 +729,7 @@ void capture_base::run()
          * down the QP. This makes it more likely that we can avoid incrementing
          * the dropped packets counter on the NIC.
          */
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(200ms);
         if (has_file)
             collect_future.get();
         // Restore SIGINT handler
@@ -803,7 +804,7 @@ chunking_scheme capture::sizes(const options &opts, const spead2::rdma_cm_id_t &
     ibv_device_attr attr = cm_id.query_device();
     unsigned int device_slots = std::min(attr.max_cqe, attr.max_qp_wr);
     unsigned int device_chunks = device_slots / max_records;
-    if (attr.max_mr < device_chunks)
+    if (attr.max_mr < (int) device_chunks)
         device_chunks = attr.max_mr;
 
     bool reduced = false;
@@ -895,7 +896,7 @@ void capture::network_thread()
                 if (!opts.quiet)
                 {
                     time_point now = std::chrono::high_resolution_clock::now();
-                    if (now - last_report >= std::chrono::seconds(1))
+                    if (now - last_report >= 1s)
                         report_rates(now);
                 }
             }
@@ -1006,11 +1007,6 @@ capture_mprq::capture_mprq(const options &opts)
     wq.modify(IBV_WQS_RDY);
 }
 
-static int clamp(int x, int low, int high)
-{
-    return std::min(std::max(x, low), high);
-}
-
 chunking_scheme capture_mprq::sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id)
 {
     ibv_device_attr attr = cm_id.query_device();
@@ -1029,13 +1025,15 @@ chunking_scheme capture_mprq::sizes(const options &opts, const spead2::rdma_cm_i
      * running out of CQEs.
      */
     std::size_t log_stride_bytes =
-        clamp(6,
-              mlx5dv_attr.striding_rq_caps.min_single_stride_log_num_of_bytes,
-              mlx5dv_attr.striding_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes
+        std::clamp(
+            std::uint32_t(6),
+            mlx5dv_attr.striding_rq_caps.min_single_stride_log_num_of_bytes,
+            mlx5dv_attr.striding_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes
     std::size_t log_strides_per_chunk =
-        clamp(21 - log_stride_bytes,
-              mlx5dv_attr.striding_rq_caps.min_single_wqe_log_num_of_strides,
-              mlx5dv_attr.striding_rq_caps.max_single_wqe_log_num_of_strides);    // 2MB chunks
+        std::clamp(
+            std::uint32_t(21 - log_stride_bytes),
+            mlx5dv_attr.striding_rq_caps.min_single_wqe_log_num_of_strides,
+            mlx5dv_attr.striding_rq_caps.max_single_wqe_log_num_of_strides);    // 2MB chunks
     std::size_t max_records = 1 << log_strides_per_chunk;
     std::size_t chunk_size = max_records << log_stride_bytes;
     std::size_t n_chunks = opts.net_buffer / chunk_size;
@@ -1071,7 +1069,6 @@ void capture_mprq::network_thread()
 
     start_time = std::chrono::high_resolution_clock::now();
     last_report = start_time;
-    const std::size_t max_records = chunking.max_records;
     int until_get_time = GET_TIME_RATE;
     std::uint64_t remaining_count = opts.count;
     spead2::ibv_cq_ex_t::poller poller(cq);
@@ -1100,7 +1097,7 @@ void capture_mprq::network_thread()
                             remaining_count--;
                         std::size_t idx = c.n_records;
                         record_header &record = c.entries[idx].record;
-                        record.incl_len = (len <= opts.snaplen) ? len : opts.snaplen;
+                        record.incl_len = ((int) len <= opts.snaplen) ? len : opts.snaplen;
                         record.orig_len = len;
                         if (timestamp_support)
                         {
@@ -1131,7 +1128,7 @@ void capture_mprq::network_thread()
                 if (!opts.quiet)
                 {
                     time_point now = std::chrono::high_resolution_clock::now();
-                    if (now - last_report >= std::chrono::seconds(1))
+                    if (now - last_report >= 1s)
                         report_rates(now);
                 }
             }

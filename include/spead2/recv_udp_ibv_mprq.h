@@ -39,9 +39,7 @@
 #include <spead2/recv_udp_base.h>
 #include <spead2/recv_udp_ibv.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /**
@@ -166,8 +164,7 @@ public:
     udp_ibv_mprq_reader(stream &owner, const udp_ibv_config &config);
 };
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_USE_IBV
 

@@ -37,9 +37,7 @@
 #include <spead2/recv_packet.h>
 #include <spead2/recv_stream.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 namespace detail
@@ -490,7 +488,7 @@ public:
     std::uint64_t *get_batch_stats(chunk_stream_state<chunk_manager_simple> &state) const;
     chunk *allocate_chunk(chunk_stream_state<chunk_manager_simple> &state, std::int64_t chunk_id);
     void ready_chunk(chunk_stream_state<chunk_manager_simple> &state, chunk *c);
-    void head_updated(chunk_stream_state<chunk_manager_simple> &state, std::uint64_t head_chunk) {}
+    void head_updated(chunk_stream_state<chunk_manager_simple> &, std::uint64_t) {}
 };
 
 /**
@@ -521,9 +519,9 @@ memory_allocator::pointer chunk_stream_allocator<CM>::allocate(std::size_t size,
 {
     if (hint)
     {
-        auto alloc = stream.allocate(size, *reinterpret_cast<const packet_header *>(hint));
+        auto [ptr, metadata] = stream.allocate(size, *reinterpret_cast<const packet_header *>(hint));
         // Use the heap_metadata as the deleter
-        return pointer(alloc.first, std::move(alloc.second));
+        return pointer(ptr, std::move(metadata));
     }
     // Probably unreachable, but provides a safety net
     return memory_allocator::allocate(size, hint);
@@ -723,7 +721,7 @@ void chunk_stream_state<CM>::flush_chunks()
 
 template<typename CM>
 std::pair<std::uint8_t *, chunk_stream_state_base::heap_metadata>
-chunk_stream_state<CM>::allocate(std::size_t size, const packet_header &packet)
+chunk_stream_state<CM>::allocate(std::size_t /* size */, const packet_header &packet)
 {
     // Used to get a non-null pointer
     static std::uint8_t dummy_uint8;
@@ -761,8 +759,8 @@ chunk_stream_state<CM>::allocate(std::size_t size, const packet_header &packet)
      * in constructing the std::function underlying the deleter.
      */
     std::pair<std::uint8_t *, heap_metadata> out;
-    out.first = &dummy_uint8;  // Use a non-null value to avoid confusion with empty pointers
-    heap_metadata &metadata = out.second;
+    auto &[ptr, metadata] = out;
+    ptr = &dummy_uint8;  // Use a non-null value to avoid confusion with empty pointers
 
     place_data->packet = packet.packet;
     place_data->packet_size = packet.payload + packet.payload_length - packet.packet;
@@ -795,7 +793,7 @@ chunk_stream_state<CM>::allocate(std::size_t size, const packet_header &packet)
         if (chunk_ptr)
         {
             chunk &c = *chunk_ptr;
-            out.first = c.data.get() + place_data->heap_offset;
+            ptr = c.data.get() + place_data->heap_offset;
             metadata.chunk_id = chunk_id;
             metadata.heap_index = place_data->heap_index;
             metadata.heap_offset = place_data->heap_offset;
@@ -947,7 +945,6 @@ chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::~chunk_ring_stream()
     stop();
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_CHUNK_STREAM

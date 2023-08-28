@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -32,7 +32,6 @@
 #include <atomic>
 #include <cassert>
 #include <boost/asio.hpp>
-#include <boost/optional.hpp>
 #include <boost/system/error_code.hpp>
 #include <spead2/send_heap.h>
 #include <spead2/send_packet.h>
@@ -41,11 +40,9 @@
 #include <spead2/common_logging.h>
 #include <spead2/common_defines.h>
 #include <spead2/common_thread_pool.h>
+#include <spead2/common_storage.h>
 
-namespace spead2
-{
-
-namespace send
+namespace spead2::send
 {
 
 /// Determines how to order packets when using @ref spead2::send::stream::async_send_heaps.
@@ -162,7 +159,7 @@ public:
 private:
     friend class writer;
 
-    typedef std::aligned_storage<sizeof(detail::queue_item), alignof(detail::queue_item)>::type queue_item_storage;
+    typedef spead2::detail::storage<detail::queue_item> queue_item_storage;
 
     /* Data are laid out in a manner designed to optimise the cache, which
      * means the logically related items (such as the head and tail indices)
@@ -228,7 +225,10 @@ private:
     /// Oldest populated slot
     std::atomic<std::size_t> queue_head{0};
 
-    /// Access an item from the queue (takes care of masking the index)
+    /// Access the storage for a queue item (takes care of masking the index)
+    queue_item_storage &get_queue_storage(std::size_t idx);
+
+    /// Access a (valid) item from the queue (takes care of masking the index)
     detail::queue_item *get_queue(std::size_t idx);
 
     /// No-op version of @ref unwinder (see below)
@@ -320,8 +320,7 @@ private:
 
             // Construct in place. The group values are set for a singleton,
             // and repaired later if that's not the case.
-            auto *cur = get_queue(tail);
-            new (cur) detail::queue_item(
+            get_queue_storage(tail).construct(
                 h, cnt, substream_index, tail + 1, tail, mode,
                 max_packet_size);
             tail++;
@@ -487,7 +486,6 @@ extern template bool stream::async_send_heaps_impl<stream::null_unwinder, heap_r
     heap_reference *first, heap_reference *last,
     completion_handler &&handler, group_mode mode);
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_STREAM_H

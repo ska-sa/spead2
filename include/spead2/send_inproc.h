@@ -1,4 +1,4 @@
-/* Copyright 2018-2020 National Research Foundation (SARAO)
+/* Copyright 2018-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -29,9 +29,7 @@
 #include <spead2/common_inproc.h>
 #include <spead2/send_stream.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 class inproc_stream : public stream
@@ -44,7 +42,7 @@ public:
         const stream_config &config = stream_config());
 
     /// Backwards-compatibility constructor (taking only a single queue)
-    SPEAD2_DEPRECATED("use a vector of queues")
+    [[deprecated("use a vector of queues")]]
     inproc_stream(
         io_service_ref io_service,
         std::shared_ptr<inproc_queue> queue,
@@ -66,11 +64,10 @@ public:
      *
      * @throws runtime_error if there are multiple storage queues.
      */
-    SPEAD2_DEPRECATED("use get_queues")
+    [[deprecated("use get_queues")]]
     const std::shared_ptr<inproc_queue> &get_queue() const;
 };
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_INPROC_H

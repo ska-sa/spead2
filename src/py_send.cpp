@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2021 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2021, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -21,7 +21,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <boost/system/system_error.hpp>
-#include <boost/optional.hpp>
 #include <stdexcept>
 #include <mutex>
 #include <vector>
@@ -38,6 +37,7 @@
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_semaphore.h>
 #include <spead2/py_common.h>
+#include "common_unique.h"
 
 namespace py = pybind11;
 
@@ -81,7 +81,7 @@ flavour heap_wrapper::get_flavour() const
 
 py::bytes packet_generator_next(packet_generator &gen)
 {
-    std::unique_ptr<std::uint8_t[]> scratch(new std::uint8_t[gen.get_max_packet_size()]);
+    auto scratch = spead2::detail::make_unique_for_overwrite<std::uint8_t[]>(gen.get_max_packet_size());
     auto buffers = gen.next_packet(scratch.get());
     if (buffers.empty())
         throw py::stop_iteration();
@@ -284,10 +284,9 @@ public:
         callback_ptr.inc_ref();
         return Base::async_send_heaps(
             heaps.begin(), heaps.end(),
-            // TODO: this copies h_ptrs twice (once into the lambda, once into the handler)
-            [this, callback_ptr, h_ptrs] (const boost::system::error_code &ec, item_pointer_t bytes_transferred)
+            [this, callback_ptr, h_ptrs = std::move(h_ptrs)] (const boost::system::error_code &ec, item_pointer_t bytes_transferred)
             {
-                handler(callback_ptr, h_ptrs, ec, bytes_transferred);
+                handler(callback_ptr, std::move(h_ptrs), ec, bytes_transferred);
             },
             mode);
     }
@@ -389,8 +388,8 @@ static std::vector<typename Protocol::endpoint> make_endpoints(
 {
     std::vector<typename Protocol::endpoint> out;
     out.reserve(endpoints.size());
-    for (const auto &ep : endpoints)
-        out.push_back(make_endpoint<Protocol>(io_service, ep.first, ep.second));
+    for (const auto &[host, port] : endpoints)
+        out.push_back(make_endpoint<Protocol>(io_service, host, port));
     return out;
 }
 
@@ -804,7 +803,7 @@ private:
             state->ec = ec;
             state->sem.put();
         };
-        std::unique_ptr<stream_type> stream{new stream_type(connect_handler, std::forward<Args>(args)...)};
+        auto stream = std::make_unique<stream_type>(connect_handler, std::forward<Args>(args)...);
         semaphore_get(state->sem, gil_release_tag());
         if (state->ec)
             throw boost_io_error(state->ec);
@@ -844,8 +843,7 @@ private:
             py::object callback = py::reinterpret_steal<py::object>(state->callback);
             callback(make_io_error(ec));
         };
-        std::unique_ptr<stream_type> stream{
-            new stream_type(connect_handler, std::forward<Args>(args)...)};
+        auto stream = std::make_unique<stream_type>(connect_handler, std::forward<Args>(args)...);
         /* The state takes over the references. These are dealt with using
          * py::handle rather than py::object to avoid manipulating refcounts
          * without the GIL. Note that while the connect_handler could occur

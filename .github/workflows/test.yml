@@ -9,11 +9,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
-            cxx: g++
+          - os: ubuntu-20.04
+            cxx: g++-9
             extras: yes
           - os: ubuntu-22.04
-            cxx: clang++
+            cxx: g++-12
+            extras: yes
+          - os: ubuntu-20.04
+            cxx: clang++-10
+            extras: yes
+          - os: ubuntu-22.04
+            cxx: clang++-14
             extras: yes
           - os: macos-12
             cxx: clang++
@@ -53,9 +59,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
-            cc: gcc
-            cxx: g++
+          - os: ubuntu-20.04
+            cc: gcc-9
+            cxx: g++-9
             python-version: '3.8'
           # Disabled for now because numba/llvmlite (needed for tests)
           # doesn't have a pypy wheel, and it's not worth the effect to
@@ -65,12 +71,16 @@ jobs:
           #   cxx: g++
           #   python-version: pypy-3.7
           - os: ubuntu-22.04
-            cc: gcc
-            cxx: g++
+            cc: gcc-12
+            cxx: g++-12
+            python-version: '3.12.0-rc.1'
+          - os: ubuntu-20.04
+            cc: clang-10
+            cxx: clang++-10
             python-version: '3.12.0-rc.1'
           - os: ubuntu-22.04
-            cc: clang
-            cxx: clang++
+            cc: clang-14
+            cxx: clang++-14
             python-version: '3.12.0-rc.1'
           - os: macos-12
             cc: clang

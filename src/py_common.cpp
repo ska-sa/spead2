@@ -36,6 +36,7 @@
 #if SPEAD2_USE_IBV
 # include <spead2/common_ibv.h>
 #endif
+#include "common_unique.h"
 
 namespace py = pybind11;
 
@@ -124,7 +125,7 @@ void thread_pool_wrapper::stop()
 
 py::buffer_info request_buffer_info(const py::buffer &buffer, int extra_flags)
 {
-    std::unique_ptr<Py_buffer> view(new Py_buffer);
+    auto view = detail::make_unique_for_overwrite<Py_buffer>();
     int flags = PyBUF_STRIDES | PyBUF_FORMAT | extra_flags;
     if (PyObject_GetBuffer(buffer.ptr(), view.get(), flags) != 0)
         throw py::error_already_set();
@@ -133,7 +134,6 @@ py::buffer_info request_buffer_info(const py::buffer &buffer, int extra_flags)
     return info;
 }
 
-constexpr unsigned int log_function_python::num_levels;
 const char *const log_function_python::level_methods[log_function_python::num_levels] =
 {
     "warning",
@@ -159,7 +159,8 @@ void log_function_python::run()
         {
             auto msg = ring.pop();
             py::gil_scoped_acquire gil;
-            log(msg.first, msg.second);
+            auto &[level, text] = msg;
+            log(level, text);
             /* If there are multiple messages queued, consume them while
              * the GIL is held, rather than dropping and regaining the
              * GIL; but limit it, so that we don't starve other threads
@@ -170,7 +171,8 @@ void log_function_python::run()
                 for (int pass = 1; pass < 1024; pass++)
                 {
                     msg = ring.try_pop();
-                    log(msg.first, msg.second);
+                    auto &[level, text] = msg;
+                    log(level, text);
                 }
             }
             catch (ringbuffer_empty &)
@@ -321,7 +323,7 @@ void register_module(py::module m)
             py::buffer_info info = request_buffer_info(obj, PyBUF_C_CONTIGUOUS);
             inproc_queue::packet pkt;
             pkt.size = info.size * info.itemsize;
-            pkt.data = std::unique_ptr<std::uint8_t[]>{new std::uint8_t[pkt.size]};
+            pkt.data = detail::make_unique_for_overwrite<std::uint8_t[]>(pkt.size);
             std::memcpy(pkt.data.get(), info.ptr, pkt.size);
             self.add_packet(std::move(pkt));
         }, "packet")
@@ -402,9 +404,7 @@ namespace
 {
 
 /* Function object that acts as a deleter for a wrapped buffer_allocation. It's
- * a class rather than a lambda so that the shared_ptr can be constructed by
- * move instead of copy in C++11 (which doesn't support C++14 generalised
- * lambda captures), and to provide get_allocation.
+ * a class rather than a lambda to provide get_allocation.
  *
  * It needs to hold a shared_ptr rather than a unique_ptr because std::function
  * requires the function to be copyable. In practice it is unlikely to be
@@ -419,7 +419,7 @@ public:
     explicit buffer_allocation_deleter(std::shared_ptr<buffer_allocation> alloc)
         : alloc(std::move(alloc)) {}
 
-    void operator()(std::uint8_t *ptr) const
+    void operator()([[maybe_unused]] std::uint8_t *ptr) const
     {
         alloc->buffer_info = py::buffer_info();
         alloc->obj = py::object();
@@ -449,7 +449,7 @@ namespace PYBIND11_NAMESPACE
 namespace detail
 {
 
-bool type_caster<spead2::memory_allocator::pointer>::load(handle src, bool convert)
+bool type_caster<spead2::memory_allocator::pointer>::load(handle src, [[maybe_unused]] bool convert)
 {
     if (src.is_none())
     {

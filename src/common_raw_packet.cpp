@@ -47,6 +47,8 @@
 # include <net/if_dl.h>
 #endif
 
+using namespace std::literals;
+
 namespace spead2
 {
 
@@ -141,7 +143,7 @@ mac_address interface_mac(const boost::asio::ip::address &address)
         }
 #endif
     }
-    throw std::runtime_error(std::string("no MAC address found for interface ") + if_name);
+    throw std::runtime_error("no MAC address found for interface "s + if_name);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -160,9 +162,6 @@ packet_buffer::operator boost::asio::mutable_buffer() const
 
 /////////////////////////////////////////////////////////////////////////////
 
-constexpr std::uint8_t udp_packet::protocol;
-constexpr std::size_t udp_packet::min_size;
-
 udp_packet::udp_packet(void *ptr, std::size_t size)
     : packet_buffer(ptr, size)
 {
@@ -179,11 +178,6 @@ packet_buffer udp_packet::payload() const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-
-constexpr std::uint16_t ipv4_packet::ethertype;
-constexpr std::size_t ipv4_packet::min_size;
-constexpr std::uint16_t ipv4_packet::flag_do_not_fragment;
-constexpr std::uint16_t ipv4_packet::flag_more_fragments;
 
 ipv4_packet::ipv4_packet(void *ptr, std::size_t size)
     : packet_buffer(ptr, size)
@@ -232,8 +226,6 @@ udp_packet ipv4_packet::payload_udp() const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-
-constexpr std::size_t ethernet_frame::min_size;
 
 ethernet_frame::ethernet_frame(void *ptr, std::size_t size)
     : packet_buffer(ptr, size)

@@ -32,9 +32,7 @@
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_base.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /**
@@ -155,7 +153,6 @@ public:
     virtual bool lossy() const override;
 };
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_TCP_H

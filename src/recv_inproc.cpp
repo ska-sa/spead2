@@ -26,9 +26,7 @@
 #include <spead2/recv_inproc.h>
 #include <spead2/recv_stream.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 inproc_reader::inproc_reader(
@@ -61,7 +59,7 @@ void inproc_reader::packet_handler(
     handler_context ctx,
     stream_base::add_packet_state &state,
     const boost::system::error_code &error,
-    std::size_t bytes_transferred)
+    [[maybe_unused]] std::size_t bytes_transferred)
 {
     if (!error)
     {
@@ -105,5 +103,4 @@ bool inproc_reader::lossy() const
     return false;
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

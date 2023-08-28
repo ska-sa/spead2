@@ -25,9 +25,7 @@
 #include <spead2/send_tcp.h>
 #include <spead2/send_writer.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 static boost::asio::ip::tcp::socket make_socket(
@@ -181,8 +179,6 @@ tcp_writer::tcp_writer(
 
 } // anonymous namespace
 
-constexpr std::size_t tcp_stream::default_buffer_size;
-
 tcp_stream::tcp_stream(
     io_service_ref io_service,
     std::function<void(const boost::system::error_code &)> &&connect_handler,
@@ -190,13 +186,13 @@ tcp_stream::tcp_stream(
     const stream_config &config,
     std::size_t buffer_size,
     const boost::asio::ip::address &interface_address)
-    : stream(std::unique_ptr<writer>(new tcp_writer(
+    : stream(std::make_unique<tcp_writer>(
         std::move(io_service),
         std::move(connect_handler),
         endpoints,
         config,
         buffer_size,
-        interface_address)))
+        interface_address))
 {
 }
 
@@ -234,12 +230,11 @@ tcp_stream::tcp_stream(
     io_service_ref io_service,
     boost::asio::ip::tcp::socket &&socket,
     const stream_config &config)
-    : stream(std::unique_ptr<writer>(new tcp_writer(
+    : stream(std::make_unique<tcp_writer>(
         std::move(io_service),
         std::move(socket),
-        config)))
+        config))
 {
 }
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send

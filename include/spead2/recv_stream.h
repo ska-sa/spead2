@@ -39,8 +39,8 @@
 #include <libdivide.h>
 #include <spead2/recv_live_heap.h>
 #include <spead2/common_memory_pool.h>
-#include <spead2/common_bind.h>
 #include <spead2/common_semaphore.h>
+#include <spead2/common_storage.h>
 
 namespace spead2
 {
@@ -164,7 +164,7 @@ public:
 
     // This is a template constructor to allow iterator to be converted to const_iterator
     template<typename T2, typename V2,
-             typename = typename std::enable_if<std::is_convertible<T2 *, T *>::value>::type>
+             typename = std::enable_if_t<std::is_convertible_v<T2 *, T *>>>
     stream_stats_iterator(const stream_stats_iterator<T2, V2> &other)
         : owner(other.owner), index(other.index) {}
 };
@@ -530,7 +530,7 @@ private:
     struct queue_entry
     {
         queue_entry *next;   // Hash table chain
-        live_heap heap;
+        spead2::detail::storage<live_heap> heap;
         /* TODO: pad to a multiple of 16 bytes, so that there is a
          * good chance of next and heap.cnt being in the same cache line.
          */
@@ -545,14 +545,13 @@ private:
         std::size_t head;
     };
 
-    typedef typename std::aligned_storage<sizeof(queue_entry), alignof(queue_entry)>::type storage_type;
     /**
      * Circular queue for heaps.
      *
      * A particular heap is in a constructed state iff the next pointer is
      * not INVALID_ENTRY.
      */
-    const std::unique_ptr<storage_type[]> queue_storage;
+    const std::unique_ptr<queue_entry[]> queue_storage;
     /// Number of entries in @ref buckets
     const std::size_t bucket_count;
     /// Right shift to map 64-bit unsigned to a bucket index
@@ -610,9 +609,6 @@ private:
 
     /// Compute substream from a heap cnt
     std::size_t get_substream(item_pointer_t heap_cnt) const;
-
-    /// Get an entry from @ref queue_storage with the right type
-    queue_entry *cast(std::size_t index);
 
     /**
      * Unlink an entry from the hash table.
@@ -677,38 +673,12 @@ protected:
     template<typename ExecutionContext, typename F>
     void post(ExecutionContext &ex, F &&func)
     {
-        class wrapper
-        {
-        private:
-            std::shared_ptr<shared_state> shared;
-            typename std::decay<F>::type func;
-
-        public:
-            wrapper(std::shared_ptr<shared_state> shared, F&& func)
-                : shared(std::move(shared)), func(std::forward<F>(func))
-            {
-            }
-
-            /* Prevent copying, while allowing moving (copying is safe but inefficient)
-             * Move assignment is not implemented because it fails to compile if
-             * F is not move-assignable. This can probably be solved with
-             * std::enable_if, but it doesn't seem worth the effort.
-             */
-            wrapper(const wrapper &) = delete;
-            wrapper &operator=(const wrapper &) = delete;
-            wrapper(wrapper &&) = default;
-
-            void operator()() const
-            {
-                std::lock_guard<std::mutex> lock(shared->queue_mutex);
-                stream_base *self = shared->self;
-                if (self)
-                    func(*self);
-            }
-        };
-
-        // TODO: can do this with a lambda (with perfect forwarding) in C++14
-        boost::asio::post(ex, wrapper(shared, std::forward<F>(func)));
+        boost::asio::post(ex, [shared{shared}, func{std::forward<F>(func)}]() {
+            std::lock_guard<std::mutex> lock(shared->queue_mutex);
+            stream_base *self = shared->self;
+            if (self)
+                func(*self);
+        });
     }
 
 public:
@@ -900,7 +870,7 @@ protected:
      * the stream has been stopped, as this can cause the reader to be destroyed.
      */
     template<typename T>
-    bound_handler<typename std::decay<T>::type> bind_handler(T &&handler) const
+    auto bind_handler(T &&handler) const
     {
         return bind_handler(make_handler_context(), std::forward<T>(handler));
     }
@@ -909,10 +879,10 @@ protected:
      * Overload that takes an existing @ref reader::handler_context.
      */
     template<typename T>
-    bound_handler<typename std::decay<T>::type> bind_handler(handler_context ctx, T &&handler) const
+    auto bind_handler(handler_context ctx, T &&handler) const
     {
         assert(ctx);  // make sure it hasn't already been used
-        return bound_handler<typename std::decay<T>::type>(std::move(ctx), std::forward<T>(handler));
+        return bound_handler<std::decay_t<T>>(std::move(ctx), std::forward<T>(handler));
     }
 
 public:

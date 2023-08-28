@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -30,9 +30,7 @@
 #include <spead2/common_logging.h>
 #include <spead2/common_endian.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /**
@@ -44,6 +42,8 @@ namespace recv
 static inline item_pointer_t load_bytes_be(const std::uint8_t *ptr, int len)
 {
     assert(0 <= len && len <= int(sizeof(item_pointer_t)));
+    // TODO: not sure if this is entirely defined behaviour in C++. Switch to
+    // std::bit_cast when C++20 is the minimum.
     item_pointer_t out = 0;
     std::memcpy(reinterpret_cast<char *>(&out) + sizeof(item_pointer_t) - len, ptr, len);
     return betoh<item_pointer_t>(out);
@@ -343,5 +343,4 @@ incomplete_heap::get_payload_ranges() const
         payload_ranges.begin(), payload_ranges.end());
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

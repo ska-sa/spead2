@@ -27,9 +27,7 @@
 #include <initializer_list>
 #include <spead2/send_stream.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 class tcp_stream : public stream
@@ -68,7 +66,7 @@ public:
     /**
      * Backwards-compatibility constructor.
      */
-    SPEAD2_DEPRECATED("use a vector of endpoints")
+    [[deprecated("use a vector of endpoints")]]
     tcp_stream(
         io_service_ref io_service,
         std::function<void(const boost::system::error_code &)> &&connect_handler,
@@ -97,7 +95,6 @@ public:
         const stream_config &config = stream_config());
 };
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_TCP_H

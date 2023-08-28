@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -23,9 +23,7 @@
 #include <spead2/common_defines.h>
 #include <spead2/common_socket.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 namespace
@@ -64,8 +62,6 @@ public:
 
     virtual std::size_t get_num_substreams() const override final { return endpoints.size(); }
 };
-
-constexpr int udp_writer::max_batch;
 
 #if SPEAD2_USE_SENDMMSG
 
@@ -263,8 +259,6 @@ static boost::asio::ip::udp get_protocol(const std::vector<boost::asio::ip::udp:
     return endpoints[0].protocol();
 }
 
-constexpr std::size_t udp_stream::default_buffer_size;
-
 udp_stream::udp_stream(
     io_service_ref io_service,
     const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
@@ -366,12 +360,12 @@ udp_stream::udp_stream(
     const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
     const stream_config &config,
     std::size_t buffer_size)
-    : stream(std::unique_ptr<writer>(new udp_writer(
+    : stream(std::make_unique<udp_writer>(
         std::move(io_service),
         std::move(socket),
         endpoints,
         config,
-        buffer_size)))
+        buffer_size))
 {
 }
 
@@ -384,5 +378,4 @@ udp_stream::udp_stream(
 {
 }
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send

@@ -32,9 +32,7 @@
 #include <spead2/recv_stream.h>
 #include <spead2/recv_chunk_stream.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /// Configuration for chunk_stream_group
@@ -104,7 +102,7 @@ public:
 
     std::uint64_t *get_batch_stats(chunk_stream_state<chunk_manager_group> &state) const;
     chunk *allocate_chunk(chunk_stream_state<chunk_manager_group> &state, std::int64_t chunk_id);
-    void ready_chunk(chunk_stream_state<chunk_manager_group> &state, chunk *c) {}
+    void ready_chunk(chunk_stream_state<chunk_manager_group> &, chunk *) {}
     void head_updated(chunk_stream_state<chunk_manager_group> &state, std::uint64_t head_chunk);
 };
 
@@ -198,14 +196,14 @@ private:
     class dereference
     {
     public:
-        decltype(*std::declval<T>()) operator()(const T &ptr) const { return *ptr; }
+        decltype(auto) operator()(const T &ptr) const { return *ptr; }
     };
 
     template<typename T>
     class dereference_const
     {
     public:
-        const decltype(*std::declval<T>()) operator()(const T &ptr) const { return *ptr; }
+        decltype(auto) operator()(const T &ptr) const { return *ptr; }
     };
 
 protected:
@@ -213,13 +211,13 @@ protected:
      * Called by @ref emplace_back for newly-constructed streams. The group's
      * mutex is held when this is called.
      */
-    virtual void stream_added(chunk_stream_group_member &s) {}
+    virtual void stream_added(chunk_stream_group_member &) {}
     /**
      * Called when a stream stops (whether from the network or the user).
      *
      * The stream's @c queue_mutex is locked when this is called.
      */
-    virtual void stream_stop_received(chunk_stream_group_member &s) {}
+    virtual void stream_stop_received(chunk_stream_group_member &) {}
 
 public:
     using iterator = boost::transform_iterator<
@@ -466,7 +464,6 @@ chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer>::~chunk_stream_ring_grou
     stop();
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_CHUNK_STREAM_GROUP

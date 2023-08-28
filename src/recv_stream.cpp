@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <cassert>
 #include <atomic>
+#include <new>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_live_heap.h>
 #include <spead2/common_memcpy.h>
@@ -31,9 +32,7 @@
 
 #define INVALID_ENTRY ((queue_entry *) -1)
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 stream_stat_config::stream_stat_config(std::string name, mode mode_)
@@ -219,8 +218,6 @@ stream_stats &stream_stats::operator+=(const stream_stats &other)
 }
 
 
-constexpr std::size_t stream_config::default_max_heaps;
-
 static std::size_t compute_bucket_count(std::size_t total_max_heaps)
 {
     std::size_t buckets = 4;
@@ -373,7 +370,7 @@ std::size_t stream_config::get_stat_index(const std::string &name) const
 
 
 stream_base::stream_base(const stream_config &config)
-    : queue_storage(new storage_type[config.get_max_heaps() * config.get_substreams()]),
+    : queue_storage(new queue_entry[config.get_max_heaps() * config.get_substreams()]),
     bucket_count(compute_bucket_count(config.get_max_heaps() * config.get_substreams())),
     bucket_shift(compute_bucket_shift(bucket_count)),
     buckets(new queue_entry *[bucket_count]),
@@ -385,7 +382,7 @@ stream_base::stream_base(const stream_config &config)
     batch_stats(config.get_stats().size())
 {
     for (std::size_t i = 0; i < config.get_max_heaps() * config.get_substreams(); i++)
-        cast(i)->next = INVALID_ENTRY;
+        queue_storage[i].next = INVALID_ENTRY;
     for (std::size_t i = 0; i < bucket_count; i++)
         buckets[i] = NULL;
     for (std::size_t i = 0; i <= config.get_substreams(); i++)
@@ -399,11 +396,11 @@ stream_base::~stream_base()
 {
     for (std::size_t i = 0; i < get_config().get_max_heaps() * get_config().get_substreams(); i++)
     {
-        queue_entry *entry = cast(i);
+        queue_entry *entry = &queue_storage[i];
         if (entry->next != INVALID_ENTRY)
         {
             unlink_entry(entry);
-            entry->heap.~live_heap();
+            entry->heap.destroy();
         }
     }
 }
@@ -420,15 +417,10 @@ std::size_t stream_base::get_substream(item_pointer_t heap_cnt) const
     return heap_cnt - (heap_cnt / substream_div * config.get_substreams());
 }
 
-stream_base::queue_entry *stream_base::cast(std::size_t index)
-{
-    return reinterpret_cast<queue_entry *>(&queue_storage[index]);
-}
-
 void stream_base::unlink_entry(queue_entry *entry)
 {
     assert(entry->next != INVALID_ENTRY);
-    std::size_t bucket_id = get_bucket(entry->heap.get_cnt());
+    std::size_t bucket_id = get_bucket(entry->heap->get_cnt());
     queue_entry **prev = &buckets[bucket_id];
     while (*prev != entry)
     {
@@ -503,7 +495,7 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
         for (entry = buckets[bucket_id]; entry != NULL; entry = entry->next, search_dist++)
         {
             assert(entry != INVALID_ENTRY);
-            if (entry->heap.get_cnt() == heap_cnt)
+            if (entry->heap->get_cnt() == heap_cnt)
                 break;
         }
         state.search_dist += search_dist;
@@ -528,20 +520,20 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
         substream &ss = substreams[substream_id];
         if (++ss.head == substreams[substream_id + 1].start)
             ss.head = ss.start;
-        entry = cast(ss.head);
+        entry = &queue_storage[ss.head];
         if (entry->next != INVALID_ENTRY)
         {
             state.incomplete_heaps_evicted++;
             unlink_entry(entry);
-            heap_ready(std::move(entry->heap));
-            entry->heap.~live_heap();
+            heap_ready(std::move(*entry->heap));
+            entry->heap.destroy();
         }
         entry->next = buckets[bucket_id];
         buckets[bucket_id] = entry;
-        new (&entry->heap) live_heap(packet, config.get_bug_compat());
+        entry->heap.construct(packet, config.get_bug_compat());
     }
 
-    live_heap *h = &entry->heap;
+    live_heap *h = entry->heap.get();
     bool result = false;
     bool end_of_stream = false;
     if (h->add_packet(packet, config.get_memcpy(), *config.get_memory_allocator(),
@@ -557,7 +549,7 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
                 state.complete_heaps++;
                 heap_ready(std::move(*h));
             }
-            h->~live_heap();
+            entry->heap.destroy();
         }
     }
 
@@ -578,13 +570,13 @@ void stream_base::flush_unlocked()
         {
             if (++ss.head == substreams[i + 1].start)
                 ss.head = ss.start;
-            queue_entry *entry = cast(ss.head);
+            queue_entry *entry = &queue_storage[ss.head];
             if (entry->next != INVALID_ENTRY)
             {
                 n_flushed++;
                 unlink_entry(entry);
-                heap_ready(std::move(entry->heap));
-                entry->heap.~live_heap();
+                heap_ready(std::move(*entry->heap));
+                entry->heap.destroy();
             }
         }
     }
@@ -705,5 +697,4 @@ const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::
     return mem_to_stream(state, ptr, length);
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

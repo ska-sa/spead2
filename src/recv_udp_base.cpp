@@ -25,12 +25,8 @@
 #include <spead2/recv_udp_base.h>
 #include <spead2/common_logging.h>
 
-namespace spead2
+namespace spead2::recv
 {
-namespace recv
-{
-
-constexpr std::size_t udp_reader_base::default_max_size;
 
 bool udp_reader_base::process_one_packet(
     stream_base::add_packet_state &state,
@@ -62,5 +58,4 @@ bool udp_reader_base::process_one_packet(
     return stopped;
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
