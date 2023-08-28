@@ -104,6 +104,7 @@ int main(int argc, const char * const *argv)
             boost::asio::ip::address::from_string("239.255.88.88"),
             8888));
     ibv_config.set_interface_address(boost::asio::ip::address::from_string(argv[1]));
+    ibv_config.set_ttl(4);  // should be enough for most networks
     // The nvidia-peermem kernel module recognises that dout is a device pointer
     ibv_config.add_memory_region(dout, size);
 
