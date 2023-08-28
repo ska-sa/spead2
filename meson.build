@@ -71,7 +71,10 @@ if gdrapi_opt.allowed() and meson.get_compiler('cuda').links(
   int main() { (void) gdr_open(); }
   ''',
   name : 'gdrapi library',
-  dependencies : [gdrapi_test_dep]
+  # Workaround for https://github.com/mesonbuild/meson/issues/12169
+  args : get_option('cuda_args'),
+  dependencies : [gdrapi_test_dep],
+  no_builtin_args : false,
 )
   gdrapi_dep = gdrapi_test_dep
 endif
