@@ -23,6 +23,7 @@ project(
   license_files : ['COPYING', 'COPYING.LESSER'],
   default_options : [
     'cpp_std=c++17',
+    'cuda_std=c++17',
     'b_ndebug=if-release',
     'buildtype=release',
     'default_library=static',
