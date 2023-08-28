@@ -38,6 +38,8 @@ and the deprecation removals.
 - Remove build-time dependencies from :file:`requirements.txt`.
 - Update the :file:`.pyi` files to use more modern syntax e.g., :pep:`585`,
   :pep:`604`, :pep:`613`.
+- Replace references to nv_peer_mem with nvidia-peermem.
+- Increase TTL of :program:`gpudirect_example` to 4.
 
 .. _Meson: https://mesonbuild.com
 .. _ruff: https://beta.ruff.rs/docs/

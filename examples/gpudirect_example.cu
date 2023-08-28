@@ -16,9 +16,9 @@
 
 /* This example sends data directly from a GPU to the network, without
  * passing through the CPU, using GPUDirect RDMA. It requires
- * - An NVIDIA GPU
+ * - An NVIDIA data-centre GPU
  * - An NVIDIA (Mellanox) NIC
- * - The nv_peer_mem kernel module (https://github.com/Mellanox/nv_peer_memory)
+ * - The nvidia-peermem kernel module loaded
  * - It doesn't play nicely with IOMMU remapping. Adding "iommu=pt" to the
  *   kernel command line seems to help.
  *
@@ -29,7 +29,8 @@
  * It should print a message as it receives each heap.
  *
  * If the sender reports "ibv_reg_mr failed: Bad address" it probably means
- * that nv_peer_mem is not set up correctly.
+ * that nvidia-peermem is not set up correctly, or that your GPU is not a
+ * data-centre GPU.
  *
  * It should be noted that this example is intended for exposition rather
  * than high performance. For example, a real application would most likely
@@ -103,7 +104,8 @@ int main(int argc, const char * const *argv)
             boost::asio::ip::address::from_string("239.255.88.88"),
             8888));
     ibv_config.set_interface_address(boost::asio::ip::address::from_string(argv[1]));
-    // The nv_peer_mem kernel module recognises that dout is a device pointer
+    ibv_config.set_ttl(4);  // should be enough for most networks
+    // The nvidia-peermem kernel module recognises that dout is a device pointer
     ibv_config.add_memory_region(dout, size);
 
     auto empty_callback = [](const boost::system::error_code &ec,

@@ -23,6 +23,7 @@ project(
   license_files : ['COPYING', 'COPYING.LESSER'],
   default_options : [
     'cpp_std=c++17',
+    'cuda_std=c++17',
     'b_ndebug=if-release',
     'buildtype=release',
     'default_library=static',
@@ -30,7 +31,7 @@ project(
     'b_staticpic=false',  # The default of true harms performance
   ]
 )
-shared_lib_version = '4.0.0'
+shared_lib_version = '5.0.0'
 
 compiler = meson.get_compiler('cpp')
 py = import('python').find_installation(pure : false, modules : ['jinja2', 'pycparser', 'packaging'])
