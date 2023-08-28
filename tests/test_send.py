@@ -16,7 +16,6 @@
 import binascii
 import gc
 import math
-import platform
 import struct
 import threading
 import time
@@ -973,13 +972,3 @@ class TestUdpIbvConfig:
         )
         with pytest.raises(ValueError, match="interface address"):
             send.UdpIbvStream(spead2.ThreadPool(), config, udp_ibv_config)
-
-    @pytest.mark.skipif(
-        platform.python_implementation() == "PyPy",
-        reason="Deprecations not being report on PyPy due to pybind/pybind11#3110",
-    )
-    def test_deprecated_constants(self):
-        with pytest.deprecated_call():
-            assert send.UdpIbvStream.DEFAULT_BUFFER_SIZE == send.UdpIbvConfig.DEFAULT_BUFFER_SIZE
-        with pytest.deprecated_call():
-            assert send.UdpIbvStream.DEFAULT_MAX_POLL == send.UdpIbvConfig.DEFAULT_MAX_POLL

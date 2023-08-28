@@ -450,22 +450,12 @@ class TestPassthroughUdp(BaseTestPassthroughSubstreams):
             receiver.add_udp_reader(8888 + i, bind_hostname="localhost")
 
     def prepare_senders(self, thread_pool, n):
-        if n == 1:
-            with pytest.deprecated_call():
-                return spead2.send.UdpStream(
-                    thread_pool,
-                    "localhost",
-                    8888,
-                    spead2.send.StreamConfig(rate=1e7),
-                    buffer_size=0,
-                )
-        else:
-            return spead2.send.UdpStream(
-                thread_pool,
-                [("localhost", 8888 + i) for i in range(n)],
-                spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0,
-            )
+        return spead2.send.UdpStream(
+            thread_pool,
+            [("localhost", 8888 + i) for i in range(n)],
+            spead2.send.StreamConfig(rate=1e7),
+            buffer_size=0,
+        )
 
     def test_empty_endpoints(self):
         with pytest.raises(ValueError):
@@ -489,18 +479,12 @@ class TestPassthroughUdp6(BaseTestPassthroughSubstreams):
             receiver.add_udp_reader(8888 + i, bind_hostname="::1")
 
     def prepare_senders(self, thread_pool, n):
-        if n == 1:
-            with pytest.deprecated_call():
-                return spead2.send.UdpStream(
-                    thread_pool, "::1", 8888, spead2.send.StreamConfig(rate=1e7), buffer_size=0
-                )
-        else:
-            return spead2.send.UdpStream(
-                thread_pool,
-                [("::1", 8888 + i) for i in range(n)],
-                spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0,
-            )
+        return spead2.send.UdpStream(
+            thread_pool,
+            [("::1", 8888 + i) for i in range(n)],
+            spead2.send.StreamConfig(rate=1e7),
+            buffer_size=0,
+        )
 
 
 class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreams):
@@ -518,22 +502,12 @@ class TestPassthroughUdpCustomSocket(BaseTestPassthroughSubstreams):
     def prepare_senders(self, thread_pool, n):
         assert len(self._ports) == n
         send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        if n == 1:
-            with pytest.deprecated_call():
-                sender = spead2.send.UdpStream(
-                    thread_pool,
-                    send_sock,
-                    "127.0.0.1",
-                    self._ports[0],
-                    spead2.send.StreamConfig(rate=1e7),
-                )
-        else:
-            sender = spead2.send.UdpStream(
-                thread_pool,
-                send_sock,
-                [("127.0.0.1", port) for port in self._ports],
-                spead2.send.StreamConfig(rate=1e7),
-            )
+        sender = spead2.send.UdpStream(
+            thread_pool,
+            send_sock,
+            [("127.0.0.1", port) for port in self._ports],
+            spead2.send.StreamConfig(rate=1e7),
+        )
         send_sock.close()  # spead2 duplicates the socket
         return sender
 
@@ -551,26 +525,14 @@ class TestPassthroughUdpMulticast(BaseTestPassthroughSubstreams):
             )
 
     def prepare_senders(self, thread_pool, n):
-        if n == 1:
-            with pytest.deprecated_call():
-                return spead2.send.UdpStream(
-                    thread_pool,
-                    self.MCAST_GROUP,
-                    8887,
-                    spead2.send.StreamConfig(rate=1e7),
-                    buffer_size=0,
-                    ttl=1,
-                    interface_address=self.INTERFACE_ADDRESS,
-                )
-        else:
-            return spead2.send.UdpStream(
-                thread_pool,
-                [(self.MCAST_GROUP, 8887 - i) for i in range(n)],
-                spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0,
-                ttl=1,
-                interface_address=self.INTERFACE_ADDRESS,
-            )
+        return spead2.send.UdpStream(
+            thread_pool,
+            [(self.MCAST_GROUP, 8887 - i) for i in range(n)],
+            spead2.send.StreamConfig(rate=1e7),
+            buffer_size=0,
+            ttl=1,
+            interface_address=self.INTERFACE_ADDRESS,
+        )
 
 
 class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
@@ -595,26 +557,14 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
 
     def prepare_senders(self, thread_pool, n):
         interface_index = self.get_interface_index()
-        if n == 1:
-            with pytest.deprecated_call():
-                return spead2.send.UdpStream(
-                    thread_pool,
-                    self.MCAST_GROUP,
-                    8887,
-                    spead2.send.StreamConfig(rate=1e7),
-                    buffer_size=0,
-                    ttl=0,
-                    interface_index=interface_index,
-                )
-        else:
-            return spead2.send.UdpStream(
-                thread_pool,
-                [(self.MCAST_GROUP, 8887 - i) for i in range(n)],
-                spead2.send.StreamConfig(rate=1e7),
-                buffer_size=0,
-                ttl=0,
-                interface_index=interface_index,
-            )
+        return spead2.send.UdpStream(
+            thread_pool,
+            [(self.MCAST_GROUP, 8887 - i) for i in range(n)],
+            spead2.send.StreamConfig(rate=1e7),
+            buffer_size=0,
+            ttl=0,
+            interface_index=interface_index,
+        )
 
 
 class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
@@ -650,26 +600,15 @@ class TestPassthroughUdpIbv(BaseTestPassthroughSubstreams):
     def prepare_senders(self, thread_pool, n):
         # The buffer size is deliberately reduced so that we test the
         # wrapping once the buffer has been used up
-        if n == 1:
-            with pytest.deprecated_call():
-                return spead2.send.UdpIbvStream(
-                    thread_pool,
-                    self.MCAST_GROUP,
-                    8876,
-                    spead2.send.StreamConfig(rate=1e7),
-                    self._interface_address(),
-                    buffer_size=64 * 1024,
-                )
-        else:
-            return spead2.send.UdpIbvStream(
-                thread_pool,
-                spead2.send.StreamConfig(rate=1e7),
-                spead2.send.UdpIbvConfig(
-                    endpoints=[(self.MCAST_GROUP, 8876 + i) for i in range(n)],
-                    interface_address=self._interface_address(),
-                    buffer_size=64 * 1024,
-                ),
-            )
+        return spead2.send.UdpIbvStream(
+            thread_pool,
+            spead2.send.StreamConfig(rate=1e7),
+            spead2.send.UdpIbvConfig(
+                endpoints=[(self.MCAST_GROUP, 8876 + i) for i in range(n)],
+                interface_address=self._interface_address(),
+                buffer_size=64 * 1024,
+            ),
+        )
 
     @pytest.mark.parametrize("num_items", [0, 1, 3, 4, 10])
     def test_memory_regions(self, num_items):
@@ -741,8 +680,7 @@ class TestPassthroughTcp6(BaseTestPassthrough):
         receiver.add_tcp_reader(8887, bind_hostname="::1")
 
     def prepare_sender(self, thread_pool):
-        with pytest.deprecated_call():
-            return spead2.send.TcpStream(thread_pool, "::1", 8887)
+        return spead2.send.TcpStream(thread_pool, [("::1", 8887)])
 
 
 class TestPassthroughMem(BaseTestPassthrough):
@@ -775,11 +713,7 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreams):
 
     def prepare_senders(self, thread_pool, n):
         assert n == len(self._queues)
-        if n == 1:
-            with pytest.deprecated_call():
-                return spead2.send.InprocStream(thread_pool, self._queues[0])
-        else:
-            return spead2.send.InprocStream(thread_pool, self._queues)
+        return spead2.send.InprocStream(thread_pool, self._queues)
 
     def transmit_item_groups(
         self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
@@ -800,13 +734,3 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreams):
         queues = [spead2.InprocQueue() for i in range(2)]
         stream = spead2.send.InprocStream(spead2.ThreadPool(), queues)
         assert stream.queues == queues
-        with pytest.deprecated_call():
-            with pytest.raises(RuntimeError):
-                stream.queue
-
-    def test_queue(self):
-        queue = spead2.InprocQueue()
-        stream = spead2.send.InprocStream(spead2.ThreadPool(), [queue])
-        assert stream.queues == [queue]
-        with pytest.deprecated_call():
-            assert stream.queue is queue

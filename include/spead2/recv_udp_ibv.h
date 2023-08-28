@@ -117,11 +117,6 @@ protected:
                      const boost::asio::ip::address &interface_address);
 
 public:
-    [[deprecated("Use spead2::recv::udp_ibv_config::default_buffer_size")]]
-    static constexpr std::size_t default_buffer_size = udp_ibv_config::default_buffer_size;
-    [[deprecated("Use spead2::recv::udp_ibv_config::default_max_poll")]]
-    static constexpr int default_max_poll = udp_ibv_config::default_max_poll;
-
     udp_ibv_reader_core(
         stream &owner,
         const udp_ibv_config &config);
@@ -295,93 +290,6 @@ private:
     poll_result poll_once(stream_base::add_packet_state &state);
 
 public:
-    /**
-     * Constructor with single endpoint (deprecated).
-     *
-     * @param owner        Owning stream
-     * @param endpoint     Address and port. Note that is it possible for the address to be
-     *                     unicast and different to the @a interface_address: the interface
-     *                     may have multiple IP addresses, in which case this filters packets
-     *                     on the interface by IP address. An unspecified address can also be
-     *                     used to skip address filtering.
-     * @param interface_address  Address of the interface which should join the group and listen for data
-     * @param max_size     Maximum packet size that will be accepted
-     * @param buffer_size  Requested memory allocation for work requests. Note
-     *                     that this is used to determine the number of packets
-     *                     to buffer; if the packets are smaller than @a max_size,
-     *                     then fewer bytes will be buffered.
-     * @param comp_vector  Completion channel vector (interrupt) for asynchronous operation, or
-     *                     a negative value to poll continuously. Polling
-     *                     should not be used if there are other users of the
-     *                     thread pool. If a non-negative value is provided, it
-     *                     is taken modulo the number of available completion
-     *                     vectors. This allows a number of readers to be
-     *                     assigned sequential completion vectors and have them
-     *                     load-balanced, without concern for the number
-     *                     available.
-     * @param max_poll     Maximum number of times to poll in a row, without
-     *                     waiting for an interrupt (if @a comp_vector is
-     *                     non-negative) or letting other code run on the
-     *                     thread (if @a comp_vector is negative).
-     *
-     * @throws std::invalid_argument If @a endpoint is specified and is not an
-     *                               IPv4 address
-     * @throws std::invalid_argument If @a interface_address is not an IPv4 address
-     */
-    [[deprecated("Use udp_ibv_config")]]
-    udp_ibv_reader(
-        stream &owner,
-        const boost::asio::ip::udp::endpoint &endpoint,
-        const boost::asio::ip::address &interface_address,
-        std::size_t max_size = udp_ibv_config::default_max_size,
-        std::size_t buffer_size = udp_ibv_config::default_buffer_size,
-        int comp_vector = 0,
-        int max_poll = udp_ibv_config::default_max_poll);
-
-    /**
-     * Constructor with multiple endpoints (deprecated).
-     *
-     * @param owner        Owning stream
-     * @param endpoints    Addresses and ports. Note that is it possible for the addresses to be
-     *                     unicast and different to the @a interface_address: the interface
-     *                     may have multiple IP addresses, in which case this filters packets
-     *                     on the interface by IP address. An unspecified address can also be
-     *                     used to skip address filtering.
-     * @param interface_address  Address of the interface which should join the group and listen for data
-     * @param max_size     Maximum packet size that will be accepted
-     * @param buffer_size  Requested memory allocation for work requests. Note
-     *                     that this is used to determine the number of packets
-     *                     to buffer; if the packets are smaller than @a max_size,
-     *                     then fewer bytes will be buffered.
-     * @param comp_vector  Completion channel vector (interrupt) for asynchronous operation, or
-     *                     a negative value to poll continuously. Polling
-     *                     should not be used if there are other users of the
-     *                     thread pool. If a non-negative value is provided, it
-     *                     is taken modulo the number of available completion
-     *                     vectors. This allows a number of readers to be
-     *                     assigned sequential completion vectors and have them
-     *                     load-balanced, without concern for the number
-     *                     available.
-     * @param max_poll     Maximum number of times to poll in a row, without
-     *                     waiting for an interrupt (if @a comp_vector is
-     *                     non-negative) or letting other code run on the
-     *                     thread (if @a comp_vector is negative).
-     *
-     * @throws std::invalid_argument If @a endpoints is empty.
-     * @throws std::invalid_argument If any element of @a endpoints is specified and is not
-     *                               an IPv4 address
-     * @throws std::invalid_argument If @a interface_address is not an IPv4 address
-     */
-    [[deprecated("Use udp_ibv_config")]]
-    udp_ibv_reader(
-        stream &owner,
-        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-        const boost::asio::ip::address &interface_address,
-        std::size_t max_size = udp_ibv_config::default_max_size,
-        std::size_t buffer_size = udp_ibv_config::default_buffer_size,
-        int comp_vector = 0,
-        int max_poll = udp_ibv_config::default_max_poll);
-
     /**
      * Constructor.
      *

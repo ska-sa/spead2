@@ -211,58 +211,7 @@ static void add_tcp_reader_socket(
 }
 
 #if SPEAD2_USE_IBV
-static void add_udp_ibv_reader_single(
-    stream &s,
-    const std::string &address,
-    std::uint16_t port,
-    const std::string &interface_address,
-    std::size_t max_size,
-    std::size_t buffer_size,
-    int comp_vector,
-    int max_poll)
-{
-    deprecation_warning("Use a UdpIbvConfig instead");
-    py::gil_scoped_release gil;
-    auto endpoint = make_endpoint<boost::asio::ip::udp>(s, address, port);
-    s.emplace_reader<udp_ibv_reader>(
-        udp_ibv_config()
-            .add_endpoint(endpoint)
-            .set_interface_address(make_address(s, interface_address))
-            .set_max_size(max_size)
-            .set_buffer_size(buffer_size)
-            .set_comp_vector(comp_vector)
-            .set_max_poll(max_poll));
-}
-
-static void add_udp_ibv_reader_multi(
-    stream &s,
-    const py::sequence &endpoints,
-    const std::string &interface_address,
-    std::size_t max_size,
-    std::size_t buffer_size,
-    int comp_vector,
-    int max_poll)
-{
-    deprecation_warning("Use a UdpIbvConfig instead");
-    // TODO: could this conversion be done by a custom caster?
-    udp_ibv_config config;
-    for (size_t i = 0; i < len(endpoints); i++)
-    {
-        py::sequence endpoint = endpoints[i].cast<py::sequence>();
-        std::string address = endpoint[0].cast<std::string>();
-        std::uint16_t port = endpoint[1].cast<std::uint16_t>();
-        config.add_endpoint(make_endpoint<boost::asio::ip::udp>(s, address, port));
-    }
-    py::gil_scoped_release gil;
-    config.set_interface_address(make_address(s, interface_address));
-    config.set_max_size(max_size);
-    config.set_buffer_size(buffer_size);
-    config.set_comp_vector(comp_vector);
-    config.set_max_poll(max_poll);
-    s.emplace_reader<udp_ibv_reader>(config);
-}
-
-static void add_udp_ibv_reader_new(stream &s, const udp_ibv_config_wrapper &config_wrapper)
+static void add_udp_ibv_reader(stream &s, const udp_ibv_config_wrapper &config_wrapper)
 {
     py::gil_scoped_release gil;
     udp_ibv_config config = config_wrapper;
@@ -761,22 +710,7 @@ py::module register_module(py::module &parent)
              "acceptor"_a,
              "max_size"_a = tcp_reader::default_max_size)
 #if SPEAD2_USE_IBV
-        .def("add_udp_ibv_reader", add_udp_ibv_reader_single,
-              "multicast_group"_a,
-              "port"_a,
-              "interface_address"_a,
-              "max_size"_a = udp_ibv_config::default_max_size,
-              "buffer_size"_a = udp_ibv_config::default_buffer_size,
-              "comp_vector"_a = 0,
-              "max_poll"_a = udp_ibv_config::default_max_poll)
-        .def("add_udp_ibv_reader", add_udp_ibv_reader_multi,
-              "endpoints"_a,
-              "interface_address"_a,
-              "max_size"_a = udp_ibv_config::default_max_size,
-              "buffer_size"_a = udp_ibv_config::default_buffer_size,
-              "comp_vector"_a = 0,
-              "max_poll"_a = udp_ibv_config::default_max_poll)
-        .def("add_udp_ibv_reader", add_udp_ibv_reader_new,
+        .def("add_udp_ibv_reader", add_udp_ibv_reader,
              "config"_a)
 #endif
 #if SPEAD2_USE_PCAP
@@ -786,29 +720,6 @@ py::module register_module(py::module &parent)
         .def("add_inproc_reader", add_inproc_reader,
              "queue"_a)
         .def("stop", SPEAD2_PTMF(stream, stop))
-#if SPEAD2_USE_IBV
-        .def_property_readonly_static("DEFAULT_UDP_IBV_MAX_SIZE",
-            [](py::object) {
-#ifndef PYPY_VERSION  // Workaround for https://github.com/pybind/pybind11/issues/3110
-                deprecation_warning("Use spead2.recv.UdpIbvConfig.DEFAULT_MAX_SIZE");
-#endif
-                return udp_ibv_config::default_max_size;
-            })
-        .def_property_readonly_static("DEFAULT_UDP_IBV_BUFFER_SIZE",
-            [](py::object) {
-#ifndef PYPY_VERSION  // Workaround for https://github.com/pybind/pybind11/issues/3110
-                deprecation_warning("Use spead2.recv.UdpIbvConfig.DEFAULT_BUFFER_SIZE");
-#endif
-                return udp_ibv_config::default_buffer_size;
-            })
-        .def_property_readonly_static("DEFAULT_UDP_IBV_MAX_POLL",
-            [](py::object) {
-#ifndef PYPY_VERSION  // Workaround for https://github.com/pybind/pybind11/issues/3110
-                deprecation_warning("Use spead2.recv.UdpIbvConfig.DEFAULT_MAX_POLL");
-#endif
-                return udp_ibv_config::default_max_poll;
-            })
-#endif
         .def_readonly_static("DEFAULT_UDP_MAX_SIZE", &udp_reader::default_max_size)
         .def_readonly_static("DEFAULT_UDP_BUFFER_SIZE", &udp_reader::default_buffer_size)
         .def_readonly_static("DEFAULT_TCP_MAX_SIZE", &tcp_reader::default_max_size)

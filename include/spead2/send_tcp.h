@@ -24,7 +24,6 @@
 
 #include <boost/asio.hpp>
 #include <vector>
-#include <initializer_list>
 #include <spead2/send_stream.h>
 
 namespace spead2::send
@@ -59,29 +58,6 @@ public:
         io_service_ref io_service,
         std::function<void(const boost::system::error_code &)> &&connect_handler,
         const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
-        const stream_config &config = stream_config(),
-        std::size_t buffer_size = default_buffer_size,
-        const boost::asio::ip::address &interface_address = boost::asio::ip::address());
-
-    /**
-     * Backwards-compatibility constructor.
-     */
-    [[deprecated("use a vector of endpoints")]]
-    tcp_stream(
-        io_service_ref io_service,
-        std::function<void(const boost::system::error_code &)> &&connect_handler,
-        const boost::asio::ip::tcp::endpoint &endpoint,
-        const stream_config &config = stream_config(),
-        std::size_t buffer_size = default_buffer_size,
-        const boost::asio::ip::address &interface_address = boost::asio::ip::address());
-
-    /* Force an initializer list to forward to the vector version (without this,
-     * a singleton initializer list forwards to the scalar version).
-     */
-    tcp_stream(
-        io_service_ref io_service,
-        std::function<void(const boost::system::error_code &)> &&connect_handler,
-        std::initializer_list<boost::asio::ip::tcp::endpoint> endpoints,
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size,
         const boost::asio::ip::address &interface_address = boost::asio::ip::address());

@@ -4,7 +4,8 @@ Changelog
 .. rubric:: 4.0.0b1
 
 This release makes major changes to the build system, and removes deprecated
-features. See :doc:`migrate-4` for more detailed information about upgrading.
+features. See :doc:`migrate-4` for more detailed information about upgrading
+and the deprecation removals.
 
 - Replace the build system with Meson_.
 - Update the C++ code to use C++17.
@@ -19,6 +20,8 @@ features. See :doc:`migrate-4` for more detailed information about upgrading.
 - Fix the debug logging option so logging from inline functions in headers
   will also do debug logging without the user needing to make preprocessor
   defines.
+- Fix :program:`spead2_bench.py` so that it functions when ibverbs support is
+  not compiled in.
 - Remove the need for boost_program_options to be installed to be able to
   install the Python bindings from source.
 - Produce binary wheels for aarch64.
@@ -26,6 +29,8 @@ features. See :doc:`migrate-4` for more detailed information about upgrading.
 - Make numba and scipy optional for running tests (some tests will be skipped
   if they are not present).
 - Update the libpcap embedded in the wheels to 1.10.4.
+- Update the Boost version used to build wheels to 1.83.
+- Update the rdma-core version used to build wheels to 47.0.
 - Update the pybind11 build dependency to 2.11.1.
 - Replace flake8 with ruff_ for linting.
 - Remove the :file:`spead2/common_bind.h` header, which was unused.

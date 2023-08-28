@@ -142,10 +142,7 @@ private:
     };
 
 public:
-#pragma GCC diagnostic push   // There are deprecated constructors
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     using Base::Base;
-#pragma GCC diagnostic pop
 
     /// Sends heap synchronously
     item_pointer_t send_heap(const heap_wrapper &h, s_item_pointer_t cnt = -1, std::size_t substream_index = 0)
@@ -240,10 +237,7 @@ private:
     }
 
 public:
-#pragma GCC diagnostic push   // There are deprecated constructors
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     using Base::Base;
-#pragma GCC diagnostic pop
 
     int get_fd() const { return sem.get_fd(); }
 
@@ -467,38 +461,6 @@ public:
             config)
     {
     }
-
-    // Convert old-style hostname, port args to vector
-    template<typename... Args>
-    udp_stream_wrapper(
-        io_service_ref io_service,
-        const std::string &hostname,
-        std::uint16_t port,
-        Args&&... args)
-        : udp_stream_wrapper(
-            io_service,
-            std::vector<std::pair<std::string, std::uint16_t>>{{hostname, port}},
-            std::forward<Args>(args)...)
-    {
-        deprecation_warning("pass a list of (hostname, port) tuples");
-    }
-
-    // Convert old-style hostname, port args to vector
-    template<typename... Args>
-    udp_stream_wrapper(
-        io_service_ref io_service,
-        const socket_wrapper<boost::asio::ip::udp::socket> &socket,
-        const std::string &hostname,
-        std::uint16_t port,
-        Args&&... args)
-        : udp_stream_wrapper(
-            std::move(io_service),
-            socket,
-            std::vector<std::pair<std::string, std::uint16_t>>{{hostname, port}},
-            std::forward<Args>(args)...)
-    {
-        deprecation_warning("pass a list of (hostname, port) tuples");
-    }
 };
 
 #if SPEAD2_USE_IBV
@@ -523,25 +485,6 @@ private:
     std::vector<py::buffer_info> buffer_infos;
 
 public:
-    udp_ibv_stream_wrapper(
-        std::shared_ptr<thread_pool> pool,
-        const std::string &multicast_group,
-        std::uint16_t port,
-        const stream_config &config,
-        const std::string &interface_address,
-        std::size_t buffer_size,
-        int ttl,
-        int comp_vector,
-        int max_poll)
-        : Base(pool,
-               make_endpoint<boost::asio::ip::udp>(pool->get_io_service(), multicast_group, port),
-               config,
-               make_address(pool->get_io_service(), interface_address),
-               buffer_size, ttl, comp_vector, max_poll)
-    {
-        deprecation_warning("pass a UdpIbvConfig");
-    }
-
     udp_ibv_stream_wrapper(
         std::shared_ptr<thread_pool> pool,
         const stream_config &config,
@@ -602,32 +545,6 @@ static py::class_<T, stream> udp_stream_register(py::module &m, const char *name
              "thread_pool"_a.none(false), "socket"_a, "endpoints"_a,
              "config"_a = stream_config())
 
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, std::string>(),
-             "thread_pool"_a.none(false), "hostname"_a, "port"_a,
-             "config"_a = stream_config(),
-             "buffer_size"_a = T::default_buffer_size,
-             "interface_address"_a = std::string())
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, int>(),
-             "thread_pool"_a.none(false), "hostname"_a, "port"_a,
-             "config"_a = stream_config(),
-             "buffer_size"_a = T::default_buffer_size,
-             "ttl"_a)
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, int, std::string>(),
-             "thread_pool"_a.none(false), "multicast_group"_a, "port"_a,
-             "config"_a = stream_config(),
-             "buffer_size"_a = T::default_buffer_size,
-             "ttl"_a,
-             "interface_address"_a)
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, int, unsigned int>(),
-             "thread_pool"_a.none(false), "multicast_group"_a, "port"_a,
-             "config"_a = stream_config(),
-             "buffer_size"_a = T::default_buffer_size,
-             "ttl"_a,
-             "interface_index"_a)
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, const socket_wrapper<boost::asio::ip::udp::socket> &, std::string, std::uint16_t, const stream_config &>(),
-             "thread_pool"_a.none(false), "socket"_a, "hostname"_a, "port"_a,
-             "config"_a = stream_config())
-
         .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size);
 }
 
@@ -638,14 +555,6 @@ static py::class_<T, stream> udp_ibv_stream_register(py::module &m, const char *
     using namespace pybind11::literals;
 
     return py::class_<T, stream>(m, name)
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::string, std::size_t, int, int, int>(),
-             "thread_pool"_a.none(false), "multicast_group"_a, "port"_a,
-             "config"_a = stream_config(),
-             "interface_address"_a,
-             "buffer_size"_a = udp_ibv_config::default_buffer_size,
-             "ttl"_a = 1,
-             "comp_vector"_a = 0,
-             "max_poll"_a = udp_ibv_config::default_max_poll)
         .def(py::init([](std::shared_ptr<thread_pool_wrapper> thread_pool,
                          const stream_config &config,
                          const udp_ibv_config_wrapper &ibv_config_wrapper)
@@ -675,21 +584,7 @@ static py::class_<T, stream> udp_ibv_stream_register(py::module &m, const char *
             }),
             "thread_pool"_a.none(false),
             "config"_a = stream_config(),
-            "udp_ibv_config"_a)
-        .def_property_readonly_static("DEFAULT_BUFFER_SIZE",
-            [](py::object) {
-#ifndef PYPY_VERSION  // Workaround for https://github.com/pybind/pybind11/issues/3110
-                deprecation_warning("Use spead2.send.UdpIbvConfig.DEFAULT_BUFFER_SIZE");
-#endif
-                return udp_ibv_config::default_buffer_size;
-            })
-        .def_property_readonly_static("DEFAULT_MAX_POLL",
-            [](py::object) {
-#ifndef PYPY_VERSION  // Workaround for https://github.com/pybind/pybind11/issues/3110
-                deprecation_warning("Use spead2.send.UdpIbvConfig.DEFAULT_MAX_POLL");
-#endif
-                return udp_ibv_config::default_max_poll;
-            });
+            "udp_ibv_config"_a);
 }
 #endif
 
@@ -701,21 +596,6 @@ public:
      * first argument, to faciliate the meta-programming used by registration
      * code.
      */
-    template<typename ConnectHandler>
-    tcp_stream_wrapper(
-        ConnectHandler&& connect_handler,
-        io_service_ref io_service,
-        const std::string &hostname, std::uint16_t port,
-        const stream_config &config,
-        std::size_t buffer_size,
-        const std::string &interface_address)
-        : Base(io_service, std::forward<ConnectHandler>(connect_handler),
-               make_endpoint<boost::asio::ip::tcp>(*io_service, hostname, port),
-               config, buffer_size, make_address(*io_service, interface_address))
-    {
-        deprecation_warning("pass a list of (hostname, port) tuples");
-    }
-
     template<typename ConnectHandler>
     tcp_stream_wrapper(
         ConnectHandler&& connect_handler,
@@ -758,15 +638,6 @@ static py::class_<typename Registrar::stream_type, stream> tcp_stream_register(p
                       const stream_config &>(),
              "thread_pool"_a.none(false), "socket"_a, "config"_a = stream_config())
         .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size);
-    Registrar::template apply<
-            std::shared_ptr<thread_pool_wrapper>,
-            const std::string &, std::uint16_t,
-            const stream_config &, std::size_t, const std::string &>(
-        class_,
-        "thread_pool"_a.none(false), "hostname"_a, "port"_a,
-        "config"_a = stream_config(),
-        "buffer_size"_a = T::default_buffer_size,
-        "interface_address"_a = "");
     Registrar::template apply<
             std::shared_ptr<thread_pool_wrapper>,
             const std::vector<std::pair<std::string, std::uint16_t>> &,
@@ -868,26 +739,9 @@ static py::class_<T, stream> inproc_stream_register(py::module &m, const char *n
 {
     using namespace pybind11::literals;
     return py::class_<T, stream>(m, name)
-        .def(py::init(
-                [](std::shared_ptr<thread_pool_wrapper> io_service,
-                   std::shared_ptr<inproc_queue> queue,
-                   const stream_config &config)
-                {
-                    deprecation_warning("pass a list of queues");
-                    return new T(std::move(io_service), std::move(queue), config);
-                }),
-             "thread_pool"_a.none(false), "queue"_a, "config"_a = stream_config())
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::shared_ptr<inproc_queue>> &, const stream_config &>(),
              "thread_pool"_a.none(false), "queues"_a, "config"_a = stream_config())
-        .def_property_readonly("queues", SPEAD2_PTMF(T, get_queues))
-        .def_property_readonly("queue", [](const T &stream)
-        {
-            deprecation_warning("use queues");
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            return stream.get_queue();
-#pragma GCC diagnostic pop
-        });
+        .def_property_readonly("queues", SPEAD2_PTMF(T, get_queues));
 }
 
 template<typename T>

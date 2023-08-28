@@ -6,9 +6,9 @@ set -e -u
 
 package="$1"
 sccache_version=0.5.4
-rdma_core_version=44.0
+rdma_core_version=47.0
 pcap_version=1.10.4
-boost_version=1.81.0
+boost_version=1.83.0
 boost_version_under=${boost_version//./_}
 
 yum install -y wget cmake3 ninja-build flex bison libnl3-devel

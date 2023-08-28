@@ -27,6 +27,7 @@ project(
     'buildtype=release',
     'default_library=static',
     'warning_level=2',
+    'b_staticpic=false',  # The default of true harms performance
   ]
 )
 shared_lib_version = '4.0.0'

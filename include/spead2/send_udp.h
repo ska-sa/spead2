@@ -33,7 +33,6 @@
 #include <boost/asio.hpp>
 #include <utility>
 #include <vector>
-#include <initializer_list>
 #include <spead2/send_stream.h>
 
 namespace spead2::send
@@ -134,7 +133,7 @@ public:
         const boost::asio::ip::address &interface_address);
 
     /**
-     * Constructor with multicast hop count and outgoing interface address
+     * Constructor with multicast hop count and outgoing interface index
      * (IPv6 only).
      *
      * @param io_service   I/O service for sending data
@@ -156,43 +155,6 @@ public:
         std::size_t buffer_size,
         int ttl,
         unsigned int interface_index);
-
-    /// Backwards-compatibility constructor with a single endpoint
-    template<typename... Args>
-    [[deprecated("use a vector of endpoints")]]
-    udp_stream(
-        io_service_ref io_service,
-        const boost::asio::ip::udp::endpoint &endpoint,
-        Args&&... args)
-        : udp_stream(std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>{endpoint}, std::forward<Args>(args)...) {}
-
-    /// Backwards-compatibility constructor with a socket and a single endpoint
-    template<typename... Args>
-    [[deprecated("use a vector of endpoints")]]
-    udp_stream(
-        io_service_ref io_service,
-        boost::asio::ip::udp::socket &&socket,
-        const boost::asio::ip::udp::endpoint &endpoint,
-        Args&&... args)
-        : udp_stream(std::move(io_service), std::move(socket), std::vector<boost::asio::ip::udp::endpoint>{endpoint}, std::forward<Args>(args)...) {}
-
-    /* Force an initializer list to forward to the vector version (without this,
-     * a singleton initializer list forwards to the scalar version).
-     */
-    template<typename... Args>
-    udp_stream(
-        io_service_ref io_service,
-        std::initializer_list<boost::asio::ip::udp::endpoint> endpoints,
-        Args&&... args)
-        : udp_stream(std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>(endpoints), std::forward<Args>(args)...) {}
-
-    template<typename... Args>
-    udp_stream(
-        io_service_ref io_service,
-        boost::asio::ip::udp::socket &&socket,
-        std::initializer_list<boost::asio::ip::udp::endpoint> endpoints,
-        Args&&... args)
-        : udp_stream(std::move(io_service), std::move(socket), std::vector<boost::asio::ip::udp::endpoint>(endpoints), std::forward<Args>(args)...) {}
 };
 
 } // namespace spead2::send

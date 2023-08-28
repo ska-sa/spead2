@@ -595,29 +595,6 @@ udp_ibv_config &udp_ibv_config::add_memory_region(const void *ptr, std::size_t s
 
 udp_ibv_stream::udp_ibv_stream(
     io_service_ref io_service,
-    const boost::asio::ip::udp::endpoint &endpoint,
-    const stream_config &config,
-    const boost::asio::ip::address &interface_address,
-    std::size_t buffer_size,
-    int ttl,
-    int comp_vector,
-    int max_poll)
-    : udp_ibv_stream(
-        std::move(io_service),
-        config,
-        udp_ibv_config()
-            .add_endpoint(endpoint)
-            .set_interface_address(interface_address)
-            .set_buffer_size(buffer_size)
-            .set_ttl(ttl)
-            .set_comp_vector(comp_vector)
-            .set_max_poll(max_poll)
-    )
-{
-}
-
-udp_ibv_stream::udp_ibv_stream(
-    io_service_ref io_service,
     const stream_config &config,
     const udp_ibv_config &ibv_config)
     : stream(std::make_unique<udp_ibv_writer>(std::move(io_service), config, ibv_config))
