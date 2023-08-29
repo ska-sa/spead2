@@ -166,6 +166,9 @@ else  # python
     'py_register.cpp',
     'py_send.cpp',
   )
+  # While meson provides special support for dependency('pybind11'), it's
+  # not guaranteed to pick up the version installed in the isolated build
+  # environment e.g. if there is a different version on PKG_CONFIG_PATH.
   pybind11_inc = run_command(
     py, '-c', 'import pybind11; print(pybind11.get_include())',
     check : true
