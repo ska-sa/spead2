@@ -30,8 +30,7 @@ foreach name : loader_modules
     input : [gen_loader],
     output : [h_name],
     depend_files : gen_templates,
-    command : [py, '@INPUT@', 'header', name],
-    capture : true,
+    command : [py, '@INPUT@', 'header', name, '@OUTPUT@'],
     install : true,
     install_dir : header_install_dir
   )

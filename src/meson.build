@@ -21,8 +21,7 @@ foreach name : loader_modules
     input : [gen_loader],
     output : [cpp_name],
     depend_files : gen_templates,
-    command : [py, '@INPUT@', 'cxx', name],
-    capture : true
+    command : [py, '@INPUT@', 'cxx', name, '@OUTPUT@']
   )
   gen_sources += gen_cpp
 endforeach
