@@ -5,6 +5,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import os
+import pathlib
 import re
 import subprocess
 import sys
@@ -35,13 +36,8 @@ author = "National Research Foundation (SARAO)"
 
 
 def get_version():
-    root = os.path.dirname(os.path.dirname(__file__))
-    with open(os.path.join(root, "meson.build")) as f:
-        for line in f.readlines():
-            match = re.match(" *version : '(.*)', *# VERSION-MAGIC", line)
-            if match:
-                release = match.group(1)
-                break
+    root = pathlib.Path(__file__).parent.parent
+    release = (root / "VERSION.txt").read_text().strip()
     match = re.match(r"^(\d+)\.(\d+)", release)
     return match.group(0), release
 

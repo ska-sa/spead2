@@ -273,7 +273,7 @@ jobs:
           name: debug_symbols_uncompressed
       - name: Compress debug symbols
         run: >-
-          tar -Jcvf "spead2-"$(sed -n "s/^ *version : '\\(.*\\)', *# VERSION-MAGIC.*/\\1/p" meson.build)-debug.tar.xz _spead2*.debug
+          tar -Jcvf "spead2-"$(<VERSION.txt)-debug.tar.xz _spead2*.debug
       - uses: actions/upload-artifact@v3
         with:
           name: debug_symbols
