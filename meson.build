@@ -61,6 +61,25 @@ else
   cuda_dep = disabler()
 endif
 
+# Meson doesn't support has_function for cuda, so we have to check manually
+gdrapi_dep = disabler()  # Assume not found until proven otherwise
+gdrapi_opt = get_option('gdrapi').require(cuda_dep.found())
+gdrapi_test_dep = declare_dependency(link_args : '-lgdrapi')
+if gdrapi_opt.allowed() and meson.get_compiler('cuda').links(
+  '''
+  #include <gdrapi.h>
+  int main() { (void) gdr_open(); }
+  ''',
+  name : 'gdrapi library',
+  # Workaround for https://github.com/mesonbuild/meson/issues/12169
+  args : get_option('cuda_args'),
+  dependencies : [gdrapi_test_dep],
+  no_builtin_args : false,
+)
+  gdrapi_dep = gdrapi_test_dep
+endif
+gdrapi_opt.require(gdrapi_dep.found())
+
 # The rdma-core libraries have pkgconfig files in newer versions, but older
 # versions did not and we still want to support those. This unfortunately
 # requires more complex logic.
@@ -90,16 +109,6 @@ libraries = [
     'function': 'mlx5dv_create_cq',
     'prereq': ['ibv_dep', 'rdmacm_dep'],
   },
-  {
-    'name': 'gdrapi',
-    'option': 'gdrapi',
-    'dep_name': '',  # There is currently no pkgconfig support in gdrcopy
-    'header': 'gdrapi.h',
-    'lib': 'gdrapi',
-    'function': 'gdr_open',
-    'prereq': ['cuda_dep'],
-    'disabler' : true,
-  },
 ]
 foreach lib : libraries
   opt = get_option(lib['option'])
@@ -119,9 +128,6 @@ foreach lib : libraries
     lib_dep = dependency('', required : false)  # A not-found dependency
   endif
   opt.require(lib_dep.found())
-  if lib.get('disabler', false) and not lib_dep.found()
-    lib_dep = disabler()
-  endif
   set_variable(lib['name'] + '_dep', lib_dep)
 endforeach
 use_ibv = ibv_dep.found() and rdmacm_dep.found()
