@@ -4,7 +4,6 @@
 
 set -e -u
 
-package="$1"
 sccache_version=0.5.4
 rdma_core_version=47.0
 pcap_version=1.10.4

@@ -65,19 +65,17 @@ install = ["--tags=python-runtime"]
 
 [tool.cibuildwheel]
 build-frontend = "build"
-before-all = "manylinux/before_all.sh {package}"
 manylinux-x86_64-image="manylinux2014"
 manylinux-i686-image="manylinux2014"
 # The manylinux2014 AArch64 images don't provide cmake, so build 2_28 wheels instead
 manylinux-aarch64-image="manylinux_2_28"
-build = ["cp38-manylinux*", "cp39-manylinux*", "cp310-manylinux*", "cp311-manylinux*", "cp312-manylinux*"]
 
 # We'd like to show sccache stats (to confirm that it's working) after builds.
 # there is no separate after-build in cibuildwheel so we cram it into before-test.
 before-test = "sccache --show-stats && pip install -r {package}/requirements.txt -r {package}/requirements-3.12.txt"
 test-command = "pytest -v {package}/tests"
 
-[tool.cibuildwheel.config-settings]
+[tool.cibuildwheel.linux.config-settings]
 # Ensure that all the libraries are enabled. Unfortunately
 # -Dauto_features=enabled isn't viable as it also force-enables some
 # features that are architecture- or OS-specific rather than relying
@@ -94,6 +92,19 @@ setup-args = [
 [tool.cibuildwheel.linux]
 archs = ["aarch64", "x86_64"]
 environment-pass = ["SCCACHE_GHA_ENABLED", "ACTIONS_CACHE_URL", "ACTIONS_RUNTIME_TOKEN"]
+before-all = ".ci/before_all_linux.sh"
+
+[tool.cibuildwheel.macos.config-settings]
+setup-args = [
+  "-Dpcap=enabled",
+  "-Db_lto=true",
+  "--cross-file=/tmp/cibuildwheel/pcap-cross.ini",
+]
+
+[tool.cibuildwheel.macos]
+# Note: archs is not set here. before_all only supports one arch at a time,
+# and it's set from .github/workflows/test.yml.
+before-all = ".ci/before_all_macos.sh"
 
 [tool.isort]
 profile = "black"

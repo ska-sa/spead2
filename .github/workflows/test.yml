@@ -232,7 +232,7 @@ jobs:
           name: sdist
           path: ./dist/*.tar.gz
 
-  cibuildwheel:
+  cibuildwheel-linux:
     needs: [test-cxx, test-python, coverage, lint]
     runs-on: ubuntu-22.04
     strategy:
@@ -263,8 +263,32 @@ jobs:
           name: debug_symbols_uncompressed
           path: ./wheelhouse/*.debug
 
+  cibuildwheel-macos:
+    needs: [test-cxx, test-python, coverage, lint]
+    runs-on: macos-12
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, arm64]
+        python: [cp38, cp39, cp310, cp311, cp312]
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+      - uses: pypa/cibuildwheel@v2.15.0
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_BUILD: ${{ matrix.python }}-macos*
+          CIBW_TEST_SKIP: "*-macosx_arm64"
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: ./wheelhouse/*.whl
+
   compress-debug:
-    needs: [cibuildwheel]
+    needs: [cibuildwheel-linux]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
