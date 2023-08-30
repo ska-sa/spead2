@@ -1246,6 +1246,7 @@ class TestTcpReader:
 
     def teardown_method(self):
         self.close()
+        self.receiver = None  # Allow it to be garbage-collected
 
     def close(self):
         if self.send_sock is not None:

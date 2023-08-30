@@ -728,6 +728,7 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreams):
         )
         for queue in self._queues:
             queue.stop()
+        self._queues.clear()  # Allow them to be garbage-collected
         return ret
 
     def test_queues(self):

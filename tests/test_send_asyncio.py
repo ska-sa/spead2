@@ -38,6 +38,9 @@ class TestUdpStream:
         self.ig["test"].value = np.zeros((256 * 1024,), np.uint8)
         self.heap = self.ig.get_heap()
 
+    def teardown_method(self):
+        self.stream = None  # Allow for garbage collection
+
     async def _test_async_flush(self):
         assert self.stream._active > 0
         await self.stream.async_flush()
