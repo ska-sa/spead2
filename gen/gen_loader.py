@@ -260,6 +260,7 @@ def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument("type", choices=["header", "cxx"])
     parser.add_argument("library", choices=["rdmacm", "ibv", "mlx5dv"])
+    parser.add_argument("output_file")
     args = parser.parse_args()
 
     if args.library == "rdmacm":
@@ -286,10 +287,11 @@ def main(argv):
             fail_log_level="debug",
         )
 
-    if args.type == "header":
-        print(lib.header())
-    else:
-        print(lib.cxx())
+    with open(args.output_file, "w") as f:
+        if args.type == "header":
+            print(lib.header(), file=f)
+        else:
+            print(lib.cxx(), file=f)
 
 
 if __name__ == "__main__":

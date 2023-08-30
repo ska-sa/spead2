@@ -3,6 +3,7 @@ set -e
 
 if [ "$(uname -s)" = "Linux" ]; then
     sudo apt-get install \
+        ninja-build \
         gcc \
         g++ \
         lcov \
@@ -15,5 +16,5 @@ if [ "$(uname -s)" = "Linux" ]; then
         libibverbs-dev \
         libdivide-dev
 else
-    brew install boost libdivide
+    brew install ninja boost libdivide
 fi

@@ -21,8 +21,7 @@ foreach name : loader_modules
     input : [gen_loader],
     output : [cpp_name],
     depend_files : gen_templates,
-    command : [py.full_path(), '@INPUT@', 'cxx', name],
-    capture : true
+    command : [py, '@INPUT@', 'cxx', name, '@OUTPUT@']
   )
   gen_sources += gen_cpp
 endforeach
@@ -167,8 +166,11 @@ else  # python
     'py_register.cpp',
     'py_send.cpp',
   )
+  # While meson provides special support for dependency('pybind11'), it's
+  # not guaranteed to pick up the version installed in the isolated build
+  # environment e.g. if there is a different version on PKG_CONFIG_PATH.
   pybind11_inc = run_command(
-    py.full_path(), '-c', 'import pybind11; print(pybind11.get_include())',
+    py, '-c', 'import pybind11; print(pybind11.get_include())',
     check : true
   ).stdout().strip()
   pybind11_dep = declare_dependency(include_directories : pybind11_inc)
@@ -202,7 +204,7 @@ else  # python
     custom_target(
       input : [py_ext],
       output : [target, target + '.debug'],
-      command : [py.full_path(), files('../gen/strip_debug.py'), '@INPUT@', '@OUTPUT0@', '@OUTPUT1@'],
+      command : [py, files('../gen/strip_debug.py'), '@INPUT@', '@OUTPUT0@', '@OUTPUT1@'],
       install : true,
       install_tag : ['python-runtime', 'devel'],
       install_dir : [py_install_dir, py_install_dir / '.debug']

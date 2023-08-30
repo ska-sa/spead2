@@ -1,5 +1,5 @@
 - Update version number in doc/changelog.rst
-- Update version number in meson.build
+- Update version number in VERSION.txt
 - Update the shared library version number in meson.build:
   - If there are ABI changes, update the first number and reset the second to zero.
   - Otherwise, increment the second number.
