@@ -204,5 +204,8 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreamsAsync):
         )
         for queue in self._queues:
             queue.stop()
-        self._queues.clear()  # Allow them to be garbage-collected
         return ret
+
+    def teardown_method(self):
+        # Workaround for https://github.com/pytest-dev/pytest/issues/11374
+        getattr(self, "_queues", []).clear()

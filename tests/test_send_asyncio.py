@@ -39,7 +39,8 @@ class TestUdpStream:
         self.heap = self.ig.get_heap()
 
     def teardown_method(self):
-        self.stream = None  # Allow for garbage collection
+        # Workaround for https://github.com/pytest-dev/pytest/issues/11374
+        self.stream = None
 
     async def _test_async_flush(self):
         assert self.stream._active > 0

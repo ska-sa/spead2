@@ -728,10 +728,13 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreams):
         )
         for queue in self._queues:
             queue.stop()
-        self._queues.clear()  # Allow them to be garbage-collected
         return ret
 
     def test_queues(self):
         queues = [spead2.InprocQueue() for i in range(2)]
         stream = spead2.send.InprocStream(spead2.ThreadPool(), queues)
         assert stream.queues == queues
+
+    def teardown_method(self):
+        # Workaround for https://github.com/pytest-dev/pytest/issues/11374
+        getattr(self, "_queues", []).clear()
