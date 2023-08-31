@@ -55,7 +55,9 @@ boost_unit_test_framework_dep = dependency(
   disabler : true
 )
 if add_languages('cuda', required : get_option('cuda'), native : false)
-  cuda_dep = dependency('cuda', required : get_option('cuda'), disabler : true)
+  # Empty but found dependency; the compiler takes care of CUDA so we don't
+  # need to explicitly link to anything.
+  cuda_dep = declare_dependency()
 else
   cuda_dep = disabler()
 endif
