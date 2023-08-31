@@ -734,3 +734,7 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreams):
         queues = [spead2.InprocQueue() for i in range(2)]
         stream = spead2.send.InprocStream(spead2.ThreadPool(), queues)
         assert stream.queues == queues
+
+    def teardown_method(self):
+        # Workaround for https://github.com/pytest-dev/pytest/issues/11374
+        getattr(self, "_queues", []).clear()

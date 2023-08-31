@@ -1246,6 +1246,8 @@ class TestTcpReader:
 
     def teardown_method(self):
         self.close()
+        # Workaround for https://github.com/pytest-dev/pytest/issues/11374
+        self.receiver = None
 
     def close(self):
         if self.send_sock is not None:

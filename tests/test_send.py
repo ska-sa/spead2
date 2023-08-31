@@ -605,6 +605,8 @@ class TestStream:
     def teardown_method(self):
         for thread in self.threads:
             thread.join()
+        # Workaround for https://github.com/pytest-dev/pytest/issues/11374
+        self.stream = None
 
     def test_overflow(self):
         # Use threads to fill up the first two slots. This is necessary because
@@ -856,6 +858,11 @@ class TestInprocStream:
         self.flavour = Flavour(4, 64, 48, 0)
         self.queue = spead2.InprocQueue()
         self.stream = send.InprocStream(spead2.ThreadPool(), [self.queue])
+
+    def teardown_method(self):
+        # Workaround for https://github.com/pytest-dev/pytest/issues/11374
+        self.queue = None
+        self.stream = None
 
     def test_stopped_queue(self):
         self.queue.stop()
