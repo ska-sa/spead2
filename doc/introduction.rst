@@ -58,8 +58,9 @@ installation method as it does not depend on a compiler, development
 libraries etc. The wheels use the "manylinux2014" tag, which requires at least
 :command:`pip` 19.3 to install.
 
-Since version 4.0 there are also aarch64 wheels, which use the "manylinux_2_28"
-tag and require at least :command:`pip` 20.3.
+Since version 4.0 there are also aarch64 Linux wheels, which use the
+"manylinux_2_28" tag and require at least :command:`pip` 20.3; and wheels for
+MacOS (both Intel and Apple Silicon).
 
 Provided your system meets these requirements, just run::
 

@@ -1,6 +1,27 @@
 Changelog
 =========
 
+.. rubric:: 4.0.0
+
+This release makes major changes to the build system, and removes deprecated
+features. See :doc:`migrate-4` for more detailed information about upgrading
+and the deprecation removals.
+
+Most of the changes are listed under 4.0.0b1 below. Since then, the following
+changes have been made:
+
+- Improve detection of gdrcopy by using the CUDA compiler to compile the
+  test code.
+- Remove ninja from ``build-system.requires``. If you have ninja installed on
+  the system, that will be used for the Python install rather than
+  downloading it.
+- Make miscellaneous improvements to the build system.
+- Remove an unused file (:file:`.ci/ccache-path.sh`).
+- Work around a pytest bug to prevent tests running out of file descriptors
+  (particularly on MacOS, which has a lower default limit).
+- Add wheels for MacOS (Intel and Apple Silicon).
+- Document that Meson must be at least 1.2.
+
 .. rubric:: 4.0.0b1
 
 This release makes major changes to the build system, and removes deprecated
