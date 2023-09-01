@@ -21,6 +21,8 @@ changes have been made:
   (particularly on MacOS, which has a lower default limit).
 - Add wheels for MacOS (Intel and Apple Silicon).
 - Document that Meson must be at least 1.2.
+- Make source paths in :file:`.debug` files more usable (relative to
+  4.0.0b1).
 
 .. rubric:: 4.0.0b1
 
@@ -431,8 +433,6 @@ Other changes:
   (only happened when capturing to file).
 - Fix :program:`spead2_recv` reporting statistics that may miss out the last
   batch of packets.
-- Make source paths in :file:`.debug` files more usable (relative to
-  4.0.0b1).
 
 .. rubric:: 2.0.2
 
