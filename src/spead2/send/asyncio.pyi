@@ -15,7 +15,6 @@
 
 import asyncio
 import socket
-from typing import overload
 
 import spead2
 import spead2.send
@@ -45,18 +44,6 @@ class TcpStream(spead2.send._TcpStream, AsyncStream):
         socket: socket.socket,
         config: spead2.send.StreamConfig = ...,
     ) -> None: ...
-    @overload
-    @classmethod
-    async def connect(
-        self,
-        thread_pool: spead2.ThreadPool,
-        hostname: str,
-        port: int,
-        config: spead2.send.StreamConfig = ...,
-        buffer_size: int = ...,
-        interface_address: str = ...,
-    ) -> None: ...
-    @overload
     @classmethod
     async def connect(
         self,
