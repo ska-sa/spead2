@@ -431,6 +431,8 @@ Other changes:
   (only happened when capturing to file).
 - Fix :program:`spead2_recv` reporting statistics that may miss out the last
   batch of packets.
+- Make source paths in :file:`.debug` files more usable (relative to
+  4.0.0b1).
 
 .. rubric:: 2.0.2
 
