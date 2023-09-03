@@ -102,53 +102,11 @@ class _UdpStream:
     def __init__(
         self,
         thread_pool: spead2.ThreadPool,
-        hostname: str,
-        port: int,
-        config: StreamConfig = ...,
-        buffer_size: int = ...,
-        interface_address: str = ...,
-    ) -> None: ...
-    @overload
-    def __init__(
-        self,
-        thread_pool: spead2.ThreadPool,
-        hostname: str,
-        port: int,
-        config: StreamConfig,
-        buffer_size: int,
-        ttl: int,
-    ) -> None: ...
-    @overload
-    def __init__(
-        self,
-        thread_pool: spead2.ThreadPool,
-        multicast_group: str,
-        port: int,
-        config: StreamConfig,
-        ttl: int,
-        interface_address: str,
-    ) -> None: ...
-    @overload
-    def __init__(
-        self,
-        thread_pool: spead2.ThreadPool,
-        multicast_group: str,
-        port: int,
-        config: StreamConfig,
-        ttl: int,
-        interface_index: int,
-    ) -> None: ...
-    @overload
-    def __init__(
-        self,
-        thread_pool: spead2.ThreadPool,
         socket: socket.socket,
         hostname: str,
         port: int,
         config: StreamConfig = ...,
     ) -> None: ...
-
-    # Endpoint list variants
     @overload
     def __init__(
         self,
@@ -221,23 +179,6 @@ class UdpIbvConfig:
     ) -> None: ...
 
 class _UdpIbvStream:
-    DEFAULT_BUFFER_SIZE: ClassVar[int]
-    DEFAULT_MAX_POLL: ClassVar[int]
-
-    @overload
-    def __init__(
-        self,
-        thread_pool: spead2.ThreadPool,
-        multicast_group: str,
-        port: int,
-        config: StreamConfig,
-        interface_address: str,
-        buffer_size: int = ...,
-        ttl: int = ...,
-        comp_vector: int = ...,
-        max_pool: int = ...,
-    ) -> None: ...
-    @overload
     def __init__(
         self, thread_pool: spead2.ThreadPool, config: StreamConfig, udp_ibv_config: UdpIbvConfig
     ) -> None: ...
@@ -256,16 +197,6 @@ class TcpStream(_TcpStream, SyncStream):
     def __init__(
         self,
         thread_pool: spead2.ThreadPool,
-        hostname: str,
-        port: int,
-        config: StreamConfig = ...,
-        buffer_size: int = ...,
-        interface_address: str = ...,
-    ) -> None: ...
-    @overload
-    def __init__(
-        self,
-        thread_pool: spead2.ThreadPool,
         endpoints: _EndpointList,
         config: StreamConfig = ...,
         buffer_size: int = ...,
@@ -278,14 +209,7 @@ class BytesStream(SyncStream):
 
 class _InprocStream:
     @property
-    def queue(self) -> spead2.InprocQueue: ...
-    @property
     def queues(self) -> Sequence[spead2.InprocQueue]: ...
-    @overload
-    def __init__(
-        self, thread_pool: spead2.ThreadPool, queue: spead2.InprocQueue, config: StreamConfig = ...
-    ) -> None: ...
-    @overload
     def __init__(
         self,
         thread_pool: spead2.ThreadPool,

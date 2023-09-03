@@ -164,9 +164,6 @@ class Ringbuffer:
     def capacity(self) -> int: ...
 
 class _Stream:
-    DEFAULT_UDP_IBV_MAX_SIZE: ClassVar[int]
-    DEFAULT_UDP_IBV_BUFFER_SIZE: ClassVar[int]
-    DEFAULT_UDP_IBV_MAX_POLL: ClassVar[int]
     DEFAULT_UDP_MAX_SIZE: ClassVar[int]
     DEFAULT_UDP_BUFFER_SIZE: ClassVar[int]
     DEFAULT_TCP_MAX_SIZE: ClassVar[int]
@@ -203,28 +200,6 @@ class _Stream:
     ) -> None: ...
     @overload
     def add_tcp_reader(self, acceptor: socket.socket, max_size: int = ...) -> None: ...
-    @overload
-    def add_udp_ibv_reader(
-        self,
-        multicast_group: str,
-        port: int,
-        interface_address: str,
-        max_size: int = ...,
-        buffer_size: int = ...,
-        comp_vector: int = ...,
-        max_poll: int = ...,
-    ) -> None: ...
-    @overload
-    def add_udp_ibv_reader(
-        self,
-        endpoints: Sequence[tuple[str, int]],
-        interface_address: str,
-        max_size: int = ...,
-        buffer_size: int = ...,
-        comp_vector: int = ...,
-        max_poll: int = ...,
-    ) -> None: ...
-    @overload
     def add_udp_ibv_reader(self, config: UdpIbvConfig) -> None: ...
     def add_udp_pcap_file_reader(self, filename: str, filter: str = ...) -> None: ...
     def add_inproc_reader(self, queue: spead2.InprocQueue) -> None: ...

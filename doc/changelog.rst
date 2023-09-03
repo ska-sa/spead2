@@ -23,6 +23,7 @@ changes have been made:
 - Document that Meson must be at least 1.2.
 - Make source paths in :file:`.debug` files more usable (relative to
   4.0.0b1).
+- Remove :file:`.pyi` file entries for the functionality removed in 4.0.
 
 .. rubric:: 4.0.0b1
 
