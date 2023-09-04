@@ -8,6 +8,7 @@ Development processes
    :maxdepth: 2
 
    dev-setup
+   dev-debug
    dev-release
 
 Design
