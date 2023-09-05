@@ -454,8 +454,8 @@ py::module register_module(py::module &parent)
     py::module m = parent.def_submodule("recv");
 
     py::class_<heap_base>(m, "HeapBase")
-        .def_property_readonly("cnt", SPEAD2_PTMF(heap_base, get_cnt))
-        .def_property_readonly("flavour", SPEAD2_PTMF(heap_base, get_flavour))
+        .def_property_readonly("cnt", &heap_base::get_cnt)
+        .def_property_readonly("flavour", &heap_base::get_flavour)
         .def("get_items", [](py::object &self) -> py::list
         {
             const heap_base &h = self.cast<const heap_base &>();
@@ -470,14 +470,14 @@ py::module register_module(py::module &parent)
             }
             return out;
         })
-        .def("is_start_of_stream", SPEAD2_PTMF(heap_base, is_start_of_stream))
-        .def("is_end_of_stream", SPEAD2_PTMF(heap_base, is_end_of_stream));
+        .def("is_start_of_stream", &heap_base::is_start_of_stream)
+        .def("is_end_of_stream", &heap_base::is_end_of_stream);
     py::class_<heap, heap_base>(m, "Heap")
-        .def("get_descriptors", SPEAD2_PTMF(heap, get_descriptors));
+        .def("get_descriptors", &heap::get_descriptors);
     py::class_<incomplete_heap, heap_base>(m, "IncompleteHeap")
-        .def_property_readonly("heap_length", SPEAD2_PTMF(incomplete_heap, get_heap_length))
-        .def_property_readonly("received_length", SPEAD2_PTMF(incomplete_heap, get_received_length))
-        .def_property_readonly("payload_ranges", SPEAD2_PTMF(incomplete_heap, get_payload_ranges));
+        .def_property_readonly("heap_length", &incomplete_heap::get_heap_length)
+        .def_property_readonly("received_length", &incomplete_heap::get_received_length)
+        .def_property_readonly("payload_ranges", &incomplete_heap::get_payload_ranges);
     py::class_<item_wrapper>(m, "RawItem", py::buffer_protocol())
         .def_readonly("id", &item_wrapper::id)
         .def_readonly("is_immediate", &item_wrapper::is_immediate)
@@ -495,9 +495,9 @@ py::module register_module(py::module &parent)
         .def(
             py::init<std::string, stream_stat_config::mode>(),
             "name"_a, "mode"_a = stream_stat_config::mode::COUNTER)
-        .def_property_readonly("name", SPEAD2_PTMF(stream_stat_config, get_name))
-        .def_property_readonly("mode", SPEAD2_PTMF(stream_stat_config, get_mode))
-        .def("combine", SPEAD2_PTMF(stream_stat_config, combine))
+        .def_property_readonly("name", &stream_stat_config::get_name)
+        .def_property_readonly("mode", &stream_stat_config::get_mode)
+        .def("combine", &stream_stat_config::combine)
         .def(py::self == py::self)
         .def(py::self != py::self);
     py::class_<stream_stats> stream_stats_cls(m, "StreamStats");
@@ -563,8 +563,8 @@ py::module register_module(py::module &parent)
             [](const stream_stats &self) { return py::make_value_iterator(self.begin(), self.end()); },
             py::keep_alive<0, 1>()  // keep the stats alive while it is iterated
         )
-        .def("__len__", SPEAD2_PTMF(stream_stats, size))
-        .def_property_readonly("config", SPEAD2_PTMF(stream_stats, get_config))
+        .def("__len__", &stream_stats::size)
+        .def_property_readonly("config", &stream_stats::get_config)
         .def(py::self + py::self)
         .def(py::self += py::self);
 
@@ -598,14 +598,14 @@ py::module register_module(py::module &parent)
     py::class_<stream_config>(m, "StreamConfig")
         .def(py::init(&data_class_constructor<stream_config>))
         .def_property("max_heaps",
-                      SPEAD2_PTMF(stream_config, get_max_heaps),
-                      SPEAD2_PTMF(stream_config, set_max_heaps))
+                      &stream_config::get_max_heaps,
+                      &stream_config::set_max_heaps)
         .def_property("substreams",
-                      SPEAD2_PTMF(stream_config, get_substreams),
-                      SPEAD2_PTMF(stream_config, set_substreams))
+                      &stream_config::get_substreams,
+                      &stream_config::set_substreams)
         .def_property("bug_compat",
-                      SPEAD2_PTMF(stream_config, get_bug_compat),
-                      SPEAD2_PTMF(stream_config, set_bug_compat))
+                      &stream_config::get_bug_compat,
+                      &stream_config::set_bug_compat)
         .def_property("memcpy",
              [](const stream_config &self) {
                  stream_config cmp;
@@ -620,38 +620,38 @@ py::module register_module(py::module &parent)
              },
              [](stream_config &self, int id) { self.set_memcpy(memcpy_function_id(id)); })
         .def_property("memory_allocator",
-                      SPEAD2_PTMF(stream_config, get_memory_allocator),
+                      &stream_config::get_memory_allocator,
                       SPEAD2_PTMF_VOID(stream_config, set_memory_allocator))
         .def_property("stop_on_stop_item",
-                      SPEAD2_PTMF(stream_config, get_stop_on_stop_item),
+                      &stream_config::get_stop_on_stop_item,
                       SPEAD2_PTMF_VOID(stream_config, set_stop_on_stop_item))
         .def_property("allow_unsized_heaps",
-                      SPEAD2_PTMF(stream_config, get_allow_unsized_heaps),
+                      &stream_config::get_allow_unsized_heaps,
                       SPEAD2_PTMF_VOID(stream_config, set_allow_unsized_heaps))
         .def_property("allow_out_of_order",
-                      SPEAD2_PTMF(stream_config, get_allow_out_of_order),
+                      &stream_config::get_allow_out_of_order,
                       SPEAD2_PTMF_VOID(stream_config, set_allow_out_of_order))
         .def_property("stream_id",
-                      SPEAD2_PTMF(stream_config, get_stream_id),
-                      SPEAD2_PTMF(stream_config, set_stream_id))
-        .def("add_stat", SPEAD2_PTMF(stream_config, add_stat),
+                      &stream_config::get_stream_id,
+                      &stream_config::set_stream_id)
+        .def("add_stat", &stream_config::add_stat,
              "name"_a,
              "mode"_a = stream_stat_config::mode::COUNTER)
-        .def_property_readonly("stats", SPEAD2_PTMF(stream_config, get_stats))
-        .def("get_stat_index", SPEAD2_PTMF(stream_config, get_stat_index),
+        .def_property_readonly("stats", &stream_config::get_stats)
+        .def("get_stat_index", &stream_config::get_stat_index,
              "name"_a)
-        .def("next_stat_index", SPEAD2_PTMF(stream_config, next_stat_index))
+        .def("next_stat_index", &stream_config::next_stat_index)
         .def_readonly_static("DEFAULT_MAX_HEAPS", &stream_config::default_max_heaps);
     py::class_<ring_stream_config_wrapper>(m, "RingStreamConfig")
         .def(py::init(&data_class_constructor<ring_stream_config_wrapper>))
         .def_property("heaps",
-                      SPEAD2_PTMF(ring_stream_config_wrapper, get_heaps),
+                      &ring_stream_config_wrapper::get_heaps,
                       SPEAD2_PTMF_VOID(ring_stream_config_wrapper, set_heaps))
         .def_property("contiguous_only",
-                      SPEAD2_PTMF(ring_stream_config_wrapper, get_contiguous_only),
+                      &ring_stream_config_wrapper::get_contiguous_only,
                       SPEAD2_PTMF_VOID(ring_stream_config_wrapper, set_contiguous_only))
         .def_property("incomplete_keep_payload_ranges",
-                      SPEAD2_PTMF(ring_stream_config_wrapper, get_incomplete_keep_payload_ranges),
+                      &ring_stream_config_wrapper::get_incomplete_keep_payload_ranges,
                       SPEAD2_PTMF_VOID(ring_stream_config_wrapper, set_incomplete_keep_payload_ranges))
         .def_readonly_static("DEFAULT_HEAPS", &ring_stream_config_wrapper::default_heaps);
 #if SPEAD2_USE_IBV
@@ -660,16 +660,16 @@ py::module register_module(py::module &parent)
         .def_readwrite("endpoints", &udp_ibv_config_wrapper::py_endpoints)
         .def_readwrite("interface_address", &udp_ibv_config_wrapper::py_interface_address)
         .def_property("buffer_size",
-                      SPEAD2_PTMF(udp_ibv_config_wrapper, get_buffer_size),
+                      &udp_ibv_config_wrapper::get_buffer_size,
                       SPEAD2_PTMF_VOID(udp_ibv_config_wrapper, set_buffer_size))
         .def_property("max_size",
-                      SPEAD2_PTMF(udp_ibv_config_wrapper, get_max_size),
+                      &udp_ibv_config_wrapper::get_max_size,
                       SPEAD2_PTMF_VOID(udp_ibv_config_wrapper, set_max_size))
         .def_property("comp_vector",
-                      SPEAD2_PTMF(udp_ibv_config_wrapper, get_comp_vector),
+                      &udp_ibv_config_wrapper::get_comp_vector,
                       SPEAD2_PTMF_VOID(udp_ibv_config_wrapper, set_comp_vector))
         .def_property("max_poll",
-                      SPEAD2_PTMF(udp_ibv_config_wrapper, get_max_poll),
+                      &udp_ibv_config_wrapper::get_max_poll,
                       SPEAD2_PTMF_VOID(udp_ibv_config_wrapper, set_max_poll))
         .def_readonly_static("DEFAULT_BUFFER_SIZE", &udp_ibv_config_wrapper::default_buffer_size)
         .def_readonly_static("DEFAULT_MAX_SIZE", &udp_ibv_config_wrapper::default_max_size)
@@ -719,7 +719,7 @@ py::module register_module(py::module &parent)
 #endif
         .def("add_inproc_reader", add_inproc_reader,
              "queue"_a)
-        .def("stop", SPEAD2_PTMF(stream, stop))
+        .def("stop", &stream::stop)
         .def_readonly_static("DEFAULT_UDP_MAX_SIZE", &udp_reader::default_max_size)
         .def_readonly_static("DEFAULT_UDP_BUFFER_SIZE", &udp_reader::default_buffer_size)
         .def_readonly_static("DEFAULT_TCP_MAX_SIZE", &tcp_reader::default_max_size)
@@ -732,24 +732,24 @@ py::module register_module(py::module &parent)
              "thread_pool"_a.none(false), "config"_a = stream_config(),
              "ring_config"_a = ring_stream_config_wrapper())
         .def("__iter__", [](py::object self) { return self; })
-        .def("__next__", SPEAD2_PTMF(ring_stream_wrapper, next))
-        .def("get", SPEAD2_PTMF(ring_stream_wrapper, get))
-        .def("get_nowait", SPEAD2_PTMF(ring_stream_wrapper, get_nowait))
-        .def_property_readonly("fd", SPEAD2_PTMF(ring_stream_wrapper, get_fd))
-        .def_property_readonly("ringbuffer", SPEAD2_PTMF(ring_stream_wrapper, get_ringbuffer))
-        .def_property_readonly("ring_config", SPEAD2_PTMF(ring_stream_wrapper, get_ring_config));
+        .def("__next__", &ring_stream_wrapper::next)
+        .def("get", &ring_stream_wrapper::get)
+        .def("get_nowait", &ring_stream_wrapper::get_nowait)
+        .def_property_readonly("fd", &ring_stream_wrapper::get_fd)
+        .def_property_readonly("ringbuffer", &ring_stream_wrapper::get_ringbuffer)
+        .def_property_readonly("ring_config", &ring_stream_wrapper::get_ring_config);
     using Ringbuffer = ringbuffer<live_heap, semaphore_fd, semaphore>;
     py::class_<Ringbuffer>(stream_class, "Ringbuffer")
-        .def("size", SPEAD2_PTMF(Ringbuffer, size))
-        .def("capacity", SPEAD2_PTMF(Ringbuffer, capacity));
+        .def("size", &Ringbuffer::size)
+        .def("capacity", &Ringbuffer::capacity);
     py::class_<chunk_stream_config>(m, "ChunkStreamConfig")
         .def(py::init(&data_class_constructor<chunk_stream_config>))
         .def_property("items",
-                      SPEAD2_PTMF(chunk_stream_config, get_items),
-                      SPEAD2_PTMF(chunk_stream_config, set_items))
+                      &chunk_stream_config::get_items,
+                      &chunk_stream_config::set_items)
         .def_property("max_chunks",
-                      SPEAD2_PTMF(chunk_stream_config, get_max_chunks),
-                      SPEAD2_PTMF(chunk_stream_config, set_max_chunks))
+                      &chunk_stream_config::get_max_chunks,
+                      &chunk_stream_config::set_max_chunks)
         .def_property(
             "place",
             [](const chunk_stream_config &config) {
@@ -763,14 +763,14 @@ py::module register_module(py::module &parent)
                 ));
             })
         .def(
-            "enable_packet_presence", SPEAD2_PTMF(chunk_stream_config, enable_packet_presence),
+            "enable_packet_presence", &chunk_stream_config::enable_packet_presence,
             "payload_size"_a)
-        .def("disable_packet_presence", SPEAD2_PTMF(chunk_stream_config, disable_packet_presence))
+        .def("disable_packet_presence", &chunk_stream_config::disable_packet_presence)
         .def_property_readonly("packet_presence_payload_size",
-                               SPEAD2_PTMF(chunk_stream_config, get_packet_presence_payload_size))
+                               &chunk_stream_config::get_packet_presence_payload_size)
         .def_property("max_heap_extra",
-                      SPEAD2_PTMF(chunk_stream_config, get_max_heap_extra),
-                      SPEAD2_PTMF(chunk_stream_config, set_max_heap_extra))
+                      &chunk_stream_config::get_max_heap_extra,
+                      &chunk_stream_config::set_max_heap_extra)
         .def_readonly_static("DEFAULT_MAX_CHUNKS", &chunk_stream_config::default_max_chunks);
     py::class_<chunk>(m, "Chunk")
         .def(py::init(&data_class_constructor<chunk>))
@@ -818,8 +818,8 @@ py::module register_module(py::module &parent)
                 );
             },
             "chunk"_a)
-        .def_property_readonly("data_ringbuffer", SPEAD2_PTMF(chunk_ring_pair, get_data_ringbuffer))
-        .def_property_readonly("free_ringbuffer", SPEAD2_PTMF(chunk_ring_pair, get_free_ringbuffer));
+        .def_property_readonly("data_ringbuffer", &chunk_ring_pair::get_data_ringbuffer)
+        .def_property_readonly("free_ringbuffer", &chunk_ring_pair::get_free_ringbuffer);
 
     py::class_<chunk_ring_stream_wrapper,
                detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>,
@@ -841,8 +841,8 @@ py::module register_module(py::module &parent)
              py::keep_alive<1, 6>());
     py::class_<chunk_ringbuffer, std::shared_ptr<chunk_ringbuffer>>(m, "ChunkRingbuffer")
         .def(py::init<std::size_t>(), "maxsize"_a)
-        .def("qsize", SPEAD2_PTMF(chunk_ringbuffer, size))
-        .def_property_readonly("maxsize", SPEAD2_PTMF(chunk_ringbuffer, capacity))
+        .def("qsize", &chunk_ringbuffer::size)
+        .def_property_readonly("maxsize", &chunk_ringbuffer::capacity)
         .def_property_readonly(
             "data_fd",
             [](const chunk_ringbuffer &ring) { return ring.get_data_sem().get_fd(); })
@@ -876,9 +876,9 @@ py::module register_module(py::module &parent)
             "chunk"_a)
         .def("empty", [](const chunk_ringbuffer &ring) { return ring.size() == 0; })
         .def("full", [](const chunk_ringbuffer &ring) { return ring.size() == ring.capacity(); })
-        .def("stop", SPEAD2_PTMF(chunk_ringbuffer, stop))
-        .def("add_producer", SPEAD2_PTMF(chunk_ringbuffer, add_producer))
-        .def("remove_producer", SPEAD2_PTMF(chunk_ringbuffer, remove_producer))
+        .def("stop", &chunk_ringbuffer::stop)
+        .def("add_producer", &chunk_ringbuffer::add_producer)
+        .def("remove_producer", &chunk_ringbuffer::remove_producer)
         .def("__iter__", [](py::object self) { return self; })
         .def(
             "__next__", [](chunk_ringbuffer &ring)
@@ -897,11 +897,11 @@ py::module register_module(py::module &parent)
     chunk_stream_group_config_cls
         .def(py::init(&data_class_constructor<chunk_stream_group_config>))
         .def_property("max_chunks",
-                      SPEAD2_PTMF(chunk_stream_group_config, get_max_chunks),
-                      SPEAD2_PTMF(chunk_stream_group_config, set_max_chunks))
+                      &chunk_stream_group_config::get_max_chunks,
+                      &chunk_stream_group_config::set_max_chunks)
         .def_property("eviction_mode",
-                      SPEAD2_PTMF(chunk_stream_group_config, get_eviction_mode),
-                      SPEAD2_PTMF(chunk_stream_group_config, set_eviction_mode))
+                      &chunk_stream_group_config::get_eviction_mode,
+                      &chunk_stream_group_config::set_eviction_mode)
         .def_readonly_static("DEFAULT_MAX_CHUNKS", &chunk_stream_group_config::default_max_chunks);
     py::enum_<chunk_stream_group_config::eviction_mode>(chunk_stream_group_config_cls, "EvictionMode")
         .value("LOSSY", chunk_stream_group_config::eviction_mode::LOSSY)
@@ -923,7 +923,7 @@ py::module register_module(py::module &parent)
             py::keep_alive<1, 3>(),
             py::keep_alive<1, 4>())
         .def_property_readonly(
-            "config", SPEAD2_PTMF(chunk_stream_ring_group_wrapper, get_config))
+            "config", &chunk_stream_ring_group_wrapper::get_config)
         .def(
             "emplace_back",
             [](chunk_stream_ring_group_wrapper &group,
@@ -935,7 +935,7 @@ py::module register_module(py::module &parent)
             "thread_pool"_a, "config"_a, "chunk_stream_config"_a,
             py::return_value_policy::reference_internal
         )
-        .def("__len__", SPEAD2_PTMF(chunk_stream_ring_group_wrapper, size))
+        .def("__len__", &chunk_stream_ring_group_wrapper::size)
         .def(
             "__getitem__",
             [](chunk_stream_ring_group_wrapper &group, std::ptrdiff_t index) -> chunk_stream_group_member & {
@@ -963,7 +963,7 @@ py::module register_module(py::module &parent)
                 return out;
             }
         )
-        .def("stop", SPEAD2_PTMF(chunk_stream_ring_group_wrapper, stop));
+        .def("stop", &chunk_stream_ring_group_wrapper::stop);
 
     return m;
 }

@@ -385,59 +385,21 @@ static inline U &&up(U &&u) { return std::forward<U>(u); }
 namespace detail
 {
 
-/* Some magic for defining the SPEAD2_PTMF macro, which wraps a pointer to
- * member function into a stateless class which avoids using a run-time
- * function pointer.
+/* Wrap a pointer-to-member to discard the return value. This is useful if it cannot
+ * be converted to a Python type.
  *
- * The type T and the Class template parameter are separated because if T
- * derives from Class and a member function foo is defined in Class, then the
- * type of &T::foo is actually <code>Return (Class::*)(Args...)</code> rather
- * than <code>Return (T::*)(Args...)</code>.
+ * It's only implemented for non-const member functions, since const member
+ * functions generally only exist for the purpose of returning a result. The
+ * derived type needs to be explicitly supplied because pybind11 inspects the
+ * signature.
  */
-template<typename T, auto PTMF, typename Return, typename Class, typename... Args>
-auto make_ptmf(Return (Class::*)(Args...)) noexcept
+template<typename T, typename R, typename C, typename... Args>
+auto discard_result(R (C::*func)(Args...))
 {
-    return [](T &self, Args... args) -> Return
-    {
-        // Downcast to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
-        Class *ptr = &self;
-        return (ptr->*PTMF)(std::forward<Args>(args)...);
-    };
+    return [func](T *t, Args... args) { (t->*func)(std::forward<Args>(args)...); };
 }
 
-template<typename T, auto PTMF, typename Return, typename Class, typename... Args>
-auto make_ptmf(Return (Class::*)(Args...) const) noexcept
-{
-    return [](const T &self, Args... args) -> Return
-    {
-        const Class *ptr = &self;
-        return (ptr->*PTMF)(std::forward<Args>(args)...);
-    };
-}
-
-template<typename T, auto PTMF, typename Return, typename Class, typename... Args>
-auto make_ptmf_void(Return (Class::*)(Args...)) noexcept
-{
-    return [](T &self, Args... args) -> void
-    {
-        Class *ptr = &self;
-        (ptr->*PTMF)(std::forward<Args>(args)...);
-    };
-}
-
-template<typename T, auto PTMF, typename Return, typename Class, typename... Args>
-auto make_ptmf_void(Return (Class::*)(Args...) const) noexcept
-{
-    return [](const T &self, Args... args) -> void
-    {
-        const Class *ptr = &self;
-        (ptr->*PTMF)(std::forward<Args>(args)...);
-    };
-}
-
-#define SPEAD2_PTMF(Class, Func) (::spead2::detail::make_ptmf<Class, &Class::Func>(&Class::Func))
-// Like the above, but additionally ignore the return value
-#define SPEAD2_PTMF_VOID(Class, Func) (::spead2::detail::make_ptmf_void<Class, &Class::Func>(&Class::Func))
+#define SPEAD2_PTMF_VOID(Class, Func) (::spead2::detail::discard_result<Class>(&Class::Func))
 
 } // namespace detail
 
