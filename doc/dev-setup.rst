@@ -65,6 +65,14 @@ also run :command:`meson test` to run the C++ unit tests. These are a small
 set of tests that cover functionality that is not practical to test from the
 Python API.
 
+Documentation
+-------------
+To install the necessary Python requirements, run :command:`pip install -r
+requirements-readthedocs.txt`. You will also need doxygen_ and :program:`make`. Then
+change to the :file:`doc` directory and run :command:`make`. This will build
+documentation in :file:`doc/_build/html`. It is unfortunately normal for there
+to be a large number of warnings about duplicates.
+
 Coding style
 ------------
 The first rule is just to adhere the existing style. Python code uses black_
@@ -136,14 +144,6 @@ up to date, and (at the time of writing) depends on having both
 :command:`python3.8` and :command:`python3.12` commands on the path. If you're
 not touching the requirements, you can skip this hook by setting the
 environment variable :envvar:`SKIP=pip-compile` when committing.
-
-Documentation
--------------
-To install the necessary Python requirements, run :command:`pip install -r
-requirements-readthedocs.txt`. You will also need doxygen_ and :program:`make`. Then
-change to the :file:`doc` directory and run :command:`make`. This will build
-documentation in :file:`doc/_build/html`. It is unfortunately normal for there
-to be a large number of warnings about duplicates.
 
 .. _ninja-build: https://ninja-build.org/
 .. _pyenv: https://github.com/pyenv/pyenv/
