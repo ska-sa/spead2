@@ -6,7 +6,8 @@ Python setup
 Refer to the :doc:`introduction` for the prerequisite packages (particularly
 :ref:`py-install-source`). You will also need ninja-build_, and a
 Python virtual environment. You can use any tool you like to create the
-virtual environment. I like pyenv_ (with pyenv-virtualenv_), but you can also
+virtual environment, but it must be located outside of the working copy of the
+spead2 repository [#meson-dir-bug]_. I like pyenv_ (with pyenv-virtualenv_), but you can also
 use venv_ or virtualenv_ directly. It's also a good idea to install ccache_ or
 sccache_, as it will make recompilation much faster.
 
@@ -157,3 +158,11 @@ environment variable :envvar:`SKIP=pip-compile` when committing.
 .. _ruff: https://beta.ruff.rs/docs/
 .. _meson-python: https://meson-python.readthedocs.io/en/latest/how-to-guides/editable-installs.html
 .. _doxygen: https://www.doxygen.nl/
+
+.. [#meson-dir-bug] Meson will show a long error starting with
+   "ERROR: Tried to form an absolute path to a dir in the source tree."
+   There is also a Meson `bug
+   <https://github.com/mesonbuild/meson/issues/12217>`_ that causes this error
+   to appear if the source directory is a prefix *as a string* of the virtual
+   environment path, even if the virtual environment is not inside the source
+   directory.
