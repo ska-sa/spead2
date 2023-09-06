@@ -289,10 +289,10 @@ void register_module(py::module m)
         .def(py::init<>())
         .def(py::self == py::self)
         .def(py::self != py::self)
-        .def_property_readonly("version", SPEAD2_PTMF(flavour, get_version))
-        .def_property_readonly("item_pointer_bits", SPEAD2_PTMF(flavour, get_item_pointer_bits))
-        .def_property_readonly("heap_address_bits", SPEAD2_PTMF(flavour, get_heap_address_bits))
-        .def_property_readonly("bug_compat", SPEAD2_PTMF(flavour, get_bug_compat));
+        .def_property_readonly("version", &flavour::get_version)
+        .def_property_readonly("item_pointer_bits", &flavour::get_item_pointer_bits)
+        .def_property_readonly("heap_address_bits", &flavour::get_heap_address_bits)
+        .def_property_readonly("bug_compat", &flavour::get_bug_compat);
 
     py::class_<memory_allocator, std::shared_ptr<memory_allocator>>(m, "MemoryAllocator")
         .def(py::init<>());
@@ -314,7 +314,7 @@ void register_module(py::module m)
         .def(py::init<int>(), "threads"_a = 1)
         .def(py::init<int, const std::vector<int> &>(), "threads"_a, "affinity"_a)
         .def_static("set_affinity", &thread_pool_wrapper::set_affinity)
-        .def("stop", SPEAD2_PTMF(thread_pool_wrapper, stop));
+        .def("stop", &thread_pool_wrapper::stop);
 
     py::class_<inproc_queue, std::shared_ptr<inproc_queue>>(m, "InprocQueue")
         .def(py::init<>())
@@ -327,7 +327,7 @@ void register_module(py::module m)
             std::memcpy(pkt.data.get(), info.ptr, pkt.size);
             self.add_packet(std::move(pkt));
         }, "packet")
-        .def("stop", SPEAD2_PTMF(inproc_queue, stop));
+        .def("stop", &inproc_queue::stop);
 
     py::class_<descriptor>(m, "RawDescriptor")
         .def(py::init<>())

@@ -46,6 +46,8 @@ namespace spead2
 namespace send
 {
 
+using spead2::detail::discard_result;
+
 class heap_wrapper : public heap
 {
 private:
@@ -741,19 +743,19 @@ static py::class_<T, stream> inproc_stream_register(py::module &m, const char *n
     return py::class_<T, stream>(m, name)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::shared_ptr<inproc_queue>> &, const stream_config &>(),
              "thread_pool"_a.none(false), "queues"_a, "config"_a = stream_config())
-        .def_property_readonly("queues", SPEAD2_PTMF(T, get_queues));
+        .def_property_readonly("queues", &T::get_queues);
 }
 
 template<typename T>
 static void sync_stream_register(py::class_<T, stream> &stream_class)
 {
     using namespace pybind11::literals;
-    stream_class.def("send_heap", SPEAD2_PTMF(T, send_heap),
+    stream_class.def("send_heap", &T::send_heap,
                      "heap"_a, "cnt"_a = s_item_pointer_t(-1),
                      "substream_index"_a = std::size_t(0));
-    stream_class.def("send_heaps", SPEAD2_PTMF(T, send_heaps),
+    stream_class.def("send_heaps", &T::send_heaps,
                      "heaps"_a, "mode"_a);
-    stream_class.def("send_heaps", SPEAD2_PTMF(T, send_heaps_hrl),
+    stream_class.def("send_heaps", &T::send_heaps_hrl,
                      "heaps"_a, "mode"_a);
 }
 
@@ -762,16 +764,16 @@ static void async_stream_register(py::class_<T, stream> &stream_class)
 {
     using namespace pybind11::literals;
     stream_class
-        .def_property_readonly("fd", SPEAD2_PTMF(T, get_fd))
-        .def("async_send_heap", SPEAD2_PTMF(T, async_send_heap_obj),
+        .def_property_readonly("fd", &T::get_fd)
+        .def("async_send_heap", &T::async_send_heap_obj,
              "heap"_a, "callback"_a, "cnt"_a = s_item_pointer_t(-1),
              "substream_index"_a = std::size_t(0))
-        .def("async_send_heaps", SPEAD2_PTMF(T, async_send_heaps_obj),
+        .def("async_send_heaps", &T::async_send_heaps_obj,
              "heaps"_a, "callback"_a, "mode"_a)
-        .def("async_send_heaps", SPEAD2_PTMF(T, async_send_heaps_hrl),
+        .def("async_send_heaps", &T::async_send_heaps_hrl,
              "heaps"_a, "callback"_a, "mode"_a)
-        .def("flush", SPEAD2_PTMF(T, flush))
-        .def("process_callbacks", SPEAD2_PTMF(T, process_callbacks));
+        .def("flush", &T::flush)
+        .def("process_callbacks", &T::process_callbacks);
 }
 
 /// Register the send module with Boost.Python
@@ -783,14 +785,14 @@ py::module register_module(py::module &parent)
 
     py::class_<heap_wrapper>(m, "Heap")
         .def(py::init<flavour>(), "flavour"_a = flavour())
-        .def_property_readonly("flavour", SPEAD2_PTMF(heap_wrapper, get_flavour))
-        .def("add_item", SPEAD2_PTMF(heap_wrapper, add_item), "item"_a)
-        .def("add_descriptor", SPEAD2_PTMF(heap_wrapper, add_descriptor), "descriptor"_a)
-        .def("add_start", SPEAD2_PTMF(heap_wrapper, add_start))
-        .def("add_end", SPEAD2_PTMF(heap_wrapper, add_end))
+        .def_property_readonly("flavour", &heap_wrapper::get_flavour)
+        .def("add_item", &heap_wrapper::add_item, "item"_a)
+        .def("add_descriptor", &heap_wrapper::add_descriptor, "descriptor"_a)
+        .def("add_start", &heap_wrapper::add_start)
+        .def("add_end", &heap_wrapper::add_end)
         .def_property("repeat_pointers",
-                      SPEAD2_PTMF(heap_wrapper, get_repeat_pointers),
-                      SPEAD2_PTMF(heap_wrapper, set_repeat_pointers));
+                      &heap_wrapper::get_repeat_pointers,
+                      &heap_wrapper::set_repeat_pointers);
 
     // keep_alive is safe to use here in spite of pybind/pybind11#856, because
     // the destructor of packet_generator doesn't reference the heap.
@@ -827,25 +829,25 @@ py::module register_module(py::module &parent)
     py::class_<stream_config>(m, "StreamConfig")
         .def(py::init(&data_class_constructor<stream_config>))
         .def_property("max_packet_size",
-                      SPEAD2_PTMF(stream_config, get_max_packet_size),
+                      &stream_config::get_max_packet_size,
                       SPEAD2_PTMF_VOID(stream_config, set_max_packet_size))
         .def_property("rate",
-                      SPEAD2_PTMF(stream_config, get_rate),
+                      &stream_config::get_rate,
                       SPEAD2_PTMF_VOID(stream_config, set_rate))
         .def_property("burst_size",
-                      SPEAD2_PTMF(stream_config, get_burst_size),
+                      &stream_config::get_burst_size,
                       SPEAD2_PTMF_VOID(stream_config, set_burst_size))
         .def_property("max_heaps",
-                      SPEAD2_PTMF(stream_config, get_max_heaps),
+                      &stream_config::get_max_heaps,
                       SPEAD2_PTMF_VOID(stream_config, set_max_heaps))
         .def_property("burst_rate_ratio",
-                      SPEAD2_PTMF(stream_config, get_burst_rate_ratio),
+                      &stream_config::get_burst_rate_ratio,
                       SPEAD2_PTMF_VOID(stream_config, set_burst_rate_ratio))
         .def_property("rate_method",
-                      SPEAD2_PTMF(stream_config, get_rate_method),
+                      &stream_config::get_rate_method,
                       SPEAD2_PTMF_VOID(stream_config, set_rate_method))
         .def_property_readonly("burst_rate",
-                               SPEAD2_PTMF(stream_config, get_burst_rate))
+                               &stream_config::get_burst_rate)
         .def_readonly_static("DEFAULT_MAX_PACKET_SIZE", &stream_config::default_max_packet_size)
         .def_readonly_static("DEFAULT_MAX_HEAPS", &stream_config::default_max_heaps)
         .def_readonly_static("DEFAULT_BURST_SIZE", &stream_config::default_burst_size)
@@ -853,9 +855,9 @@ py::module register_module(py::module &parent)
         .def_readonly_static("DEFAULT_RATE_METHOD", &stream_config::default_rate_method);
 
     py::class_<stream>(m, "Stream")
-        .def("set_cnt_sequence", SPEAD2_PTMF(stream, set_cnt_sequence),
+        .def("set_cnt_sequence", &stream::set_cnt_sequence,
              "next"_a, "step"_a)
-        .def_property_readonly("num_substreams", SPEAD2_PTMF(stream, get_num_substreams));
+        .def_property_readonly("num_substreams", &stream::get_num_substreams);
 
     {
         auto stream_class = udp_stream_register<udp_stream_wrapper<stream_wrapper<udp_stream>>>(m, "UdpStream");
@@ -873,16 +875,16 @@ py::module register_module(py::module &parent)
         .def_readwrite("memory_regions", &udp_ibv_config_wrapper::py_memory_regions)
         .def_readwrite("interface_address", &udp_ibv_config_wrapper::py_interface_address)
         .def_property("buffer_size",
-                      SPEAD2_PTMF(udp_ibv_config_wrapper, get_buffer_size),
+                      &udp_ibv_config_wrapper::get_buffer_size,
                       SPEAD2_PTMF_VOID(udp_ibv_config_wrapper, set_buffer_size))
         .def_property("ttl",
-                      SPEAD2_PTMF(udp_ibv_config_wrapper, get_ttl),
+                      &udp_ibv_config_wrapper::get_ttl,
                       SPEAD2_PTMF_VOID(udp_ibv_config_wrapper, set_ttl))
         .def_property("comp_vector",
-                      SPEAD2_PTMF(udp_ibv_config_wrapper, get_comp_vector),
+                      &udp_ibv_config_wrapper::get_comp_vector,
                       SPEAD2_PTMF_VOID(udp_ibv_config_wrapper, set_comp_vector))
         .def_property("max_poll",
-                      SPEAD2_PTMF(udp_ibv_config_wrapper, get_max_poll),
+                      &udp_ibv_config_wrapper::get_max_poll,
                       SPEAD2_PTMF_VOID(udp_ibv_config_wrapper, set_max_poll))
         .def_readonly_static("DEFAULT_BUFFER_SIZE", &udp_ibv_config_wrapper::default_buffer_size)
         .def_readonly_static("DEFAULT_MAX_POLL", &udp_ibv_config_wrapper::default_max_poll);
@@ -911,7 +913,7 @@ py::module register_module(py::module &parent)
         stream_class
             .def(py::init<std::shared_ptr<thread_pool_wrapper>, const stream_config &>(),
                  "thread_pool"_a.none(false), "config"_a = stream_config())
-            .def("getvalue", SPEAD2_PTMF(bytes_stream, getvalue));
+            .def("getvalue", &bytes_stream::getvalue);
         sync_stream_register(stream_class);
     }
 
