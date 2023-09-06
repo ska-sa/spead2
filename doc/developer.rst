@@ -1,6 +1,19 @@
 Developer documentation
 =======================
 
+Development processes
+---------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   dev-setup
+   dev-debug
+   dev-release
+
+Design
+------
+
 This section documents internal design decisions that users will generally not
 need to be aware of, although some of it may be useful if you plan to subclass
 the C++ classes to extend functionality.

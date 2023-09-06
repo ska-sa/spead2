@@ -42,8 +42,8 @@ Installing spead2 for Python
 ----------------------------
 The only Python dependency is numpy_.
 
-The test suite has additional dependencies; refer to
-:file:`pyproject.toml` if you are developing spead2.
+The test suite has additional dependencies; refer to :doc:`dev-setup`
+if you are developing spead2.
 
 There are two ways to install spead2 for Python: compiling from source and
 installing a binary wheel.
@@ -66,6 +66,8 @@ Provided your system meets these requirements, just run::
 
     pip install spead2
 
+.. _py-install-source:
+
 Python install from source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 Installing from source requires a modern C++ compiler supporting C++17 (GCC
@@ -76,6 +78,8 @@ At the moment only GNU/Linux and OS X get tested but other POSIX-like systems
 should work too. There are no plans to support Windows.
 
 Installation works with standard Python installation methods.
+
+.. _cxx-install:
 
 Installing spead2 for C++
 -------------------------
