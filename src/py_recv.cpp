@@ -92,15 +92,13 @@ public:
 
 /**
  * Extends mem_reader to obtain data using the Python buffer protocol.
- * It steals the provided buffer view; it is not passed by rvalue reference
- * because it cannot be perfectly forwarded.
  */
 class buffer_reader : public mem_reader
 {
 private:
     py::buffer_info view;
 public:
-    explicit buffer_reader(stream &s, py::buffer_info &view)
+    explicit buffer_reader(stream &s, py::buffer_info view)
         : mem_reader(s, reinterpret_cast<const std::uint8_t *>(view.ptr), view.itemsize * view.size),
         view(std::move(view))
     {
@@ -137,7 +135,7 @@ static void add_buffer_reader(stream &s, py::buffer buffer)
 {
     py::buffer_info info = request_buffer_info(buffer, PyBUF_C_CONTIGUOUS);
     py::gil_scoped_release gil;
-    s.emplace_reader<buffer_reader>(std::ref(info));
+    s.emplace_reader<buffer_reader>(std::move(info));
 }
 
 static void add_udp_reader(
