@@ -389,8 +389,13 @@ namespace detail
  * be converted to a Python type.
  *
  * It's only implemented for non-const member functions, since const member
- * functions generally only exist for the purpose of returning a result. The
- * derived type needs to be explicitly supplied because pybind11 inspects the
+ * functions generally only exist for the purpose of returning a result.
+ *
+ * The type T and the C template parameter are separated because if T
+ * derives from C and a member function foo is defined in C, then the
+ * type of &T::foo is actually <code>R (C::*)(Args...)</code> rather
+ * than <code>R (T::*)(Args...)</code>. While the lambda would be valid if
+ * it took a C argument, pybind11 would infer the wrong thing from its type
  * signature.
  */
 template<typename T, typename R, typename C, typename... Args>
