@@ -21,5 +21,6 @@ the C++ classes to extend functionality.
 .. toctree::
    :maxdepth: 2
 
+   dev-py-binding
    dev-recv-destruction
    dev-recv-chunk-group

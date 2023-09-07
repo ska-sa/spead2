@@ -74,6 +74,7 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable/", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/", None),
     "numba": ("https://numba.readthedocs.io/en/latest/", None),
+    "pybind11": ("https://pybind11.readthedocs.io/en/stable/", None),
 }
 
 # -- Options for HTML output -------------------------------------------------
