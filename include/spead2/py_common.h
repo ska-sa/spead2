@@ -274,13 +274,7 @@ class thread_pool_wrapper : public thread_pool
 private:
     exit_stopper stopper{[this] { stop(); }};
 public:
-    /* Simply using thread_pool::thread_pool doesn't work because the default
-     * constructor is deleted as stopper is not default-constructible, even
-     * though it doesn't actually need to be.
-     */
-    template<typename ...Args>
-    explicit thread_pool_wrapper(Args&&... args)
-        : thread_pool(std::forward<Args>(args)...) {}
+    using thread_pool::thread_pool;
 
     ~thread_pool_wrapper();
     void stop();
