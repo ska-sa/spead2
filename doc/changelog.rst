@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: 4.0.1
+
+- Restore dependency on numpy, which was accidentally removed in 4.0.0.
+- Change the ``test_numba`` extra to ``test-numba`` to normalise it in
+  accordance with :pep:`685`.
+
 .. rubric:: 4.0.0
 
 This release makes major changes to the build system, and removes deprecated
