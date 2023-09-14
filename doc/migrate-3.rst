@@ -10,7 +10,7 @@ To allow for code that wishes to support both version 3 and older versions,
 C++ macros are defined to allow the version number to be interrogated at
 compile time. Thus, version 3 can be detected as
 
-.. code:: c++
+.. code-block:: c++
 
    #if defined(SPEAD2_MAJOR) && SPEAD2_MAJOR >= 3
    // Version 3 or later
@@ -73,7 +73,7 @@ arguments. To make it convenient to construct temporaries, the
 setter methods return the object, allowing configurations to be constructed in
 a "fluent" style e.g.:
 
-.. code:: c++
+.. code-block:: c++
 
    spead2::send::stream_config().set_max_packet_size(9172).set_rate(1e6)
 

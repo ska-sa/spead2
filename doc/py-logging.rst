@@ -6,6 +6,6 @@ debug logging is completely disabled for performance reasons. To enable
 it, you need to set the Meson option ``max_log_level=debug``. For example, if
 installing with :command:`pip`, use
 
-.. code:: sh
+.. code-block:: sh
 
    pip install --config-settings=setup-args=-Dmax_log_level=debug .

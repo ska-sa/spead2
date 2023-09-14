@@ -24,14 +24,14 @@ that will use the files inside your working copy (recompiling C++ code if
 necessary), so that you don't need to explicitly install after each change.
 To do so, run
 
-.. code:: sh
+.. code-block:: sh
 
    pip install --no-build-isolation -e .
 
 See the meson-python_ documentation for more information about the limitations
 of editable installs. Also install the development runtime dependencies:
 
-.. code:: sh
+.. code-block:: sh
 
    pip install -r requirements.txt -r requirements-3.12.txt
 
@@ -96,7 +96,7 @@ The C++ code is less consistent in style, but here are some guidelines:
 - When two levels of namespaces start and end at the same point, use the
   C++17 nested namespace syntax:
 
-  .. code:: c++
+  .. code-block:: c++
 
      namespace spead2::recv
      {
@@ -116,7 +116,7 @@ The C++ code is less consistent in style, but here are some guidelines:
     cause type conversions if the type of the expression later changed.
   - The type is obvious from the initialiser, such as
 
-    .. code:: c++
+    .. code-block:: c++
 
        auto foo = std::make_unique<Foo>(1);
 

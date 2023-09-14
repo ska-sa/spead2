@@ -22,7 +22,7 @@ configuration and then use setters to set individual properties. The setters
 all return the configuration itself so that one can construct a configuration
 with a single expression such as
 
-.. code:: c++
+.. code-block:: c++
 
    spead2::send::stream_config().set_max_packet_size(9172).set_rate(1e9)
 

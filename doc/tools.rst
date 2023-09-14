@@ -132,7 +132,7 @@ program can be used to simplify running ibverbs applications. To use it, the
 program must first be given the capability. After installation, this can be
 done by running
 
-.. code:: sh
+.. code-block:: sh
 
    sudo setcap cap_net_raw+p /usr/local/bin/spead2_net_raw
 
