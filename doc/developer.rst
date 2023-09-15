@@ -22,5 +22,6 @@ the C++ classes to extend functionality.
    :maxdepth: 2
 
    dev-py-binding
+   dev-recv-locking
    dev-recv-destruction
    dev-recv-chunk-group
