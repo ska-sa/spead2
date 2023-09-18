@@ -1,4 +1,5 @@
 sphinx==4.0.3
 sphinx-rtd-theme==0.5.2
+sphinxcontrib-tikz==0.4.16
 breathe==4.30.0
 -r requirements.txt
