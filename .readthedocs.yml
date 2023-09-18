@@ -5,6 +5,7 @@ build:
     - g++
     - libboost-dev
     - libdivide-dev
+    - pdf2svg
   tools:
     python: "3.8"
 python:
