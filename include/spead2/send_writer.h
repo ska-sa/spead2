@@ -88,12 +88,8 @@ private:
 
     typedef boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock> timer_type;
     /**
-     * timer_type::time_point is typically nanoseconds, and rounding delays
-     * to nanoseconds can lead to bias (since the rounding will typically go
-     * in the same direction every time). Storing an absolute time in
-     * double precision is no good because it doesn't have enough precision.
-     * So we store a time_point plus a small correction, which is always
-     * between 0 and 1.
+     * A time with sub-nanosecond precision. See dev-send-rate-limit.rst for
+     * an explanation.
      */
     class precise_time
     {

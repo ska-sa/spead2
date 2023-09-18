@@ -5,7 +5,7 @@ Development processes
 ---------------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    dev-setup
    dev-debug
@@ -19,9 +19,10 @@ need to be aware of, although some of it may be useful if you plan to subclass
 the C++ classes to extend functionality.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    dev-py-binding
    dev-recv-locking
    dev-recv-destruction
    dev-recv-chunk-group
+   dev-send-rate-limit

@@ -51,6 +51,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
+    "sphinxcontrib.tikz",
     "sphinx_rtd_theme",
     "breathe",
 ]
@@ -63,6 +64,9 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
+tikz_proc_suite = "pdf2svg"
+tikz_tikzlibraries = "positioning"
+
 breathe_projects = {"spead2": "./doxygen/xml"}
 breathe_default_project = "spead2"
 
@@ -73,6 +77,8 @@ intersphinx_mapping = {
     "numba": ("https://numba.readthedocs.io/en/latest/", None),
     "pybind11": ("https://pybind11.readthedocs.io/en/stable/", None),
 }
+
+latex_engine = "xelatex"
 
 # -- Options for HTML output -------------------------------------------------
 
