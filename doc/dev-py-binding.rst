@@ -101,6 +101,8 @@ This requires some careful use of a mutex to correctly handle
 the case where new callbacks are added while the callback list is being
 processed.
 
+.. _interpreter-shutdown:
+
 Interpreter shutdown
 --------------------
 If spead2 objects are still present when the Python interpreter is shut down,
