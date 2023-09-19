@@ -44,6 +44,9 @@ Python
   path. See `Packaging a Python Library <python-src-layout_>`_ for an
   explanation of the advantages.
 
+:file:`src/spead2/tools/`
+  Implementations of the command-line tools.
+
 :file:`examples/*.py`
   Example code.
 
