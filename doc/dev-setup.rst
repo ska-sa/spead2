@@ -166,3 +166,21 @@ environment variable :envvar:`SKIP=pip-compile` when committing.
    to appear if the source directory is a prefix *as a string* of the virtual
    environment path, even if the virtual environment is not inside the source
    directory.
+
+Making a pull request
+---------------------
+spead2 uses the normal Github workflow for pull requests. There are many
+guides on the internet to writing good pull requests, such as
+`this one <perfect-pr_>`_ or `this one <unwritten-pr_>`_.
+A few points to note for spead2:
+
+- Don't add to the changelog. The changelog for each release is generally
+  prepared just prior to each release. However, it is a good idea to write a
+  meaningful title for the pull request that could become the changelog entry.
+- Once a pull request has been reviewed, don't force-push changes. Doing so
+  prevents the reviewer from seeing the difference between the
+  previously-reviewed version and your update. If you're a stickler for a neat
+  commit history, ask if you can rebase just prior to merging.
+
+.. _perfect-pr: https://github.blog/2015-01-21-how-to-write-the-perfect-pull-request/
+.. _unwritten-pr: https://www.atlassian.com/blog/git/written-unwritten-guide-pull-requests
