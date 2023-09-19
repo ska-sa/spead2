@@ -5,7 +5,7 @@ Debug builds
 ------------
 Meson provides standard infrastructure for doing debug builds. Specifically,
 these disable optimisation and enable assertions. For C++ builds you can pass
-:option:`!--buildtype=debug`` when setting up the build directory (note that Meson
+:option:`!--buildtype=debug` when setting up the build directory (note that Meson
 supports multiple build directories, so you can keep separate directories for
 release and debug builds if you like). For Python builds, you can pass
 :option:`!-Csetup-args=--buildtype=debug` to :command:`pip install`. Note that
