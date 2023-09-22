@@ -1,6 +1,21 @@
 Changelog
 =========
 
+.. rubric:: 4.0.2
+
+Note that an oversight lead to some of the changes between 4.0.0b1 and 4.0.0
+being omitted from 4.0.1. They are restored in 4.0.2.
+
+- Fix type annotations for :py:class:`spead2.send.UdpStream` and
+  :py:class:`spead2.send.asyncio.UdpStream`.
+- Add more documentation for developers.
+- Remove an old :file:`Makefile.am` that should have been removed in 4.0.0.
+- Remove mocking of spead2 in readthedocs build.
+- Change `.. code::` to `.. code-block::` in documentation.
+- Simplify the implementation of :cpp:class:`!thread_pool_wrapper` and
+  :cpp:class:`!buffer_reader` in Python binding code.
+- Directly use pointer-to-member-functions in Python binding code.
+
 .. rubric:: 4.0.1
 
 - Restore dependency on numpy, which was accidentally removed in 4.0.0.
