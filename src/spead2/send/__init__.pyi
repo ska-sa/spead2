@@ -98,15 +98,11 @@ class SyncStream(Stream):
 class _UdpStream:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
 
-    @overload
-    def __init__(
-        self,
-        thread_pool: spead2.ThreadPool,
-        socket: socket.socket,
-        hostname: str,
-        port: int,
-        config: StreamConfig = ...,
-    ) -> None: ...
+    # There are a lot of overloads listed here, because the bindings have
+    # overloads where required arguments follow optional arguments, and that
+    # can't be represented in pure Python. So we have to distinguish the
+    # cases where the required arguments are specified by name versus
+    # position.
     @overload
     def __init__(
         self,
@@ -130,7 +126,29 @@ class _UdpStream:
         self,
         thread_pool: spead2.ThreadPool,
         endpoints: _EndpointList,
+        config: StreamConfig = ...,
+        buffer_size: int = ...,
+        *,
+        ttl: int,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        endpoints: _EndpointList,
         config: StreamConfig,
+        buffer_size: int,
+        ttl: int,
+        interface_address: str,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        endpoints: _EndpointList,
+        config: StreamConfig = ...,
+        buffer_size: int = ...,
+        *,
         ttl: int,
         interface_address: str,
     ) -> None: ...
@@ -140,6 +158,18 @@ class _UdpStream:
         thread_pool: spead2.ThreadPool,
         endpoints: _EndpointList,
         config: StreamConfig,
+        buffer_size: int,
+        ttl: int,
+        interface_index: int,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        endpoints: _EndpointList,
+        config: StreamConfig = ...,
+        buffer_size: int = ...,
+        *,
         ttl: int,
         interface_index: int,
     ) -> None: ...
