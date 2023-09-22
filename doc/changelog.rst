@@ -15,6 +15,7 @@ being omitted from 4.0.1. They are restored in 4.0.2.
 - Simplify the implementation of :cpp:class:`!thread_pool_wrapper` and
   :cpp:class:`!buffer_reader` in Python binding code.
 - Directly use pointer-to-member-functions in Python binding code.
+- Test against numpy 1.26.0 (instead of 1.26.0rc1) on Python 3.12.
 
 .. rubric:: 4.0.1
 
