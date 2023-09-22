@@ -3,7 +3,7 @@ llvmlite; python_version<"3.12.0rc1"
 netifaces
 numba; python_version<"3.12.0rc1"
 numpy; python_version<"3.12.0rc1"
-numpy==1.26.0b1; python_version>="3.12.0rc1"
+numpy==1.26.0; python_version>="3.12.0rc1"
 pytest
 pytest-asyncio
 pytest-timeout
