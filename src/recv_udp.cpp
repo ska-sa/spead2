@@ -45,16 +45,6 @@
 namespace spead2::recv
 {
 
-static boost::asio::ip::udp::socket bind_socket(
-    boost::asio::ip::udp::socket &&socket,
-    const boost::asio::ip::udp::endpoint &endpoint,
-    std::size_t buffer_size)
-{
-    set_socket_recv_buffer_size(socket, buffer_size);
-    socket.bind(endpoint);
-    return std::move(socket);
-}
-
 udp_reader::udp_reader(
     stream &owner,
     boost::asio::ip::udp::socket &&socket,
@@ -84,10 +74,12 @@ udp_reader::udp_reader(
 
 void udp_reader::start()
 {
+    if (bind_endpoint)
+        socket.bind(*bind_endpoint);
     enqueue_receive(make_handler_context());
 }
 
-static boost::asio::ip::udp::socket make_bound_v4_socket(
+static boost::asio::ip::udp::socket make_v4_socket(
     boost::asio::io_service &io_service,
     const boost::asio::ip::udp::endpoint &endpoint,
     std::size_t buffer_size,
@@ -109,7 +101,8 @@ static boost::asio::ip::udp::socket make_bound_v4_socket(
         socket.set_option(boost::asio::ip::multicast::join_group(
             ep.address().to_v4(), interface_address.to_v4()));
     }
-    return bind_socket(std::move(socket), ep, buffer_size);
+    set_socket_recv_buffer_size(socket, buffer_size);
+    return socket;
 }
 
 static boost::asio::ip::udp::socket make_multicast_v6_socket(
@@ -124,7 +117,8 @@ static boost::asio::ip::udp::socket make_multicast_v6_socket(
     socket.set_option(boost::asio::socket_base::reuse_address(true));
     socket.set_option(boost::asio::ip::multicast::join_group(
         endpoint.address().to_v6(), interface_index));
-    return bind_socket(std::move(socket), endpoint, buffer_size);
+    set_socket_recv_buffer_size(socket, buffer_size);
+    return socket;
 }
 
 static boost::asio::ip::udp::socket make_socket(
@@ -138,7 +132,8 @@ static boost::asio::ip::udp::socket make_socket(
         socket.set_option(boost::asio::socket_base::reuse_address(true));
         socket.set_option(boost::asio::ip::multicast::join_group(endpoint.address()));
     }
-    return bind_socket(std::move(socket), endpoint, buffer_size);
+    set_socket_recv_buffer_size(socket, buffer_size);
+    return socket;
 }
 
 udp_reader::udp_reader(
@@ -151,6 +146,7 @@ udp_reader::udp_reader(
         make_socket(owner.get_io_service(), endpoint, buffer_size),
         max_size)
 {
+    bind_endpoint = endpoint;
 }
 
 udp_reader::udp_reader(
@@ -161,10 +157,15 @@ udp_reader::udp_reader(
     const boost::asio::ip::address &interface_address)
     : udp_reader(
         owner,
-        make_bound_v4_socket(owner.get_io_service(),
-                             endpoint, buffer_size, interface_address),
+        make_v4_socket(owner.get_io_service(),
+                       endpoint, buffer_size, interface_address),
         max_size)
 {
+    auto ep = endpoint;
+    // Match the logic in make_v4_socket
+    if (ep.address().is_unspecified())
+        ep.address(interface_address);
+    bind_endpoint = ep;
 }
 
 udp_reader::udp_reader(
@@ -179,6 +180,7 @@ udp_reader::udp_reader(
                                  endpoint, buffer_size, interface_index),
         max_size)
 {
+    bind_endpoint = endpoint;
 }
 
 void udp_reader::packet_handler(
@@ -227,7 +229,7 @@ void udp_reader::enqueue_receive(handler_context ctx)
 #else
         boost::asio::buffer(buffer.get(), max_size + 1),
 #endif
-        endpoint,
+        sender_endpoint,
         bind_handler(std::move(ctx), std::bind(&udp_reader::packet_handler, this, _1, _2, _3, _4)));
 }
 
