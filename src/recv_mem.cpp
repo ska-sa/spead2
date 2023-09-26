@@ -32,6 +32,10 @@ mem_reader::mem_reader(
     : reader(owner), ptr(ptr), length(length)
 {
     assert(ptr != nullptr);
+}
+
+void mem_reader::start()
+{
     boost::asio::post(
         get_io_service(),
         bind_handler([this] (handler_context, stream_base::add_packet_state &state) {

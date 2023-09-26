@@ -126,7 +126,10 @@ udp_pcap_file_reader::udp_pcap_file_reader(stream &owner, const std::string &fil
     if (linktype != DLT_EN10MB && linktype != DLT_LINUX_SLL)
         throw packet_type_error("pcap linktype is neither ethernet nor linux sll");
     udp_from_frame = (linktype == DLT_EN10MB) ? udp_from_ethernet : udp_from_linux_sll;
+}
 
+void udp_pcap_file_reader::start()
+{
     // Process the file
     using namespace std::placeholders;
     boost::asio::post(get_io_service(), bind_handler(std::bind(&udp_pcap_file_reader::run, this, _1, _2)));

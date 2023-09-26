@@ -214,7 +214,6 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
 
     rwq_ind_table = create_rwq_ind_table(cm_id, wq);
     qp = create_qp(cm_id, pd, rwq_ind_table);
-    wq.modify(IBV_WQS_RDY);
 
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(buffer_size, nullptr);
@@ -223,8 +222,13 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
         post_wr(i * wqe_size);
 
     flows = create_flows(qp, config.get_endpoints(), cm_id->port_num);
+}
+
+void udp_ibv_mprq_reader::start()
+{
     enqueue_receive(make_handler_context(), true);
-    join_groups(config.get_endpoints(), config.get_interface_address());
+    wq.modify(IBV_WQS_RDY);
+    join_groups();
 }
 
 } // namespace recv

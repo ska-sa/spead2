@@ -88,6 +88,8 @@ public:
      * @throws std::invalid_argument If no interface address is set.
      */
     udp_ibv_mprq_reader(stream &owner, const udp_ibv_config &config);
+
+    virtual void start() override;
 };
 
 } // namespace spead2::recv

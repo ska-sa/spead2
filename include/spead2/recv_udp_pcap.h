@@ -61,6 +61,7 @@ public:
     udp_pcap_file_reader(stream &owner, const std::string &filename, const std::string &filter = "");
     virtual ~udp_pcap_file_reader();
 
+    virtual void start() override;
     virtual bool lossy() const override;
 };
 

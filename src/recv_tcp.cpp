@@ -54,6 +54,10 @@ tcp_reader::tcp_reader(
 {
     assert(socket_uses_io_service(this->acceptor, get_io_service()));
     set_socket_recv_buffer_size(this->acceptor, buffer_size);
+}
+
+void tcp_reader::start()
+{
     /* We need to hold the stream's queue_mutex, because that guards access
      * to the sockets. This is a heavy-weight way to do it, but since it
      * only happens once per connection it is probably not worth trying to

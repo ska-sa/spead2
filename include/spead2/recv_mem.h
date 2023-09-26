@@ -49,6 +49,7 @@ public:
     mem_reader(stream &owner,
                const std::uint8_t *ptr, std::size_t length);
 
+    virtual void start() override;
     virtual bool lossy() const override;
 };
 

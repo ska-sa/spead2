@@ -80,7 +80,10 @@ udp_reader::udp_reader(
         msgvec[i].msg_hdr.msg_iovlen = 1;
     }
 #endif
+}
 
+void udp_reader::start()
+{
     enqueue_receive(make_handler_context());
 }
 
