@@ -351,6 +351,12 @@ stream_config &stream_config::set_stream_id(std::uintptr_t id)
     return *this;
 }
 
+stream_config &stream_config::set_explicit_start(bool explicit_start)
+{
+    this->explicit_start = explicit_start;
+    return *this;
+}
+
 std::size_t stream_config::add_stat(std::string name, stream_stat_config::mode mode)
 {
     if (spead2::recv::get_stat_index_nothrow(*stats, name) != stats->size())
@@ -633,8 +639,20 @@ bool reader::lossy() const
 stream::stream(io_service_ref io_service, const stream_config &config)
     : stream_base(config),
     thread_pool_holder(std::move(io_service).get_shared_thread_pool()),
-    io_service(*io_service)
+    io_service(*io_service),
+    readers_started(!config.get_explicit_start())
 {
+}
+
+void stream::start()
+{
+    std::lock_guard<std::mutex> lock(reader_mutex);
+    if (!readers_started)
+    {
+        for (const auto &r : readers)
+            r->start();
+        readers_started = true;
+    }
 }
 
 void stream::stop_received()

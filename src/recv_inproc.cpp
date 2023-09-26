@@ -37,6 +37,10 @@ inproc_reader::inproc_reader(
     data_sem_wrapper(wrap_fd(owner.get_io_service(),
                              this->queue->buffer.get_data_sem().get_fd()))
 {
+}
+
+void inproc_reader::start()
+{
     enqueue(make_handler_context());
 }
 

@@ -828,6 +828,7 @@ class TestStreamConfig:
         assert config.allow_unsized_heaps is True
         assert config.allow_out_of_order is False
         assert config.stream_id == 0
+        assert config.explicit_start is False
         # Will need updating if any new built-in statistics added
         assert config.stats == self.expected_stats
 
@@ -841,6 +842,7 @@ class TestStreamConfig:
         config.allow_out_of_order = True
         config.memory_allocator = allocator = spead2.MmapAllocator()
         config.stream_id = 123
+        config.explicit_start = True
         assert config.max_heaps == 5
         assert config.bug_compat == spead2.BUG_COMPAT_PYSPEAD_0_5_2
         assert config.memcpy == spead2.MEMCPY_NONTEMPORAL
@@ -849,6 +851,7 @@ class TestStreamConfig:
         assert config.allow_unsized_heaps is False
         assert config.allow_out_of_order is True
         assert config.stream_id == 123
+        assert config.explicit_start is True
 
     def test_kwargs_construct(self):
         config = recv.StreamConfig(
@@ -859,6 +862,7 @@ class TestStreamConfig:
             allow_unsized_heaps=False,
             allow_out_of_order=True,
             stream_id=123,
+            explicit_start=True,
         )
         assert config.max_heaps == 5
         assert config.bug_compat == spead2.BUG_COMPAT_PYSPEAD_0_5_2
@@ -867,6 +871,7 @@ class TestStreamConfig:
         assert config.allow_unsized_heaps is False
         assert config.allow_out_of_order is True
         assert config.stream_id == 123
+        assert config.explicit_start is True
 
     def test_max_heaps_zero(self):
         """Constructing a config with max_heaps=0 raises ValueError"""
@@ -1080,6 +1085,14 @@ class TestStream:
         assert stats.incomplete_heaps_evicted == 0
         assert stats.incomplete_heaps_flushed == 0
         assert stats.worker_blocked == 0
+
+    def test_reader_after_start(self):
+        config = recv.StreamConfig(explicit_start=True)
+        stream = recv.Stream(spead2.ThreadPool(1), config)
+        stream.add_buffer_reader(b"")
+        stream.start()
+        with pytest.raises(RuntimeError):
+            stream.add_buffer_reader(b"")
 
 
 class TestStreamStats:

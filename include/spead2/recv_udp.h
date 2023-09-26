@@ -47,8 +47,10 @@ private:
      * (the stream must be closed before we start destroying buffers).
      */
 
+    /// Endpoint to bind during @ref start()
+    std::optional<boost::asio::ip::udp::endpoint> bind_endpoint;
     /// Unused, but need to provide the memory for asio to write to
-    boost::asio::ip::udp::endpoint endpoint;
+    boost::asio::ip::udp::endpoint sender_endpoint;
     /// Maximum packet size we will accept
     std::size_t max_size;
 #if SPEAD2_USE_RECVMMSG
@@ -170,6 +172,7 @@ public:
         boost::asio::ip::udp::socket &&socket,
         std::size_t max_size = default_max_size);
 
+    virtual void start() override;
     virtual void stop() override;
 };
 

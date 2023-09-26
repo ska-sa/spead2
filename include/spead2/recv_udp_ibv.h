@@ -92,6 +92,10 @@ private:
      * bound to a port.
      */
     boost::asio::ip::udp::socket join_socket;
+    /// Multicast groups to subscribe to
+    std::vector<boost::asio::ip::address> groups;
+    /// Interface address for multicast subscription
+    boost::asio::ip::address interface_address;
 
 protected:
     enum class poll_result
@@ -113,8 +117,7 @@ protected:
     ///< Number of times to poll before waiting
     const int max_poll;
 
-    void join_groups(const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-                     const boost::asio::ip::address &interface_address);
+    void join_groups();
 
 public:
     udp_ibv_reader_core(
@@ -300,6 +303,8 @@ public:
      * @throws std::invalid_argument If no interface address is set.
      */
     udp_ibv_reader(stream &owner, const udp_ibv_config &config);
+
+    virtual void start() override;
 };
 
 } // namespace recv

@@ -70,6 +70,8 @@ private:
     std::size_t wqe_start = 0;
     /// Total buffer size
     std::size_t buffer_size;
+    /// Number of WQ enrties
+    std::size_t wqe;
 
     /// Post one work request to the receive work queue
     void post_wr(std::size_t offset);
@@ -88,6 +90,8 @@ public:
      * @throws std::invalid_argument If no interface address is set.
      */
     udp_ibv_mprq_reader(stream &owner, const udp_ibv_config &config);
+
+    virtual void start() override;
 };
 
 } // namespace spead2::recv

@@ -174,7 +174,7 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
         strides = device_attr.max_cqe;
         reduced = true;
     }
-    std::size_t wqe = strides >> attr.striding_rq_attrs.single_wqe_log_num_of_strides;
+    wqe = strides >> attr.striding_rq_attrs.single_wqe_log_num_of_strides;
     if (std::size_t(device_attr.max_qp_wr) < wqe)
     {
         wqe = device_attr.max_qp_wr;
@@ -214,17 +214,21 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
 
     rwq_ind_table = create_rwq_ind_table(cm_id, wq);
     qp = create_qp(cm_id, pd, rwq_ind_table);
-    wq.modify(IBV_WQS_RDY);
 
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(buffer_size, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
-    for (std::size_t i = 0; i < wqe; i++)
-        post_wr(i * wqe_size);
 
     flows = create_flows(qp, config.get_endpoints(), cm_id->port_num);
+}
+
+void udp_ibv_mprq_reader::start()
+{
     enqueue_receive(make_handler_context(), true);
-    join_groups(config.get_endpoints(), config.get_interface_address());
+    wq.modify(IBV_WQS_RDY);
+    for (std::size_t i = 0; i < wqe; i++)
+        post_wr(i * wqe_size);
+    join_groups();
 }
 
 } // namespace recv

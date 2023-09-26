@@ -357,6 +357,8 @@ private:
     bool allow_out_of_order = false;
     /// A user-defined identifier for a stream
     std::uintptr_t stream_id = 0;
+    /// Whether @ref stream::start needs to be called
+    bool explicit_start = false;
     /** Statistics (includes the built-in ones)
      *
      * This is a shared_ptr so that instances of @ref stream_stats can share
@@ -437,6 +439,15 @@ public:
 
     /// Get the stream ID
     std::uintptr_t get_stream_id() const { return stream_id; }
+
+    /**
+     * Set the explicit start control. If explicit start is enabled, no data
+     * will be received on the stream until @ref stream::start is called, and
+     * no readers can be added afterwards.
+     */
+    stream_config &set_explicit_start(bool explicit_start);
+    /// Get the explicit start flag
+    bool get_explicit_start() const { return explicit_start; }
 
     /**
      * Add a new custom statistic. Returns the index to use with @ref stream_stats.
@@ -765,17 +776,24 @@ public:
 
 /**
  * Abstract base class for asynchronously reading data and passing it into
- * a stream. Subclasses will usually override @ref stop.
+ * a stream. Subclasses will usually override @ref start and @ref stop.
  *
  * The lifecycle of a reader is:
  * - The reader mutex is taken
  *   - construction
+ * - The reader mutex is taken (possibly the same lock as above)
+ *   - @ref start is called (this should not depend on the reader mutex; it might
+ *     not be held in future)
  * - The queue mutex is taken
  *   - the stream stops
  *   - the reader mutex is taken
  *     - @ref stop is called
  * - The stream is destroyed
  *   - destruction of the reader
+ *
+ * @ref start is called either from @ref stream::emplace_reader or from
+ * @ref stream::start. No I/O callbacks should be scheduled until @ref start
+ * is called.
  *
  * @ref stop may be called from any thread (either user call via
  * @ref stream::stop, or I/O thread for a network stop). The destructor is
@@ -900,6 +918,11 @@ public:
     virtual bool lossy() const;
 
     /**
+     * Initiate receiving.
+     */
+    virtual void start() = 0;
+
+    /**
      * Release resources.
      *
      * This may be called from any thread, so resources that can only be
@@ -941,12 +964,15 @@ private:
     /// I/O service used by the readers
     boost::asio::io_service &io_service;
 
-    /// Protects mutable state (@ref readers, @ref stop_readers, @ref lossy).
+    /// Protects mutable state (@ref readers, @ref stop_readers, @ref readers_started, @ref lossy).
     mutable std::mutex reader_mutex;
     /**
      * Readers providing the stream data.
      */
     std::vector<std::unique_ptr<reader> > readers;
+
+    /// Set to true once the readers have been started (explicitly or implicitly)
+    bool readers_started = false;
 
     /// Set to true to indicate that no new readers should be added
     bool stop_readers = false;
@@ -1004,6 +1030,8 @@ public:
     void emplace_reader(Args&&... args)
     {
         std::lock_guard<std::mutex> lock(reader_mutex);
+        if (get_config().get_explicit_start() && readers_started)
+            throw std::logic_error("Cannot add readers after explicit start");
         // See comments in stop_received for why we do this check
         if (!stop_readers)
         {
@@ -1011,11 +1039,21 @@ public:
             readers.emplace_back(nullptr);
             readers.pop_back();
             std::unique_ptr<reader> ptr(reader_factory<T>::make_reader(*this, std::forward<Args>(args)...));
-            if (ptr->lossy())
+            reader *r = ptr.get();
+            if (r->lossy())
                 lossy = true;
             readers.push_back(std::move(ptr));
+            if (!get_config().get_explicit_start())
+                r->start();
         }
     }
+
+    /**
+     * Start the stream. This is only needed if the config specifies explicit
+     * start (see @ref stream_config::set_explicit_start). In that case, no
+     * new readers can be added after starting the stream.
+     */
+    void start();
 
     /**
      * Stop the stream. After this returns, the io_service may still have

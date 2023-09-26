@@ -632,6 +632,9 @@ py::module register_module(py::module &parent)
         .def_property("stream_id",
                       &stream_config::get_stream_id,
                       &stream_config::set_stream_id)
+        .def_property("explicit_start",
+                      &stream_config::get_explicit_start,
+                      &stream_config::set_explicit_start)
         .def("add_stat", &stream_config::add_stat,
              "name"_a,
              "mode"_a = stream_stat_config::mode::COUNTER)
@@ -717,6 +720,7 @@ py::module register_module(py::module &parent)
 #endif
         .def("add_inproc_reader", add_inproc_reader,
              "queue"_a)
+        .def("start", &stream::start)
         .def("stop", &stream::stop)
         .def_readonly_static("DEFAULT_UDP_MAX_SIZE", &udp_reader::default_max_size)
         .def_readonly_static("DEFAULT_UDP_BUFFER_SIZE", &udp_reader::default_buffer_size)

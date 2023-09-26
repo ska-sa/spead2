@@ -98,19 +98,21 @@ udp_ibv_reader_core::udp_ibv_reader_core(
         comp_channel = ibv_comp_channel_t(cm_id);
         comp_channel_wrapper = comp_channel.wrap(get_io_service());
     }
+
+    for (const auto &endpoint : config.get_endpoints())
+        if (endpoint.address().is_multicast())
+            groups.push_back(endpoint.address());
+    interface_address = config.get_interface_address();
 }
 
-void udp_ibv_reader_core::join_groups(
-    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-    const boost::asio::ip::address &interface_address)
+void udp_ibv_reader_core::join_groups()
 {
     join_socket.set_option(boost::asio::socket_base::reuse_address(true));
-    for (const auto &endpoint : endpoints)
-        if (endpoint.address().is_multicast())
-        {
-            join_socket.set_option(boost::asio::ip::multicast::join_group(
-                endpoint.address().to_v4(), interface_address.to_v4()));
-        }
+    for (const auto &address : groups)
+    {
+        join_socket.set_option(boost::asio::ip::multicast::join_group(
+            address.to_v4(), interface_address.to_v4()));
+    }
 }
 
 void udp_ibv_reader_core::stop()
@@ -265,10 +267,13 @@ udp_ibv_reader::udp_ibv_reader(
         slots[i].wr.wr_id = i;
         qp.post_recv(&slots[i].wr);
     }
+}
 
+void udp_ibv_reader::start()
+{
     enqueue_receive(make_handler_context(), true);
     qp.modify(IBV_QPS_RTR);
-    join_groups(config.get_endpoints(), config.get_interface_address());
+    join_groups();
 }
 
 } // namespace recv
