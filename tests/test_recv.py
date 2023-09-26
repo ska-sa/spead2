@@ -1081,6 +1081,14 @@ class TestStream:
         assert stats.incomplete_heaps_flushed == 0
         assert stats.worker_blocked == 0
 
+    def test_reader_after_start(self):
+        config = recv.StreamConfig(explicit_start=True)
+        stream = recv.Stream(spead2.ThreadPool(1), config)
+        stream.add_buffer_reader(b"")
+        stream.start()
+        with pytest.raises(RuntimeError):
+            stream.add_buffer_reader(b"")
+
 
 class TestStreamStats:
     @pytest.fixture
