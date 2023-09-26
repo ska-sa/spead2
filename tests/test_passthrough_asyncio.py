@@ -1,4 +1,4 @@
-# Copyright 2018-2021 National Research Foundation (SARAO)
+# Copyright 2018-2021, 2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -28,7 +28,7 @@ from . import test_passthrough
 
 class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
     def transmit_item_groups(
-        self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
+        self, item_groups, *, memcpy, allocator, explicit_start, new_order="=", group_mode=None
     ):
         loop = asyncio.new_event_loop()
         try:
@@ -37,6 +37,7 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
                     item_groups,
                     memcpy=memcpy,
                     allocator=allocator,
+                    explicit_start=explicit_start,
                     new_order=new_order,
                     group_mode=group_mode,
                 )
@@ -45,10 +46,10 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
             loop.close()
 
     async def transmit_item_groups_async(
-        self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
+        self, item_groups, *, memcpy, allocator, explicit_start, new_order="=", group_mode=None
     ):
         self.check_platform()
-        recv_config = spead2.recv.StreamConfig(memcpy=memcpy)
+        recv_config = spead2.recv.StreamConfig(memcpy=memcpy, explicit_start=explicit_start)
         if allocator is not None:
             recv_config.memory_allocator = allocator
         receivers = [
@@ -56,6 +57,9 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
             for i in range(len(item_groups))
         ]
         await self.prepare_receivers(receivers)
+        if explicit_start:
+            for receiver in receivers:
+                receiver.start()
         sender = await self.prepare_senders(spead2.ThreadPool(), len(item_groups))
         gens = [spead2.send.HeapGenerator(item_group) for item_group in item_groups]
         if len(item_groups) != 1:
@@ -192,13 +196,14 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreamsAsync):
         return spead2.send.asyncio.InprocStream(thread_pool, self._queues)
 
     async def transmit_item_groups_async(
-        self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
+        self, item_groups, *, memcpy, allocator, explicit_start, new_order="=", group_mode=None
     ):
         self._queues = [spead2.InprocQueue() for ig in item_groups]
         ret = await super().transmit_item_groups_async(
             item_groups,
             memcpy=memcpy,
             allocator=allocator,
+            explicit_start=explicit_start,
             new_order=new_order,
             group_mode=group_mode,
         )

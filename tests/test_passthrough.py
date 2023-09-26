@@ -102,6 +102,7 @@ class BaseTestPassthrough:
         *,
         memcpy=spead2.MEMCPY_STD,
         allocator=None,
+        explicit_start=False,
         new_order="=",
         group_mode=None,
     ):
@@ -109,6 +110,7 @@ class BaseTestPassthrough:
             item_groups,
             memcpy=memcpy,
             allocator=allocator,
+            explicit_start=explicit_start,
             new_order=new_order,
             group_mode=group_mode,
         )
@@ -125,6 +127,7 @@ class BaseTestPassthrough:
         *,
         memcpy=spead2.MEMCPY_STD,
         allocator=None,
+        explicit_start=False,
         new_order="=",
         group_mode=None,
     ):
@@ -136,7 +139,8 @@ class BaseTestPassthrough:
             group_mode=group_mode,
         )
 
-    def test_numpy_simple(self):
+    @pytest.mark.parametrize("explicit_start", [False, True])
+    def test_numpy_simple(self, explicit_start):
         """A basic array with numpy encoding"""
         ig = spead2.send.ItemGroup()
         data = np.array([[6, 7, 8], [10, 11, 12000]], dtype=np.uint16)
@@ -148,7 +152,7 @@ class BaseTestPassthrough:
             dtype=data.dtype,
             value=data,
         )
-        self._test_item_group(ig)
+        self._test_item_group(ig, explicit_start=explicit_start)
 
     def test_numpy_byteorder(self):
         """A numpy array in non-native byte order"""
@@ -295,7 +299,14 @@ class BaseTestPassthrough:
         self._test_item_group(ig)
 
     def transmit_item_groups(
-        self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
+        self,
+        item_groups,
+        *,
+        memcpy,
+        allocator,
+        explicit_start,
+        new_order="=",
+        group_mode=None,
     ):
         """Transmit `item_groups` over the chosen transport.
 
@@ -304,13 +315,16 @@ class BaseTestPassthrough:
         support substreams if `item_groups` has more than one element).
         """
         self.check_platform()
-        recv_config = spead2.recv.StreamConfig(memcpy=memcpy)
+        recv_config = spead2.recv.StreamConfig(memcpy=memcpy, explicit_start=explicit_start)
         if allocator is not None:
             recv_config.memory_allocator = allocator
         receivers = [
             spead2.recv.Stream(spead2.ThreadPool(), recv_config) for i in range(len(item_groups))
         ]
         self.prepare_receivers(receivers)
+        if explicit_start:
+            for receiver in receivers:
+                receiver.start()
         sender = self.prepare_senders(spead2.ThreadPool(), len(item_groups))
         gens = [spead2.send.HeapGenerator(item_group) for item_group in item_groups]
         if len(item_groups) != 1:
@@ -685,7 +699,7 @@ class TestPassthroughTcp6(BaseTestPassthrough):
 
 class TestPassthroughMem(BaseTestPassthrough):
     def transmit_item_groups(
-        self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
+        self, item_groups, *, memcpy, allocator, explicit_start, new_order="=", group_mode=None
     ):
         assert len(item_groups) == 1
         assert group_mode is None
@@ -694,12 +708,14 @@ class TestPassthroughMem(BaseTestPassthrough):
         gen = spead2.send.HeapGenerator(item_groups[0])
         sender.send_heap(gen.get_heap())
         sender.send_heap(gen.get_end())
-        recv_config = spead2.recv.StreamConfig(memcpy=memcpy)
+        recv_config = spead2.recv.StreamConfig(memcpy=memcpy, explicit_start=explicit_start)
         if allocator is not None:
             recv_config.memory_allocator = allocator
         receiver = spead2.recv.Stream(thread_pool, recv_config)
         receiver.add_buffer_reader(sender.getvalue())
         received_item_group = spead2.ItemGroup()
+        if explicit_start:
+            receiver.start()
         for heap in receiver:
             received_item_group.update(heap, new_order)
         return [received_item_group]
@@ -716,7 +732,7 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreams):
         return spead2.send.InprocStream(thread_pool, self._queues)
 
     def transmit_item_groups(
-        self, item_groups, *, memcpy, allocator, new_order="=", group_mode=None
+        self, item_groups, *, memcpy, allocator, explicit_start, new_order="=", group_mode=None
     ):
         self._queues = [spead2.InprocQueue() for ig in item_groups]
         ret = super().transmit_item_groups(
@@ -725,6 +741,7 @@ class TestPassthroughInproc(BaseTestPassthroughSubstreams):
             allocator=allocator,
             new_order=new_order,
             group_mode=group_mode,
+            explicit_start=explicit_start,
         )
         for queue in self._queues:
             queue.stop()
