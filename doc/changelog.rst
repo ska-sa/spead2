@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: 4.1.0
+
+- Introduce :ref:`explicit start <py-explicit-start>` for receive streams.
+
 .. rubric:: 4.0.2
 
 Note that an oversight lead to some of the changes between 4.0.0b1 and 4.0.0
