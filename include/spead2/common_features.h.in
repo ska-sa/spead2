@@ -38,25 +38,33 @@
 /* Python on MacOS likes to build universal binaries, which causes problems
  * because it doesn't match the compilation environment detected at
  * configuration time. So features that we only use on x86 are only enabled
- * if x86 is actually detected at build time.
+ * if x86 is actually detected at build time, and if function
+ * multi-versioning is available.
  */
 #if defined(__i386__) || defined(__i386) || defined(__x86_64__) || defined(__x86_64)
 
 # define SPEAD2_USE_FMV @SPEAD2_USE_FMV@
-/* On i386, MOVNTDQ is not guaranteed to exist at runtime, and we need function
- * multi-versioning to make it safe to use.
- */
-# if SPEAD2_USE_FMV || defined(__x86_64__) || defined(__x86_64)
-#  define SPEAD2_USE_MOVNTDQ @SPEAD2_USE_MOVNTDQ@
-# else
-#  define SPEAD2_USE_MOVNTDQ 0
+# if SPEAD2_USE_FMV
+#  define SPEAD2_USE_SSE2_STREAM @SPEAD2_USE_SSE2_STREAM@
+#  define SPEAD2_USE_AVX_STREAM @SPEAD2_USE_AVX_STREAM@
+#  define SPEAD2_USE_AVX512_STREAM @SPEAD2_USE_AVX512_STREAM@
+# elif defined(__x86_64__) || defined(__x86_64)
+#  define SPEAD2_USE_SSE2_STREAM @SPEAD2_USE_SSE2_STREAM@  /* Guaranteed to exist on x86_64 */
 # endif
 
-#else  // not x86
+#endif
 
+#ifndef SPEAD2_USE_FMV
 # define SPEAD2_USE_FMV 0
-# define SPEAD2_USE_MOVNTDQ 0
-
+#endif
+#ifndef SPEAD2_USE_SSE2_STREAM
+# define SPEAD2_USE_SSE2_STREAM 0
+#endif
+#ifndef SPEAD2_USE_AVX_STREAM
+# define SPEAD2_USE_AVX_STREAM 0
+#endif
+#ifndef SPEAD2_USE_AVX512_STREAM
+# define SPEAD2_USE_AVX512_STREAM 0
 #endif
 
 #define SPEAD2_USE_POSIX_SEMAPHORES @SPEAD2_USE_POSIX_SEMAPHORES@

@@ -107,7 +107,7 @@ autotools                              meson
 ``--without-posix-semaphores``         ``posix_semaphores=disabled``
 ``--without-pthread_setaffinity_np``   ``pthread_setaffinity_np=disabled``
 ``--without-fmv``                      ``fmv=disabled``
-``--without-movntdq``                  ``movntdq=disabled``
+``--without-movntdq``                  ``sse2_stream=disabled``
 ``--without-cuda``                     ``cuda=disabled``
 ``--without-gdrapi``                   ``gdrapi=disabled``
 ====================================== =====================================

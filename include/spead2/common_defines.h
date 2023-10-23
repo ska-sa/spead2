@@ -34,12 +34,6 @@
 #define SPEAD2_MAX_LOG_LEVEL (spead2::log_level::info)
 #endif
 
-#if SPEAD2_USE_FMV
-# define SPEAD2_FMV_TARGET(x) [[gnu::target(x)]]
-#else
-# define SPEAD2_FMV_TARGET(x)
-#endif
-
 /**
  * SPEAD protocol sending and receiving. All SPEAD-64-* flavours are
  * supported.
