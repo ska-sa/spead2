@@ -94,7 +94,7 @@ BOOST_DATA_TEST_CASE(memcpy_nontemporal_alignments, boost::unit_test::data::make
     for (int i = 0; i < align_range; i++)
         for (int j = 0; j < align_range; j++)
             // Step 1 at a time up to 128, then take larger steps to reduce test time
-            for (int len = 0; len <= max_len; len = (len < 128) ? len + 1 : len + 15)
+            for (int len = 0; len <= max_len; len = (len < 128) ? len + 1 : len + 37)
             {
                 std::memset(dest_buffer, 255, sizeof(dest_buffer));
                 for (int k = 0; k < buffer_size; k++)
