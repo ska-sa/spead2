@@ -191,7 +191,19 @@ use_pthread_setaffinity_np = get_option('pthread_setaffinity_np').require(
     dependencies : thread_dep
   )
 ).allowed()
-use_fmv = get_option('fmv').require(compiler.has_function_attribute('ifunc')).allowed()
+# Ideally we'd like to do this, but we need to work around
+# https://github.com/mesonbuild/meson/issues/12413
+# use_fmv = get_option('fmv').require(compiler.has_function_attribute('ifunc')).allowed()
+use_fmv = get_option('fmv').require(
+  compiler.compiles(
+    '''
+    void foo_impl() {}
+    extern "C" { void (*resolve_foo())() { return foo_impl; } }
+    [[gnu::ifunc("resolve_foo")]] void foo();
+    ''',
+    name : 'ifunc attribute'
+  )
+).allowed()
 # has_function doesn't work for _mm_stream_si128 and friends, because they
 # are inline-only functions in GCC without external definitions.
 use_sse2_stream = get_option('sse2_stream').require(
