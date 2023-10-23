@@ -60,10 +60,7 @@ namespace spead2
 
 #if SPEAD2_USE_FMV
 
-extern "C"
-{
-
-static void *(*resolve_memcpy_nontemporal())(void *, const void *, std::size_t)
+void *(*resolve_memcpy_nontemporal())(void *, const void *, std::size_t)
 {
     __builtin_cpu_init();
     /* On Skylake server, AVX-512 reduces clock speeds. Use the logic as Glibc to
@@ -88,14 +85,12 @@ static void *(*resolve_memcpy_nontemporal())(void *, const void *, std::size_t)
     return std::memcpy;
 }
 
-} // extern "C"
-
-[[gnu::ifunc("resolve_memcpy_nontemporal")]]
+[[gnu::ifunc("_ZN6spead226resolve_memcpy_nontemporalEv")]]
 void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
 
 #else
 
-void memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept
+void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept
 {
 #if SPEAD2_USE_SSE2_STREAM
     // We only get here on x86_64, where SSE2 is guaranteed to be supported by hardware
