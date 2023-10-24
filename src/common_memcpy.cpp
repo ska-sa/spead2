@@ -85,7 +85,10 @@ void *(*resolve_memcpy_nontemporal())(void *, const void *, std::size_t) noexcep
     if (__builtin_cpu_supports("sse2"))
         return memcpy_nontemporal_sse2;
 #endif
-    return std::memcpy;
+    /* Depending on the C library, std::memcpy might or might not be marked
+     * as noexcept. If not, we need this explicit cast.
+     */
+    return (void *(*)(void *, const void *, std::size_t) noexcept) std::memcpy;
 }
 
 #if SPEAD2_USE_FMV
