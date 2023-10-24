@@ -84,6 +84,9 @@ static void *SPEAD2_MEMCPY_NAME(
             (SPEAD2_MEMCPY_STORE((T *) (dest_c + offset + I2 * sizeof(T)), values[I2]), ...);
         }
     }
+#if SPEAD2_MEMCPY_VZEROUPPER
+    _mm256_zeroupper();
+#endif
     std::size_t tail = n - offset;
     std::memcpy(dest_c + offset, src_c + offset, tail);
     _mm_sfence();
@@ -111,3 +114,4 @@ void *SPEAD2_MEMCPY_NAME(void * __restrict__ dest, const void * __restrict__ src
 #undef SPEAD2_MEMCPY_LOAD
 #undef SPEAD2_MEMCPY_STORE
 #undef SPEAD2_MEMCPY_UNROLL
+#undef SPEAD2_MEMCPY_VZEROUPPER
