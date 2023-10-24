@@ -49,6 +49,7 @@ jobs:
           -Dauto_features=${{ matrix.extras }}
           -Dcuda=disabled
           -Dgdrapi=disabled
+          -Dfmv="$(if [[ '${{ matrix.cxx }}' == g++* ]]; then echo enabled; else echo disabled; fi)"
       - name: Build
         run: meson compile -C build
       - name: Run tests
@@ -116,6 +117,7 @@ jobs:
           pip install -v
           --config-settings=setup-args=-Dwerror=true
           --config-settings=setup-args=-Dauto_features=${{ matrix.extras }}
+          --config-settings=setup-args=-Dfmv="$(if [[ '${{ matrix.cxx }}' == g++* ]]; then echo enabled; else echo disabled; fi)"
           .
       - name: Run tests
         run: ./.ci/py-tests.sh
