@@ -61,18 +61,18 @@
 namespace spead2
 {
 
-#if SPEAD2_USE_FMV
-
-void *(*resolve_memcpy_nontemporal())(void *, const void *, std::size_t)
+void *(*resolve_memcpy_nontemporal())(void *, const void *, std::size_t) noexcept
 {
+#if SPEAD2_USE_AVX512_STREAM || SPEAD2_USE_AVX_STREAM || SPEAD2_USE_SSE2_STREAM
     __builtin_cpu_init();
-    /* On Skylake server, AVX-512 reduces clock speeds. Use the logic as Glibc to
-     * decide whether AVX-512 is okay: it's okay if either AVX512ER or
+#endif
+#if SPEAD2_USE_AVX512_STREAM
+    /* On Skylake server, AVX-512 reduces clock speeds. Use the same logic as
+     * Glibc to decide whether AVX-512 is okay: it's okay if either AVX512ER or
      * AVX512-VNNI is present. Glibc only applies that logic to Intel CPUs, but
      * AMD introduced AVX-512 with Zen 4 which also supports AVX512-VNNI (and
      * performs well), so we don't need to distinguish.
      */
-#if SPEAD2_USE_AVX512_STREAM
     if (__builtin_cpu_supports("avx512f")
         && (__builtin_cpu_supports("avx512er") || __builtin_cpu_supports("avx512vnni")))
         return memcpy_nontemporal_avx512;
@@ -88,6 +88,8 @@ void *(*resolve_memcpy_nontemporal())(void *, const void *, std::size_t)
     return std::memcpy;
 }
 
+#if SPEAD2_USE_FMV
+
 [[gnu::ifunc("_ZN6spead226resolve_memcpy_nontemporalEv")]]
 void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
 
@@ -95,14 +97,10 @@ void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src
 
 void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept
 {
-#if SPEAD2_USE_SSE2_STREAM
-    // We only get here on x86_64, where SSE2 is guaranteed to be supported by hardware
-    return memcpy_nontemporal_sse2(dest, src, n);
-#else
-    return memcpy(dest, src, n);
-#endif
+    static void *(*memcpy_nontemporal_ptr)(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept = resolve_memcpy_nontemporal();
+    return memcpy_nontemporal_ptr(dest, src, n);
 }
 
-#endif // SPEAD2_USE_FMV
+#endif
 
 } // namespace spead2

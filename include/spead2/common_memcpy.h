@@ -26,7 +26,8 @@
  * This is not necessarily any faster on its own (and may be slower), but it
  * avoids polluting the cache.
  *
- * If compiler support is not available, this falls back to regular memcpy.
+ * If compiler and run-time support is not available, this falls back to
+ * regular memcpy.
  */
 namespace spead2
 {

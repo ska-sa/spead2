@@ -191,19 +191,15 @@ use_pthread_setaffinity_np = get_option('pthread_setaffinity_np').require(
     dependencies : thread_dep
   )
 ).allowed()
-# Ideally we'd like to do this, but we need to work around
+# While clang implements function multi-versioning, it's currently buggy e.g.
+# https://github.com/llvm/llvm-project/issues/54549
+# https://github.com/llvm/llvm-project/issues/45833
 # https://github.com/mesonbuild/meson/issues/12413
-# use_fmv = get_option('fmv').require(compiler.has_function_attribute('ifunc')).allowed()
+#
+# So we explicitly disallow it.
 use_fmv = get_option('fmv').require(
-  compiler.compiles(
-    '''
-    void foo_impl() {}
-    extern "C" { void (*resolve_foo())() { return foo_impl; } }
-    [[gnu::ifunc("resolve_foo")]] void foo();
-    ''',
-    name : 'ifunc attribute'
-  )
-).allowed()
+  compiler.has_function_attribute('ifunc')
+).require(compiler.get_id() != 'clang').allowed()
 # has_function doesn't work for _mm_stream_si128 and friends, because they
 # are inline-only functions in GCC without external definitions.
 use_sse2_stream = get_option('sse2_stream').require(
@@ -214,6 +210,7 @@ use_sse2_stream = get_option('sse2_stream').require(
     [[gnu::target("sse2")]]
     void foo()
     {
+        (void) __builtin_cpu_supports("sse2");
         _mm_stream_si128((__m128i *) NULL, __m128i());
     }
     ''',
@@ -228,6 +225,7 @@ use_avx_stream = get_option('avx_stream').require(
     [[gnu::target("avx")]]
     void foo()
     {
+        (void) __builtin_cpu_supports("avx");
         _mm256_stream_si256((__m256i *) NULL, __m256i());
     }
     ''',
@@ -242,6 +240,7 @@ use_avx512_stream = get_option('avx512_stream').require(
     [[gnu::target("avx512f")]]
     void foo()
     {
+        (void) __builtin_cpu_supports("avx512f");
         _mm512_stream_si512((__m512i *) NULL, __m512i());
     }
     ''',
