@@ -1,4 +1,4 @@
-/* Copyright 2016, 2020 National Research Foundation (SARAO)
+/* Copyright 2016, 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -17,70 +17,93 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 #include <spead2/common_defines.h>
 #include <spead2/common_features.h>
 #include <spead2/common_memcpy.h>
-#if SPEAD2_USE_MOVNTDQ
+
+#if SPEAD2_USE_SSE2_STREAM
 # include <emmintrin.h>
+# define SPEAD2_MEMCPY_NAME memcpy_nontemporal_sse2
+# define SPEAD2_MEMCPY_TARGET "sse2"
+# define SPEAD2_MEMCPY_TYPE __m128i
+# define SPEAD2_MEMCPY_LOAD _mm_loadu_si128
+# define SPEAD2_MEMCPY_STORE _mm_stream_si128
+# define SPEAD2_MEMCPY_UNROLL 16
+# define SPEAD2_MEMCPY_VZEROUPPER 0
+# include "common_memcpy_impl.h"
+#endif
+
+#if SPEAD2_USE_AVX_STREAM
+# include <immintrin.h>
+# define SPEAD2_MEMCPY_NAME memcpy_nontemporal_avx
+# define SPEAD2_MEMCPY_TARGET "avx"
+# define SPEAD2_MEMCPY_TYPE __m256i
+# define SPEAD2_MEMCPY_LOAD _mm256_loadu_si256
+# define SPEAD2_MEMCPY_STORE _mm256_stream_si256
+# define SPEAD2_MEMCPY_UNROLL 8
+# define SPEAD2_MEMCPY_VZEROUPPER 1
+# include "common_memcpy_impl.h"
+#endif
+
+#if SPEAD2_USE_AVX512_STREAM
+# include <immintrin.h>
+# define SPEAD2_MEMCPY_NAME memcpy_nontemporal_avx512
+# define SPEAD2_MEMCPY_TARGET "avx512f"
+# define SPEAD2_MEMCPY_TYPE __m512i
+# define SPEAD2_MEMCPY_LOAD _mm512_loadu_si512
+# define SPEAD2_MEMCPY_STORE _mm512_stream_si512
+# define SPEAD2_MEMCPY_UNROLL 8
+# define SPEAD2_MEMCPY_VZEROUPPER 1
+# include "common_memcpy_impl.h"
 #endif
 
 namespace spead2
 {
 
-#if SPEAD2_USE_FMV || !SPEAD2_USE_MOVNTDQ
-SPEAD2_FMV_TARGET("default")
-void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept
+void *(*resolve_memcpy_nontemporal())(void *, const void *, std::size_t) noexcept
 {
-    return std::memcpy(dest, src, n);
+#if SPEAD2_USE_AVX512_STREAM || SPEAD2_USE_AVX_STREAM || SPEAD2_USE_SSE2_STREAM
+    __builtin_cpu_init();
+#endif
+#if SPEAD2_USE_AVX512_STREAM
+    /* On Skylake server, AVX-512 reduces clock speeds. Use the same logic as
+     * Glibc to decide whether AVX-512 is okay: it's okay if either AVX512ER or
+     * AVX512-VNNI is present. Glibc only applies that logic to Intel CPUs, but
+     * AMD introduced AVX-512 with Zen 4 which also supports AVX512-VNNI (and
+     * performs well), so we don't need to distinguish.
+     */
+    if (__builtin_cpu_supports("avx512f")
+        && (__builtin_cpu_supports("avx512er") || __builtin_cpu_supports("avx512vnni")))
+        return memcpy_nontemporal_avx512;
+#endif
+#if SPEAD2_USE_AVX_STREAM
+    if (__builtin_cpu_supports("avx"))
+        return memcpy_nontemporal_avx;
+#endif
+#if SPEAD2_USE_SSE2_STREAM
+    if (__builtin_cpu_supports("sse2"))
+        return memcpy_nontemporal_sse2;
+#endif
+    /* Depending on the C library, std::memcpy might or might not be marked
+     * as noexcept. If not, we need this explicit cast.
+     */
+    return (void *(*)(void *, const void *, std::size_t) noexcept) std::memcpy;
 }
-#endif // SPEAD2_USE_FMV || !SPEAD2_USE_MOVNTDQ
 
-#if SPEAD2_USE_MOVNTDQ
-SPEAD2_FMV_TARGET("sse2")
+#if SPEAD2_USE_FMV
+
+[[gnu::ifunc("_ZN6spead226resolve_memcpy_nontemporalEv")]]
+void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
+
+#else
+
 void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept
 {
-    char * __restrict__ dest_c = (char *) dest;
-    const char * __restrict__ src_c = (const char *) src;
-    // Align the destination to a cache-line boundary
-    std::uintptr_t dest_i = std::uintptr_t(dest_c);
-    constexpr std::uintptr_t cache_line_mask = detail::cache_line_size - 1;
-    std::uintptr_t aligned = (dest_i + cache_line_mask) & ~cache_line_mask;
-    std::size_t head = aligned - dest_i;
-    if (head > 0)
-    {
-        if (head >= n)
-        {
-            std::memcpy(dest_c, src_c, n);
-            /* Not normally required, but if the destination is
-             * write-combining memory then this will flush the combining
-             * buffers. That may be necessary if the memory is actually on
-             * a GPU or other accelerator.
-             */
-            _mm_sfence();
-            return dest;
-        }
-        std::memcpy(dest_c, src_c, head);
-        dest_c += head;
-        src_c += head;
-        n -= head;
-    }
-    std::size_t offset;
-    for (offset = 0; offset + 64 <= n; offset += 64)
-    {
-        __m128i value0 = _mm_loadu_si128((__m128i const *) (src_c + offset + 0));
-        __m128i value1 = _mm_loadu_si128((__m128i const *) (src_c + offset + 16));
-        __m128i value2 = _mm_loadu_si128((__m128i const *) (src_c + offset + 32));
-        __m128i value3 = _mm_loadu_si128((__m128i const *) (src_c + offset + 48));
-        _mm_stream_si128((__m128i *) (dest_c + offset + 0), value0);
-        _mm_stream_si128((__m128i *) (dest_c + offset + 16), value1);
-        _mm_stream_si128((__m128i *) (dest_c + offset + 32), value2);
-        _mm_stream_si128((__m128i *) (dest_c + offset + 48), value3);
-    }
-    std::size_t tail = n - offset;
-    std::memcpy(dest_c + offset, src_c + offset, tail);
-    _mm_sfence();
-    return dest;
+    static void *(*memcpy_nontemporal_ptr)(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept = resolve_memcpy_nontemporal();
+    return memcpy_nontemporal_ptr(dest, src, n);
 }
-#endif // SPEAD2_USE_MOVNTDQ
+
+#endif
 
 } // namespace spead2

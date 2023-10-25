@@ -191,26 +191,60 @@ use_pthread_setaffinity_np = get_option('pthread_setaffinity_np').require(
     dependencies : thread_dep
   )
 ).allowed()
+# While clang implements function multi-versioning, it's currently buggy e.g.
+# https://github.com/llvm/llvm-project/issues/54549
+# https://github.com/llvm/llvm-project/issues/45833
+# https://github.com/mesonbuild/meson/issues/12413
+#
+# So we explicitly disallow it.
 use_fmv = get_option('fmv').require(
-  compiler.compiles(
-    '__attribute__((target("default"))) void foo() {}',
-    args : '-Werror',  # TODO: use werror kwarg once meson 1.3 is in use
-    name : 'function multi-versioning'
-  )
-).allowed()
-# has_function doesn't work for _mm_stream_si128, because it is an
-# inline-only function in GCC without an external definition.
-use_movntdq = get_option('movntdq').require(
+  compiler.has_function_attribute('ifunc')
+).require(compiler.get_id() != 'clang').allowed()
+# has_function doesn't work for _mm_stream_si128 and friends, because they
+# are inline-only functions in GCC without external definitions.
+use_sse2_stream = get_option('sse2_stream').require(
   compiler.compiles(
     '''
     #include <emmintrin.h>
 
+    [[gnu::target("sse2")]]
     void foo()
     {
+        (void) __builtin_cpu_supports("sse2");
         _mm_stream_si128((__m128i *) NULL, __m128i());
     }
     ''',
-    name : 'MOVNTDQ intrinsic'
+    name : 'SSE2 streaming intrinsic'
+  )
+).allowed()
+use_avx_stream = get_option('avx_stream').require(
+  compiler.compiles(
+    '''
+    #include <immintrin.h>
+
+    [[gnu::target("avx")]]
+    void foo()
+    {
+        (void) __builtin_cpu_supports("avx");
+        _mm256_stream_si256((__m256i *) NULL, __m256i());
+    }
+    ''',
+    name : 'AVX streaming intrinsic'
+  )
+).allowed()
+use_avx512_stream = get_option('avx512_stream').require(
+  compiler.compiles(
+    '''
+    #include <immintrin.h>
+
+    [[gnu::target("avx512f")]]
+    void foo()
+    {
+        (void) __builtin_cpu_supports("avx512f");
+        _mm512_stream_si512((__m512i *) NULL, __m512i());
+    }
+    ''',
+    name : 'AVX-512 streaming intrinsic'
   )
 ).allowed()
 
@@ -230,7 +264,9 @@ conf.set10('SPEAD2_USE_EVENTFD', use_eventfd)
 conf.set10('SPEAD2_USE_POSIX_SEMAPHORES', use_posix_semaphores)
 conf.set10('SPEAD2_USE_PTHREAD_SETAFFINITY_NP', use_pthread_setaffinity_np)
 conf.set10('SPEAD2_USE_FMV', use_fmv)
-conf.set10('SPEAD2_USE_MOVNTDQ', use_movntdq)
+conf.set10('SPEAD2_USE_SSE2_STREAM', use_sse2_stream)
+conf.set10('SPEAD2_USE_AVX_STREAM', use_avx_stream)
+conf.set10('SPEAD2_USE_AVX512_STREAM', use_avx512_stream)
 conf.set10('SPEAD2_USE_PCAP', pcap_dep.found())
 conf.set('SPEAD2_MAX_LOG_LEVEL', '(spead2::log_level::' + get_option('max_log_level') + ')')
 

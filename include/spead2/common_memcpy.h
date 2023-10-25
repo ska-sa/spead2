@@ -26,20 +26,13 @@
  * This is not necessarily any faster on its own (and may be slower), but it
  * avoids polluting the cache.
  *
- * If compiler support is not available, this falls back to regular memcpy.
+ * If compiler and run-time support is not available, this falls back to
+ * regular memcpy.
  */
 namespace spead2
 {
 
-#if SPEAD2_USE_FMV || !SPEAD2_USE_MOVNTDQ
-SPEAD2_FMV_TARGET("default")
 void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
-#endif
-
-#if SPEAD2_USE_MOVNTDQ
-SPEAD2_FMV_TARGET("sse2")
-void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
-#endif
 
 } // namespace spead2
 
