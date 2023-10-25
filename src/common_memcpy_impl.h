@@ -28,7 +28,11 @@ namespace spead2
 namespace detail
 {
 
-// U1 and U2 is unrolling factor; Ix is an index sequence 0, ..., Ux-1
+/* U1 and U2 are unrolling factors; Ix is an index sequence 0, ..., Ux-1
+ *
+ * The first unrolling factor (U1) is for the bulk of the copy. The second
+ * is for the tail, and should correspond to a cache line.
+ */
 template<int U1, int U2, std::size_t... I1, std::size_t... I2 >
 [[gnu::target(SPEAD2_MEMCPY_TARGET)]]
 static void *SPEAD2_MEMCPY_NAME(
