@@ -106,7 +106,6 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-          allow-prereleases: true  # TODO: remove once 3.12 is released
           cache: 'pip'
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
@@ -129,7 +128,6 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-          allow-prereleases: true  # TODO: remove once 3.12 is released
           cache: 'pip'
       - uses: actions/setup-python@v4
         with:
@@ -150,7 +148,7 @@ jobs:
         run: ./.ci/install-sys-pkgs.sh
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'  # TODO: update to 3.12 after release
+          python-version: '3.12'
           cache: 'pip'
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
@@ -198,7 +196,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'  # TODO: update to 3.12 after release
+          python-version: '3.12'
           cache: 'pip'
       - uses: actions/checkout@v4
       - name: Set up sccache
@@ -207,7 +205,7 @@ jobs:
         run: ./.ci/install-sys-pkgs.sh
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'  # TODO: update to 3.12 after release
+          python-version: '3.12'
           cache: 'pip'
       - name: Install build requirements
         run: ./.ci/py-build-requirements.sh
@@ -221,7 +219,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'  # TODO: update to 3.12 after release
+          python-version: '3.12'
           cache: 'pip'
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
