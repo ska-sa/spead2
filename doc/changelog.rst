@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: 4.1.1
+
+- Add AVX and AVX-512 implementations for non-temporal memory copy. While this
+  is transparent to the API, the Meson option names have changed to allow
+  specific instruction sets to be disabled if necessary.
+
 .. rubric:: 4.1.0
 
 - Introduce :ref:`explicit start <py-explicit-start>` for receive streams.
