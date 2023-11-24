@@ -4,3 +4,12 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    group:
+      production-group:
+        dependency-type: "production"
+      development-group:
+        dependency-type: "development"
