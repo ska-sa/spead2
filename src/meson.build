@@ -150,6 +150,7 @@ if not get_option('python')
     'unittest_recv_custom_memcpy.cpp',
     'unittest_recv_stream_stats.cpp',
     'unittest_semaphore.cpp',
+    'unittest_send_completion.cpp',
     'unittest_send_heap.cpp',
     'unittest_send_streambuf.cpp',
     'unittest_send_tcp.cpp',
