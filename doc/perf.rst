@@ -28,7 +28,7 @@ Kernel network stack
 ^^^^^^^^^^^^^^^^^^^^
 If you're unable to bypass the kernel networking stack, this section has some
 advice on tuning it. The first thing to do is to increase the maximum socket
-buffer sizes. See :doc:`introduction` for details.
+buffer sizes. See :doc:`installation` for details.
 
 The kernel firewall can affect performance, particularly if
 small packets are being used (in this context, anything that isn't a jumbo

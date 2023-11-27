@@ -3,7 +3,7 @@ Getting started with development
 
 Python setup
 ------------
-Refer to the :doc:`introduction` for the prerequisite packages (particularly
+Refer to :doc:`installation` for the prerequisite packages (particularly
 :ref:`py-install-source`). You will also need ninja-build_, and a
 Python virtual environment. You can use any tool you like to create the
 virtual environment, but it must be located outside of the working copy of the
