@@ -17,8 +17,8 @@ foreach name : [
   'recv_chunk_example',
   'recv_chunk_ring_example',
   'recv_chunk_group_example',
-  'test_recv',
-  'test_send',
+  'recv_example',
+  'send_example',
 ]
   executable(name, name + '.cpp', dependencies : [st_dep])
 endforeach
