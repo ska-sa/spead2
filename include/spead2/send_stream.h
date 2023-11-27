@@ -437,7 +437,8 @@ public:
     {
         auto init = [this, &h, cnt, substream_index](auto handler)
         {
-            async_send_heap(h, std::move(handler), cnt, substream_index);
+            // Explicit this-> is to work around bogus warning from clang
+            this->async_send_heap(h, std::move(handler), cnt, substream_index);
         };
         return boost::asio::async_initiate<
             CompletionToken, void(const boost::system::error_code &, item_pointer_t)
@@ -520,7 +521,8 @@ public:
     {
         auto init = [this, first, last, mode](auto handler)
         {
-            async_send_heaps(first, last, std::move(handler), mode);
+            // Explicit this-> is to work around bogus warning from clang
+            this->async_send_heaps(first, last, std::move(handler), mode);
         };
         return boost::asio::async_initiate<
             CompletionToken, void(const boost::system::error_code &, item_pointer_t)
