@@ -429,11 +429,13 @@ public:
      * and check for @c boost::asio::error::would_block to determine if the
      * heaps were rejected due to lack of buffer space.
      */
-    template<typename CompletionToken,
-             typename = std::enable_if_t<!std::is_convertible_v<CompletionToken, completion_handler>>>
+    template<typename CompletionToken>
     auto async_send_heap(const heap &h, CompletionToken &&token,
                          s_item_pointer_t cnt = -1,
-                         std::size_t substream_index = 0)
+                         std::enable_if_t<
+                            !std::is_convertible_v<CompletionToken, completion_handler>,
+                            std::size_t
+                         > substream_index = 0)
     {
         auto init = [this, &h, cnt, substream_index](auto handler)
         {
