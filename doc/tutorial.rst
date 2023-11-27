@@ -320,3 +320,84 @@ useful (since the arrival of data implicitly indicates that it has started).
         heap.add_end();
         stream.async_send_heap(heap, boost::asio::use_future).wait();
     }
+
+That's it! Let's give it a test. If you've been following the C++ tutorial,
+you'll want a compiled binary, which (if you followed the instructions to
+build from source) you'll find in the :file:`examples` subdirectory of the
+build directory. Unfortunately, in the best case, you get no output at all and
+the program simply exits. Obviously, we're going to need a receiver to get
+some idea of whether anything is really happening. The good news is that
+spead2 ships with a general-purpose receiver — in fact two (one written in
+Python and one written in C++). Let's use the Python one, since it provides
+more high-level interpretation of the data. Note that you can use the Python
+receiver even with the C++ sender, since the protocol is the same, although
+if you haven't already :doc:`installed <installation>` the Python bindings you
+should do that now.
+
+Start the receiver first by running
+
+.. code-block:: sh
+
+    spead2_recv.py --descriptors --values 127.0.0.1:8888
+
+This will listen on port 8888 on the local machine — the same port our program
+is sending to. Then run the example program again. The receiver program should
+now print something like the following and exit:
+
+.. code-block:: text
+
+    Received heap 1 on stream 127.0.0.1:8888
+        Descriptor for timestamp (0x1600)
+          description: Index of the first sample
+          format:      [('u', 40)]
+          dtype:       None
+          shape:       ()
+        Descriptor for adc_samples (0x3300)
+          description: ADC converter output
+          format:      None
+          dtype:       int8
+          shape:       (1048576,)
+    adc_samples = [ 63  55  23 ... -61  50 -82]
+    timestamp = 0
+    Received heap 2 on stream 127.0.0.1:8888
+    adc_samples = [-28  33 -42 ... -25 -12  15]
+    timestamp = 1048576
+    Received heap 3 on stream 127.0.0.1:8888
+    adc_samples = [-43 -14 -18 ... -12 -70 -61]
+    timestamp = 2097152
+    Received heap 4 on stream 127.0.0.1:8888
+    adc_samples = [  79    2 -100 ...   59    6  -71]
+    timestamp = 3145728
+    Received heap 5 on stream 127.0.0.1:8888
+    adc_samples = [ 38  -5  84 ... -67 -93  57]
+    timestamp = 4194304
+    Received heap 6 on stream 127.0.0.1:8888
+    adc_samples = [ -4   1 -33 ... -99  96  15]
+    timestamp = 5242880
+    Received heap 7 on stream 127.0.0.1:8888
+    adc_samples = [  5 -48 -46 ...  86  65 -59]
+    timestamp = 6291456
+    Received heap 8 on stream 127.0.0.1:8888
+    adc_samples = [ 79 -38 -41 ... -22 -73   0]
+    timestamp = 7340032
+    Received heap 9 on stream 127.0.0.1:8888
+    adc_samples = [  4 -40  84 ... -19 -11 -43]
+    timestamp = 8388608
+    Received heap 10 on stream 127.0.0.1:8888
+    adc_samples = [  2 -64 -87 ...   0  84 -76]
+    timestamp = 9437184
+    Shutting down stream 127.0.0.1:8888 after 10 heaps
+    heaps: 10
+    incomplete_heaps_evicted: 0
+    incomplete_heaps_flushed: 0
+    packets: 7331
+    batches: 2359
+    max_batch: 45
+    single_packet_heaps: 1
+    search_dist: 7330
+    worker_blocked: 0
+
+We can see that the first heap contains the descriptors we set. All the
+heaps contain a timestamp and some sample data (not fully shown). At the end
+we see some :doc:`statistics <recv-stats>`, but they won't make much sense yet
+because we haven't written a receiver.
