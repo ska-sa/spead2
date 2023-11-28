@@ -277,6 +277,7 @@ useful (since the arrival of data implicitly indicates that it has started).
         spead2::send::heap heap;
         heap.add_end();
         stream.async_send_heap(heap, boost::asio::use_future).wait();
+        return 0;
     }
 
 That's it! Let's give it a test. If you've been following the C++ tutorial,
@@ -357,5 +358,5 @@ now print something like the following and exit:
 
 We can see that the first heap contains the descriptors we set. All the
 heaps contain a timestamp and some sample data (not fully shown). At the end
-we see some :doc:`statistics <recv-stats>`, but they won't make much sense yet
-because we haven't written a receiver.
+we see some :doc:`statistics <recv-stats>`; these are mostly useful for
+diagnosing performance issues.

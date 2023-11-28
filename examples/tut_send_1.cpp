@@ -81,4 +81,5 @@ int main()
     spead2::send::heap heap;
     heap.add_end();
     stream.async_send_heap(heap, boost::asio::use_future).wait();
+    return 0;
 }

@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Copyright 2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
@@ -13,19 +15,22 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-foreach name : [
-  'recv_chunk_example',
-  'recv_chunk_ring_example',
-  'recv_chunk_group_example',
-  'recv_example',
-  'tut_send_1',
-  'tut_recv_1',
-]
-  executable(name, name + '.cpp', dependencies : [st_dep])
-endforeach
+import numpy as np
 
-executable('test_ringbuffer', 'test_ringbuffer.cpp', dependencies : [st_dep, boost_program_options_dep])
-if use_ibv
-  executable('gpudirect_example', 'gpudirect_example.cu', dependencies : [st_dep, cuda_dep])
-  executable('gdrapi_example', 'gdrapi_example.cu', dependencies : [st_dep, cuda_dep, gdrapi_dep])
-endif
+import spead2.recv
+
+
+def main():
+    thread_pool = spead2.ThreadPool()
+    stream = spead2.recv.Stream(thread_pool)
+    stream.add_udp_reader(8888)
+    item_group = spead2.ItemGroup()
+    for heap in stream:
+        item_group.update(heap)
+        timestamp = item_group["timestamp"].value
+        power = np.mean(np.square(item_group["adc_samples"].value, dtype=int))
+        print(f"Timestamp: {timestamp:<10} Power: {power:.2f}")
+
+
+if __name__ == "__main__":
+    main()
