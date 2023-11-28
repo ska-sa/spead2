@@ -28,6 +28,7 @@
 #include <spead2/recv_heap.h>
 #include <spead2/recv_stream.h>
 #include <utility>
+#include <optional>
 
 namespace spead2::recv
 {
@@ -92,6 +93,22 @@ private:
 
     virtual void heap_ready(live_heap &&) override;
 
+    struct sentinel {};
+
+    class iterator
+    {
+    private:
+        ring_stream &stream;
+        std::optional<heap> h;
+
+    public:
+        explicit iterator(ring_stream &stream) : stream(stream) {}
+
+        bool operator!=(const sentinel &) const;
+        iterator &operator++();
+        heap & operator*();
+    };
+
 public:
     /**
      * Constructor.
@@ -154,7 +171,41 @@ public:
     virtual void stop() override;
 
     const Ringbuffer &get_ringbuffer() const { return ready_heaps; }
+
+    /**
+     * Start iteration over the heaps in the ringbuffer. This does not return a
+     * full-fledged iterator. It is intended only to enable a range-based for
+     * loop over the stream, and any other use of the iterator is unsupported.
+     */
+    iterator begin();
+    sentinel end();
 };
+
+template<typename Ringbuffer>
+bool ring_stream<Ringbuffer>::iterator::operator!=(const sentinel &) const
+{
+    return bool(h);
+}
+
+template<typename Ringbuffer>
+auto ring_stream<Ringbuffer>::iterator::operator++() -> iterator &
+{
+    try
+    {
+        h = stream.pop();
+    }
+    catch (ringbuffer_stopped &)
+    {
+        h = std::nullopt;
+    }
+    return *this;
+}
+
+template<typename Ringbuffer>
+heap &ring_stream<Ringbuffer>::iterator::operator*()
+{
+    return *h;
+}
 
 template<typename Ringbuffer>
 ring_stream<Ringbuffer>::ring_stream(
@@ -285,6 +336,20 @@ void ring_stream<Ringbuffer>::stop()
      */
     ready_heaps.stop();
     stream::stop();
+}
+
+template<typename Ringbuffer>
+auto ring_stream<Ringbuffer>::begin() -> iterator
+{
+    iterator it(*this);
+    ++it;  // Load the first heap into the iterator
+    return it;
+}
+
+template<typename Ringbuffer>
+auto ring_stream<Ringbuffer>::end() -> sentinel
+{
+    return sentinel();
 }
 
 } // namespace spead2::recv
