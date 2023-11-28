@@ -17,3 +17,4 @@ from the Python API.
    tut-send-1
    tut-recv-1
    tut-send-2
+   tut-send-3

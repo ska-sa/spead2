@@ -21,6 +21,7 @@ foreach name : [
   'tut_recv_1',
   'tut_send_1',
   'tut_send_2',
+  'tut_send_3',
 ]
   executable(name, name + '.cpp', dependencies : [st_dep])
 endforeach
