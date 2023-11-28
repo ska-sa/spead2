@@ -420,6 +420,34 @@ public:
                          std::size_t substream_index = 0);
 
     /**
+     * Send @a h asynchronously, with an arbitrary completion token. This
+     * overload is not used if the completion token is convertible to
+     * @ref completion_handler.
+     *
+     * Refer to the other overload for details. The boolean return of the other
+     * overload is absent. You will need to retrieve the asynchronous result
+     * and check for @c boost::asio::error::would_block to determine if the
+     * heaps were rejected due to lack of buffer space.
+     */
+    template<typename CompletionToken>
+    auto async_send_heap(const heap &h, CompletionToken &&token,
+                         s_item_pointer_t cnt = -1,
+                         std::enable_if_t<
+                            !std::is_convertible_v<CompletionToken, completion_handler>,
+                            std::size_t
+                         > substream_index = 0)
+    {
+        auto init = [this, &h, cnt, substream_index](auto handler)
+        {
+            // Explicit this-> is to work around bogus warning from clang
+            this->async_send_heap(h, std::move(handler), cnt, substream_index);
+        };
+        return boost::asio::async_initiate<
+            CompletionToken, void(const boost::system::error_code &, item_pointer_t)
+        >(init, token);
+    }
+
+    /**
      * Send a group of heaps asynchronously, with @a handler called on
      * completion. The caller must ensure that the @ref heap objects
      * (as well as any memory they point to) remain valid until @a handler is
@@ -464,6 +492,43 @@ public:
             return false;
         }
         return async_send_heaps_impl<unwinder, Iterator>(first, last, std::move(handler), mode);
+    }
+
+    /**
+     * Send a group of heaps asynchronously, with an arbitrary completion
+     * token (e.g., @c boost::asio::use_future). This overload is not used
+     * if the completion token is convertible to @ref completion_handler.
+     *
+     * Refer to the other overload for details. There are a few differences:
+     *
+     * - The boolean return of the other overload is absent. You will need to
+     *   retrieve the asynchronous result and check for @c
+     *   boost::asio::error::would_block to determine if the heaps were
+     *   rejected due to lack of buffer space.
+     * - Depending on the completion token, the iterators might not be used
+     *   immediately. Using @c boost::asio::use_future causes them to be used
+     *   immediately, but @c boost::asio::deferred or @c
+     *   boost::asio::use_awaitable does not (they are only used when
+     *   awaiting the result). If they are not used immediately, the caller
+     *   must keep them valid (as well as the data they reference) until they
+     *   are used.
+     */
+    template<typename Iterator, typename CompletionToken>
+    auto async_send_heaps(Iterator first, Iterator last,
+                          CompletionToken &&token,
+                          std::enable_if_t<
+                              !std::is_convertible_v<CompletionToken, completion_handler>,
+                              group_mode
+                          > mode)
+    {
+        auto init = [this, first, last, mode](auto handler)
+        {
+            // Explicit this-> is to work around bogus warning from clang
+            this->async_send_heaps(first, last, std::move(handler), mode);
+        };
+        return boost::asio::async_initiate<
+            CompletionToken, void(const boost::system::error_code &, item_pointer_t)
+        >(init, token);
     }
 
     /**
