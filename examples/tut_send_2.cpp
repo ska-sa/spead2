@@ -19,6 +19,9 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <chrono>
+#include <memory>
+#include <iostream>
 #include <boost/asio.hpp>
 #include <spead2/common_defines.h>
 #include <spead2/common_thread_pool.h>
@@ -26,11 +29,19 @@
 #include <spead2/send_stream_config.h>
 #include <spead2/send_udp.h>
 
+struct state
+{
+    std::future<spead2::item_pointer_t> future;
+    std::vector<std::int8_t> adc_samples;
+    spead2::send::heap heap;
+};
+
 int main()
 {
     spead2::thread_pool thread_pool;
     spead2::send::stream_config config;
-    config.set_rate(100e6);
+    config.set_rate(0.0);
+    config.set_max_heaps(2);
     boost::asio::ip::udp::endpoint endpoint(
         boost::asio::ip::address::from_string("127.0.0.1"),
         8888
@@ -52,11 +63,16 @@ int main()
 
     std::default_random_engine random_engine;
     std::uniform_int_distribution<std::int8_t> distribution(-100, 100);
-    std::vector<std::int8_t> adc_samples(chunk_size);
 
-    for (int i = 0; i < 10; i++)
+    const int n_heaps = 100;
+    auto start = std::chrono::high_resolution_clock::now();
+    std::unique_ptr<state> old_state;
+    for (int i = 0; i < n_heaps; i++)
     {
-        spead2::send::heap heap;
+        auto new_state = std::make_unique<state>();
+        auto &heap = new_state->heap;
+        auto &adc_samples = new_state->adc_samples;
+        adc_samples.resize(chunk_size);
         // Add descriptors to the first heap
         if (i == 0)
         {
@@ -74,8 +90,15 @@ int main()
             adc_samples.size() * sizeof(adc_samples[0]),
             true
         );
-        stream.async_send_heap(heap, boost::asio::use_future).get();
+        new_state->future = stream.async_send_heap(heap, boost::asio::use_future);
+        if (old_state)
+            old_state->future.get();
+        old_state = std::move(new_state);
     }
+    old_state->future.get();
+    auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(
+        std::chrono::high_resolution_clock::now() - start);
+    std::cout << chunk_size * n_heaps / elapsed.count() / 1e6 << " MB/s\n";
 
     // Send an end-of-stream control item
     spead2::send::heap heap;

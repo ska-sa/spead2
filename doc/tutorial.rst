@@ -16,3 +16,4 @@ from the Python API.
    tut-spead-intro
    tut-send-1
    tut-recv-1
+   tut-send-2

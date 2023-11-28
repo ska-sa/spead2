@@ -208,7 +208,7 @@ And we'll just send 10 heaps to keep things brief.
  .. code-block:: c++
     :dedent: 0
 
-        std::mt19937 random_engine;
+        std::default_random_engine random_engine;
         std::uniform_int_distribution<std::int8_t> distribution(-100, 100);
         std::vector<std::int8_t> adc_samples(chunk_size);
 
@@ -222,8 +222,8 @@ And we'll just send 10 heaps to keep things brief.
                 heap.add_descriptor(adc_samples_desc);
             }
             // Create random data
-            for (int i = 0; i < chunk_size; i++)
-                adc_samples[i] = distribution(random_engine);
+            for (int j = 0; j < chunk_size; j++)
+                adc_samples[j] = distribution(random_engine);
             // Add the data and timestamp to the heap
             heap.add_item(timestamp_desc.id, i * chunk_size);
             heap.add_item(
@@ -232,7 +232,7 @@ And we'll just send 10 heaps to keep things brief.
                 adc_samples.size() * sizeof(adc_samples[0]),
                 true
             );
-            stream.async_send_heap(heap, boost::asio::use_future).wait();
+            stream.async_send_heap(heap, boost::asio::use_future).get();
         }
 
 The Python code is reasonably straight-forward: we update the items, package
@@ -276,7 +276,7 @@ useful (since the arrival of data implicitly indicates that it has started).
 
         spead2::send::heap heap;
         heap.add_end();
-        stream.async_send_heap(heap, boost::asio::use_future).wait();
+        stream.async_send_heap(heap, boost::asio::use_future).get();
         return 0;
     }
 
@@ -358,5 +358,6 @@ now print something like the following and exit:
 
 We can see that the first heap contains the descriptors we set. All the
 heaps contain a timestamp and some sample data (not fully shown). At the end
-we see some :doc:`statistics <recv-stats>`; these are mostly useful for
-diagnosing performance issues.
+we see some :doc:`statistics <recv-stats>`. Don't worry if you don't
+understand them all; some of them are only intended to help developers or
+advanced users diagnose performance bottlenecks.
