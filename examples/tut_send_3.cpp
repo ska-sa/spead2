@@ -35,16 +35,22 @@ struct state
     spead2::send::heap heap;
 };
 
-int main()
+int main(int argc, char * const argv[])
 {
+    if (argc != 3)
+    {
+        std::cerr << "Usage: " << argv[0] << " <address> <port>\n";
+        return 2;
+    }
+
     spead2::thread_pool thread_pool;
     spead2::send::stream_config config;
     config.set_rate(0.0);
     config.set_max_heaps(2);
     config.set_max_packet_size(9000);
     boost::asio::ip::udp::endpoint endpoint(
-        boost::asio::ip::address::from_string("127.0.0.1"),
-        8888
+        boost::asio::ip::address::from_string(argv[1]),
+        std::atoi(argv[2])
     );
     spead2::send::udp_stream stream(thread_pool, {endpoint}, config);
 
@@ -61,7 +67,7 @@ int main()
     adc_samples_desc.numpy_header =
         "{'shape': (" + std::to_string(chunk_size) + ",), 'fortran_order': False, 'descr': 'i1'}";
 
-    const int n_heaps = 100;
+    const int n_heaps = 10000;
     auto start = std::chrono::high_resolution_clock::now();
     std::unique_ptr<state> old_state;
     for (int i = 0; i < n_heaps; i++)
@@ -69,16 +75,14 @@ int main()
         auto new_state = std::make_unique<state>();
         auto &heap = new_state->heap;
         auto &adc_samples = new_state->adc_samples;
-        adc_samples.resize(chunk_size);
+        // Fill with the heap number
+        adc_samples.resize(chunk_size, i);
         // Add descriptors to the first heap
         if (i == 0)
         {
             heap.add_descriptor(timestamp_desc);
             heap.add_descriptor(adc_samples_desc);
         }
-        // Fill with the heap number
-        for (int j = 0; j < chunk_size; j++)
-            adc_samples[j] = i;
         // Add the data and timestamp to the heap
         heap.add_item(timestamp_desc.id, i * chunk_size);
         heap.add_item(

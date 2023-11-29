@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import argparse
 import asyncio
 import time
 from dataclasses import dataclass, field
@@ -31,9 +32,14 @@ class State:
 
 
 async def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("host", type=str)
+    parser.add_argument("port", type=int)
+    args = parser.parse_args()
+
     thread_pool = spead2.ThreadPool()
     config = spead2.send.StreamConfig(rate=0.0, max_heaps=2, max_packet_size=9000)
-    stream = spead2.send.asyncio.UdpStream(thread_pool, [("127.0.0.1", 8888)], config)
+    stream = spead2.send.asyncio.UdpStream(thread_pool, [(args.host, args.port)], config)
     chunk_size = 1024 * 1024
     item_group = spead2.send.ItemGroup()
     item_group.add_item(
@@ -51,7 +57,7 @@ async def main():
         dtype=np.int8,
     )
 
-    n_heaps = 100
+    n_heaps = 10000
     start = time.monotonic()
     old_state = None
     for i in range(n_heaps):
