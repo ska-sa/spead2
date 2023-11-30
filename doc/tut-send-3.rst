@@ -63,12 +63,12 @@ assuming an MTU of at least 9042 bytes.
 
 When we benchmark this, the performance has dramatically improved (over 1
 GB/s), but we also find something surprising: performance is substantially
-higher if we are listening for the data than if we are not. This is almost
+higher if we are listening for the data (by running :command:`tut_recv_1`) than
+if we are not. This is almost
 certainly because sending a UDP packet to a port that is not open for
 receiving causes an ICMP error packet to be generated, which reduces
-performance. Even when we do attach a receiver, we're not seeing the full
-performance, because the Linux loopback interface generally blocks the sender
-if the receiver is not keeping up, rather than just dropping the packets.
+performance. We could just ensure we always listen when running the
+experiments, but the overhead of receiving data also reduces the performance.
 
 In a future tutorial we'll return to the receiver to improve its performance,
 but for now let's move away from the loopback interface so that we can measure
@@ -128,9 +128,9 @@ configure a dummy interface like this (as root):
    ip link set dummy1 up
 
 Now if you run :command:`tut_send_3 192.168.31.2 8888` you should get even
-better performance. I get around 3500 MB/s (with either C++ or Python), which
-is getting close to the limit of what can be achieved for a single thread with
-the kernel networking stack. Exceeding this will require either using multiple
+better performance. I get around 3500–4000 MB/s (with either C++ or Python), which
+is getting close to the limit of what spead2 can achieve for a single thread
+with the kernel networking stack. Exceeding this will require either using
 multiple spead2 stream objects (each with their own thread pool), or
 specialised network hardware.
 
