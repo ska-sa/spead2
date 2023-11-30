@@ -1,5 +1,5 @@
-Receiver, version 2
-===================
+Optimising the power calculation
+================================
 Now that we've made significant optimisations to the sender, let's turn our
 attention back to the receiver. As with the sender, the first step is to be
 able to measure the performance. That is surprisingly tricky to do when
@@ -46,7 +46,9 @@ the fly, and in both cases, we're doing the accumulation in integers to avoid
 the cost of integer-to-float conversions for every element. We'll also print
 out the number of heaps received, just to ensure we didn't miss any. The
 warnings about incomplete heaps should tell us, but if we lose 100% of the
-packets in a heap we won't get any warning about it from spead2.
+packets in a heap we won't get any warning about it from spead2. The code for
+this tutorial is in :file:`examples/tut_6_recv_power.py` and
+:file:`examples/tut_6_recv_power.cpp` in the spead2 repository.
 
 .. tab-set-code::
 

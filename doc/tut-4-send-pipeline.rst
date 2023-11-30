@@ -1,5 +1,5 @@
-Sender, version 2
-=================
+Pipelining the sender
+=====================
 Now that we have some functioning code, let's see how we can use more features
 to improve performance. Of course, before trying to improve performance, we
 ought to have some idea of what the performance is. We'll make some changes to
@@ -9,8 +9,9 @@ we're just sending as fast as we can. Setting the rate to 0 has the special
 meaning of removing any rate limiting (it is also the default, so we could
 just not set it at all).
 
-The final code for this section can be found in :file:`examples/tut_send_2.py`
-and :file:`examples/tut_send_2.cpp`. Unlike the previous sections though,
+The final code for this section can be found in
+:file:`examples/tut_4_send_pipeline.py` and
+:file:`examples/tut_4_send_pipeline.cpp`. Unlike the previous sections though,
 we'll be modifying the code as we go, rather than just writing it from top to
 bottom.
 
@@ -27,7 +28,7 @@ bottom.
         for i in range(n_heaps):
             ...
         elapsed = time.monotonic() - start
-        print(f"{chunk_size * n_heaps / elapsed / 1e6:.2f} MB/s")
+        print(f"{heap_size * n_heaps / elapsed / 1e6:.2f} MB/s")
 
  .. code-block:: c++
 
@@ -45,7 +46,7 @@ bottom.
         }
         auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(
             std::chrono::high_resolution_clock::now() - start);
-        std::cout << chunk_size * n_heaps / elapsed.count() / 1e6 << " MB/s\n";
+        std::cout << heap_size * n_heaps / elapsed.count() / 1e6 << " MB/s\n";
 
 You can expect performance to be pretty low; I get around 85 MB/s from Python
 and 150 MB/s from C++.
@@ -174,7 +175,7 @@ the result of the future for heap :math:`n` until we've passed heap
             auto new_state = std::make_unique<state>();
             auto &heap = new_state->heap;
             auto &adc_samples = new_state->adc_samples;
-            adc_samples.resize(chunk_size);
+            adc_samples.resize(heap_size);
             ...
             new_state->future = stream.async_send_heap(heap, boost::asio::use_future);
             if (old_state)

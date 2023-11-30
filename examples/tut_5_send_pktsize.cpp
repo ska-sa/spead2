@@ -15,10 +15,12 @@
  */
 
 #include <cstdint>
-#include <random>
 #include <string>
 #include <vector>
 #include <utility>
+#include <chrono>
+#include <memory>
+#include <iostream>
 #include <boost/asio.hpp>
 #include <spead2/common_defines.h>
 #include <spead2/common_thread_pool.h>
@@ -26,18 +28,33 @@
 #include <spead2/send_stream_config.h>
 #include <spead2/send_udp.h>
 
-int main()
+struct state
 {
+    std::future<spead2::item_pointer_t> future;
+    std::vector<std::int8_t> adc_samples;
+    spead2::send::heap heap;
+};
+
+int main(int argc, char * const argv[])
+{
+    if (argc != 3)
+    {
+        std::cerr << "Usage: " << argv[0] << " <address> <port>\n";
+        return 2;
+    }
+
     spead2::thread_pool thread_pool;
     spead2::send::stream_config config;
-    config.set_rate(100e6);
+    config.set_rate(0.0);
+    config.set_max_heaps(2);
+    config.set_max_packet_size(9000);
     boost::asio::ip::udp::endpoint endpoint(
-        boost::asio::ip::address::from_string("127.0.0.1"),
-        8888
+        boost::asio::ip::address::from_string(argv[1]),
+        std::atoi(argv[2])
     );
     spead2::send::udp_stream stream(thread_pool, {endpoint}, config);
 
-    const std::int64_t chunk_size = 1024 * 1024;
+    const std::int64_t heap_size = 1024 * 1024;
     spead2::descriptor timestamp_desc;
     timestamp_desc.id = 0x1600;
     timestamp_desc.name = "timestamp";
@@ -48,34 +65,41 @@ int main()
     adc_samples_desc.name = "adc_samples";
     adc_samples_desc.description = "ADC converter output";
     adc_samples_desc.numpy_header =
-        "{'shape': (" + std::to_string(chunk_size) + ",), 'fortran_order': False, 'descr': 'i1'}";
+        "{'shape': (" + std::to_string(heap_size) + ",), 'fortran_order': False, 'descr': 'i1'}";
 
-    std::default_random_engine random_engine;
-    std::uniform_int_distribution<std::int8_t> distribution(-100, 100);
-    std::vector<std::int8_t> adc_samples(chunk_size);
-
-    for (int i = 0; i < 10; i++)
+    const int n_heaps = 10000;
+    auto start = std::chrono::high_resolution_clock::now();
+    std::unique_ptr<state> old_state;
+    for (int i = 0; i < n_heaps; i++)
     {
-        spead2::send::heap heap;
+        auto new_state = std::make_unique<state>();
+        auto &heap = new_state->heap;
+        auto &adc_samples = new_state->adc_samples;
+        // Fill with the heap number
+        adc_samples.resize(heap_size, i);
         // Add descriptors to the first heap
         if (i == 0)
         {
             heap.add_descriptor(timestamp_desc);
             heap.add_descriptor(adc_samples_desc);
         }
-        // Create random data
-        for (int j = 0; j < chunk_size; j++)
-            adc_samples[j] = distribution(random_engine);
         // Add the data and timestamp to the heap
-        heap.add_item(timestamp_desc.id, i * chunk_size);
+        heap.add_item(timestamp_desc.id, i * heap_size);
         heap.add_item(
             adc_samples_desc.id,
             adc_samples.data(),
             adc_samples.size() * sizeof(adc_samples[0]),
             true
         );
-        stream.async_send_heap(heap, boost::asio::use_future).get();
+        new_state->future = stream.async_send_heap(heap, boost::asio::use_future);
+        if (old_state)
+            old_state->future.get();
+        old_state = std::move(new_state);
     }
+    old_state->future.get();
+    auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(
+        std::chrono::high_resolution_clock::now() - start);
+    std::cout << heap_size * n_heaps / elapsed.count() / 1e6 << " MB/s\n";
 
     // Send an end-of-stream control item
     spead2::send::heap heap;

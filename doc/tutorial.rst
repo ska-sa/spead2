@@ -16,10 +16,11 @@ behaviour that's pointed out will be different.
 
 .. toctree::
    :maxdepth: 1
+   :numbered:
 
    tut-spead-intro
-   tut-send-1
-   tut-recv-1
-   tut-send-2
-   tut-send-3
-   tut-recv-2
+   tut-2-send
+   tut-3-recv
+   tut-4-send-pipeline
+   tut-5-send-pktsize
+   tut-6-recv-power

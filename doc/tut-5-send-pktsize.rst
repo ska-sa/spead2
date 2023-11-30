@@ -1,8 +1,8 @@
-Sender, version 3
-=================
+Increasing packet sizes
+=======================
 In this section we'll make a small but significant optimisation, which as
-usual can be found in :file:`examples/tut_send_3.py` and
-:file:`examples/tut_send_3.cpp` in the spead2 repository. Currently we're
+usual can be found in :file:`examples/tut_5_send_pktsize.py` and
+:file:`examples/tut_5_send_pktsize.cpp` in the spead2 repository. Currently we're
 hampered by the speed of the random number generation, which is slower than
 we're able to transmit. We don't particularly care about the values being
 random, so let's delete all the random number code and replace it with the
@@ -13,11 +13,11 @@ following:
  .. code-block:: python
     :dedent: 0
 
-            item_group["adc_samples"].value = np.full(chunk_size, i, np.int8)
+            item_group["adc_samples"].value = np.full(heap_size, i, np.int8)
 
  .. code-block:: c++
 
-            adc_samples.resize(chunk_size, i);
+            adc_samples.resize(heap_size, i);
 
 We're filling each heap with the loop index — not particularly meaningful for
 simulation, but it has the bonus that we can easily see on the receiver side
@@ -63,7 +63,7 @@ assuming an MTU of at least 9042 bytes.
 
 When we benchmark this, the performance has dramatically improved (over 1
 GB/s), but we also find something surprising: performance is substantially
-higher if we are listening for the data (by running :command:`tut_recv_1`) than
+higher if we are listening for the data (by running :command:`tut_2_recv`) than
 if we are not. This is almost
 certainly because sending a UDP packet to a port that is not open for
 receiving causes an ICMP error packet to be generated, which reduces
@@ -127,7 +127,7 @@ configure a dummy interface like this (as root):
    ip addr add 192.168.31.1/24 dev dummy1
    ip link set dummy1 up
 
-Now if you run :command:`tut_send_3 192.168.31.2 8888` you should get even
+Now if you run :command:`tut_5_send_pktsize 192.168.31.2 8888` you should get even
 better performance. I get around 3500–4000 MB/s (with either C++ or Python), which
 is getting close to the limit of what spead2 can achieve for a single thread
 with the kernel networking stack. Exceeding this will require either using

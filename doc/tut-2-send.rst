@@ -3,12 +3,12 @@ Sender, version 1
 We'll start by writing an example sender, which means we need to know
 what we're sending. We'll simulate a digitiser, which means having a
 continuous stream of real values (representing voltages). Since SPEAD is
-message-based, we'll need to split the values into chunks. Additionally,
+message-based, we'll need to split the values into heaps. Additionally,
 we'll want to timestamp the data, which we'll do just with a sample counter.
 
 In this section we'll build up the code a piece at a time, for both
 Python and C++. You can see the whole thing as
-:file:`examples/tut_send_1.py` or :file:`examples/tut_send_1.cpp` in the
+:file:`examples/tut_2_send.py` or :file:`examples/tut_2_send.cpp` in the
 spead2 repository.
 
 .. Turn the above into hyperlinks once they're available on master
@@ -121,7 +121,7 @@ little simpler for this case.
  .. code-block:: python
     :dedent: 0
 
-        chunk_size = 1024 * 1024
+        heap_size = 1024 * 1024
         item_group = spead2.send.ItemGroup()
         item_group.add_item(
             0x1600,
@@ -134,14 +134,14 @@ little simpler for this case.
             0x3300,
             "adc_samples",
             "ADC converter output",
-            shape=(chunk_size,),
+            shape=(heap_size,),
             dtype=np.int8,
         )
 
  .. code-block:: c++
     :dedent: 0
 
-        const std::int64_t chunk_size = 1024 * 1024;
+        const std::int64_t heap_size = 1024 * 1024;
         spead2::descriptor timestamp_desc;
         timestamp_desc.id = 0x1600;
         timestamp_desc.name = "timestamp";
@@ -152,7 +152,7 @@ little simpler for this case.
         adc_samples_desc.name = "adc_samples";
         adc_samples_desc.description = "ADC converter output";
         adc_samples_desc.numpy_header =
-            "{'shape': (" + std::to_string(chunk_size) + ",), 'fortran_order': False, 'descr': 'i1'}";
+            "{'shape': (" + std::to_string(heap_size) + ",), 'fortran_order': False, 'descr': 'i1'}";
 
 There is quite a lot to take in here. We've arbitrarily assigned IDs 0x1600
 for the timestamp and 0x3300 for the sample data. The SPEAD specification
@@ -200,8 +200,8 @@ And we'll just send 10 heaps to keep things brief.
 
         rng = np.random.default_rng()
         for i in range(10):
-            item_group["timestamp"].value = i * chunk_size
-            item_group["adc_samples"].value = rng.integers(-100, 100, size=chunk_size, dtype=np.int8)
+            item_group["timestamp"].value = i * heap_size
+            item_group["adc_samples"].value = rng.integers(-100, 100, size=heap_size, dtype=np.int8)
             heap = item_group.get_heap()
             stream.send_heap(heap)
 
@@ -210,7 +210,7 @@ And we'll just send 10 heaps to keep things brief.
 
         std::default_random_engine random_engine;
         std::uniform_int_distribution<std::int8_t> distribution(-100, 100);
-        std::vector<std::int8_t> adc_samples(chunk_size);
+        std::vector<std::int8_t> adc_samples(heap_size);
 
         for (int i = 0; i < 10; i++)
         {
@@ -222,10 +222,10 @@ And we'll just send 10 heaps to keep things brief.
                 heap.add_descriptor(adc_samples_desc);
             }
             // Create random data
-            for (int j = 0; j < chunk_size; j++)
+            for (int j = 0; j < heap_size; j++)
                 adc_samples[j] = distribution(random_engine);
             // Add the data and timestamp to the heap
-            heap.add_item(timestamp_desc.id, i * chunk_size);
+            heap.add_item(timestamp_desc.id, i * heap_size);
             heap.add_item(
                 adc_samples_desc.id,
                 adc_samples.data(),

@@ -18,11 +18,11 @@ foreach name : [
   'recv_chunk_ring_example',
   'recv_chunk_group_example',
   'recv_example',
-  'tut_recv_1',
-  'tut_recv_2',
-  'tut_send_1',
-  'tut_send_2',
-  'tut_send_3',
+  'tut_2_send',
+  'tut_3_recv',
+  'tut_4_send_pipeline',
+  'tut_5_send_pktsize',
+  'tut_6_recv_power',
 ]
   executable(name, name + '.cpp', dependencies : [st_dep])
 endforeach
