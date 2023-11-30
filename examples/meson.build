@@ -23,6 +23,7 @@ foreach name : [
   'tut_4_send_pipeline',
   'tut_5_send_pktsize',
   'tut_6_recv_power',
+  'tut_7_send',
 ]
   executable(name, name + '.cpp', dependencies : [st_dep])
 endforeach
