@@ -19,6 +19,7 @@ foreach name : [
   'recv_chunk_group_example',
   'recv_example',
   'tut_recv_1',
+  'tut_recv_2',
   'tut_send_1',
   'tut_send_2',
   'tut_send_3',

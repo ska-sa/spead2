@@ -22,3 +22,4 @@ behaviour that's pointed out will be different.
    tut-recv-1
    tut-send-2
    tut-send-3
+   tut-recv-2
