@@ -190,13 +190,17 @@ bool ring_stream<Ringbuffer>::iterator::operator!=(const sentinel &) const
 template<typename Ringbuffer>
 auto ring_stream<Ringbuffer>::iterator::operator++() -> iterator &
 {
+    /* Clear it first, so that we can reclaim the memory before making
+     * space available in the ringbuffer, which might cause another
+     * thread to allocate more memory.
+     */
+    h = std::nullopt;
     try
     {
         h = stream.pop();
     }
     catch (ringbuffer_stopped &)
     {
-        h = std::nullopt;
     }
     return *this;
 }
