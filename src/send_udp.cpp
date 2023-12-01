@@ -17,11 +17,18 @@
 #include <cstddef>
 #include <cstring>
 #include <utility>
+#include <algorithm>
 #include <boost/asio.hpp>
 #include <spead2/send_udp.h>
 #include <spead2/send_writer.h>
 #include <spead2/common_defines.h>
 #include <spead2/common_socket.h>
+#if SPEAD2_USE_SENDMMSG
+# include <sys/types.h>
+# include <sys/socket.h>
+# include <netinet/in.h>
+# include <netinet/udp.h>
+#endif
 
 namespace spead2::send
 {
@@ -38,6 +45,7 @@ private:
     virtual void wakeup() override final;
 
     static constexpr int max_batch = 64;
+    static constexpr int max_gso_message_size = 65535;  // maximum size the kernel will accept
 #if SPEAD2_USE_SENDMMSG
     struct mmsghdr msgvec[max_batch];
     std::vector<struct iovec> msg_iov;
@@ -45,9 +53,11 @@ private:
     {
         transmit_packet packet;
         std::unique_ptr<std::uint8_t[]> scratch;
+        bool merged; // packet is part of the same message as the previous packet
     } packets[max_batch];
+    int current_gso_size = -1;
 
-    void send_packets(int first, int last);
+    void send_packets(int first, int last, int first_msg, int last_msg);
 #else
     std::unique_ptr<std::uint8_t[]> scratch;
 #endif
@@ -65,40 +75,49 @@ public:
 
 #if SPEAD2_USE_SENDMMSG
 
-void udp_writer::send_packets(int first, int last)
+void udp_writer::send_packets(int first, int last, int first_msg, int last_msg)
 {
     // Try sending
-    int sent = sendmmsg(socket.native_handle(), msgvec + first, last - first, MSG_DONTWAIT);
+    int sent = sendmmsg(socket.native_handle(), msgvec + first_msg, last_msg - first_msg, MSG_DONTWAIT);
     int groups = 0;
     if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
     {
-        auto *item = packets[first].packet.item;
-        if (!item->result)
-            item->result = boost::system::error_code(errno, boost::asio::error::get_system_category());
-        groups += packets[first].packet.last;
-        first++;
+        boost::system::error_code result(errno, boost::asio::error::get_system_category());
+        do
+        {
+            auto *item = packets[first].packet.item;
+            if (!item->result)
+                item->result = result;
+            groups += packets[first].packet.last;
+            first++;
+        } while (first < last && packets[first].merged);
+        first_msg++;
     }
     else if (sent > 0)
     {
         for (int i = 0; i < sent; i++)
         {
-            auto *item = packets[first].packet.item;
-            item->bytes_sent += packets[first].packet.size;
-            groups += packets[first].packet.last;
-            first++;
+            do
+            {
+                auto *item = packets[first].packet.item;
+                item->bytes_sent += packets[first].packet.size;
+                groups += packets[first].packet.last;
+                first++;
+            } while (first < last && packets[first].merged);
         }
+        first_msg += sent;
     }
 
     if (groups > 0)
         groups_completed(groups);
-    if (first < last)
+    if (first_msg < last_msg)
     {
         // We didn't manage to send it all: schedule a new attempt once there is
         // buffer space.
         socket.async_send(
             boost::asio::null_buffers(),
-            [this, first, last](const boost::system::error_code &, std::size_t) {
-                send_packets(first, last);
+            [this, first, last, first_msg, last_msg](const boost::system::error_code &, std::size_t) {
+                send_packets(first, last, first_msg, last_msg);
             });
     }
     else
@@ -125,21 +144,60 @@ void udp_writer::wakeup()
     // We have at least one packet to send. See if we can get some more.
     int n;
     std::size_t n_iov = packets[0].packet.buffers.size();
+    std::size_t max_size = packets[0].packet.size;
     for (n = 1; n < max_batch; n++)
     {
         result = get_packet(packets[n].packet, packets[n].scratch.get());
         if (result != packet_result::SUCCESS)
             break;
         n_iov += packets[n].packet.buffers.size();
+        max_size = std::max(max_size, packets[n].packet.size);
+    }
+
+    int new_gso_size = max_size;
+    if (new_gso_size != current_gso_size)
+    {
+        int ret = setsockopt(socket.native_handle(), IPPROTO_UDP, UDP_SEGMENT, &new_gso_size, sizeof(new_gso_size));
+        if (ret != -1)
+        {
+            current_gso_size = new_gso_size;
+        }
+        // TODO: handle case where it fails and we're left with a GSO size that's too small
+        // but > 0. Particularly handle case where packet size is too large.
     }
 
     msg_iov.resize(n_iov);
     std::size_t offset = 0;
+    int msgs = 0;
+    std::size_t merged_size = 0;
     for (int i = 0; i < n; i++)
     {
-        auto &hdr = msgvec[i].msg_hdr;
-        hdr.msg_iov = &msg_iov[offset];
-        hdr.msg_iovlen = packets[i].packet.buffers.size();
+        /* Check if we can merge with the previous packet using generalised
+         * segmentation offload. */
+        if (i == 0
+            || packets[i].packet.substream_index != packets[i - 1].packet.substream_index
+            || packets[i - 1].packet.size != current_gso_size
+            || merged_size + packets[i].packet.size > max_gso_message_size)
+            // TODO: also use UDP_MAX_SEGMENTS
+        {
+            // Can't merge, so initialise a new header
+            auto &hdr = msgvec[msgs].msg_hdr;
+            hdr.msg_iov = &msg_iov[offset];
+            hdr.msg_iovlen = 0;
+            const auto &endpoint = endpoints[packets[i].packet.substream_index];
+            hdr.msg_name = (void *) endpoint.data();
+            hdr.msg_namelen = endpoint.size();
+            msgs++;
+            packets[i].merged = false;
+            merged_size = 0;
+        }
+        else
+        {
+            packets[i].merged = true;
+        }
+        auto &hdr = msgvec[msgs - 1].msg_hdr;
+        hdr.msg_iovlen += packets[i].packet.buffers.size();
+        merged_size += packets[i].packet.size;
         for (const auto &buffer : packets[i].packet.buffers)
         {
             msg_iov[offset].iov_base = const_cast<void *>(
@@ -147,12 +205,8 @@ void udp_writer::wakeup()
             msg_iov[offset].iov_len = boost::asio::buffer_size(buffer);
             offset++;
         }
-        const auto &endpoint = endpoints[packets[i].packet.substream_index];
-        hdr.msg_name = (void *) endpoint.data();
-        hdr.msg_namelen = endpoint.size();
     }
-
-    send_packets(0, n);
+    send_packets(0, n, 0, msgs);
 }
 
 #else // SPEAD2_USE_SENDMMSG
