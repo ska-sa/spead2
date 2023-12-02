@@ -45,8 +45,8 @@ private:
     virtual void wakeup() override final;
 
     static constexpr int max_batch = 64;
-    static constexpr int max_gso_message_size = 65535;  // maximum size the kernel will accept
 #if SPEAD2_USE_SENDMMSG
+    static constexpr int max_gso_message_size = 65535;  // maximum size the kernel will accept
     struct mmsghdr msgvec[max_batch];
     std::vector<struct iovec> msg_iov;
     struct
@@ -55,7 +55,8 @@ private:
         std::unique_ptr<std::uint8_t[]> scratch;
         bool merged; // packet is part of the same message as the previous packet
     } packets[max_batch];
-    int current_gso_size = -1;
+    // -1 means not supported at runtime, 0 means supported but not in use
+    int current_gso_size = 0;
 
     void send_packets(int first, int last, int first_msg, int last_msg);
 #else
@@ -154,17 +155,35 @@ void udp_writer::wakeup()
         max_size = std::max(max_size, packets[n].packet.size);
     }
 
+#if SPEAD2_USE_GSO
     int new_gso_size = max_size;
-    if (new_gso_size != current_gso_size)
+    if (new_gso_size != current_gso_size && current_gso_size != -1)
     {
         int ret = setsockopt(socket.native_handle(), IPPROTO_UDP, UDP_SEGMENT, &new_gso_size, sizeof(new_gso_size));
         if (ret != -1)
         {
             current_gso_size = new_gso_size;
         }
-        // TODO: handle case where it fails and we're left with a GSO size that's too small
-        // but > 0. Particularly handle case where packet size is too large.
+        else if (errno == ENOPROTOOPT)
+        {
+            /* Socket option is not supported on this platform. Just
+             * disable GSO in our code.
+             */
+            current_gso_size = -1;
+        }
+        else
+        {
+            /* Something else has gone wrong. Make a best effort to disable
+             * GSO on the socket.
+             */
+            std::error_code code(errno, std::system_category());
+            log_warning("failed to set UDP_SEGMENT socket option to %1%: %2% (%3%)",
+                        new_gso_size, code.value(), code.message());
+            current_gso_size = new_gso_size = 0;
+            setsockopt(socket.native_handle(), IPPROTO_UDP, UDP_SEGMENT, &new_gso_size, sizeof(new_gso_size));
+        }
     }
+#endif
 
     msg_iov.resize(n_iov);
     std::size_t offset = 0;
@@ -174,9 +193,10 @@ void udp_writer::wakeup()
     {
         /* Check if we can merge with the previous packet using generalised
          * segmentation offload. */
-        if (i == 0
+        if (!SPEAD2_USE_GSO
+            || i == 0
             || packets[i].packet.substream_index != packets[i - 1].packet.substream_index
-            || packets[i - 1].packet.size != current_gso_size
+            || (int) packets[i - 1].packet.size != current_gso_size
             || merged_size + packets[i].packet.size > max_gso_message_size)
             // TODO: also use UDP_MAX_SEGMENTS
         {
