@@ -44,6 +44,11 @@ private:
 
     virtual void wakeup() override final;
 
+    /* NB: Linux has a maximum of 64 segments for GSO (UDP_MAX_SEGMENTS in the
+     * kernel, but it doesn't seem to be exposed to userspace). If max_batch
+     * is increased, logic will need to be added to the GSO merging to prevent
+     * creating messages bigger than this.
+     */
     static constexpr int max_batch = 64;
 #if SPEAD2_USE_SENDMMSG
     static constexpr int max_gso_message_size = 65535;  // maximum size the kernel will accept
@@ -198,7 +203,6 @@ void udp_writer::wakeup()
             || packets[i].packet.substream_index != packets[i - 1].packet.substream_index
             || (int) packets[i - 1].packet.size != current_gso_size
             || merged_size + packets[i].packet.size > max_gso_message_size)
-            // TODO: also use UDP_MAX_SEGMENTS
         {
             // Can't merge, so initialise a new header
             auto &hdr = msgvec[msgs].msg_hdr;
