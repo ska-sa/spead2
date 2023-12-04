@@ -123,7 +123,9 @@ void udp_writer::set_gso_size(int size, boost::system::error_code &result)
 
 void udp_writer::send_packets(int first_packet, int last_packet, int first_msg, int last_msg)
 {
+#if SPEAD2_USE_GSO
 restart:
+#endif
     // Try sending
     int sent = sendmmsg(socket.native_handle(), msgvec + first_msg, last_msg - first_msg, MSG_DONTWAIT);
     int groups = 0;
