@@ -168,6 +168,7 @@ restart:
     {
         if (current_gso_size == gso_probe)
         {
+            log_debug("disabling GSO because sending with it failed and without succeeded");
             // Sending with GSO failed and without GSO succeeded. The network
             // device probably does not support it, so don't try again.
             current_gso_size = gso_disabled;
@@ -284,6 +285,7 @@ void udp_writer::wakeup()
             /* Socket option is not supported on this platform. Just
              * disable GSO in our code.
              */
+            log_debug("disabling GSO because socket option is not supported");
             current_gso_size = gso_disabled;
         }
         else
