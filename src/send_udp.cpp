@@ -39,11 +39,6 @@ namespace
 class udp_writer : public writer
 {
 private:
-    // Some magic values for current_gso_size
-    static constexpr int gso_inactive = 0;  ///< GSO allowed, but socket option not currently set
-    static constexpr int gso_disabled = -1; ///< GSO failed; do not try again
-    static constexpr int gso_probe = -2;    ///< Last send with GSO failed; retrying without GSO
-
     boost::asio::ip::udp::socket socket;
     std::vector<boost::asio::ip::udp::endpoint> endpoints;
 
@@ -56,6 +51,14 @@ private:
      */
     static constexpr int max_batch = 64;
 #if SPEAD2_USE_SENDMMSG
+    // Some magic values for current_gso_size
+    ///< GSO allowed, but socket option not currently set
+    [[maybe_unused]] static constexpr int gso_inactive = 0;
+    ///< GSO failed; do not try again
+    [[maybe_unused]] static constexpr int gso_disabled = -1;
+    ///< Last send with GSO failed; retrying without GSO
+    [[maybe_unused]] static constexpr int gso_probe = -2;
+
     static constexpr int max_gso_message_size = 65535;  // maximum size the kernel will accept
     struct mmsghdr msgvec[max_batch];
     std::vector<struct iovec> msg_iov;
