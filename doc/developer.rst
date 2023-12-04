@@ -27,4 +27,5 @@ the C++ classes to extend functionality.
    dev-recv-destruction
    dev-recv-chunk-group
    dev-send-rate-limit
+   dev-send-gso
    dev-ibverbs-linking
