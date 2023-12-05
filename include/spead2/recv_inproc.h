@@ -43,8 +43,7 @@ private:
     void packet_handler(
         handler_context ctx,
         stream_base::add_packet_state &state,
-        const boost::system::error_code &error,
-        std::size_t bytes_received);
+        const boost::system::error_code &error);
     void enqueue(handler_context ctx);
 
 public:
