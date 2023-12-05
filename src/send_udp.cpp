@@ -52,11 +52,11 @@ private:
     static constexpr int max_batch = 64;
 #if SPEAD2_USE_SENDMMSG
     // Some magic values for current_gso_size
-    ///< GSO allowed, but socket option not currently set
+    /// GSO allowed, but socket option not currently set
     [[maybe_unused]] static constexpr int gso_inactive = 0;
-    ///< GSO failed; do not try again
+    /// GSO failed; do not try again
     [[maybe_unused]] static constexpr int gso_disabled = -1;
-    ///< Last send with GSO failed; retrying without GSO
+    /// Last send with GSO failed; retrying without GSO
     [[maybe_unused]] static constexpr int gso_probe = -2;
 
     static constexpr int max_gso_message_size = 65535;  // maximum size the kernel will accept
