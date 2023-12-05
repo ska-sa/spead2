@@ -282,7 +282,7 @@ void udp_ibv_writer::wait_for_space()
     if (comp_channel)
     {
         send_cq.req_notify(false);
-        auto handler = [this](const boost::system::error_code &, size_t)
+        auto handler = [this](const boost::system::error_code &)
         {
             ibv_cq *event_cq;
             void *event_cq_context;
@@ -292,7 +292,7 @@ void udp_ibv_writer::wait_for_space()
                 send_cq.ack_events(1);
             wakeup();
         };
-        comp_channel_wrapper.async_read_some(boost::asio::null_buffers(), handler);
+        comp_channel_wrapper.async_wait(comp_channel_wrapper.wait_read, handler);
     }
     else
         post_wakeup();

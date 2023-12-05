@@ -62,8 +62,7 @@ void inproc_reader::process_one_packet(stream_base::add_packet_state &state,
 void inproc_reader::packet_handler(
     handler_context ctx,
     stream_base::add_packet_state &state,
-    const boost::system::error_code &error,
-    [[maybe_unused]] std::size_t bytes_transferred)
+    const boost::system::error_code &error)
 {
     if (!error)
     {
@@ -92,9 +91,9 @@ void inproc_reader::packet_handler(
 void inproc_reader::enqueue(handler_context ctx)
 {
     using namespace std::placeholders;
-    data_sem_wrapper.async_read_some(
-        boost::asio::null_buffers(),
-        bind_handler(std::move(ctx), std::bind(&inproc_reader::packet_handler, this, _1, _2, _3, _4)));
+    data_sem_wrapper.async_wait(
+        data_sem_wrapper.wait_read,
+        bind_handler(std::move(ctx), std::bind(&inproc_reader::packet_handler, this, _1, _2, _3)));
 }
 
 void inproc_reader::stop()

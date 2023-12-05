@@ -229,8 +229,8 @@ void udp_ibv_reader_base<Derived>::enqueue_receive(handler_context ctx, bool nee
     if (comp_channel && !need_poll)
     {
         // Asynchronous mode
-        comp_channel_wrapper.async_read_some(
-            boost::asio::null_buffers(),
+        comp_channel_wrapper.async_wait(
+            comp_channel_wrapper.wait_read,
             bind_handler(
                 std::move(ctx),
                 std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1, _2, _3, true)));
