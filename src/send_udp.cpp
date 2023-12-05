@@ -51,6 +51,14 @@ private:
      */
     static constexpr int max_batch = 64;
 #if SPEAD2_USE_SENDMMSG
+    /**
+     * Maximum number of packets that can be in-flight. Unlike
+     * @ref match_batch, this includes packets for which the sendmmsg call
+     * completed but which we still need to retain due to zero copy. It must
+     * be larger than @ref max_batch and must be a power of two.
+     */
+    static constexpr int max_outstanding = 256;
+
     // Some magic values for current_gso_size
     /// GSO allowed, but socket option not currently set
     [[maybe_unused]] static constexpr int gso_inactive = 0;
@@ -60,20 +68,35 @@ private:
     [[maybe_unused]] static constexpr int gso_probe = -2;
 
     static constexpr int max_gso_message_size = 65535;  // maximum size the kernel will accept
-    struct mmsghdr msgvec[max_batch];
+    struct mmsghdr msgvec[max_outstanding];
     std::vector<struct iovec> msg_iov;
     struct
     {
         transmit_packet packet;
         std::unique_ptr<std::uint8_t[]> scratch;
         bool merged; // packet is part of the same message as the previous packet
-    } packets[max_batch];
+        int seq;  // kernel sequence number for zero-copy notifications
+    } packets[max_outstanding];
+    /// Oldest packet for which we are awaiting completion acknowledgement
+    int head_packet = 0;
+    /// Empty packet slot for adding next new packet
+    int tail_packet = 0;
     int current_gso_size = gso_inactive;
 
 #if SPEAD2_USE_GSO
     /// Set the socket option
     void set_gso_size(int size, boost::system::error_code &result);
 #endif
+
+    /**
+     * Get the next packet slot, wrapping at @ref max_outstanding
+     */
+    static int next_packet(int packet_index)
+    {
+        static_assert((max_outstanding & (max_outstanding - 1)) == 0,
+                      "max_outstanding must be a power of two");
+        return (packet_index + 1) & (max_outstanding - 1);
+    }
 
     /**
      * Set up @ref msgvec from @ref msg_iov.
@@ -83,6 +106,8 @@ private:
      * positive, then multiple packets may be concatenated into a single
      * element of @ref msgvec, provided that all but the last have size
      * @a gso_size. Otherwise, each packet gets its own entry in @ref msgvec.
+     *
+     * Note that the packet indices wrap around at @ref max_outstanding.
      *
      * @return The past-the-end index into @ref msgvec after the packets are
      * filled in.
@@ -165,8 +190,8 @@ restart:
             if (!item->result)
                 item->result = result;
             groups += packets[first_packet].packet.last;
-            first_packet++;
-        } while (first_packet < last_packet && packets[first_packet].merged);
+            first_packet = next_packet(first_packet);
+        } while (first_packet != last_packet && packets[first_packet].merged);
         first_msg++;
     }
     else if (sent > 0)
@@ -185,8 +210,8 @@ restart:
                 auto *item = packets[first_packet].packet.item;
                 item->bytes_sent += packets[first_packet].packet.size;
                 groups += packets[first_packet].packet.last;
-                first_packet++;
-            } while (first_packet < last_packet && packets[first_packet].merged);
+                first_packet = next_packet(first_packet);
+            } while (first_packet != last_packet && packets[first_packet].merged);
         }
         first_msg += sent;
     }
@@ -216,14 +241,15 @@ int udp_writer::prepare_msgvec(int first_packet, int last_packet, int first_msg,
     int merged_size = 0;
     int iov = first_iov;
     int msg = first_msg;
-    for (int i = first_packet; i < last_packet; i++)
+    auto prev_packet = &packets[first_packet];
+    for (int i = first_packet; i != last_packet; i = next_packet(i))
     {
         /* Check if we can merge with the previous packet using generic
          * segmentation offload. */
         if (!SPEAD2_USE_GSO
             || i == first_packet
-            || (int) packets[i - 1].packet.size != gso_size
-            || packets[i].packet.substream_index != packets[i - 1].packet.substream_index
+            || (int) prev_packet->packet.size != gso_size
+            || packets[i].packet.substream_index != prev_packet->packet.substream_index
             || merged_size + packets[i].packet.size > max_gso_message_size)
         {
             // Can't merge, so initialise a new header
@@ -245,13 +271,16 @@ int udp_writer::prepare_msgvec(int first_packet, int last_packet, int first_msg,
         hdr.msg_iovlen += packets[i].packet.buffers.size();
         merged_size += packets[i].packet.size;
         iov += packets[i].packet.buffers.size();
+        prev_packet = &packets[i];
     }
     return msg;
 }
 
 void udp_writer::wakeup()
 {
-    packet_result result = get_packet(packets[0].packet, packets[0].scratch.get());
+    // TODO: check for space (MSG_ZEROCOPY)
+
+    packet_result result = get_packet(packets[tail_packet].packet, packets[tail_packet].scratch.get());
     switch (result)
     {
     case packet_result::SLEEP:
@@ -266,15 +295,18 @@ void udp_writer::wakeup()
 
     // We have at least one packet to send. See if we can get some more.
     int n;
-    std::size_t n_iov = packets[0].packet.buffers.size();
-    std::size_t max_size = packets[0].packet.size;
+    std::size_t n_iov = packets[tail_packet].packet.buffers.size();
+    std::size_t max_size = packets[tail_packet].packet.size;
+    int orig_tail_packet = tail_packet;
+    tail_packet = next_packet(tail_packet);
     for (n = 1; n < max_batch; n++)
     {
-        result = get_packet(packets[n].packet, packets[n].scratch.get());
+        result = get_packet(packets[tail_packet].packet, packets[tail_packet].scratch.get());
         if (result != packet_result::SUCCESS)
             break;
-        n_iov += packets[n].packet.buffers.size();
+        n_iov += packets[tail_packet].packet.buffers.size();
         max_size = std::max(max_size, packets[n].packet.size);
+        tail_packet = next_packet(tail_packet);
     }
 
 #if SPEAD2_USE_GSO
@@ -310,18 +342,20 @@ void udp_writer::wakeup()
     /* Fill in msg_iov from the packets */
     msg_iov.resize(n_iov);
     int iov = 0;
+    int p = orig_tail_packet;
     for (int i = 0; i < n; i++)
     {
-        for (const auto &buffer : packets[i].packet.buffers)
+        for (const auto &buffer : packets[p].packet.buffers)
         {
             msg_iov[iov].iov_base = const_cast<void *>(
                 boost::asio::buffer_cast<const void *>(buffer));
             msg_iov[iov].iov_len = boost::asio::buffer_size(buffer);
             iov++;
         }
+        p = next_packet(p);
     }
-    int n_msgs = prepare_msgvec(0, n, 0, 0, current_gso_size);
-    send_packets(0, n, 0, n_msgs);
+    int n_msgs = prepare_msgvec(orig_tail_packet, tail_packet, 0, 0, current_gso_size);
+    send_packets(orig_tail_packet, tail_packet, 0, n_msgs);
 }
 
 #else // SPEAD2_USE_SENDMMSG
@@ -403,7 +437,7 @@ udp_writer::udp_writer(
     this->socket.non_blocking(true);
 #if SPEAD2_USE_SENDMMSG
     std::memset(&msgvec, 0, sizeof(msgvec));
-    for (int i = 0; i < max_batch; i++)
+    for (int i = 0; i < max_outstanding; i++)
         packets[i].scratch.reset(new std::uint8_t[config.get_max_packet_size()]);
 #endif
 }
