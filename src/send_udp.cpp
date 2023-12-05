@@ -29,6 +29,9 @@
 # include <netinet/in.h>
 # include <netinet/udp.h>
 #endif
+#if SPEAD2_USE_MSG_ZEROCOPY
+# include <linux/errqueue.h>
+#endif
 
 namespace spead2::send
 {
@@ -75,16 +78,19 @@ private:
         transmit_packet packet;
         std::unique_ptr<std::uint8_t[]> scratch;
         bool merged; // packet is part of the same message as the previous packet
-        int seq;  // kernel sequence number for zero-copy notifications
+        bool zerocopy;  // packet was zero-copied and we need to wait for notification
+        std::uint32_t seq;  // kernel sequence number for zero-copy notifications
     } packets[max_outstanding];
     /// Oldest packet for which we are awaiting completion acknowledgement
-    int head_packet = 0;
+    unsigned int head_packet = 0;
     /// Empty packet slot for adding next new packet
-    int tail_packet = 0;
+    unsigned int tail_packet = 0;
     int current_gso_size = gso_inactive;
+    bool zerocopy_enabled = false;
+    std::uint32_t next_seq = 0;  // next sequence number for MSG_ZEROCOPY
 
 #if SPEAD2_USE_GSO
-    /// Set the socket option
+    /// Set the generic segmentation offload socket option
     void set_gso_size(int size, boost::system::error_code &result);
 #endif
 
@@ -97,6 +103,29 @@ private:
                       "max_outstanding must be a power of two");
         return (packet_index + 1) & (max_outstanding - 1);
     }
+
+#if SPEAD2_USE_MSG_ZEROCOPY
+    /// Set the @c SO_ZEROCOPY socket option
+    void enable_zerocopy(boost::system::error_code &result);
+
+    /// Number of free entries in @ref packets
+    int free_slots() const
+    {
+        /* Note: head_packet is normally less than tail_packet (except when
+         * the data wraps around), but the unsigned overflow is well defined
+         * and the bitmask will do the right thing.
+         */
+        return (head_packet - tail_packet) & (max_outstanding - 1);
+    }
+
+    /**
+     * Ensure that there are at least @ref max_batch slots available in the
+     * packet ring. Returns true on success, false on failure. On failure,
+     * @ref wakeup will be scheduled to run again in future when it might be
+     * possible to free up more space.
+     */
+    bool make_space();
+#endif
 
     /**
      * Set up @ref msgvec from @ref msg_iov.
@@ -146,15 +175,40 @@ void udp_writer::set_gso_size(int size, boost::system::error_code &result)
 }
 #endif
 
+/**
+ * Call sendmmsg. If it was called with MSG_ZEROCOPY and failed with ENOBUFS,
+ * modify @a flags and call it again without zerocopy.
+ */
+static int sendmmsg_maybe_zerocopy(
+    int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int &flags
+)
+{
+    int ret = sendmmsg(sockfd, msgvec, vlen, flags);
+#if SPEAD2_USE_MSG_ZEROCOPY
+    if (ret == -1 && errno == ENOBUFS && (flags & MSG_ZEROCOPY))
+    {
+        flags &= ~MSG_ZEROCOPY;
+        ret = sendmmsg(sockfd, msgvec, vlen, flags);
+    }
+#endif
+    return ret;
+}
+
 void udp_writer::send_packets(int first_packet, int last_packet, int first_msg, int last_msg)
 {
 #if SPEAD2_USE_GSO
 restart:
 #endif
-    // Try sending
-    int sent = sendmmsg(socket.native_handle(), msgvec + first_msg, last_msg - first_msg, MSG_DONTWAIT);
     int groups = 0;
     boost::system::error_code result;
+
+    // Try sending
+    int flags = MSG_DONTWAIT;
+#if SPEAD2_USE_MSG_ZEROCOPY
+    if (zerocopy_enabled)
+        flags |= MSG_ZEROCOPY;
+#endif
+    int sent = sendmmsg_maybe_zerocopy(socket.native_handle(), msgvec + first_msg, last_msg - first_msg, flags);
     if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
     {
         /* Not all device drivers support GSO. If we were trying with GSO, try again
@@ -203,15 +257,33 @@ restart:
             // device probably does not support it, so don't try again.
             current_gso_size = gso_disabled;
         }
-        for (int i = 0; i < sent; i++)
+#if SPEAD2_USE_MSG_ZEROCOPY
+        if (flags & MSG_ZEROCOPY)
         {
-            do
+            for (int i = 0; i < sent; i++)
             {
-                auto *item = packets[first_packet].packet.item;
-                item->bytes_sent += packets[first_packet].packet.size;
-                groups += packets[first_packet].packet.last;
-                first_packet = next_packet(first_packet);
-            } while (first_packet != last_packet && packets[first_packet].merged);
+                do
+                {
+                    packets[first_packet].zerocopy = true;
+                    packets[first_packet].seq = next_seq;
+                    first_packet = next_packet(first_packet);
+                } while (first_packet != last_packet && packets[first_packet].merged);
+                next_seq++;
+            }
+        }
+        else
+#endif
+        {
+            for (int i = 0; i < sent; i++)
+            {
+                do
+                {
+                    auto *item = packets[first_packet].packet.item;
+                    item->bytes_sent += packets[first_packet].packet.size;
+                    groups += packets[first_packet].packet.last;
+                    first_packet = next_packet(first_packet);
+                } while (first_packet != last_packet && packets[first_packet].merged);
+            }
         }
         first_msg += sent;
     }
@@ -261,6 +333,7 @@ int udp_writer::prepare_msgvec(int first_packet, int last_packet, int first_msg,
             hdr.msg_namelen = endpoint.size();
             msg++;
             packets[i].merged = false;
+            packets[i].zerocopy = false;  // until we know otherwise
             merged_size = 0;
         }
         else
@@ -276,9 +349,92 @@ int udp_writer::prepare_msgvec(int first_packet, int last_packet, int first_msg,
     return msg;
 }
 
+#if SPEAD2_USE_MSG_ZEROCOPY
+void udp_writer::enable_zerocopy(boost::system::error_code &result)
+{
+    int enable = 1;
+    if (setsockopt(socket.native_handle(), SOL_SOCKET, SO_ZEROCOPY,
+                   &enable, sizeof(enable)) == -1)
+    {
+        result.assign(errno, boost::asio::error::get_system_category());
+    }
+    else
+    {
+        result.clear();
+    }
+}
+
+bool udp_writer::make_space()
+{
+    while (free_slots() < max_batch)
+    {
+        struct msghdr msg = {};
+        char control[CMSG_SPACE(sizeof(struct sock_extended_err))];
+        msg.msg_control = control;
+        msg.msg_controllen = sizeof(control);
+        int ret = recvmsg(socket.native_handle(), &msg, MSG_ERRQUEUE | MSG_DONTWAIT);
+        if (ret == -1)
+        {
+            if (errno == EWOULDBLOCK || errno == EAGAIN)
+            {
+                /* We need to wait until we get a completion notification */
+                socket.async_wait(
+                    socket.wait_error, [this](const boost::system::error_code &) { wakeup(); }
+                );
+                return false;
+            }
+            else
+            {
+                log_errno("Failed to poll error queue for zerocopy notifications: %1% (%2%)");
+            }
+        }
+        else
+        {
+            for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg))
+            {
+                if ((cmsg->cmsg_level == SOL_IP && cmsg->cmsg_type == IP_RECVERR)
+                    || (cmsg->cmsg_level == SOL_IPV6 && cmsg->cmsg_type == IPV6_RECVERR))
+                {
+                    struct sock_extended_err serr;
+                    memcpy(&serr, CMSG_DATA(cmsg), sizeof(serr));
+                    if (serr.ee_errno == 0 && serr.ee_origin == SO_EE_ORIGIN_ZEROCOPY)
+                    {
+                        /* TODO: the kernel doesn't guarantee in-order notification.
+                         * If this range doesn't cover the head of the queue,
+                         * we should mark other packets in the queue as no longer
+                         * zerocopy packets.
+                         */
+                        uint32_t seq_first = serr.ee_info;
+                        uint32_t seq_last = serr.ee_data; // NB: inclusive!
+                        int groups = 0;
+                        while (head_packet != tail_packet
+                               && (!packets[head_packet].zerocopy
+                                   || (seq_first <= packets[head_packet].seq
+                                       && seq_last <= packets[head_packet].seq)))
+                        {
+                            auto *item = packets[head_packet].packet.item;
+                            item->bytes_sent += packets[head_packet].packet.size;
+                            groups += packets[head_packet].packet.last;
+                            head_packet = next_packet(head_packet);
+                        }
+                        if (groups > 0)
+                            groups_completed(groups);
+                    }
+                    break;  // don't need to check any more cmsgs
+                }
+            }
+        }
+    }
+    return true;
+}
+#endif // SPEAD2_USE_MSG_ZEROCOPY
+
 void udp_writer::wakeup()
 {
-    // TODO: check for space (MSG_ZEROCOPY)
+#if SPEAD2_USE_MSG_ZEROCOPY
+    if (!make_space())
+        return;  // make_space prepares to wake us up again later
+#endif
 
     packet_result result = get_packet(packets[tail_packet].packet, packets[tail_packet].scratch.get());
     switch (result)
@@ -439,6 +595,16 @@ udp_writer::udp_writer(
     std::memset(&msgvec, 0, sizeof(msgvec));
     for (int i = 0; i < max_outstanding; i++)
         packets[i].scratch.reset(new std::uint8_t[config.get_max_packet_size()]);
+#if SPEAD2_USE_MSG_ZEROCOPY
+    {
+        boost::system::error_code result;
+        enable_zerocopy(result);
+        if (result)
+            log_debug("Socket does not support zerocopy");
+        else
+            zerocopy_enabled = true;
+    }
+#endif
 #endif
 }
 

@@ -20,8 +20,10 @@ for python in true false; do
     # sendmmsg and gso don't interact with ibv, so don't test them jointly
     for sendmmsg in auto disabled; do
         for gso in auto disabled; do
-            meson configure -Dpython=$python -Dsendmmsg=$sendmmsg -Dgso=$gso
-            meson compile
+            for msg_zerocopy in auto disabled; do
+                meson configure -Dpython=$python -Dsendmmsg=$sendmmsg -Dgso=$gso -Dmsg_zerocopy=$msg_zerocopy
+                meson compile
+            done
         done
     done
 done
