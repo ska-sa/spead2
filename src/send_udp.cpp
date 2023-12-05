@@ -115,16 +115,17 @@ private:
          * the data wraps around), but the unsigned overflow is well defined
          * and the bitmask will do the right thing.
          */
-        return (head_packet - tail_packet) & (max_outstanding - 1);
+        if (head_packet == tail_packet)
+            return max_outstanding;
+        else
+            return (head_packet - tail_packet) & (max_outstanding - 1);
     }
 
-    /**
-     * Ensure that there are at least @ref max_batch slots available in the
-     * packet ring. Returns true on success, false on failure. On failure,
-     * @ref wakeup will be scheduled to run again in future when it might be
-     * possible to free up more space.
-     */
-    bool make_space();
+    /// Process any zerocopy notifications from the error queue.
+    void reap();
+
+    /// Request a call to @ref wakeup when there is another completion notification
+    void wait_for_space();
 #endif
 
     /**
@@ -364,9 +365,10 @@ void udp_writer::enable_zerocopy(boost::system::error_code &result)
     }
 }
 
-bool udp_writer::make_space()
+void udp_writer::reap()
 {
-    while (free_slots() < max_batch)
+    int groups = 0;
+    while (true)
     {
         struct msghdr msg = {};
         char control[CMSG_SPACE(sizeof(struct sock_extended_err))];
@@ -377,11 +379,7 @@ bool udp_writer::make_space()
         {
             if (errno == EWOULDBLOCK || errno == EAGAIN)
             {
-                /* We need to wait until we get a completion notification */
-                socket.async_wait(
-                    socket.wait_error, [this](const boost::system::error_code &) { wakeup(); }
-                );
-                return false;
+                break;
             }
             else
             {
@@ -406,34 +404,42 @@ bool udp_writer::make_space()
                          */
                         uint32_t seq_first = serr.ee_info;
                         uint32_t seq_last = serr.ee_data; // NB: inclusive!
-                        int groups = 0;
                         while (head_packet != tail_packet
                                && (!packets[head_packet].zerocopy
                                    || (seq_first <= packets[head_packet].seq
-                                       && seq_last <= packets[head_packet].seq)))
+                                       && packets[head_packet].seq <= seq_last)))
                         {
                             auto *item = packets[head_packet].packet.item;
                             item->bytes_sent += packets[head_packet].packet.size;
                             groups += packets[head_packet].packet.last;
                             head_packet = next_packet(head_packet);
                         }
-                        if (groups > 0)
-                            groups_completed(groups);
                     }
                     break;  // don't need to check any more cmsgs
                 }
             }
         }
     }
-    return true;
+    if (groups > 0)
+        groups_completed(groups);
 }
+
+void udp_writer::wait_for_space()
+{
+    socket.async_wait(socket.wait_error, [this](const boost::system::error_code &) { wakeup(); });
+}
+
 #endif // SPEAD2_USE_MSG_ZEROCOPY
 
 void udp_writer::wakeup()
 {
 #if SPEAD2_USE_MSG_ZEROCOPY
-    if (!make_space())
-        return;  // make_space prepares to wake us up again later
+    reap();
+    if (free_slots() < max_batch)
+    {
+        wait_for_space();
+        return;
+    }
 #endif
 
     packet_result result = get_packet(packets[tail_packet].packet, packets[tail_packet].scratch.get());
@@ -443,6 +449,15 @@ void udp_writer::wakeup()
         sleep();
         return;
     case packet_result::EMPTY:
+        // If there are any outstanding packets, we need to reap them before we can
+        // go completely idle.
+#if SPEAD2_USE_MSG_ZEROCOPY
+        if (head_packet != tail_packet)
+        {
+            wait_for_space();
+            return;
+        }
+#endif
         request_wakeup();
         return;
     case packet_result::SUCCESS:
