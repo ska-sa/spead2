@@ -5,6 +5,8 @@ reduce packet overheads when transmitting UDP data through the kernel
 networking stack. A good overview can be found on `Cloudflare's blog`_, but
 the basic idea is this:
 
+.. _Cloudflare's blog: https://blog.cloudflare.com/accelerating-udp-packet-transmission-for-quic/
+
 1. Userspace concatenates multiple smaller packets into one mega-packet for
    submission to the kernel.
 2. Most of the networking stack operates on the mega-packet.
