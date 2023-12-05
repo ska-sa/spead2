@@ -218,7 +218,7 @@ int udp_writer::prepare_msgvec(int first_packet, int last_packet, int first_msg,
     int msg = first_msg;
     for (int i = first_packet; i < last_packet; i++)
     {
-        /* Check if we can merge with the previous packet using generalised
+        /* Check if we can merge with the previous packet using generic
          * segmentation offload. */
         if (!SPEAD2_USE_GSO
             || i == first_packet
