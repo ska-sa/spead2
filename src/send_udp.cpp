@@ -17,11 +17,18 @@
 #include <cstddef>
 #include <cstring>
 #include <utility>
+#include <algorithm>
 #include <boost/asio.hpp>
 #include <spead2/send_udp.h>
 #include <spead2/send_writer.h>
 #include <spead2/common_defines.h>
 #include <spead2/common_socket.h>
+#if SPEAD2_USE_SENDMMSG
+# include <sys/types.h>
+# include <sys/socket.h>
+# include <netinet/in.h>
+# include <netinet/udp.h>
+#endif
 
 namespace spead2::send
 {
@@ -37,17 +44,51 @@ private:
 
     virtual void wakeup() override final;
 
+    /* NB: Linux has a maximum of 64 segments for GSO (UDP_MAX_SEGMENTS in the
+     * kernel, but it doesn't seem to be exposed to userspace). If max_batch
+     * is increased, logic will need to be added to the GSO merging to prevent
+     * creating messages bigger than this.
+     */
     static constexpr int max_batch = 64;
 #if SPEAD2_USE_SENDMMSG
+    // Some magic values for current_gso_size
+    /// GSO allowed, but socket option not currently set
+    [[maybe_unused]] static constexpr int gso_inactive = 0;
+    /// GSO failed; do not try again
+    [[maybe_unused]] static constexpr int gso_disabled = -1;
+    /// Last send with GSO failed; retrying without GSO
+    [[maybe_unused]] static constexpr int gso_probe = -2;
+
+    static constexpr int max_gso_message_size = 65535;  // maximum size the kernel will accept
     struct mmsghdr msgvec[max_batch];
     std::vector<struct iovec> msg_iov;
     struct
     {
         transmit_packet packet;
         std::unique_ptr<std::uint8_t[]> scratch;
+        bool merged; // packet is part of the same message as the previous packet
     } packets[max_batch];
+    int current_gso_size = gso_inactive;
 
-    void send_packets(int first, int last);
+#if SPEAD2_USE_GSO
+    /// Set the socket option
+    void set_gso_size(int size, boost::system::error_code &result);
+#endif
+
+    /**
+     * Set up @ref msgvec from @ref msg_iov.
+     *
+     * The packets in [first_packet, last_packet) are assumed to have already
+     * been set in @ref msg_iov, starting from @a first_iov. If @a gso_size is
+     * positive, then multiple packets may be concatenated into a single
+     * element of @ref msgvec, provided that all but the last have size
+     * @a gso_size. Otherwise, each packet gets its own entry in @ref msgvec.
+     *
+     * @return The past-the-end index into @ref msgvec after the packets are
+     * filled in.
+     */
+    int prepare_msgvec(int first_packet, int last_packet, int first_msg, int first_iov, int gso_size);
+    void send_packets(int first_packet, int last_packet, int first_msg, int last_msg);
 #else
     std::unique_ptr<std::uint8_t[]> scratch;
 #endif
@@ -65,46 +106,147 @@ public:
 
 #if SPEAD2_USE_SENDMMSG
 
-void udp_writer::send_packets(int first, int last)
+#if SPEAD2_USE_GSO
+void udp_writer::set_gso_size(int size, boost::system::error_code &result)
 {
+    if (setsockopt(socket.native_handle(), IPPROTO_UDP, UDP_SEGMENT,
+                   &size, sizeof(size)) == -1)
+    {
+        result.assign(errno, boost::asio::error::get_system_category());
+    }
+    else
+    {
+        result.clear();
+    }
+}
+#endif
+
+void udp_writer::send_packets(int first_packet, int last_packet, int first_msg, int last_msg)
+{
+#if SPEAD2_USE_GSO
+restart:
+#endif
     // Try sending
-    int sent = sendmmsg(socket.native_handle(), msgvec + first, last - first, MSG_DONTWAIT);
+    int sent = sendmmsg(socket.native_handle(), msgvec + first_msg, last_msg - first_msg, MSG_DONTWAIT);
     int groups = 0;
+    boost::system::error_code result;
     if (sent < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
     {
-        auto *item = packets[first].packet.item;
-        if (!item->result)
-            item->result = boost::system::error_code(errno, boost::asio::error::get_system_category());
-        groups += packets[first].packet.last;
-        first++;
+        /* Not all device drivers support GSO. If we were trying with GSO, try again
+         * without.
+         */
+        result.assign(errno, boost::asio::error::get_system_category());
+#if SPEAD2_USE_GSO
+        if (current_gso_size == gso_probe)
+        {
+            /* We tried sending with GSO and it failed, but resending without GSO
+             * also failed, so the fault is probably not lack of GSO support. Allow
+             * GSO to be used again.
+             */
+            current_gso_size = gso_inactive;
+        }
+        else if (current_gso_size > 0)
+        {
+            set_gso_size(0, result);
+            if (!result)
+            {
+                /* Re-compute msgvec without GSO */
+                current_gso_size = gso_probe;
+                last_msg = prepare_msgvec(first_packet, last_packet, first_msg,
+                                          msgvec[first_msg].msg_hdr.msg_iov - msg_iov.data(),
+                                          0);
+                goto restart;
+            }
+        }
+#endif
+        do
+        {
+            auto *item = packets[first_packet].packet.item;
+            if (!item->result)
+                item->result = result;
+            groups += packets[first_packet].packet.last;
+            first_packet++;
+        } while (first_packet < last_packet && packets[first_packet].merged);
+        first_msg++;
     }
     else if (sent > 0)
     {
+        if (current_gso_size == gso_probe)
+        {
+            log_debug("disabling GSO because sending with it failed and without succeeded");
+            // Sending with GSO failed and without GSO succeeded. The network
+            // device probably does not support it, so don't try again.
+            current_gso_size = gso_disabled;
+        }
         for (int i = 0; i < sent; i++)
         {
-            auto *item = packets[first].packet.item;
-            item->bytes_sent += packets[first].packet.size;
-            groups += packets[first].packet.last;
-            first++;
+            do
+            {
+                auto *item = packets[first_packet].packet.item;
+                item->bytes_sent += packets[first_packet].packet.size;
+                groups += packets[first_packet].packet.last;
+                first_packet++;
+            } while (first_packet < last_packet && packets[first_packet].merged);
         }
+        first_msg += sent;
     }
 
     if (groups > 0)
         groups_completed(groups);
-    if (first < last)
+    if (first_msg < last_msg)
     {
         // We didn't manage to send it all: schedule a new attempt once there is
         // buffer space.
         socket.async_send(
             boost::asio::null_buffers(),
-            [this, first, last](const boost::system::error_code &, std::size_t) {
-                send_packets(first, last);
+            [this, first_packet, last_packet, first_msg, last_msg](
+                const boost::system::error_code &, std::size_t
+            ) {
+                send_packets(first_packet, last_packet, first_msg, last_msg);
             });
     }
     else
     {
         post_wakeup();
     }
+}
+
+int udp_writer::prepare_msgvec(int first_packet, int last_packet, int first_msg, int first_iov, int gso_size)
+{
+    int merged_size = 0;
+    int iov = first_iov;
+    int msg = first_msg;
+    for (int i = first_packet; i < last_packet; i++)
+    {
+        /* Check if we can merge with the previous packet using generic
+         * segmentation offload. */
+        if (!SPEAD2_USE_GSO
+            || i == first_packet
+            || (int) packets[i - 1].packet.size != gso_size
+            || packets[i].packet.substream_index != packets[i - 1].packet.substream_index
+            || merged_size + packets[i].packet.size > max_gso_message_size)
+        {
+            // Can't merge, so initialise a new header
+            auto &hdr = msgvec[msg].msg_hdr;
+            hdr.msg_iov = &msg_iov[iov];
+            hdr.msg_iovlen = 0;
+            const auto &endpoint = endpoints[packets[i].packet.substream_index];
+            hdr.msg_name = (void *) endpoint.data();
+            hdr.msg_namelen = endpoint.size();
+            msg++;
+            packets[i].merged = false;
+            merged_size = 0;
+        }
+        else
+        {
+            packets[i].merged = true;
+        }
+        auto &hdr = msgvec[msg - 1].msg_hdr;
+        hdr.msg_iovlen += packets[i].packet.buffers.size();
+        merged_size += packets[i].packet.size;
+        iov += packets[i].packet.buffers.size();
+    }
+    return msg;
 }
 
 void udp_writer::wakeup()
@@ -125,34 +267,61 @@ void udp_writer::wakeup()
     // We have at least one packet to send. See if we can get some more.
     int n;
     std::size_t n_iov = packets[0].packet.buffers.size();
+    std::size_t max_size = packets[0].packet.size;
     for (n = 1; n < max_batch; n++)
     {
         result = get_packet(packets[n].packet, packets[n].scratch.get());
         if (result != packet_result::SUCCESS)
             break;
         n_iov += packets[n].packet.buffers.size();
+        max_size = std::max(max_size, packets[n].packet.size);
     }
 
+#if SPEAD2_USE_GSO
+    int new_gso_size = max_size;
+    if (new_gso_size != current_gso_size && current_gso_size >= 0)
+    {
+        boost::system::error_code result;
+        set_gso_size(new_gso_size, result);
+        if (!result)
+            current_gso_size = new_gso_size;
+        else if (result == boost::system::errc::no_protocol_option) // ENOPROTOOPT
+        {
+            /* Socket option is not supported on this platform. Just
+             * disable GSO in our code.
+             */
+            log_debug("disabling GSO because socket option is not supported");
+            current_gso_size = gso_disabled;
+        }
+        else
+        {
+            /* Something else has gone wrong. Make a best effort to disable
+             * GSO on the socket.
+             */
+            log_warning("failed to set UDP_SEGMENT socket option to %1%: %2% (%3%)",
+                        new_gso_size, result.value(), result.message());
+            set_gso_size(0, result);
+            if (!result)
+                current_gso_size = 0;
+        }
+    }
+#endif
+
+    /* Fill in msg_iov from the packets */
     msg_iov.resize(n_iov);
-    std::size_t offset = 0;
+    int iov = 0;
     for (int i = 0; i < n; i++)
     {
-        auto &hdr = msgvec[i].msg_hdr;
-        hdr.msg_iov = &msg_iov[offset];
-        hdr.msg_iovlen = packets[i].packet.buffers.size();
         for (const auto &buffer : packets[i].packet.buffers)
         {
-            msg_iov[offset].iov_base = const_cast<void *>(
+            msg_iov[iov].iov_base = const_cast<void *>(
                 boost::asio::buffer_cast<const void *>(buffer));
-            msg_iov[offset].iov_len = boost::asio::buffer_size(buffer);
-            offset++;
+            msg_iov[iov].iov_len = boost::asio::buffer_size(buffer);
+            iov++;
         }
-        const auto &endpoint = endpoints[packets[i].packet.substream_index];
-        hdr.msg_name = (void *) endpoint.data();
-        hdr.msg_namelen = endpoint.size();
     }
-
-    send_packets(0, n);
+    int n_msgs = prepare_msgvec(0, n, 0, 0, current_gso_size);
+    send_packets(0, n, 0, n_msgs);
 }
 
 #else // SPEAD2_USE_SENDMMSG

@@ -160,6 +160,13 @@ use_sendmmsg = get_option('sendmmsg').require(
     prefix : '#include <sys/socket.h>'
   )
 ).allowed()
+use_gso = get_option('gso').require(
+  compiler.get_define(
+    'UDP_SEGMENT',
+    args : '-D_GNU_SOURCE',
+    prefix : '#include <netinet/udp.h>'
+  ) != ''
+).allowed()
 use_eventfd = get_option('eventfd').require(
   compiler.has_function(
     'eventfd',
@@ -260,6 +267,7 @@ conf.set10('SPEAD2_USE_IBV_HW_RATE_LIMIT', use_ibv_hw_rate_limit)
 conf.set10('SPEAD2_USE_MLX5DV', mlx5_dep.found())
 conf.set10('SPEAD2_USE_RECVMMSG', use_recvmmsg)
 conf.set10('SPEAD2_USE_SENDMMSG', use_sendmmsg)
+conf.set10('SPEAD2_USE_GSO', use_gso)
 conf.set10('SPEAD2_USE_EVENTFD', use_eventfd)
 conf.set10('SPEAD2_USE_POSIX_SEMAPHORES', use_posix_semaphores)
 conf.set10('SPEAD2_USE_PTHREAD_SETAFFINITY_NP', use_pthread_setaffinity_np)
