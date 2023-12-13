@@ -111,7 +111,7 @@ obtain the heaps as they arrive.
 Now we'll fill in the body of the loop to process the heap, by computing the
 mean of the squares of the samples.  In Python we can just update the item
 group with the heap, which will create items from the descriptors in the first
-heap and also update the values. C++ doesn't have item groups, and it leaves
+heap and also update the values. The C++ API doesn't have item groups, and it leaves
 interpretation of descriptors up to the user. Ideally we would parse the
 descriptor to determine the item IDs for ``timestamp`` and ``adc_samples`` and
 also learn about their types, but to keep things simple we'll just hard-code

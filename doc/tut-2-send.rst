@@ -181,7 +181,7 @@ representation, which is why we illustrate it.
 
 On the other hand, we've given ``adc_samples`` a one-dimensional shape, and
 specified the type in a different way. We could have configured it similarly
-to ``timestamp``, with format ('i', 8) for 8-bit signed integer, but this
+to ``timestamp``, with format ``('i', 8)`` for 8-bit signed integer, but this
 shows an alternative way to specify types in SPEAD, using the numpy type
 system. In the C++ code, we have to manually construct the numpy format
 header (it is described in :mod:`numpy.lib.format`) to include both the shape
