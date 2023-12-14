@@ -44,8 +44,7 @@ bottom.
         {
             ...
         }
-        auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(
-            std::chrono::high_resolution_clock::now() - start);
+        std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
         std::cout << heap_size * n_heaps / elapsed.count() / 1e6 << " MB/s\n";
 
 You can expect performance to be pretty low; I get around 85 MB/s from Python

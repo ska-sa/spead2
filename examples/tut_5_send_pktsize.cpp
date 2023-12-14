@@ -97,8 +97,7 @@ int main(int argc, char * const argv[])
         old_state = std::move(new_state);
     }
     old_state->future.get();
-    auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(
-        std::chrono::high_resolution_clock::now() - start);
+    std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
     std::cout << heap_size * n_heaps / elapsed.count() / 1e6 << " MB/s\n";
 
     // Send an end-of-stream control item
