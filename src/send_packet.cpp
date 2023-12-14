@@ -101,9 +101,9 @@ bool packet_generator::has_next_packet() const
     return payload_offset < payload_size;
 }
 
-std::vector<boost::asio::const_buffer> packet_generator::next_packet(std::uint8_t *scratch)
+void packet_generator::next_packet(std::uint8_t *scratch, std::vector<boost::asio::const_buffer> &out)
 {
-    std::vector<boost::asio::const_buffer> out;
+    out.clear();
 
     if (h.get_repeat_pointers())
     {
@@ -208,7 +208,6 @@ std::vector<boost::asio::const_buffer> packet_generator::next_packet(std::uint8_
             }
         }
     }
-    return out;
 }
 
 } // namespace spead2::send
