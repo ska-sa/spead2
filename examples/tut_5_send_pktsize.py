@@ -58,7 +58,7 @@ async def main():
     )
 
     n_heaps = 10000
-    start = time.monotonic()
+    start = time.perf_counter()
     old_state = None
     for i in range(n_heaps):
         new_state = State()
@@ -70,7 +70,7 @@ async def main():
             await old_state.future
         old_state = new_state
     await old_state.future
-    elapsed = time.monotonic() - start
+    elapsed = time.perf_counter() - start
     print(f"{heap_size * n_heaps / elapsed / 1e6:.2f} MB/s")
     await stream.async_send_heap(item_group.get_end())
 
