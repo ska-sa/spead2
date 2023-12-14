@@ -17,14 +17,14 @@ will probably see a number of messages like the following:
 
 .. code-block:: text
 
-    dropped incomplete heap 2900 (170224/1048576 bytes of payload)
-    worker thread blocked by full ringbuffer on heap 2922
+    dropped incomplete heap 913 (654064/1048576 bytes of payload)
+    worker thread blocked by full ringbuffer on heap 965
 
 The first one tells you that data has been lost. Recall that the sender is
-dividing each heap into packets, each containing about 9 kB out of the 1 MiB
-of sample data [#payload-mtu]_. For this particular heap, we received only
-170224 bytes of payload, and so it was dropped. It is worth mentioning that
-the heap ID (2900) is one assigned by spead2 in the sender and encoded into
+dividing each heap into packets, each containing about 1472 bytes out of the 1 MiB
+of sample data. For this particular heap, we received only
+654064 bytes of payload, and so it was dropped. It is worth mentioning that
+the heap ID (913) is one assigned by spead2 in the sender and encoded into
 the packet; it does not necessarily match the loop index in the ``for`` loop
 in the sender code.
 
@@ -96,9 +96,8 @@ this tutorial is in :file:`examples/tut_7_recv_power.py` and
         std::cout << "Received " << n_heaps << " heaps\n";
 
 On my machine, the receiver now keeps up with the sender and receives all
-10000 heaps, although it is somewhat tight so you might get different
-results.
+1000 heaps, although it is somewhat tight so you might get different
+results. On the other hand, passing a larger packet size to the server makes
+it too efficient for the receiver to keep up with.
 
 .. _numba: http://numba.org/
-.. [#payload-mtu] It is actually slightly less than 9 kB of sample data,
-   because some space in the 9 kB packet is used by the SPEAD headers.
