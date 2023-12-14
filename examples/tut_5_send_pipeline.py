@@ -15,13 +15,13 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import argparse
 import asyncio
 import time
 from dataclasses import dataclass, field
 
 import numpy as np
 
-import spead2.send
 import spead2.send.asyncio
 
 
@@ -31,9 +31,15 @@ class State:
 
 
 async def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-n", "--heaps", type=int, default=1000)
+    parser.add_argument("host", type=str)
+    parser.add_argument("port", type=int)
+    args = parser.parse_args()
+
     thread_pool = spead2.ThreadPool()
     config = spead2.send.StreamConfig(rate=0.0, max_heaps=2)
-    stream = spead2.send.asyncio.UdpStream(thread_pool, [("127.0.0.1", 8888)], config)
+    stream = spead2.send.asyncio.UdpStream(thread_pool, [(args.host, args.port)], config)
     heap_size = 1024 * 1024
     item_group = spead2.send.ItemGroup()
     item_group.add_item(
@@ -51,22 +57,22 @@ async def main():
         dtype=np.int8,
     )
 
-    rng = np.random.default_rng()
-    n_heaps = 100
-    start = time.monotonic()
+    n_heaps = args.heaps
+    start = time.perf_counter()
     old_state = None
     for i in range(n_heaps):
         new_state = State()
         item_group["timestamp"].value = i * heap_size
-        item_group["adc_samples"].value = rng.integers(-100, 100, size=heap_size, dtype=np.int8)
+        item_group["adc_samples"].value = np.full(heap_size, i, np.int8)
         heap = item_group.get_heap()
         new_state.future = stream.async_send_heap(heap)
         if old_state is not None:
             await old_state.future
         old_state = new_state
     await old_state.future
-    elapsed = time.monotonic() - start
+    elapsed = time.perf_counter() - start
     print(f"{heap_size * n_heaps / elapsed / 1e6:.2f} MB/s")
+
     await stream.async_send_heap(item_group.get_end())
 
 

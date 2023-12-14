@@ -38,7 +38,7 @@ We also need to use the asynchronous classes and methods of the spead2 API:
 
     import spead2.send.asyncio
     ...
-        stream = spead2.send.asyncio.UdpStream(thread_pool, [("127.0.0.1", 8888)], config)
+        stream = spead2.send.asyncio.UdpStream(thread_pool, [(args.host, args.port)], config)
         ...
             await stream.async_send_heap(heap)
             ...
@@ -117,6 +117,7 @@ the result of the future for heap :math:`n` until we've passed heap
         for i in range(n_heaps):
             new_state = State()
             ...
+            new_state.future = stream.async_send_heap(heap)
             if old_state is not None:
                 await old_state.future
             old_state = new_state
@@ -125,13 +126,15 @@ the result of the future for heap :math:`n` until we've passed heap
  .. code-block:: c++
     :dedent: 0
 
+    #include <memory>
+    ...
         std::unique_ptr<state> old_state;
         for (int i = 0; i < n_heaps; i++)
         {
             auto new_state = std::make_unique<state>();
-            auto &heap = new_state->heap;
+            auto &heap = new_state->heap;  // delete previous declaration of 'heap'
             auto &adc_samples = new_state->adc_samples;
-            adc_samples.resize(heap_size);
+            adc_samples.resize(heap_size, i);
             ...
             new_state->future = stream.async_send_heap(heap, boost::asio::use_future);
             if (old_state)
@@ -142,33 +145,19 @@ the result of the future for heap :math:`n` until we've passed heap
 
 Note how at the end of the loop we still need to wait for the final heap.
 
-This improves performance to around 92 MB/s for Python and 260 MB/s for C++.
-The Python code does not get much speedup because the random number generation
-is a bottleneck, but the C++ code is now a little faster.
+This improves performance to around 5200 MB/s for Python and 5700 MB/s for C++
+(it is highly variable though).
 
-Apart from overlapping the random number generation with the transmission,
+Apart from overlapping the data generation with the transmission,
 there is another hidden benefit to this approach: pipelining. Even if the
-random number generation were free, the original code would have sub-optimal
+data generation were free, the original code would have sub-optimal
 performance because we wait until transmission is complete before submitting
 the next batch of work. This means that the networking thread will go to sleep
 after finishing heap :math:`n` and need to be woken up again when heap
-:math:`n+1` is submitted, and no data is being transmitted during that time.
-With the new code, provided the processing is fast enough to submit heap
-:math:`n+1` because heap :math:`n` is complete, the worker thread can move
-directly from one to the next without needing to pause. In our example this
-makes no noticeable difference, but it can be significant if the heaps are
-small, and it can even be beneficial to have more than two heaps in flight at
-a time.
-
-.. [#benchmarks] I'll be quoting benchmark numbers throughout these tutorials.
-   The numbers are what I encountered at the time the tutorial was written,
-   so they may be out of date with regards to future optimisations to spead2.
-   They also vary each time I run them, and they will likely differ from what
-   you encounter. Treat them as rough indicators of how important various
-   optimisations are, rather than as the absolute throughput you should expect
-   from your application.
-
-.. [#fakeaddr] This will not be the same as sending to an address of a real
-   machine which is not listening on the chosen port: in that situation, the
-   machine will send back ICMP "port unreachable" packets, which will affect
-   the performance of the sending machine.
+:math:`n+1` is submitted, and no data is being transmitted while the thread is
+being woken up. With the new code, provided the processing is fast enough to
+submit heap :math:`n+1` because heap :math:`n` is complete, the worker thread
+can move directly from one to the next without needing to pause. In our
+example this makes no noticeable difference, but it can be significant if the
+heaps are small, and it can even be beneficial to have more than two heaps in
+flight at a time.
