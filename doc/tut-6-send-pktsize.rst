@@ -1,8 +1,8 @@
 Increasing packet sizes
 =======================
 In this section we'll make a small but significant optimisation, which as
-usual can be found in :file:`examples/tut_5_send_pktsize.py` and
-:file:`examples/tut_5_send_pktsize.cpp` in the spead2 repository. Currently we're
+usual can be found in :file:`examples/tut_6_send_pktsize.py` and
+:file:`examples/tut_6_send_pktsize.cpp` in the spead2 repository. Currently we're
 hampered by the speed of the random number generation, which is slower than
 we're able to transmit. We don't particularly care about the values being
 random, so let's delete all the random number code and replace it with the
@@ -16,6 +16,7 @@ following:
             item_group["adc_samples"].value = np.full(heap_size, i, np.int8)
 
  .. code-block:: c++
+    :dedent: 0
 
             adc_samples.resize(heap_size, i);
 
@@ -96,20 +97,40 @@ number of heaps to get more reliable measurements.
 
  .. code-block:: c++
 
+    #include <unistd.h>
+    ...
+    static void usage(const char * name)
+    {
+        std::cerr << "Usage: " << name << " [-n heaps] host port\n";
+    }
+
     int main(int argc, char * const argv[])
     {
-        if (argc != 3)
+        int opt;
+        int n_heaps = 10000;
+        while ((opt = getopt(argc, argv, "n:")) != -1)
         {
-            std::cerr << "Usage: " << argv[0] << " <address> <port>\n";
+            switch (opt)
+            {
+            case 'n':
+                n_heaps = std::stoi(optarg);
+                break;
+            default:
+                usage();
+                return 2;
+            }
+        }
+        if (argc - optind != 2)
+        {
+            usage();
             return 2;
         }
         ...
         boost::asio::ip::udp::endpoint endpoint(
-            boost::asio::ip::address::from_string(argv[1]),
-            std::atoi(argv[2])
+            boost::asio::ip::address::from_string(argv[optind]),
+            std::atoi(argv[optind + 1])
         );
-        ...
-        const int n_heaps = 10000;
+
 
 The C++ version uses very quick-n-dirty parsing of the IP address and port;
 in a production application you would need to do more error handling.
@@ -127,7 +148,7 @@ configure a dummy interface like this (as root):
    ip addr add 192.168.31.1/24 dev dummy1
    ip link set dummy1 up
 
-Now if you run :command:`tut_5_send_pktsize 192.168.31.2 8888` you should get even
+Now if you run :command:`tut_6_send_pktsize 192.168.31.2 8888` you should get even
 better performance. I get around 3500–4000 MB/s (with either C++ or Python), which
 is getting close to the limit of what spead2 can achieve for a single thread
 with the kernel networking stack. Exceeding this will require either using

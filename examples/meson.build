@@ -20,10 +20,11 @@ foreach name : [
   'recv_example',
   'tut_2_send',
   'tut_3_recv',
-  'tut_4_send_pipeline',
-  'tut_5_send_pktsize',
-  'tut_6_recv_power',
-  'tut_7_send',
+  'tut_4_send_perf',
+  'tut_5_send_pipeline',
+  'tut_6_send_pktsize',
+  'tut_7_recv_power',
+  'tut_8_send',
 ]
   executable(name, name + '.cpp', dependencies : [st_dep])
 endforeach

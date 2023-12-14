@@ -19,8 +19,8 @@
 #include <vector>
 #include <utility>
 #include <chrono>
-#include <memory>
 #include <iostream>
+#include <algorithm>
 #include <unistd.h>
 #include <boost/asio.hpp>
 #include <spead2/common_defines.h>
@@ -29,58 +29,43 @@
 #include <spead2/send_stream_config.h>
 #include <spead2/send_udp.h>
 
-struct state
+static void usage(const char * name)
 {
-    std::future<spead2::item_pointer_t> future;
-    std::vector<std::int8_t> adc_samples;
-    spead2::send::heap heap;
-
-    state()
-    {
-        // Make it safe to wait on the future immediately
-        std::promise<spead2::item_pointer_t> promise;
-        promise.set_value(0);
-        future = promise.get_future();
-    }
-};
+    std::cerr << "Usage: " << name << " [-n heaps] host port\n";
+}
 
 int main(int argc, char * const argv[])
 {
     int opt;
-    std::int64_t heap_size = 1024 * 1024;
-    int n_heaps = 10000;
-    while ((opt = getopt(argc, argv, "H:n:")) != -1)
+    int n_heaps = 1000;
+    while ((opt = getopt(argc, argv, "n:")) != -1)
     {
         switch (opt)
         {
-        case 'H':
-            heap_size = std::stoll(optarg);
-            break;
         case 'n':
             n_heaps = std::stoi(optarg);
             break;
         default:
-            std::cerr << "Usage: " << argv[0] << " [-H heap-size] [-n heaps] host port\n";
+            usage(argv[0]);
             return 2;
         }
     }
     if (argc - optind != 2)
     {
-        std::cerr << "Usage: " << argv[0] << " [-H heap-size] [-n heaps] host port\n";
+        usage(argv[0]);
         return 2;
     }
 
     spead2::thread_pool thread_pool;
     spead2::send::stream_config config;
     config.set_rate(0.0);
-    config.set_max_heaps(2);
-    config.set_max_packet_size(9000);
     boost::asio::ip::udp::endpoint endpoint(
         boost::asio::ip::address::from_string(argv[optind]),
         std::atoi(argv[optind + 1])
     );
     spead2::send::udp_stream stream(thread_pool, {endpoint}, config);
 
+    const std::int64_t heap_size = 1024 * 1024;
     spead2::descriptor timestamp_desc;
     timestamp_desc.id = 0x1600;
     timestamp_desc.name = "timestamp";
@@ -93,27 +78,19 @@ int main(int argc, char * const argv[])
     adc_samples_desc.numpy_header =
         "{'shape': (" + std::to_string(heap_size) + ",), 'fortran_order': False, 'descr': 'i1'}";
 
+    std::vector<std::int8_t> adc_samples(heap_size);
+
     auto start = std::chrono::high_resolution_clock::now();
-    std::array<state, 2> states;
-    for (auto &state : states)
-        state.adc_samples.resize(heap_size);
     for (int i = 0; i < n_heaps; i++)
     {
-        auto &state = states[i % states.size()];
-        // Wait for any previous use of this state to complete
-        state.future.wait();
-        auto &heap = state.heap;
-        auto &adc_samples = state.adc_samples;
-
-        heap = spead2::send::heap();  // reset to default state
-        // Fill with the heap number
-        std::fill(adc_samples.begin(), adc_samples.end(), i);
+        spead2::send::heap heap;
         // Add descriptors to the first heap
         if (i == 0)
         {
             heap.add_descriptor(timestamp_desc);
             heap.add_descriptor(adc_samples_desc);
         }
+        std::fill(adc_samples.begin(), adc_samples.end(), i);
         // Add the data and timestamp to the heap
         heap.add_item(timestamp_desc.id, i * heap_size);
         heap.add_item(
@@ -122,12 +99,9 @@ int main(int argc, char * const argv[])
             adc_samples.size() * sizeof(adc_samples[0]),
             true
         );
-        state.future = stream.async_send_heap(heap, boost::asio::use_future);
+        stream.async_send_heap(heap, boost::asio::use_future).get();
     }
-    for (const auto &state : states)
-        state.future.wait();
-    auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(
-        std::chrono::high_resolution_clock::now() - start);
+    std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
     std::cout << heap_size * n_heaps / elapsed.count() / 1e6 << " MB/s\n";
 
     // Send an end-of-stream control item

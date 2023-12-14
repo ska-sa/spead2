@@ -1,65 +1,22 @@
 Pipelining the sender
 =====================
-Now that we have some functioning code, let's see how we can use more features
-to improve performance. Of course, before trying to improve performance, we
-ought to have some idea of what the performance is. We'll make some changes to
-observe the time before and after we send the heaps, and also send more heaps
-(to make the timing more reliable). We'll remove the target rate, so that
-we're just sending as fast as we can. Setting the rate to 0 has the special
-meaning of removing any rate limiting (it is also the default, so we could
-just not set it at all).
+At present, our sender program only does one thing at a time, alternating
+between generating some data (in our case, by just filling it with a
+constant) and transmitting that data. Modern processors have multiple cores,
+so we can speed things up by performing these operations in parallel. But
+apart from just increasing performance for the sake of it, this is important
+for real UDP applications because it allows the transmission to be smoothed out
+with a constant transmission speed, rather than alternating idle periods with
+rapid bursts. Rapid bursts can cause congestion with other traffic on the
+network (leading to packet loss) or overwhelm receivers that don't have the
+performance to absorb them.
 
-The final code for this section can be found in
-:file:`examples/tut_4_send_pipeline.py` and
-:file:`examples/tut_4_send_pipeline.cpp`. Unlike the previous sections though,
-we'll be modifying the code as we go, rather than just writing it from top to
-bottom.
-
-.. tab-set-code::
-
- .. code-block:: python
-
-    import time
-    ...
-        config = spead2.send.StreamConfig(rate=0.0)
-        ...
-        n_heaps = 100
-        start = time.monotonic()
-        for i in range(n_heaps):
-            ...
-        elapsed = time.monotonic() - start
-        print(f"{heap_size * n_heaps / elapsed / 1e6:.2f} MB/s")
-
- .. code-block:: c++
-
-    #include <chrono>
-    #include <iostream>
-    #include <memory>  // Not needed yet, but we'll use it later
-    ...
-        config.set_rate(0.0);
-        ...
-        const int n_heaps = 100;
-        auto start = std::chrono::high_resolution_clock::now();
-        for (int i = 0; i < n_heaps; i++)
-        {
-            ...
-        }
-        std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
-        std::cout << heap_size * n_heaps / elapsed.count() / 1e6 << " MB/s\n";
-
-You can expect performance to be pretty low; I get around 90 MB/s from Python
-and 220 MB/s from C++ [#benchmarks]_.
-
-There are multiple reasons for the low performance, but one of them is that
-generating random numbers takes time, and we're alternating between sending a
-heap and preparing the random numbers for the next heap. Modern processors
-have multiple cores, so we can speed things up by performing these operations
-in parallel. To do that, we're going to need to restructure our code a bit.
-
-In Python we'll use the :mod:`asyncio` module to manage asynchronous sending,
-which means we'll need an asynchronous :py:func:`!main` function. If you're
-using Python but you've never used :mod:`asyncio` before, this would be a good
-time to find a tutorial on it. Modify the code as follows:
+To generate and transmit data in parallel, we're going to need to restructure
+our code a bit. In Python we'll use the :mod:`asyncio` module to manage
+asynchronous sending, which means we'll need an asynchronous :py:func:`!main`
+function. If you're using Python but you've never used :mod:`asyncio` before,
+this would be a good time to find a tutorial on it. Modify the code as
+follows:
 
 .. tab-set-code::
 
@@ -210,3 +167,8 @@ a time.
    you encounter. Treat them as rough indicators of how important various
    optimisations are, rather than as the absolute throughput you should expect
    from your application.
+
+.. [#fakeaddr] This will not be the same as sending to an address of a real
+   machine which is not listening on the chosen port: in that situation, the
+   machine will send back ICMP "port unreachable" packets, which will affect
+   the performance of the sending machine.

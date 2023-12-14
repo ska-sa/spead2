@@ -21,6 +21,7 @@ behaviour that's pointed out will be different.
    tut-spead-intro
    tut-2-send
    tut-3-recv
+   tut-4-send-perf
    tut-4-send-pipeline
    tut-5-send-pktsize
    tut-6-recv-power
