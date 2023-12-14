@@ -11,6 +11,8 @@ rapid bursts. Rapid bursts can cause congestion with other traffic on the
 network (leading to packet loss) or overwhelm receivers that don't have the
 performance to absorb them.
 
+.. TODO: insert a diagram here
+
 To generate and transmit data in parallel, we're going to need to restructure
 our code a bit. In Python we'll use the :mod:`asyncio` module to manage
 asynchronous sending, which means we'll need an asynchronous :py:func:`!main`

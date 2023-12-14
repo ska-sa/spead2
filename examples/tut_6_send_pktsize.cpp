@@ -19,8 +19,11 @@
 #include <vector>
 #include <utility>
 #include <chrono>
-#include <memory>
 #include <iostream>
+#include <algorithm>
+#include <memory>
+#include <optional>
+#include <unistd.h>
 #include <boost/asio.hpp>
 #include <spead2/common_defines.h>
 #include <spead2/common_thread_pool.h>
@@ -35,11 +38,34 @@ struct state
     spead2::send::heap heap;
 };
 
+static void usage(const char * name)
+{
+    std::cerr << "Usage: " << name << " [-n heaps] [-p packet-size] host port\n";
+}
+
 int main(int argc, char * const argv[])
 {
-    if (argc != 3)
+    int opt;
+    int n_heaps = 1000;
+    std::optional<int> packet_size;
+    while ((opt = getopt(argc, argv, "n:p:")) != -1)
     {
-        std::cerr << "Usage: " << argv[0] << " <address> <port>\n";
+        switch (opt)
+        {
+        case 'n':
+            n_heaps = std::stoi(optarg);
+            break;
+        case 'p':
+            packet_size = std::stoi(optarg);
+            break;
+        default:
+            usage(argv[0]);
+            return 2;
+        }
+    }
+    if (argc - optind != 2)
+    {
+        usage(argv[0]);
         return 2;
     }
 
@@ -47,10 +73,11 @@ int main(int argc, char * const argv[])
     spead2::send::stream_config config;
     config.set_rate(0.0);
     config.set_max_heaps(2);
-    config.set_max_packet_size(9000);
+    if (packet_size)
+        config.set_max_packet_size(packet_size.value());
     boost::asio::ip::udp::endpoint endpoint(
-        boost::asio::ip::address::from_string(argv[1]),
-        std::atoi(argv[2])
+        boost::asio::ip::address::from_string(argv[optind]),
+        std::atoi(argv[optind + 1])
     );
     spead2::send::udp_stream stream(thread_pool, {endpoint}, config);
 
@@ -67,7 +94,6 @@ int main(int argc, char * const argv[])
     adc_samples_desc.numpy_header =
         "{'shape': (" + std::to_string(heap_size) + ",), 'fortran_order': False, 'descr': 'i1'}";
 
-    const int n_heaps = 10000;
     auto start = std::chrono::high_resolution_clock::now();
     std::unique_ptr<state> old_state;
     for (int i = 0; i < n_heaps; i++)
@@ -75,14 +101,15 @@ int main(int argc, char * const argv[])
         auto new_state = std::make_unique<state>();
         auto &heap = new_state->heap;
         auto &adc_samples = new_state->adc_samples;
-        // Fill with the heap number
-        adc_samples.resize(heap_size, i);
+        adc_samples.resize(heap_size);
+
         // Add descriptors to the first heap
         if (i == 0)
         {
             heap.add_descriptor(timestamp_desc);
             heap.add_descriptor(adc_samples_desc);
         }
+        std::fill(adc_samples.begin(), adc_samples.end(), i);
         // Add the data and timestamp to the heap
         heap.add_item(timestamp_desc.id, i * heap_size);
         heap.add_item(

@@ -168,3 +168,16 @@ Now if you run :command:`tut_4_send_perf 192.168.31.2 8888` you should get even
 better performance (note that the destination address is *not* the same as the
 address assigned to the interface). I get 3700 MB/s with Python and 4300 MB/s
 with C++.
+
+.. [#benchmarks] I'll be quoting benchmark numbers throughout these tutorials.
+   The numbers are what I encountered at the time the tutorial was written,
+   so they may be out of date with regards to future optimisations to spead2.
+   They also vary each time I run them, and they will likely differ from what
+   you encounter. Treat them as rough indicators of how important various
+   optimisations are, rather than as the absolute throughput you should expect
+   from your application.
+
+.. [#fakeaddr] This will not be the same as sending to an address of a real
+   machine which is not listening on the chosen port: in that situation, the
+   machine will send back ICMP "port unreachable" packets, which will affect
+   the performance of the sending machine.

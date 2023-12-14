@@ -22,7 +22,6 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-import spead2.send
 import spead2.send.asyncio
 
 
@@ -33,12 +32,16 @@ class State:
 
 async def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("-n", "--heaps", type=int, default=1000)
+    parser.add_argument("-p", "--packet-size", type=int)
     parser.add_argument("host", type=str)
     parser.add_argument("port", type=int)
     args = parser.parse_args()
 
     thread_pool = spead2.ThreadPool()
-    config = spead2.send.StreamConfig(rate=0.0, max_heaps=2, max_packet_size=9000)
+    config = spead2.send.StreamConfig(rate=0.0, max_heaps=2)
+    if args.packet_size is not None:
+        config.max_packet_size = args.packet_size
     stream = spead2.send.asyncio.UdpStream(thread_pool, [(args.host, args.port)], config)
     heap_size = 1024 * 1024
     item_group = spead2.send.ItemGroup()
@@ -57,7 +60,7 @@ async def main():
         dtype=np.int8,
     )
 
-    n_heaps = 10000
+    n_heaps = args.heaps
     start = time.perf_counter()
     old_state = None
     for i in range(n_heaps):
@@ -72,6 +75,7 @@ async def main():
     await old_state.future
     elapsed = time.perf_counter() - start
     print(f"{heap_size * n_heaps / elapsed / 1e6:.2f} MB/s")
+
     await stream.async_send_heap(item_group.get_end())
 
 

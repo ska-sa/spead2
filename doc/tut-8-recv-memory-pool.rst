@@ -62,7 +62,7 @@ not very robust to user mistakes.
 For this rest of this section we'll pass the options ``-n 100 -H 67108864`` to
 use 64 MiB heaps (and reduce the number of heaps to speed things up). First
 let us see what impact it has on the sender in isolation (this assumes you
-have set up the dummy network interface as in :doc:`tut-5-send-pktsize`.
+have set up the dummy network interface as in :doc:`tut-4-send-perf`.
 
 .. code-block:: sh
 

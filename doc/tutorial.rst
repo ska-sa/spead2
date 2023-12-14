@@ -22,7 +22,7 @@ behaviour that's pointed out will be different.
    tut-2-send
    tut-3-recv
    tut-4-send-perf
-   tut-4-send-pipeline
-   tut-5-send-pktsize
-   tut-6-recv-power
-   tut-7-recv-memory-pool
+   tut-5-send-pipeline
+   tut-6-send-pktsize
+   tut-7-recv-power
+   tut-8-recv-memory-pool
