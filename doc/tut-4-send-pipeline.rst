@@ -47,8 +47,8 @@ bottom.
         std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
         std::cout << heap_size * n_heaps / elapsed.count() / 1e6 << " MB/s\n";
 
-You can expect performance to be pretty low; I get around 85 MB/s from Python
-and 150 MB/s from C++.
+You can expect performance to be pretty low; I get around 90 MB/s from Python
+and 220 MB/s from C++ [#benchmarks]_.
 
 There are multiple reasons for the low performance, but one of them is that
 generating random numbers takes time, and we're alternating between sending a
@@ -185,9 +185,9 @@ the result of the future for heap :math:`n` until we've passed heap
 
 Note how at the end of the loop we still need to wait for the final heap.
 
-This improves performance to around 100 MB/s for Python and 250 MB/s for C++.
+This improves performance to around 92 MB/s for Python and 260 MB/s for C++.
 The Python code does not get much speedup because the random number generation
-is a bottleneck, but the C++ code is now significantly faster.
+is a bottleneck, but the C++ code is now a little faster.
 
 Apart from overlapping the random number generation with the transmission,
 there is another hidden benefit to this approach: pipelining. Even if the
@@ -202,3 +202,11 @@ directly from one to the next without needing to pause. In our example this
 makes no noticeable difference, but it can be significant if the heaps are
 small, and it can even be beneficial to have more than two heaps in flight at
 a time.
+
+.. [#benchmarks] I'll be quoting benchmark numbers throughout these tutorials.
+   The numbers are what I encountered at the time the tutorial was written,
+   so they may be out of date with regards to future optimisations to spead2.
+   They also vary each time I run them, and they will likely differ from what
+   you encounter. Treat them as rough indicators of how important various
+   optimisations are, rather than as the absolute throughput you should expect
+   from your application.
