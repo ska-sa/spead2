@@ -227,7 +227,7 @@ jobs:
         run: ./.ci/py-requirements.sh
       - run: pip install build==0.10.0
       - run: python -m build --sdist .
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: sdist
           path: ./dist/*.tar.gz
@@ -254,11 +254,11 @@ jobs:
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_BUILD: ${{ matrix.python }}-manylinux*
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: ./wheelhouse/*.whl
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: debug_symbols_uncompressed
           path: ./wheelhouse/*.debug
@@ -282,7 +282,7 @@ jobs:
           CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_BUILD: ${{ matrix.python }}-macos*
           CIBW_TEST_SKIP: "*-macosx_arm64"
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: wheels
           path: ./wheelhouse/*.whl
@@ -298,7 +298,7 @@ jobs:
       - name: Compress debug symbols
         run: >-
           tar -Jcvf "spead2-"$(<VERSION.txt)-debug.tar.xz _spead2*.debug
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: debug_symbols
           path: spead2-*-debug.tar.xz
