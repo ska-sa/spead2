@@ -84,7 +84,8 @@ flavour heap_wrapper::get_flavour() const
 py::bytes packet_generator_next(packet_generator &gen)
 {
     auto scratch = spead2::detail::make_unique_for_overwrite<std::uint8_t[]>(gen.get_max_packet_size());
-    auto buffers = gen.next_packet(scratch.get());
+    std::vector<boost::asio::const_buffer> buffers;
+    gen.next_packet(scratch.get(), buffers);
     if (buffers.empty())
         throw py::stop_iteration();
     return py::bytes(std::string(boost::asio::buffers_begin(buffers),

@@ -87,7 +87,7 @@ public:
      * If there are no more packets to send for the heap, an empty list is
      * returned.
      */
-    std::vector<boost::asio::const_buffer> next_packet(std::uint8_t *scratch);
+    void next_packet(std::uint8_t *scratch, std::vector<boost::asio::const_buffer> &out);
 };
 
 } // namespace spead2::send
