@@ -223,14 +223,18 @@ void udp_reader::packet_handler(
 void udp_reader::enqueue_receive(handler_context ctx)
 {
     using namespace std::placeholders;
-    socket.async_receive_from(
 #if SPEAD2_USE_RECVMMSG
-        boost::asio::null_buffers(),
+    socket.async_wait(
+        socket.wait_read,
+        bind_handler(std::move(ctx), std::bind(&udp_reader::packet_handler, this, _1, _2, _3, 0))
+    );
 #else
+    socket.async_receive_from(
         boost::asio::buffer(buffer.get(), max_size + 1),
-#endif
         sender_endpoint,
-        bind_handler(std::move(ctx), std::bind(&udp_reader::packet_handler, this, _1, _2, _3, _4)));
+        bind_handler(std::move(ctx), std::bind(&udp_reader::packet_handler, this, _1, _2, _3, _4))
+    );
+#endif
 }
 
 void udp_reader::stop()

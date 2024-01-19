@@ -197,10 +197,10 @@ restart:
     {
         // We didn't manage to send it all: schedule a new attempt once there is
         // buffer space.
-        socket.async_send(
-            boost::asio::null_buffers(),
+        socket.async_wait(
+            socket.wait_write,
             [this, first_packet, last_packet, first_msg, last_msg](
-                const boost::system::error_code &, std::size_t
+                const boost::system::error_code &
             ) {
                 send_packets(first_packet, last_packet, first_msg, last_msg);
             });
