@@ -8,11 +8,10 @@ reliable). We'll remove the target rate, so that we're just sending as fast as
 we can. Setting the rate to 0 has the special meaning of removing any rate
 limiting (it is also the default, so we could just not set it at all).
 
-The final code for this section can be found in
-:file:`examples/tut_4_send_perf.py` and
-:file:`examples/tut_4_send_perf.cpp`. Unlike the previous sections though,
-we'll be modifying the code as we go, rather than just writing it from top to
-bottom.
+Unlike the previous sections though, we'll be modifying the code as we go,
+rather than just writing it from top to bottom. If you're unclear on how
+the shown snippets fit into the existing code, you can refer to the bottom of
+the page for the full listing.
 
 .. tab-set-code::
 
@@ -181,3 +180,13 @@ with C++.
    machine which is not listening on the chosen port: in that situation, the
    machine will send back ICMP "port unreachable" packets, which will affect
    the performance of the sending machine.
+
+Full code
+---------
+.. tab-set-code::
+
+   .. literalinclude:: ../examples/tut_4_send_perf.py
+      :language: python
+
+   .. literalinclude:: ../examples/tut_4_send_perf.cpp
+      :language: c++

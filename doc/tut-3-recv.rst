@@ -2,8 +2,8 @@ Receiver, version 1
 ===================
 Now that we have a sender, let's write a receiver. For the sake of an example,
 let's have it report the average power (mean squared value) of the samples in
-each heap. The full code can be found in :file:`examples/tut_3_recv.py` and
-:file:`examples/tut_3_recv.cpp` in the spead2 repository.
+each heap. As before, the full code can be found at the bottom of the page, and
+in the :file:`examples` directory of the spead2 repository.
 
 The initial boilerplate looks similar to the sender, and once again we'll need
 a thread pool.
@@ -167,3 +167,13 @@ so ``item_group["timestamp"]`` will raise a :exc:`KeyError`. You can test this
 by starting the receiver slightly after the sender. Additionally,
 :py:meth:`.ItemGroup.update` can fail for a number of reasons, such as a
 transmitted item having the wrong number of bytes relative to its descriptor.
+
+Full code
+---------
+.. tab-set-code::
+
+   .. literalinclude:: ../examples/tut_3_recv.py
+      :language: python
+
+   .. literalinclude:: ../examples/tut_3_recv.cpp
+      :language: c++

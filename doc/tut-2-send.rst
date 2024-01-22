@@ -7,11 +7,9 @@ message-based, we'll need to split the values into heaps. Additionally,
 we'll want to timestamp the data, which we'll do just with a sample counter.
 
 In this section we'll build up the code a piece at a time, for both
-Python and C++. You can see the whole thing as
-:file:`examples/tut_2_send.py` or :file:`examples/tut_2_send.cpp` in the
-spead2 repository.
-
-.. Turn the above into hyperlinks once they're available on master
+Python and C++. At the end of each section you will find the complete code for
+reference. It can also be found in the :file:`examples` directory in the spead2
+repository.
 
 We'll start with some boilerplate:
 
@@ -361,3 +359,13 @@ heaps contain a timestamp and some sample data (not fully shown). At the end
 we see some :doc:`statistics <recv-stats>`. Don't worry if you don't
 understand them all; some of them are only intended to help developers or
 advanced users diagnose performance bottlenecks.
+
+Full code
+---------
+.. tab-set-code::
+
+   .. literalinclude:: ../examples/tut_2_send.py
+      :language: python
+
+   .. literalinclude:: ../examples/tut_2_send.cpp
+      :language: c++

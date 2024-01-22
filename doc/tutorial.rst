@@ -16,7 +16,7 @@ behaviour that's pointed out will be different.
 
 .. toctree::
    :maxdepth: 1
-   :numbered:
+   :numbered: 1
 
    tut-1-spead-intro
    tut-2-send

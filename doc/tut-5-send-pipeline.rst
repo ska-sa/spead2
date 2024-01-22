@@ -163,3 +163,13 @@ can move directly from one to the next without needing to pause. In our
 example this makes no noticeable difference, but it can be significant if the
 heaps are small, and it can even be beneficial to have more than two heaps in
 flight at a time.
+
+Full code
+---------
+.. tab-set-code::
+
+   .. literalinclude:: ../examples/tut_5_send_pipeline.py
+      :language: python
+
+   .. literalinclude:: ../examples/tut_5_send_pipeline.cpp
+      :language: c++

@@ -1,9 +1,6 @@
 Increasing packet sizes
 =======================
-In this section we'll make a small but significant optimisation, which as
-usual can be found in :file:`examples/tut_6_send_pktsize.py` and
-:file:`examples/tut_6_send_pktsize.cpp` in the spead2 repository.
-
+In this section we'll make a small but significant optimisation.
 In :doc:`tut-1-spead-intro` we described heaps as the "messages" of SPEAD, but
 we didn't dig much deeper into how these messages are transmitted on the wire.
 Heaps can be extremely large, but lower-level protocols in the stack
@@ -78,3 +75,13 @@ shows how variable the results are).
    entire path between the sender and receiver. It may be smaller than the
    MTU of the interface on the sending server, which can be viewed with
    :command:`ip link show`.
+
+Full code
+---------
+.. tab-set-code::
+
+   .. literalinclude:: ../examples/tut_6_send_pktsize.py
+      :language: python
+
+   .. literalinclude:: ../examples/tut_6_send_pktsize.cpp
+      :language: c++

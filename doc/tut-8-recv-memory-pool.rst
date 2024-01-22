@@ -2,9 +2,7 @@ Memory pools
 ============
 To demonstrate more features of spead2, we'll need to experiment with different
 heap sizes. Instead of editing the hard-coded value, let's introduce more
-command-line options. The modified sender code can be found in
-:file:`examples/tut_7_send.py` and :file:`examples/tut_7_send.cpp` in the
-spead2 repository. Don't forget to delete the original definitions of
+command-line options. Don't forget to delete the original definitions of
 ``heap_size`` and ``n_heaps``.
 
 .. tab-set-code::
@@ -70,7 +68,7 @@ have set up the dummy network interface as in :doc:`tut-4-send-perf`.
 
 The performance is worse: significantly so in the C++ case (I get around 1900
 MB/s for C++ and 3100 MB/s for Python). This is somewhat surprising, because
-with bigger heaps should mean that per-heap overheads are reduced, just like
+bigger heaps should mean that per-heap overheads are reduced, just like
 increasing the packet size reduced the per-packet overheads. There are (at
 least) two things going on here:
 
@@ -94,7 +92,7 @@ least) two things going on here:
    In Glibc (the standard C library on most Linux distributions) the memory
    allocator uses heuristics to try to avoid this. However, for allocations
    bigger than 32 MiB (at the time of writing) it will always request memory
-   directly from the operating system, and return to directly to the operating
+   directly from the operating system, and return it directly to the operating
    system when it is freed. That is why we see such poor performance with our
    64 MiB heaps.
 
@@ -191,3 +189,28 @@ array of states.
 .. [#cache-size-heaps] For this reason, it's generally a good idea to design
    your applications around a heap size that's small enough to fit into the L2
    cache.
+
+Full code
+---------
+
+Sender
+^^^^^^
+
+.. tab-set-code::
+
+   .. literalinclude:: ../examples/tut_8_send.py
+      :language: python
+
+   .. literalinclude:: ../examples/tut_8_send.cpp
+      :language: c++
+
+Receiver
+^^^^^^^^
+
+.. tab-set-code::
+
+   .. literalinclude:: ../examples/tut_8_recv.py
+      :language: python
+
+   .. literalinclude:: ../examples/tut_8_recv.cpp
+      :language: c++
