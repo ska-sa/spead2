@@ -24,6 +24,7 @@ foreach name : [
   'tut_5_send_pipeline',
   'tut_6_send_pktsize',
   'tut_7_recv_power',
+  'tut_8_recv',
   'tut_8_send',
 ]
   executable(name, name + '.cpp', dependencies : [st_dep])
