@@ -18,7 +18,7 @@ behaviour that's pointed out will be different.
    :maxdepth: 1
    :numbered:
 
-   tut-spead-intro
+   tut-1-spead-intro
    tut-2-send
    tut-3-recv
    tut-4-send-perf

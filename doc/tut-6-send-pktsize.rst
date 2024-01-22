@@ -4,7 +4,7 @@ In this section we'll make a small but significant optimisation, which as
 usual can be found in :file:`examples/tut_6_send_pktsize.py` and
 :file:`examples/tut_6_send_pktsize.cpp` in the spead2 repository.
 
-In :doc:`tut-spead-intro` we described heaps as the "messages" of SPEAD, but
+In :doc:`tut-1-spead-intro` we described heaps as the "messages" of SPEAD, but
 we didn't dig much deeper into how these messages are transmitted on the wire.
 Heaps can be extremely large, but lower-level protocols in the stack
 (particularly Ethernet) place limits on how big frames or packets can be.
