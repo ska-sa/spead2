@@ -1,58 +1,42 @@
 Memory pools
 ============
 To demonstrate more features of spead2, we'll need to experiment with different
-heap sizes. Instead of editing the hard-coded value, let's introduce more
-command-line options. Don't forget to delete the original definitions of
-``heap_size`` and ``n_heaps``.
+heap sizes. Instead of editing the hard-coded value, let's introduce another
+command-line option. Don't forget to delete the original definition of
+``heap_size``.
 
 .. tab-set-code::
 
  .. code-block:: python
 
     async def main():
-        parser = argparse.ArgumentParser()
+        ...
         parser.add_argument("-H", "--heap-size", type=int, default=1024 * 1024)
-        parser.add_argument("-n", "--heaps", type=int, default=10000)
-        parser.add_argument("host", type=str)
-        parser.add_argument("port", type=int)
-        args = parser.parse_args()
+        ...
         heap_size = args.heap_size
-        n_heaps = args.heaps
 
  .. code-block:: c++
 
-    #include <unistd.h>
-    ...
+    static void usage(const char * name)
+    {
+        std::cerr << "Usage: " << name << " [-n heaps] [-p packet-size] [-H heap-size] host port\n";
+    }
+
     int main(int argc, char * const argv[])
     {
-        int opt;
+        ...
         std::int64_t heap_size = 1024 * 1024;
-        int n_heaps = 10000;
-        while ((opt = getopt(argc, argv, "H:n:")) != -1)
+        while ((opt = getopt(argc, argv, "n:p:H:")) != -1)
         {
             switch (opt)
             {
+            ...
             case 'H':
                 heap_size = std::stoll(optarg);
                 break;
-            case 'n':
-                n_heaps = std::stoi(optarg);
-                break;
-            default:
-                std::cerr << "Usage: " << argv[0] << " [-H heap-size] [-n heaps] host port\n";
-                return 2;
+            ...
             }
         }
-        if (argc - optind != 2)
-        {
-            std::cerr << "Usage: " << argv[0] << " [-H heap-size] [-n heaps] host port\n";
-            return 2;
-        }
-        ...
-        boost::asio::ip::udp::endpoint endpoint(
-            boost::asio::ip::address::from_string(argv[optind]),
-            std::atoi(argv[optind + 1])
-        );
 
 As with previous versions of the sender, the command-line parsing in C++ is
 not very robust to user mistakes.
@@ -64,7 +48,7 @@ have set up the dummy network interface as in :doc:`tut-4-send-perf`.
 
 .. code-block:: sh
 
-   tut_7_send -n 100 -H 67108864 192.168.31.2 8888
+   tut_8_send -n 100 -H 67108864 192.168.31.2 8888
 
 The performance is worse: significantly so in the C++ case (I get around 1900
 MB/s for C++ and 3100 MB/s for Python). This is somewhat surprising, because
@@ -177,9 +161,6 @@ array of states.
             auto &adc_samples = state.adc_samples;
 
             heap = spead2::send::heap();  // reset to default state
-            // Fill with the heap number
-            std::fill(adc_samples.begin(), adc_samples.end(), i);
-            // Add descriptors to the first heap
             ...
             state.future = stream.async_send_heap(heap, boost::asio::use_future);
         }
