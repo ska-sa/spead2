@@ -25,6 +25,19 @@
 #include <spead2/recv_udp.h>
 #include <spead2/recv_heap.h>
 
+#if defined(__GNUC__) && defined(__x86_64__)
+// Compile this function with AVX2 for better performance. Remove this if your
+// CPU does not support AVX2 (e.g., if you get an Illegal Instruction error).
+[[gnu::target("avx2")]]
+#endif
+static double mean_power(const std::int8_t *adc_samples, std::size_t length)
+{
+    std::int64_t sum = 0;
+    for (std::size_t i = 0; i < length; i++)
+        sum += adc_samples[i] * adc_samples[i];
+    return double(sum) / length;
+}
+
 int main()
 {
     spead2::thread_pool thread_pool;
@@ -52,10 +65,7 @@ int main()
         }
         if (timestamp >= 0 && adc_samples != nullptr)
         {
-            std::int64_t sum = 0;
-            for (std::size_t i = 0; i < length; i++)
-                sum += adc_samples[i] * adc_samples[i];
-            double power = double(sum) / length;
+            double power = mean_power(adc_samples, length);
             n_heaps++;
             std::cout
                 << "Timestamp: " << std::setw(10) << std::left << timestamp

@@ -12,19 +12,19 @@ variation.
 
 Nevertheless, let's see if we can get our receiver to keep up with our sender.
 Firstly, let's see what happens if we run it as is: run the receiver in one
-terminal, and the sender (with arguments ``127.0.0.1 8888``) in another. You
-will probably see a number of messages like the following:
+terminal, and the sender (with arguments ``-p 9000 127.0.0.1 8888``) in
+another. You will probably see a number of messages like the following:
 
 .. code-block:: text
 
-    dropped incomplete heap 913 (654064/1048576 bytes of payload)
-    worker thread blocked by full ringbuffer on heap 965
+    dropped incomplete heap 20 (367344/1048576 bytes of payload)
+    worker thread blocked by full ringbuffer on heap 81
 
 The first one tells you that data has been lost. Recall that the sender is
-dividing each heap into packets, each containing about 1472 bytes out of the 1 MiB
+dividing each heap into packets, each containing about 9000 bytes out of the 1 MiB
 of sample data. For this particular heap, we received only
-654064 bytes of payload, and so it was dropped. It is worth mentioning that
-the heap ID (913) is one assigned by spead2 in the sender and encoded into
+367344 bytes of payload, and so it was dropped. It is worth mentioning that
+the heap ID (20) is one assigned by spead2 in the sender and encoded into
 the packet; it does not necessarily match the loop index in the ``for`` loop
 in the sender code.
 
@@ -58,8 +58,8 @@ packets in a heap we won't get any warning about it from spead2.
     def mean_power(adc_samples):
         total = np.int64(0)
         for i in range(len(adc_samples)):
-        sample = np.int64(adc_samples[i])
-        total += sample * sample
+            sample = np.int64(adc_samples[i])
+            total += sample * sample
         return np.float64(total) / len(adc_samples)
 
     def main():
@@ -75,28 +75,41 @@ packets in a heap we won't get any warning about it from spead2.
         print(f"Received {n_heaps} heaps")
 
  .. code-block:: c++
-    :dedent: 0
 
+    #if defined(__GNUC__) && defined(__x86_64__)
+    // Compile this function with AVX2 for better performance. Remove this if your
+    // CPU does not support AVX2 (e.g., if you get an Illegal Instruction error).
+    [[gnu::target("avx2")]]
+    #endif
+    static double mean_power(const std::int8_t *adc_samples, std::size_t length)
+    {
+        std::int64_t sum = 0;
+        for (std::size_t i = 0; i < length; i++)
+            sum += adc_samples[i] * adc_samples[i];
+        return double(sum) / length;
+    }
+
+    int main()
+    {
+        ...
         std::int64_t n_heaps = 0;
         for (const spead2::recv::heap &heap : stream)
         {
             ...
             if (timestamp >= 0 && adc_samples != nullptr)
             {
-                std::int64_t sum = 0;
-                for (std::size_t i = 0; i < length; i++)
-                    sum += adc_samples[i] * adc_samples[i];
-                double power = double(sum) / length;
+                double power = mean_power(adc_samples, length);
                 n_heaps++;
                 ...
             }
         }
         std::cout << "Received " << n_heaps << " heaps\n";
+        return 0;
+    }
 
 On my machine, the receiver now keeps up with the sender and receives all
 1000 heaps, although it is somewhat tight so you might get different
-results. On the other hand, passing a larger packet size to the sender makes
-it too efficient for the receiver to keep up with.
+results.
 
 .. _numba: http://numba.org/
 
