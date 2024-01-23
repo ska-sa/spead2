@@ -48,17 +48,17 @@ command-line option. Don't forget to delete the original definition of
 As with previous versions of the sender, the command-line parsing in C++ is
 not very robust to user mistakes.
 
-For this rest of this section we'll pass the options ``-n 100 -H 67108864`` to
+For this rest of this section we'll pass the options ``-n 100 -H 67108864 -p 9000`` to
 use 64 MiB heaps (and reduce the number of heaps to speed things up). First
 let us see what impact it has on the sender in isolation (this assumes you
 have set up the dummy network interface as in :doc:`tut-4-send-perf`.
 
 .. code-block:: sh
 
-   tut_8_send -n 100 -H 67108864 192.168.31.2 8888
+   tut_8_send -n 100 -H 67108864 -p 9000 192.168.31.2 8888
 
-The performance is worse: significantly so in the C++ case (I get around 1750
-MB/s for C++ and 5000 MB/s for Python). This is somewhat surprising, because
+The performance is worse: significantly so for C++ (I get around 2000
+MB/s) and slightly for Python (7500 MB/s). This is somewhat surprising, because
 bigger heaps should mean that per-heap overheads are reduced, just like
 increasing the packet size reduced the per-packet overheads. There are (at
 least) two things going on here:
@@ -97,7 +97,7 @@ least) two things going on here:
 We can't do anything about the caching problem [#cache-size-heaps]_, but we can
 rewrite our code to avoid doing memory allocation on every iteration. We'll do
 that by re-using our state class, but instead of creating a new one each
-iteration, we'll keep a pool of two of them and alternate between them
+iteration, we'll keep a pool of two and alternate between them
 (so-called "double-buffering").
 
 In general when we start to fill in the data for a heap we need to make sure
@@ -301,8 +301,13 @@ pool, we need to specify a few parameters:
         ));
         spead2::recv::ring_stream stream(thread_pool, config, ring_config);
 
-With these changes, I'm reliably able to receive 64 MiB heaps across the
-loopback interface.
+With these changes, I'm able to receive 64 MiB heaps across the
+loopback interface most of the time, using the following commands:
+
+.. code-block:: sh
+
+   tut_8_recv -H 67108864 8888
+   tut_8_send -n 100 -H 67108864 -p 9000 127.0.0.1 8888
 
 If you set the number of buffers too low and your memory pool becomes empty,
 you'll get a warning (``memory pool is empty when allocating 67108864
