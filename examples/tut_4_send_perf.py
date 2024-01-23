@@ -54,7 +54,7 @@ def main():
     start = time.perf_counter()
     for i in range(n_heaps):
         item_group["timestamp"].value = i * heap_size
-        item_group["adc_samples"].value = np.full(heap_size, i, np.int8)
+        item_group["adc_samples"].value = np.full(heap_size, np.int_(i), np.int8)
         heap = item_group.get_heap()
         stream.send_heap(heap)
     elapsed = time.perf_counter() - start

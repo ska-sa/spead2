@@ -57,16 +57,17 @@ following:
  .. code-block:: python
     :dedent: 0
 
-            item_group["adc_samples"].value = np.full(heap_size, i, np.int8)
+            item_group["adc_samples"].value = np.full(heap_size, np.int_(i), np.int8)
 
  .. code-block:: c++
     :dedent: 0
 
             std::fill(adc_samples.begin(), adc_samples.end(), i);
 
-We're filling each heap with the loop index — not particularly meaningful for
-simulation, but it has the bonus that we can easily see on the receiver side
-if we've accidentally transmitted data for the wrong heap.
+We're filling each heap with the loop index (truncated to an 8-bit integer) —
+not particularly meaningful for simulation, but it has the bonus that we can
+easily see on the receiver side if we've accidentally transmitted data for the
+wrong heap.
 
 This dramatically improves performance: around 1400 MB/s for Python and 1600
 MB/s for C++ — assuming you're running the receiver. Somewhat surprisingly,

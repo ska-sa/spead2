@@ -72,7 +72,7 @@ async def main():
     for i in range(n_heaps):
         state = states[i % len(states)]
         await state.future  # Wait for any previous use of this state to complete
-        state.adc_samples.fill(i)
+        state.adc_samples.fill(np.int_(i))
         item_group["timestamp"].value = i * heap_size
         item_group["adc_samples"].value = state.adc_samples
         heap = item_group.get_heap()

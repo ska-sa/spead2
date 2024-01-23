@@ -63,7 +63,7 @@ async def main():
     for i in range(n_heaps):
         new_state = State()
         item_group["timestamp"].value = i * heap_size
-        item_group["adc_samples"].value = np.full(heap_size, i, np.int8)
+        item_group["adc_samples"].value = np.full(heap_size, np.int_(i), np.int8)
         heap = item_group.get_heap()
         new_state.future = stream.async_send_heap(heap)
         if old_state is not None:
