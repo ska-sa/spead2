@@ -362,7 +362,7 @@ for all allocators) is :py:class:`spead2.MemoryAllocator`, which has no
 constructor arguments or methods. An alternative is
 :py:class:`spead2.MmapAllocator`.
 
-.. py:class:: spead2.MmapAllocator(flags=0)
+.. py:class:: spead2.MmapAllocator(flags=0, prefer_huge=False)
 
     An allocator using :manpage:`mmap(2)`. This may be slightly faster for large
     allocations, and allows setting custom mmap flags. This is mainly intended
@@ -371,6 +371,9 @@ constructor arguments or methods. An alternative is
     :param int flags:
         Extra flags to pass to :manpage:`mmap(2)`. Finding the numeric values
         for OS-specific flags is left as a problem for the user.
+    :param bool prefer_huge:
+        If true, allocations will try to use huge pages (if supported by the
+        OS), and fall back to normal pages if that fails.
 
 The most important custom allocator is :py:class:`spead2.MemoryPool`. It allocates
 from a pool, rather than directly from the system. This can lead to

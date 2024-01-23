@@ -86,7 +86,7 @@ class MemoryAllocator:
     def __init__(self) -> None: ...
 
 class MmapAllocator(MemoryAllocator):
-    def __init__(self, flags: int = ...) -> None: ...
+    def __init__(self, flags: int = ..., prefer_huge: bool = ...) -> None: ...
 
 class MemoryPool(MemoryAllocator):
     warn_on_empty: bool
@@ -109,7 +109,7 @@ class MemoryPool(MemoryAllocator):
         max_free: int,
         initial: int,
         low_water: int,
-        allocator: MemoryAllocator,
+        allocator: MemoryAllocator | None = None,
     ) -> None: ...
 
 class InprocQueue:

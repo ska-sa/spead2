@@ -299,14 +299,14 @@ void register_module(py::module m)
 
     py::class_<mmap_allocator, memory_allocator, std::shared_ptr<mmap_allocator>>(
         m, "MmapAllocator")
-        .def(py::init<int>(), "flags"_a=0);
+        .def(py::init<int, bool>(), "flags"_a=0, "prefer_huge"_a=false);
 
     py::class_<memory_pool, memory_allocator, std::shared_ptr<memory_pool>>(
         m, "MemoryPool")
         .def(py::init<std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(),
              "lower"_a, "upper"_a, "max_free"_a, "initial"_a, py::arg_v("allocator", nullptr, "None"))
         .def(py::init<std::shared_ptr<thread_pool>, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(),
-             "thread_pool"_a, "lower"_a, "upper"_a, "max_free"_a, "initial"_a, "low_water"_a, "allocator"_a)
+             "thread_pool"_a, "lower"_a, "upper"_a, "max_free"_a, "initial"_a, "low_water"_a, py::arg_v("allocator", nullptr, "None"))
         .def_property("warn_on_empty",
                       &memory_pool::get_warn_on_empty, &memory_pool::set_warn_on_empty);
 
