@@ -168,6 +168,24 @@ by starting the receiver slightly after the sender. Additionally,
 :py:meth:`.ItemGroup.update` can fail for a number of reasons, such as a
 transmitted item having the wrong number of bytes relative to its descriptor.
 
+If you're following in C++, you'll again need to compile this example code
+(see the previous section for instructions). Now run the receiver in one
+terminal, then run the sender from the previous section in another. You should
+see output something like the following:
+
+.. code-block:: text
+
+    Timestamp: 0          Power: 3328.61
+    Timestamp: 1048576    Power: 3335.04
+    Timestamp: 2097152    Power: 3330.53
+    Timestamp: 3145728    Power: 3336.71
+    Timestamp: 4194304    Power: 3333.94
+    Timestamp: 5242880    Power: 3334.75
+    Timestamp: 6291456    Power: 3336.29
+    Timestamp: 7340032    Power: 3333.02
+    Timestamp: 8388608    Power: 3334.64
+    Timestamp: 9437184    Power: 3334.27
+
 Full code
 ---------
 .. tab-set-code::

@@ -10,9 +10,10 @@ Most of the tutorial covers both C++ and Python: just click the appropriate
 tab in code examples. Some low-level performance features are not accessible
 from the Python API.
 
-The tutorial is best followed on GNU/Linux. The code should be portable to
-other POSIX systems (such as MacOS), but that's untested, and some of the
-behaviour that's pointed out will be different.
+The tutorial is best followed on GNU/Linux on an x86-64 system. The code should
+be portable to other POSIX systems (such as MacOS), but that's untested, and
+some of the behaviour that's pointed out (particularly performance) will be
+different.
 
 .. toctree::
    :maxdepth: 1

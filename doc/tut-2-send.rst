@@ -279,9 +279,19 @@ useful (since the arrival of data implicitly indicates that it has started).
     }
 
 That's it! Let's give it a test. If you've been following the C++ tutorial,
-you'll want a compiled binary, which (if you followed the instructions to
-build from source) you'll find in the :file:`examples` subdirectory of the
-build directory. Unfortunately, in the best case, you get no output at all and
+you'll want a compiled binary. Assuming you've installed spead2, you should be
+able to compile the example code with
+
+.. code-block:: sh
+
+   g++ -o tut_2_send tut_2_send.cpp -Wall -O3 `pkg-config --cflags --libs spead2`
+
+If you installed spead2 into a non-standard location, you may need to set
+:envvar:`PKG_CONFIG_PATH` to the directory containing the installed
+:file:`spead2.pc`. Building spead2 from source also compiles the examples
+in the :file:`examples` subdirectory of the build directory.
+
+Unfortunately, in the best case, running the code gives no output at all and
 the program simply exits. Obviously, we're going to need a receiver to get
 some idea of whether anything is really happening. The good news is that
 spead2 ships with a general-purpose receiver — in fact two (one written in
