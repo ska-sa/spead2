@@ -25,4 +25,5 @@ behaviour that's pointed out will be different.
    tut-5-send-pipeline
    tut-6-send-pktsize
    tut-7-recv-power
-   tut-8-recv-memory-pool
+   tut-8-send-reuse-memory
+   tut-9-recv-memory-pool

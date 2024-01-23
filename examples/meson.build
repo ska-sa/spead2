@@ -24,8 +24,8 @@ foreach name : [
   'tut_5_send_pipeline',
   'tut_6_send_pktsize',
   'tut_7_recv_power',
-  'tut_8_recv',
-  'tut_8_send',
+  'tut_8_send_reuse_memory',
+  'tut_9_recv_memory_pool',
 ]
   executable(name, name + '.cpp', dependencies : [st_dep])
 endforeach
