@@ -9,7 +9,7 @@ brew install boost@1.83 libdivide
 
 # Install pkgconfig from source - once for each architecture in CIBW_ARCHS
 cd /tmp
-wget --progress=dot:mega https://www.tcpdump.org/release/libpcap-${pcap_version}.tar.gz
+curl -fsSLO https://www.tcpdump.org/release/libpcap-${pcap_version}.tar.gz
 tar -zxf /tmp/libpcap-${pcap_version}.tar.gz
 cd libpcap-${pcap_version}/
 for arch in $CIBW_ARCHS; do
