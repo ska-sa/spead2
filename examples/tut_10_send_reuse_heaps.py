@@ -28,6 +28,8 @@ import spead2.send.asyncio
 @dataclass
 class State:
     adc_samples: np.ndarray
+    timestamp: np.ndarray
+    heap: spead2.send.Heap
     future: asyncio.Future[int] = field(default_factory=asyncio.Future)
 
     def __post_init__(self):
@@ -67,15 +69,25 @@ async def main():
     )
 
     n_heaps = args.heaps
-    states = [State(adc_samples=np.ones(heap_size, np.int8)) for _ in range(config.max_heaps)]
+    states = []
+    for i in range(config.max_heaps):
+        adc_samples = np.ones(heap_size, np.int8)
+        timestamp = np.array(0, ">u8")
+        item_group["timestamp"].value = timestamp
+        item_group["adc_samples"].value = adc_samples
+        heap = item_group.get_heap(descriptors="none", data="all")
+        states.append(State(adc_samples=adc_samples, timestamp=timestamp, heap=heap))
+    item_group["timestamp"].value = states[0].timestamp
+    item_group["adc_samples"].value = states[0].adc_samples
+    first_heap = item_group.get_heap(descriptors="all", data="all")
+
     start = time.perf_counter()
     for i in range(n_heaps):
         state = states[i % len(states)]
         await state.future  # Wait for any previous use of this state to complete
         state.adc_samples.fill(np.int_(i))
-        item_group["timestamp"].value = i * heap_size
-        item_group["adc_samples"].value = state.adc_samples
-        heap = item_group.get_heap()
+        state.timestamp[()] = i * heap_size
+        heap = first_heap if i == 0 else state.heap
         state.future = stream.async_send_heap(heap)
     for state in states:
         await state.future

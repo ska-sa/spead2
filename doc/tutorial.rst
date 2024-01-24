@@ -28,3 +28,4 @@ different.
    tut-7-recv-power
    tut-8-send-reuse-memory
    tut-9-recv-memory-pool
+   tut-10-send-reuse-heaps

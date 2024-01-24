@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <boost/asio.hpp>
 #include <spead2/common_defines.h>
+#include <spead2/common_endian.h>
 #include <spead2/common_thread_pool.h>
 #include <spead2/send_heap.h>
 #include <spead2/send_stream_config.h>
@@ -35,6 +36,7 @@ struct state
 {
     std::future<spead2::item_pointer_t> future;
     std::vector<std::int8_t> adc_samples;
+    std::uint64_t timestamp;  // big endian
     spead2::send::heap heap;
 
     state()
@@ -106,33 +108,42 @@ int main(int argc, char * const argv[])
         "{'shape': (" + std::to_string(heap_size) + ",), 'fortran_order': False, 'descr': 'i1'}";
 
     std::vector<state> states(config.get_max_heaps());
-    for (auto &state : states)
-        state.adc_samples.resize(heap_size);
-    auto start = std::chrono::high_resolution_clock::now();
-    for (int i = 0; i < n_heaps; i++)
+    for (std::size_t i = 0; i < states.size(); i++)
     {
-        auto &state = states[i % states.size()];
-        // Wait for any previous use of this state to complete
-        state.future.wait();
+        auto &state = states[i];
         auto &heap = state.heap;
         auto &adc_samples = state.adc_samples;
-
-        heap = spead2::send::heap();  // reset to default state
-        // Add descriptors to the first heap
-        if (i == 0)
-        {
-            heap.add_descriptor(timestamp_desc);
-            heap.add_descriptor(adc_samples_desc);
-        }
-        std::fill(adc_samples.begin(), adc_samples.end(), i);
-        // Add the data and timestamp to the heap
-        heap.add_item(timestamp_desc.id, i * heap_size);
+        auto &timestamp = state.timestamp;
+        adc_samples.resize(heap_size);
+        heap.add_item(timestamp_desc.id, (char *) &timestamp + 3, 5, true);
         heap.add_item(
             adc_samples_desc.id,
             adc_samples.data(),
             adc_samples.size() * sizeof(adc_samples[0]),
             true
         );
+    }
+    spead2::send::heap first_heap;
+    first_heap.add_descriptor(timestamp_desc);
+    first_heap.add_descriptor(adc_samples_desc);
+    first_heap.add_item(timestamp_desc.id, (char *) &states[0].timestamp + 3, 5, true);
+    first_heap.add_item(
+        adc_samples_desc.id,
+        states[0].adc_samples.data(),
+        states[0].adc_samples.size() * sizeof(states[0].adc_samples.size()),
+        true
+    );
+
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < n_heaps; i++)
+    {
+        auto &state = states[i % states.size()];
+        // Wait for any previous use of this state to complete
+        state.future.wait();
+        auto &heap = (i == 0) ? first_heap : state.heap;
+        auto &adc_samples = state.adc_samples;
+        state.timestamp = spead2::htobe(std::uint64_t(i * heap_size));
+        std::fill(adc_samples.begin(), adc_samples.end(), i);
         state.future = stream.async_send_heap(heap, boost::asio::use_future);
     }
     for (const auto &state : states)
