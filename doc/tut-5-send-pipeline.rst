@@ -116,6 +116,7 @@ the result of the future for heap :math:`n` until we've passed heap
     :dedent: 0
 
         old_state = None
+        start = time.perf_counter()
         for i in range(n_heaps):
             new_state = State()
             ...
@@ -131,6 +132,7 @@ the result of the future for heap :math:`n` until we've passed heap
     #include <memory>
     ...
         std::unique_ptr<state> old_state;
+        auto start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < n_heaps; i++)
         {
             auto new_state = std::make_unique<state>();

@@ -67,8 +67,8 @@ async def main():
     )
 
     n_heaps = args.heaps
-    start = time.perf_counter()
     states = [State(adc_samples=np.ones(heap_size, np.int8)) for _ in range(2)]
+    start = time.perf_counter()
     for i in range(n_heaps):
         state = states[i % len(states)]
         await state.future  # Wait for any previous use of this state to complete

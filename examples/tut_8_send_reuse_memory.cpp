@@ -105,10 +105,10 @@ int main(int argc, char * const argv[])
     adc_samples_desc.numpy_header =
         "{'shape': (" + std::to_string(heap_size) + ",), 'fortran_order': False, 'descr': 'i1'}";
 
-    auto start = std::chrono::high_resolution_clock::now();
     std::array<state, 2> states;
     for (auto &state : states)
         state.adc_samples.resize(heap_size);
+    auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < n_heaps; i++)
     {
         auto &state = states[i % states.size()];

@@ -58,8 +58,8 @@ async def main():
     )
 
     n_heaps = args.heaps
-    start = time.perf_counter()
     old_state = None
+    start = time.perf_counter()
     for i in range(n_heaps):
         new_state = State()
         item_group["timestamp"].value = i * heap_size

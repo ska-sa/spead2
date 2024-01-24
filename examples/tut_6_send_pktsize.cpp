@@ -94,8 +94,8 @@ int main(int argc, char * const argv[])
     adc_samples_desc.numpy_header =
         "{'shape': (" + std::to_string(heap_size) + ",), 'fortran_order': False, 'descr': 'i1'}";
 
-    auto start = std::chrono::high_resolution_clock::now();
     std::unique_ptr<state> old_state;
+    auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < n_heaps; i++)
     {
         auto new_state = std::make_unique<state>();

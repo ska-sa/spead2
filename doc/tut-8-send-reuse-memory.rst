@@ -136,6 +136,7 @@ array of states.
     :dedent: 0
 
         states = [State(adc_samples=np.ones(heap_size, np.int8)) for _ in range(2)]
+        start = time.perf_counter()
         for i in range(n_heaps):
             state = states[i % len(states)]
             await state.future  # Wait for any previous use of this state to complete
@@ -153,6 +154,7 @@ array of states.
         std::array<state, 2> states;
         for (auto &state : states)
             state.adc_samples.resize(heap_size);
+        auto start = std::chrono::high_resolution_clock::now();
         for (int i = 0; i < n_heaps; i++)
         {
             auto &state = states[i % states.size()];
