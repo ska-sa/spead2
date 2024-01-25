@@ -80,7 +80,9 @@ class BaseTestPassthroughAsync(test_passthrough.BaseTestPassthrough):
                         for i, gen in enumerate(gens)
                     ]
                 )
-                await sender.async_send_heaps(hrl, group_mode)
+                # Also test splitting the list
+                await sender.async_send_heaps(hrl[:1], group_mode)
+                await sender.async_send_heaps(hrl[1:], group_mode)
             else:
                 for i, gen in reversed(list(enumerate(gens))):
                     await sender.async_send_heap(gen.get_heap(), substream_index=i)

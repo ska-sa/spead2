@@ -448,7 +448,8 @@ front and then using repeatedly.
 
    An opaque copy of a list of :class:`~spead2.send.HeapReference`. It can
    be passed to :py:meth:`~spead2.send.SyncStream.send_heaps` in place of
-   a list.
+   a list. It can also be indexed with a slice to create a new
+   :class:`~.HeapReferenceList` with a subset of the original heaps.
 
    :param heaps: The heap references to store
    :type heaps: List[spead2.send.HeapReference]

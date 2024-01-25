@@ -110,9 +110,13 @@ private:
     // Python references to the heaps, to keep them alive
     std::vector<py::object> objects;
 
+    heap_reference_list(std::vector<heap_reference> heaps, std::vector<py::object> objects)
+        : heaps(std::move(heaps)), objects(std::move(objects)) {}
 public:
     heap_reference_list(std::vector<heap_reference> heaps);
     const std::vector<heap_reference> &get_heaps() const { return heaps; }
+    std::size_t size() const { return heaps.size(); }
+    heap_reference_list get_slice(const py::slice &slice) const;
 };
 
 heap_reference_list::heap_reference_list(std::vector<heap_reference> heaps)
@@ -121,6 +125,24 @@ heap_reference_list::heap_reference_list(std::vector<heap_reference> heaps)
     for (const heap_reference &h : heaps)
         objects.push_back(py::cast(static_cast<const heap_wrapper *>(&h.heap)));
     this->heaps = std::move(heaps);
+}
+
+heap_reference_list heap_reference_list::get_slice(const py::slice &slice) const
+{
+    std::size_t start, stop, step, slicelength;
+    if (!slice.compute(heaps.size(), &start, &stop, &step, &slicelength))
+        throw py::error_already_set();
+    std::vector<heap_reference> new_heaps;
+    std::vector<py::object> new_objects;
+    new_heaps.reserve(slicelength);
+    new_objects.reserve(slicelength);
+    for (std::size_t i = 0; i < slicelength; i++)
+    {
+        new_heaps.push_back(heaps[start]);
+        new_objects.push_back(objects[start]);
+        start += step;
+    }
+    return heap_reference_list(std::move(new_heaps), std::move(new_objects));
 }
 
 template<typename Base>
@@ -754,9 +776,9 @@ static void sync_stream_register(py::class_<T, stream> &stream_class)
     stream_class.def("send_heap", &T::send_heap,
                      "heap"_a, "cnt"_a = s_item_pointer_t(-1),
                      "substream_index"_a = std::size_t(0));
-    stream_class.def("send_heaps", &T::send_heaps,
-                     "heaps"_a, "mode"_a);
     stream_class.def("send_heaps", &T::send_heaps_hrl,
+                     "heaps"_a, "mode"_a);
+    stream_class.def("send_heaps", &T::send_heaps,
                      "heaps"_a, "mode"_a);
 }
 
@@ -769,9 +791,9 @@ static void async_stream_register(py::class_<T, stream> &stream_class)
         .def("async_send_heap", &T::async_send_heap_obj,
              "heap"_a, "callback"_a, "cnt"_a = s_item_pointer_t(-1),
              "substream_index"_a = std::size_t(0))
-        .def("async_send_heaps", &T::async_send_heaps_obj,
-             "heaps"_a, "callback"_a, "mode"_a)
         .def("async_send_heaps", &T::async_send_heaps_hrl,
+             "heaps"_a, "callback"_a, "mode"_a)
+        .def("async_send_heaps", &T::async_send_heaps_obj,
              "heaps"_a, "callback"_a, "mode"_a)
         .def("flush", &T::flush)
         .def("process_callbacks", &T::process_callbacks);
@@ -825,7 +847,9 @@ py::module register_module(py::module &parent)
         .def_readwrite("substream_index", &heap_reference::substream_index);
 
     py::class_<heap_reference_list>(m, "HeapReferenceList")
-        .def(py::init<std::vector<heap_reference>>(), "heaps"_a);
+        .def(py::init<std::vector<heap_reference>>(), "heaps"_a)
+        .def("__len__", &heap_reference_list::size)
+        .def("__getitem__", &heap_reference_list::get_slice);
 
     py::class_<stream_config>(m, "StreamConfig")
         .def(py::init(&data_class_constructor<stream_config>))

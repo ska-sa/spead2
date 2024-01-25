@@ -844,6 +844,11 @@ class TestStream:
         with pytest.raises(TypeError):
             send.HeapReferenceList(["not a heap reference"])
 
+    def test_heap_reference_list_bad_slice(self):
+        hrl = send.HeapReferenceList([])
+        with pytest.raises(ValueError):
+            hrl[1:2:0]
+
 
 class TestTcpStream:
     def test_failed_connect(self):
