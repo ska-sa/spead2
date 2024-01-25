@@ -46,7 +46,7 @@ async def main():
 
     thread_pool = spead2.ThreadPool(1, [0])
     spead2.ThreadPool.set_affinity(1)
-    config = spead2.send.StreamConfig(rate=0.0, max_heaps=max(2, 1024 * 1024 // args.heap_size))
+    config = spead2.send.StreamConfig(rate=0.0, max_heaps=2)
     if args.packet_size is not None:
         config.max_packet_size = args.packet_size
     stream = spead2.send.asyncio.UdpStream(thread_pool, [(args.host, args.port)], config)
@@ -68,7 +68,7 @@ async def main():
     )
 
     n_heaps = args.heaps
-    states = [State(adc_samples=np.ones(heap_size, np.int8)) for _ in range(config.max_heaps)]
+    states = [State(adc_samples=np.ones(heap_size, np.int8)) for _ in range(2)]
     start = time.perf_counter()
     for i in range(n_heaps):
         state = states[i % len(states)]

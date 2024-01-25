@@ -51,8 +51,8 @@ have set up the dummy network interface as in :doc:`tut-4-send-perf`.
 
    tut_8_send_reuse_memory -n 100 -H 67108864 -p 9000 192.168.31.2 8888
 
-The performance is worse: significantly so for C++ (I get around 2000
-MB/s) and slightly for Python (7500 MB/s). This is somewhat surprising, because
+The performance is worse: significantly so for C++ (I get around 1300
+MB/s) and slightly for Python (5900 MB/s). This is somewhat surprising, because
 bigger heaps should mean that per-heap overheads are reduced, just like
 increasing the packet size reduced the per-packet overheads. There are (at
 least) two things going on here:
@@ -170,7 +170,7 @@ array of states.
         for (const auto &state : states)
             state.future.wait();
 
-With this redesign, we now get around 7000 MB/s from C++ and 8000 MB/s from
+With this redesign, we now get around 5600 MB/s from C++ and 6000 MB/s from
 Python (the difference is most likely due to Python using huge pages).
 
 .. [#cache-size-heaps] For this reason, it's generally a good idea to design

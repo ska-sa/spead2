@@ -43,10 +43,10 @@ least two heaps.
         ...
         std::vector<state> states(config.get_max_heaps());
 
-This makes substantial improvements: 4400 MB/s for C++ and 250 MB/s for
+This makes substantial improvements: 3300 MB/s for C++ and 210 MB/s for
 Python.
 
-Each loop iteration repeats all the work of setting up the heap object, even
+Each loop iteration repeats all the work of setting up a heap object, even
 though they all have essentially the same structure. What if this could be
 done once up front. This is indeed possible, but there are some complications:
 

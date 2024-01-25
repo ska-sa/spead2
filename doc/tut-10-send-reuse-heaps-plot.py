@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+# ruff: noqa: E501
+# To generate the results:
+# (for i in {13..26}; do let h=2**i; let n=2**(32-i); echo -n "Python $n $h "; ../examples/tut_8_send_reuse_memory.py -n $n -H $h -p 9000 192.168.31.2 8888; sleep 10; done) > tut-10-send-reuse-heaps-results.txt
+# (for i in {13..26}; do let h=2**i; let n=2**(32-i); echo -n "C++ $n $h "; ../build/examples/tut_8_send_reuse_memory -n $n -H $h -p 9000 192.168.31.2 8888; sleep 10; done) >> tut-10-send-reuse-heaps-results.txt
+
 import math
 
 import matplotlib.pyplot as plt

@@ -82,10 +82,10 @@ int main(int argc, char * const argv[])
     }
 
     spead2::thread_pool thread_pool(1, {0});
-    spead2::thread_pool::set_affinity(0);
+    spead2::thread_pool::set_affinity(1);
     spead2::send::stream_config config;
     config.set_rate(0.0);
-    config.set_max_heaps(std::max(std::int64_t(2), 1024 * 1024 / heap_size));
+    config.set_max_heaps(2);
     if (packet_size)
         config.set_max_packet_size(packet_size.value());
     boost::asio::ip::udp::endpoint endpoint(
@@ -106,7 +106,7 @@ int main(int argc, char * const argv[])
     adc_samples_desc.numpy_header =
         "{'shape': (" + std::to_string(heap_size) + ",), 'fortran_order': False, 'descr': 'i1'}";
 
-    std::vector<state> states(config.get_max_heaps());
+    std::array<state, 2> states;
     for (auto &state : states)
         state.adc_samples.resize(heap_size);
     auto start = std::chrono::high_resolution_clock::now();

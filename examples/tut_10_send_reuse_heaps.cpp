@@ -84,7 +84,7 @@ int main(int argc, char * const argv[])
     }
 
     spead2::thread_pool thread_pool(1, {0});
-    spead2::thread_pool::set_affinity(0);
+    spead2::thread_pool::set_affinity(1);
     spead2::send::stream_config config;
     config.set_rate(0.0);
     config.set_max_heaps(std::max(std::int64_t(2), 1024 * 1024 / heap_size));
