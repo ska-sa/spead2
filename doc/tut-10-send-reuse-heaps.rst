@@ -206,7 +206,8 @@ And now let's see the results again:
 .. image:: tut-10-send-reuse-heaps-after.svg
 
 This is a major improvement for small heaps, but we still don't have the same
-performance for small heaps that we get for larger heaps.
+performance for small heaps that we get for larger heaps. In the next section
+we'll see how to further reduce the overheads.
 
 .. [#zdarr] A numpy zero-dimensional array is similar to a scalar, but it is
    mutable. We will need that capability later to update the value in place.
