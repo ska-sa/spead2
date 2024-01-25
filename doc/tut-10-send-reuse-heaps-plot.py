@@ -2,9 +2,12 @@
 
 # ruff: noqa: E501
 # To generate the results:
-# (for i in {13..26}; do let h=2**i; let n=2**(32-i); echo -n "Python $n $h "; ../examples/tut_8_send_reuse_memory.py -n $n -H $h -p 9000 192.168.31.2 8888; sleep 10; done) > tut-10-send-reuse-heaps-results.txt
-# (for i in {13..26}; do let h=2**i; let n=2**(32-i); echo -n "C++ $n $h "; ../build/examples/tut_8_send_reuse_memory -n $n -H $h -p 9000 192.168.31.2 8888; sleep 10; done) >> tut-10-send-reuse-heaps-results.txt
+# (for i in {13..26}; do let h=2**i; let n=2**(32-i); echo -n "Python $n $h "; ../examples/tut_8_send_reuse_memory.py -n $n -H $h -p 9000 192.168.31.2 8888; sleep 10; done) > tut-10-send-reuse-heaps-before.txt
+# (for i in {13..26}; do let h=2**i; let n=2**(32-i); echo -n "C++ $n $h "; ../build/examples/tut_8_send_reuse_memory -n $n -H $h -p 9000 192.168.31.2 8888; sleep 10; done) >> tut-10-send-reuse-heaps-before.txt
+# (for i in {13..26}; do let h=2**i; let n=2**(32-i); echo -n "Python $n $h "; ../examples/tut_10_send_reuse_heaps.py -n $n -H $h -p 9000 192.168.31.2 8888; sleep 10; done) > tut-10-send-reuse-heaps-after.txt
+# (for i in {13..26}; do let h=2**i; let n=2**(32-i); echo -n "C++ $n $h "; ../build/examples/tut_10_send_reuse_heaps -n $n -H $h -p 9000 192.168.31.2 8888; sleep 10; done) >> tut-10-send-reuse-heaps-after.txt
 
+import argparse
 import math
 
 import matplotlib.pyplot as plt
@@ -13,8 +16,13 @@ import seaborn as sns
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("input")
+    parser.add_argument("output")
+    args = parser.parse_args()
+
     df = pd.read_csv(
-        "tut-10-send-reuse-heaps-results.txt",
+        args.input,
         sep=" ",
         names=["Language", "Heaps", "Heap size (bytes)", "Rate (MB/s)", "Units"],
     )
@@ -31,8 +39,9 @@ def main():
         xscale="log",
         xticks=df["Heap size (bytes)"],
         xticklabels=[f"$2^{{{round(math.log2(x))}}}$" for x in df["Heap size (bytes)"]],
+        ylim=(0, None),
     )
-    plt.savefig("tut-10-send-reuse-heaps-plot.svg")
+    plt.savefig(args.output)
 
 
 if __name__ == "__main__":

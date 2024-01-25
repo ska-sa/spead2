@@ -9,7 +9,7 @@ To start with, let's measure the transmit performance for various heap sizes.
 The total amount of data sent is kept constant at 4 GiB by varying the number of
 heaps to send.
 
-.. image:: tut-10-send-reuse-heaps-plot.svg
+.. image:: tut-10-send-reuse-heaps-before.svg
 
 It's pretty clear that Python suffers much worse with small heap sizes (not
 surprising, given that Python is known to be slow) but that the C++ code is
@@ -200,6 +200,10 @@ timestamp in place.
             std::fill(adc_samples.begin(), adc_samples.end(), i);
             state.future = stream.async_send_heap(heap, boost::asio::use_future);
         }
+
+And now let's see the results again:
+
+.. image:: tut-10-send-reuse-heaps-after.svg
 
 .. [#zdarr] A numpy zero-dimensional array is similar to a scalar, but it is
    mutable. We will need that capability later to update the value in place.
