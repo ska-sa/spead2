@@ -46,10 +46,10 @@ async def main():
     parser.add_argument("port", type=int)
     args = parser.parse_args()
 
-    batch_heaps = max(1, 512 * 1024 // args.heap_size)
-    batches = 2
     thread_pool = spead2.ThreadPool(1, [0])
     spead2.ThreadPool.set_affinity(1)
+    batches = 2
+    batch_heaps = max(1, 512 * 1024 // args.heap_size)
     config = spead2.send.StreamConfig(rate=0.0, max_heaps=batches * batch_heaps)
     if args.packet_size is not None:
         config.max_packet_size = args.packet_size
@@ -73,7 +73,7 @@ async def main():
 
     n_heaps = args.heaps
 
-    def make_heaps(adc_samples, timestamps, first=False):
+    def make_heaps(adc_samples, timestamps, first):
         heaps = []
         for j in range(batch_heaps):
             item_group["timestamp"].value = timestamps[j, ...]
@@ -90,7 +90,7 @@ async def main():
             State(
                 adc_samples=adc_samples,
                 timestamps=timestamps,
-                heaps=make_heaps(adc_samples, timestamps),
+                heaps=make_heaps(adc_samples, timestamps, False),
             )
         )
     first_heaps = make_heaps(states[0].adc_samples, states[0].timestamps, True)
@@ -99,12 +99,13 @@ async def main():
     for i in range(0, n_heaps, batch_heaps):
         state = states[(i // batch_heaps) % len(states)]
         end = min(i + batch_heaps, n_heaps)
+        n = end - i
         await state.future  # Wait for any previous use of this state to complete
-        state.adc_samples[: end - i] = np.arange(i, end).astype(np.int8)[:, np.newaxis]
-        state.timestamps[: end - i] = np.arange(i * heap_size, end * heap_size, heap_size)
+        state.adc_samples[:n] = np.arange(i, end).astype(np.int8)[:, np.newaxis]
+        state.timestamps[:n] = np.arange(i * heap_size, end * heap_size, heap_size)
         heaps = state.heaps if i else first_heaps
-        if end < i + batch_heaps:
-            heaps = heaps[: end - i]
+        if n < batch_heaps:
+            heaps = heaps[:n]
         state.future = stream.async_send_heaps(heaps, spead2.send.GroupMode.SERIAL)
     for state in states:
         await state.future

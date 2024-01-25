@@ -29,3 +29,4 @@ different.
    tut-8-send-reuse-memory
    tut-9-recv-memory-pool
    tut-10-send-reuse-heaps
+   tut-11-send-batch-heaps

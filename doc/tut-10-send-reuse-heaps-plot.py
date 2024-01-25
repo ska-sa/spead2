@@ -6,6 +6,8 @@
 # (for i in {13..26}; do let h=2**i; let n=2**(32-i); echo -n "C++ $n $h "; ../build/examples/tut_8_send_reuse_memory -n $n -H $h -p 9000 192.168.31.2 8888; sleep 10; done) >> tut-10-send-reuse-heaps-before.txt
 # (for i in {13..26}; do let h=2**i; let n=2**(32-i); echo -n "Python $n $h "; ../examples/tut_10_send_reuse_heaps.py -n $n -H $h -p 9000 192.168.31.2 8888; sleep 10; done) > tut-10-send-reuse-heaps-after.txt
 # (for i in {13..26}; do let h=2**i; let n=2**(32-i); echo -n "C++ $n $h "; ../build/examples/tut_10_send_reuse_heaps -n $n -H $h -p 9000 192.168.31.2 8888; sleep 10; done) >> tut-10-send-reuse-heaps-after.txt
+# (for i in {13..26}; do let h=2**i; let n=2**(32-i); echo -n "Python $n $h "; ../examples/tut_11_send_batch_heaps.py -n $n -H $h -p 9000 192.168.31.2 8888; sleep 10; done) > tut-11-send-batch-heaps-after.txt
+# (for i in {13..26}; do let h=2**i; let n=2**(32-i); echo -n "C++ $n $h "; ../build/examples/tut_11_send_batch_heaps -n $n -H $h -p 9000 192.168.31.2 8888; sleep 10; done) >> tut-11-send-batch-heaps-after.txt
 
 import argparse
 import math

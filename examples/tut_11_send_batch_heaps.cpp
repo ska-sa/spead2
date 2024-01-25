@@ -93,7 +93,7 @@ int main(int argc, char * const argv[])
     spead2::send::stream_config config;
     config.set_rate(0.0);
     const std::size_t batches = 2;
-    const std::size_t batch_heaps = std::max(std::int64_t(2), 1024 * 1024 / heap_size);
+    const std::size_t batch_heaps = std::max(std::int64_t(2), 512 * 1024 / heap_size);
     config.set_max_heaps(batches * batch_heaps);
     if (packet_size)
         config.set_max_packet_size(packet_size.value());
