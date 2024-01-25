@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2023 National Research Foundation (SARAO)
+# Copyright 2023-2024 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -37,7 +37,8 @@ async def main():
     parser.add_argument("port", type=int)
     args = parser.parse_args()
 
-    thread_pool = spead2.ThreadPool()
+    thread_pool = spead2.ThreadPool(1, [0])
+    spead2.ThreadPool.set_affinity(1)
     config = spead2.send.StreamConfig(rate=0.0, max_heaps=2)
     stream = spead2.send.asyncio.UdpStream(thread_pool, [(args.host, args.port)], config)
     heap_size = 1024 * 1024

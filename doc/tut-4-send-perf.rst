@@ -45,8 +45,30 @@ the page for the full listing.
         std::chrono::duration<double> elapsed = std::chrono::high_resolution_clock::now() - start;
         std::cout << heap_size * n_heaps / elapsed.count() / 1e6 << " MB/s\n";
 
-You can expect performance to be pretty low; I get around 90 MB/s from Python
-and 220 MB/s from C++ [#benchmarks]_. In fact, spead2 makes very little
+We'll also make a change that will make performance slightly more predictable:
+pinning each thread to a specific CPU core. This avoids the costs incurred
+(particularly related to L1 caches) when a process is migrated from one CPU
+core to another.
+
+.. tab-set-code::
+
+ .. code-block:: python
+
+    thread_pool = spead2.ThreadPool(1, [0])
+    spead2.ThreadPool.set_affinity(1)
+
+ .. code-block:: c++
+
+    spead2::thread_pool thread_pool(1, {0});
+    spead2::thread_pool::set_affinity(1);
+
+The first line creates the thread pool with one thread, which is assigned to
+core 0. The second line sets the affinity of the main thread (the function
+lives in the thread pool namespace, but affects the current thread rather than
+the thread pool).
+
+You can expect performance to be pretty low; I get around 65 MB/s from Python
+and 140 MB/s from C++ [#benchmarks]_. In fact, spead2 makes very little
 difference to the performance here: it's mostly taken up by generating the
 random numbers. We don't actually care about the numbers being statistically
 random, so let's remove the random number generation and replace it with the
@@ -69,9 +91,9 @@ not particularly meaningful for simulation, but it has the bonus that we can
 easily see on the receiver side if we've accidentally transmitted data for the
 wrong heap.
 
-This dramatically improves performance: around 1400 MB/s for Python and 1600
+This dramatically improves performance: around 1000 MB/s for Python and 1200
 MB/s for C++ — assuming you're running the receiver. Somewhat surprisingly,
-performance is much higher when not running the receiver: 2700 MB/s and 3200
+performance is much higher when not running the receiver: 1800 MB/s and 2200
 MB/s respectively. By using the loopback interface, some of the costs of
 receiving data are affecting the sender. Even when not running the receiver,
 we're going to experience some overheads from using the loopback interface.
@@ -166,14 +188,17 @@ If you want to clean up the dummy interface later, use
 
 Now if you run :command:`tut_4_send_perf 192.168.31.2 8888` you should get even
 better performance (note that the destination address is *not* the same as the
-address assigned to the interface). I get 3700 MB/s with Python and 4300 MB/s
+address assigned to the interface). I get 2300 MB/s with Python and 3000 MB/s
 with C++.
 
 .. [#benchmarks] I'll be quoting benchmark numbers throughout these tutorials.
-   The numbers are what I encountered at the time the tutorial was written,
-   so they may be out of date with regards to future optimisations to spead2.
-   They also vary each time I run them, and they will likely differ from what
-   you encounter. Treat them as rough indicators of how important various
+   The numbers are what I encountered on my laptop at the time the tutorial was
+   written, so they may be out of date with regards to future optimisations to
+   spead2. They also vary each time I run them , and they will likely differ
+   from what you encounter. I've also disabled Turbo Boost to reduce
+   variability, but that significantly reduces the actual performance
+   (top CPU speed drops from 4.5 GHz to 2.6 GHz).
+   Treat them as rough indicators of how important various
    optimisations are, rather than as the absolute throughput you should expect
    from your application.
 

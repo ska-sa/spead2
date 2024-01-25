@@ -44,7 +44,8 @@ async def main():
     parser.add_argument("port", type=int)
     args = parser.parse_args()
 
-    thread_pool = spead2.ThreadPool()
+    thread_pool = spead2.ThreadPool(1, [0])
+    spead2.ThreadPool.set_affinity(1)
     config = spead2.send.StreamConfig(rate=0.0, max_heaps=max(2, 1024 * 1024 // args.heap_size))
     if args.packet_size is not None:
         config.max_packet_size = args.packet_size

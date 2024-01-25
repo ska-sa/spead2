@@ -149,8 +149,7 @@ the result of the future for heap :math:`n` until we've passed heap
 
 Note how at the end of the loop we still need to wait for the final heap.
 
-This improves performance to around 5200 MB/s for Python and 5700 MB/s for C++
-(it is highly variable though).
+This improves performance to around 4000 MB/s for Python and 3200 MB/s for C++.
 
 Apart from overlapping the data generation with the transmission,
 there is another hidden benefit to this approach: pipelining. Even if the
