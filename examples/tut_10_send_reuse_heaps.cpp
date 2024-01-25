@@ -131,7 +131,7 @@ int main(int argc, char * const argv[])
     first_heap.add_item(
         adc_samples_desc.id,
         states[0].adc_samples.data(),
-        states[0].adc_samples.size() * sizeof(states[0].adc_samples.size()),
+        states[0].adc_samples.size() * sizeof(states[0].adc_samples[0]),
         true
     );
 

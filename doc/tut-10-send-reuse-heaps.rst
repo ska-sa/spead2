@@ -163,7 +163,7 @@ code above):
         first_heap.add_item(
             adc_samples_desc.id,
             states[0].adc_samples.data(),
-            states[0].adc_samples.size() * sizeof(states[0].adc_samples.size()),
+            states[0].adc_samples.size() * sizeof(states[0].adc_samples[0]),
             true
         );
 
@@ -204,6 +204,9 @@ timestamp in place.
 And now let's see the results again:
 
 .. image:: tut-10-send-reuse-heaps-after.svg
+
+This is a major improvement for small heaps, but we still don't have the same
+performance for small heaps that we get for larger heaps.
 
 .. [#zdarr] A numpy zero-dimensional array is similar to a scalar, but it is
    mutable. We will need that capability later to update the value in place.
