@@ -28,6 +28,7 @@ foreach name : [
   'tut_9_recv_memory_pool',
   'tut_10_send_reuse_heaps',
   'tut_11_send_batch_heaps',
+  'tut_12_recv_chunks',
 ]
   executable(name, name + '.cpp', dependencies : [st_dep])
 endforeach
