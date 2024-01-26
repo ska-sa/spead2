@@ -252,22 +252,21 @@ heaps.
 
 You might be wondering why 8192-byte heaps perform so much better than
 16384-byte heaps. It is due to the ``-p 9000`` argument: the Linux kernel has a
-mechanism (Generic Send Offload) for efficiently handling sequences of packets
+mechanism (Generic Segmentation Offload) for efficiently handling sequences of packets
 that all have the same metadata, and in particular are all the same size.
-With 8192-byte heaps, each heap (other than the first) fits within a
-single packet, and so the packets are all the same size. With 16384-byte
+With 8192-byte heaps, each heap fits within a single packet, and the packets
+are all the same size (except for the first). With 16384-byte
 heaps, two packets are needed: they happen to be 9000 bytes and 7480 bytes
-long (these add up to more than 16384 because they include all the SPEAD
+long (this adds up to more than 16384 because they include all the SPEAD
 headers and item pointers). The lack of a long sequence of identically-sized
-packets makes transmission less efficient.
+packets makes transmission less efficient. With much larger heap sizes this is
+less of an issue because most of the packets for each heap will be the full
+9000 bytes, with only the last packet containing a remainder.
 
-Since we're using power-of-two heap sizes, we can ensure the packets are
-equally sized by carefully adjusting the packet size. Unfortunately, spead2
-doesn't provide tools for this. One needs to carefully count how many bytes
-are consumed by the headers and item pointers, or determine it from packet
-dumps. There are 40 bytes common to all packets, plus two 8-byte item pointers
-(for the ``timestamp`` and ``adc_samples``), so to have packets with 8192
-bytes of payload, we need to allow a total of
+With some careful calculations, it is sometimes possible to adjust the packet
+size so that all the packets in the heap are the same size, and thus void this
+problem. It is worth noting that the highest performance is obtained
+using the :doc:`ibverbs support <py-ibverbs>`, which is not affected by this.
 
 Full code
 ---------
