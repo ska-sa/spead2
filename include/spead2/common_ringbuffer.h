@@ -65,6 +65,75 @@ public:
     ringbuffer_stopped() : std::runtime_error("ring buffer has been stopped") {}
 };
 
+namespace detail
+{
+
+/// Sentinel counterpart to @ref ringbuffer_iterator
+class ringbuffer_sentinel {};
+
+/**
+ * Basic iterator for @ref ringbuffer as well as ringbuffer-like classes: they
+ * must provide @c pop which either returns when data is available or throws
+ * @ref ringbuffer_stopped).
+ *
+ * This does not fully implement the iterator concept; it is suitable only for
+ * range-based for loops.
+ */
+template<typename Ringbuffer>
+class ringbuffer_iterator
+{
+private:
+    using value_type = decltype(std::declval<Ringbuffer>().pop());
+
+    Ringbuffer &owner;
+    std::optional<value_type> current; // nullopt once ring has stopped
+
+public:
+    explicit ringbuffer_iterator(Ringbuffer &owner);
+    bool operator!=(const ringbuffer_sentinel &);
+    ringbuffer_iterator &operator++();
+    value_type &operator*();
+};
+
+template<typename Ringbuffer>
+ringbuffer_iterator<Ringbuffer>::ringbuffer_iterator(Ringbuffer &owner)
+    : owner(owner)
+{
+    ++*this;  // Load the first value
+}
+
+template<typename Ringbuffer>
+bool ringbuffer_iterator<Ringbuffer>::operator!=(const ringbuffer_sentinel &)
+{
+    return bool(current);
+}
+
+template<typename Ringbuffer>
+auto ringbuffer_iterator<Ringbuffer>::operator++() -> ringbuffer_iterator &
+{
+    /* Clear it first, so that we can reclaim the memory before making
+     * space available in the ringbuffer, which might cause another
+     * thread to allocate more memory.
+     */
+    current = std::nullopt;
+    try
+    {
+        current = owner.pop();
+    }
+    catch (ringbuffer_stopped &)
+    {
+    }
+    return *this;
+}
+
+template<typename Ringbuffer>
+auto ringbuffer_iterator<Ringbuffer>::operator*() -> value_type &
+{
+    return *current;
+}
+
+} // namespace detail
+
 /**
  * Internal base class for @ref ringbuffer that is independent of the semaphore
  * type.
@@ -316,20 +385,6 @@ private:
     DataSemaphore data_sem;     ///< Number of filled slots
     SpaceSemaphore space_sem;   ///< Number of available slots
 
-    class sentinel {};
-    class iterator
-    {
-    private:
-        ringbuffer &owner;
-        std::optional<T> current;
-
-    public:
-        explicit iterator(ringbuffer &owner) : owner(owner) {}
-        bool operator!=(const sentinel &) const { return bool(current); }
-        iterator &operator++();
-        T &operator*() { return *current; }
-    };
-
 public:
     explicit ringbuffer(std::size_t cap);
 
@@ -420,27 +475,9 @@ public:
      * return a full-blown iterator; it is only intended to be used for
      * a range-based for loop.
      */
-    iterator begin();
-    sentinel end();
+    detail::ringbuffer_iterator<ringbuffer> begin();
+    detail::ringbuffer_sentinel end();
 };
-
-template<typename T, typename DataSemaphore, typename SpaceSemaphore>
-auto ringbuffer<T, DataSemaphore, SpaceSemaphore>::iterator::operator++() -> iterator &
-{
-    /* Clear it first, so that we can reclaim the memory before making
-     * space available in the ringbuffer, which might cause another
-     * thread to allocate more memory.
-     */
-    current = std::nullopt;
-    try
-    {
-        current = owner.pop();
-    }
-    catch (ringbuffer_stopped &)
-    {
-    }
-    return *this;
-}
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 ringbuffer<T, DataSemaphore, SpaceSemaphore>::ringbuffer(size_t cap)
@@ -589,17 +626,15 @@ bool ringbuffer<T, DataSemaphore, SpaceSemaphore>::remove_producer()
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
-auto ringbuffer<T, DataSemaphore, SpaceSemaphore>::begin() -> iterator
+auto ringbuffer<T, DataSemaphore, SpaceSemaphore>::begin() -> detail::ringbuffer_iterator<ringbuffer>
 {
-    iterator it(*this);
-    ++it;  // Load first item into the iterator
-    return it;
+    return detail::ringbuffer_iterator(*this);
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
-auto ringbuffer<T, DataSemaphore, SpaceSemaphore>::end() -> sentinel
+detail::ringbuffer_sentinel ringbuffer<T, DataSemaphore, SpaceSemaphore>::end()
 {
-    return sentinel();
+    return detail::ringbuffer_sentinel();
 }
 
 } // namespace spead2

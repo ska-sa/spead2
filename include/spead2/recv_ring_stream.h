@@ -93,22 +93,6 @@ private:
 
     virtual void heap_ready(live_heap &&) override;
 
-    struct sentinel {};
-
-    class iterator
-    {
-    private:
-        ring_stream &stream;
-        std::optional<heap> h;
-
-    public:
-        explicit iterator(ring_stream &stream) : stream(stream) {}
-
-        bool operator!=(const sentinel &) const;
-        iterator &operator++();
-        heap & operator*();
-    };
-
 public:
     /**
      * Constructor.
@@ -177,39 +161,9 @@ public:
      * full-fledged iterator. It is intended only to enable a range-based for
      * loop over the stream, and any other use of the iterator is unsupported.
      */
-    iterator begin();
-    sentinel end();
+    spead2::detail::ringbuffer_iterator<ring_stream> begin();
+    spead2::detail::ringbuffer_sentinel end();
 };
-
-template<typename Ringbuffer>
-bool ring_stream<Ringbuffer>::iterator::operator!=(const sentinel &) const
-{
-    return bool(h);
-}
-
-template<typename Ringbuffer>
-auto ring_stream<Ringbuffer>::iterator::operator++() -> iterator &
-{
-    /* Clear it first, so that we can reclaim the memory before making
-     * space available in the ringbuffer, which might cause another
-     * thread to allocate more memory.
-     */
-    h = std::nullopt;
-    try
-    {
-        h = stream.pop();
-    }
-    catch (ringbuffer_stopped &)
-    {
-    }
-    return *this;
-}
-
-template<typename Ringbuffer>
-heap &ring_stream<Ringbuffer>::iterator::operator*()
-{
-    return *h;
-}
 
 template<typename Ringbuffer>
 ring_stream<Ringbuffer>::ring_stream(
@@ -343,17 +297,15 @@ void ring_stream<Ringbuffer>::stop()
 }
 
 template<typename Ringbuffer>
-auto ring_stream<Ringbuffer>::begin() -> iterator
+auto ring_stream<Ringbuffer>::begin() -> spead2::detail::ringbuffer_iterator<ring_stream>
 {
-    iterator it(*this);
-    ++it;  // Load the first heap into the iterator
-    return it;
+    return spead2::detail::ringbuffer_iterator(*this);
 }
 
 template<typename Ringbuffer>
-auto ring_stream<Ringbuffer>::end() -> sentinel
+spead2::detail::ringbuffer_sentinel ring_stream<Ringbuffer>::end()
 {
-    return sentinel();
+    return spead2::detail::ringbuffer_sentinel();
 }
 
 } // namespace spead2::recv
