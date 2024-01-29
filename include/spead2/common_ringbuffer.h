@@ -92,7 +92,7 @@ public:
     explicit ringbuffer_iterator(Ringbuffer &owner);
     bool operator!=(const ringbuffer_sentinel &);
     ringbuffer_iterator &operator++();
-    value_type &operator*();
+    value_type &&operator*();
 };
 
 template<typename Ringbuffer>
@@ -127,9 +127,9 @@ auto ringbuffer_iterator<Ringbuffer>::operator++() -> ringbuffer_iterator &
 }
 
 template<typename Ringbuffer>
-auto ringbuffer_iterator<Ringbuffer>::operator*() -> value_type &
+auto ringbuffer_iterator<Ringbuffer>::operator*() -> value_type &&
 {
-    return *current;
+    return std::move(*current);
 }
 
 } // namespace detail
