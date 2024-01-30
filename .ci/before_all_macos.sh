@@ -5,7 +5,7 @@ pcap_version=1.10.4
 
 # Prepare the MacOS environment for building spead2 wheels (for cibuildwheel)
 brew update
-brew install boost@1.83 libdivide
+brew install boost@1.84 libdivide
 
 # Install pkgconfig from source - once for each architecture in CIBW_ARCHS
 cd /tmp
