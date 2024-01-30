@@ -117,8 +117,8 @@ Full code
 ---------
 .. tab-set-code::
 
-   .. literalinclude:: ../../examples/tut_7_recv_power.py
+   .. literalinclude:: ../../examples/tutorial/tut_7_recv_power.py
       :language: python
 
-   .. literalinclude:: ../../examples/tut_7_recv_power.cpp
+   .. literalinclude:: ../../examples/tutorial/tut_7_recv_power.cpp
       :language: c++

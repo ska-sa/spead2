@@ -221,8 +221,8 @@ Full code
 ---------
 .. tab-set-code::
 
-   .. literalinclude:: ../../examples/tut_10_send_reuse_heaps.py
+   .. literalinclude:: ../../examples/tutorial/tut_10_send_reuse_heaps.py
       :language: python
 
-   .. literalinclude:: ../../examples/tut_10_send_reuse_heaps.cpp
+   .. literalinclude:: ../../examples/tutorial/tut_10_send_reuse_heaps.cpp
       :language: c++

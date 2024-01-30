@@ -3,7 +3,7 @@ Receiver, version 1
 Now that we have a sender, let's write a receiver. For the sake of an example,
 let's have it report the average power (mean squared value) of the samples in
 each heap. As before, the full code can be found at the bottom of the page, and
-in the :file:`examples` directory of the spead2 repository.
+in the :file:`examples/tutorial` directory of the spead2 repository.
 
 The initial boilerplate looks similar to the sender, and once again we'll need
 a thread pool.
@@ -190,8 +190,8 @@ Full code
 ---------
 .. tab-set-code::
 
-   .. literalinclude:: ../../examples/tut_3_recv.py
+   .. literalinclude:: ../../examples/tutorial/tut_3_recv.py
       :language: python
 
-   .. literalinclude:: ../../examples/tut_3_recv.cpp
+   .. literalinclude:: ../../examples/tutorial/tut_3_recv.cpp
       :language: c++

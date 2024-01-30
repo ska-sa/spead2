@@ -152,8 +152,8 @@ Full code
 ---------
 .. tab-set-code::
 
-   .. literalinclude:: ../../examples/tut_9_recv_memory_pool.py
+   .. literalinclude:: ../../examples/tutorial/tut_9_recv_memory_pool.py
       :language: python
 
-   .. literalinclude:: ../../examples/tut_9_recv_memory_pool.cpp
+   .. literalinclude:: ../../examples/tutorial/tut_9_recv_memory_pool.cpp
       :language: c++

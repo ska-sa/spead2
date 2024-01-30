@@ -8,8 +8,8 @@ we'll want to timestamp the data, which we'll do just with a sample counter.
 
 In this section we'll build up the code a piece at a time, for both
 Python and C++. At the end of each section you will find the complete code for
-reference. It can also be found in the :file:`examples` directory in the spead2
-repository.
+reference. It can also be found in the :file:`examples/tutorial` directory in
+the spead2 repository.
 
 We'll start with some boilerplate:
 
@@ -289,7 +289,7 @@ able to compile the example code with
 If you installed spead2 into a non-standard location, you may need to set
 :envvar:`PKG_CONFIG_PATH` to the directory containing the installed
 :file:`spead2.pc`. Building spead2 from source also compiles the examples
-in the :file:`examples` subdirectory of the build directory.
+in the :file:`examples/tutorial` subdirectory of the build directory.
 
 Unfortunately, in the best case, running the code gives no output at all and
 the program simply exits. Obviously, we're going to need a receiver to get
@@ -374,8 +374,8 @@ Full code
 ---------
 .. tab-set-code::
 
-   .. literalinclude:: ../../examples/tut_2_send.py
+   .. literalinclude:: ../../examples/tutorial/tut_2_send.py
       :language: python
 
-   .. literalinclude:: ../../examples/tut_2_send.cpp
+   .. literalinclude:: ../../examples/tutorial/tut_2_send.cpp
       :language: c++

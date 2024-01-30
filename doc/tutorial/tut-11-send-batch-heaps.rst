@@ -272,8 +272,8 @@ Full code
 ---------
 .. tab-set-code::
 
-   .. literalinclude:: ../../examples/tut_11_send_batch_heaps.py
+   .. literalinclude:: ../../examples/tutorial/tut_11_send_batch_heaps.py
       :language: python
 
-   .. literalinclude:: ../../examples/tut_11_send_batch_heaps.cpp
+   .. literalinclude:: ../../examples/tutorial/tut_11_send_batch_heaps.cpp
       :language: c++

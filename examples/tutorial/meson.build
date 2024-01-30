@@ -14,18 +14,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 foreach name : [
-  'recv_chunk_example',
-  'recv_chunk_ring_example',
-  'recv_chunk_group_example',
-  'recv_example',
+  'tut_2_send',
+  'tut_3_recv',
+  'tut_4_send_perf',
+  'tut_5_send_pipeline',
+  'tut_6_send_pktsize',
+  'tut_7_recv_power',
+  'tut_8_send_reuse_memory',
+  'tut_9_recv_memory_pool',
+  'tut_10_send_reuse_heaps',
+  'tut_11_send_batch_heaps',
+  'tut_12_recv_chunks',
 ]
   executable(name, name + '.cpp', dependencies : [st_dep])
 endforeach
-
-executable('test_ringbuffer', 'test_ringbuffer.cpp', dependencies : [st_dep, boost_program_options_dep])
-if use_ibv
-  executable('gpudirect_example', 'gpudirect_example.cu', dependencies : [st_dep, cuda_dep])
-  executable('gdrapi_example', 'gdrapi_example.cu', dependencies : [st_dep, cuda_dep, gdrapi_dep])
-endif
-
-subdir('tutorial')
