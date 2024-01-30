@@ -345,7 +345,9 @@ class BaseTestPassthrough:
                         for i, gen in enumerate(gens)
                     ]
                 )
-                sender.send_heaps(hrl, group_mode)
+                # Also test splitting the list
+                sender.send_heaps(hrl[:1], group_mode)
+                sender.send_heaps(hrl[1:], group_mode)
             else:
                 for i, gen in reversed(list(enumerate(gens))):
                     sender.send_heap(gen.get_heap(), substream_index=i)
