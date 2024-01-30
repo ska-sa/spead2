@@ -205,7 +205,7 @@ this batch.
             );
         }
 
-Everything up to the last line has just been refactoring, but the call to
+Everything up to the last statement has just been refactoring, but the call to
 ``async_send_heaps`` is new. Instead of taking a single heap (as
 ``async_send_heap`` does), it takes a batch of heaps, and signals completion
 only when the whole batch has been transmitted. One minor limitation this
@@ -217,7 +217,7 @@ We're using the serial mode, in which each heap is transmitted completely
 before starting on the next heap, and which matches the previous behaviour.
 There is an alternative mode in which the packets comprising the heaps are
 interleaved, but that is aimed at a different use case which is not discussed
-in this section.
+here.
 
 .. image:: tut-11-send-batch-heaps-mid.svg
 

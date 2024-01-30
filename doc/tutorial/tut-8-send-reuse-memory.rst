@@ -45,7 +45,7 @@ not very robust to user mistakes.
 For this rest of this section we'll pass the options ``-n 100 -H 67108864 -p 9000`` to
 use 64 MiB heaps (and reduce the number of heaps to speed things up). First
 let us see what impact it has on the sender in isolation (this assumes you
-have set up the dummy network interface as in :doc:`tut-4-send-perf`.
+have set up the dummy network interface as in :doc:`tut-4-send-perf`).
 
 .. code-block:: sh
 
@@ -151,6 +151,8 @@ array of states.
  .. code-block:: c++
     :dedent: 0
 
+    #include <array>
+    ...
         std::array<state, 2> states;
         for (auto &state : states)
             state.adc_samples.resize(heap_size);

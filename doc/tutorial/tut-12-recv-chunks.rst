@@ -14,7 +14,7 @@ but batching on the receive side is more complicated:
 1. UDP is unreliable, so we need to be able to handle batches that are missing
    some heaps.
 
-1. We don't know in what order heaps will be received, so we need to be able
+2. We don't know in what order heaps will be received, so we need to be able
    to use metadata (in our application, the timestamp) to steer heaps to the
    right place.
 
@@ -69,13 +69,13 @@ scratch rather than as edits to previous versions.
 
 There are some familiar imports/includes but also some new ones. In Python
 there are a number of imports related to numba and scipy, which are providing
-the utilities we need to write a C ABI function.
+the utilities we'll use to write a C ABI function.
 
 Next, we'll have a modified version of the function for computing mean power.
 It will take a whole chunk as input, along with an array indicating whether
 each heap of the chunk was received or not, and return the average power for
-the whole chunk. We won't try to report per-heap power because printing that
-information would slow down the receiver too much.
+the whole chunk (excluding missing data). We won't try to report per-heap power
+because printing that information would slow down the receiver too much.
 
 .. tab-set-code::
 
@@ -186,8 +186,8 @@ will be reported as ``-1`` in this function.
 Ok, we've got a valid heap. We now need to tell spead2 three things:
 
 1. Which *chunk* does this heap belong to. Chunks should be numbered
-   sequentially, so we'll assign chunk :math:`i` to the time interval
-   :math:`[i \times \text{chunk-size}, (i + 1)\times \text{chunk-size})`.
+   sequentially, so we'll assign chunk *i* to the time interval
+   [*i* × chunk-size, (*i* + 1) × chunk-size).
 
 2. At what byte offset within the chunk should the payload for this heap be
    written.
@@ -195,7 +195,7 @@ Ok, we've got a valid heap. We now need to tell spead2 three things:
 3. Which number heap is this of the chunk. This is used solely to set the flag
    indicating that the heap was successfully received. We can choose to number
    the heaps in a chunk however we like (even discontiguously), provided we
-   allocate the presence array with enough space. But we'll keep things
+   allocate the ``present`` array with enough space. But we'll keep things
    simple, and number the heaps in the chunk in timestamp order.
 
 .. tab-set-code::
@@ -308,7 +308,7 @@ timestamp. Notice that we've specified the timestamp by ID (0x1600): this
 interface does not support dynamically learning the ID from the descriptors,
 and in fact this program will not depend on the descriptors at all.
 We also specify the maximum number of chunks that can be under construction at
-once. For this tutorial we're not expecting to get data out of order, so we'll
+once. For this tutorial we're not expecting to receive data out of order, so we'll
 just keep one in flight. In other words, as soon as we see a heap for a given
 chunk, we'll assume all previous chunks are as complete as they'll ever be and
 start processing them. Finally, we pass in the ``place_callback`` function. In

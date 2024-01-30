@@ -48,7 +48,7 @@ Python.
 
 Each loop iteration repeats all the work of setting up a heap object, even
 though they all have essentially the same structure. What if this could be
-done once up front. This is indeed possible, but there are some complications:
+done once up front? This is indeed possible, but there are some complications:
 
 1. Each heap needs to be untouched while it is being transmitted, so we can't
    just have a single heap object and mutate it as we wish. We can, however,
@@ -130,7 +130,7 @@ In the Python version, we're using a new feature of
 regarding which items and descriptors to include in the heap, but that
 assumes the simple case where each time you transmit a heap you obtain it
 from :py:meth:`~.ItemGroup.get_heap`. Since we're recycling heaps, we need
-more direct control, and requesting that each heap has no descriptors but all
+more direct control. We're requesting that each heap has no descriptors but all
 of the actual items.
 
 There is also some magic for adding the timestamp. In Python, we create a
@@ -205,9 +205,8 @@ And now let's see the results again:
 
 .. image:: tut-10-send-reuse-heaps-after.svg
 
-This is a major improvement for small heaps, but we still don't have the same
-performance for small heaps that we get for larger heaps. In the next section
-we'll see how to further reduce the overheads.
+This is a major improvement for small heaps, but there is still room for
+more optimisation, which we will address in the next section.
 
 .. [#zdarr] A numpy zero-dimensional array is similar to a scalar, but it is
    mutable. We will need that capability later to update the value in place.

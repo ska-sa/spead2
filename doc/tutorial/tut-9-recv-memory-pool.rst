@@ -4,7 +4,7 @@
 Memory pools
 ============
 In the previous section, we optimised the sender by ensuring memory did not get
-repeated allocated from the OS then returned. The receiver suffers from the
+repeatedly allocated from the OS then returned. The receiver suffers from the
 same problem. However, it differs from the sender in that the memory for heaps
 is allocated by spead2 rather than the user. We thus need to use a spead2
 feature to address this: it allows us to set a custom allocator for heaps, and
@@ -86,7 +86,7 @@ pool, we need to specify a few parameters:
   are three places that memory might need to be allocated: incomplete heaps
   that spead2 is still receiving data for, complete heaps in the ringbuffer,
   and heaps that your code has received and not yet deleted. We'll limit the
-  first two to 2 each. The C++ code only keeps one heap alive at a time, but
+  first two to two each. The C++ code only keeps one heap alive at a time, but
   the Python version actually holds references to two: until the call to
   :pythoncode:`item_group.update`, the item group still references the data
   from the previous heap. It should also be noted that while CPython frees
@@ -141,7 +141,7 @@ safe.
 Even when the heap size is small enough for the libc memory allocator to
 retain and reuse buffers for heaps, using a spead2 memory pool can be
 beneficial to the startup performance. Without it, the first few heaps will
-still require memory to be allocated from the OS then faulted in, and can
+still require memory to be allocated from the OS then paged in, and can
 cause initial heaps to be lost. The memory pool writes to its buffers when it
 is constructed, which ensures that they are already paged in when the first
 data is received. On the other hand, a memory pool adds some overhead, so

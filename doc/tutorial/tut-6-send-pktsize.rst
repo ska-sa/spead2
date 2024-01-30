@@ -41,15 +41,25 @@ to be adjusted.
 
     #include <optional>
     ...
+    static void usage(const char * name)
+    {
+        std::cerr << "Usage: " << name << " [-n heaps] [-p packet-size] host port\n";
+    }
+
+    int main(int argc, char * const argv[])
+    {
+        ...
         std::optional<int> packet_size;
-        ...
-        switch (opt)
+        while ((opt = getopt(argc, argv, "n:p:")) != -1)
         {
-        ...
-        case 'p':
-            packet_size = std::stoi(optarg);
-            break;
-        ...
+            switch (opt)
+            {
+            ...
+            case 'p':
+                packet_size = std::stoi(optarg);
+                break;
+            ...
+            }
         }
         ...
         if (packet_size)
