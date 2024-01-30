@@ -211,8 +211,8 @@ Full code
 ---------
 .. tab-set-code::
 
-   .. literalinclude:: ../examples/tut_4_send_perf.py
+   .. literalinclude:: ../../examples/tut_4_send_perf.py
       :language: python
 
-   .. literalinclude:: ../examples/tut_4_send_perf.cpp
+   .. literalinclude:: ../../examples/tut_4_send_perf.cpp
       :language: c++

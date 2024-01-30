@@ -182,8 +182,8 @@ Full code
 
 .. tab-set-code::
 
-   .. literalinclude:: ../examples/tut_8_send_reuse_memory.py
+   .. literalinclude:: ../../examples/tut_8_send_reuse_memory.py
       :language: python
 
-   .. literalinclude:: ../examples/tut_8_send_reuse_memory.cpp
+   .. literalinclude:: ../../examples/tut_8_send_reuse_memory.cpp
       :language: c++

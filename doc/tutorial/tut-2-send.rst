@@ -298,7 +298,7 @@ spead2 ships with a general-purpose receiver — in fact two (one written in
 Python and one written in C++). Let's use the Python one, since it provides
 more high-level interpretation of the data. Note that you can use the Python
 receiver even with the C++ sender, since the protocol is the same, although
-if you haven't already :doc:`installed <installation>` the Python bindings you
+if you haven't already :doc:`installed <../installation>` the Python bindings you
 should do that now.
 
 Start the receiver first by running
@@ -366,7 +366,7 @@ now print something like the following and exit:
 
 We can see that the first heap contains the descriptors we set. All the
 heaps contain a timestamp and some sample data (not fully shown). At the end
-we see some :doc:`statistics <recv-stats>`. Don't worry if you don't
+we see some :doc:`statistics <../recv-stats>`. Don't worry if you don't
 understand them all; some of them are only intended to help developers or
 advanced users diagnose performance bottlenecks.
 
@@ -374,8 +374,8 @@ Full code
 ---------
 .. tab-set-code::
 
-   .. literalinclude:: ../examples/tut_2_send.py
+   .. literalinclude:: ../../examples/tut_2_send.py
       :language: python
 
-   .. literalinclude:: ../examples/tut_2_send.cpp
+   .. literalinclude:: ../../examples/tut_2_send.cpp
       :language: c++

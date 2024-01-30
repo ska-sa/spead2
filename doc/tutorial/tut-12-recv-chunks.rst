@@ -513,8 +513,8 @@ Full code
 ---------
 .. tab-set-code::
 
-   .. literalinclude:: ../examples/tut_12_recv_chunks.py
+   .. literalinclude:: ../../examples/tut_12_recv_chunks.py
       :language: python
 
-   .. literalinclude:: ../examples/tut_12_recv_chunks.cpp
+   .. literalinclude:: ../../examples/tut_12_recv_chunks.cpp
       :language: c++

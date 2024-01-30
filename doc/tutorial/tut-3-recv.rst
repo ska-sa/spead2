@@ -190,8 +190,8 @@ Full code
 ---------
 .. tab-set-code::
 
-   .. literalinclude:: ../examples/tut_3_recv.py
+   .. literalinclude:: ../../examples/tut_3_recv.py
       :language: python
 
-   .. literalinclude:: ../examples/tut_3_recv.cpp
+   .. literalinclude:: ../../examples/tut_3_recv.cpp
       :language: c++

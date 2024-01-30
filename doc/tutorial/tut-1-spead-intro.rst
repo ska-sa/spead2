@@ -1,7 +1,7 @@
 A quick introduction to SPEAD
 =============================
 Before developing a full-fledged application it is a good idea to read all the
-details of the :download:`SPEAD <SPEAD_Protocol_Rev1_2012.pdf>` protocol, but
+details of the :download:`SPEAD <../SPEAD_Protocol_Rev1_2012.pdf>` protocol, but
 for the purposes of the tutorial we'll provide a brief overview here.
 
 SPEAD is a message-based protocol, where the messages are called :dfn:`heaps`.

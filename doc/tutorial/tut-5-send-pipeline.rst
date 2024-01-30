@@ -169,8 +169,8 @@ Full code
 ---------
 .. tab-set-code::
 
-   .. literalinclude:: ../examples/tut_5_send_pipeline.py
+   .. literalinclude:: ../../examples/tut_5_send_pipeline.py
       :language: python
 
-   .. literalinclude:: ../examples/tut_5_send_pipeline.cpp
+   .. literalinclude:: ../../examples/tut_5_send_pipeline.cpp
       :language: c++

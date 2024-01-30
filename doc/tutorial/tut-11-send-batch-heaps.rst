@@ -266,14 +266,14 @@ less of an issue because most of the packets for each heap will be the full
 With some careful calculations, it is sometimes possible to adjust the packet
 size so that all the packets in the heap are the same size, and thus void this
 problem. It is worth noting that the highest performance is obtained
-using the :doc:`ibverbs support <py-ibverbs>`, which is not affected by this.
+using the :doc:`ibverbs support <../py-ibverbs>`, which is not affected by this.
 
 Full code
 ---------
 .. tab-set-code::
 
-   .. literalinclude:: ../examples/tut_11_send_batch_heaps.py
+   .. literalinclude:: ../../examples/tut_11_send_batch_heaps.py
       :language: python
 
-   .. literalinclude:: ../examples/tut_11_send_batch_heaps.cpp
+   .. literalinclude:: ../../examples/tut_11_send_batch_heaps.cpp
       :language: c++

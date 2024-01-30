@@ -32,7 +32,7 @@ over UDP might be suitable for your application if
    :maxdepth: 2
 
    installation
-   tutorial
+   tutorial/tutorial
    py
    cpp
    advanced

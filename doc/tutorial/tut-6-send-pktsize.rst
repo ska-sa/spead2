@@ -80,8 +80,8 @@ Full code
 ---------
 .. tab-set-code::
 
-   .. literalinclude:: ../examples/tut_6_send_pktsize.py
+   .. literalinclude:: ../../examples/tut_6_send_pktsize.py
       :language: python
 
-   .. literalinclude:: ../examples/tut_6_send_pktsize.cpp
+   .. literalinclude:: ../../examples/tut_6_send_pktsize.cpp
       :language: c++
