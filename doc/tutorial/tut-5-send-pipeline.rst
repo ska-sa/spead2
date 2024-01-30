@@ -159,7 +159,7 @@ the next batch of work. This means that the networking thread will go to sleep
 after finishing heap :math:`n` and need to be woken up again when heap
 :math:`n+1` is submitted, and no data is being transmitted while the thread is
 being woken up. With the new code, provided the processing is fast enough to
-submit heap :math:`n+1` because heap :math:`n` is complete, the worker thread
+submit heap :math:`n+1` before heap :math:`n` is complete, the worker thread
 can move directly from one to the next without needing to pause. In our
 example this makes no noticeable difference, but it can be significant if the
 heaps are small, and it can even be beneficial to have more than two heaps in

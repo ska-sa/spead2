@@ -237,7 +237,7 @@ The Python code is reasonably straight-forward: we update the items, package
 the changes into a heap, and transmit it. The C++ code needs more explanation.
 Firstly, as mentioned earlier, the Python API takes care of sending
 descriptors in the first heap, so that the receiver knows the names, shapes
-and types of the items. In C++ we must explicitly add the descriptors on the
+and types of the items. In C++ we must explicitly add the descriptors to the
 first heap. The C++ code also uses two different versions of
 :cpp:func:`~spead2::send::heap::add_item` to populate the data in the heap.
 The first one takes the timestamp by value; it is only suitable for immediate

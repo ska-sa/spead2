@@ -106,6 +106,8 @@ packets somewhere other than to 127.0.0.1. Rather than hard-coding an address
 destination a command-line option. While we're at it, we'll make the number of
 heaps a command-line option too, and increase the default.
 
+.. tab-set-code::
+
  .. code-block:: python
 
     import argparse

@@ -162,7 +162,7 @@ to retrieve the raw 40-bit big-endian value and decode it.
             }
 
 Note that the Python code doesn't do any error checking: if we missed the
-first heap, the code will crash because we won't receive the descriptors, and
+first heap, we won't receive the descriptors, and
 so ``item_group["timestamp"]`` will raise a :exc:`KeyError`. You can test this
 by starting the receiver slightly after the sender. Additionally,
 :py:meth:`.ItemGroup.update` can fail for a number of reasons, such as a
