@@ -154,7 +154,7 @@ heaps a command-line option too, and increase the default.
         ...
         boost::asio::ip::udp::endpoint endpoint(
             boost::asio::ip::address::from_string(argv[optind]),
-            std::atoi(argv[optind + 1])
+            std::stoi(argv[optind + 1])
         );
         ...
     }

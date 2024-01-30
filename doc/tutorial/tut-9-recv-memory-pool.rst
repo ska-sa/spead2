@@ -62,7 +62,7 @@ number a command-line argument instead of being hard-coded to 8888.
 
         ...
         boost::asio::ip::udp::endpoint endpoint(
-            boost::asio::ip::address_v4::any(), std::atoi(argv[optind]));
+            boost::asio::ip::address_v4::any(), std::stoi(argv[optind]));
         ...
     }
 

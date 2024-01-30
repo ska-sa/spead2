@@ -62,7 +62,7 @@ int main(int argc, char * const argv[])
     config.set_rate(0.0);
     boost::asio::ip::udp::endpoint endpoint(
         boost::asio::ip::address::from_string(argv[optind]),
-        std::atoi(argv[optind + 1])
+        std::stoi(argv[optind + 1])
     );
     spead2::send::udp_stream stream(thread_pool, {endpoint}, config);
 

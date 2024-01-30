@@ -123,7 +123,7 @@ int main(int argc, char * const argv[])
     }
 
     boost::asio::ip::udp::endpoint endpoint(
-        boost::asio::ip::address_v4::any(), std::atoi(argv[optind]));
+        boost::asio::ip::address_v4::any(), std::stoi(argv[optind]));
     stream.emplace_reader<spead2::recv::udp_reader>(endpoint);
     std::int64_t n_heaps = 0;
     for (std::unique_ptr<spead2::recv::chunk> chunk : *data_ring)

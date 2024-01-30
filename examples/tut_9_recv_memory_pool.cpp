@@ -77,7 +77,7 @@ int main(int argc, char * const argv[])
     ));
     spead2::recv::ring_stream stream(thread_pool, config, ring_config);
     boost::asio::ip::udp::endpoint endpoint(
-        boost::asio::ip::address_v4::any(), std::atoi(argv[optind]));
+        boost::asio::ip::address_v4::any(), std::stoi(argv[optind]));
     stream.emplace_reader<spead2::recv::udp_reader>(endpoint);
     std::int64_t n_heaps = 0;
     for (const spead2::recv::heap &heap : stream)
