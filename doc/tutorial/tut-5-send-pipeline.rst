@@ -11,7 +11,78 @@ rapid bursts. Rapid bursts can cause congestion with other traffic on the
 network (leading to packet loss) or overwhelm receivers that don't have the
 performance to absorb them.
 
-.. TODO: insert a diagram here
+.. tikz:: Serial computation (yellow) and transmission (green). Arrows show dependencies.
+   :libs: positioning
+
+   \tikzset{
+     proc/.style={draw, minimum height=0.5cm},
+     compute/.style={fill=yellow, proc, minimum width=0.5cm},
+     transmit/.style={fill=green!50!white, proc, minimum width=0.7cm},
+     label/.style={anchor=east},
+     link/.style={->, shorten < = 0.05cm, shorten > = 0.05cm},
+     >=latex,
+   }
+   \node[compute] (h1c) {};
+   \node[transmit, right=0cm of h1c] (h1t) {};
+   \node[compute, below=of h1t.east, anchor=west] (h2c) {};
+   \node[transmit, right=0cm of h2c] (h2t) {};
+   \node[compute, below=of h2t.east, anchor=west] (h3c) {};
+   \node[transmit, right=0cm of h3c] (h3t) {};
+   \node[label, left=of h1c] (h1l) {Heap 1};
+   \node[label] (h2l) at (h1l.east |- h2c) {Heap 2};
+   \node[label] (h3l) at (h1l.east |- h3c) {Heap 3};
+   \coordinate[below=of h3l.east] (bstart);
+   \coordinate[below=0.25 of bstart] (blow);
+   \coordinate[above=0.25 of bstart] (bhigh);
+   \draw (blow -| h1c.west)
+         -| (bhigh -| h1t.west)
+         -| (blow -| h1t.east)
+         -| (bhigh -| h2t.west)
+         -| (blow -| h2t.east)
+         -| (bhigh -| h3t.west)
+         -| (blow -| h3t.east)
+         -- +(0.5, 0) coordinate (bstop);
+   \node[label] (bwl) at (h1l.east |- bstart) {Bandwidth};
+   \coordinate[below=of bwl.east] (tstart);
+   \draw[->] (tstart) to[edge label'=Time] (tstart -| bstop);
+   \draw[link] (h1t.south east) -- (h2c.north west);
+   \draw[link] (h2t.south east) -- (h3c.north west);
+
+.. tikz:: Parallel computation (yellow) and transmission (green).
+   :libs: positioning
+
+   \tikzset{
+     proc/.style={draw, minimum height=0.5cm},
+     compute/.style={fill=yellow, proc, minimum width=0.5cm},
+     transmit/.style={fill=green!50!white, proc, minimum width=0.7cm},
+     label/.style={anchor=east},
+     link/.style={->, shorten < = 0.05cm, shorten > = 0.05cm},
+     >=latex,
+   }
+   \node[compute] (h1c) {};
+   \node[transmit, right=0cm of h1c] (h1t) {};
+   \node[compute, below=of h1c.east, anchor=west] (h2c) {};
+   \node[transmit, below=of h1t.east, anchor=west] (h2t) {};
+   \node[compute, below=of h2c.east, anchor=west] (h3c) {};
+   \node[transmit, below=of h2t.east, anchor=west] (h3t) {};
+   \node[label, left=of h1c] (h1l) {Heap 1};
+   \node[label] (h2l) at (h1l.east |- h2c) {Heap 2};
+   \node[label] (h3l) at (h1l.east |- h3c) {Heap 3};
+   \coordinate[below=of h3l.east] (bstart);
+   \coordinate[below=0.25 of bstart] (blow);
+   \coordinate[above=0.25 of bstart] (bhigh);
+   \draw (blow -| h1c.west)
+         -| (bhigh -| h1t.west)
+         -| (blow -| h3t.east)
+         -- +(0.5, 0) coordinate (bstop);
+   \node[label] (bwl) at (h1l.east |- bstart) {Bandwidth};
+   \coordinate[below=of bwl.east] (tstart);
+   \draw[->] (tstart) to[edge label'=Time] (tstart -| bstop);
+   \draw[link] (h1c.south east) -- (h2c.north west);
+   \draw[link] (h2c.south east) -- (h3c.north west);
+   \draw[link] (h1t.south east) -- (h2t.north west);
+   \draw[link] (h2t.south east) -- (h3t.north west);
+
 
 To generate and transmit data in parallel, we're going to need to restructure
 our code a bit. In Python we'll use the :mod:`asyncio` module to manage
@@ -108,7 +179,46 @@ example, but we'll be explicit in order to demonstrate the syntax.
 
 Now we rework the main loop to use the state class, and to delay retrieving
 the result of the future for heap :math:`n` until we've passed heap
-:math:`n+1` to ``async_send_heap``.
+:math:`n+1` to ``async_send_heap``. Our diagram above isn't quite accurate,
+because we don't start computing heap :math:`n+2` until we've retrieved the
+result of heap :math:`n`. The actual situation is this (note the new arrow
+from heap 1 to heap 3).
+
+.. tikz:: Parallel computation (yellow) and transmission (green) with at most two heaps in flight.
+   :libs: positioning
+
+   \tikzset{
+     proc/.style={draw, minimum height=0.5cm},
+     compute/.style={fill=yellow, proc, minimum width=0.5cm},
+     transmit/.style={fill=green!50!white, proc, minimum width=0.7cm},
+     label/.style={anchor=east},
+     link/.style={->, shorten < = 0.05cm, shorten > = 0.05cm},
+     >=latex,
+   }
+   \node[compute] (h1c) {};
+   \node[transmit, right=0cm of h1c] (h1t) {};
+   \node[compute, below=of h1c.east, anchor=west] (h2c) {};
+   \node[transmit, below=of h1t.east, anchor=west] (h2t) {};
+   \node[compute, below=of h2t.west, anchor=west] (h3c) {};
+   \node[transmit, below=of h2t.east, anchor=west] (h3t) {};
+   \node[label, left=of h1c] (h1l) {Heap 1};
+   \node[label] (h2l) at (h1l.east |- h2c) {Heap 2};
+   \node[label] (h3l) at (h1l.east |- h3c) {Heap 3};
+   \coordinate[below=of h3l.east] (bstart);
+   \coordinate[below=0.25 of bstart] (blow);
+   \coordinate[above=0.25 of bstart] (bhigh);
+   \draw (blow -| h1c.west)
+         -| (bhigh -| h1t.west)
+         -| (blow -| h3t.east)
+         -- +(0.5, 0) coordinate (bstop);
+   \node[label] (bwl) at (h1l.east |- bstart) {Bandwidth};
+   \coordinate[below=of bwl.east] (tstart);
+   \draw[->] (tstart) to[edge label'=Time] (tstart -| bstop);
+   \draw[link] (h1c.south east) -- (h2c.north west);
+   \draw[link] (h2c.south east) to[bend right=40] (h3c.north west);
+   \draw[link] (h1t.south east) -- (h2t.north west);
+   \draw[link] (h2t.south east) -- (h3t.north west);
+   \draw[link] (h1t.south east) to[bend right=15] (h3c.north west);
 
 .. tab-set-code::
 
