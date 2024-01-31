@@ -28,17 +28,65 @@ the heap ID (20) is one assigned by spead2 in the sender and encoded into
 the packet; it does not necessarily match the loop index in the ``for`` loop
 in the sender code.
 
-.. TODO make a picture of how it all works
+.. tikz:: Data flow in the receive path.
+   :libs: positioning,fit
+
+   \tikzset{
+     >=latex,
+     every label/.style={font=\scriptsize},
+     elabel/.style={auto, font=\scriptsize},
+     nlabel/.style={font=\small},
+   }
+   \begin{scope}[xshift=0]
+     \draw (0.1, -0.1) -- (1, -0.1) -- (1, 0) -- (2.5, 0) -- (2.5, 1) -- (0, 1) -- (0, 0) -| cycle;
+     \node[fit={(0, 0) (2.5, 1)}, nlabel] (nic) {NIC};
+   \end{scope}
+
+   \begin{scope}[shift={(4, 0)}]
+     \draw[shift={(0, 0.2)}] (0, 0) grid[xstep=0.25, ystep=0.6] (2, 0.6);
+     \node[fit={(0, 0) (2, 1)}, label=below:Socket] (socket) {};
+   \end{scope}
+
+   \begin{scope}[shift={(8, 0)}]
+     \draw (0, 0) rectangle (2, 1);
+     \node[fit={(0, 0) (2, 1)}] (worker) {};
+     \node[text width=2cm, align=center, nlabel] at (worker.center) {Worker thread};
+   \end{scope}
+
+   \begin{scope}[shift={(12, 0)}]
+     \fill[gray!50!white] (0, 0.5) +(45:0.2) arc[start angle=45, end angle=180, radius=0.2]
+       -- (-0.5, 0.5) arc[start angle=180, end angle=45, radius=0.5]
+       -- cycle;
+     \draw (0, 0.5) circle (0.5);
+     \draw (0, 0.5) circle (0.2);
+     \foreach \i in {0, 45, ..., 315} {
+       \draw (0, 0.5) +(\i:0.2) -- +(\i:0.5);
+     }
+     \node[fit={(-0.5, 0.5) (0.5, 0.5) (0, 1) (0, 0)},
+     label=below:Ringbuffer] (ringbuffer) {};
+   \end{scope}
+
+   \begin{scope}[shift={(14, 0)}]
+     \draw (0, 0) rectangle (2, 1);
+     \node[fit={(0, 0) (2, 1)}] (user) {};
+     \node[text width=1.5cm, align=center, nlabel] at (user.center) {Main thread};
+   \end{scope}
+
+   \draw[->] (nic) -- node[elabel] {Packets} (socket);
+   \draw[->] (socket) -- node[elabel] {Packets} (worker);
+   \draw[->] (worker) -- node[elabel] {Heaps} (ringbuffer);
+   \draw[->] (ringbuffer) -- node[elabel] {Heaps} (user);
 
 The "full ringbuffer" message is more of a warning. The worker thread (in the
 thread pool) operates by receiving data from the network socket and then
 pushing complete heaps into a ringbuffer. If our code doesn't take those heaps
 off the ringbuffer fast enough, then the ringbuffer fills up, and the worker
 thread has to wait for space before it can push the next heap. While it's
-waiting, it's not receiving packets, eventually leading to packet loss. On its
-own, the "full ringbuffer" message isn't necessarily an issue, but when we see
-it together with lost data, it tells us that it's the processing in our own
-code that's too slow, rather than spead2's packet handling.
+waiting, it's not consuming packets from the socket, which eventually fills up
+and causes subsequent packets to be dropped. On its own, the "full ringbuffer"
+message isn't necessarily an issue, but when we see it together with lost data,
+it tells us that it's the processing in our own code that's too slow, rather
+than spead2's packet handling.
 
 The most likely candidate is the calculation of the power. Let's write a more
 optimal version of that. In the Python case, we use numba_ to compile code on
