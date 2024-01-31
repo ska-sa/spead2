@@ -351,7 +351,55 @@ freed, we must explicitly put them onto this ringbuffer. In Python this has
 the advantage that one controls exactly when this happens rather than needing
 to rely on the garbage collector.
 
-.. TODO: make a diagram
+.. tikz:: Data flow with the chunk API.
+   :libs: positioning,fit
+
+   \tikzset{
+     >=latex,
+     every label/.style={font=\scriptsize},
+     elabel/.style={auto, font=\scriptsize},
+     nlabel/.style={font=\small},
+   }
+   \begin{scope}[shift={(0, 0)}]
+     \fill[gray!50!white] (0, 0.5) +(45:0.2) arc[start angle=45, end angle=180, radius=0.2]
+       -- (-0.5, 0.5) arc[start angle=180, end angle=45, radius=0.5]
+       -- cycle;
+     \draw (0, 0.5) circle (0.5);
+     \draw (0, 0.5) circle (0.2);
+     \foreach \i in {0, 45, ..., 315} {
+       \draw (0, 0.5) +(\i:0.2) -- +(\i:0.5);
+     }
+     \node[fit={(-0.5, 0.5) (0.5, 0.5) (0, 1) (0, 0)}, label=left:Data ring] (data) {};
+   \end{scope}
+
+   \begin{scope}[shift={(4, 0)}]
+     \fill[gray!50!white] (0, 0.5) +(45:0.2) arc[start angle=45, end angle=180, radius=0.2]
+       -- (-0.5, 0.5) arc[start angle=180, end angle=45, radius=0.5]
+       -- cycle;
+     \draw (0, 0.5) circle (0.5);
+     \draw (0, 0.5) circle (0.2);
+     \foreach \i in {0, 45, ..., 315} {
+       \draw (0, 0.5) +(\i:0.2) -- +(\i:0.5);
+     }
+     \node[fit={(-0.5, 0.5) (0.5, 0.5) (0, 1) (0, 0)}, label=right:Free ring] (free) {};
+   \end{scope}
+
+   \begin{scope}[shift={(1, 1.5)}]
+     \draw (0, 0) rectangle (2, 1);
+     \node[fit={(0, 0) (2, 1)}] (user) {};
+     \node[text width=1.5cm, align=center, nlabel] at (user.center) {User thread};
+   \end{scope}
+
+   \begin{scope}[shift={(1, -1.5)}]
+     \draw (0, 0) rectangle (2, 1);
+     \node[fit={(0, 0) (2, 1)}] (worker) {};
+     \node[text width=2cm, align=center, nlabel] at (worker.center) {Worker thread};
+   \end{scope}
+
+   \draw[->] (data) |- node[elabel] {Chunks} (user);
+   \draw[->] (user) -| node[pos=0.49,elabel] {Chunks} (free);
+   \draw[->] (free) |- node[elabel] {Chunks} (worker);
+   \draw[->] (worker) -| node[elabel,pos=0.49] {Chunks} (data);
 
 The data ringbuffer is kept small — we just need enough capacity to avoid
 stalling the producer if the consumer is temporarily a little too slow. We'll
