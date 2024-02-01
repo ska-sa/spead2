@@ -29,6 +29,7 @@
 #include <memory>
 #include <stdexcept>
 #include <utility>
+#include <optional>
 #include <cassert>
 #include <climits>
 #include <iostream>
@@ -63,6 +64,75 @@ class ringbuffer_stopped : public std::runtime_error
 public:
     ringbuffer_stopped() : std::runtime_error("ring buffer has been stopped") {}
 };
+
+namespace detail
+{
+
+/// Sentinel counterpart to @ref ringbuffer_iterator
+class ringbuffer_sentinel {};
+
+/**
+ * Basic iterator for @ref ringbuffer as well as ringbuffer-like classes: they
+ * must provide @c pop which either returns when data is available or throws
+ * @ref ringbuffer_stopped).
+ *
+ * This does not fully implement the iterator concept; it is suitable only for
+ * range-based for loops.
+ */
+template<typename Ringbuffer>
+class ringbuffer_iterator
+{
+private:
+    using value_type = decltype(std::declval<Ringbuffer>().pop());
+
+    Ringbuffer &owner;
+    std::optional<value_type> current; // nullopt once ring has stopped
+
+public:
+    explicit ringbuffer_iterator(Ringbuffer &owner);
+    bool operator!=(const ringbuffer_sentinel &);
+    ringbuffer_iterator &operator++();
+    value_type &&operator*();
+};
+
+template<typename Ringbuffer>
+ringbuffer_iterator<Ringbuffer>::ringbuffer_iterator(Ringbuffer &owner)
+    : owner(owner)
+{
+    ++*this;  // Load the first value
+}
+
+template<typename Ringbuffer>
+bool ringbuffer_iterator<Ringbuffer>::operator!=(const ringbuffer_sentinel &)
+{
+    return bool(current);
+}
+
+template<typename Ringbuffer>
+auto ringbuffer_iterator<Ringbuffer>::operator++() -> ringbuffer_iterator &
+{
+    /* Clear it first, so that we can reclaim the memory before making
+     * space available in the ringbuffer, which might cause another
+     * thread to allocate more memory.
+     */
+    current = std::nullopt;
+    try
+    {
+        current = owner.pop();
+    }
+    catch (ringbuffer_stopped &)
+    {
+    }
+    return *this;
+}
+
+template<typename Ringbuffer>
+auto ringbuffer_iterator<Ringbuffer>::operator*() -> value_type &&
+{
+    return std::move(*current);
+}
+
+} // namespace detail
 
 /**
  * Internal base class for @ref ringbuffer that is independent of the semaphore
@@ -399,6 +469,14 @@ public:
     const DataSemaphore &get_data_sem() const { return data_sem; }
     /// Get access to the free-space semaphore
     const SpaceSemaphore &get_space_sem() const { return space_sem; }
+
+    /**
+     * Begin iteration over the items in the ringbuffer. This does not
+     * return a full-blown iterator; it is only intended to be used for
+     * a range-based for loop.
+     */
+    detail::ringbuffer_iterator<ringbuffer> begin();
+    detail::ringbuffer_sentinel end();
 };
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
@@ -545,6 +623,18 @@ bool ringbuffer<T, DataSemaphore, SpaceSemaphore>::remove_producer()
     }
     else
         return false;
+}
+
+template<typename T, typename DataSemaphore, typename SpaceSemaphore>
+auto ringbuffer<T, DataSemaphore, SpaceSemaphore>::begin() -> detail::ringbuffer_iterator<ringbuffer>
+{
+    return detail::ringbuffer_iterator(*this);
+}
+
+template<typename T, typename DataSemaphore, typename SpaceSemaphore>
+detail::ringbuffer_sentinel ringbuffer<T, DataSemaphore, SpaceSemaphore>::end()
+{
+    return detail::ringbuffer_sentinel();
 }
 
 } // namespace spead2
