@@ -56,14 +56,20 @@ scratch rather than as edits to previous versions.
  .. code-block:: c++
 
     #include <cstdint>
+    #include <cstddef>
+    #include <utility>
+    #include <string>
     #include <iostream>
     #include <iomanip>
     #include <algorithm>
+    #include <memory>
     #include <numeric>
     #include <unistd.h>
     #include <boost/asio.hpp>
+    #include <spead2/common_defines.h>
     #include <spead2/common_ringbuffer.h>
     #include <spead2/common_thread_pool.h>
+    #include <spead2/recv_stream.h>
     #include <spead2/recv_chunk_stream.h>
     #include <spead2/recv_udp.h>
 

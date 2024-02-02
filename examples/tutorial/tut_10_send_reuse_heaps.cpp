@@ -15,17 +15,19 @@
  */
 
 #include <cstdint>
+#include <cstddef>
 #include <string>
 #include <vector>
 #include <utility>
 #include <chrono>
 #include <iostream>
 #include <algorithm>
-#include <memory>
+#include <future>
 #include <optional>
 #include <unistd.h>
 #include <boost/asio.hpp>
 #include <spead2/common_defines.h>
+#include <spead2/common_flavour.h>
 #include <spead2/common_endian.h>
 #include <spead2/common_thread_pool.h>
 #include <spead2/send_heap.h>

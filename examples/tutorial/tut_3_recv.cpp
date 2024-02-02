@@ -16,6 +16,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstddef>
 #include <iostream>
 #include <iomanip>
 #include <boost/asio.hpp>

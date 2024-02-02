@@ -34,6 +34,7 @@ We'll start with some boilerplate:
     #include <utility>
     #include <boost/asio.hpp>
     #include <spead2/common_defines.h>
+    #include <spead2/common_flavour.h>
     #include <spead2/common_thread_pool.h>
     #include <spead2/send_heap.h>
     #include <spead2/send_stream_config.h>

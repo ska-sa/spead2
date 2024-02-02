@@ -32,6 +32,7 @@ number a command-line argument instead of being hard-coded to 8888.
  .. code-block:: c++
 
     #include <unistd.h>
+    #include <string>
     ...
     static void usage(const char *name)
     {
@@ -111,6 +112,9 @@ pool, we need to specify a few parameters:
 
  .. code-block:: c++
     :dedent: 0
+
+    #include <spead2/common_memory_pool.h>
+    ...
 
         spead2::recv::stream_config config;
         config.set_max_heaps(2);

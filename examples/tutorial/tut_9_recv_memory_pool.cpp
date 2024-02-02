@@ -16,12 +16,15 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstddef>
 #include <iostream>
 #include <iomanip>
 #include <unistd.h>
+#include <string>
 #include <boost/asio.hpp>
 #include <spead2/common_ringbuffer.h>
 #include <spead2/common_thread_pool.h>
+#include <spead2/common_memory_pool.h>
 #include <spead2/recv_ring_stream.h>
 #include <spead2/recv_udp.h>
 #include <spead2/recv_heap.h>

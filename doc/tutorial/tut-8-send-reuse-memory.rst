@@ -115,6 +115,8 @@ that is already complete.
 
  .. code-block:: c++
 
+    #include <future>
+    ...
     struct state
     {
         ...

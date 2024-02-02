@@ -108,6 +108,9 @@ the loop for initialising ``states``.
  .. code-block:: c++
     :dedent: 0
 
+    #include <cstddef>
+    ...
+
         std::vector<state> states(config.get_max_heaps());
         for (std::size_t i = 0; i < states.size(); i++)
         {
