@@ -1,6 +1,29 @@
 Changelog
 =========
 
+.. rubric:: 4.2.0
+
+- Significantly speed up transmission when using the Linux kernel networking
+  stack, by using generic segmentation offload.
+- Speed up transmission for small packets (20% in some cases).
+- Make :cpp:func:`~spead2::send::stream::async_send_heap` and
+  :cpp:func:`~spead2::send::stream::async_send_heaps` accept completion
+  tokens. This allows for code like
+  ``stream.async_send_heap(heap, boost::asio::use_future);``
+- Add C++ support to iterate over :cpp:class:`~spead2::recv::ring_stream` and
+  :cpp:class:`~spead2::ringbuffer` using a range-based ``for`` loop.
+- Add support for the `prefer_huge` argument to the :py:class:`~.MmapAllocator`
+  constructor in Python.
+- Make the `allocator` argument to :py:class:`~.MemoryPool` optional in
+  Python.
+- Allow indexing a :py:class:`~.HeapReferenceList` with a slice to create a
+  new :py:class:`~.HeapReferenceList` with a subset of the heaps.
+- Add :cpp:class:`~spead2::ringbuffer` to the C++ documentation.
+- Eliminate use of the deprecated :cpp:var:`!boost::asio::null_buffers`.
+- Update Boost version in wheels to 1.84.
+- Update rdma-core version in manylinux wheels to 49.0.
+- Make various updates to the Github Actions infrastructure.
+
 .. rubric:: 4.1.1
 
 - Add AVX and AVX-512 implementations for non-temporal memory copy. While this
