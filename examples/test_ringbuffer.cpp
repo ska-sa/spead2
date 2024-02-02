@@ -111,15 +111,9 @@ template<typename Ringbuffer>
 static void reader(Ringbuffer &ring, const options &opts)
 {
     bind_cpu(opts.consumer_cpu);
-    try
+    for (const auto &item : ring)
     {
-        while (true)
-        {
-            ring.pop();
-        }
-    }
-    catch (spead2::ringbuffer_stopped &)
-    {
+        // Do nothing with it
     }
 }
 

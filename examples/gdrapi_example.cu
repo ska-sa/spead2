@@ -211,38 +211,30 @@ int main()
             boost::asio::ip::address_v4(),
             8888));
 
-    while (true)
+    for (spead2::recv::heap heap : stream)
     {
-        try
+        for (const auto &item : heap.get_items())
         {
-            spead2::recv::heap heap = stream.pop();
-            for (const auto &item : heap.get_items())
+            // spead2_send sends the first item with ID 0x1000
+            if (item.id == 0x1000 && !item.is_immediate)
             {
-                // spead2_send sends the first item with ID 0x1000
-                if (item.id == 0x1000 && !item.is_immediate)
-                {
-                    const gdrapi_memory_allocator::pointer &ptr = heap.get_payload();
-                    /* The item might not be at the start of the payload (e.g.
-                     * if there are descriptors. Determine the offset in the
-                     * CPU mapping, and apply it to the GPU pointer.
-                     */
-                    std::size_t offset = item.ptr - ptr.get();
-                    void *dptr = static_cast<std::uint8_t *>(raw_alloc->get_device_ptr(ptr)) + offset;
-                    /* Sum up the elements, and print the average. This ignores
-                     * the fact that the elements are big endian, but
-                     * byte-swapped random numbers are still random numbers.
-                     */
-                    int n = item.length / sizeof(std::uint32_t);
-                    sum<<<1, 1>>>(reinterpret_cast<std::uint32_t *>(dptr), dsum, n);
-                    unsigned long long hsum = 0;
-                    CUDA_CHECK(cudaMemcpy(&hsum, dsum, sizeof(hsum), cudaMemcpyDeviceToHost));
-                    std::cout << std::fixed << double(hsum) / n << '\n';
-                }
+                const gdrapi_memory_allocator::pointer &ptr = heap.get_payload();
+                /* The item might not be at the start of the payload (e.g.
+                 * if there are descriptors. Determine the offset in the
+                 * CPU mapping, and apply it to the GPU pointer.
+                 */
+                std::size_t offset = item.ptr - ptr.get();
+                void *dptr = static_cast<std::uint8_t *>(raw_alloc->get_device_ptr(ptr)) + offset;
+                /* Sum up the elements, and print the average. This ignores
+                 * the fact that the elements are big endian, but
+                 * byte-swapped random numbers are still random numbers.
+                 */
+                int n = item.length / sizeof(std::uint32_t);
+                sum<<<1, 1>>>(reinterpret_cast<std::uint32_t *>(dptr), dsum, n);
+                unsigned long long hsum = 0;
+                CUDA_CHECK(cudaMemcpy(&hsum, dsum, sizeof(hsum), cudaMemcpyDeviceToHost));
+                std::cout << std::fixed << double(hsum) / n << '\n';
             }
-        }
-        catch (spead2::ringbuffer_stopped &)
-        {
-            break;
         }
     }
 }
