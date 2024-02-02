@@ -358,18 +358,10 @@ int main(int argc, const char **argv)
     if (opts.receiver.ring)
     {
         auto &stream = dynamic_cast<spead2::recv::ring_stream<> &>(*streams[0]);
-        while (true)
+        for (spead2::recv::heap fh : stream)
         {
-            try
-            {
-                spead2::recv::heap fh = stream.pop();
-                n_complete++;
-                show_heap(fh, opts);
-            }
-            catch (spead2::ringbuffer_stopped &e)
-            {
-                break;
-            }
+            n_complete++;
+            show_heap(fh, opts);
         }
     }
     else

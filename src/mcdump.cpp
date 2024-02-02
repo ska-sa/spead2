@@ -315,17 +315,7 @@ void writer::close()
     writer_threads.clear();
     // free memory
     free_ring.stop();
-    while (true)
-    {
-        try
-        {
-            free_ring.pop();
-        }
-        catch (spead2::ringbuffer_stopped &)
-        {
-            break;
-        }
-    }
+    for ([[maybe_unused]] auto &&dummy : free_ring) {}
     // flush always writes the entire buffer (possibly necessary for O_DIRECT),
     // so truncate back to the actual desired size
     if (ftruncate(fd, total_bytes) != 0)
@@ -363,34 +353,26 @@ void writer::writer_thread(int affinity)
     {
         if (affinity >= 0)
             spead2::thread_pool::set_affinity(affinity);
-        while (true)
+        for (buffer b : ring)
         {
-            try
+            std::uint8_t *ptr = b.data.get();
+            std::size_t remain = buffer_size;
+            off_t offset = b.offset;
+            while (remain > 0)
             {
-                buffer b = ring.pop();
-                std::uint8_t *ptr = b.data.get();
-                std::size_t remain = buffer_size;
-                off_t offset = b.offset;
-                while (remain > 0)
+                ssize_t ret = pwrite(fd, ptr, remain, offset);
+                if (ret < 0)
                 {
-                    ssize_t ret = pwrite(fd, ptr, remain, offset);
-                    if (ret < 0)
-                    {
-                        if (errno == EINTR)
-                            continue;
-                        spead2::throw_errno("write failed");
-                    }
-                    ptr += ret;
-                    remain -= ret;
-                    offset += ret;
+                    if (errno == EINTR)
+                        continue;
+                    spead2::throw_errno("write failed");
                 }
-                b.length = 0;
-                free_ring.push(std::move(b));
+                ptr += ret;
+                remain -= ret;
+                offset += ret;
             }
-            catch (spead2::ringbuffer_stopped &)
-            {
-                break;
-            }
+            b.length = 0;
+            free_ring.push(std::move(b));
         }
     }
     catch (std::exception &e)
@@ -559,24 +541,16 @@ void capture_base::collect_thread()
         file_header header;
         header.snaplen = opts.snaplen;
         w->write(&header, sizeof(header));
-        while (true)
+        for (chunk c : ring)
         {
-            try
-            {
-                chunk c = ring.pop();
-                std::uint32_t n_iov = 2 * c.n_records;
-                for (std::uint32_t i = 0; i < n_iov; i++)
-                    w->write(c.iov[i].iov_base, c.iov[i].iov_len);
+            std::uint32_t n_iov = 2 * c.n_records;
+            for (std::uint32_t i = 0; i < n_iov; i++)
+                w->write(c.iov[i].iov_base, c.iov[i].iov_len);
 
-                chunk_done(std::move(c));
-            }
-            catch (spead2::ringbuffer_stopped &)
-            {
-                free_ring.stop();
-                w->close();
-                break;
-            }
+            chunk_done(std::move(c));
         }
+        free_ring.stop();
+        w->close();
     }
     catch (std::exception &e)
     {

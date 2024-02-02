@@ -111,7 +111,7 @@ template<typename Ringbuffer>
 static void reader(Ringbuffer &ring, const options &opts)
 {
     bind_cpu(opts.consumer_cpu);
-    for (const auto &item : ring)
+    for ([[maybe_unused]] auto &&item : ring)
     {
         // Do nothing with it
     }
