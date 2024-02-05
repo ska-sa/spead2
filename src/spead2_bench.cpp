@@ -536,15 +536,9 @@ public:
     {
         consumer = std::thread([this] ()
         {
-            try
+            for ([[maybe_unused]] auto &&heap : stream)
             {
-                while (true)
-                {
-                    stream.pop();
-                    num_heaps++;
-                }
-            } catch (spead2::ringbuffer_stopped &e)
-            {
+                num_heaps++;
             }
         });
     }

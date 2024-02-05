@@ -33,7 +33,8 @@ of editable installs. Also install the development runtime dependencies:
 
 .. code-block:: sh
 
-   pip install -r requirements.txt -r requirements-3.12.txt
+   pip install -r requirements.txt       # If Python < 3.12
+   pip install -r requirements-3.12.txt  # If Python >= 3.12
 
 Now you should be able to run the unit tests by executing :command:`pytest`.
 It is expected that some tests will be skipped, because they require specific

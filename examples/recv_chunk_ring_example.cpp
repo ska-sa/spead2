@@ -1,4 +1,4 @@
-/* Copyright 2021, 2023 National Research Foundation (SARAO)
+/* Copyright 2021, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -81,22 +81,14 @@ int main()
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
     stream.emplace_reader<spead2::recv::udp_reader>(
         endpoint, spead2::recv::udp_reader::default_max_size, 1024 * 1024);
-    while (true)
+    for (auto chunk : *data_ring)
     {
-        try
-        {
-            auto chunk = data_ring->pop();
-            auto n_present = std::accumulate(
-                chunk->present.get(),
-                chunk->present.get() + chunk->present_size, std::size_t(0));
-            std::cout << "Received chunk " << chunk->chunk_id << " with "
-                << n_present << " / " << heaps_per_chunk << " heaps\n";
-            stream.add_free_chunk(std::move(chunk));
-        }
-        catch (spead2::ringbuffer_stopped &)
-        {
-            break;
-        }
+        auto n_present = std::accumulate(
+            chunk->present.get(),
+            chunk->present.get() + chunk->present_size, std::size_t(0));
+        std::cout << "Received chunk " << chunk->chunk_id << " with "
+            << n_present << " / " << heaps_per_chunk << " heaps\n";
+        stream.add_free_chunk(std::move(chunk));
     }
 
     return 0;

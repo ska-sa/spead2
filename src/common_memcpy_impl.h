@@ -15,7 +15,9 @@
  */
 
 /**
- * @file Non-temporal memcpy implementation. This header file is included
+ * @file
+ *
+ * Non-temporal memcpy implementation. This header file is included
  * multiple times, with the including code providing different macros each
  * time. While C++ metaprogramming would have been preferable, GCC does not
  * provide a way to specialise a template function based on the target

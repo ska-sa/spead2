@@ -29,3 +29,12 @@ Ringbuffer convenience API
 
 .. doxygenclass:: spead2::recv::chunk_ring_stream
    :members: chunk_ring_stream, add_free_chunk, get_data_ringbuffer, get_free_ringbuffer
+
+.. doxygenclass:: spead2::ringbuffer
+   :members:
+
+.. doxygenclass:: spead2::ringbuffer_empty
+
+.. doxygenclass:: spead2::ringbuffer_full
+
+.. doxygenclass:: spead2::ringbuffer_stopped

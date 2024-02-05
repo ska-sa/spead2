@@ -160,8 +160,16 @@ public:
      * Start iteration over the heaps in the ringbuffer. This does not return a
      * full-fledged iterator. It is intended only to enable a range-based for
      * loop over the stream, and any other use of the iterator is unsupported.
+     *
+     * For example:
+     * <code>
+     * for (spead2::recv::heap heap : stream) { ... }
+     * </code>
      */
     spead2::detail::ringbuffer_iterator<ring_stream> begin();
+    /**
+     * End iterator (see @ref begin).
+     */
     spead2::detail::ringbuffer_sentinel end();
 };
 

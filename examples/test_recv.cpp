@@ -127,18 +127,10 @@ void show_heap(const spead2::recv::heap &fheap)
     boost::asio::ip::udp::endpoint endpoint(boost::asio::ip::address_v4::any(), 8888);
     stream.emplace_reader<spead2::recv::udp_reader>(
         endpoint, spead2::recv::udp_reader::default_max_size, 8 * 1024 * 1024);
-    while (true)
+    for (spead2::recv::heap fh : stream)
     {
-        try
-        {
-            spead2::recv::heap fh = stream.pop();
-            n_complete++;
-            show_heap(fh);
-        }
-        catch (spead2::ringbuffer_stopped &e)
-        {
-            break;
-        }
+        n_complete++;
+        show_heap(fh);
     }
 }
 

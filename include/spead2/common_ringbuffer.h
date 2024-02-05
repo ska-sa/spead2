@@ -473,9 +473,13 @@ public:
     /**
      * Begin iteration over the items in the ringbuffer. This does not
      * return a full-blown iterator; it is only intended to be used for
-     * a range-based for loop.
+     * a range-based for loop. For example:
+     * <code>for (auto &&item : ringbuffer) { ... }</code>
      */
     detail::ringbuffer_iterator<ringbuffer> begin();
+    /**
+     * End iterator (see @ref begin).
+     */
     detail::ringbuffer_sentinel end();
 };
 
