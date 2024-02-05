@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.4
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
       - uses: actions/setup-python@v5
@@ -100,7 +100,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.4
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
       - uses: actions/setup-python@v5
@@ -143,7 +143,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.4
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
       - uses: actions/setup-python@v5
@@ -200,7 +200,7 @@ jobs:
           cache: 'pip'
       - uses: actions/checkout@v4
       - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.4
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
       - uses: actions/setup-python@v5
@@ -245,7 +245,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.4
       - uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
@@ -276,7 +276,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
+        uses: mozilla-actions/sccache-action@v0.0.4
       - uses: pypa/cibuildwheel@v2.16.4
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
