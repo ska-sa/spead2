@@ -28,7 +28,6 @@
 #include <spead2/recv_heap.h>
 #include <spead2/recv_stream.h>
 #include <utility>
-#include <optional>
 
 namespace spead2::recv
 {
