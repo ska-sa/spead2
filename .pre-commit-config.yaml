@@ -38,7 +38,7 @@ repos:
         # TODO: unify the versions once Python 3.8 support is dropped
         additional_dependencies: [
           'numpy==1.24.4; python_version<"3.12.0rc1"',
-          'numpy==1.26.0; python_version>="3.12.0rc1"'
+          'numpy==1.26.3; python_version>="3.12.0rc1"'
         ]
   - repo: https://github.com/jazzband/pip-tools
     rev: 7.1.0
@@ -52,6 +52,6 @@ repos:
     hooks:
       - name: pip-compile (py 3.12)
         id: pip-compile
-        args: [-c, requirements.txt, requirements.in, -o, requirements-3.12.txt]
+        args: [requirements.in, -o, requirements-3.12.txt]
         language_version: python3.12
         files: '^requirements.*\.(?:in|txt)$'

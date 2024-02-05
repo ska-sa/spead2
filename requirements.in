@@ -1,10 +1,7 @@
-# llvmlite is a dependency of numba; we list it explicitly to get the marker in the output
-llvmlite; python_version<"3.12.0rc1"
 netifaces
-numba; python_version<"3.12.0rc1"
-numpy; python_version<"3.12.0rc1"
-numpy==1.26.0; python_version>="3.12.0rc1"
+numba
+numpy
 pytest
 pytest-asyncio
 pytest-timeout
-scipy; python_version<"3.12.0rc1"
+scipy
