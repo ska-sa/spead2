@@ -1,6 +1,12 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Add ability to override the transmission rate for individual heaps.
+- Fix missing type annotation on the `substream_index` argument to
+  :py:meth:`~.SyncStream.send_heap`.
+
 .. rubric:: 4.2.0
 
 - Significantly speed up transmission when using the Linux kernel networking
