@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2021, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2021, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
