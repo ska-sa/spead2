@@ -836,15 +836,16 @@ py::module register_module(py::module &parent)
         .value("SERIAL", group_mode::SERIAL);
 
     py::class_<heap_reference>(m, "HeapReference")
-        .def(py::init<const heap_wrapper &, s_item_pointer_t, std::size_t>(),
-             "heap"_a, py::kw_only(), "cnt"_a = -1, "substream_index"_a = 0,
+        .def(py::init<const heap_wrapper &, s_item_pointer_t, std::size_t, double>(),
+             "heap"_a, py::kw_only(), "cnt"_a = -1, "substream_index"_a = 0, "rate"_a = -1.0,
              py::keep_alive<1, 2>())
         .def_property_readonly(
             "heap",
             [](const heap_reference &h) { return static_cast<const heap_wrapper *>(&h.heap); },
             py::return_value_policy::reference)
         .def_readwrite("cnt", &heap_reference::cnt)
-        .def_readwrite("substream_index", &heap_reference::substream_index);
+        .def_readwrite("substream_index", &heap_reference::substream_index)
+        .def_readwrite("rate", &heap_reference::rate);
 
     py::class_<heap_reference_list>(m, "HeapReferenceList")
         .def(py::init<std::vector<heap_reference>>(), "heaps"_a)
