@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -79,6 +79,9 @@ stream::stream(std::unique_ptr<writer> &&w)
     queue_mask(compute_queue_mask(queue_size)),
     num_substreams(w->get_num_substreams()),
     max_packet_size(w->config.get_max_packet_size()),
+    default_wait_per_byte(
+        std::chrono::duration<double>(w->config.get_rate() > 0.0 ? 1.0 / w->config.get_rate() : 0.0)
+    ),
     w(std::move(w)),
     queue(new queue_item_storage[queue_mask + 1])
 {

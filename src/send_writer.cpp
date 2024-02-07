@@ -1,4 +1,4 @@
-/* Copyright 2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2020, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -31,12 +31,15 @@
 namespace spead2::send
 {
 
-writer::precise_time::precise_time(const coarse_type &coarse)
+namespace detail
+{
+
+precise_time::precise_time(const coarse_type &coarse)
     : coarse(coarse), correction(0.0)
 {
 }
 
-void writer::precise_time::normalize()
+void precise_time::normalize()
 {
     auto floor = std::chrono::duration_cast<coarse_type::duration>(correction);
     if (correction < floor)
@@ -45,17 +48,19 @@ void writer::precise_time::normalize()
     correction -= floor;
 }
 
-writer::precise_time &writer::precise_time::operator+=(const correction_type &delta)
+precise_time &precise_time::operator+=(const correction_type &delta)
 {
     correction += delta;
     normalize();
     return *this;
 }
 
-bool writer::precise_time::operator<(const precise_time &other) const
+bool precise_time::operator<(const precise_time &other) const
 {
     return std::tie(coarse, correction) < std::tie(other.coarse, other.correction);
 }
+
+} // namespace detail
 
 void writer::set_owner(stream *owner)
 {
@@ -72,10 +77,9 @@ void writer::enable_hw_rate()
 
 writer::timer_type::time_point writer::update_send_times(timer_type::time_point now)
 {
-    send_time_burst += rate_wait_burst;
+    send_time_burst += rate_wait / config.get_burst_rate_ratio();
     send_time += rate_wait;
     rate_bytes = 0;
-    rate_wait_burst = rate_wait_burst.zero();
     rate_wait = rate_wait.zero();
 
     /* send_time_burst needs to reflect the time the burst
@@ -141,8 +145,7 @@ writer::packet_result writer::get_packet(transmit_packet &data, std::uint8_t *sc
     if (!hw_rate)
     {
         rate_bytes += data.size;
-        rate_wait += data.size * wait_per_byte;
-        rate_wait_burst += data.size * wait_per_byte_burst;
+        rate_wait += data.size * cur->wait_per_byte;
     }
     data.last = false;
 
@@ -303,16 +306,6 @@ void writer::post_wakeup()
 
 writer::writer(io_service_ref io_service, const stream_config &config)
     : config(config),
-    wait_per_byte_burst(
-        std::chrono::duration<double>(
-            config.get_burst_rate() > 0.0 ? 1.0 / config.get_burst_rate() : 0.0
-        )
-    ),
-    wait_per_byte(
-        std::chrono::duration<double>(
-            config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0
-        )
-    ),
     io_service(std::move(io_service)),
     timer(*this->io_service)
 {
