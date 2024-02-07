@@ -444,6 +444,11 @@ public:
      * contribute to a single stream and must keep their heap cnts disjoint,
      * which the automatic assignment would not do.
      *
+     * The transmission rate may be overridden using the optional @a rate
+     * parameter. If it is negative, the stream's rate applies, if it is zero
+     * there is no rate limiting, and if it is positive it specifies the rate
+     * in bytes per second.
+     *
      * Some streams may contain multiple substreams, each with a different
      * destination. In this case, @a substream_index selects the substream to
      * use.
@@ -453,7 +458,8 @@ public:
      */
     bool async_send_heap(const heap &h, completion_handler handler,
                          s_item_pointer_t cnt = -1,
-                         std::size_t substream_index = 0);
+                         std::size_t substream_index = 0,
+                         double rate = -1.0);
 
     /**
      * Send @a h asynchronously, with an arbitrary completion token. This
@@ -471,12 +477,13 @@ public:
                          std::enable_if_t<
                             !std::is_convertible_v<CompletionToken, completion_handler>,
                             std::size_t
-                         > substream_index = 0)
+                         > substream_index = 0,
+                         double rate = -1.0)
     {
-        auto init = [this, &h, cnt, substream_index](auto handler)
+        auto init = [this, &h, cnt, substream_index, rate](auto handler)
         {
             // Explicit this-> is to work around bogus warning from clang
-            this->async_send_heap(h, std::move(handler), cnt, substream_index);
+            this->async_send_heap(h, std::move(handler), cnt, substream_index, rate);
         };
         return boost::asio::async_initiate<
             CompletionToken, void(const boost::system::error_code &, item_pointer_t)

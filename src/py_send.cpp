@@ -170,7 +170,11 @@ public:
     using Base::Base;
 
     /// Sends heap synchronously
-    item_pointer_t send_heap(const heap_wrapper &h, s_item_pointer_t cnt = -1, std::size_t substream_index = 0)
+    item_pointer_t send_heap(
+        const heap_wrapper &h,
+        s_item_pointer_t cnt = -1,
+        std::size_t substream_index = 0,
+        double rate = -1.0)
     {
         /* The semaphore state needs to be in shared_ptr because if we are
          * interrupted and throw an exception, it still needs to exist until
@@ -182,7 +186,7 @@ public:
             state->ec = ec;
             state->bytes_transferred = bytes_transferred;
             state->sem.put();
-        }, cnt, substream_index);
+        }, cnt, substream_index, rate);
         semaphore_get(state->sem, gil_release_tag());
         if (state->ec)
             throw boost_io_error(state->ec);
@@ -266,8 +270,12 @@ public:
 
     int get_fd() const { return sem.get_fd(); }
 
-    bool async_send_heap_obj(py::object h, py::object callback,
-                             s_item_pointer_t cnt = -1, std::size_t substream_index = 0)
+    bool async_send_heap_obj(
+        py::object h,
+        py::object callback,
+        s_item_pointer_t cnt = -1,
+        std::size_t substream_index = 0,
+        double rate = -1.0)
     {
         /* Normally the callback should not refer to this, since it could have
          * been reaped by the time the callback occurs. We rely on Python to
@@ -288,7 +296,7 @@ public:
             {
                 handler(callback_ptr, {h_ptr}, ec, bytes_transferred);
             },
-            cnt, substream_index);
+            cnt, substream_index, rate);
     }
 
     bool async_send_heaps_obj(const std::vector<heap_reference> &heaps,
@@ -775,7 +783,8 @@ static void sync_stream_register(py::class_<T, stream> &stream_class)
     using namespace pybind11::literals;
     stream_class.def("send_heap", &T::send_heap,
                      "heap"_a, "cnt"_a = s_item_pointer_t(-1),
-                     "substream_index"_a = std::size_t(0));
+                     "substream_index"_a = std::size_t(0),
+                     "rate"_a = -1.0);
     stream_class.def("send_heaps", &T::send_heaps_hrl,
                      "heaps"_a, "mode"_a);
     stream_class.def("send_heaps", &T::send_heaps,
@@ -790,7 +799,8 @@ static void async_stream_register(py::class_<T, stream> &stream_class)
         .def_property_readonly("fd", &T::get_fd)
         .def("async_send_heap", &T::async_send_heap_obj,
              "heap"_a, "callback"_a, "cnt"_a = s_item_pointer_t(-1),
-             "substream_index"_a = std::size_t(0))
+             "substream_index"_a = std::size_t(0),
+             "rate"_a = -1.0)
         .def("async_send_heaps", &T::async_send_heaps_hrl,
              "heaps"_a, "callback"_a, "mode"_a)
         .def("async_send_heaps", &T::async_send_heaps_obj,

@@ -65,7 +65,7 @@ def _wrap_class(name, base_class):
                 self._last_queued_future = future
             return future
 
-        def async_send_heap(self, heap, cnt=-1, substream_index=0):
+        def async_send_heap(self, heap, cnt=-1, substream_index=0, rate=-1.0):
             """Send a heap asynchronously. Note that this is *not* a coroutine:
             it returns a future. Adding the heap to the queue is done
             synchronously, to ensure proper ordering.
@@ -78,9 +78,14 @@ def _wrap_class(name, base_class):
                 Heap cnt to send (defaults to auto-incrementing)
             substream_index : int, optional
                 Substream on which to send the heap
+            rate : float, optional
+                Rate at which to send the heap (defaults to the stream's
+                rate).
             """
             meth = super().async_send_heap
-            return self._async_send(lambda callback: meth(heap, callback, cnt, substream_index))
+            return self._async_send(
+                lambda callback: meth(heap, callback, cnt, substream_index, rate)
+            )
 
         def async_send_heaps(self, heaps, mode):
             meth = super().async_send_heaps

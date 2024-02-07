@@ -122,9 +122,10 @@ void stream::set_cnt_sequence(item_pointer_t next, item_pointer_t step)
 
 bool stream::async_send_heap(const heap &h, completion_handler handler,
                              s_item_pointer_t cnt,
-                             std::size_t substream_index)
+                             std::size_t substream_index,
+                             double rate)
 {
-    heap_reference ref(h, cnt, substream_index);
+    heap_reference ref(h, cnt, substream_index, rate);
     return async_send_heaps_impl<null_unwinder>(
         &ref, &ref + 1, std::move(handler), group_mode::SERIAL);
 }
