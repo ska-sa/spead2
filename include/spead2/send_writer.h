@@ -93,6 +93,7 @@ private:
      */
     class precise_time
     {
+    public:
         using coarse_type = timer_type::time_point;
         using correction_type = std::chrono::duration<double, timer_type::time_point::period>;
     private:
@@ -110,7 +111,7 @@ private:
     };
 
     const stream_config config;    // TODO: probably doesn't need the whole thing
-    const double seconds_per_byte_burst, seconds_per_byte;
+    const precise_time::correction_type wait_per_byte_burst, wait_per_byte;
 
     io_service_ref io_service;
 
@@ -126,6 +127,10 @@ private:
     bool must_sleep = false;
     /// Number of bytes sent since send_time and sent_time_burst were updated
     std::uint64_t rate_bytes = 0;
+    /// Amount to add to send_time_burst on next update
+    precise_time::correction_type rate_wait_burst{0};
+    /// Amount to add to send_time on next update
+    precise_time::correction_type rate_wait{0};
 
     // Local copies of the head/tail pointers from the owning stream,
     // accessible without a lock.

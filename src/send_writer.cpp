@@ -72,11 +72,11 @@ void writer::enable_hw_rate()
 
 writer::timer_type::time_point writer::update_send_times(timer_type::time_point now)
 {
-    std::chrono::duration<double> wait_burst(rate_bytes * seconds_per_byte_burst);
-    std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
-    send_time_burst += wait_burst;
-    send_time += wait;
+    send_time_burst += rate_wait_burst;
+    send_time += rate_wait;
     rate_bytes = 0;
+    rate_wait_burst = rate_wait_burst.zero();
+    rate_wait = rate_wait.zero();
 
     /* send_time_burst needs to reflect the time the burst
      * was actually sent (as well as we can estimate it), even if
@@ -94,9 +94,8 @@ void writer::update_send_time_empty()
      * transmitted now. The calculations are mostly done without using
      * precise_time, because "now" is coarse to start with.
      */
-    std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
-    auto wait2 = std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
-    timer_type::time_point backdate = now - wait2;
+    auto wait = std::chrono::duration_cast<timer_type::clock_type::duration>(rate_wait);
+    timer_type::time_point backdate = now - wait;
     send_time = std::max(send_time, precise_time(backdate));
 }
 
@@ -140,7 +139,11 @@ writer::packet_result writer::get_packet(transmit_packet &data, std::uint8_t *sc
     // in one place.
     data.item = get_owner()->get_queue(active_start);
     if (!hw_rate)
+    {
         rate_bytes += data.size;
+        rate_wait += data.size * wait_per_byte;
+        rate_wait_burst += data.size * wait_per_byte_burst;
+    }
     data.last = false;
 
     switch (cur->mode)
@@ -300,8 +303,16 @@ void writer::post_wakeup()
 
 writer::writer(io_service_ref io_service, const stream_config &config)
     : config(config),
-    seconds_per_byte_burst(config.get_burst_rate() > 0.0 ? 1.0 / config.get_burst_rate() : 0.0),
-    seconds_per_byte(config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0),
+    wait_per_byte_burst(
+        std::chrono::duration<double>(
+            config.get_burst_rate() > 0.0 ? 1.0 / config.get_burst_rate() : 0.0
+        )
+    ),
+    wait_per_byte(
+        std::chrono::duration<double>(
+            config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0
+        )
+    ),
     io_service(std::move(io_service)),
     timer(*this->io_service)
 {
