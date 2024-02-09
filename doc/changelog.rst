@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 4.3.0
 
 - Add ability to override the transmission rate for individual heaps.
 - Fix missing type annotation on the `substream_index` argument to
