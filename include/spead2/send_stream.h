@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -69,9 +69,15 @@ struct heap_reference
     const send::heap &heap;
     s_item_pointer_t cnt;
     std::size_t substream_index;
+    double rate;
 
-    heap_reference(const send::heap &heap, s_item_pointer_t cnt = -1, std::size_t substream_index = 0)
-        : heap(heap), cnt(cnt), substream_index(substream_index)
+    heap_reference(
+        const send::heap &heap,
+        s_item_pointer_t cnt = -1,
+        std::size_t substream_index = 0,
+        double rate = -1.0  // negative means to use the stream's rate
+    )
+        : heap(heap), cnt(cnt), substream_index(substream_index), rate(rate)
     {
     }
 };
@@ -91,6 +97,11 @@ static inline std::size_t get_heap_substream_index(const heap &)
     return 0;
 }
 
+static inline double get_heap_rate(const heap &)
+{
+    return -1.0;
+}
+
 static inline const heap &get_heap(const heap_reference &ref)
 {
     return ref.heap;
@@ -104,6 +115,11 @@ static inline s_item_pointer_t get_heap_cnt(const heap_reference &ref)
 static inline std::size_t get_heap_substream_index(const heap_reference &ref)
 {
     return ref.substream_index;
+}
+
+static inline double get_heap_rate(const heap_reference &ref)
+{
+    return ref.rate;
 }
 
 namespace detail
@@ -128,6 +144,7 @@ struct queue_item
     std::size_t group_next;
     // Type of group
     group_mode mode;
+    precise_time::correction_type wait_per_byte;
 
     // These fields are only relevant for the first item in a group
     item_pointer_t bytes_sent = 0;
@@ -138,10 +155,12 @@ struct queue_item
 
     queue_item(const heap &h, item_pointer_t cnt, std::size_t substream_index,
                std::size_t group_end, std::size_t group_next, group_mode mode,
-               std::size_t max_packet_size)
+               std::size_t max_packet_size,
+               precise_time::correction_type wait_per_byte)
         : gen(h, cnt, max_packet_size),
         substream_index(substream_index),
-        group_end(group_end), group_next(group_next), mode(mode)
+        group_end(group_end), group_next(group_next), mode(mode),
+        wait_per_byte(wait_per_byte)
     {
     }
 };
@@ -178,6 +197,8 @@ private:
     const std::size_t num_substreams;
     /// Maximum packet size, copied from the stream config
     const std::size_t max_packet_size;
+    /// Duration corresponding to one byte at the default rate
+    const detail::precise_time::correction_type default_wait_per_byte;
     /// Increment to next_cnt after each heap
     item_pointer_t step_cnt = 1;
     /// Writer backing the stream
@@ -287,6 +308,20 @@ private:
             const heap &h = get_heap(*it);
             s_item_pointer_t cnt = get_heap_cnt(*it);
             std::size_t substream_index = get_heap_substream_index(*it);
+            double rate = get_heap_rate(*it);
+            detail::precise_time::correction_type wait_per_byte;
+            if (rate == 0.0)
+            {
+                wait_per_byte = wait_per_byte.zero();
+            }
+            else if (rate > 0.0)
+            {
+                wait_per_byte = std::chrono::duration<double>(1.0 / rate);
+            }
+            else
+            {
+                wait_per_byte = default_wait_per_byte;
+            }
             if (substream_index >= num_substreams)
             {
                 unwind.abort();
@@ -322,7 +357,8 @@ private:
             // and repaired later if that's not the case.
             get_queue_storage(tail).construct(
                 h, cnt, substream_index, tail + 1, tail, mode,
-                max_packet_size);
+                max_packet_size,
+                wait_per_byte);
             tail++;
             unwind.set_tail(tail);
         }
@@ -408,6 +444,11 @@ public:
      * contribute to a single stream and must keep their heap cnts disjoint,
      * which the automatic assignment would not do.
      *
+     * The transmission rate may be overridden using the optional @a rate
+     * parameter. If it is negative, the stream's rate applies, if it is zero
+     * there is no rate limiting, and if it is positive it specifies the rate
+     * in bytes per second.
+     *
      * Some streams may contain multiple substreams, each with a different
      * destination. In this case, @a substream_index selects the substream to
      * use.
@@ -417,7 +458,8 @@ public:
      */
     bool async_send_heap(const heap &h, completion_handler handler,
                          s_item_pointer_t cnt = -1,
-                         std::size_t substream_index = 0);
+                         std::size_t substream_index = 0,
+                         double rate = -1.0);
 
     /**
      * Send @a h asynchronously, with an arbitrary completion token. This
@@ -435,12 +477,13 @@ public:
                          std::enable_if_t<
                             !std::is_convertible_v<CompletionToken, completion_handler>,
                             std::size_t
-                         > substream_index = 0)
+                         > substream_index = 0,
+                         double rate = -1.0)
     {
-        auto init = [this, &h, cnt, substream_index](auto handler)
+        auto init = [this, &h, cnt, substream_index, rate](auto handler)
         {
             // Explicit this-> is to work around bogus warning from clang
-            this->async_send_heap(h, std::move(handler), cnt, substream_index);
+            this->async_send_heap(h, std::move(handler), cnt, substream_index, rate);
         };
         return boost::asio::async_initiate<
             CompletionToken, void(const boost::system::error_code &, item_pointer_t)

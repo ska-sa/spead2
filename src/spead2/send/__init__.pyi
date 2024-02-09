@@ -1,4 +1,4 @@
-# Copyright 2019-2020 National Research Foundation (SARAO)
+# Copyright 2019-2021, 2023-2024 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -36,8 +36,11 @@ class Heap:
 class HeapReference:
     cnt: int
     substream_index: int
+    rate: float
 
-    def __init__(self, heap: Heap, *, cnt: int = ..., substream_index: int = ...) -> None: ...
+    def __init__(
+        self, heap: Heap, *, cnt: int = ..., substream_index: int = ..., rate: float = ...
+    ) -> None: ...
     @property
     def heap(self) -> Heap: ...
 
@@ -92,7 +95,9 @@ class Stream:
     def num_substreams(self) -> int: ...
 
 class SyncStream(Stream):
-    def send_heap(self, heap: Heap, cnt: int = ..., substream_index=...) -> None: ...
+    def send_heap(
+        self, heap: Heap, cnt: int = ..., substream_index: int = ..., rate: float = ...
+    ) -> None: ...
     def send_heaps(
         self, heaps: list[HeapReference] | HeapReferenceList, mode: GroupMode
     ) -> None: ...

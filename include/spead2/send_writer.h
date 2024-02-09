@@ -1,4 +1,4 @@
-/* Copyright 2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2020, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -34,6 +34,35 @@ namespace spead2::send
 
 namespace detail { struct queue_item; }
 class stream;
+
+namespace detail
+{
+
+/**
+ * A time with sub-nanosecond precision. See dev-send-rate-limit.rst for
+ * an explanation.
+ */
+class precise_time
+{
+public:
+    using timer_type = boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock>;
+    using coarse_type = timer_type::time_point;
+    using correction_type = std::chrono::duration<double, timer_type::time_point::period>;
+private:
+    coarse_type coarse{};
+    correction_type correction{0};
+
+    void normalize();  // ensure correction is in [0, 1)
+public:
+    precise_time() = default;
+    precise_time(const coarse_type &coarse);
+    precise_time &operator+=(const correction_type &delta);
+    bool operator<(const precise_time &other) const;
+
+    const coarse_type &get_coarse() const { return coarse; }
+};
+
+} // namespace detail
 
 /**
  * Back-end for a @ref stream. A writer is responsible for retrieving packets
@@ -86,31 +115,10 @@ protected:
 private:
     friend class stream;
 
-    typedef boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock> timer_type;
-    /**
-     * A time with sub-nanosecond precision. See dev-send-rate-limit.rst for
-     * an explanation.
-     */
-    class precise_time
-    {
-        using coarse_type = timer_type::time_point;
-        using correction_type = std::chrono::duration<double, timer_type::time_point::period>;
-    private:
-        coarse_type coarse{};
-        correction_type correction{0};
-
-        void normalize();  // ensure correction is in [0, 1)
-    public:
-        precise_time() = default;
-        precise_time(const coarse_type &coarse);
-        precise_time &operator+=(const correction_type &delta);
-        bool operator<(const precise_time &other) const;
-
-        const coarse_type &get_coarse() const { return coarse; }
-    };
+    using precise_time = detail::precise_time;
+    using timer_type = precise_time::timer_type;
 
     const stream_config config;    // TODO: probably doesn't need the whole thing
-    const double seconds_per_byte_burst, seconds_per_byte;
 
     io_service_ref io_service;
 
@@ -126,6 +134,8 @@ private:
     bool must_sleep = false;
     /// Number of bytes sent since send_time and sent_time_burst were updated
     std::uint64_t rate_bytes = 0;
+    /// Amount to add to send_time on next update
+    precise_time::correction_type rate_wait{0};
 
     // Local copies of the head/tail pointers from the owning stream,
     // accessible without a lock.

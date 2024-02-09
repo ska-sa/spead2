@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -79,6 +79,9 @@ stream::stream(std::unique_ptr<writer> &&w)
     queue_mask(compute_queue_mask(queue_size)),
     num_substreams(w->get_num_substreams()),
     max_packet_size(w->config.get_max_packet_size()),
+    default_wait_per_byte(
+        std::chrono::duration<double>(w->config.get_rate() > 0.0 ? 1.0 / w->config.get_rate() : 0.0)
+    ),
     w(std::move(w)),
     queue(new queue_item_storage[queue_mask + 1])
 {
@@ -119,9 +122,10 @@ void stream::set_cnt_sequence(item_pointer_t next, item_pointer_t step)
 
 bool stream::async_send_heap(const heap &h, completion_handler handler,
                              s_item_pointer_t cnt,
-                             std::size_t substream_index)
+                             std::size_t substream_index,
+                             double rate)
 {
-    heap_reference ref(h, cnt, substream_index);
+    heap_reference ref(h, cnt, substream_index, rate);
     return async_send_heaps_impl<null_unwinder>(
         &ref, &ref + 1, std::move(handler), group_mode::SERIAL);
 }
