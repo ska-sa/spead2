@@ -8,7 +8,7 @@ iniconfig==2.0.0
     # via pytest
 llvmlite==0.42.0
     # via numba
-netifaces==0.11.0
+netifaces2==0.0.21
     # via -r requirements.in
 numba==0.59.0
     # via -r requirements.in
@@ -32,3 +32,5 @@ pytest-timeout==2.2.0
     # via -r requirements.in
 scipy==1.12.0
     # via -r requirements.in
+typing-extensions==4.9.0
+    # via netifaces2
