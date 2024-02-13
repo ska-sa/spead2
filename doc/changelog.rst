@@ -1,7 +1,7 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 4.3.1
 
 - Switch from netifaces to netifaces2 for testing.
 - Update coverallsapp/github-action to v2.2.3.
