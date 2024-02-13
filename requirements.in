@@ -1,4 +1,4 @@
-netifaces
+netifaces2
 numba
 numpy
 pytest

@@ -1,6 +1,10 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Switch from netifaces to netifaces2 for testing.
+
 .. rubric:: 4.3.0
 
 - Add ability to override the transmission rate for individual heaps.

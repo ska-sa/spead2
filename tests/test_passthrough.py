@@ -1,4 +1,4 @@
-# Copyright 2015, 2019-2023 National Research Foundation (SARAO)
+# Copyright 2015, 2019-2024 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -15,6 +15,7 @@
 
 """Test that data can be passed over the SPEAD protocol using the various transports."""
 
+import functools
 import ipaddress
 import os
 import socket
@@ -555,11 +556,12 @@ class TestPassthroughUdp6Multicast(TestPassthroughUdp6):
     requires_ipv6_multicast = True
     MCAST_GROUP = "ff14::1234"
 
-    @classmethod
-    def get_interface_index(cls):
+    @staticmethod
+    @functools.lru_cache  # Cache to guarantee that calls get consistent results
+    def get_interface_index():
         if not hasattr(socket, "if_nametoindex"):
             pytest.skip("socket.if_nametoindex does not exist")
-        for iface in netifaces.interfaces():
+        for iface in sorted(netifaces.interfaces()):  # Sort to give repeatable results
             addrs = netifaces.ifaddresses(iface).get(netifaces.AF_INET6, [])
             for addr in addrs:
                 if addr["addr"] != "::1":
