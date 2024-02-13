@@ -5,6 +5,8 @@ Changelog
 
 - Switch from netifaces to netifaces2 for testing.
 - Update coverallsapp/github-action to v2.2.3.
+- Fix the type annotation for :py:class:`spead2.recv.StreamConfig` to allow
+  `explicit_start` to be passed as a constructor argument.
 
 .. rubric:: 4.3.0
 
