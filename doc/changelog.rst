@@ -1,6 +1,11 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Speed up receiving UDP with the Linux kernel network stack by using
+  generic receive offload (GRO).
+
 .. rubric:: 4.3.1
 
 - Switch from netifaces to netifaces2 for testing.

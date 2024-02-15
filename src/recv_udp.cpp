@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2019-2020, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -26,6 +26,7 @@
 # include <sys/socket.h>
 # include <sys/types.h>
 # include <unistd.h>
+# include <netinet/udp.h>
 #endif
 #include <system_error>
 #include <cstdint>
@@ -51,7 +52,7 @@ udp_reader::udp_reader(
     std::size_t max_size)
     : udp_reader_base(owner), max_size(max_size),
 #if SPEAD2_USE_RECVMMSG
-    buffer(mmsg_count), iov(mmsg_count), msgvec(mmsg_count),
+    buffers(mmsg_count), msgvec(mmsg_count), use_gro(false),
 #else
     buffer(new std::uint8_t[max_size + 1]),
 #endif
@@ -59,15 +60,30 @@ udp_reader::udp_reader(
 {
     assert(socket_uses_io_service(this->socket, get_io_service()));
 #if SPEAD2_USE_RECVMMSG
+    // Allocate one extra byte so that overflow can be detected.
+    size_t buffer_size = max_size + 1;
+#if SPEAD2_USE_GRO
+    {
+        int enable = 1;
+        if (setsockopt(this->socket.native_handle(), IPPROTO_UDP, UDP_GRO,
+                       &enable, sizeof(enable)) == 0)
+        {
+            use_gro = true;
+            buffer_size = 65536;
+        }
+    }
+#endif
     for (std::size_t i = 0; i < mmsg_count; i++)
     {
-        // Allocate one extra byte so that overflow can be detected
-        buffer[i].reset(new std::uint8_t[max_size + 1]);
-        iov[i].iov_base = (void *) buffer[i].get();
-        iov[i].iov_len = max_size + 1;
+        buffers[i].data.reset(new std::uint8_t[buffer_size]);
+        buffers[i].iov[0].iov_base = (void *) buffers[i].data.get();
+        buffers[i].iov[0].iov_len = buffer_size;
         std::memset(&msgvec[i], 0, sizeof(msgvec[i]));
-        msgvec[i].msg_hdr.msg_iov = &iov[i];
+        msgvec[i].msg_hdr.msg_iov = buffers[i].iov;
         msgvec[i].msg_hdr.msg_iovlen = 1;
+        /* msg_control and msg_controllen are initialised just before each
+         * recvmmsg call, since they're modified by CMSG_NXTHDR.
+         */
     }
 #endif
 }
@@ -192,6 +208,16 @@ void udp_reader::packet_handler(
     if (!error)
     {
 #if SPEAD2_USE_RECVMMSG
+#if SPEAD2_USE_GRO
+        if (use_gro)
+        {
+            for (std::size_t i = 0; i < msgvec.size(); i++)
+            {
+                msgvec[i].msg_hdr.msg_control = &buffers[i].control;
+                msgvec[i].msg_hdr.msg_controllen = sizeof(buffers[i].control);
+            }
+        }
+#endif
         int received = recvmmsg(socket.native_handle(), msgvec.data(), msgvec.size(),
                                 MSG_DONTWAIT, nullptr);
         log_debug("recvmmsg returned %1%", received);
@@ -200,12 +226,42 @@ void udp_reader::packet_handler(
             std::error_code code(errno, std::system_category());
             log_warning("recvmmsg failed: %1% (%2%)", code.value(), code.message());
         }
-        for (int i = 0; i < received; i++)
+        bool stopped = false;
+        for (int i = 0; i < received && !stopped; i++)
         {
-            bool stopped = process_one_packet(state,
-                                              buffer[i].get(), msgvec[i].msg_len, max_size);
-            if (stopped)
-                break;
+#if SPEAD2_USE_GRO
+            if (use_gro)
+            {
+                int seg_size = -1;
+                for (cmsghdr *cmsg = CMSG_FIRSTHDR(&msgvec[i].msg_hdr);
+                     cmsg != nullptr;
+                     cmsg = CMSG_NXTHDR(&msgvec[i].msg_hdr, cmsg))
+                {
+                    if (cmsg->cmsg_level == SOL_UDP && cmsg->cmsg_type == UDP_GRO)
+                    {
+                        std::memcpy(&seg_size, CMSG_DATA(cmsg), sizeof(seg_size));
+                        break;
+                    }
+                }
+                if (seg_size > 0)
+                {
+                    for (unsigned int offset = 0;
+                         offset < msgvec[i].msg_len && !stopped;
+                         offset += seg_size)
+                    {
+                        unsigned int msg_len = std::min((unsigned int) seg_size,
+                                                        msgvec[i].msg_len - offset);
+                        stopped = process_one_packet(state,
+                                                     buffers[i].data.get() + offset,
+                                                     msg_len,
+                                                     max_size);
+                    }
+                    continue;  // Skip the non-GRO code below
+                }
+            }
+#endif // SPEAD2_USE_GRO
+            stopped = process_one_packet(state,
+                                         buffers[i].data.get(), msgvec[i].msg_len, max_size);
         }
 #else
         process_one_packet(state, buffer.get(), bytes_transferred, max_size);

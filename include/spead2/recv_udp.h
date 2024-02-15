@@ -1,4 +1,4 @@
-/* Copyright 2015, 2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2020, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -43,8 +43,22 @@ namespace spead2::recv
 class udp_reader : public udp_reader_base
 {
 private:
+#if SPEAD2_USE_RECVMMSG
+    struct msg_buffer
+    {
+        /// Buffer for asynchronous receive, of size @a max_size + 1 (or larger if GRO is enabled).
+        std::unique_ptr<std::uint8_t[]> data;
+        /// Scatter-gather array
+        iovec iov[1];
+#if SPEAD2_USE_GRO
+        /// Ancillary data for GRO (segment size)
+        alignas(cmsghdr) char control[CMSG_SPACE(sizeof(int))];
+#endif
+    };
+#endif
+
     /* Note: declaration order is import for correct destruction
-     * (the stream must be closed before we start destroying buffers).
+     * (the socket must be closed before we start destroying buffers).
      */
 
     /// Endpoint to bind during @ref start()
@@ -54,12 +68,11 @@ private:
     /// Maximum packet size we will accept
     std::size_t max_size;
 #if SPEAD2_USE_RECVMMSG
-    /// Buffer for asynchronous receive, of size @a max_size + 1.
-    std::vector<std::unique_ptr<std::uint8_t[]>> buffer;
-    /// Scatter-gather array for each buffer
-    std::vector<iovec> iov;
+    std::vector<msg_buffer> buffers;
     /// recvmmsg control structures
     std::vector<mmsghdr> msgvec;
+    /// If true, generic receive offload is enabled on the socket
+    bool use_gro;
 #else
     /// Buffer for asynchronous receive, of size @a max_size + 1.
     std::unique_ptr<std::uint8_t[]> buffer;
