@@ -1,4 +1,4 @@
-# Copyright 2023 National Research Foundation (SARAO)
+# Copyright 2023-2024 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -167,6 +167,13 @@ use_gso = get_option('gso').require(
     prefix : '#include <netinet/udp.h>'
   ) != ''
 ).allowed()
+use_gro = get_option('gro').require(
+  compiler.get_define(
+    'UDP_GRO',
+    args : '-D_GNU_SOURCE',
+    prefix : '#include <netinet/udp.h>'
+  ) != ''
+).allowed()
 use_eventfd = get_option('eventfd').require(
   compiler.has_function(
     'eventfd',
@@ -268,6 +275,7 @@ conf.set10('SPEAD2_USE_MLX5DV', mlx5_dep.found())
 conf.set10('SPEAD2_USE_RECVMMSG', use_recvmmsg)
 conf.set10('SPEAD2_USE_SENDMMSG', use_sendmmsg)
 conf.set10('SPEAD2_USE_GSO', use_gso)
+conf.set10('SPEAD2_USE_GRO', use_gro)
 conf.set10('SPEAD2_USE_EVENTFD', use_eventfd)
 conf.set10('SPEAD2_USE_POSIX_SEMAPHORES', use_posix_semaphores)
 conf.set10('SPEAD2_USE_PTHREAD_SETAFFINITY_NP', use_pthread_setaffinity_np)

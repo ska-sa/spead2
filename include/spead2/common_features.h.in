@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -34,6 +34,7 @@
 #define SPEAD2_USE_RECVMMSG @SPEAD2_USE_RECVMMSG@
 #define SPEAD2_USE_SENDMMSG @SPEAD2_USE_SENDMMSG@
 #define SPEAD2_USE_GSO @SPEAD2_USE_GSO@
+#define SPEAD2_USE_GRO @SPEAD2_USE_GRO@
 #define SPEAD2_USE_EVENTFD @SPEAD2_USE_EVENTFD@
 #define SPEAD2_USE_PTHREAD_SETAFFINITY_NP @SPEAD2_USE_PTHREAD_SETAFFINITY_NP@
 #define SPEAD2_USE_FMV @SPEAD2_USE_FMV@
