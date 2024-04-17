@@ -99,7 +99,7 @@ before-all = ".ci/before_all_linux.sh"
 setup-args = [
   "-Dpcap=enabled",
   "-Db_lto=true",
-  "--cross-file=/tmp/cibuildwheel/pcap-cross.ini",
+  "--native-file=ci.ini",
 ]
 
 [tool.cibuildwheel.macos]
