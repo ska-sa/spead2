@@ -98,7 +98,7 @@ memory_pool::memory_pool(
     int)
     : io_service(std::move(io_service)), lower(lower), upper(upper), max_free(max_free),
     initial(initial), low_water(low_water),
-    base_allocator(allocator ? move(allocator) : std::make_shared<memory_allocator>())
+    base_allocator(allocator ? std::move(allocator) : std::make_shared<memory_allocator>())
 {
     assert(lower <= upper);
     assert(initial <= max_free);
