@@ -21,7 +21,7 @@ if [ "$(uname -s)" = "Linux" ]; then
         libdivide-dev
 else
     brew update
-    brew install ninja boost@1.84 libdivide
+    brew install ninja boost@1.85 libdivide
     # On Apple Silicon, homebrew is installed in /opt/homebrew, but the
     # toolchains are not configured to find things there.
     prefix="$(brew --prefix)"

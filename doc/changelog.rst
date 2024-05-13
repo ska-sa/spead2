@@ -5,6 +5,7 @@ Changelog
 
 - Speed up receiving UDP with the Linux kernel network stack by using
   generic receive offload (GRO).
+- Update Boost version in wheels to 1.85.
 
 .. rubric:: 4.3.1
 
