@@ -10,7 +10,7 @@ if [ "$(uname -s)" = "Linux" ]; then
     if [ `id -u` -eq 0 ]; then
         SUDO=  # We're already root, and sudo might not exist
     fi
-    $SUDO apt-get install \
+    $SUDO apt-get -y install \
         ninja-build \
         gcc \
         g++ \
