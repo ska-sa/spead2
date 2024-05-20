@@ -1235,8 +1235,8 @@ class TestUdpReader:
             receiver.add_udp_reader(100000)
 
     @pytest.mark.skipif(
-        sys.platform == "darwin" or os.environ.get("CIBUILDWHEEL") == "1",
-        reason="Test does not work with macos on Github Actions or under cibuildwheel",
+        sys.platform == "darwin" or os.getuid() == 0,
+        reason="Test does not work with MacOS on Github Actions or when run as root",
     )
     def test_illegal_udp_port(self):
         receiver = recv.Stream(spead2.ThreadPool())
