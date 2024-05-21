@@ -122,7 +122,9 @@ jobs:
           --config-settings=setup-args=-Dfmv="$(if [[ '${{ matrix.cxx }}' == g++* ]]; then echo enabled; else echo disabled; fi)"
           .
       - name: Run tests
-        run: ./.ci/py-tests.sh
+        run: pytest -v -ra  # -ra summarises the reasons for skipping or failing tests
+      - name: Run shutdown tests
+        run: ./.ci/py-tests-shutdown.sh
 
   lint:
     runs-on: ubuntu-22.04
@@ -170,7 +172,7 @@ jobs:
           --no-build-isolation
           --editable .
       - name: Run Python tests
-        run: ./.ci/py-tests.sh
+        run: pytest -v -ra && ./.ci/py-tests-shutdown.sh
       - name: Set up C++ build
         run: >-
           meson setup build

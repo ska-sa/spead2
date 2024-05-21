@@ -65,7 +65,9 @@ pipeline {
 
     stage('Run tests') {
       steps {
-        sh 'PATH="/venv/bin:$PATH" .ci/py-tests.sh --ibverbs'
+        sh 'PATH="/venv/bin:$PATH" .ci/py-tests-jenkins.sh'
+        junit 'results.xml'
+        sh 'PATH="/venv/bin:$PATH" .ci/py-tests-shutdown.sh'
       }
     }
   }
