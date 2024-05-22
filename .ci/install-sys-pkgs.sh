@@ -6,7 +6,11 @@ mkdir -p $HOME/.local/share/meson/native
 touch $HOME/.local/share/meson/native/ci.ini
 
 if [ "$(uname -s)" = "Linux" ]; then
-    sudo apt-get install \
+    SUDO=sudo
+    if [ `id -u` -eq 0 ]; then
+        SUDO=  # We're already root, and sudo might not exist
+    fi
+    $SUDO apt-get -y --no-install-recommends install \
         ninja-build \
         gcc \
         g++ \
