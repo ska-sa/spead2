@@ -619,13 +619,13 @@ class TestStream:
         with pytest.raises(IOError):
             self.stream.send_heap(self.heap)
 
-    def test_send_error(self):
+    def test_send_error(self, unused_udp_port):
         """An error in sending must be reported."""
         # Create a stream with a packet size that is bigger than the likely
         # MTU. It should cause an error.
         stream = send.UdpStream(
             spead2.ThreadPool(),
-            [("localhost", 8888)],
+            [("localhost", unused_udp_port)],
             send.StreamConfig(max_packet_size=100000),
             buffer_size=0,
         )
@@ -851,9 +851,9 @@ class TestStream:
 
 
 class TestTcpStream:
-    def test_failed_connect(self):
+    def test_failed_connect(self, unused_tcp_port):
         with pytest.raises(IOError):
-            send.TcpStream(spead2.ThreadPool(), [("127.0.0.1", 8887)])
+            send.TcpStream(spead2.ThreadPool(), [("127.0.0.1", unused_tcp_port)])
 
 
 class TestInprocStream:
@@ -913,22 +913,24 @@ class TestUdpIbvConfig:
         with pytest.raises(ValueError):
             config.max_poll = -1
 
-    def test_empty_memory_region(self):
+    def test_empty_memory_region(self, unused_udp_port):
         data = bytearray(0)
         config = send.StreamConfig()
         udp_ibv_config = send.UdpIbvConfig(
-            endpoints=[("239.255.88.88", 8888)], interface_address="10.0.0.1", memory_regions=[data]
+            endpoints=[("239.255.88.88", unused_udp_port)],
+            interface_address="10.0.0.1",
+            memory_regions=[data],
         )
         with pytest.raises(ValueError, match="memory region must have non-zero size"):
             send.UdpIbvStream(spead2.ThreadPool(), config, udp_ibv_config)
 
-    def test_overlapping_memory_regions(self):
+    def test_overlapping_memory_regions(self, unused_udp_port):
         data = memoryview(bytearray(10))
         part1 = data[:6]
         part2 = data[5:]
         config = send.StreamConfig()
         udp_ibv_config = send.UdpIbvConfig(
-            endpoints=[("239.255.88.88", 8888)],
+            endpoints=[("239.255.88.88", unused_udp_port)],
             interface_address="10.0.0.1",
             memory_regions=[part1, part2],
         )
@@ -941,39 +943,41 @@ class TestUdpIbvConfig:
         with pytest.raises(ValueError, match="endpoints is empty"):
             send.UdpIbvStream(spead2.ThreadPool(), config, udp_ibv_config)
 
-    def test_ipv6_endpoints(self):
-        config = send.StreamConfig()
-        udp_ibv_config = send.UdpIbvConfig(endpoints=[("::1", 8888)], interface_address="10.0.0.1")
-        with pytest.raises(ValueError, match="endpoint is not an IPv4 multicast address"):
-            send.UdpIbvStream(spead2.ThreadPool(), config, udp_ibv_config)
-
-    def test_unicast_endpoints(self):
+    def test_ipv6_endpoints(self, unused_udp_port):
         config = send.StreamConfig()
         udp_ibv_config = send.UdpIbvConfig(
-            endpoints=[("10.0.0.1", 8888)], interface_address="10.0.0.1"
+            endpoints=[("::1", unused_udp_port)], interface_address="10.0.0.1"
         )
         with pytest.raises(ValueError, match="endpoint is not an IPv4 multicast address"):
             send.UdpIbvStream(spead2.ThreadPool(), config, udp_ibv_config)
 
-    def test_no_interface_address(self):
+    def test_unicast_endpoints(self, unused_udp_port):
         config = send.StreamConfig()
-        udp_ibv_config = send.UdpIbvConfig(endpoints=[("239.255.88.88", 8888)])
+        udp_ibv_config = send.UdpIbvConfig(
+            endpoints=[("10.0.0.1", unused_udp_port)], interface_address="10.0.0.1"
+        )
+        with pytest.raises(ValueError, match="endpoint is not an IPv4 multicast address"):
+            send.UdpIbvStream(spead2.ThreadPool(), config, udp_ibv_config)
+
+    def test_no_interface_address(self, unused_udp_port):
+        config = send.StreamConfig()
+        udp_ibv_config = send.UdpIbvConfig(endpoints=[("239.255.88.88", unused_udp_port)])
         with pytest.raises(ValueError, match="interface address"):
             send.UdpIbvStream(spead2.ThreadPool(), config, udp_ibv_config)
 
-    def test_bad_interface_address(self):
+    def test_bad_interface_address(self, unused_udp_port):
         config = send.StreamConfig()
         udp_ibv_config = send.UdpIbvConfig(
-            endpoints=[("239.255.88.88", 8888)],
+            endpoints=[("239.255.88.88", unused_udp_port)],
             interface_address="this is not an interface address",
         )
         with pytest.raises(RuntimeError, match="Host not found"):
             send.UdpIbvStream(spead2.ThreadPool(), config, udp_ibv_config)
 
-    def test_ipv6_interface_address(self):
+    def test_ipv6_interface_address(self, unused_udp_port):
         config = send.StreamConfig()
         udp_ibv_config = send.UdpIbvConfig(
-            endpoints=[("239.255.88.88", 8888)], interface_address="::1"
+            endpoints=[("239.255.88.88", unused_udp_port)], interface_address="::1"
         )
         with pytest.raises(ValueError, match="interface address"):
             send.UdpIbvStream(spead2.ThreadPool(), config, udp_ibv_config)

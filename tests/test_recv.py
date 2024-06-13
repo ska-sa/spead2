@@ -981,29 +981,33 @@ class TestUdpIbvConfig:
         with pytest.raises(ValueError, match="endpoints is empty"):
             stream.add_udp_ibv_reader(config)
 
-    def test_ipv6_endpoints(self):
-        config = recv.UdpIbvConfig(endpoints=[("::1", 8888)], interface_address="10.0.0.1")
+    def test_ipv6_endpoints(self, unused_udp_port):
+        config = recv.UdpIbvConfig(
+            endpoints=[("::1", unused_udp_port)], interface_address="10.0.0.1"
+        )
         stream = recv.Stream(spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
         with pytest.raises(ValueError, match="endpoint is not an IPv4 address"):
             stream.add_udp_ibv_reader(config)
 
-    def test_no_interface_address(self):
-        config = recv.UdpIbvConfig(endpoints=[("239.255.88.88", 8888)])
+    def test_no_interface_address(self, unused_udp_port):
+        config = recv.UdpIbvConfig(endpoints=[("239.255.88.88", unused_udp_port)])
         stream = recv.Stream(spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
         with pytest.raises(ValueError, match="interface address"):
             stream.add_udp_ibv_reader(config)
 
-    def test_bad_interface_address(self):
+    def test_bad_interface_address(self, unused_udp_port):
         config = recv.UdpIbvConfig(
-            endpoints=[("239.255.88.88", 8888)],
+            endpoints=[("239.255.88.88", unused_udp_port)],
             interface_address="this is not an interface address",
         )
         stream = recv.Stream(spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
         with pytest.raises(RuntimeError, match="Host not found"):
             stream.add_udp_ibv_reader(config)
 
-    def test_ipv6_interface_address(self):
-        config = recv.UdpIbvConfig(endpoints=[("239.255.88.88", 8888)], interface_address="::1")
+    def test_ipv6_interface_address(self, unused_udp_port):
+        config = recv.UdpIbvConfig(
+            endpoints=[("239.255.88.88", unused_udp_port)], interface_address="::1"
+        )
         stream = recv.Stream(spead2.ThreadPool(), recv.StreamConfig(), recv.RingStreamConfig())
         with pytest.raises(ValueError, match="interface address"):
             stream.add_udp_ibv_reader(config)
