@@ -374,19 +374,19 @@ class AsyncNoSubstreamsTransport(AsyncTransport):
 class UdpTransport(SyncTransport):
     is_lossy = True
 
-    def prepare_receivers(self, receivers):
+    def prepare_receivers(self, receivers, bind_hostname="localhost"):
         ports = []
         for receiver in receivers:
             port = self.unused_udp_port()
-            receiver.add_udp_reader(port, bind_hostname="localhost")
+            receiver.add_udp_reader(port, bind_hostname=bind_hostname)
             ports.append(port)
-        return ports
+        return [(bind_hostname, port) for port in ports]
 
-    def prepare_senders(self, thread_pool, n, ports):
-        assert len(ports) == n
-        return spead2.send.UdpStream(
+    def prepare_senders(self, thread_pool, n, endpoints, cls=spead2.send.UdpStream):
+        assert len(endpoints) == n
+        return cls(
             thread_pool,
-            [("localhost", port) for port in ports],
+            endpoints,
             spead2.send.StreamConfig(rate=1e7),
             buffer_size=0,
         )
@@ -396,43 +396,20 @@ class AsyncUdpTransport(AsyncTransport):
     is_lossy = True
 
     async def prepare_receivers(self, receivers):
-        ports = []
-        for receiver in receivers:
-            port = self.unused_udp_port()
-            receiver.add_udp_reader(port, bind_hostname="localhost")
-            ports.append(port)
-        return ports
+        return UdpTransport.prepare_receivers(self, receivers)
 
     async def prepare_senders(self, thread_pool, n, ports):
-        assert len(ports) == n
-        return spead2.send.asyncio.UdpStream(
-            thread_pool,
-            [("localhost", port) for port in ports],
-            spead2.send.StreamConfig(rate=1e7),
-            buffer_size=0,
+        return UdpTransport.prepare_senders(
+            self, thread_pool, n, ports, cls=spead2.send.asyncio.UdpStream
         )
 
 
-class Udp6Transport(SyncTransport):
+class Udp6Transport(UdpTransport):
     is_lossy = True
     requires_ipv6 = True
 
     def prepare_receivers(self, receivers):
-        ports = []
-        for i, receiver in enumerate(receivers):
-            port = self.unused_udp_port()
-            receiver.add_udp_reader(port, bind_hostname="::1")
-            ports.append(port)
-        return ports
-
-    def prepare_senders(self, thread_pool, n, ports):
-        assert len(ports) == n
-        return spead2.send.UdpStream(
-            thread_pool,
-            [("::1", port) for port in ports],
-            spead2.send.StreamConfig(rate=1e7),
-            buffer_size=0,
-        )
+        return super().prepare_receivers(receivers, bind_hostname="::1")
 
 
 class UdpCustomSocketTransport(SyncTransport):
@@ -449,12 +426,12 @@ class UdpCustomSocketTransport(SyncTransport):
                 receiver.add_udp_reader(socket=recv_sock)
         return ports
 
-    def prepare_senders(self, thread_pool, n, ports):
+    def prepare_senders(self, thread_pool, n, ports, cls=spead2.send.UdpStream):
         assert len(ports) == n
         # spead2 duplicates the socket, so we use a context manager to
         # close the original.
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as send_sock:
-            sender = spead2.send.UdpStream(
+            sender = cls(
                 thread_pool,
                 send_sock,
                 [("127.0.0.1", port) for port in ports],
@@ -467,28 +444,12 @@ class AsyncUdpCustomSocketTransport(AsyncTransport):
     is_lossy = True
 
     async def prepare_receivers(self, receivers):
-        ports = []
-        for receiver in receivers:
-            # spead2 duplicates the socket, so we use a context manager to
-            # close the original.
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as recv_sock:
-                recv_sock.bind(("127.0.0.1", 0))
-                ports.append(recv_sock.getsockname()[1])
-                receiver.add_udp_reader(socket=recv_sock)
-        return ports
+        return UdpCustomSocketTransport.prepare_receivers(self, receivers)
 
     async def prepare_senders(self, thread_pool, n, ports):
-        assert len(ports) == n
-        # spead2 duplicates the socket, so we use a context manager to
-        # close the original.
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as send_sock:
-            sender = spead2.send.asyncio.UdpStream(
-                thread_pool,
-                send_sock,
-                [("127.0.0.1", port) for port in ports],
-                spead2.send.StreamConfig(rate=1e7),
-            )
-        return sender
+        return UdpCustomSocketTransport.prepare_senders(
+            self, thread_pool, n, ports, cls=spead2.send.asyncio.UdpStream
+        )
 
 
 class UdpMulticastTransport(SyncTransport):
@@ -613,23 +574,21 @@ class UdpIbvTransport(SyncTransport):
 
 
 class TcpTransport(SyncNoSubstreamsTransport):
-    def prepare_receiver(self, receiver):
+    def prepare_receiver(self, receiver, bind_hostname="127.0.0.1"):
         port = self.unused_tcp_port()
-        receiver.add_tcp_reader(port, bind_hostname="127.0.0.1")
-        return port
+        receiver.add_tcp_reader(port, bind_hostname=bind_hostname)
+        return (bind_hostname, port)
 
-    def prepare_sender(self, thread_pool, port):
-        return spead2.send.TcpStream(thread_pool, [("127.0.0.1", port)])
+    def prepare_sender(self, thread_pool, endpoint):
+        return spead2.send.TcpStream(thread_pool, [endpoint])
 
 
 class AsyncTcpTransport(AsyncNoSubstreamsTransport):
     async def prepare_receiver(self, receiver):
-        port = self.unused_tcp_port()
-        receiver.add_tcp_reader(port, bind_hostname="127.0.0.1")
-        return port
+        return TcpTransport.prepare_receiver(self, receiver)
 
-    async def prepare_sender(self, thread_pool, port):
-        return await spead2.send.asyncio.TcpStream.connect(thread_pool, [("127.0.0.1", port)])
+    async def prepare_sender(self, thread_pool, endpoint):
+        return await spead2.send.asyncio.TcpStream.connect(thread_pool, [endpoint])
 
 
 class TcpCustomSocketTransport(SyncNoSubstreamsTransport):
@@ -651,13 +610,7 @@ class TcpCustomSocketTransport(SyncNoSubstreamsTransport):
 
 class AsyncTcpCustomSocketTransport(AsyncNoSubstreamsTransport):
     async def prepare_receiver(self, receiver):
-        # spead2 duplicates the socket, so ensure we close it.
-        with socket.socket() as sock:
-            sock.bind(("127.0.0.1", 0))
-            port = sock.getsockname()[1]
-            sock.listen(1)
-            receiver.add_tcp_reader(sock)
-            return port
+        return TcpCustomSocketTransport.prepare_receiver(self, receiver)
 
     async def prepare_sender(self, thread_pool, port):
         with socket.socket() as sock:
@@ -667,16 +620,14 @@ class AsyncTcpCustomSocketTransport(AsyncNoSubstreamsTransport):
         return sender
 
 
-class Tcp6Transport(SyncNoSubstreamsTransport):
+class Tcp6Transport(TcpTransport):
     requires_ipv6 = True
 
     def prepare_receiver(self, receiver):
-        port = self.unused_tcp_port()
-        receiver.add_tcp_reader(port, bind_hostname="::1")
-        return port
+        return super().prepare_receiver(receiver, bind_hostname="::1")
 
-    def prepare_sender(self, thread_pool, port):
-        return spead2.send.TcpStream(thread_pool, [("::1", port)])
+    def prepare_sender(self, thread_pool, endpoint):
+        return spead2.send.TcpStream(thread_pool, [endpoint])
 
 
 class MemTransport(Transport):
