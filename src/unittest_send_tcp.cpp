@@ -1,4 +1,4 @@
-/* Copyright 2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2020, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -32,6 +32,18 @@ namespace spead2::unittest
 BOOST_AUTO_TEST_SUITE(send)
 BOOST_AUTO_TEST_SUITE(tcp)
 
+/// Get a port number that isn't currently being listened on
+static std::uint16_t unused_tcp_port()
+{
+    boost::asio::io_context context;
+    boost::asio::ip::tcp::socket socket(context);
+    socket.open(boost::asio::ip::tcp::v4());
+    socket.bind(boost::asio::ip::tcp::endpoint(boost::asio::ip::address_v4::loopback(), 0));
+    std::uint16_t port = socket.local_endpoint().port();
+    socket.close();
+    return port;
+}
+
 /* Put a heap into a stream before the connection has been established.
  * The connection is set up to fail, at which point we must get errors
  * reported.
@@ -47,7 +59,7 @@ BOOST_AUTO_TEST_CASE(connect_fail)
 
     boost::asio::ip::tcp::endpoint endpoint(
         boost::asio::ip::address_v4::from_string("127.0.0.1"),
-        8887);
+        unused_tcp_port());
     spead2::send::tcp_stream stream(
         tp, [&](const boost::system::error_code &ec) { connect_error = ec; },
         {endpoint});
