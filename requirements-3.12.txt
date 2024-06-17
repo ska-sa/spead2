@@ -6,11 +6,11 @@
 #
 iniconfig==2.0.0
     # via pytest
-llvmlite==0.42.0
+llvmlite==0.43.0
     # via numba
 netifaces2==0.0.22
     # via -r requirements.in
-numba==0.59.1
+numba==0.60.0
     # via -r requirements.in
 numpy==1.26.4
     # via
