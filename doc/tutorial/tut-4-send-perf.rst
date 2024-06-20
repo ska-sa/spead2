@@ -65,7 +65,8 @@ core to another.
 The first line creates the thread pool with one thread, which is assigned to
 core 0. The second line sets the affinity of the main thread (the function
 lives in the thread pool namespace, but affects the current thread rather than
-the thread pool).
+the thread pool). In other words, the thread pool has one thread bound to core
+0 and the main Python thread is bound to core 1.
 
 You can expect performance to be pretty low; I get around 65 MB/s from Python
 and 140 MB/s from C++ [#benchmarks]_. In fact, spead2 makes very little

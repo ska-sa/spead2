@@ -15,6 +15,11 @@ be portable to other POSIX systems (such as MacOS), but that's untested, and
 some of the behaviour that's pointed out (particularly performance) will be
 different.
 
+The code that is developed in each tutorial appears in full at the end of the
+tutorial, and can also be found in the `repository`_.
+
+.. _repository: https://github.com/ska-sa/spead2/tree/master/examples/tutorial
+
 .. toctree::
    :maxdepth: 1
    :numbered: 1

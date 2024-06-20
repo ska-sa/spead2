@@ -88,8 +88,10 @@ To generate and transmit data in parallel, we're going to need to restructure
 our code a bit. In Python we'll use the :mod:`asyncio` module to manage
 asynchronous sending, which means we'll need an asynchronous :py:func:`!main`
 function. If you're using Python but you've never used :mod:`asyncio` before,
-this would be a good time to find a tutorial on it. Modify the code as
+this would be a good time to find a tutorial on it, such `this one`_. Modify the code as
 follows:
+
+.. _this one: https://realpython.com/async-io-python/
 
 .. tab-set-code::
 

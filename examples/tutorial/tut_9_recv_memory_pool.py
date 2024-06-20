@@ -42,7 +42,12 @@ def main():
     config = spead2.recv.StreamConfig(max_heaps=2)
     ring_config = spead2.recv.RingStreamConfig(heaps=2)
     pool_heaps = config.max_heaps + ring_config.heaps + 1
-    config.memory_allocator = spead2.MemoryPool(0, args.heap_size + 8192, pool_heaps, pool_heaps)
+    config.memory_allocator = spead2.MemoryPool(
+        lower=0,
+        upper=args.heap_size + 8192,
+        max_free=pool_heaps,
+        initial=pool_heaps,
+    )
     stream = spead2.recv.Stream(thread_pool, config, ring_config)
     stream.add_udp_reader(args.port)
     item_group = spead2.ItemGroup()

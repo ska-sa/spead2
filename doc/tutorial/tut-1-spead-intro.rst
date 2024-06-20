@@ -6,6 +6,11 @@ for the purposes of the tutorial we'll provide a brief overview here.
 
 SPEAD is a message-based protocol, where the messages are called :dfn:`heaps`.
 A sequence of heaps all sent to the same receiver is called a :dfn:`stream`.
+Heaps may be very large, so to facilitate transmission over protocols (such as
+UDP) that have a limited message size, heaps may be fragmented into multiple
+:dfn:`packets`. The receiver collects all the packets that belong to the same
+heap and reassembles them.
+
 Each heap contains a number of :dfn:`items`. Each item has
 
 - a :dfn:`name`, which is a short string that can be used to look up the item.

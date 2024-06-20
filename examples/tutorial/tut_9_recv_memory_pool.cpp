@@ -76,7 +76,10 @@ int main(int argc, char * const argv[])
     ring_config.set_heaps(2);
     const int pool_heaps = config.get_max_heaps() + ring_config.get_heaps() + 1;
     config.set_memory_allocator(std::make_shared<spead2::memory_pool>(
-        0, heap_size + 8192, pool_heaps, pool_heaps
+        0,                 // lower
+        heap_size + 8192,  // upper
+        pool_heaps,        // max_free
+        pool_heaps         // initial
     ));
     spead2::recv::ring_stream stream(thread_pool, config, ring_config);
     boost::asio::ip::udp::endpoint endpoint(
