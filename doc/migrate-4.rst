@@ -80,7 +80,7 @@ Meson
 -----
 The autotools build system has been replaced by `Meson`_. This mainly affects
 C++ users, as for Python this is hidden behind the Python packaging
-interface. Refer to the :doc:`Introduction <introduction>` for installation
+interface. Refer to :doc:`installation` for installation
 instructions.
 
 The old build system had a number of options to adjust the build. The table
@@ -118,7 +118,7 @@ versions of :command:`ar` and :command:`ranlib`; Meson takes care of it.
 C++17
 -----
 The codebase now uses C++17, whereas older versions used C++11. This might
-require a newer C++ compiler. See the :doc:`Introduction <introduction>` for
+require a newer C++ compiler. See :doc:`installation` for
 minimum compiler versions.
 
 Additionally, when compiling against the C++ API, you may need to pass

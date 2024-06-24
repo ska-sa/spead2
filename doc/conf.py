@@ -52,6 +52,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinxcontrib.tikz",
+    "sphinx_design",
     "sphinx_rtd_theme",
     "breathe",
 ]
@@ -65,7 +66,7 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 tikz_proc_suite = "pdf2svg"
-tikz_tikzlibraries = "positioning"
+tikz_tikzlibraries = "positioning,fit"
 
 breathe_projects = {"spead2": "./doxygen/xml"}
 breathe_default_project = "spead2"

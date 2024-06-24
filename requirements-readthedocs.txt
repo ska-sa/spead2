@@ -77,9 +77,12 @@ sphinx==7.3.7
     # via
     #   -r requirements-readthedocs.in
     #   breathe
+    #   sphinx-design
     #   sphinx-rtd-theme
     #   sphinxcontrib-jquery
     #   sphinxcontrib-tikz
+sphinx-design==0.6.0
+    # via -r requirements-readthedocs.in
 sphinx-rtd-theme==2.0.0
     # via -r requirements-readthedocs.in
 sphinxcontrib-applehelp==1.0.8
