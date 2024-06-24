@@ -1,6 +1,25 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Speed up receiving UDP with the Linux kernel network stack by using
+  generic receive offload (GRO).
+- Update Boost version in wheels to 1.85.
+
+.. rubric:: 4.3.1
+
+- Switch from netifaces to netifaces2 for testing.
+- Update coverallsapp/github-action to v2.2.3.
+- Fix the type annotation for :py:class:`spead2.recv.StreamConfig` to allow
+  `explicit_start` to be passed as a constructor argument.
+
+.. rubric:: 4.3.0
+
+- Add ability to override the transmission rate for individual heaps.
+- Fix missing type annotation on the `substream_index` argument to
+  :py:meth:`~.SyncStream.send_heap`.
+
 .. rubric:: 4.2.0
 
 - Significantly speed up transmission when using the Linux kernel networking

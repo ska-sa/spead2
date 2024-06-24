@@ -1,4 +1,4 @@
-# Copyright 2023 National Research Foundation (SARAO)
+# Copyright 2023-2024 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -23,3 +23,8 @@ def pytest_runtest_teardown(item, nextitem):
     # Workaround for https://github.com/pytest-dev/pytest/issues/11374
     if inspect.ismethod(item.obj):
         item.obj.__self__.__dict__.clear()
+
+
+@pytest.hookimpl
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line("markers", "transport(filter): add a filter on the transport classes")

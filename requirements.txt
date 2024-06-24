@@ -4,15 +4,15 @@
 #
 #    pip-compile requirements.in
 #
-exceptiongroup==1.2.0
+exceptiongroup==1.2.1
     # via pytest
-importlib-metadata==7.0.1
+importlib-metadata==7.1.0
     # via numba
 iniconfig==2.0.0
     # via pytest
 llvmlite==0.41.1
     # via numba
-netifaces==0.11.0
+netifaces2==0.0.22
     # via -r requirements.in
 numba==0.58.1
     # via -r requirements.in
@@ -21,22 +21,25 @@ numpy==1.24.4
     #   -r requirements.in
     #   numba
     #   scipy
-packaging==23.2
+packaging==24.1
     # via pytest
-pluggy==1.4.0
+pluggy==1.5.0
     # via pytest
-pytest==7.4.4
+pytest==8.2.2
     # via
     #   -r requirements.in
     #   pytest-asyncio
+    #   pytest-custom-exit-code
     #   pytest-timeout
-pytest-asyncio==0.23.4
+pytest-asyncio==0.23.7
     # via -r requirements.in
-pytest-timeout==2.2.0
+pytest-custom-exit-code==0.3.0
+    # via -r requirements.in
+pytest-timeout==2.3.1
     # via -r requirements.in
 scipy==1.10.1
     # via -r requirements.in
 tomli==2.0.1
     # via pytest
-zipp==3.17.0
+zipp==3.19.2
     # via importlib-metadata

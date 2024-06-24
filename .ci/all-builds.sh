@@ -24,4 +24,11 @@ for python in true false; do
             meson compile
         done
     done
+    # Similar recvmmsg and gro don't interact with either of the above
+    for recvmmsg in auto disabled; do
+        for gro in auto disabled; do
+            meson configure -Dpython=$python -Drecvmmsg=$recvmmsg -Dgro=$gro
+            meson compile
+        done
+    done
 done

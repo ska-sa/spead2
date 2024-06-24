@@ -1,0 +1,6 @@
+sphinx
+sphinx-design
+sphinx-rtd-theme
+sphinxcontrib-tikz
+breathe
+-r requirements-3.12.txt

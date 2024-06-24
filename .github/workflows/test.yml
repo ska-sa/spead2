@@ -21,7 +21,7 @@ jobs:
           - os: ubuntu-22.04
             cxx: clang++-14
             extras: enabled
-          - os: macos-12
+          - os: macos-14
             cxx: clang++
             extras: disabled
     runs-on: ${{ matrix.os }}
@@ -38,13 +38,15 @@ jobs:
         run: ./.ci/install-sys-pkgs.sh
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.8'
+          # 3.10 is the minimum version supported on macos-14 builders
+          python-version: '3.10'
           cache: 'pip'
       - name: Install build requirements
         run: ./.ci/py-build-requirements.sh
       - name: Set up build directory
         run: >-
           meson setup build
+          --native-file=ci.ini
           -Dwerror=true
           -Dauto_features=${{ matrix.extras }}
           -Dcuda=disabled
@@ -86,7 +88,7 @@ jobs:
             cxx: clang++-14
             python-version: '3.12'
             extras: enabled
-          - os: macos-12
+          - os: macos-14
             cc: clang
             cxx: clang++
             python-version: '3.12'
@@ -114,12 +116,15 @@ jobs:
       - name: Install Python package
         run: >-
           pip install -v
+          --config-settings=setup-args=--native-file=ci.ini
           --config-settings=setup-args=-Dwerror=true
           --config-settings=setup-args=-Dauto_features=${{ matrix.extras }}
           --config-settings=setup-args=-Dfmv="$(if [[ '${{ matrix.cxx }}' == g++* ]]; then echo enabled; else echo disabled; fi)"
           .
       - name: Run tests
-        run: ./.ci/py-tests.sh
+        run: pytest -v -ra  # -ra summarises the reasons for skipping or failing tests
+      - name: Run shutdown tests
+        run: ./.ci/py-tests-shutdown.sh
 
   lint:
     runs-on: ubuntu-22.04
@@ -167,7 +172,7 @@ jobs:
           --no-build-isolation
           --editable .
       - name: Run Python tests
-        run: ./.ci/py-tests.sh
+        run: pytest -v -ra && ./.ci/py-tests-shutdown.sh
       - name: Set up C++ build
         run: >-
           meson setup build
@@ -183,7 +188,7 @@ jobs:
         run: meson test -C build
       - name: Collect coverage
         run: ./.ci/coverage.sh
-      - uses: coverallsapp/github-action@master
+      - uses: coverallsapp/github-action@v2.3.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: lcov.info
@@ -250,7 +255,7 @@ jobs:
         with:
           platforms: arm64
         if: matrix.arch != 'x86_64'
-      - uses: pypa/cibuildwheel@v2.16.4
+      - uses: pypa/cibuildwheel@v2.19.1
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_BUILD: ${{ matrix.python }}-manylinux*
@@ -265,26 +270,29 @@ jobs:
 
   cibuildwheel-macos:
     needs: [test-cxx, test-python, coverage, lint]
-    runs-on: macos-12
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, arm64]
+        os: [macos-13, macos-14]
         python: [cp38, cp39, cp310, cp311, cp312]
+        exclude:
+          # Python 3.8 not natively available for Apple Silicon. cibuildwheel
+          # tries to do a cross build, which fails.
+          - os: macos-14
+            python: cp38
+    runs-on: ${{ matrix.os }}
     env:
       SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@v4
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.4
-      - uses: pypa/cibuildwheel@v2.16.4
+      - uses: pypa/cibuildwheel@v2.19.1
         env:
-          CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_BUILD: ${{ matrix.python }}-macos*
-          CIBW_TEST_SKIP: "*-macosx_arm64"
       - uses: actions/upload-artifact@v4
         with:
-          name: wheel_macos-${{ matrix.arch }}-${{ matrix.python }}
+          name: wheel_macos-${{ matrix.os }}-${{ matrix.python }}
           path: ./wheelhouse/*.whl
 
   combine:

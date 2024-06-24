@@ -1,7 +1,8 @@
-netifaces
+netifaces2
 numba
 numpy
 pytest
 pytest-asyncio
+pytest-custom_exit_code
 pytest-timeout
 scipy
