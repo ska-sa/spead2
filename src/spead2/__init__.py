@@ -1,4 +1,4 @@
-# Copyright 2015, 2019, 2021 National Research Foundation (SARAO)
+# Copyright 2015, 2019, 2021, 2024 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import ast
 import logging
 import numbers as _numbers
 import struct
@@ -175,7 +176,7 @@ class Descriptor:
     @classmethod
     def _parse_numpy_header(cls, header):
         try:
-            d = _np.lib.utils.safe_eval(header)
+            d = ast.literal_eval(header)
         except SyntaxError as e:
             msg = "Cannot parse descriptor: %r\nException: %r"
             raise ValueError(msg % (header, e)) from e
@@ -498,9 +499,9 @@ class Item(Descriptor):
                     raw = ord(field)
                 elif code == "f":
                     if length == 32:
-                        raw = _np.float32(field).view(_np.uint32)
+                        raw = int(_np.float32(field).view(_np.uint32))
                     elif length == 64:
-                        raw = _np.float64(field).view(_np.uint64)
+                        raw = int(_np.float64(field).view(_np.uint64))
                     else:
                         raise ValueError(f"unhandled float length {(code, length)}")
                 else:
@@ -611,7 +612,7 @@ class Item(Descriptor):
             # list(str) does.
             value = [self.value[i : i + 1] for i in range(len(self.value))]
         if self._fastpath == _FASTPATH_IMMEDIATE and self.itemsize_bits % 8 == 0:
-            value = _np.array(value, dtype=">u8", order=self.order, copy=False)
+            value = _np.asarray(value, dtype=">u8", order=self.order)
             if not self.compatible_shape(value.shape):
                 raise ValueError(f"Value has shape {value.shape}, expected {self.shape}")
             # Truncate to just the low-order bytes that are needed. Note: this
@@ -619,7 +620,7 @@ class Item(Descriptor):
             # filled in later if it is referenced rather than copied.
             value = value[_np.newaxis].view(_np.uint8)[-(self.itemsize_bits // 8) :]
         else:
-            value = _np.array(value, dtype=self._internal_dtype, order=self.order, copy=False)
+            value = _np.asarray(value, dtype=self._internal_dtype, order=self.order)
             if not self.compatible_shape(value.shape):
                 raise ValueError(f"Value has shape {value.shape}, expected {self.shape}")
         return value

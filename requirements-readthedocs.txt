@@ -39,7 +39,7 @@ netifaces2==0.0.22
     # via -r requirements-3.12.txt
 numba==0.60.0
     # via -r requirements-3.12.txt
-numpy==1.26.4
+numpy==2.0.0
     # via
     #   -r requirements-3.12.txt
     #   numba

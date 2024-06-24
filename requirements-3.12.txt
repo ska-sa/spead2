@@ -12,7 +12,7 @@ netifaces2==0.0.22
     # via -r requirements.in
 numba==0.60.0
     # via -r requirements.in
-numpy==1.26.4
+numpy==2.0.0
     # via
     #   -r requirements.in
     #   numba
