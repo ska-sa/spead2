@@ -1,11 +1,17 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 4.3.2
 
 - Speed up receiving UDP with the Linux kernel network stack by using
   generic receive offload (GRO).
 - Update Boost version in wheels to 1.85.
+- Fix compatibility with numpy 2.0.
+- Change the unit tests to allocate TCP and UDP ports dynamically.
+- Add a series of tutorials to the manual.
+- Add a Jenkins configuration to test the ibverbs support on a SARAO-internal
+  Jenkins server.
+- Bump versions of dependencies used in CI.
 
 .. rubric:: 4.3.1
 
