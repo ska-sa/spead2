@@ -6,7 +6,7 @@
 #
 exceptiongroup==1.2.1
     # via pytest
-importlib-metadata==7.1.0
+importlib-metadata==8.0.0
     # via numba
 iniconfig==2.0.0
     # via pytest
