@@ -4,7 +4,7 @@
 #
 #    pip-compile requirements.in
 #
-exceptiongroup==1.2.1
+exceptiongroup==1.2.2
     # via pytest
 importlib-metadata==8.0.0
     # via numba
@@ -25,13 +25,13 @@ packaging==24.1
     # via pytest
 pluggy==1.5.0
     # via pytest
-pytest==8.2.2
+pytest==8.3.1
     # via
     #   -r requirements.in
     #   pytest-asyncio
     #   pytest-custom-exit-code
     #   pytest-timeout
-pytest-asyncio==0.23.7
+pytest-asyncio==0.23.8
     # via -r requirements.in
 pytest-custom-exit-code==0.3.0
     # via -r requirements.in
