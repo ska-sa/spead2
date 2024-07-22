@@ -39,7 +39,7 @@ netifaces2==0.0.22
     # via -r requirements-3.12.txt
 numba==0.60.0
     # via -r requirements-3.12.txt
-numpy==2.0.0
+numpy==2.0.1
     # via
     #   -r requirements-3.12.txt
     #   numba
@@ -55,13 +55,13 @@ pluggy==1.5.0
     #   pytest
 pygments==2.18.0
     # via sphinx
-pytest==8.2.2
+pytest==8.3.1
     # via
     #   -r requirements-3.12.txt
     #   pytest-asyncio
     #   pytest-custom-exit-code
     #   pytest-timeout
-pytest-asyncio==0.23.7
+pytest-asyncio==0.23.8
     # via -r requirements-3.12.txt
 pytest-custom-exit-code==0.3.0
     # via -r requirements-3.12.txt
@@ -73,7 +73,7 @@ scipy==1.14.0
     # via -r requirements-3.12.txt
 snowballstemmer==2.2.0
     # via sphinx
-sphinx==7.4.0
+sphinx==7.4.7
     # via
     #   -r requirements-readthedocs.in
     #   breathe
