@@ -31,7 +31,7 @@
 # define SPEAD2_MEMCPY_STORE _mm_stream_si128
 # define SPEAD2_MEMCPY_UNROLL 16
 # define SPEAD2_MEMCPY_VZEROUPPER 0
-# include "common_memcpy_impl.h"
+# include "common_memcpy_x86.h"
 #endif
 
 #if SPEAD2_USE_AVX_STREAM
@@ -43,7 +43,7 @@
 # define SPEAD2_MEMCPY_STORE _mm256_stream_si256
 # define SPEAD2_MEMCPY_UNROLL 8
 # define SPEAD2_MEMCPY_VZEROUPPER 1
-# include "common_memcpy_impl.h"
+# include "common_memcpy_x86.h"
 #endif
 
 #if SPEAD2_USE_AVX512_STREAM
@@ -55,7 +55,7 @@
 # define SPEAD2_MEMCPY_STORE _mm512_stream_si512
 # define SPEAD2_MEMCPY_UNROLL 8
 # define SPEAD2_MEMCPY_VZEROUPPER 1
-# include "common_memcpy_impl.h"
+# include "common_memcpy_x86.h"
 #endif
 
 namespace spead2
