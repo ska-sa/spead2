@@ -1,4 +1,4 @@
-/* Copyright 2019, 2023 National Research Foundation (SARAO)
+/* Copyright 2019, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -92,16 +92,16 @@ static int semaphore_get_value(T &sem)
     int result;
     while ((result = semaphore_try_get(sem)) == 0)
         value++;
-    BOOST_CHECK_EQUAL(result, -1);
+    BOOST_TEST(result == -1);
     return value;
 }
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(single_thread, T, semaphore_types)
 {
     T sem(2);
-    BOOST_CHECK_EQUAL(semaphore_get_value(sem), 2);
+    BOOST_TEST(semaphore_get_value(sem) == 2);
     sem.put();
-    BOOST_CHECK_EQUAL(semaphore_get_value(sem), 1);
+    BOOST_TEST(semaphore_get_value(sem) == 1);
 }
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(multi_thread, T, semaphore_types)
@@ -130,7 +130,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(multi_thread, T, semaphore_types)
         sum += x[i];
     }
     future.get();
-    BOOST_CHECK_EQUAL(sum, N * (N - 1) / 2);
+    BOOST_TEST(sum == N * (N - 1) / 2);
 }
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(move_assign, T, semaphore_fd_types)
@@ -139,8 +139,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(move_assign, T, semaphore_fd_types)
     int orig_fd = sem1.get_fd();
     T sem2;
     sem2 = std::move(sem1);
-    BOOST_CHECK_EQUAL(sem2.get_fd(), orig_fd);
-    BOOST_CHECK_EQUAL(semaphore_get_value(sem2), 2);
+    BOOST_TEST(sem2.get_fd() == orig_fd);
+    BOOST_TEST(semaphore_get_value(sem2) == 2);
 }
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(move_construct, T, semaphore_fd_types)
@@ -148,8 +148,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(move_construct, T, semaphore_fd_types)
     T sem1(2);
     int orig_fd = sem1.get_fd();
     T sem2(std::move(sem1));
-    BOOST_CHECK_EQUAL(sem2.get_fd(), orig_fd);
-    BOOST_CHECK_EQUAL(semaphore_get_value(sem2), 2);
+    BOOST_TEST(sem2.get_fd() == orig_fd);
+    BOOST_TEST(semaphore_get_value(sem2) == 2);
 }
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(poll_fd, T, semaphore_fd_types)
@@ -160,10 +160,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(poll_fd, T, semaphore_fd_types)
     fds[0].fd = sem.get_fd();
     fds[0].events = POLLIN;
     int result = poll_restart(fds, 1, 0);
-    BOOST_CHECK_EQUAL(result, 1);
+    BOOST_TEST(result == 1);
     semaphore_get(sem);
     result = poll_restart(fds, 1, 1);
-    BOOST_CHECK_EQUAL(result, 0);
+    BOOST_TEST(result == 0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // semaphore

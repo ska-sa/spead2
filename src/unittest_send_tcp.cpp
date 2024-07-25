@@ -1,4 +1,4 @@
-/* Copyright 2020, 2023-2024 National Research Foundation (SARAO)
+;/* Copyright 2020, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -70,8 +70,8 @@ BOOST_AUTO_TEST_CASE(connect_fail)
     };
     stream.async_send_heap(h, handler);
     stream.flush();
-    BOOST_CHECK_EQUAL(connect_error, boost::asio::error::connection_refused);
-    BOOST_CHECK_EQUAL(heap_error, boost::asio::error::broken_pipe);
+    BOOST_TEST(connect_error == boost::asio::error::connection_refused);
+    BOOST_TEST(heap_error == boost::asio::error::broken_pipe);
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // tcp
