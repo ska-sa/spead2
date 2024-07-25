@@ -73,8 +73,8 @@ BOOST_AUTO_TEST_CASE(async_send_heap_handler)
     std::promise<item_pointer_t> promise;
     auto future = promise.get_future();
     bool result = stream.async_send_heap(heap, promise_handler(promise));
-    BOOST_CHECK_EQUAL(result, true);
-    BOOST_CHECK_EQUAL(future.get(), heap_size);
+    BOOST_TEST(result);
+    BOOST_TEST(future.get() == heap_size);
 }
 
 // Test async_send_heap with a generic token
@@ -86,7 +86,7 @@ BOOST_AUTO_TEST_CASE(async_send_heap_token)
     spead2::send::heap heap;
 
     std::future<item_pointer_t> future = stream.async_send_heap(heap, boost::asio::use_future);
-    BOOST_CHECK_EQUAL(future.get(), heap_size);
+    BOOST_TEST(future.get() == heap_size);
 }
 
 // Test async_send_heaps with a completion handler
@@ -104,8 +104,8 @@ BOOST_AUTO_TEST_CASE(async_send_heaps_handler)
         promise_handler(promise),
         spead2::send::group_mode::SERIAL
     );
-    BOOST_CHECK_EQUAL(result, true);
-    BOOST_CHECK_EQUAL(future.get(), heap_size * heaps.size());
+    BOOST_TEST(result);
+    BOOST_TEST(future.get() == heap_size * heaps.size());
 }
 
 // Test async_send_heaps with a completion token
@@ -121,7 +121,7 @@ BOOST_AUTO_TEST_CASE(async_send_heaps_token)
         boost::asio::use_future,
         spead2::send::group_mode::SERIAL
     );
-    BOOST_CHECK_EQUAL(future.get(), heap_size * heaps.size());
+    BOOST_TEST(future.get() == heap_size * heaps.size());
 }
 
 // Test async_send_heaps failure case with a completion handler
@@ -139,7 +139,7 @@ BOOST_AUTO_TEST_CASE(async_send_heaps_failure_handler)
         promise_handler(promise),
         spead2::send::group_mode::SERIAL
     );
-    BOOST_CHECK_EQUAL(result, false);
+    BOOST_TEST(!result);
     BOOST_CHECK_EXCEPTION(future.get(), boost::system::system_error, is_would_block);
 }
 
@@ -164,7 +164,7 @@ BOOST_AUTO_TEST_CASE(async_send_heaps_failure_token)
         },
         spead2::send::group_mode::SERIAL
     );
-    BOOST_CHECK_EQUAL(result, false);
+    BOOST_TEST(!result);
     BOOST_CHECK_EXCEPTION(future.get(), boost::system::system_error, is_would_block);
 }
 

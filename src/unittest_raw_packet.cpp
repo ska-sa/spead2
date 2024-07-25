@@ -1,4 +1,4 @@
-/* Copyright 2019, 2023 National Research Foundation (SARAO)
+/* Copyright 2019, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -111,18 +111,18 @@ BOOST_AUTO_TEST_CASE(packet_buffer_construct)
     std::uint8_t data[2];
     packet_buffer a;
     packet_buffer b(data, 2);
-    BOOST_CHECK_EQUAL(a.data(), (std::uint8_t *) nullptr);
-    BOOST_CHECK_EQUAL(a.size(), 0);
-    BOOST_CHECK_EQUAL(b.data(), data);
-    BOOST_CHECK_EQUAL(b.size(), 2);
+    BOOST_TEST(a.data() == (std::uint8_t *) nullptr);
+    BOOST_TEST(a.size() == 0U);
+    BOOST_TEST(b.data() == data);
+    BOOST_TEST(b.size() == 2U);
 }
 
 BOOST_AUTO_TEST_CASE(parse_ethernet_frame)
 {
     ethernet_frame frame(data.data(), data.size());
-    BOOST_CHECK(frame.source_mac() == source_mac);
-    BOOST_CHECK(frame.destination_mac() == destination_mac);
-    BOOST_CHECK_EQUAL(frame.ethertype(), ipv4_packet::ethertype);
+    BOOST_TEST(frame.source_mac() == source_mac);
+    BOOST_TEST(frame.destination_mac() == destination_mac);
+    BOOST_TEST(frame.ethertype() == ipv4_packet::ethertype);
 }
 
 // Just to get full test coverage
@@ -136,17 +136,17 @@ BOOST_AUTO_TEST_CASE(parse_ipv4)
     ethernet_frame frame(data.data(), data.size());
     ipv4_packet ipv4 = frame.payload_ipv4();
 
-    BOOST_CHECK_EQUAL(ipv4.version_ihl(), 0x45);   // version 4, header length 20
-    BOOST_CHECK_EQUAL(ipv4.version(), 4);
-    BOOST_CHECK_EQUAL(ipv4.dscp_ecn(), 0);
-    BOOST_CHECK_EQUAL(ipv4.total_length(), 40);
-    BOOST_CHECK_EQUAL(ipv4.identification(), ipv4_identification);
-    BOOST_CHECK_EQUAL(ipv4.flags_frag_off(), ipv4_packet::flag_do_not_fragment);
-    BOOST_CHECK_EQUAL(ipv4.ttl(), 1);
-    BOOST_CHECK_EQUAL(ipv4.protocol(), udp_packet::protocol);
-    BOOST_CHECK_EQUAL(ipv4.checksum(), ipv4_checksum);
-    BOOST_CHECK_EQUAL(ipv4.source_address(), source_address);
-    BOOST_CHECK_EQUAL(ipv4.destination_address(), destination_address);
+    BOOST_TEST(ipv4.version_ihl() == 0x45);   // version 4, header length 20
+    BOOST_TEST(ipv4.version() == 4);
+    BOOST_TEST(ipv4.dscp_ecn() == 0);
+    BOOST_TEST(ipv4.total_length() == 40);
+    BOOST_TEST(ipv4.identification() == ipv4_identification);
+    BOOST_TEST(ipv4.flags_frag_off() == ipv4_packet::flag_do_not_fragment);
+    BOOST_TEST(ipv4.ttl() == 1);
+    BOOST_TEST(ipv4.protocol() == udp_packet::protocol);
+    BOOST_TEST(ipv4.checksum() == ipv4_checksum);
+    BOOST_TEST(ipv4.source_address() == source_address);
+    BOOST_TEST(ipv4.destination_address() == destination_address);
 }
 
 BOOST_AUTO_TEST_CASE(parse_udp)
@@ -155,11 +155,11 @@ BOOST_AUTO_TEST_CASE(parse_udp)
     ipv4_packet ipv4 = frame.payload_ipv4();
     udp_packet udp = ipv4.payload_udp();
 
-    BOOST_CHECK_EQUAL(udp.source_port(), source_port);
-    BOOST_CHECK_EQUAL(udp.destination_port(), destination_port);
-    BOOST_CHECK_EQUAL(udp.length(), 20);
-    BOOST_CHECK_EQUAL(udp.checksum(), udp_checksum);
-    BOOST_CHECK_EQUAL(buffer_to_string(udp.payload()), sample_payload);
+    BOOST_TEST(udp.source_port() == source_port);
+    BOOST_TEST(udp.destination_port() == destination_port);
+    BOOST_TEST(udp.length() == 20);
+    BOOST_TEST(udp.checksum() == udp_checksum);
+    BOOST_TEST(buffer_to_string(udp.payload()) == sample_payload);
 }
 
 BOOST_AUTO_TEST_CASE(ethernet_too_small)
@@ -213,13 +213,13 @@ BOOST_AUTO_TEST_CASE(udp_bad_length)
 BOOST_AUTO_TEST_CASE(udp_from_ethernet)
 {
     boost::asio::mutable_buffer payload = spead2::udp_from_ethernet(data.data(), data.size());
-    BOOST_CHECK_EQUAL(buffer_to_string(payload), sample_payload);
+    BOOST_TEST(buffer_to_string(payload) == sample_payload);
 }
 
 BOOST_AUTO_TEST_CASE(udp_from_linux_sll)
 {
     boost::asio::mutable_buffer payload = spead2::udp_from_linux_sll(sll_data.data(), sll_data.size());
-    BOOST_CHECK_EQUAL(buffer_to_string(payload), sample_payload);
+    BOOST_TEST(buffer_to_string(payload) == sample_payload);
 }
 
 BOOST_AUTO_TEST_CASE(udp_from_ethernet_not_ipv4)

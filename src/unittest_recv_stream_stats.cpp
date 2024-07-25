@@ -1,4 +1,4 @@
-/* Copyright 2021, 2023 National Research Foundation (SARAO)
+/* Copyright 2021, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -112,32 +112,32 @@ BOOST_AUTO_TEST_CASE(test_references)
     stats["single_packet_heaps"] = 7;
     stats["search_dist"] = 8;
     stats["worker_blocked"] = 9;
-    BOOST_TEST(stats.heaps == 1);
-    BOOST_TEST(stats.incomplete_heaps_evicted == 2);
-    BOOST_TEST(stats.incomplete_heaps_flushed == 3);
-    BOOST_TEST(stats.packets == 4);
-    BOOST_TEST(stats.batches == 5);
-    BOOST_TEST(stats.max_batch == 6);
-    BOOST_TEST(stats.single_packet_heaps == 7);
-    BOOST_TEST(stats.search_dist == 8);
-    BOOST_TEST(stats.worker_blocked == 9);
+    BOOST_TEST(stats.heaps == 1U);
+    BOOST_TEST(stats.incomplete_heaps_evicted == 2U);
+    BOOST_TEST(stats.incomplete_heaps_flushed == 3U);
+    BOOST_TEST(stats.packets == 4U);
+    BOOST_TEST(stats.batches == 5U);
+    BOOST_TEST(stats.max_batch == 6U);
+    BOOST_TEST(stats.single_packet_heaps == 7U);
+    BOOST_TEST(stats.search_dist == 8U);
+    BOOST_TEST(stats.worker_blocked == 9U);
 };
 
 BOOST_AUTO_TEST_CASE(test_index)
 {
     spead2::recv::stream_stats stats;
     stats["heaps"] = 123;
-    BOOST_TEST(stats["heaps"] == 123);
-    BOOST_TEST(stats.at("heaps") == 123);
-    BOOST_TEST(stats[spead2::recv::stream_stat_indices::heaps] == 123);
+    BOOST_TEST(stats["heaps"] == 123U);
+    BOOST_TEST(stats.at("heaps") == 123U);
+    BOOST_TEST(stats[spead2::recv::stream_stat_indices::heaps] == 123U);
     BOOST_CHECK_THROW(stats["missing"], std::out_of_range);
     BOOST_CHECK_THROW(stats.at("missing"), std::out_of_range);
     BOOST_CHECK_THROW(stats.at(100000), std::out_of_range);
 
     const spead2::recv::stream_stats &stats_const = stats;
-    BOOST_TEST(stats_const["heaps"] == 123);
-    BOOST_TEST(stats_const.at("heaps") == 123);
-    BOOST_TEST(stats_const[spead2::recv::stream_stat_indices::heaps] == 123);
+    BOOST_TEST(stats_const["heaps"] == 123U);
+    BOOST_TEST(stats_const.at("heaps") == 123U);
+    BOOST_TEST(stats_const[spead2::recv::stream_stat_indices::heaps] == 123U);
     BOOST_CHECK_THROW(stats_const["missing"], std::out_of_range);
     BOOST_CHECK_THROW(stats_const.at("missing"), std::out_of_range);
     BOOST_CHECK_THROW(stats_const.at(100000), std::out_of_range);
@@ -150,24 +150,24 @@ BOOST_AUTO_TEST_CASE(test_find)
     auto it = stats.find("heaps");
     BOOST_REQUIRE(it != stats.end());
     BOOST_TEST(it->first == "heaps");
-    BOOST_TEST(it->second == 123);
+    BOOST_TEST(it->second == 123U);
     it = stats.find("missing");
-    BOOST_CHECK(it == stats.end());
+    BOOST_TEST((it == stats.end()));
 
     const spead2::recv::stream_stats &stats_const = stats;
     auto it_const = stats_const.find("heaps");
     BOOST_REQUIRE(it_const != stats_const.end());
     BOOST_TEST(it_const->first == "heaps");
-    BOOST_TEST(it_const->second == 123);
+    BOOST_TEST(it_const->second == 123U);
     it_const = stats_const.find("missing");
-    BOOST_CHECK(it_const == stats_const.end());
+    BOOST_TEST((it_const == stats_const.end()));
 }
 
 BOOST_AUTO_TEST_CASE(test_count)
 {
     spead2::recv::stream_stats stats;
-    BOOST_TEST(stats.count("heaps") == 1);
-    BOOST_TEST(stats.count("missing") == 0);
+    BOOST_TEST(stats.count("heaps") == 1U);
+    BOOST_TEST(stats.count("missing") == 0U);
 }
 
 BOOST_AUTO_TEST_CASE(test_copy)
@@ -177,7 +177,7 @@ BOOST_AUTO_TEST_CASE(test_copy)
     spead2::recv::stream_stats stats2(stats1);
     BOOST_TEST(&stats2.packets == &stats2["packets"]);
     stats1.packets = 20;
-    BOOST_TEST(stats2.packets == 10);
+    BOOST_TEST(stats2.packets == 10U);
 }
 
 BOOST_AUTO_TEST_CASE(test_copy_assign)
@@ -185,7 +185,7 @@ BOOST_AUTO_TEST_CASE(test_copy_assign)
     spead2::recv::stream_stats stats1, stats2;
     stats1.packets = 10;
     stats2 = stats1;
-    BOOST_TEST(stats2.packets == 10);
+    BOOST_TEST(stats2.packets == 10U);
     BOOST_TEST(&stats2.packets == &stats2["packets"]);
 }
 
@@ -195,7 +195,7 @@ BOOST_AUTO_TEST_CASE(test_move)
     stats1.packets = 10;
     spead2::recv::stream_stats stats2(std::move(stats1));
     BOOST_TEST(&stats2.packets == &stats2["packets"]);
-    BOOST_TEST(stats2.packets == 10);
+    BOOST_TEST(stats2.packets == 10U);
 }
 
 BOOST_AUTO_TEST_CASE(test_move_assign)
@@ -203,7 +203,7 @@ BOOST_AUTO_TEST_CASE(test_move_assign)
     spead2::recv::stream_stats stats1, stats2;
     stats1.packets = 10;
     stats2 = std::move(stats1);
-    BOOST_TEST(stats2.packets == 10);
+    BOOST_TEST(stats2.packets == 10U);
     BOOST_TEST(&stats2.packets == &stats2["packets"]);
 }
 

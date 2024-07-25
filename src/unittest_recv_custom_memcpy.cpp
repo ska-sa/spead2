@@ -1,4 +1,4 @@
-/* Copyright 2019-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2019-2020, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -89,12 +89,12 @@ BOOST_AUTO_TEST_CASE(test_reverse)
     {
         if (item.id == 0x1000)
         {
-            BOOST_CHECK(!found);
+            BOOST_TEST(!found);
             BOOST_CHECK_EQUAL_COLLECTIONS(data.rbegin(), data.rend(), item.ptr, item.ptr + item.length);
             found = true;
         }
     }
-    BOOST_CHECK(found);
+    BOOST_TEST(found);
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // custom_memcpy
