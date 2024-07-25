@@ -1,4 +1,4 @@
-/* Copyright 2019-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2019-2020, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -66,8 +66,8 @@ BOOST_AUTO_TEST_CASE(send_fail)
     };
     stream.async_send_heap(h, handler);
     auto [ec, bytes_transferred] = result_promise.get_future().get();
-    BOOST_CHECK_EQUAL(ec, boost::asio::error::eof);
-    BOOST_CHECK_EQUAL(bytes_transferred, 20);
+    BOOST_TEST(ec == boost::asio::error::eof);
+    BOOST_TEST(bytes_transferred == 20U);
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // streambuf

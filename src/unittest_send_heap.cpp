@@ -1,4 +1,4 @@
-/* Copyright 2018, 2023 National Research Foundation (SARAO)
+/* Copyright 2018, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -42,16 +42,16 @@ BOOST_AUTO_TEST_CASE(get_item)
     item &item1 = h.get_item(handle1);
     const item &item2 = std::as_const(h).get_item(handle2);
 
-    BOOST_CHECK_EQUAL(item1.id, 0x1234);
-    BOOST_CHECK(item1.is_inline);
-    BOOST_CHECK_EQUAL(item1.data.immediate, 0xabc);
+    BOOST_TEST(item1.id == 0x1234);
+    BOOST_TEST(item1.is_inline);
+    BOOST_TEST(item1.data.immediate == 0xabc);
     item1.data.immediate = 0xabcd;
     // Check that updates are reflected
-    BOOST_CHECK_EQUAL(h.get_item(handle1).data.immediate, 0xabcd);
+    BOOST_TEST(h.get_item(handle1).data.immediate == 0xabcd);
 
-    BOOST_CHECK_EQUAL(item2.id, 0x2345);
-    BOOST_CHECK(!item2.is_inline);
-    BOOST_CHECK_EQUAL(item2.data.buffer.ptr, (const unsigned char *) &value2);
+    BOOST_TEST(item2.id == 0x2345);
+    BOOST_TEST(!item2.is_inline);
+    BOOST_TEST(item2.data.buffer.ptr == (const unsigned char *) &value2);
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // heap
