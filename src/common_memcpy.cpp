@@ -1,4 +1,4 @@
-/* Copyright 2016, 2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2016, 2020, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -58,11 +58,64 @@
 # include "common_memcpy_x86.h"
 #endif
 
+#if SPEAD2_USE_SVE_STREAM
+# include <atomic>
+# include <sys/auxv.h>
+# include <arm_sve.h>
+#endif
+
 namespace spead2
 {
 
-void *(*resolve_memcpy_nontemporal())(void *, const void *, std::size_t) noexcept
+#if SPEAD2_USE_SVE_STREAM
+[[gnu::target("+sve")]]
+void *memcpy_nontemporal_sve(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept
 {
+    /* The AArch64 memory model says
+     *
+     * "If an address dependency exists between two Read Memory and an SVE
+     * non-temporal vector load instruction generated the second read, then in
+     * the absence of any other barrier mechanism to achieve order, the memory
+     * accesses can be observed in any order by the other observers within the
+     * shareability domain of the memory addresses being accessed."
+     *
+     * This is probably not an issue in practice, unless the source address
+     * is obtained with memory_order_consume and the compiler actually tracks
+     * dependencies (which apparently none do).
+     *
+     * It's not entirely clear to me whether that's an issue, but it sounds
+     * like SVE non-temporal reads can be served from a load buffer that's not
+     * coherent with other cores' caches. To be on the safe side, I'm adding a
+     * barrier here.
+     */
+    std::atomic_thread_fence(std::memory_order_acquire);
+
+    /* TODO: this is probably sub-optimal, since it doesn't do any unrolling
+     * or alignment. Efficient unrolling probably requires doing separate body
+     * and tail (where the body is a multiple of the vector length) to avoid
+     * doing svwhilelt for every iteration.
+     */
+    std::uint8_t *destc = (std::uint8_t *) dest;
+    const std::uint8_t *srcc = (const std::uint8_t *) src;
+
+    size_t i = 0;
+    svbool_t pg = svwhilelt_b8(i, n);
+    do
+    {
+        svstnt1_u8(pg, &destc[i], svldnt1_u8(pg, &srcc[i]));
+        i += svcntb();
+    } while (svptest_first(svptrue_b8(), pg = svwhilelt_b8(i, n)));
+    return dest;
+}
+#endif // SPEAD2_USE_SVE_STREAM
+
+extern "C" void *(*spead2_resolve_memcpy_nontemporal(
+#if SPEAD2_USE_SVE_STREAM
+    std::uint64_t hwcaps  // See System V AVI for AArch64
+#endif
+))(void *, const void *, std::size_t) noexcept
+{
+    /* x86 options */
 #if SPEAD2_USE_AVX512_STREAM || SPEAD2_USE_AVX_STREAM || SPEAD2_USE_SSE2_STREAM
     __builtin_cpu_init();
 #endif
@@ -85,6 +138,13 @@ void *(*resolve_memcpy_nontemporal())(void *, const void *, std::size_t) noexcep
     if (__builtin_cpu_supports("sse2"))
         return memcpy_nontemporal_sse2;
 #endif
+
+    /* aarch64 options */
+#if SPEAD2_USE_SVE_STREAM
+    if (hwcaps & HWCAP_SVE)
+        return memcpy_nontemporal_sve;
+#endif
+
     /* Depending on the C library, std::memcpy might or might not be marked
      * as noexcept. If not, we need this explicit cast.
      */
@@ -93,14 +153,20 @@ void *(*resolve_memcpy_nontemporal())(void *, const void *, std::size_t) noexcep
 
 #if SPEAD2_USE_FMV
 
-[[gnu::ifunc("_ZN6spead226resolve_memcpy_nontemporalEv")]]
+[[gnu::ifunc("spead2_resolve_memcpy_nontemporal")]]
 void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
 
 #else
 
 void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept
 {
-    static void *(*memcpy_nontemporal_ptr)(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept = resolve_memcpy_nontemporal();
+#if SPEAD2_USE_SVE_STREAM
+    static void *(*memcpy_nontemporal_ptr)(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept =
+        spead2_resolve_memcpy_nontemporal(getauxval(AT_HWCAPS));
+#else
+    static void *(*memcpy_nontemporal_ptr)(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept =
+        spead2_resolve_memcpy_nontemporal();
+#endif
     return memcpy_nontemporal_ptr(dest, src, n);
 }
 

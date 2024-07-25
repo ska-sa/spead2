@@ -1,4 +1,4 @@
-/* Copyright 2016, 2021, 2023 National Research Foundation (SARAO)
+/* Copyright 2016, 2021, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -26,6 +26,10 @@
 #include <cstdint>
 #include <ostream>
 #include <spead2/common_memcpy.h>
+#include <spead2/common_features.h>
+#if SPEAD2_USE_SVE_STREAM
+# include <sys/auxv.h>
+#endif
 
 /* Declare the implementations of the instruction-specific implementations, so
  * that we can test all of them (that the current CPU supports) rather than
@@ -41,6 +45,9 @@ void *memcpy_nontemporal_avx(void * __restrict__ dest, const void * __restrict__
 #endif
 #if SPEAD2_USE_AVX512_STREAM
 void *memcpy_nontemporal_avx512(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
+#endif
+#if SPEAD2_USE_SVE_STREAM
+void *memcpy_nontemporal_sve(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept;
 #endif
 } // namespace spead2
 
@@ -73,6 +80,9 @@ static const memcpy_function memcpy_functions[] =
 #endif
 #if SPEAD2_USE_AVX512_STREAM
     { "avx512", spead2::memcpy_nontemporal_avx512, bool(__builtin_cpu_supports("avx512f")) },
+#endif
+#if SPEAD2_USE_SVE_STREAM
+    { "sve", spead2::memcpy_nontemporal_sve, (getauxval(AT_HWCAP) & HWCAP_SVE) != 0 },
 #endif
 };
 

@@ -54,7 +54,7 @@
 #endif
 
 /* Similarly for AARCH64 features */
-#if defined(__AARCH64LE__) || defined(__AARCH64BE__)
+#if defined(__aarch64__)
 # define SPEAD2_USE_SVE_STREAM @SPEAD2_USE_SVE_STREAM@
 #else
 # define SPEAD2_USE_SVE_STREAM 0
