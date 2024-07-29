@@ -26,6 +26,8 @@ if [ "$(uname -s)" = "Linux" ]; then
 else
     brew update
     brew install ninja boost@1.85 libdivide
+    # The MacOS images have an outdated Rust and the line above breaks it.
+    brew upgrade rustup
     # On Apple Silicon, homebrew is installed in /opt/homebrew, but the
     # toolchains are not configured to find things there.
     prefix="$(brew --prefix)"
