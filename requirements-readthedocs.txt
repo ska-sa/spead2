@@ -55,7 +55,7 @@ pluggy==1.5.0
     #   pytest
 pygments==2.18.0
     # via sphinx
-pytest==8.3.1
+pytest==8.3.2
     # via
     #   -r requirements-3.12.txt
     #   pytest-asyncio
@@ -81,7 +81,7 @@ sphinx==7.4.7
     #   sphinx-rtd-theme
     #   sphinxcontrib-jquery
     #   sphinxcontrib-tikz
-sphinx-design==0.6.0
+sphinx-design==0.6.1
     # via -r requirements-readthedocs.in
 sphinx-rtd-theme==2.0.0
     # via -r requirements-readthedocs.in
