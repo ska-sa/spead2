@@ -25,7 +25,7 @@ if [ "$(uname -s)" = "Linux" ]; then
         libdivide-dev
 else
     brew update
-    brew install ninja boost@1.85 libdivide
+    brew install ninja boost@1.86 libdivide
     # The MacOS images have an outdated Rust and the line above breaks it.
     brew upgrade rustup
     # On Apple Silicon, homebrew is installed in /opt/homebrew, but the

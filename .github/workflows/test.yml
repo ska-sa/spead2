@@ -230,7 +230,7 @@ jobs:
         run: ./.ci/install-sys-pkgs.sh
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
-      - run: pip install build==0.10.0
+      - run: pip install build==1.2.1
       - run: python -m build --sdist .
       - uses: actions/upload-artifact@v4
         with:
