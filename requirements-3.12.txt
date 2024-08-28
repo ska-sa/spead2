@@ -12,7 +12,7 @@ netifaces2==0.0.22
     # via -r requirements.in
 numba==0.60.0
     # via -r requirements.in
-numpy==2.0.1
+numpy==2.0.2
     # via
     #   -r requirements.in
     #   numba
@@ -27,11 +27,11 @@ pytest==8.3.2
     #   pytest-asyncio
     #   pytest-custom-exit-code
     #   pytest-timeout
-pytest-asyncio==0.23.8
+pytest-asyncio==0.24.0
     # via -r requirements.in
 pytest-custom-exit-code==0.3.0
     # via -r requirements.in
 pytest-timeout==2.3.1
     # via -r requirements.in
-scipy==1.14.0
+scipy==1.14.1
     # via -r requirements.in

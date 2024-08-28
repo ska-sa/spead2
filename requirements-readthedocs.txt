@@ -6,7 +6,7 @@
 #
 alabaster==0.7.16
     # via sphinx
-babel==2.15.0
+babel==2.16.0
     # via sphinx
 breathe==4.35.0
     # via -r requirements-readthedocs.in
@@ -19,7 +19,7 @@ docutils==0.20.1
     #   breathe
     #   sphinx
     #   sphinx-rtd-theme
-idna==3.7
+idna==3.8
     # via requests
 imagesize==1.4.1
     # via sphinx
@@ -39,7 +39,7 @@ netifaces2==0.0.22
     # via -r requirements-3.12.txt
 numba==0.60.0
     # via -r requirements-3.12.txt
-numpy==2.0.1
+numpy==2.0.2
     # via
     #   -r requirements-3.12.txt
     #   numba
@@ -61,7 +61,7 @@ pytest==8.3.2
     #   pytest-asyncio
     #   pytest-custom-exit-code
     #   pytest-timeout
-pytest-asyncio==0.23.8
+pytest-asyncio==0.24.0
     # via -r requirements-3.12.txt
 pytest-custom-exit-code==0.3.0
     # via -r requirements-3.12.txt
@@ -69,7 +69,7 @@ pytest-timeout==2.3.1
     # via -r requirements-3.12.txt
 requests==2.32.3
     # via sphinx
-scipy==1.14.0
+scipy==1.14.1
     # via -r requirements-3.12.txt
 snowballstemmer==2.2.0
     # via sphinx
@@ -85,19 +85,19 @@ sphinx-design==0.6.1
     # via -r requirements-readthedocs.in
 sphinx-rtd-theme==2.0.0
     # via -r requirements-readthedocs.in
-sphinxcontrib-applehelp==1.0.8
+sphinxcontrib-applehelp==2.0.0
     # via sphinx
-sphinxcontrib-devhelp==1.0.6
+sphinxcontrib-devhelp==2.0.0
     # via sphinx
-sphinxcontrib-htmlhelp==2.0.5
+sphinxcontrib-htmlhelp==2.1.0
     # via sphinx
 sphinxcontrib-jquery==4.1
     # via sphinx-rtd-theme
 sphinxcontrib-jsmath==1.0.1
     # via sphinx
-sphinxcontrib-qthelp==1.0.7
+sphinxcontrib-qthelp==2.0.0
     # via sphinx
-sphinxcontrib-serializinghtml==1.1.10
+sphinxcontrib-serializinghtml==2.0.0
     # via sphinx
 sphinxcontrib-tikz==0.4.20
     # via -r requirements-readthedocs.in
