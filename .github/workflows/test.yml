@@ -255,7 +255,7 @@ jobs:
         with:
           platforms: arm64
         if: matrix.arch != 'x86_64'
-      - uses: pypa/cibuildwheel@v2.21.0
+      - uses: pypa/cibuildwheel@v2.21.1
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_BUILD: ${{ matrix.python }}-manylinux*
@@ -287,7 +287,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.5
-      - uses: pypa/cibuildwheel@v2.21.0
+      - uses: pypa/cibuildwheel@v2.21.1
         env:
           CIBW_BUILD: ${{ matrix.python }}-macos*
       - uses: actions/upload-artifact@v4
