@@ -83,7 +83,7 @@ sphinx==7.4.7
     #   sphinxcontrib-tikz
 sphinx-design==0.6.1
     # via -r requirements-readthedocs.in
-sphinx-rtd-theme==2.0.0
+sphinx-rtd-theme==3.0.0
     # via -r requirements-readthedocs.in
 sphinxcontrib-applehelp==2.0.0
     # via sphinx
