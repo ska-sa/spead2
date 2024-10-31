@@ -114,7 +114,7 @@ py_version = 38
 
 [tool.black]
 line-length = 100
-target-versions = ["py38", "py39", "py310", "py311", "py312"]
+target-versions = ["py38", "py39", "py310", "py311", "py312", "py313"]
 
 [tool.ruff]
 select = ["E", "F", "W", "UP", "PYI", "RUF100"]

@@ -56,6 +56,11 @@ repos:
         args: [requirements.in, -o, requirements-3.12.txt]
         language_version: python3.12
         files: '^(?:requirements\.in|requirements-3\.12\.txt)$'
+      - name: pip-compile (py 3.13)
+        id: pip-compile
+        args: [requirements.in, -o, requirements-3.13.txt]
+        language_version: python3.13
+        files: '^(?:requirements\.in|requirements-3\.13\.txt)$'
       - name: pip-compile (readthedocs)
         id: pip-compile
         args: [requirements-readthedocs.in, -o, requirements-readthedocs.txt]

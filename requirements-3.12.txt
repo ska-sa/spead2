@@ -10,7 +10,7 @@ llvmlite==0.43.0
     # via numba
 netifaces2==0.0.22
     # via -r requirements.in
-numba==0.60.0
+numba==0.60.0 ; python_version < "3.13"
     # via -r requirements.in
 numpy==2.0.2
     # via

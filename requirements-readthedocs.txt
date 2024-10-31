@@ -37,7 +37,7 @@ markupsafe==2.1.5
     # via jinja2
 netifaces2==0.0.22
     # via -r requirements-3.12.txt
-numba==0.60.0
+numba==0.60.0 ; python_version < "3.13"
     # via -r requirements-3.12.txt
 numpy==2.0.2
     # via
