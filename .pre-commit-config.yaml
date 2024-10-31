@@ -65,4 +65,4 @@ repos:
         id: pip-compile
         args: [requirements-readthedocs.in, -o, requirements-readthedocs.txt]
         language_version: python3.12
-        files: '^requirements(?:-readthedocs)?\.(?:in|txt)$'
+        files: '^requirements(?:-readthedocs|3\.12)?\.(?:in|txt)$'
