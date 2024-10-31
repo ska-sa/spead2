@@ -63,6 +63,8 @@ repos:
         files: '^(?:requirements\.in|requirements-3\.13\.txt)$'
       - name: pip-compile (readthedocs)
         id: pip-compile
-        args: [--strip-extras, requirements-readthedocs.in, -o, requirements-readthedocs.txt]
+        # --no-annotation because otherwise -r requirements-3.12.txt sometimes gets
+        # rewritten into an absolute path.
+        args: [--strip-extras, --no-annotate, requirements-readthedocs.in, -o, requirements-readthedocs.txt]
         language_version: python3.12
         files: '^requirements(?:-readthedocs|3\.12)?\.(?:in|txt)$'
