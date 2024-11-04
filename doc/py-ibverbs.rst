@@ -76,7 +76,7 @@ The configuration is specified using a :py:class:`spead.recv.UdpIbvConfig`.
 .. py:class:: spead2.recv.UdpIbvConfig(*, endpoints=[], interface_address='', buffer_size=DEFAULT_BUFFER_SIZE, max_size=DEFAULT_MAX_SIZE, comp_vector=0, max_poll=DEFAULT_MAX_POLL)
 
    :param endpoints: Peer endpoints
-   :type endpoints: List[Tuple[str, int]]
+   :type endpoints: list[tuple[str, int]]
    :param str interface_address: Hostname/IP address of the interface which
      will be subscribed
    :param int buffer_size: Requested memory allocation for work requests.
@@ -147,7 +147,7 @@ configuration:
 .. py:class:: spead2.send.UdpIbvConfig(*, endpoints=[], interface_address='', buffer_size=DEFAULT_BUFFER_SIZE, ttl=1, comp_vector=0, max_poll=DEFAULT_MAX_POLL, memory_regions=[])
 
    :param endpoints: Peer endpoints (one per substream)
-   :type endpoints: List[Tuple[str, int]]
+   :type endpoints: list[tuple[str, int]]
    :param str interface_address: Hostname/IP address of the interface which
      will be subscribed
    :param int buffer_size: Requested memory allocation for work requests.
@@ -167,7 +167,7 @@ configuration:
      waiting for an interrupt (if `comp_vector` is
      non-negative) or letting other code run on the
      thread (if `comp_vector` is negative).
-   :param List[object] memory_regions: Objects implementing the buffer
+   :param list[object] memory_regions: Objects implementing the buffer
      protocol that will be used to hold item data. This is not required, but
      data stored in these buffers may be transmitted directly without
      requiring a copy, yielding higher performance. There may be

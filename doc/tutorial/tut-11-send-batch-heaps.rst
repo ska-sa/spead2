@@ -28,13 +28,11 @@ structure).
 
  .. code-block:: python
 
-    from typing import List
-    ...
     @dataclass
     class State:
         adc_samples: np.ndarray
         timestamps: np.ndarray
-        heaps: List[spead2.send.Heap]
+        heaps: list[spead2.send.Heap]
         future: asyncio.Future[int] = field(default_factory=asyncio.Future)
 
         ...

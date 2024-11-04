@@ -8,7 +8,7 @@ iniconfig==2.0.0
     # via pytest
 netifaces2==0.0.22
     # via -r requirements.in
-numpy==2.1.2
+numpy==2.1.3
     # via
     #   -r requirements.in
     #   scipy

@@ -15,7 +15,8 @@
 
 import enum
 import socket
-from typing import ClassVar, Iterator, Sequence, overload
+from collections.abc import Iterator, Sequence
+from typing import ClassVar, overload
 
 import spead2
 from spead2 import _EndpointList

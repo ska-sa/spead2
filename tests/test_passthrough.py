@@ -20,7 +20,6 @@ import ipaddress
 import os
 import socket
 import sys
-from typing import Set
 
 import netifaces
 import numpy as np
@@ -73,10 +72,10 @@ class Transport:
     requires_ipv6_multicast = False
 
     def __init__(self) -> None:
-        self._udp_ports: Set[int] = set()
-        self._tcp_ports: Set[int] = set()
+        self._udp_ports: set[int] = set()
+        self._tcp_ports: set[int] = set()
 
-    def _unused_port(self, socket_type: int, used: Set[int]) -> int:
+    def _unused_port(self, socket_type: int, used: set[int]) -> int:
         """Obtain an available port of the specified type.
 
         It is guaranteed to be distinct from any ports in `used.` On

@@ -16,7 +16,8 @@
 import collections.abc
 import enum
 import socket
-from typing import Any, ClassVar, Iterable, Iterator, Sequence, overload
+from collections.abc import Iterable, Iterator, Sequence
+from typing import Any, ClassVar, overload
 
 from typing_extensions import Self
 

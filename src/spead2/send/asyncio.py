@@ -113,7 +113,7 @@ UdpStream.__doc__ = """SPEAD over UDP with asynchronous sends.
     ----------
     thread_pool : :py:class:`spead2.ThreadPool`
         Thread pool handling the I/O
-    endpoints : List[Tuple[str, int]]
+    endpoints : list[tuple[str, int]]
         Peer endpoints (one per substreams).
     config : :py:class:`spead2.send.StreamConfig`
         Stream configuration
@@ -177,7 +177,7 @@ InprocStream.__doc__ = """SPEAD over reliable in-process transport.
     ----------
     thread_pool : :py:class:`spead2.ThreadPool`
         Thread pool handling the I/O
-    queues : List[:py:class:`spead2.InprocQueue`]
+    queues : list[:py:class:`spead2.InprocQueue`]
         Queue holding the data in flight
     config : :py:class:`spead2.send.StreamConfig`
         Stream configuration
@@ -193,7 +193,7 @@ try:
         ----------
         thread_pool : :py:class:`spead2.ThreadPool`
             Thread pool handling the I/O
-        endpoints : List[Tuple[str, int]]
+        endpoints : list[tuple[str, int]]
             Destinations to transmit to. For backwards compatibility, one can
             also provide a single address and port as two separate
             parameters.
