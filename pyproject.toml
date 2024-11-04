@@ -1,5 +1,5 @@
 [build-system]
-requires = ["meson-python", "pybind11==2.13.1", "jinja2", "pycparser", "packaging"]
+requires = ["meson-python", "pybind11==2.13.6", "jinja2", "pycparser", "packaging"]
 build-backend = "mesonpy"
 
 [project]
