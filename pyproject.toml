@@ -21,7 +21,7 @@ classifiers = [
 dependencies = [
   "numpy>=1.9.2"
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dynamic = ["version"]
 
 [project.optional-dependencies]
@@ -110,11 +110,11 @@ before-all = ".ci/before_all_macos.sh"
 profile = "black"
 combine_as_imports = true
 line_length = 100
-py_version = 38
+py_version = 39
 
 [tool.black]
 line-length = 100
-target-versions = ["py38", "py39", "py310", "py311", "py312", "py313"]
+target-versions = ["py39", "py310", "py311", "py312", "py313"]
 
 [tool.ruff]
 select = ["E", "F", "W", "UP", "PYI", "RUF100"]
@@ -123,4 +123,4 @@ line-length = 100
 [tool.mypy]
 ignore_missing_imports = true
 files = ["src/spead2", "examples", "tests"]
-python_version = "3.8"
+python_version = "3.9"

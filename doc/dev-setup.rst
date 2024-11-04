@@ -33,8 +33,7 @@ of editable installs. Also install the development runtime dependencies:
 
 .. code-block:: sh
 
-   pip install -r requirements.txt       # If Python < 3.12
-   pip install -r requirements-3.12.txt  # If Python = 3.12
+   pip install -r requirements.txt       # If Python < 3.13
    pip install -r requirements-3.13.txt  # If Python >= 3.13
 
 Now you should be able to run the unit tests by executing :command:`pytest`.
@@ -144,7 +143,7 @@ Committing
 Before committing, remember to run :command:`pre-commit install` to set up
 pre-commit. One of the pre-commit hooks checks that the requirements files are
 up to date, and (at the time of writing) depends on having
-:command:`python3.8`, :command:`python3.12` and :command:`python3.13` commands
+:command:`python3.9`, :command:`python3.12` and :command:`python3.13` commands
 on the path. If you're not touching the requirements, you can skip this hook
 by setting the environment variable :envvar:`SKIP=pip-compile` when
 committing.
