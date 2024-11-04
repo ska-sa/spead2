@@ -86,7 +86,7 @@ Reference
    can either be passed to the constructor (as keyword arguments) or set as
    properties after construction.
 
-   :param List[int] items:
+   :param list[int] items:
      The items whose immediate values should be passed to the place function.
      Accessing this property returns a copy, so it cannot be updated with
      ``append`` or other mutating operations. Assign a complete list.
