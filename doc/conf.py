@@ -48,6 +48,7 @@ version, release = get_version()
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.imgconverter",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
