@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e -u
 
-pcap_version=1.10.4
+pcap_version=1.10.5
 
 # Prepare the MacOS environment for building spead2 wheels (for cibuildwheel)
 .ci/install-sys-pkgs.sh
