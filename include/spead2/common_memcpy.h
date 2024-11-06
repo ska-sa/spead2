@@ -28,6 +28,17 @@
  *
  * If compiler and run-time support is not available, this falls back to
  * regular memcpy.
+ *
+ * On AArch64, this does not carry a dependency from the source address to
+ * the source data. In other words, if you do the following, proper ordering
+ * is not guaranteed:
+ *
+ * 1. Write data to an array;
+ * 2. Write the address of the array to an atomic pointer;
+ * 3. In another thread, read the pointer with @c std::memory_order_consume and
+ *    pass it to this function.
+ *
+ * Rather use @c std::memory_order_acquire in this case.
  */
 namespace spead2
 {

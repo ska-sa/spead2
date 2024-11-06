@@ -79,16 +79,20 @@ void *memcpy_nontemporal_sve(void * __restrict__ dest, const void * __restrict__
      * accesses can be observed in any order by the other observers within the
      * shareability domain of the memory addresses being accessed."
      *
-     * This is probably not an issue in practice, unless the source address
-     * is obtained with memory_order_consume and the compiler actually tracks
-     * dependencies (which apparently none do).
+     * I think that in the C++ memory model, this should only affect
+     * std::memory_order_consume (since "carries dependency" is the only time
+     * reads are assumed to be ordered in the absence of explicit
+     * synchronisation); memory_order_consume is not used anywhere in spead2,
+     * the C++ standard discourages it, and it's believed that no compiler
+     * actually implements it other than by upgrade to acquire.
      *
-     * It's not entirely clear to me whether that's an issue, but it sounds
-     * like SVE non-temporal reads can be served from a load buffer that's not
-     * coherent with other cores' caches. To be on the safe side, I'm adding a
-     * barrier here.
+     * The user documentation for @ref memcpy_nontemporal indicates this
+     * limitation, so we do not insert any barriers here. If it becomes
+     * necessary in future, testing on a Grace GH200 (Neoverse V2) chip
+     * suggests that it is more efficient to write the address to an atomic
+     * and read it back with memory_order_acquire than it is to use
+     * atomic_thread_fence.
      */
-    std::atomic_thread_fence(std::memory_order_acquire);
 
     /* TODO: this is probably sub-optimal, since it doesn't do any unrolling
      * or alignment. Efficient unrolling probably requires doing separate body
