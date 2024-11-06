@@ -94,15 +94,39 @@ void *memcpy_nontemporal_sve(void * __restrict__ dest, const void * __restrict__
      * atomic_thread_fence.
      */
 
-    /* TODO: this is probably sub-optimal, since it doesn't do any unrolling
-     * or alignment. Efficient unrolling probably requires doing separate body
-     * and tail (where the body is a multiple of the vector length) to avoid
-     * doing svwhilelt for every iteration.
-     */
     std::uint8_t *destc = (std::uint8_t *) dest;
     const std::uint8_t *srcc = (const std::uint8_t *) src;
+    std::size_t i = 0;  // byte offset for next copy
 
-    size_t i = 0;
+    /* Alignment requires we have data up to the next multiple, and it's
+     * not worth unrolling unless we have a reasonable amount of data.
+     * For anything smaller, we'll just rely on the tail handling.
+     */
+    if (n >= 4 * svcntb())
+    {
+        /* Align the source pointer to a multiple of the vector size.
+         * Experiments on Grace (Neoverse V2) show that source alignment
+         * is more important than destination alignment to throughput.
+         *
+         * C++ doesn't guarantee the representation of a pointer when
+         * cast to uintptr_t, but we're only depending on it for performance,
+         * not correctness.
+         */
+        std::size_t head = -std::uintptr_t(src) & (svcntb() - 1);
+        svbool_t pg = svwhilelt_b8(i, head);
+        svstnt1_u8(pg, destc, svldnt1_u8(pg, srcc));
+        i = head;
+
+        while (i + 2 * svcntb() <= n)
+        {
+            svuint8_t data0 = svldnt1_u8(svptrue_b8(), &srcc[i]);
+            svuint8_t data1 = svldnt1_u8(svptrue_b8(), &srcc[i + svcntb()]);
+            svstnt1_u8(svptrue_b8(), &destc[i], data0);
+            svstnt1_u8(svptrue_b8(), &destc[i + svcntb()], data1);
+            i += 2 * svcntb();
+        }
+    }
+
     svbool_t pg = svwhilelt_b8(i, n);
     do
     {
