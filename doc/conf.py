@@ -52,6 +52,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinxcontrib.tikz",
+    "sphinxcontrib.inkscapeconverter",
     "sphinx_design",
     "sphinx_rtd_theme",
     "breathe",
