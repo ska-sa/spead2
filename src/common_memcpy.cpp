@@ -190,7 +190,7 @@ void *memcpy_nontemporal(void * __restrict__ dest, const void * __restrict__ src
 {
 #if SPEAD2_USE_SVE_STREAM
     static void *(*memcpy_nontemporal_ptr)(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept =
-        spead2_resolve_memcpy_nontemporal(getauxval(AT_HWCAPS));
+        spead2_resolve_memcpy_nontemporal(getauxval(AT_HWCAP));
 #else
     static void *(*memcpy_nontemporal_ptr)(void * __restrict__ dest, const void * __restrict__ src, std::size_t n) noexcept =
         spead2_resolve_memcpy_nontemporal();
