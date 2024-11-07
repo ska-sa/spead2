@@ -6,6 +6,7 @@ build:
     - libboost-dev
     - libdivide-dev
     - pdf2svg
+    - inkscape
   tools:
     python: "3.12"
 python:
