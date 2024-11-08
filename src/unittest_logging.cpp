@@ -1,4 +1,4 @@
-/* Copyright 2019, 2023 National Research Foundation (SARAO)
+/* Copyright 2019, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -170,7 +170,7 @@ BOOST_AUTO_TEST_CASE(throw_errno_zero)
 BOOST_FIXTURE_TEST_CASE(default_logger, capture_stderr)
 {
     spead2::log_info("A test message");
-    BOOST_CHECK_EQUAL(out.str(), "spead2: info: A test message\n");
+    BOOST_TEST(out.str() == "spead2: info: A test message\n");
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // logging

@@ -261,6 +261,22 @@ use_avx512_stream = get_option('avx512_stream').require(
     name : 'AVX-512 streaming intrinsic'
   )
 ).allowed()
+use_sve_stream = get_option('sve_stream').require(
+  compiler.compiles(
+    '''
+    #include <arm_sve.h>
+    #include <sys/auxv.h>
+
+    [[gnu::target("+sve")]]
+    void foo()
+    {
+        bool have_sve = getauxval(AT_HWCAP) & HWCAP_SVE;
+        svldnt1_u8(svptrue_b8(), (const unsigned char *) 0);
+    }
+    ''',
+    name : 'SVE streaming intrinsic'
+  )
+).allowed()
 
 # Write configuration data
 conf = configuration_data()
@@ -283,6 +299,7 @@ conf.set10('SPEAD2_USE_FMV', use_fmv)
 conf.set10('SPEAD2_USE_SSE2_STREAM', use_sse2_stream)
 conf.set10('SPEAD2_USE_AVX_STREAM', use_avx_stream)
 conf.set10('SPEAD2_USE_AVX512_STREAM', use_avx512_stream)
+conf.set10('SPEAD2_USE_SVE_STREAM', use_sve_stream)
 conf.set10('SPEAD2_USE_PCAP', pcap_dep.found())
 conf.set('SPEAD2_MAX_LOG_LEVEL', '(spead2::log_level::' + get_option('max_log_level') + ')')
 

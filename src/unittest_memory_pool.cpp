@@ -1,4 +1,4 @@
-/* Copyright 2016, 2017, 2019, 2021, 2023 National Research Foundation (SARAO)
+/* Copyright 2016, 2017, 2019, 2021, 2023-2024 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -81,7 +81,7 @@ public:
 
         void operator()(std::uint8_t *ptr) const
         {
-            BOOST_CHECK_EQUAL(ptr + 1, next_ptr);
+            BOOST_TEST(ptr + 1 == next_ptr);
             allocator->records.push_back(record{false, 0, ptr});
             allocator->saved.emplace_back(ptr);
         }
@@ -164,23 +164,23 @@ BOOST_AUTO_TEST_CASE(memory_pool_pass_deleter)
     p5.reset();
 
     // Check results
-    BOOST_REQUIRE_EQUAL(allocator->records.size(), 8);
-    BOOST_CHECK_EQUAL(allocator->records[0].allocate, true);
-    BOOST_CHECK_EQUAL(allocator->records[0].size, 2048);
-    BOOST_CHECK_EQUAL(allocator->records[1].allocate, true);
-    BOOST_CHECK_EQUAL(allocator->records[1].size, 2048);
-    BOOST_CHECK_EQUAL(allocator->records[2].allocate, true);
-    BOOST_CHECK_EQUAL(allocator->records[2].size, 2048);
-    BOOST_CHECK_EQUAL(allocator->records[3].allocate, false);
-    BOOST_CHECK_EQUAL(allocator->records[3].ptr, allocator->records[2].ptr);
-    BOOST_CHECK_EQUAL(allocator->records[4].allocate, true);
-    BOOST_CHECK_EQUAL(allocator->records[4].size, 2049);
-    BOOST_CHECK_EQUAL(allocator->records[5].allocate, false);
-    BOOST_CHECK_EQUAL(allocator->records[5].ptr, allocator->records[0].ptr);
-    BOOST_CHECK_EQUAL(allocator->records[6].allocate, false);
-    BOOST_CHECK_EQUAL(allocator->records[6].ptr, allocator->records[1].ptr);
-    BOOST_CHECK_EQUAL(allocator->records[7].allocate, false);
-    BOOST_CHECK_EQUAL(allocator->records[7].ptr, allocator->records[4].ptr);
+    BOOST_TEST_REQUIRE(allocator->records.size() == 8U);
+    BOOST_TEST(allocator->records[0].allocate);
+    BOOST_TEST(allocator->records[0].size == 2048U);
+    BOOST_TEST(allocator->records[1].allocate);
+    BOOST_TEST(allocator->records[1].size == 2048U);
+    BOOST_TEST(allocator->records[2].allocate);
+    BOOST_TEST(allocator->records[2].size == 2048U);
+    BOOST_TEST(!allocator->records[3].allocate);
+    BOOST_TEST(allocator->records[3].ptr == allocator->records[2].ptr);
+    BOOST_TEST(allocator->records[4].allocate);
+    BOOST_TEST(allocator->records[4].size == 2049U);
+    BOOST_TEST(!allocator->records[5].allocate);
+    BOOST_TEST(allocator->records[5].ptr == allocator->records[0].ptr);
+    BOOST_TEST(!allocator->records[6].allocate);
+    BOOST_TEST(allocator->records[6].ptr == allocator->records[1].ptr);
+    BOOST_TEST(!allocator->records[7].allocate);
+    BOOST_TEST(allocator->records[7].ptr == allocator->records[4].ptr);
 }
 
 // Check that a warning is issued when the memory pool becomes empty, if and
@@ -188,19 +188,19 @@ BOOST_AUTO_TEST_CASE(memory_pool_pass_deleter)
 BOOST_FIXTURE_TEST_CASE(memory_pool_warn_on_empty, logger_fixture)
 {
     auto pool = std::make_shared<spead2::memory_pool>(1024, 2048, 1, 1);
-    BOOST_CHECK_EQUAL(pool->get_warn_on_empty(), true);
+    BOOST_TEST(pool->get_warn_on_empty() == true);
     auto ptr1 = pool->allocate(1024, nullptr);
     // Wasn't empty, should be no messages
-    BOOST_CHECK_EQUAL(messages[spead2::log_level::warning].size(), 0);
+    BOOST_TEST(messages[spead2::log_level::warning].size() == 0U);
     auto ptr2 = pool->allocate(1024, nullptr);
     // Now was empty, should be a warning
-    BOOST_CHECK_EQUAL(messages[spead2::log_level::warning].size(), 1);
+    BOOST_TEST(messages[spead2::log_level::warning].size() == 1U);
 
     pool->set_warn_on_empty(false);
-    BOOST_CHECK_EQUAL(pool->get_warn_on_empty(), false);
+    BOOST_TEST(pool->get_warn_on_empty() == false);
     auto ptr3 = pool->allocate(1024, nullptr);
     // Empty again, but should be no new warning
-    BOOST_CHECK_EQUAL(messages[spead2::log_level::warning].size(), 1);
+    BOOST_TEST(messages[spead2::log_level::warning].size() == 1U);
 }
 
 BOOST_AUTO_TEST_SUITE_END()  // memory_pool

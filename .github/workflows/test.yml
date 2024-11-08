@@ -11,19 +11,14 @@ jobs:
         include:
           - os: ubuntu-20.04
             cxx: g++-9
-            extras: enabled
           - os: ubuntu-22.04
             cxx: g++-12
-            extras: enabled
           - os: ubuntu-20.04
             cxx: clang++-10
-            extras: enabled
           - os: ubuntu-22.04
             cxx: clang++-14
-            extras: enabled
           - os: macos-14
             cxx: clang++
-            extras: disabled
     runs-on: ${{ matrix.os }}
     env:
       SCCACHE_GHA_ENABLED: "true"
@@ -44,14 +39,7 @@ jobs:
       - name: Install build requirements
         run: ./.ci/py-build-requirements.sh
       - name: Set up build directory
-        run: >-
-          meson setup build
-          --native-file=ci.ini
-          -Dwerror=true
-          -Dauto_features=${{ matrix.extras }}
-          -Dcuda=disabled
-          -Dgdrapi=disabled
-          -Dfmv="$(if [[ '${{ matrix.cxx }}' == g++* ]]; then echo enabled; else echo disabled; fi)"
+        run: meson setup build $(.ci/setup-flags.sh)
       - name: Build
         run: meson compile -C build
       - name: Run tests
@@ -66,7 +54,6 @@ jobs:
             cc: gcc-9
             cxx: g++-9
             python-version: '3.9'
-            extras: enabled
           # Disabled for now because numba/llvmlite (needed for tests)
           # doesn't have a pypy wheel, and it's not worth the effect to
           # install all the dependencies needed to make that work.
@@ -77,22 +64,18 @@ jobs:
             cc: gcc-12
             cxx: g++-12
             python-version: '3.12'
-            extras: enabled
           - os: ubuntu-20.04
             cc: clang-10
             cxx: clang++-10
             python-version: '3.12'
-            extras: enabled
           - os: ubuntu-22.04
             cc: clang-14
             cxx: clang++-14
             python-version: '3.12'
-            extras: enabled
           - os: macos-14
             cc: clang
             cxx: clang++
             python-version: '3.12'
-            extras: disabled
     runs-on: ${{ matrix.os }}
     env:
       SCCACHE_GHA_ENABLED: "true"
@@ -114,13 +97,7 @@ jobs:
         env:
           CC: ${{ matrix.cc }}  # Do not pass -Werror when building dependencies
       - name: Install Python package
-        run: >-
-          pip install -v
-          --config-settings=setup-args=--native-file=ci.ini
-          --config-settings=setup-args=-Dwerror=true
-          --config-settings=setup-args=-Dauto_features=${{ matrix.extras }}
-          --config-settings=setup-args=-Dfmv="$(if [[ '${{ matrix.cxx }}' == g++* ]]; then echo enabled; else echo disabled; fi)"
-          .
+        run: pip install -v $(.ci/setup-flags.sh --python) .
       - name: Run tests
         run: pytest -v -ra  # -ra summarises the reasons for skipping or failing tests
       - name: Run shutdown tests
@@ -168,9 +145,7 @@ jobs:
         # the ephemeral build directory. So do a non-isolated editable
         # install instead.
         run: >-
-          pip install -v
-          --config-settings=setup-args=-Dwerror=true
-          --config-settings=setup-args=-Dauto_features=enabled
+          pip install -v $(.ci/setup-flags.sh --python)
           --config-settings=setup-args=-Dbuildtype=debug
           --config-settings=setup-args=-Db_coverage=true
           --no-build-isolation
@@ -179,11 +154,7 @@ jobs:
         run: pytest -v -ra && ./.ci/py-tests-shutdown.sh
       - name: Set up C++ build
         run: >-
-          meson setup build
-          -Dwerror=true
-          -Dauto_features=enabled
-          -Dcuda=disabled
-          -Dgdrapi=disabled
+          meson setup build $(.ci/setup-flags.sh)
           -Dbuildtype=debug
           -Db_coverage=true
       - name: Build C++

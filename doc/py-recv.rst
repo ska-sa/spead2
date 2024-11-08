@@ -61,7 +61,7 @@ properties after construction.
      Set the method used to copy data from the network to the heap. The
      default is :py:const:`~spead2.MEMCPY_STD`. This can be changed to
      :py:const:`~spead2.MEMCPY_NONTEMPORAL`, which writes to the destination with a
-     non-temporal cache hint (if SSE2 is enabled at compile time). This can
+     non-temporal cache hint (if CPU support is available). This can
      improve performance with large heaps if the data is not going to be used
      immediately, by reducing cache pollution. Be careful when benchmarking:
      receiving heaps will generally appear faster, but it can slow down
