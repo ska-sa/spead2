@@ -27,3 +27,7 @@ COPY install-sys-pkgs.sh .
 # jq and iproute2 are used to find the interface IPv4 address
 RUN apt-get update && apt-get -y --no-install-recommends install libpython3-dev python3-venv jq iproute2
 RUN ./install-sys-pkgs.sh
+
+RUN python3 -m venv /venv
+RUN chown -R +1000:+1000 /venv
+ENV PATH=/venv/bin:$PATH
