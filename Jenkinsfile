@@ -25,7 +25,7 @@ pipeline {
   agent {
     dockerfile {
       label 'spead2'
-      filename 'Dockerfile.CI'
+      dir '.ci'
       registryCredentialsId 'dockerhub'  // Supply credentials to avoid rate limit
       // These arguments allow direct access to the NVIDIA NIC with ibverbs
       args '--network=host --ulimit=memlock=-1 -e NVIDIA_MOFED=enabled -e NVIDIA_VISIBLE_DEVICES=all --runtime=nvidia'
@@ -42,7 +42,23 @@ pipeline {
   }
 
   stages {
+    stage('Install dependencies') {
+      steps {
+        sh 'python3 -m venv /venv'
+        sh 'PATH="/venv/bin:$PATH" py-requirements.sh'
 
+      }
+    }
+    stage('Install Python package') {
+      steps {
+        sh '''PATH="/venv/bin:$PATH" pip install -v \
+          --config-settings=setup-args=--native-file=ci.ini \
+          --config-settings=setup-args=-Dibv=enabled \
+          --config-settings=setup-args=-Dibv_hw_rate_limit=enabled \
+          --config-settings=setup-args=-Dmlx5dv=enabled \
+          .'''
+      }
+    }
     stage('Run tests') {
       steps {
         sh 'PATH="/venv/bin:$PATH" .ci/py-tests-jenkins.sh'

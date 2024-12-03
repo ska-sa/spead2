@@ -21,20 +21,9 @@
 FROM ubuntu:24.04
 
 WORKDIR /tmp/spead2
-COPY . .
+COPY .ci/install-sys-pkgs.sh .
 
 # Install dependencies
 # jq and iproute2 are used to find the interface IPv4 address
 RUN apt-get update && apt-get -y --no-install-recommends install libpython3-dev python3-venv jq iproute2
-RUN python3 -m venv /venv
 RUN .ci/install-sys-pkgs.sh
-RUN PATH="/venv/bin:$PATH" .ci/py-requirements.sh
-
-# Install Python package
-RUN PATH="/venv/bin:$PATH" pip install -v \
-    --config-settings=setup-args=--native-file=ci.ini \
-    --config-settings=setup-args=-Dibv=enabled \
-    --config-settings=setup-args=-Dibv_hw_rate_limit=enabled \
-    --config-settings=setup-args=-Dmlx5dv=enabled \
-    .
-
