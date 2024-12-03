@@ -21,7 +21,7 @@
 FROM ubuntu:24.04
 
 WORKDIR /tmp/spead2
-COPY .ci/install-sys-pkgs.sh .
+COPY install-sys-pkgs.sh .
 
 # Install dependencies
 # jq and iproute2 are used to find the interface IPv4 address
