@@ -1,10 +1,6 @@
 #!/bin/bash
 set -e
 
-# Create this just for consistency with the MacOS native file
-mkdir -p $HOME/.local/share/meson/native
-touch $HOME/.local/share/meson/native/ci.ini
-
 if [ "$(uname -s)" = "Linux" ]; then
     SUDO=sudo
     if [ `id -u` -eq 0 ]; then
@@ -31,6 +27,7 @@ else
     # On Apple Silicon, homebrew is installed in /opt/homebrew, but the
     # toolchains are not configured to find things there.
     prefix="$(brew --prefix)"
+    mkdir -p $HOME/.local/share/meson/native
     cat > $HOME/.local/share/meson/native/ci.ini <<EOF
 [properties]
 boost_root = '$prefix'

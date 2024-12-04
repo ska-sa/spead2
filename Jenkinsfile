@@ -23,10 +23,10 @@
 
 pipeline {
   agent {
-    docker {
+    dockerfile {
       label 'spead2'
+      dir '.ci'
       registryCredentialsId 'dockerhub'  // Supply credentials to avoid rate limit
-      image 'ubuntu:24.04'
       // These arguments allow direct access to the NVIDIA NIC with ibverbs
       args '--network=host --ulimit=memlock=-1 -e NVIDIA_MOFED=enabled -e NVIDIA_VISIBLE_DEVICES=all --runtime=nvidia'
     }
@@ -44,30 +44,20 @@ pipeline {
   stages {
     stage('Install dependencies') {
       steps {
-        // jq and iproute2 are used to find the interface IPv4 address
-        sh 'apt-get update && apt-get -y --no-install-recommends install libpython3-dev python3-venv jq iproute2'
-        sh 'python3 -m venv /venv'
-        sh '.ci/install-sys-pkgs.sh'
-        sh 'PATH="/venv/bin:$PATH" .ci/py-requirements.sh'
+        sh 'python3 -m venv ./.venv'
+        sh 'PATH="$PWD/.venv/bin:$PATH" .ci/py-requirements.sh'
       }
     }
-
     stage('Install Python package') {
       steps {
-        sh '''PATH="/venv/bin:$PATH" pip install -v \
-          --config-settings=setup-args=--native-file=ci.ini \
-          --config-settings=setup-args=-Dibv=enabled \
-          --config-settings=setup-args=-Dibv_hw_rate_limit=enabled \
-          --config-settings=setup-args=-Dmlx5dv=enabled \
-          .'''
+        sh 'PATH="$PWD/.venv/bin:$PATH" pip install -v $(.ci/setup-flags.sh --python) .'
       }
     }
-
     stage('Run tests') {
       steps {
-        sh 'PATH="/venv/bin:$PATH" .ci/py-tests-jenkins.sh'
+        sh 'PATH="$PWD/.venv/bin:$PATH" .ci/py-tests-jenkins.sh'
         junit 'results.xml'
-        sh 'PATH="/venv/bin:$PATH" .ci/py-tests-shutdown.sh'
+        sh 'PATH="$PWD/.venv/bin:$PATH" .ci/py-tests-shutdown.sh'
       }
     }
   }
