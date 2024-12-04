@@ -44,25 +44,20 @@ pipeline {
   stages {
     stage('Install dependencies') {
       steps {
-        sh '.ci/py-requirements.sh'
-
+        sh 'python3 -m venv ./.venv'
+        sh 'PATH="$PWD/.venv/bin:$PATH" .ci/py-requirements.sh'
       }
     }
     stage('Install Python package') {
       steps {
-        sh '''PATH="/venv/bin:$PATH" pip install -v \
-          --config-settings=setup-args=--native-file=ci.ini \
-          --config-settings=setup-args=-Dibv=enabled \
-          --config-settings=setup-args=-Dibv_hw_rate_limit=enabled \
-          --config-settings=setup-args=-Dmlx5dv=enabled \
-          .'''
+        sh 'PATH="$PWD/.venv/bin:$PATH" pip install -v $(.ci/setup-flags.sh --python) .'
       }
     }
     stage('Run tests') {
       steps {
-        sh 'PATH="/venv/bin:$PATH" .ci/py-tests-jenkins.sh'
+        sh 'PATH="$PWD/.venv/bin:$PATH" .ci/py-tests-jenkins.sh'
         junit 'results.xml'
-        sh 'PATH="/venv/bin:$PATH" .ci/py-tests-shutdown.sh'
+        sh 'PATH="$PWD/.venv/bin:$PATH" .ci/py-tests-shutdown.sh'
       }
     }
   }

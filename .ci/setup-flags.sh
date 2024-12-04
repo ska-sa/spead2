@@ -5,7 +5,6 @@
 # include them because the detection code is broken.
 
 flags=(
-    "--native-file=ci.ini"
     "-Dwerror=true"
     "-Dtools=enabled"
     "-Dpcap=enabled"
@@ -27,6 +26,8 @@ if [ "$(uname)" = "Linux" ]; then
         "-Dposix_semaphores=enabled"
         "-Deventfd=enabled"
     )
+else
+    flags+=("--native-file=ci.ini")
 fi
 
 case "$(arch)" in
