@@ -21,4 +21,5 @@ echo "Testing with device $device address $address"
 # -ra summarises the reasons for skipping or failing tests
 # We suppress the exit code so that the following test publishing step
 # is allowed to run if there are failing tests.
-pytest -v -ra --junitxml=results.xml --suppress-tests-failed-exit-code
+setpriv --inh-caps +net_raw --ambient-caps +net_raw -- \
+    pytest -v -ra --junitxml=results.xml --suppress-tests-failed-exit-code

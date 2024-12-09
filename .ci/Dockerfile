@@ -26,3 +26,6 @@ COPY install-sys-pkgs.sh .
 # jq and iproute2 are used to find the interface IPv4 address
 RUN apt-get update && apt-get -y --no-install-recommends install libpython3-dev python3-venv jq iproute2
 RUN ./install-sys-pkgs.sh
+
+# Give setpriv the ability to run commands with CAP_NET_RAW capability
+RUN setcap cap_net_raw+p /usr/bin/setpriv
