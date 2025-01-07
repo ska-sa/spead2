@@ -71,10 +71,9 @@ std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
             host = dest.substr(0, colon);
             port = dest.substr(colon + 1);
         }
-        typename resolver_type::query query(
+        ans.push_back(*resolver.resolve(
             host, port,
-            passive ? resolver_type::query::passive : typename resolver_type::query::flags());
-        ans.push_back(*resolver.resolve(query));
+            passive ? resolver_type::passive : typename resolver_type::flags()).begin());
     }
     return ans;
 }

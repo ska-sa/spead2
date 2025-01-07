@@ -563,13 +563,12 @@ static void main_agent(int argc, const char **argv)
 
     /* Look up the bind address for the control socket */
     tcp::resolver tcp_resolver(thread_pool.get_io_context());
-    tcp::resolver::query tcp_query("0.0.0.0", agent_opts.endpoint);
-    tcp::endpoint tcp_endpoint = *tcp_resolver.resolve(tcp_query);
+    tcp::endpoint tcp_endpoint = *tcp_resolver.resolve("0.0.0.0", agent_opts.endpoint).begin();
     tcp::acceptor acceptor(thread_pool.get_io_context(), tcp_endpoint);
     while (true)
     {
         tcp::iostream control;
-        acceptor.accept(*control.rdbuf());
+        acceptor.accept(control.rdbuf()->socket());
         std::unique_ptr<recv_connection> connection;
         while (true)
         {
