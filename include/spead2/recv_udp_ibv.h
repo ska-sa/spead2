@@ -1,4 +1,4 @@
-/* Copyright 2016, 2019-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2016, 2019-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -139,8 +139,8 @@ protected:
     /**
      * Retrieve packets from the completion queue and process them.
      *
-     * This is called from the io_service either when the completion channel
-     * is notified (non-polling mode) or by a post to the io_service (polling
+     * This is called from the io_context either when the completion channel
+     * is notified (non-polling mode) or by a post to the io_context (polling
      * mode).
      *
      * If @a consume_event is true, an event should be removed and consumed
@@ -239,7 +239,7 @@ void udp_ibv_reader_base<Derived>::enqueue_receive(handler_context ctx, bool nee
     {
         // Polling mode
         boost::asio::post(
-            get_io_service(),
+            get_io_context(),
             bind_handler(
                 std::move(ctx),
                 std::bind(&udp_ibv_reader_base<Derived>::packet_handler, this, _1, _2,

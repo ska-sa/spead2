@@ -1,4 +1,4 @@
-/* Copyright 2016-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2016-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -79,9 +79,9 @@ udp_ibv_reader_core::udp_ibv_reader_core(
     stream &owner,
     const udp_ibv_config &config)
     : udp_reader_base(owner),
-    join_socket(owner.get_io_service(), boost::asio::ip::udp::v4()),
+    join_socket(owner.get_io_context(), boost::asio::ip::udp::v4()),
     event_channel(nullptr),
-    comp_channel_wrapper(owner.get_io_service()),
+    comp_channel_wrapper(owner.get_io_context()),
     max_size(config.get_max_size()),
     max_poll(config.get_max_poll())
 {
@@ -96,7 +96,7 @@ udp_ibv_reader_core::udp_ibv_reader_core(
     if (config.get_comp_vector() >= 0)
     {
         comp_channel = ibv_comp_channel_t(cm_id);
-        comp_channel_wrapper = comp_channel.wrap(get_io_service());
+        comp_channel_wrapper = comp_channel.wrap(get_io_context());
     }
 
     for (const auto &endpoint : config.get_endpoints())

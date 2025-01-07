@@ -1,4 +1,4 @@
-/* Copyright 2023 National Research Foundation (SARAO)
+/* Copyright 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -236,7 +236,7 @@ public:
 
     /// Add a new stream
     chunk_stream_group_member &emplace_back(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const stream_config &config,
         const chunk_stream_config &chunk_config);
 
@@ -296,7 +296,7 @@ private:
      * Flush all chunks with an ID strictly less than @a chunk_id.
      *
      * This function returns immediately, and the work is done later on the
-     * io_service. It is safe to call from any thread.
+     * io_context. It is safe to call from any thread.
      */
     void async_flush_until(std::uint64_t chunk_id);
 
@@ -313,7 +313,7 @@ protected:
      *
      * @param group            Group to which this stream belongs
      * @param group_index      Position of this stream within the group
-     * @param io_service       I/O service (also used by the readers).
+     * @param io_context       I/O context (also used by the readers).
      * @param config           Basic stream configuration
      * @param chunk_config     Configuration for chunking
      *
@@ -323,7 +323,7 @@ protected:
     chunk_stream_group_member(
         chunk_stream_group &group,
         std::size_t group_index,
-        io_service_ref io_service,
+        io_context_ref io_context,
         const stream_config &config,
         const chunk_stream_config &chunk_config);
 

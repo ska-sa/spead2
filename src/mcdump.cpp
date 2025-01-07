@@ -1,4 +1,4 @@
-/* Copyright 2016-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2016-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -396,7 +396,7 @@ typedef std::function<chunking_scheme(const options &,
 class joiner
 {
 private:
-    boost::asio::io_service io_service;
+    boost::asio::io_context io_context;
     boost::asio::ip::udp::socket join_socket;
 
 public:
@@ -406,7 +406,7 @@ public:
 
 joiner::joiner(const boost::asio::ip::address_v4 &interface_address,
                const std::vector<boost::asio::ip::udp::endpoint> &endpoints)
-    : join_socket(io_service, endpoints[0].protocol())
+    : join_socket(io_context, endpoints[0].protocol())
 {
     join_socket.set_option(boost::asio::socket_base::reuse_address(true));
     for (const auto &endpoint : endpoints)

@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019-2021, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2019-2021, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -65,7 +65,7 @@ private:
 
 public:
     ring_stream_base(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const stream_config &config = stream_config(),
         const ring_stream_config &ring_config = ring_stream_config());
 
@@ -96,12 +96,12 @@ public:
     /**
      * Constructor.
      *
-     * @param io_service       I/O service (also used by the readers).
+     * @param io_context       I/O context (also used by the readers).
      * @param config           Stream configuration
      * @param ring_config      Ringbuffer configuration
      */
     explicit ring_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const stream_config &config = stream_config(),
         const ring_stream_config &ring_config = ring_stream_config());
 
@@ -174,10 +174,10 @@ public:
 
 template<typename Ringbuffer>
 ring_stream<Ringbuffer>::ring_stream(
-    io_service_ref io_service,
+    io_context_ref io_context,
     const stream_config &config,
     const ring_stream_config &ring_config)
-    : ring_stream_base(std::move(io_service), config, ring_config),
+    : ring_stream_base(std::move(io_context), config, ring_config),
     ready_heaps(ring_config.get_heaps())
 {
 }

@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -94,13 +94,13 @@ template class socket_wrapper<boost::asio::ip::tcp::socket>;
 template class socket_wrapper<boost::asio::ip::tcp::acceptor>;
 
 boost::asio::ip::address make_address_no_release(
-    boost::asio::io_service &io_service, const std::string &hostname,
+    boost::asio::io_context &io_context, const std::string &hostname,
     boost::asio::ip::resolver_query_base::flags flags)
 {
     if (hostname == "")
         return boost::asio::ip::address();
     using boost::asio::ip::udp;
-    udp::resolver resolver(io_service);
+    udp::resolver resolver(io_context);
     udp::resolver::query query(hostname, "", flags);
     return resolver.resolve(query)->endpoint().address();
 }
@@ -371,9 +371,9 @@ void register_module(py::module m)
         .def(py::init([](const std::string &interface_address)
             {
                 py::gil_scoped_release release;
-                boost::asio::io_service io_service;
+                boost::asio::io_context io_context;
                 return ibv_context_t(make_address_no_release(
-                    io_service, interface_address, boost::asio::ip::udp::resolver::query::passive));
+                    io_context, interface_address, boost::asio::ip::udp::resolver::query::passive));
             }), "interface"_a)
         .def("reset", [](ibv_context_t &self) { self.reset(); })
     ;

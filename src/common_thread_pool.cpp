@@ -1,4 +1,4 @@
-/* Copyright 2015 National Research Foundation (SARAO)
+/* Copyright 2015-2017, 2019-2020, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -33,7 +33,7 @@
 namespace spead2
 {
 
-static void run_io_service(boost::asio::io_service &io_service)
+static void run_io_context(boost::asio::io_context &io_context)
 {
     try
     {
@@ -44,7 +44,7 @@ static void run_io_service(boost::asio::io_service &io_service)
          */
         int *dummy = new int;
         delete dummy;
-        io_service.run();
+        io_context.run();
     }
     catch (const std::exception &e)
     {
@@ -59,19 +59,19 @@ static void run_io_service(boost::asio::io_service &io_service)
 }
 
 thread_pool::thread_pool(int num_threads)
-    : work(io_service)
+    : work(io_context)
 {
     if (num_threads < 1)
         throw std::invalid_argument("at least one thread is required");
     workers.reserve(num_threads);
     for (int i = 0; i < num_threads; i++)
     {
-        workers.push_back(std::async(std::launch::async, [this] { run_io_service(io_service); }));
+        workers.push_back(std::async(std::launch::async, [this] { run_io_context(io_context); }));
     }
 }
 
 thread_pool::thread_pool(int num_threads, const std::vector<int> &affinity)
-    : work(io_service)
+    : work(io_context)
 {
     if (num_threads < 1)
         throw std::invalid_argument("at least one thread is required");
@@ -79,13 +79,13 @@ thread_pool::thread_pool(int num_threads, const std::vector<int> &affinity)
     for (int i = 0; i < num_threads; i++)
     {
         if (affinity.empty())
-            workers.push_back(std::async(std::launch::async, [this] { run_io_service(io_service); }));
+            workers.push_back(std::async(std::launch::async, [this] { run_io_context(io_context); }));
         else
         {
             int core = affinity[i % affinity.size()];
             workers.push_back(std::async(std::launch::async, [this, core] {
                 set_affinity(core);
-                run_io_service(io_service);
+                run_io_context(io_context);
             }));
         }
     }
@@ -115,7 +115,7 @@ void thread_pool::set_affinity(int core)
 
 void thread_pool::stop()
 {
-    io_service.stop();
+    io_context.stop();
     for (auto &worker : workers)
     {
         try
@@ -136,38 +136,38 @@ thread_pool::~thread_pool()
 }
 
 
-io_service_ref::io_service_ref(boost::asio::io_service &io_service)
-    : io_service(io_service)
+io_context_ref::io_context_ref(boost::asio::io_context &io_context)
+    : io_context(io_context)
 {
 }
 
-io_service_ref::io_service_ref(thread_pool &tpool)
-    : io_service(tpool.get_io_service())
+io_context_ref::io_context_ref(thread_pool &tpool)
+    : io_context(tpool.get_io_context())
 {
 }
 
-void io_service_ref::check_non_null(thread_pool *ptr)
+void io_context_ref::check_non_null(thread_pool *ptr)
 {
     if (ptr == nullptr)
-        throw std::invalid_argument("io_service_ref cannot be constructed from a null thread pool");
+        throw std::invalid_argument("io_context_ref cannot be constructed from a null thread pool");
 }
 
-boost::asio::io_service &io_service_ref::operator*() const
+boost::asio::io_context &io_context_ref::operator*() const
 {
-    return io_service;
+    return io_context;
 }
 
-boost::asio::io_service *io_service_ref::operator->() const
+boost::asio::io_context *io_context_ref::operator->() const
 {
-    return &io_service;
+    return &io_context;
 }
 
-std::shared_ptr<thread_pool> io_service_ref::get_shared_thread_pool() const &
+std::shared_ptr<thread_pool> io_context_ref::get_shared_thread_pool() const &
 {
     return thread_pool_holder;
 }
 
-std::shared_ptr<thread_pool> &&io_service_ref::get_shared_thread_pool() &&
+std::shared_ptr<thread_pool> &&io_context_ref::get_shared_thread_pool() &&
 {
     return std::move(thread_pool_holder);
 }

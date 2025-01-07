@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020, 2023-2024 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -106,9 +106,14 @@ stream::~stream()
     }
 }
 
-boost::asio::io_service &stream::get_io_service() const
+boost::asio::io_context &stream::get_io_context() const
 {
-    return w->get_io_service();
+    return w->get_io_context();
+}
+
+boost::asio::io_context &stream::get_io_service() const
+{
+    return w->get_io_context();
 }
 
 void stream::set_cnt_sequence(item_pointer_t next, item_pointer_t step)

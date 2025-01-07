@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2019, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -37,7 +37,7 @@ mem_reader::mem_reader(
 void mem_reader::start()
 {
     boost::asio::post(
-        get_io_service(),
+        get_io_context(),
         bind_handler([this] (handler_context, stream_base::add_packet_state &state) {
             mem_to_stream(state, this->ptr, this->length);
             // There will be no more data, so we can stop the stream immediately.

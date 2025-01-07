@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2021, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2021, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -40,11 +40,11 @@ memory_pool::memory_pool(std::size_t lower, std::size_t upper, std::size_t max_f
 }
 
 memory_pool::memory_pool(
-    io_service_ref io_service,
+    io_context_ref io_context,
     std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
     std::size_t low_water,
     std::shared_ptr<memory_allocator> allocator)
-    : memory_pool(std::optional<io_service_ref>(std::move(io_service)),
+    : memory_pool(std::optional<io_context_ref>(std::move(io_context)),
                   lower, upper, max_free, initial, low_water, std::move(allocator), 0)
 {
 }
@@ -91,19 +91,19 @@ public:
 } // namespace detail
 
 memory_pool::memory_pool(
-    std::optional<io_service_ref> io_service,
+    std::optional<io_context_ref> io_context,
     std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
     std::size_t low_water,
     std::shared_ptr<memory_allocator> allocator,
     int)
-    : io_service(std::move(io_service)), lower(lower), upper(upper), max_free(max_free),
+    : io_context(std::move(io_context)), lower(lower), upper(upper), max_free(max_free),
     initial(initial), low_water(low_water),
     base_allocator(allocator ? std::move(allocator) : std::make_shared<memory_allocator>())
 {
     assert(lower <= upper);
     assert(initial <= max_free);
     assert(low_water <= initial);
-    assert(low_water == 0 || io_service);
+    assert(low_water == 0 || io_context);
     for (std::size_t i = 0; i < initial; i++)
         pool.emplace(base_allocator->allocate(upper, nullptr));
 }
@@ -194,7 +194,7 @@ memory_pool::pointer memory_pool::allocate(std::size_t size, void *hint)
                 // C++ (or at least GCC) won't let me capture the members by value directly
                 const std::size_t upper = this->upper;
                 std::shared_ptr<memory_allocator> allocator = base_allocator;
-                (*io_service)->post([upper, allocator, weak] {
+                (*io_context)->post([upper, allocator, weak] {
                     refill(upper, allocator, std::move(weak));
                 });
             }

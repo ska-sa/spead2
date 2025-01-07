@@ -1,4 +1,4 @@
-/* Copyright 2015, 2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -40,10 +40,10 @@ ring_stream_config &ring_stream_config::set_contiguous_only(bool contiguous_only
 }
 
 ring_stream_base::ring_stream_base(
-    io_service_ref io_service,
+    io_context_ref io_context,
     const stream_config &config,
     const ring_stream_config &ring_config)
-    : stream(std::move(io_service), config),
+    : stream(std::move(io_context), config),
     ring_config(ring_config)
 {
 }

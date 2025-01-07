@@ -1,4 +1,4 @@
-/* Copyright 2021-2023 National Research Foundation (SARAO)
+/* Copyright 2021-2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -247,11 +247,11 @@ template class chunk_stream_allocator<chunk_manager_simple>;
 } // namespace detail
 
 chunk_stream::chunk_stream(
-    io_service_ref io_service,
+    io_context_ref io_context,
     const stream_config &config,
     const chunk_stream_config &chunk_config)
     : chunk_stream_state(config, chunk_config, detail::chunk_manager_simple(chunk_config)),
-    stream(std::move(io_service), adjust_config(config))
+    stream(std::move(io_context), adjust_config(config))
 {
 }
 

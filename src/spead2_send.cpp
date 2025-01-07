@@ -1,4 +1,4 @@
-/* Copyright 2016, 2017, 2019-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2016, 2017, 2019-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -273,7 +273,7 @@ std::uint64_t sender::run(spead2::send::stream &stream)
      * callbacks can happen until the initial heaps are all sent, which would
      * otherwise lead to heaps being queued out of order.
      */
-    stream.get_io_service().post([this, &stream] {
+    stream.get_io_context().post([this, &stream] {
         for (std::size_t i = 0; i < max_heaps; i++)
             stream.async_send_heap(
                 get_heap(i),
@@ -305,10 +305,10 @@ static int run(spead2::send::stream &stream, sender &s)
 
 template <typename Proto>
 static std::vector<boost::asio::ip::basic_endpoint<Proto>> get_endpoints(
-    boost::asio::io_service &io_service, const options &opts)
+    boost::asio::io_context &io_context, const options &opts)
 {
     typedef boost::asio::ip::basic_resolver<Proto> resolver_type;
-    resolver_type resolver(io_service);
+    resolver_type resolver(io_context);
     std::vector<boost::asio::ip::basic_endpoint<Proto>> ans;
     ans.reserve(opts.dest.size());
     for (const std::string &dest : opts.dest)
@@ -330,7 +330,7 @@ int main(int argc, const char **argv)
 
     spead2::thread_pool thread_pool(1);
     std::unique_ptr<spead2::send::stream> stream =
-        opts.sender.make_stream(thread_pool.get_io_service(), opts.protocol,
+        opts.sender.make_stream(thread_pool.get_io_context(), opts.protocol,
                                 opts.dest, s.memory_regions());
     return run(*stream, s);
 }

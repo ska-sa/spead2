@@ -42,7 +42,7 @@ public:
      * @warning The callback may be called before the constructor returns. The
      * implementation of the callback needs to be prepared to handle this case.
      *
-     * @param io_service   I/O service for sending data
+     * @param io_context   I/O context for sending data
      * @param connect_handler  Callback when connection is established. It is called
      *                     with a @c boost::system::error_code to indicate whether
      *                     connection was successful.
@@ -55,7 +55,7 @@ public:
      *                            @endverbatim
      */
     tcp_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         std::function<void(const boost::system::error_code &)> &&connect_handler,
         const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
         const stream_config &config = stream_config(),
@@ -66,7 +66,7 @@ public:
      * Constructor using an existing socket. The socket must be connected.
      */
     tcp_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         boost::asio::ip::tcp::socket &&socket,
         const stream_config &config = stream_config());
 };

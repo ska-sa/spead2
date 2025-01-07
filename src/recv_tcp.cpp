@@ -49,10 +49,10 @@ tcp_reader::tcp_reader(
     buffer(new std::uint8_t[max_size * pkts_per_buffer]),
     head(buffer.get()),
     tail(buffer.get()),
-    peer(get_socket_io_service(acceptor)),
+    peer(get_socket_executor(acceptor)),
     acceptor(std::move(acceptor))
 {
-    assert(socket_uses_io_service(this->acceptor, get_io_service()));
+    assert(socket_uses_io_context(this->acceptor, get_io_context()));
     set_socket_recv_buffer_size(this->acceptor, buffer_size);
 }
 
@@ -76,7 +76,7 @@ tcp_reader::tcp_reader(
     std::size_t buffer_size)
     : tcp_reader(
           owner,
-          boost::asio::ip::tcp::acceptor(owner.get_io_service(), endpoint),
+          boost::asio::ip::tcp::acceptor(owner.get_io_context(), endpoint),
           max_size, buffer_size)
 {
 }

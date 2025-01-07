@@ -55,39 +55,37 @@ void set_socket_recv_buffer_size(SocketType &socket, std::size_t buffer_size);
 /**
  * Get an object suitable for constructing another socket with the same IO
  * context. The return type depends on the Boost version. This is necessary
- * because Boost 1.70 removed @c basic_socket::get_io_service (as well as
- * @c basic_socket::get_io_context).
+ * because Boost 1.70 removed @c basic_socket::get_io_context.
  */
 template<typename SocketType>
-static inline typename SocketType::executor_type get_socket_io_service(SocketType &socket)
+static inline typename SocketType::executor_type get_socket_executor(SocketType &socket)
 {
     return socket.get_executor();
 }
 #else
 template<typename SocketType>
-static inline boost::asio::io_service &get_socket_io_service(SocketType &socket)
+static inline boost::asio::io_context &get_socket_executor(SocketType &socket)
 {
-    return socket.get_io_service();
+    return socket.get_io_context();
 }
 #endif
 
 /**
  * Determine whether a socket is using a particular IO context. This is necessary
- * because Boost 1.70 removed @c basic_socket::get_io_service (as well as
- * @c basic_socket::get_io_context).
+ * because Boost 1.70 removed @c basic_socket::get_io_context.
  */
 template<typename SocketType>
-static inline bool socket_uses_io_service(SocketType &socket, boost::asio::io_service &io_service)
+static inline bool socket_uses_io_context(SocketType &socket, boost::asio::io_context &io_context)
 {
 #if BOOST_VERSION >= 107600 && BOOST_VERSION < 107700
     // Workaround for https://github.com/chriskohlhoff/asio/issues/853
-    typedef boost::asio::io_service::executor_type executor_type;
+    typedef boost::asio::io_context::executor_type executor_type;
     return socket.get_executor().target_type() == typeid(executor_type)
-          && *socket.get_executor().template target<executor_type>() == io_service.get_executor();
+          && *socket.get_executor().template target<executor_type>() == io_context.get_executor();
 #elif BOOST_VERSION >= 107000
-    return socket.get_executor() == io_service.get_executor();
+    return socket.get_executor() == io_context.get_executor();
 #else
-    return &socket.get_io_service() == &io_service;
+    return &socket.get_io_context() == &io_context;
 #endif
 }
 

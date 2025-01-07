@@ -1,4 +1,4 @@
-/* Copyright 2015, 2018-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2018-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -343,7 +343,7 @@ int main(int argc, const char **argv)
     }
 
     spead2::thread_pool stopper_thread_pool;
-    boost::asio::signal_set signals(stopper_thread_pool.get_io_service());
+    boost::asio::signal_set signals(stopper_thread_pool.get_io_context());
     signals.add(SIGINT);
     signals.async_wait([&streams] (const boost::system::error_code &error,
                                    [[maybe_unused]] int signal_number) {

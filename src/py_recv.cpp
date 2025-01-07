@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2020-2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2020-2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -120,7 +120,7 @@ public:
 
 static boost::asio::ip::address make_address(stream &s, const std::string &hostname)
 {
-    return make_address_no_release(s.get_io_service(), hostname,
+    return make_address_no_release(s.get_io_context(), hostname,
                                    boost::asio::ip::udp::resolver::query::passive);
 }
 
@@ -155,7 +155,7 @@ static void add_udp_reader_socket(
     const socket_wrapper<boost::asio::ip::udp::socket> &socket,
     std::size_t max_size = udp_reader::default_max_size)
 {
-    auto asio_socket = socket.copy(s.get_io_service());
+    auto asio_socket = socket.copy(s.get_io_context());
     py::gil_scoped_release gil;
     s.emplace_reader<udp_reader>(std::move(asio_socket), max_size);
 }
@@ -203,7 +203,7 @@ static void add_tcp_reader_socket(
     const socket_wrapper<boost::asio::ip::tcp::acceptor> &acceptor,
     std::size_t max_size)
 {
-    auto asio_socket = acceptor.copy(s.get_io_service());
+    auto asio_socket = acceptor.copy(s.get_io_context());
     py::gil_scoped_release gil;
     s.emplace_reader<tcp_reader>(std::move(asio_socket), max_size);
 }
@@ -286,11 +286,11 @@ private:
 
 public:
     ring_stream_wrapper(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const stream_config &config = stream_config(),
         const ring_stream_config_wrapper &ring_config = ring_stream_config_wrapper())
         : ring_stream<ringbuffer<live_heap, semaphore_fd, semaphore>>(
-            std::move(io_service), config, ring_config),
+            std::move(io_context), config, ring_config),
         incomplete_keep_payload_ranges(ring_config.get_incomplete_keep_payload_ranges())
     {}
 

@@ -1,4 +1,4 @@
-/* Copyright 2020, 2023-2024 National Research Foundation (SARAO)
+/* Copyright 2020, 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -72,7 +72,7 @@ public:
  * Each stream class will need to implement a subclass of @ref writer. At a
  * minimum, it will need to implement @ref wakeup and @ref get_num_substreams.
  *
- * A writer is intended to run on an io_service. It is *not* thread-safe, so
+ * A writer is intended to run on an io_context. It is *not* thread-safe, so
  * the subclass must ensure that only one handler runs at a time.
  *
  * The @ref wakeup handler should use @ref get_packet to try to retrieve
@@ -86,7 +86,7 @@ public:
  * It is not safe to call @ref wakeup (or @ref post_wakeup) immediately after
  * construction, because the associated stream is not yet known. If there is
  * initialisation that has the potential to interact with the stream
- * (including by posting a callback, which the io_service might immediately run
+ * (including by posting a callback, which the io_context might immediately run
  * on another thread), it should be done by overriding @ref start.
  */
 class writer
@@ -120,7 +120,7 @@ private:
 
     const stream_config config;    // TODO: probably doesn't need the whole thing
 
-    io_service_ref io_service;
+    io_context_ref io_context;
 
     /// Timer for sleeping for rate limiting
     timer_type timer;
@@ -227,13 +227,16 @@ protected:
     /// Schedule wakeup to be called immediately.
     void post_wakeup();
 
-    writer(io_service_ref io_service, const stream_config &config);
+    writer(io_context_ref io_context, const stream_config &config);
 
 public:
     virtual ~writer() = default;
 
-    /// Retrieve the io_service used for processing the stream
-    boost::asio::io_service &get_io_service() const { return *io_service; }
+    /// Retrieve the io_context used for processing the stream
+    boost::asio::io_context &get_io_context() const { return *io_context; }
+    /// Retrieve the io_context used for processing the stream (deprecated)
+    [[deprecated("use get_io_context")]]
+    boost::asio::io_context &get_io_service() const { return *io_context; }
 
     /// Number of substreams
     virtual std::size_t get_num_substreams() const = 0;

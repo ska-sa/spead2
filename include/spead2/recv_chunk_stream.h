@@ -1,4 +1,4 @@
-/* Copyright 2021-2023 National Research Foundation (SARAO)
+/* Copyright 2021-2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -565,7 +565,7 @@ public:
      *   - <tt>rejected_heaps</tt>: number of heaps for which the placement function returned
      *     a negative chunk ID.
      *
-     * @param io_service       I/O service (also used by the readers).
+     * @param io_context       I/O context (also used by the readers).
      * @param config           Basic stream configuration
      * @param chunk_config     Configuration for chunking
      *
@@ -573,7 +573,7 @@ public:
      * have not been set.
      */
     chunk_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const stream_config &config,
         const chunk_stream_config &chunk_config);
 
@@ -669,7 +669,7 @@ public:
      * callbacks.
      */
     chunk_ring_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const stream_config &config,
         const chunk_stream_config &chunk_config,
         std::shared_ptr<DataRingbuffer> data_ring,
@@ -887,14 +887,14 @@ chunk_ready_function chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::make_ready
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
 chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::chunk_ring_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const stream_config &config,
         const chunk_stream_config &chunk_config,
         std::shared_ptr<DataRingbuffer> data_ring,
         std::shared_ptr<FreeRingbuffer> free_ring)
     : detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer>(std::move(data_ring), std::move(free_ring)),
     chunk_stream(
-        io_service,
+        io_context,
         config,
         adjust_chunk_config(chunk_config, *this))
 {

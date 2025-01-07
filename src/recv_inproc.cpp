@@ -1,4 +1,4 @@
-/* Copyright 2018-2019, 2023 National Research Foundation (SARAO)
+/* Copyright 2018-2019, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -34,7 +34,7 @@ inproc_reader::inproc_reader(
     std::shared_ptr<inproc_queue> queue)
     : reader(owner),
     queue(std::move(queue)),
-    data_sem_wrapper(wrap_fd(owner.get_io_service(),
+    data_sem_wrapper(wrap_fd(owner.get_io_context(),
                              this->queue->buffer.get_data_sem().get_fd()))
 {
 }

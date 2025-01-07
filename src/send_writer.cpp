@@ -1,4 +1,4 @@
-/* Copyright 2020, 2023-2024 National Research Foundation (SARAO)
+/* Copyright 2020, 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -301,13 +301,13 @@ void writer::request_wakeup()
 
 void writer::post_wakeup()
 {
-    get_io_service().post([this]() { wakeup(); });
+    get_io_context().post([this]() { wakeup(); });
 }
 
-writer::writer(io_service_ref io_service, const stream_config &config)
+writer::writer(io_context_ref io_context, const stream_config &config)
     : config(config),
-    io_service(std::move(io_service)),
-    timer(*this->io_service)
+    io_context(std::move(io_context)),
+    timer(*this->io_context)
 {
 }
 
