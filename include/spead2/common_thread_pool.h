@@ -42,7 +42,7 @@ class thread_pool
 private:
     boost::asio::io_context io_context;
     /// Prevents the io_context terminating automatically
-    boost::asio::io_context::work work;
+    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard;
     /**
      * Futures that becomes ready when a worker thread completes. It
      * is connected to an async task.

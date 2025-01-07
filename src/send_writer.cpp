@@ -301,7 +301,7 @@ void writer::request_wakeup()
 
 void writer::post_wakeup()
 {
-    get_io_context().post([this]() { wakeup(); });
+    boost::asio::post(get_io_context(), [this]() { wakeup(); });
 }
 
 writer::writer(io_context_ref io_context, const stream_config &config)

@@ -273,7 +273,7 @@ std::uint64_t sender::run(spead2::send::stream &stream)
      * callbacks can happen until the initial heaps are all sent, which would
      * otherwise lead to heaps being queued out of order.
      */
-    stream.get_io_context().post([this, &stream] {
+    boost::asio::post(stream.get_io_context(), [this, &stream] {
         for (std::size_t i = 0; i < max_heaps; i++)
             stream.async_send_heap(
                 get_heap(i),

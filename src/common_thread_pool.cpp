@@ -59,7 +59,7 @@ static void run_io_context(boost::asio::io_context &io_context)
 }
 
 thread_pool::thread_pool(int num_threads)
-    : work(io_context)
+    : work_guard(boost::asio::make_work_guard(io_context))
 {
     if (num_threads < 1)
         throw std::invalid_argument("at least one thread is required");
@@ -71,7 +71,7 @@ thread_pool::thread_pool(int num_threads)
 }
 
 thread_pool::thread_pool(int num_threads, const std::vector<int> &affinity)
-    : work(io_context)
+    : work_guard(boost::asio::make_work_guard(io_context))
 {
     if (num_threads < 1)
         throw std::invalid_argument("at least one thread is required");

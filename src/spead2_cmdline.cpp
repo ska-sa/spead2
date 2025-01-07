@@ -234,7 +234,7 @@ void receiver_options::add_readers(
             {
                 stream.emplace_reader<spead2::recv::udp_reader>(
                     ep, *max_packet_size, *buffer_size,
-                    boost::asio::ip::address_v4::from_string(interface_address));
+                    boost::asio::ip::make_address_v4(interface_address));
             }
             else
             {
@@ -247,7 +247,7 @@ void receiver_options::add_readers(
 #if SPEAD2_USE_IBV
     if (!ibv_endpoints.empty())
     {
-        boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(this->interface_address);
+        boost::asio::ip::address interface_address = boost::asio::ip::make_address(this->interface_address);
         stream.emplace_reader<spead2::recv::udp_ibv_reader>(
             udp_ibv_config()
                 .set_endpoints(ibv_endpoints)
@@ -344,7 +344,7 @@ std::unique_ptr<stream> sender_options::make_stream(
     stream_config config = make_stream_config();
     boost::asio::ip::address interface_address;
     if (!this->interface_address.empty())
-        interface_address = boost::asio::ip::address::from_string(this->interface_address);
+        interface_address = boost::asio::ip::make_address(this->interface_address);
     if (protocol.tcp)
     {
         auto ep = parse_endpoints<boost::asio::ip::tcp>(io_context, endpoints, false);

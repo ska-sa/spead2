@@ -194,7 +194,7 @@ memory_pool::pointer memory_pool::allocate(std::size_t size, void *hint)
                 // C++ (or at least GCC) won't let me capture the members by value directly
                 const std::size_t upper = this->upper;
                 std::shared_ptr<memory_allocator> allocator = base_allocator;
-                (*io_context)->post([upper, allocator, weak] {
+                boost::asio::post(**io_context, [upper, allocator, weak] {
                     refill(upper, allocator, std::move(weak));
                 });
             }

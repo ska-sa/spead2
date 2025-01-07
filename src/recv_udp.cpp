@@ -322,7 +322,7 @@ static void init_ibv_override()
         log_warning("SPEAD2_IBV_INTERFACE found, but ibverbs support not compiled in");
 #else
         boost::system::error_code ec;
-        ibv_interface = boost::asio::ip::address_v4::from_string(interface, ec);
+        ibv_interface = boost::asio::ip::make_address_v4(interface, ec);
         if (ec)
         {
             log_warning("SPEAD2_IBV_INTERFACE could not be parsed as an IPv4 address: %1%", ec.message());

@@ -99,7 +99,7 @@ tutorial we'll just hardcode an address (the local machine) and port number.
     :dedent: 0
 
         boost::asio::ip::udp::endpoint endpoint(
-            boost::asio::ip::address::from_string("127.0.0.1"),
+            boost::asio::ip::make_address("127.0.0.1"),
             8888
         );
         spead2::send::udp_stream stream(thread_pool, {endpoint}, config);

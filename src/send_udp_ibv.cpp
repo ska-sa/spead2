@@ -340,7 +340,7 @@ void udp_ibv_writer::wakeup()
             s->sge[0].lkey = mr->lkey;
             // The packet_generator writes the SPEAD header and item pointers
             // directly into the payload.
-            assert(boost::asio::buffer_cast<const std::uint8_t *>(data.buffers[0]) == s->payload);
+            assert(data.buffers[0].data() == s->payload);
             std::uint8_t *copy_target = s->payload + boost::asio::buffer_size(data.buffers[0]);
             s->sge[0].length = copy_target - s->frame.data();
             /* The first SGE is used for both the IP/UDP header and the
@@ -356,7 +356,7 @@ void udp_ibv_writer::wakeup()
             {
                 const auto &buffer = data.buffers[j];
                 ibv_sge cur;
-                const std::uint8_t *ptr = boost::asio::buffer_cast<const uint8_t *>(buffer);
+                const std::uint8_t *ptr = static_cast<const std::uint8_t *>(buffer.data());
                 cur.length = boost::asio::buffer_size(buffer);
                 // Check if it belongs to a user-registered region
                 memory_region cmp(ptr, cur.length);
@@ -548,7 +548,7 @@ udp_ibv_writer::udp_ibv_writer(
         udp.destination_port(endpoints[0].port());
         udp.length(config.get_max_packet_size() + udp_packet::min_size);
         udp.checksum(0);
-        slots[i].payload = boost::asio::buffer_cast<std::uint8_t *>(udp.payload());
+        slots[i].payload = static_cast<std::uint8_t *>(udp.payload().data());
     }
 
     if (cm_id.query_device_ex().raw_packet_caps & IBV_RAW_PACKET_CAP_IP_CSUM)

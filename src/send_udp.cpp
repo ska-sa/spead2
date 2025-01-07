@@ -314,9 +314,8 @@ void udp_writer::wakeup()
     {
         for (const auto &buffer : packets[i].packet.buffers)
         {
-            msg_iov[iov].iov_base = const_cast<void *>(
-                boost::asio::buffer_cast<const void *>(buffer));
-            msg_iov[iov].iov_len = boost::asio::buffer_size(buffer);
+            msg_iov[iov].iov_base = const_cast<void *>(buffer.data());
+            msg_iov[iov].iov_len = buffer.size();
             iov++;
         }
     }

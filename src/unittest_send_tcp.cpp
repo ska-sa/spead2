@@ -1,4 +1,4 @@
-;/* Copyright 2020, 2023-2024 National Research Foundation (SARAO)
+;/* Copyright 2020, 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_CASE(connect_fail)
     boost::system::error_code heap_error;
 
     boost::asio::ip::tcp::endpoint endpoint(
-        boost::asio::ip::address_v4::from_string("127.0.0.1"),
+        boost::asio::ip::make_address_v4("127.0.0.1"),
         unused_tcp_port());
     spead2::send::tcp_stream stream(
         tp, [&](const boost::system::error_code &ec) { connect_error = ec; },

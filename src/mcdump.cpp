@@ -578,7 +578,7 @@ static boost::asio::ip::address_v4 get_interface_address(const options &opts)
     boost::asio::ip::address_v4 interface_address;
     try
     {
-        interface_address = boost::asio::ip::address_v4::from_string(opts.interface);
+        interface_address = boost::asio::ip::make_address_v4(opts.interface);
     }
     catch (std::exception &)
     {
@@ -633,7 +633,7 @@ static boost::asio::ip::udp::endpoint make_endpoint(const std::string &s)
     }
     try
     {
-        boost::asio::ip::address_v4 addr = boost::asio::ip::address_v4::from_string(s.substr(0, pos));
+        boost::asio::ip::address_v4 addr = boost::asio::ip::make_address_v4(s.substr(0, pos));
         std::uint16_t port = boost::lexical_cast<std::uint16_t>(s.substr(pos + 1));
         return boost::asio::ip::udp::endpoint(addr, port);
     }

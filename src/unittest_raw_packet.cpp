@@ -1,4 +1,4 @@
-/* Copyright 2019, 2023-2024 National Research Foundation (SARAO)
+/* Copyright 2019, 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -46,8 +46,8 @@ static const std::uint8_t sample_ipv4_packet[] =
 // Properties of these sample packets
 static const mac_address source_mac = {{0x1c, 0x1b, 0x0d, 0xe0, 0xd0, 0xfd}};
 static const mac_address destination_mac = {{0x01, 0x00, 0x5e, 0x66, 0xfe, 0x01}};
-static const auto source_address = boost::asio::ip::address_v4::from_string("10.8.2.179");
-static const auto destination_address = boost::asio::ip::address_v4::from_string("239.102.254.1");
+static const auto source_address = boost::asio::ip::make_address_v4("10.8.2.179");
+static const auto destination_address = boost::asio::ip::make_address_v4("239.102.254.1");
 static const std::uint16_t source_port = 34653;
 static const std::uint16_t destination_port = 8888;
 static const std::uint16_t ipv4_identification = 0xaea3;
@@ -75,8 +75,8 @@ BOOST_FIXTURE_TEST_SUITE(raw_packet, packet_data)
 
 static std::string buffer_to_string(const boost::asio::const_buffer &buffer)
 {
-    return std::string(boost::asio::buffer_cast<const char *>(buffer),
-                       boost::asio::buffer_cast<const char *>(buffer) + boost::asio::buffer_size(buffer));
+    const char *data = static_cast<const char *>(buffer.data());
+    return std::string(data, data + buffer.size());
 }
 
 static std::string buffer_to_string(const boost::asio::mutable_buffer &buffer)
@@ -86,7 +86,7 @@ static std::string buffer_to_string(const boost::asio::mutable_buffer &buffer)
 
 BOOST_AUTO_TEST_CASE(multicast_mac)
 {
-    auto address = boost::asio::ip::address::from_string("239.202.234.100");
+    auto address = boost::asio::ip::make_address("239.202.234.100");
     mac_address result = spead2::multicast_mac(address);
     mac_address expected = {{0x01, 0x00, 0x5e, 0x4a, 0xea, 0x64}};
     BOOST_CHECK_EQUAL_COLLECTIONS(result.begin(), result.end(),
@@ -98,11 +98,11 @@ BOOST_AUTO_TEST_CASE(multicast_mac)
  */
 BOOST_AUTO_TEST_CASE(interface_mac_lo)
 {
-    auto address = boost::asio::ip::address::from_string("127.0.0.1");
+    auto address = boost::asio::ip::make_address("127.0.0.1");
     BOOST_CHECK_THROW(spead2::interface_mac(address), std::runtime_error);
-    address = boost::asio::ip::address::from_string("0.0.0.0");
+    address = boost::asio::ip::make_address("0.0.0.0");
     BOOST_CHECK_THROW(spead2::interface_mac(address), std::runtime_error);
-    address = boost::asio::ip::address::from_string("::1");
+    address = boost::asio::ip::make_address("::1");
     BOOST_CHECK_THROW(spead2::interface_mac(address), std::runtime_error);
 }
 

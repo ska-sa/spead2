@@ -292,7 +292,7 @@ std::int64_t sender::run()
     /* See comments in spead2_send.cpp for the explanation of why this is
      * posted rather than run directly.
      */
-    stream.get_io_context().post([this] {
+    boost::asio::post(stream.get_io_context(), [this] {
         for (std::size_t i = 0; i < max_heaps; i++)
             stream.async_send_heap(heaps[i], [this, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
                 callback(i, ec, bytes_transferred); });

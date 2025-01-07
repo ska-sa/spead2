@@ -327,7 +327,7 @@ private:
                 unwind.abort();
                 lock.unlock();
                 log_warning("async_send_heap(s): dropping heap because substream index is out of range");
-                get_io_context().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
+                boost::asio::post(get_io_context(), std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
                 return false;
             }
             item_pointer_t cnt_mask = (item_pointer_t(1) << h.get_flavour().get_heap_address_bits()) - 1;
@@ -337,7 +337,7 @@ private:
                 unwind.abort();
                 lock.unlock();
                 log_warning("async_send_heap(s): dropping heap because queue is full");
-                get_io_context().post(std::bind(std::move(handler), boost::asio::error::would_block, 0));
+                boost::asio::post(get_io_context(), std::bind(std::move(handler), boost::asio::error::would_block, 0));
                 return false;
             }
             if (cnt < 0)
@@ -349,7 +349,7 @@ private:
             {
                 lock.unlock();
                 log_warning("async_send_heap(s): dropping heap because cnt is out of range");
-                get_io_context().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
+                boost::asio::post(get_io_context(), std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
                 return false;
             }
 
@@ -392,7 +392,7 @@ private:
         if (wakeup)
         {
             writer *w_ptr = w.get();
-            get_io_context().post([w_ptr]() {
+            boost::asio::post(get_io_context(), [w_ptr]() {
                 w_ptr->update_send_time_empty();
                 w_ptr->wakeup();
             });
@@ -534,7 +534,7 @@ public:
         if (first == last)
         {
             log_warning("Empty heap group");
-            get_io_context().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
+            boost::asio::post(get_io_context(), std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
             return false;
         }
         return async_send_heaps_impl<unwinder, Iterator>(first, last, std::move(handler), mode);

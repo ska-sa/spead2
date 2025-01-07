@@ -59,8 +59,8 @@ void streambuf_writer::wakeup()
 
         for (const auto &buffer : data.buffers)
         {
-            std::size_t buffer_size = boost::asio::buffer_size(buffer);
-            std::size_t written = streambuf.sputn(boost::asio::buffer_cast<const char *>(buffer), buffer_size);
+            std::size_t buffer_size = buffer.size();
+            std::size_t written = streambuf.sputn(static_cast<const char *>(buffer.data()), buffer_size);
             data.item->bytes_sent += written;
             if (written != buffer_size)
             {
