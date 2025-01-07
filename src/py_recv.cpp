@@ -121,7 +121,7 @@ public:
 static boost::asio::ip::address make_address(stream &s, const std::string &hostname)
 {
     return make_address_no_release(s.get_io_context(), hostname,
-                                   boost::asio::ip::udp::resolver::query::passive);
+                                   boost::asio::ip::udp::resolver::passive);
 }
 
 template<typename Protocol>
