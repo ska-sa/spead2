@@ -1,6 +1,18 @@
 Changelog
 =========
 
+.. rubric:: Development version
+
+- Bump minimum Boost version to 1.70 (this was the practical lower limit,
+  as it wasn't compiling against older versions).
+- Support Boost 1.87.
+- Rename :cpp:class:`!spead2::io_service_ref` to
+  :cpp:class:`spead2::io_context_ref` to reflect name changes in Asio (the old
+  name is retained as a typedef).
+- Rename methods called :func:`!get_io_service` to :func:`!get_io_context`,
+  again to reflect name changes in Boost.
+- Update URL to download Boost in cibuildwheel configuration.
+
 .. rubric:: 4.3.2
 
 - Speed up receiving UDP with the Linux kernel network stack by using
