@@ -20,7 +20,7 @@ tar -zxf sccache-v${sccache_version}-$(arch)-unknown-linux-musl.tar.gz
 cp sccache-v${sccache_version}-$(arch)-unknown-linux-musl/sccache /usr/bin
 
 # Install boost
-curl -fsSLO https://boostorg.jfrog.io/artifactory/main/release/${boost_version}/source/boost_${boost_version_under}.tar.bz2
+curl -fsSLO https://archives.boost.io/release/${boost_version}/source/boost_${boost_version_under}.tar.bz2
 tar -jxf boost_${boost_version_under}.tar.bz2
 # Quick-n-dirty approach (much faster than doing the install, which copies thousands of files)
 ln -s /tmp/boost_${boost_version_under}/boost /usr/include/boost
