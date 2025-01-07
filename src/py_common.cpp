@@ -101,7 +101,7 @@ boost::asio::ip::address make_address_no_release(
         return boost::asio::ip::address();
     using boost::asio::ip::udp;
     udp::resolver resolver(io_context);
-    return resolver.resolve(hostname, "", flags)->endpoint().address();
+    return resolver.resolve(hostname, "", flags).begin()->endpoint().address();
 }
 
 void deprecation_warning(const char *msg)
