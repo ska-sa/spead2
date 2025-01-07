@@ -49,7 +49,7 @@ tcp_reader::tcp_reader(
     buffer(new std::uint8_t[max_size * pkts_per_buffer]),
     head(buffer.get()),
     tail(buffer.get()),
-    peer(get_socket_executor(acceptor)),
+    peer(acceptor.get_executor()),
     acceptor(std::move(acceptor))
 {
     assert(socket_uses_io_context(this->acceptor, get_io_context()));
