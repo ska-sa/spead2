@@ -1,4 +1,4 @@
-/* Copyright 2018-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2018-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -52,7 +52,7 @@ private:
 public:
     /// Constructor
     inproc_writer(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<std::shared_ptr<inproc_queue>> &queues,
         const stream_config &config);
 
@@ -100,10 +100,10 @@ const std::vector<std::shared_ptr<inproc_queue>> &inproc_writer::get_queues() co
 }
 
 inproc_writer::inproc_writer(
-    io_service_ref io_service,
+    io_context_ref io_context,
     const std::vector<std::shared_ptr<inproc_queue>> &queues,
     const stream_config &config)
-    : writer(std::move(io_service), config),
+    : writer(std::move(io_context), config),
     queues(queues),
     scratch(new std::uint8_t[config.get_max_packet_size()])
 {
@@ -114,10 +114,10 @@ inproc_writer::inproc_writer(
 } // anonymous namespace
 
 inproc_stream::inproc_stream(
-    io_service_ref io_service,
+    io_context_ref io_context,
     const std::vector<std::shared_ptr<inproc_queue>> &queues,
     const stream_config &config)
-    : stream(std::make_unique<inproc_writer>(std::move(io_service), queues, config))
+    : stream(std::make_unique<inproc_writer>(std::move(io_context), queues, config))
 {
 }
 

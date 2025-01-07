@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017-2021, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2017-2021, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -46,7 +46,7 @@ namespace spead2
 {
 
 class thread_pool;
-class io_service_ref;
+class io_context_ref;
 
 namespace recv
 {
@@ -809,7 +809,7 @@ public:
 class reader
 {
 private:
-    boost::asio::io_service &io_service;
+    boost::asio::io_context &io_context;
     std::shared_ptr<stream_base::shared_state> owner;  ///< Access to owning stream
 
 protected:
@@ -907,8 +907,11 @@ public:
     explicit reader(stream &owner);
     virtual ~reader() = default;
 
-    /// Retrieve the @c io_service corresponding to the owner
-    boost::asio::io_service &get_io_service() { return io_service; }
+    /// Retrieve the @c io_context corresponding to the owner
+    boost::asio::io_context &get_io_context() { return io_context; }
+    /// Retrieve the @c io_context corresponding to the owner (deprecated)
+    [[deprecated("use get_io_context")]]
+    boost::asio::io_context &get_io_service() { return io_context; }
 
     /**
      * Whether the reader risks losing data if it is not given a chance to
@@ -961,8 +964,8 @@ private:
     /// Holder that just ensures that the thread pool doesn't vanish
     std::shared_ptr<thread_pool> thread_pool_holder;
 
-    /// I/O service used by the readers
-    boost::asio::io_service &io_service;
+    /// I/O context used by the readers
+    boost::asio::io_context &io_context;
 
     /// Protects mutable state (@ref readers, @ref stop_readers, @ref readers_started, @ref lossy).
     mutable std::mutex reader_mutex;
@@ -1003,28 +1006,30 @@ protected:
     using stream_base::post; // Make base class version visible, despite being overloaded
 
     /**
-     * Schedule a function to be called on the stream's io_service, with the
+     * Schedule a function to be called on the stream's io_context, with the
      * lock held. This is a fire-and-forget operation. If the stream is stopped
      * before the callback fires, the callback is silently dropped.
      */
     template<typename F>
     void post(F &&func)
     {
-        post(get_io_service(), std::forward<F>(func));
+        post(get_io_context(), std::forward<F>(func));
     }
 
 public:
     using stream_base::get_config;
     using stream_base::get_stats;
 
-    explicit stream(io_service_ref io_service, const stream_config &config = stream_config());
+    explicit stream(io_context_ref io_context, const stream_config &config = stream_config());
     virtual ~stream() override;
 
-    boost::asio::io_service &get_io_service() { return io_service; }
+    boost::asio::io_context &get_io_context() { return io_context; }
+    [[deprecated("use get_io_context")]]
+    boost::asio::io_context &get_io_service() { return io_context; }
 
     /**
      * Add a new reader by passing its constructor arguments, excluding
-     * the initial @a io_service and @a owner arguments.
+     * the initial @a io_context and @a owner arguments.
      */
     template<typename T, typename... Args>
     void emplace_reader(Args&&... args)
@@ -1056,7 +1061,7 @@ public:
     void start();
 
     /**
-     * Stop the stream. After this returns, the io_service may still have
+     * Stop the stream. After this returns, the io_context may still have
      * outstanding completion handlers, but they should be no-ops when they're
      * called.
      *

@@ -1,4 +1,4 @@
-/* Copyright 2023-2024 National Research Foundation (SARAO)
+/* Copyright 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -93,7 +93,7 @@ int main(int argc, char * const argv[])
     if (packet_size)
         config.set_max_packet_size(packet_size.value());
     boost::asio::ip::udp::endpoint endpoint(
-        boost::asio::ip::address::from_string(argv[optind]),
+        boost::asio::ip::make_address(argv[optind]),
         std::stoi(argv[optind + 1])
     );
     spead2::send::udp_stream stream(thread_pool, {endpoint}, config);

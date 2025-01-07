@@ -1,4 +1,4 @@
-/* Copyright 2020 National Research Foundation (SARAO)
+/* Copyright 2020, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -148,17 +148,17 @@ struct protocol_options
  */
 template<typename Proto>
 std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
-    boost::asio::io_service &io_service, const std::vector<std::string> &endpoints, bool passive);
+    boost::asio::io_context &io_context, const std::vector<std::string> &endpoints, bool passive);
 
 /// Like @ref parse_endpoints, but for a single endpoint.
 template<typename Proto>
 static inline boost::asio::ip::basic_endpoint<Proto> parse_endpoint(
-    boost::asio::io_service &io_service, const std::string &endpoint, bool passive)
+    boost::asio::io_context &io_context, const std::string &endpoint, bool passive)
 {
-    return parse_endpoints<Proto>(io_service, {endpoint}, passive)[0];
+    return parse_endpoints<Proto>(io_context, {endpoint}, passive)[0];
 }
 
-// Variants which provide their own io_service
+// Variants which provide their own io_context
 template<typename Proto>
 std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
     const std::vector<std::string> &endpoints, bool passive);
@@ -301,7 +301,7 @@ struct sender_options
      * @a memory_regions is used with @ref udp_ibv_stream.
      */
     std::unique_ptr<stream> make_stream(
-        boost::asio::io_service &io_service,
+        boost::asio::io_context &io_context,
         const protocol_options &protocol,
         const std::vector<std::string> &endpoints,
         const std::vector<std::pair<const void *, std::size_t>> &memory_regions) const;

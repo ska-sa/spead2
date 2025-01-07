@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017-2021, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2017-2021, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -626,7 +626,7 @@ stream_stats stream_base::get_stats() const
 
 
 reader::reader(stream &owner)
-    : io_service(owner.get_io_service()), owner(owner.shared)
+    : io_context(owner.get_io_context()), owner(owner.shared)
 {
 }
 
@@ -636,10 +636,10 @@ bool reader::lossy() const
 }
 
 
-stream::stream(io_service_ref io_service, const stream_config &config)
+stream::stream(io_context_ref io_context, const stream_config &config)
     : stream_base(config),
-    thread_pool_holder(std::move(io_service).get_shared_thread_pool()),
-    io_service(*io_service),
+    thread_pool_holder(std::move(io_context).get_shared_thread_pool()),
+    io_context(*io_context),
     readers_started(!config.get_explicit_start())
 {
 }

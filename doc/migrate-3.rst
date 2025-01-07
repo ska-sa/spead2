@@ -130,7 +130,8 @@ Removal of deprecated functionality
 -----------------------------------
 The following functions were deprecated in version 2 and have been removed in version 3:
 
-- C++ stream constructors that specified a socket but not an :cpp:class:`!io_service`
+- C++ stream constructors that specified a socket but not an
+  :cpp:class:`!io_context`
   (they could not be supported with Boost 1.70 onwards).
 - Stream constructors that took both an existing (but unconnected) socket and a
   buffer size or a port to bind to. The caller should instead bind the socket

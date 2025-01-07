@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2021, 2023-2024 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2021, 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -395,28 +395,28 @@ public:
 };
 
 static boost::asio::ip::address make_address(
-    boost::asio::io_service &io_service, const std::string &hostname)
+    boost::asio::io_context &io_context, const std::string &hostname)
 {
     py::gil_scoped_release gil;
-    return make_address_no_release(io_service, hostname,
+    return make_address_no_release(io_context, hostname,
                                    boost::asio::ip::resolver_query_base::flags(0));
 }
 
 template<typename Protocol>
 static typename Protocol::endpoint make_endpoint(
-    boost::asio::io_service &io_service, const std::string &hostname, std::uint16_t port)
+    boost::asio::io_context &io_context, const std::string &hostname, std::uint16_t port)
 {
-    return typename Protocol::endpoint(make_address(io_service, hostname), port);
+    return typename Protocol::endpoint(make_address(io_context, hostname), port);
 }
 
 template<typename Protocol>
 static std::vector<typename Protocol::endpoint> make_endpoints(
-    boost::asio::io_service &io_service, const std::vector<std::pair<std::string, std::uint16_t>> &endpoints)
+    boost::asio::io_context &io_context, const std::vector<std::pair<std::string, std::uint16_t>> &endpoints)
 {
     std::vector<typename Protocol::endpoint> out;
     out.reserve(endpoints.size());
     for (const auto &[host, port] : endpoints)
-        out.push_back(make_endpoint<Protocol>(io_service, host, port));
+        out.push_back(make_endpoint<Protocol>(io_context, host, port));
     return out;
 }
 
@@ -425,72 +425,72 @@ class udp_stream_wrapper : public Base
 {
 public:
     udp_stream_wrapper(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         const std::string &interface_address)
         : Base(
-            io_service,
-            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
+            io_context,
+            make_endpoints<boost::asio::ip::udp>(*io_context, endpoints),
             config, buffer_size,
-            make_address(*io_service, interface_address))
+            make_address(*io_context, interface_address))
     {
     }
 
     udp_stream_wrapper(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl)
         : Base(
-            io_service,
-            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
+            io_context,
+            make_endpoints<boost::asio::ip::udp>(*io_context, endpoints),
             config, buffer_size, ttl)
     {
     }
 
     udp_stream_wrapper(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl,
         const std::string &interface_address)
         : Base(
-            io_service,
-            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
+            io_context,
+            make_endpoints<boost::asio::ip::udp>(*io_context, endpoints),
             config, buffer_size, ttl,
             interface_address.empty() ?
                 boost::asio::ip::address() :
-                make_address(*io_service, interface_address))
+                make_address(*io_context, interface_address))
     {
     }
 
     udp_stream_wrapper(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl,
         unsigned int interface_index)
         : Base(
-            io_service,
-            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
+            io_context,
+            make_endpoints<boost::asio::ip::udp>(*io_context, endpoints),
             config, buffer_size, ttl, interface_index)
     {
     }
 
     udp_stream_wrapper(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const socket_wrapper<boost::asio::ip::udp::socket> &socket,
         const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config)
         : Base(
-            io_service,
-            socket.copy(*io_service),
-            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
+            io_context,
+            socket.copy(*io_context),
+            make_endpoints<boost::asio::ip::udp>(*io_context, endpoints),
             config)
     {
     }
@@ -595,10 +595,10 @@ static py::class_<T, stream> udp_ibv_stream_register(py::module &m, const char *
                 udp_ibv_config ibv_config = ibv_config_wrapper;
                 ibv_config.set_endpoints(
                     make_endpoints<boost::asio::ip::udp>(
-                        thread_pool->get_io_service(),
+                        thread_pool->get_io_context(),
                         ibv_config_wrapper.py_endpoints));
                 ibv_config.set_interface_address(
-                    make_address(thread_pool->get_io_service(),
+                    make_address(thread_pool->get_io_context(),
                                  ibv_config_wrapper.py_interface_address));
                 std::vector<std::pair<const void *, std::size_t>> regions;
                 std::vector<py::buffer_info> buffer_infos;
@@ -632,22 +632,22 @@ public:
     template<typename ConnectHandler>
     tcp_stream_wrapper(
         ConnectHandler&& connect_handler,
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         const std::string &interface_address)
-        : Base(io_service, std::forward<ConnectHandler>(connect_handler),
-               make_endpoints<boost::asio::ip::tcp>(*io_service, endpoints),
-               config, buffer_size, make_address(*io_service, interface_address))
+        : Base(io_context, std::forward<ConnectHandler>(connect_handler),
+               make_endpoints<boost::asio::ip::tcp>(*io_context, endpoints),
+               config, buffer_size, make_address(*io_context, interface_address))
     {
     }
 
     tcp_stream_wrapper(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const socket_wrapper<boost::asio::ip::tcp::socket> &socket,
         const stream_config &config)
-        : Base(io_service, socket.copy(*io_service), config)
+        : Base(io_context, socket.copy(*io_context), config)
     {
     }
 };

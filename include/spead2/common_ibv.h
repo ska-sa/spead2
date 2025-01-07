@@ -1,4 +1,4 @@
-/* Copyright 2016-2020 National Research Foundation (SARAO)
+/* Copyright 2016-2020, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -182,7 +182,7 @@ public:
     explicit ibv_comp_channel_t(const rdma_cm_id_t &cm_id);
 
     /// Create a file descriptor that is ready to read when the completion channel has events
-    boost::asio::posix::stream_descriptor wrap(boost::asio::io_service &io_service) const;
+    boost::asio::posix::stream_descriptor wrap(boost::asio::io_context &io_context) const;
     /// Get an event, if one is available
     bool get_event(ibv_cq **cq, void **context);
 };

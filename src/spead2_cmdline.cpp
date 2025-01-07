@@ -1,4 +1,4 @@
-/* Copyright 2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -49,10 +49,10 @@ namespace spead2
 
 template<typename Proto>
 std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
-    boost::asio::io_service &io_service, const std::vector<std::string> &endpoints, bool passive)
+    boost::asio::io_context &io_context, const std::vector<std::string> &endpoints, bool passive)
 {
     typedef boost::asio::ip::basic_resolver<Proto> resolver_type;
-    resolver_type resolver(io_service);
+    resolver_type resolver(io_context);
     std::vector<boost::asio::ip::basic_endpoint<Proto>> ans;
     ans.reserve(endpoints.size());
     for (const std::string &dest : endpoints)
@@ -71,10 +71,9 @@ std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
             host = dest.substr(0, colon);
             port = dest.substr(colon + 1);
         }
-        typename resolver_type::query query(
+        ans.push_back(*resolver.resolve(
             host, port,
-            passive ? resolver_type::query::passive : typename resolver_type::query::flags());
-        ans.push_back(*resolver.resolve(query));
+            passive ? resolver_type::passive : typename resolver_type::flags()).begin());
     }
     return ans;
 }
@@ -83,15 +82,15 @@ template<typename Proto>
 std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
     const std::vector<std::string> &endpoints, bool passive)
 {
-    boost::asio::io_service io_service;
-    return parse_endpoints<Proto>(io_service, endpoints, passive);
+    boost::asio::io_context io_context;
+    return parse_endpoints<Proto>(io_context, endpoints, passive);
 }
 
 // Explicitly instantiate for TCP and UDP
 template std::vector<boost::asio::ip::udp::endpoint> parse_endpoints<boost::asio::ip::udp>(
-    boost::asio::io_service &io_service, const std::vector<std::string> &endpoints, bool passive);
+    boost::asio::io_context &io_context, const std::vector<std::string> &endpoints, bool passive);
 template std::vector<boost::asio::ip::tcp::endpoint> parse_endpoints<boost::asio::ip::tcp>(
-    boost::asio::io_service &io_service, const std::vector<std::string> &endpoints, bool passive);
+    boost::asio::io_context &io_context, const std::vector<std::string> &endpoints, bool passive);
 
 template std::vector<boost::asio::ip::udp::endpoint> parse_endpoints<boost::asio::ip::udp>(
     const std::vector<std::string> &endpoints, bool passive);
@@ -217,12 +216,12 @@ void receiver_options::add_readers(
         }
         else if (protocol.tcp)
         {
-            tcp::endpoint ep = parse_endpoint<tcp>(stream.get_io_service(), endpoint, true);
+            tcp::endpoint ep = parse_endpoint<tcp>(stream.get_io_context(), endpoint, true);
             stream.emplace_reader<spead2::recv::tcp_reader>(ep, *max_packet_size, *buffer_size);
         }
         else
         {
-            udp::endpoint ep = parse_endpoint<udp>(stream.get_io_service(), endpoint, true);
+            udp::endpoint ep = parse_endpoint<udp>(stream.get_io_context(), endpoint, true);
 #if SPEAD2_USE_IBV
             if (ibv)
             {
@@ -234,7 +233,7 @@ void receiver_options::add_readers(
             {
                 stream.emplace_reader<spead2::recv::udp_reader>(
                     ep, *max_packet_size, *buffer_size,
-                    boost::asio::ip::address_v4::from_string(interface_address));
+                    boost::asio::ip::make_address_v4(interface_address));
             }
             else
             {
@@ -247,7 +246,7 @@ void receiver_options::add_readers(
 #if SPEAD2_USE_IBV
     if (!ibv_endpoints.empty())
     {
-        boost::asio::ip::address interface_address = boost::asio::ip::address::from_string(this->interface_address);
+        boost::asio::ip::address interface_address = boost::asio::ip::make_address(this->interface_address);
         stream.emplace_reader<spead2::recv::udp_ibv_reader>(
             udp_ibv_config()
                 .set_endpoints(ibv_endpoints)
@@ -335,7 +334,7 @@ stream_config sender_options::make_stream_config() const
 }
 
 std::unique_ptr<stream> sender_options::make_stream(
-    boost::asio::io_service &io_service,
+    boost::asio::io_context &io_context,
     const protocol_options &protocol,
     const std::vector<std::string> &endpoints,
     [[maybe_unused]] const std::vector<std::pair<const void *, std::size_t>> &memory_regions) const
@@ -344,10 +343,10 @@ std::unique_ptr<stream> sender_options::make_stream(
     stream_config config = make_stream_config();
     boost::asio::ip::address interface_address;
     if (!this->interface_address.empty())
-        interface_address = boost::asio::ip::address::from_string(this->interface_address);
+        interface_address = boost::asio::ip::make_address(this->interface_address);
     if (protocol.tcp)
     {
-        auto ep = parse_endpoints<boost::asio::ip::tcp>(io_service, endpoints, false);
+        auto ep = parse_endpoints<boost::asio::ip::tcp>(io_context, endpoints, false);
         std::promise<void> promise;
         auto connect_handler = [&promise] (const boost::system::error_code &e) {
             if (e)
@@ -356,13 +355,13 @@ std::unique_ptr<stream> sender_options::make_stream(
                 promise.set_value();
         };
         stream.reset(new tcp_stream(
-            io_service, connect_handler, ep, config,
+            io_context, connect_handler, ep, config,
             *buffer_size, interface_address));
         promise.get_future().get();
     }
     else
     {
-        auto ep = parse_endpoints<boost::asio::ip::udp>(io_service, endpoints, false);
+        auto ep = parse_endpoints<boost::asio::ip::udp>(io_context, endpoints, false);
 #if SPEAD2_USE_IBV
         if (ibv)
         {
@@ -375,7 +374,7 @@ std::unique_ptr<stream> sender_options::make_stream(
                 .set_comp_vector(ibv_comp_vector)
                 .set_max_poll(ibv_max_poll)
                 .set_buffer_size(*buffer_size);
-            stream.reset(new udp_ibv_stream(io_service, config, ibv_config));
+            stream.reset(new udp_ibv_stream(io_context, config, ibv_config));
         }
         else
 #endif // SPEAD2_USE_IBV
@@ -384,20 +383,20 @@ std::unique_ptr<stream> sender_options::make_stream(
             {
                 if (ep[0].address().is_v4())
                     stream.reset(new udp_stream(
-                        io_service, ep, config, *buffer_size,
+                        io_context, ep, config, *buffer_size,
                         ttl, interface_address));
                 else
                 {
                     if (!this->interface_address.empty())
                         std::cerr << "--bind is not yet supported for IPv6 multicast, ignoring\n";
                     stream.reset(new udp_stream(
-                        io_service, ep, config, *buffer_size, ttl));
+                        io_context, ep, config, *buffer_size, ttl));
                 }
             }
             else
             {
                 stream.reset(new udp_stream(
-                    io_service, ep, config, *buffer_size, interface_address));
+                    io_context, ep, config, *buffer_size, interface_address));
             }
         }
     }

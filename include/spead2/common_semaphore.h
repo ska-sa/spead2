@@ -1,4 +1,4 @@
-/* Copyright 2015 National Research Foundation (SARAO)
+/* Copyright 2015, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -142,7 +142,7 @@ public:
 };
 
 /// Duplicate a file descriptor and wrap it in boost::asio
-boost::asio::posix::stream_descriptor wrap_fd(boost::asio::io_service &io_service, int fd);
+boost::asio::posix::stream_descriptor wrap_fd(boost::asio::io_context &io_context, int fd);
 
 /////////////////////////////////////////////////////////////////////////////
 

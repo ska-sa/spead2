@@ -1,4 +1,4 @@
-/* Copyright 2023 National Research Foundation (SARAO)
+/* Copyright 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -33,7 +33,7 @@ int main()
     spead2::send::stream_config config;
     config.set_rate(100e6);
     boost::asio::ip::udp::endpoint endpoint(
-        boost::asio::ip::address::from_string("127.0.0.1"),
+        boost::asio::ip::make_address("127.0.0.1"),
         8888
     );
     spead2::send::udp_stream stream(thread_pool, {endpoint}, config);

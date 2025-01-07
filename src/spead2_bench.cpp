@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -292,7 +292,7 @@ std::int64_t sender::run()
     /* See comments in spead2_send.cpp for the explanation of why this is
      * posted rather than run directly.
      */
-    stream.get_io_service().post([this] {
+    boost::asio::post(stream.get_io_context(), [this] {
         for (std::size_t i = 0; i < max_heaps; i++)
             stream.async_send_heap(heaps[i], [this, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
                 callback(i, ec, bytes_transferred); });
@@ -365,7 +365,7 @@ static std::pair<bool, double> measure_connection_once(
         auto start = std::chrono::high_resolution_clock::now();
         std::int64_t transferred;
         std::unique_ptr<spead2::send::stream> stream = sender_options.make_stream(
-            thread_pool.get_io_service(),
+            thread_pool.get_io_context(),
             opts.protocol,
             {endpoint},
             {{data.data(), data.size() * sizeof(data[0])}});
@@ -562,14 +562,13 @@ static void main_agent(int argc, const char **argv)
     spead2::thread_pool thread_pool;
 
     /* Look up the bind address for the control socket */
-    tcp::resolver tcp_resolver(thread_pool.get_io_service());
-    tcp::resolver::query tcp_query("0.0.0.0", agent_opts.endpoint);
-    tcp::endpoint tcp_endpoint = *tcp_resolver.resolve(tcp_query);
-    tcp::acceptor acceptor(thread_pool.get_io_service(), tcp_endpoint);
+    tcp::resolver tcp_resolver(thread_pool.get_io_context());
+    tcp::endpoint tcp_endpoint = *tcp_resolver.resolve("0.0.0.0", agent_opts.endpoint).begin();
+    tcp::acceptor acceptor(thread_pool.get_io_context(), tcp_endpoint);
     while (true)
     {
         tcp::iostream control;
-        acceptor.accept(*control.rdbuf());
+        acceptor.accept(control.rdbuf()->socket());
         std::unique_ptr<recv_connection> connection;
         while (true)
         {
@@ -636,7 +635,7 @@ static void build_streambuf(std::streambuf &streambuf, const options &opts, std:
     spead2::thread_pool thread_pool;
     spead2::flavour flavour = opts.sender.make_flavour(opts.protocol);
     spead2::send::streambuf_stream stream(
-        thread_pool.get_io_service(), streambuf,
+        thread_pool.get_io_context(), streambuf,
         opts.sender.make_stream_config());
     spead2::send::heap heap(flavour), end_heap(flavour);
     std::vector<std::uint8_t> data(opts.heap_size);

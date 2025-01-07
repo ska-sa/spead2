@@ -1,4 +1,4 @@
-/* Copyright 2023 National Research Foundation (SARAO)
+/* Copyright 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -123,11 +123,11 @@ chunk_stream_group::const_iterator chunk_stream_group::cend() const noexcept
 }
 
 chunk_stream_group_member &chunk_stream_group::emplace_back(
-    io_service_ref io_service,
+    io_context_ref io_context,
     const stream_config &config,
     const chunk_stream_config &chunk_config)
 {
-    return emplace_back<chunk_stream_group_member>(std::move(io_service), config, chunk_config);
+    return emplace_back<chunk_stream_group_member>(std::move(io_context), config, chunk_config);
 }
 
 void chunk_stream_group::stop()
@@ -232,11 +232,11 @@ void chunk_stream_group::stream_head_updated(chunk_stream_group_member &s, std::
 chunk_stream_group_member::chunk_stream_group_member(
     chunk_stream_group &group,
     std::size_t group_index,
-    io_service_ref io_service,
+    io_context_ref io_context,
     const stream_config &config,
     const chunk_stream_config &chunk_config)
     : chunk_stream_state(config, chunk_config, detail::chunk_manager_group(group)),
-    stream(std::move(io_service), adjust_config(config)),
+    stream(std::move(io_context), adjust_config(config)),
     group(group), group_index(group_index)
 {
     if (chunk_config.get_max_chunks() > group.config.get_max_chunks())

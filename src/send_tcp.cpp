@@ -29,7 +29,7 @@ namespace spead2::send
 {
 
 static boost::asio::ip::tcp::socket make_socket(
-    const io_service_ref &io_service,
+    const io_context_ref &io_context,
     const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
     std::size_t buffer_size,
     const boost::asio::ip::address &interface_address)
@@ -37,7 +37,7 @@ static boost::asio::ip::tcp::socket make_socket(
     if (endpoints.size() != 1)
         throw std::invalid_argument("endpoints must contain exactly one element");
     const boost::asio::ip::tcp::endpoint &endpoint = endpoints[0];
-    boost::asio::ip::tcp::socket socket(*io_service, endpoint.protocol());
+    boost::asio::ip::tcp::socket socket(*io_context, endpoint.protocol());
     if (!interface_address.is_unspecified())
         socket.bind(boost::asio::ip::tcp::endpoint(interface_address, 0));
     set_socket_send_buffer_size(socket, buffer_size);
@@ -72,7 +72,7 @@ public:
      * @warning The callback may be called before the constructor returns. The
      * implementation of the callback needs to be prepared to handle this case.
      *
-     * @param io_service   I/O service for sending data
+     * @param io_context   I/O context for sending data
      * @param connect_handler  Callback when connection is established. It is called
      *                     with a @c boost::system::error_code to indicate whether
      *                     connection was successful.
@@ -85,7 +85,7 @@ public:
      *                            @endverbatim
      */
     tcp_writer(
-        io_service_ref io_service,
+        io_context_ref io_context,
         std::function<void(const boost::system::error_code &)> &&connect_handler,
         const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
         const stream_config &config,
@@ -96,7 +96,7 @@ public:
      * Constructor using an existing socket. The socket must be connected.
      */
     tcp_writer(
-        io_service_ref io_service,
+        io_context_ref io_context,
         boost::asio::ip::tcp::socket &&socket,
         const stream_config &config);
 
@@ -149,14 +149,14 @@ void tcp_writer::start()
 }
 
 tcp_writer::tcp_writer(
-    io_service_ref io_service,
+    io_context_ref io_context,
     std::function<void(const boost::system::error_code &)> &&connect_handler,
     const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
     const stream_config &config,
     std::size_t buffer_size,
     const boost::asio::ip::address &interface_address)
-    : writer(std::move(io_service), config),
-    socket(make_socket(get_io_service(), endpoints, buffer_size, interface_address)),
+    : writer(std::move(io_context), config),
+    socket(make_socket(get_io_context(), endpoints, buffer_size, interface_address)),
     pre_connected(false),
     endpoint(endpoints[0]),
     connect_handler(std::move(connect_handler)),
@@ -165,29 +165,29 @@ tcp_writer::tcp_writer(
 }
 
 tcp_writer::tcp_writer(
-    io_service_ref io_service,
+    io_context_ref io_context,
     boost::asio::ip::tcp::socket &&socket,
     const stream_config &config)
-    : writer(std::move(io_service), config),
+    : writer(std::move(io_context), config),
     socket(std::move(socket)),
     pre_connected(true),
     scratch(new std::uint8_t[config.get_max_packet_size()])
 {
-    if (!socket_uses_io_service(this->socket, get_io_service()))
-        throw std::invalid_argument("I/O service does not match the socket's I/O service");
+    if (!socket_uses_io_context(this->socket, get_io_context()))
+        throw std::invalid_argument("I/O context does not match the socket's I/O context");
 }
 
 } // anonymous namespace
 
 tcp_stream::tcp_stream(
-    io_service_ref io_service,
+    io_context_ref io_context,
     std::function<void(const boost::system::error_code &)> &&connect_handler,
     const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
     const stream_config &config,
     std::size_t buffer_size,
     const boost::asio::ip::address &interface_address)
     : stream(std::make_unique<tcp_writer>(
-        std::move(io_service),
+        std::move(io_context),
         std::move(connect_handler),
         endpoints,
         config,
@@ -197,11 +197,11 @@ tcp_stream::tcp_stream(
 }
 
 tcp_stream::tcp_stream(
-    io_service_ref io_service,
+    io_context_ref io_context,
     boost::asio::ip::tcp::socket &&socket,
     const stream_config &config)
     : stream(std::make_unique<tcp_writer>(
-        std::move(io_service),
+        std::move(io_context),
         std::move(socket),
         config))
 {

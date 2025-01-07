@@ -1,4 +1,4 @@
-/* Copyright 2015-2017, 2021, 2023 National Research Foundation (SARAO)
+/* Copyright 2015-2017, 2021, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -56,7 +56,7 @@ class memory_pool : public memory_allocator
     friend class detail::memory_pool_deleter;
 
 private:
-    std::optional<io_service_ref> io_service;
+    std::optional<io_context_ref> io_context;
     const std::size_t lower, upper, max_free, initial, low_water;
     const std::shared_ptr<memory_allocator> base_allocator;
     mutable std::mutex mutex;
@@ -74,7 +74,7 @@ private:
     static void refill(std::size_t upper, std::shared_ptr<memory_allocator> allocator,
                        std::weak_ptr<memory_pool> self_weak);
 
-    memory_pool(std::optional<io_service_ref> io_service,
+    memory_pool(std::optional<io_context_ref> io_context,
                 std::size_t lower,
                 std::size_t upper,
                 std::size_t max_free,
@@ -87,7 +87,7 @@ public:
     memory_pool();
     memory_pool(std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial,
                 std::shared_ptr<memory_allocator> allocator = nullptr);
-    memory_pool(io_service_ref io_service, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water,
+    memory_pool(io_context_ref io_context, std::size_t lower, std::size_t upper, std::size_t max_free, std::size_t initial, std::size_t low_water,
                 std::shared_ptr<memory_allocator> allocator = nullptr);
     bool get_warn_on_empty() const;
     void set_warn_on_empty(bool warn);

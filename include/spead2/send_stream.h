@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020, 2023-2024 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -327,7 +327,7 @@ private:
                 unwind.abort();
                 lock.unlock();
                 log_warning("async_send_heap(s): dropping heap because substream index is out of range");
-                get_io_service().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
+                boost::asio::post(get_io_context(), std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
                 return false;
             }
             item_pointer_t cnt_mask = (item_pointer_t(1) << h.get_flavour().get_heap_address_bits()) - 1;
@@ -337,7 +337,7 @@ private:
                 unwind.abort();
                 lock.unlock();
                 log_warning("async_send_heap(s): dropping heap because queue is full");
-                get_io_service().post(std::bind(std::move(handler), boost::asio::error::would_block, 0));
+                boost::asio::post(get_io_context(), std::bind(std::move(handler), boost::asio::error::would_block, 0));
                 return false;
             }
             if (cnt < 0)
@@ -349,7 +349,7 @@ private:
             {
                 lock.unlock();
                 log_warning("async_send_heap(s): dropping heap because cnt is out of range");
-                get_io_service().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
+                boost::asio::post(get_io_context(), std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
                 return false;
             }
 
@@ -392,7 +392,7 @@ private:
         if (wakeup)
         {
             writer *w_ptr = w.get();
-            get_io_service().post([w_ptr]() {
+            boost::asio::post(get_io_context(), [w_ptr]() {
                 w_ptr->update_send_time_empty();
                 w_ptr->wakeup();
             });
@@ -407,8 +407,11 @@ protected:
     explicit stream(std::unique_ptr<writer> &&w);
 
 public:
-    /// Retrieve the io_service used for processing the stream
-    boost::asio::io_service &get_io_service() const;
+    /// Retrieve the io_context used for processing the stream
+    boost::asio::io_context &get_io_context() const;
+    /// Retrieve the io_context used for processing the stream (deprecated)
+    [[deprecated("use get_io_context")]]
+    boost::asio::io_context &get_io_service() const;
 
     /**
      * Modify the linear sequence used to generate heap cnts. The next heap
@@ -433,7 +436,7 @@ public:
      *
      * If this function returns @c false, the heap was rejected without
      * being added to the queue. The handler is called as soon as possible
-     * (from a thread running the io_service). If the heap was rejected due to
+     * (from a thread running the io_context). If the heap was rejected due to
      * lack of space, the error code is @c boost::asio::error::would_block.
      *
      * By default the heap cnt is chosen automatically (see @ref set_cnt_sequence).
@@ -503,7 +506,7 @@ public:
      *
      * If this function returns @c false, the heaps were rejected without
      * being added to the queue. The handler is called as soon as possible
-     * (from a thread running the io_service). If the heaps were rejected due to
+     * (from a thread running the io_context). If the heaps were rejected due to
      * lack of space, the error code is @c boost::asio::error::would_block.
      * It is an error to send an empty list of heaps.
      *
@@ -531,7 +534,7 @@ public:
         if (first == last)
         {
             log_warning("Empty heap group");
-            get_io_service().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
+            boost::asio::post(get_io_context(), std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
             return false;
         }
         return async_send_heaps_impl<unwinder, Iterator>(first, last, std::move(handler), mode);

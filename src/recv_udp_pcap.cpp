@@ -1,4 +1,4 @@
-/* Copyright 2016-2017, 2019, 2023 National Research Foundation (SARAO)
+/* Copyright 2016-2017, 2019, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -92,7 +92,7 @@ void udp_pcap_file_reader::run(handler_context ctx, stream_base::add_packet_stat
     if (!state.is_stopped())
     {
         using namespace std::placeholders;
-        boost::asio::post(get_io_service(), bind_handler(std::move(ctx), std::bind(&udp_pcap_file_reader::run, this, _1, _2)));
+        boost::asio::post(get_io_context(), bind_handler(std::move(ctx), std::bind(&udp_pcap_file_reader::run, this, _1, _2)));
     }
 }
 
@@ -132,7 +132,7 @@ void udp_pcap_file_reader::start()
 {
     // Process the file
     using namespace std::placeholders;
-    boost::asio::post(get_io_service(), bind_handler(std::bind(&udp_pcap_file_reader::run, this, _1, _2)));
+    boost::asio::post(get_io_context(), bind_handler(std::bind(&udp_pcap_file_reader::run, this, _1, _2)));
 }
 
 udp_pcap_file_reader::~udp_pcap_file_reader()

@@ -9,7 +9,7 @@ let's introduce some terminology: the user writes code which runs on a thread,
 which we'll call the "user thread" (there may be multiple user threads, but
 for most functions it's only safe for one user thread at a time to interact
 with a stream). The threads in a :py:class:`.ThreadPool`, or more generally
-threads running :cpp:func:`boost::asio::io_service::run` (or equivalents) are
+threads running :cpp:func:`boost::asio::io_context::run` (or equivalents) are
 "worker threads".
 
 The original sin that leads to many complications is

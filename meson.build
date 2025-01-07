@@ -1,4 +1,4 @@
-# Copyright 2023-2024 National Research Foundation (SARAO)
+# Copyright 2023-2025 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -36,7 +36,7 @@ compiler = meson.get_compiler('cpp')
 py = import('python').find_installation(pure : false, modules : ['jinja2', 'pycparser', 'packaging'])
 
 # Required dependencies
-boost_dep = dependency('boost', version : '>=1.69')
+boost_dep = dependency('boost', version : '>=1.70')
 dl_dep = dependency('dl')
 thread_dep = dependency('threads')
 compiler.check_header('libdivide.h', required : true)

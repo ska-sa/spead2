@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2019-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -38,7 +38,7 @@ private:
 public:
     /// Constructor
     streambuf_writer(
-        io_service_ref io_service,
+        io_context_ref io_context,
         std::streambuf &streambuf,
         const stream_config &config);
 
@@ -59,8 +59,8 @@ void streambuf_writer::wakeup()
 
         for (const auto &buffer : data.buffers)
         {
-            std::size_t buffer_size = boost::asio::buffer_size(buffer);
-            std::size_t written = streambuf.sputn(boost::asio::buffer_cast<const char *>(buffer), buffer_size);
+            std::size_t buffer_size = buffer.size();
+            std::size_t written = streambuf.sputn(static_cast<const char *>(buffer.data()), buffer_size);
             data.item->bytes_sent += written;
             if (written != buffer_size)
             {
@@ -91,10 +91,10 @@ void streambuf_writer::wakeup()
 }
 
 streambuf_writer::streambuf_writer(
-    io_service_ref io_service,
+    io_context_ref io_context,
     std::streambuf &streambuf,
     const stream_config &config)
-    : writer(std::move(io_service), config), streambuf(streambuf),
+    : writer(std::move(io_context), config), streambuf(streambuf),
     scratch(new std::uint8_t[config.get_max_packet_size()])
 {
 }
@@ -102,10 +102,10 @@ streambuf_writer::streambuf_writer(
 } // anonymous namespace
 
 streambuf_stream::streambuf_stream(
-    io_service_ref io_service,
+    io_context_ref io_context,
     std::streambuf &streambuf,
     const stream_config &config)
-    : stream(std::make_unique<streambuf_writer>(std::move(io_service), streambuf, config))
+    : stream(std::make_unique<streambuf_writer>(std::move(io_context), streambuf, config))
 {
 }
 

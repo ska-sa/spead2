@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2020-2021, 2023 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2020-2021, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -88,7 +88,7 @@ public:
     socket_wrapper(typename SocketType::protocol_type protocol, int fd)
         : protocol(protocol), fd(fd) {}
 
-    SocketType copy(boost::asio::io_service &io_service) const
+    SocketType copy(boost::asio::io_context &io_context) const
     {
         int fd2 = ::dup(fd);
         if (fd2 == -1)
@@ -96,7 +96,7 @@ public:
             PyErr_SetFromErrno(PyExc_OSError);
             throw pybind11::error_already_set();
         }
-        return SocketType(io_service, protocol, fd2);
+        return SocketType(io_context, protocol, fd2);
     }
 };
 
@@ -105,7 +105,7 @@ extern template class socket_wrapper<boost::asio::ip::tcp::socket>;
 extern template class socket_wrapper<boost::asio::ip::tcp::acceptor>;
 
 boost::asio::ip::address make_address_no_release(
-    boost::asio::io_service &io_service, const std::string &hostname,
+    boost::asio::io_context &io_context, const std::string &hostname,
     boost::asio::ip::resolver_query_base::flags flags);
 
 namespace detail

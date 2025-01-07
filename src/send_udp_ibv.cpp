@@ -1,4 +1,4 @@
-/* Copyright 2016, 2019-2020, 2023 National Research Foundation (SARAO)
+/* Copyright 2016, 2019-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -142,7 +142,7 @@ private:
 
 public:
     udp_ibv_writer(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const stream_config &config,
         const udp_ibv_config &ibv_config);
 
@@ -340,7 +340,7 @@ void udp_ibv_writer::wakeup()
             s->sge[0].lkey = mr->lkey;
             // The packet_generator writes the SPEAD header and item pointers
             // directly into the payload.
-            assert(boost::asio::buffer_cast<const std::uint8_t *>(data.buffers[0]) == s->payload);
+            assert(data.buffers[0].data() == s->payload);
             std::uint8_t *copy_target = s->payload + boost::asio::buffer_size(data.buffers[0]);
             s->sge[0].length = copy_target - s->frame.data();
             /* The first SGE is used for both the IP/UDP header and the
@@ -356,7 +356,7 @@ void udp_ibv_writer::wakeup()
             {
                 const auto &buffer = data.buffers[j];
                 ibv_sge cur;
-                const std::uint8_t *ptr = boost::asio::buffer_cast<const uint8_t *>(buffer);
+                const std::uint8_t *ptr = static_cast<const std::uint8_t *>(buffer.data());
                 cur.length = boost::asio::buffer_size(buffer);
                 // Check if it belongs to a user-registered region
                 memory_region cmp(ptr, cur.length);
@@ -452,16 +452,16 @@ static std::size_t calc_target_batch(const stream_config &config, std::size_t n_
 }
 
 udp_ibv_writer::udp_ibv_writer(
-    io_service_ref io_service,
+    io_context_ref io_context,
     const stream_config &config,
     const udp_ibv_config &ibv_config)
-    : writer(std::move(io_service), config),
+    : writer(std::move(io_context), config),
     n_slots(calc_n_slots(config, ibv_config.get_buffer_size())),
     target_batch(calc_target_batch(config, n_slots)),
-    socket(get_io_service(), boost::asio::ip::udp::v4()),
+    socket(get_io_context(), boost::asio::ip::udp::v4()),
     endpoints(ibv_config.get_endpoints()),
     event_channel(nullptr),
-    comp_channel_wrapper(get_io_service()),
+    comp_channel_wrapper(get_io_context()),
     available(n_slots),
     max_poll(ibv_config.get_max_poll())
 {
@@ -494,7 +494,7 @@ udp_ibv_writer::udp_ibv_writer(
     if (comp_vector >= 0)
     {
         comp_channel = ibv_comp_channel_t(cm_id);
-        comp_channel_wrapper = comp_channel.wrap(get_io_service());
+        comp_channel_wrapper = comp_channel.wrap(get_io_context());
         send_cq = ibv_cq_t(cm_id, n_slots, nullptr,
                            comp_channel, comp_vector % cm_id->verbs->num_comp_vectors);
     }
@@ -548,7 +548,7 @@ udp_ibv_writer::udp_ibv_writer(
         udp.destination_port(endpoints[0].port());
         udp.length(config.get_max_packet_size() + udp_packet::min_size);
         udp.checksum(0);
-        slots[i].payload = boost::asio::buffer_cast<std::uint8_t *>(udp.payload());
+        slots[i].payload = static_cast<std::uint8_t *>(udp.payload().data());
     }
 
     if (cm_id.query_device_ex().raw_packet_caps & IBV_RAW_PACKET_CAP_IP_CSUM)
@@ -594,10 +594,10 @@ udp_ibv_config &udp_ibv_config::add_memory_region(const void *ptr, std::size_t s
 }
 
 udp_ibv_stream::udp_ibv_stream(
-    io_service_ref io_service,
+    io_context_ref io_context,
     const stream_config &config,
     const udp_ibv_config &ibv_config)
-    : stream(std::make_unique<udp_ibv_writer>(std::move(io_service), config, ibv_config))
+    : stream(std::make_unique<udp_ibv_writer>(std::move(io_context), config, ibv_config))
 {
 }
 
