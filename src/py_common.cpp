@@ -101,8 +101,7 @@ boost::asio::ip::address make_address_no_release(
         return boost::asio::ip::address();
     using boost::asio::ip::udp;
     udp::resolver resolver(io_context);
-    udp::resolver::query query(hostname, "", flags);
-    return resolver.resolve(query)->endpoint().address();
+    return resolver.resolve(hostname, "", flags)->endpoint().address();
 }
 
 void deprecation_warning(const char *msg)
@@ -373,7 +372,7 @@ void register_module(py::module m)
                 py::gil_scoped_release release;
                 boost::asio::io_context io_context;
                 return ibv_context_t(make_address_no_release(
-                    io_context, interface_address, boost::asio::ip::udp::resolver::query::passive));
+                    io_context, interface_address, boost::asio::ip::udp::resolver::passive));
             }), "interface"_a)
         .def("reset", [](ibv_context_t &self) { self.reset(); })
     ;

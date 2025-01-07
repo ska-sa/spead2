@@ -303,25 +303,6 @@ static int run(spead2::send::stream &stream, sender &s)
     return 0;
 }
 
-template <typename Proto>
-static std::vector<boost::asio::ip::basic_endpoint<Proto>> get_endpoints(
-    boost::asio::io_context &io_context, const options &opts)
-{
-    typedef boost::asio::ip::basic_resolver<Proto> resolver_type;
-    resolver_type resolver(io_context);
-    std::vector<boost::asio::ip::basic_endpoint<Proto>> ans;
-    ans.reserve(opts.dest.size());
-    for (const std::string &dest : opts.dest)
-    {
-        auto colon = dest.rfind(':');
-        if (colon == std::string::npos)
-            throw std::runtime_error("Destination '" + dest + "' does not have the format host:port");
-        typename resolver_type::query query(dest.substr(0, colon), dest.substr(colon + 1));
-        ans.push_back(*resolver.resolve(query));
-    }
-    return ans;
-}
-
 int main(int argc, const char **argv)
 {
     options opts = parse_args(argc, argv);
