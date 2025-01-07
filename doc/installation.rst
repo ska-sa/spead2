@@ -55,7 +55,7 @@ Python install from source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 Installing from source requires a modern C++ compiler supporting C++17 (GCC
 7+ or Clang 4+, although GCC 9.4 and Clang 10 are the oldest tested
-versions and support for older compilers may be dropped) as well as Boost 1.69+
+versions and support for older compilers may be dropped) as well as Boost 1.70+
 (only headers are required), libdivide, and the Python development headers.
 At the moment only GNU/Linux and OS X get tested but other POSIX-like systems
 should work too. There are no plans to support Windows.
