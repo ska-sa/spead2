@@ -1,17 +1,24 @@
 Changelog
 =========
 
-.. rubric:: Development version
+.. rubric:: 4.4.0
 
+- Add wheels for Python 3.13.
+- Drop support for Python 3.8, which has reached end-of-life.
+- Update wheels to manylinux_2_28.
 - Bump minimum Boost version to 1.70 (this was the practical lower limit,
   as it wasn't compiling against older versions).
 - Support Boost 1.87.
+- Add non-temporal memcpy support on AArch64 (with SVE).
 - Rename :cpp:class:`!spead2::io_service_ref` to
   :cpp:class:`spead2::io_context_ref` to reflect name changes in Asio (the old
   name is retained as a typedef).
 - Rename methods called :func:`!get_io_service` to :func:`!get_io_context`,
   again to reflect name changes in Boost.
 - Update URL to download Boost in cibuildwheel configuration.
+- Update cibuildwheel and other build and test dependencies.
+- Update some unit tests to use :c:macro:`!BOOST_TEST`.
+- Fix building documentation as PDF.
 
 .. rubric:: 4.3.2
 
