@@ -13,8 +13,8 @@ Changelog
 - Rename :cpp:class:`!spead2::io_service_ref` to
   :cpp:class:`spead2::io_context_ref` to reflect name changes in Asio (the old
   name is retained as a typedef).
-- Rename methods called :func:`!get_io_service` to :func:`!get_io_context`,
-  again to reflect name changes in Boost.
+- Rename member functions called :func:`!get_io_service` to
+  :func:`!get_io_context`, again to reflect name changes in Boost.
 - Update URL to download Boost in cibuildwheel configuration.
 - Update cibuildwheel and other build and test dependencies.
 - Update some unit tests to use :c:macro:`!BOOST_TEST`.
