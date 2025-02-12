@@ -54,7 +54,7 @@ Provided your system meets these requirements, just run::
 Python install from source
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 Installing from source requires a modern C++ compiler supporting C++17 (GCC
-7+ or Clang 4+, although GCC 9.4 and Clang 10 are the oldest tested
+7+ or Clang 4+, although GCC 9.5 and Clang 11 are the oldest tested
 versions and support for older compilers may be dropped) as well as Boost 1.70+
 (only headers are required), libdivide, and the Python development headers.
 At the moment only GNU/Linux and OS X get tested but other POSIX-like systems
@@ -69,7 +69,7 @@ Installing spead2 for C++
 Installing spead2 requires
 
 - a modern C++ compiler supporting C++17 (see above for supported compilers)
-- Boost 1.69+, including the compiled boost_program_options library
+- Boost 1.70+, including the compiled boost_program_options library
 - libdivide
 - Python 3.x, with the packaging, jinja2, and pycparser packages
 - `Meson`_ 1.2 or later (note that this might be newer than the Meson package

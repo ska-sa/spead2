@@ -56,5 +56,5 @@ repos:
         # --no-annotate because otherwise -r requirements.txt sometimes gets
         # rewritten into an absolute path.
         args: [--strip-extras, --no-annotate, requirements-readthedocs.in, -o, requirements-readthedocs.txt]
-        language_version: python3.12
+        language_version: python3.13
         files: '^requirements(?:-readthedocs)?\.(?:in|txt)$'
