@@ -1,5 +1,5 @@
 netifaces2
-numba; python_version<"3.13"  # numba doesn't yet support 3.13
+numba
 numpy
 pytest
 pytest-asyncio

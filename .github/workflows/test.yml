@@ -9,14 +9,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             cxx: g++-9
+          - os: ubuntu-24.04
+            cxx: g++-14
           - os: ubuntu-22.04
-            cxx: g++-12
-          - os: ubuntu-20.04
-            cxx: clang++-10
-          - os: ubuntu-22.04
-            cxx: clang++-14
+            cxx: clang++-11
+          - os: ubuntu-24.04
+            cxx: clang++-18
           - os: macos-14
             cxx: clang++
     runs-on: ${{ matrix.os }}
@@ -50,7 +50,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-20.04
+          - os: ubuntu-22.04
             cc: gcc-9
             cxx: g++-9
             python-version: '3.9'
@@ -60,22 +60,22 @@ jobs:
           # - os: ubuntu-22.04
           #   cxx: g++
           #   python-version: pypy-3.7
+          - os: ubuntu-24.04
+            cc: gcc-14
+            cxx: g++-14
+            python-version: '3.13'
           - os: ubuntu-22.04
-            cc: gcc-12
-            cxx: g++-12
-            python-version: '3.12'
-          - os: ubuntu-20.04
-            cc: clang-10
-            cxx: clang++-10
-            python-version: '3.12'
-          - os: ubuntu-22.04
-            cc: clang-14
-            cxx: clang++-14
-            python-version: '3.12'
+            cc: clang-11
+            cxx: clang++-11
+            python-version: '3.13'
+          - os: ubuntu-24.04
+            cc: clang-18
+            cxx: clang++-18
+            python-version: '3.13'
           - os: macos-14
             cc: clang
             cxx: clang++
-            python-version: '3.12'
+            python-version: '3.13'
     runs-on: ${{ matrix.os }}
     env:
       SCCACHE_GHA_ENABLED: "true"
@@ -104,20 +104,16 @@ jobs:
         run: ./.ci/py-tests-shutdown.sh
 
   lint:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
-          cache: 'pip'
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-      - uses: actions/setup-python@v5
-        with:
           python-version: '3.9'
+          cache: 'pip'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
           cache: 'pip'
       - run: pip install pre-commit
       - run: pre-commit run --all-files
@@ -134,7 +130,7 @@ jobs:
         run: ./.ci/install-sys-pkgs.sh
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
           cache: 'pip'
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
@@ -169,24 +165,20 @@ jobs:
           path-to-lcov: lcov.info
 
   all-builds:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     env:
       SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
           cache: 'pip'
       - uses: actions/checkout@v4
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.7
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
       - name: Install build requirements
         run: ./.ci/py-build-requirements.sh
       - name: Build all the combinations
@@ -194,12 +186,12 @@ jobs:
 
   sdist:
     needs: [test-cxx, test-python, coverage, lint]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
           cache: 'pip'
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
@@ -214,7 +206,7 @@ jobs:
 
   cibuildwheel-linux:
     needs: [test-cxx, test-python, coverage, lint]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -267,7 +259,7 @@ jobs:
 
   combine:
     needs: [cibuildwheel-linux, cibuildwheel-macos, sdist]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Create paths

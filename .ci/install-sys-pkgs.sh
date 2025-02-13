@@ -6,12 +6,15 @@ if [ "$(uname -s)" = "Linux" ]; then
     if [ `id -u` -eq 0 ]; then
         SUDO=  # We're already root, and sudo might not exist
     fi
+    # We may be given something like CXX=sccache g++-NN, and we then want to
+    # install g++-NN but not sccache. This splits on whitespace and we end up
+    # with the last component.
+    for CXX_PKG in $CXX; do :; done
     $SUDO apt-get -y --no-install-recommends install \
+        "$CXX_PKG" \
         ninja-build \
         gcc \
-        g++ \
         lcov \
-        clang \
         libboost-test-dev \
         libboost-program-options-dev \
         libpcap-dev \

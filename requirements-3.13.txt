@@ -6,27 +6,32 @@
 #
 iniconfig==2.0.0
     # via pytest
+llvmlite==0.44.0
+    # via numba
 netifaces2==0.0.22
+    # via -r requirements.in
+numba==0.61.0
     # via -r requirements.in
 numpy==2.1.3
     # via
     #   -r requirements.in
+    #   numba
     #   scipy
-packaging==24.1
+packaging==24.2
     # via pytest
 pluggy==1.5.0
     # via pytest
-pytest==8.3.3
+pytest==8.3.4
     # via
     #   -r requirements.in
     #   pytest-asyncio
     #   pytest-custom-exit-code
     #   pytest-timeout
-pytest-asyncio==0.24.0
+pytest-asyncio==0.25.3
     # via -r requirements.in
 pytest-custom-exit-code==0.3.0
     # via -r requirements.in
 pytest-timeout==2.3.1
     # via -r requirements.in
-scipy==1.14.1
+scipy==1.15.1
     # via -r requirements.in
