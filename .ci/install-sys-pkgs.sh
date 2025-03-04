@@ -10,7 +10,7 @@ if [ "$(uname -s)" = "Linux" ]; then
     # install g++-NN but not sccache. This splits on whitespace and we end up
     # with the last component.
     for CXX_PKG in $CXX; do :; done
-    $SUDO apt-get -y --no-install-recommends install \
+    $SUDO apt-get update && $SUDO apt-get -y --no-install-recommends install \
         "$CXX_PKG" \
         ninja-build \
         gcc \
