@@ -4,7 +4,7 @@
 
 set -e -u
 
-sccache_version=0.5.4
+sccache_version=0.10.0
 rdma_core_version=53.0
 pcap_version=1.10.5
 boost_version=1.87.0
