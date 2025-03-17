@@ -6,7 +6,7 @@
 #
 alabaster==1.0.0
 babel==2.17.0
-breathe==4.35.0
+breathe==4.36.0
 certifi==2025.1.31
 charset-normalizer==3.4.1
 docutils==0.21.2
@@ -22,14 +22,15 @@ numpy==2.1.3
 packaging==24.2
 pluggy==1.5.0
 pygments==2.19.1
-pytest==8.3.4
+pytest==8.3.5
 pytest-asyncio==0.25.3
 pytest-custom-exit-code==0.3.0
 pytest-timeout==2.3.1
 requests==2.32.3
-scipy==1.15.1
+roman-numerals-py==3.1.0
+scipy==1.15.2
 snowballstemmer==2.2.0
-sphinx==8.1.3
+sphinx==8.2.3
 sphinx-design==0.6.1
 sphinx-rtd-theme==3.0.2
 sphinxcontrib-applehelp==2.0.0
@@ -39,6 +40,6 @@ sphinxcontrib-jquery==4.1
 sphinxcontrib-jsmath==1.0.1
 sphinxcontrib-qthelp==2.0.0
 sphinxcontrib-serializinghtml==2.0.0
-sphinxcontrib-svg2pdfconverter==1.2.3
+sphinxcontrib-svg2pdfconverter==1.3.0
 sphinxcontrib-tikz==0.4.20
 urllib3==2.3.0
