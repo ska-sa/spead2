@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.8
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
       - uses: actions/setup-python@v5
@@ -85,7 +85,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.8
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
       - uses: actions/setup-python@v5
@@ -125,7 +125,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.8
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
       - uses: actions/setup-python@v5
@@ -176,7 +176,7 @@ jobs:
           cache: 'pip'
       - uses: actions/checkout@v4
       - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.8
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
       - name: Install build requirements
@@ -223,7 +223,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.8
+        uses: mozilla-actions/sccache-action@v0.0.9
       - uses: pypa/cibuildwheel@v2.23.2
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
@@ -250,7 +250,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.8
+        uses: mozilla-actions/sccache-action@v0.0.9
       - uses: pypa/cibuildwheel@v2.23.2
         env:
           CIBW_BUILD: ${{ matrix.python }}-macos*
