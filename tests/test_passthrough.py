@@ -967,7 +967,7 @@ class TestPassthroughSubstreams:
         _test_item_groups(transport_class, item_groups, group_mode=group_mode)
 
 
-@pytest.mark.time(5)
+@pytest.mark.timeout(5)
 class TestPassthroughUdp:
     def test_empty_endpoints(self):
         with pytest.raises(ValueError):
