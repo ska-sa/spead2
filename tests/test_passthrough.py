@@ -904,6 +904,7 @@ class TestPassthrough:
         _test_item_group(transport_class, ig)
 
 
+@pytest.mark.timeout(5)
 @pytest.mark.transport(filter=lambda cls: cls.supports_substreams)
 class TestPassthroughSubstreams:
     """Tests for transports support multiple substreams."""
@@ -966,6 +967,7 @@ class TestPassthroughSubstreams:
         _test_item_groups(transport_class, item_groups, group_mode=group_mode)
 
 
+@pytest.mark.time(5)
 class TestPassthroughUdp:
     def test_empty_endpoints(self):
         with pytest.raises(ValueError):
@@ -980,6 +982,7 @@ class TestPassthroughUdp:
             )
 
 
+@pytest.mark.timeout(5)
 class TestPassthroughUdpIbv:
     @pytest.mark.parametrize("num_items", [0, 1, 3, 4, 10])
     def test_memory_regions(self, num_items, unused_udp_port):
