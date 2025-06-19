@@ -26,7 +26,7 @@ pytest==8.3.5
 pytest-asyncio==0.25.3
 pytest-custom-exit-code==0.3.0
 pytest-timeout==2.3.1
-requests==2.32.3
+requests==2.32.4
 roman-numerals-py==3.1.0
 scipy==1.15.2
 snowballstemmer==2.2.0
