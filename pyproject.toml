@@ -1,5 +1,5 @@
 [build-system]
-requires = ["meson-python", "pybind11==2.13.6", "jinja2", "pycparser", "packaging"]
+requires = ["meson-python>=0.18.0", "pybind11==2.13.6", "jinja2", "pycparser", "packaging"]
 build-backend = "mesonpy"
 
 [project]
@@ -7,12 +7,12 @@ name = "spead2"
 description = "High-performance SPEAD implementation"
 readme = "README.rst"
 # TODO: add license-files with COPYING once PEP 639 is supported by meson-python
-license = {file = "COPYING.LESSER"}
+license = "LGPL-3.0-or-later"
+license-files = ["COPYING.LESSER", "COPYING"]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Framework :: AsyncIO",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
   "Operating System :: POSIX",
   "Programming Language :: Python :: 3",
   "Topic :: Software Development :: Libraries",
