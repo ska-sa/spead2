@@ -532,9 +532,9 @@ void ringbuffer<T, DataSemaphore, SpaceSemaphore>::emplace_discard_oldest(Args&&
             /* This could happen because consumers have removed all the data
              * before we could (in which case space_sem will be available in
              * the near future) or because we're contending with other
-             * producers that have taken space_sem but yet written the data (in
-             * which case data_sem will be available in the near future). Spin
-             * until we can get one of them.
+             * producers that have taken space_sem but not yet written the data
+             * (in which case data_sem will be available in the near future).
+             * Spin until we can get one of them.
              *
              * Spinning is not ideal, but I don't see any other way to wait
              * until one of the two semaphores has a token.
@@ -551,6 +551,10 @@ void ringbuffer<T, DataSemaphore, SpaceSemaphore>::emplace_discard_oldest(Args&&
             data_sem.put();  // We didn't actually add any data
             throw;
         }
+        /* discard_oldest_internal freed up space, which we're immediately
+         * claiming, so we don't need to manipulate space_sem further.
+         */
+        break;
     }
     try
     {
