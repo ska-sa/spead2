@@ -842,9 +842,10 @@ py::module register_module(py::module &parent)
              py::keep_alive<1, 5>(),
              py::keep_alive<1, 6>());
     py::class_<chunk_ringbuffer, std::shared_ptr<chunk_ringbuffer>>(m, "ChunkRingbuffer")
-        .def(py::init<std::size_t>(), "maxsize"_a)
+        .def(py::init<std::size_t, bool>(), "maxsize"_a, py::kw_only(), "discard_oldest"_a = false)
         .def("qsize", &chunk_ringbuffer::size)
         .def_property_readonly("maxsize", &chunk_ringbuffer::capacity)
+        .def_property_readonly("discard_oldest", &chunk_ringbuffer::get_discard_oldest)
         .def_property_readonly(
             "data_fd",
             [](const chunk_ringbuffer &ring) { return ring.get_data_sem().get_fd(); })
