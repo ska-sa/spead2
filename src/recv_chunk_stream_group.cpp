@@ -55,6 +55,12 @@ chunk_stream_group_config &chunk_stream_group_config::set_ready(chunk_ready_func
     return *this;
 }
 
+chunk_stream_group_config &chunk_stream_group_config::set_pop_if_full(bool pop_if_full)
+{
+    this->pop_if_full = pop_if_full;
+    return *this;
+}
+
 namespace detail
 {
 

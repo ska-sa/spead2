@@ -327,7 +327,7 @@ template<typename T>
 template<typename... Args>
 std::optional<T> ringbuffer_base<T>::emplace_pop_internal(Args&&... args)
 {
-    std::scoped_lock<std::mutex> lock(head_mutex, tail_mutex);
+    std::scoped_lock lock(head_mutex, tail_mutex);
     if (stopped)
     {
         throw ringbuffer_stopped();
@@ -659,6 +659,7 @@ std::optional<T> ringbuffer<T, DataSemaphore, SpaceSemaphore>::emplace_pop_if_fu
         space_sem.put();
         throw;
     }
+    return std::nullopt;
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>

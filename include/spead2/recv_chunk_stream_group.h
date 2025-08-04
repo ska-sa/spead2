@@ -58,6 +58,7 @@ private:
     eviction_mode eviction_mode_ = eviction_mode::LOSSY;
     chunk_allocate_function allocate;
     chunk_ready_function ready;
+    bool pop_if_full = false;
 
 public:
     /**
@@ -85,6 +86,11 @@ public:
     chunk_stream_group_config &set_ready(chunk_ready_function ready);
     /// Get the function that is provided with completed chunks.
     const chunk_ready_function &get_ready() const { return ready; }
+
+    /// Set whether to pop existing ringbuffer items if full
+    chunk_stream_group_config &set_pop_if_full(bool pop_if_full);
+    /// Get whether to pop existing ringbuffer items if full
+    bool get_pop_if_full() const { return pop_if_full; }
 };
 
 class chunk_stream_group;
@@ -427,7 +433,11 @@ chunk_stream_group_config chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer
 {
     chunk_stream_group_config new_config = config;
     new_config.set_allocate(ring_pair.make_allocate());
-    new_config.set_ready(ring_pair.make_ready(config.get_ready()));
+    new_config.set_ready(
+        config.get_pop_if_full()
+        ? ring_pair.template make_ready<true>(config.get_ready())
+        : ring_pair.template make_ready<false>(config.get_ready())
+    );
     return new_config;
 }
 

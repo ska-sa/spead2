@@ -91,6 +91,12 @@ chunk_stream_config &chunk_stream_config::set_max_heap_extra(std::size_t max_hea
     return *this;
 }
 
+chunk_stream_config &chunk_stream_config::set_pop_if_full(bool pop_if_full)
+{
+    this->pop_if_full = pop_if_full;
+    return *this;
+}
+
 
 namespace detail
 {

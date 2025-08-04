@@ -145,6 +145,7 @@ private:
     chunk_ready_function ready;
 
     std::size_t packet_presence_payload_size = 0;
+    bool pop_if_full = false;
 
 public:
     /**
@@ -205,6 +206,11 @@ public:
     chunk_stream_config &set_max_heap_extra(std::size_t max_heap_extra);
     /// Get maximum amount of data a placement function may write to @ref chunk_place_data::extra.
     std::size_t get_max_heap_extra() const { return max_heap_extra; }
+
+    /// Set whether to pop existing ringbuffer items if full
+    chunk_stream_config &set_pop_if_full(bool pop_if_full);
+    /// Get whether to pop existing ringbuffer items if full
+    bool get_pop_if_full() const { return pop_if_full; }
 };
 
 namespace detail
@@ -601,6 +607,8 @@ protected:
 
     chunk_ring_pair(std::shared_ptr<DataRingbuffer> data_ring, std::shared_ptr<FreeRingbuffer> free_ring);
 
+    static void add_free_chunk(FreeRingbuffer &free_ring, std::unique_ptr<chunk> &&c);
+
 public:
     /// Create an allocate function that obtains chunks from the free ring
     chunk_allocate_function make_allocate();
@@ -609,6 +617,7 @@ public:
      *
      * The orig_ready function is called first.
      */
+    template<bool pop_if_full>
     chunk_ready_function make_ready(const chunk_ready_function &orig_ready);
 
     /**
@@ -825,18 +834,24 @@ chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::chunk_ring_pair(
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
-void chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::add_free_chunk(std::unique_ptr<chunk> &&c)
+void chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::add_free_chunk(FreeRingbuffer &free_ring, std::unique_ptr<chunk> &&c)
 {
     // Mark all heaps as not yet present
     std::memset(c->present.get(), 0, c->present_size);
     try
     {
-        free_ring->try_push(std::move(c));
+        free_ring.try_push(std::move(c));
     }
     catch (spead2::ringbuffer_stopped &)
     {
         // Suppress the error
     }
+}
+
+template<typename DataRingbuffer, typename FreeRingbuffer>
+void chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::add_free_chunk(std::unique_ptr<chunk> &&c)
+{
+    add_free_chunk(*free_ring, std::move(c));
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
@@ -858,19 +873,32 @@ chunk_allocate_function chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::make_al
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
+template<bool pop_if_full>
 chunk_ready_function chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::make_ready(
     const chunk_ready_function &orig_ready)
 {
     DataRingbuffer &data_ring = *this->data_ring;
+    FreeRingbuffer &free_ring = *this->free_ring;
     std::unique_ptr<chunk> &graveyard = this->graveyard;
-    return [&data_ring, &graveyard, orig_ready] (std::unique_ptr<chunk> &&c,
-                                                 std::uint64_t *batch_stats) {
+    return [&data_ring, &free_ring, &graveyard, orig_ready] (
+        std::unique_ptr<chunk> &&c,
+        std::uint64_t *batch_stats
+    ) {
         try
         {
             if (orig_ready)
                 orig_ready(std::move(c), batch_stats);
-            // TODO: use try_push and track stalls
-            data_ring.push(std::move(c));
+            if (pop_if_full)
+            {
+                auto popped = data_ring.push_pop_if_full(std::move(c));
+                if (popped.has_value())
+                    add_free_chunk(free_ring, std::move(*popped));
+            }
+            else
+            {
+                // TODO: use try_push and track stalls
+                data_ring.push(std::move(c));
+            }
         }
         catch (ringbuffer_stopped &)
         {
@@ -911,7 +939,11 @@ chunk_stream_config chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::adjust_ch
     new_config.set_allocate(ring_pair.make_allocate());
     // Set the ready callback to push chunks to the data ringbuffer
     auto orig_ready = chunk_config.get_ready();
-    new_config.set_ready(ring_pair.make_ready(chunk_config.get_ready()));
+    new_config.set_ready(
+        chunk_config.get_pop_if_full()
+        ? ring_pair.template make_ready<true>(chunk_config.get_ready())
+        : ring_pair.template make_ready<false>(chunk_config.get_ready())
+    );
     return new_config;
 }
 
