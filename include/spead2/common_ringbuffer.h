@@ -74,7 +74,7 @@ class ringbuffer_sentinel {};
 /**
  * Basic iterator for @ref ringbuffer as well as ringbuffer-like classes: they
  * must provide @c pop which either returns when data is available or throws
- * @ref ringbuffer_stopped).
+ * @ref ringbuffer_stopped.
  *
  * This does not fully implement the iterator concept; it is suitable only for
  * range-based for loops.
@@ -199,6 +199,9 @@ protected:
     /// Implementation of popping functions, which doesn't touch semaphores
     T pop_internal();
 
+    /// Discard the oldest item
+    void discard_oldest_internal();
+
     /**
      * Implementation of stopping, without the semaphores.
      *
@@ -315,6 +318,18 @@ T ringbuffer_base<T>::pop_internal()
 }
 
 template<typename T>
+void ringbuffer_base<T>::discard_oldest_internal()
+{
+    std::lock_guard<std::mutex> lock(head_mutex);
+    if (stop_position < cap)
+    {
+        throw ringbuffer_stopped();
+    }
+    storage[head].destroy();
+    head = next(head);
+}
+
+template<typename T>
 bool ringbuffer_base<T>::stop_internal(bool remove_producer)
 {
     std::size_t saved_tail;
@@ -361,6 +376,14 @@ void ringbuffer_base<T>::add_producer()
  * completion with @ref remove_producer. If this causes the number of
  * producers to fall to zero, the stream is stopped.
  *
+ * Normally, trying to push data when the ringbuffer is full will either block
+ * (for @ref push and @ref emplace) or fail (for @ref try_push and
+ * @ref try_emplace). However, if the ringbuffer is constructed with
+ * @c discard_oldest set to true, then pushing to a full ringbuffer will
+ * always succeed, dropping the oldest item if necessary. This can be useful
+ * for lossy network applications where it is more important to have fresh
+ * data.
+ *
  * \internal
  *
  * The design is mostly standard: head and tail pointers, and semaphores
@@ -377,16 +400,23 @@ void ringbuffer_base<T>::add_producer()
  * observe a stop condition after downing a semaphore will re-up it. This
  * causes the semaphore to be transiently unavailable, which leads to the need
  * for @ref throw_empty_or_stopped and @ref throw_full_or_stopped.
+ *
+ * Another unusul
  */
 template<typename T, typename DataSemaphore = semaphore, typename SpaceSemaphore = semaphore>
 class ringbuffer : public ringbuffer_base<T>
 {
 private:
+    const bool discard_oldest;
     DataSemaphore data_sem;     ///< Number of filled slots
     SpaceSemaphore space_sem;   ///< Number of available slots
 
+    /// Implement @ref emplace and @ref try_emplace when discard_oldest is true
+    template<typename... Args>
+    void emplace_discard_oldest(Args&&... args);
+
 public:
-    explicit ringbuffer(std::size_t cap);
+    explicit ringbuffer(std::size_t cap, bool discard_oldest = false);
 
     /**
      * Append an item to the queue, if there is space. It uses move
@@ -469,6 +499,8 @@ public:
     const DataSemaphore &get_data_sem() const { return data_sem; }
     /// Get access to the free-space semaphore
     const SpaceSemaphore &get_space_sem() const { return space_sem; }
+    /// Get the discard_oldest flag
+    bool get_discard_oldest() const { return discard_oldest; }
 
     /**
      * Begin iteration over the items in the ringbuffer. This does not
@@ -484,15 +516,61 @@ public:
 };
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
-ringbuffer<T, DataSemaphore, SpaceSemaphore>::ringbuffer(size_t cap)
-    : ringbuffer_base<T>(cap), data_sem(0), space_sem(cap)
+ringbuffer<T, DataSemaphore, SpaceSemaphore>::ringbuffer(size_t cap, bool discard_oldest)
+    : ringbuffer_base<T>(cap), discard_oldest(discard_oldest), data_sem(0), space_sem(cap)
 {
+}
+
+template<typename T, typename DataSemaphore, typename SpaceSemaphore>
+template<typename... Args>
+void ringbuffer<T, DataSemaphore, SpaceSemaphore>::emplace_discard_oldest(Args&&... args)
+{
+    while (space_sem.try_get() == -1)
+    {
+        if (data_sem.try_get() == -1)
+        {
+            /* This could happen because consumers have removed all the data
+             * before we could (in which case space_sem will be available in
+             * the near future) or because we're contending with other
+             * producers that have taken space_sem but yet written the data (in
+             * which case data_sem will be available in the near future). Spin
+             * until we can get one of them.
+             *
+             * Spinning is not ideal, but I don't see any other way to wait
+             * until one of the two semaphores has a token.
+             */
+            std::this_thread::yield();
+            continue;
+        }
+        try
+        {
+            this->discard_oldest_internal();
+        }
+        catch (ringbuffer_stopped &)
+        {
+            data_sem.put();  // We didn't actually add any data
+            throw;
+        }
+    }
+    try
+    {
+        this->emplace_internal(std::forward<Args>(args)...);
+        data_sem.put();
+    }
+    catch (ringbuffer_stopped &e)
+    {
+        // We didn't actually use the slot we reserved with space_sem
+        space_sem.put();
+        throw;
+    }
 }
 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 template<typename... Args>
 void ringbuffer<T, DataSemaphore, SpaceSemaphore>::emplace(Args&&... args)
 {
+    if (discard_oldest)
+        return emplace_discard_oldest(std::forward<Args>(args)...);
     semaphore_get(space_sem);
     try
     {
@@ -511,8 +589,11 @@ template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 template<typename... Args>
 void ringbuffer<T, DataSemaphore, SpaceSemaphore>::try_emplace(Args&&... args)
 {
+    if (discard_oldest)
+        return emplace_discard_oldest(std::forward<Args>(args)...);
     /* TODO: try_get needs to be modified to distinguish between interrupted
-     * system calls and zero semaphore (EAGAIN vs EINTR).
+     * system calls and zero semaphore (EAGAIN vs EINTR). But in most (all?)
+     * cases is impossible because try_get is not blocking.
      */
     if (space_sem.try_get() == -1)
         this->throw_full_or_stopped();
