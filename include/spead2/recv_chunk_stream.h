@@ -888,7 +888,7 @@ chunk_ready_function chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::make_ready
         {
             if (orig_ready)
                 orig_ready(std::move(c), batch_stats);
-            if (pop_if_full)
+            if constexpr (pop_if_full)
             {
                 auto popped = data_ring.push_pop_if_full(std::move(c));
                 if (popped.has_value())
