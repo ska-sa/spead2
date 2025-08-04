@@ -614,6 +614,8 @@ template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 template<typename... SemArgs>
 void ringbuffer<T, DataSemaphore, SpaceSemaphore>::push(T &&value, SemArgs&&... sem_args)
 {
+    if (discard_oldest)
+        return emplace_discard_oldest(std::move(value));
     semaphore_get(space_sem, std::forward<SemArgs>(sem_args)...);
     try
     {
@@ -631,6 +633,8 @@ void ringbuffer<T, DataSemaphore, SpaceSemaphore>::push(T &&value, SemArgs&&... 
 template<typename T, typename DataSemaphore, typename SpaceSemaphore>
 void ringbuffer<T, DataSemaphore, SpaceSemaphore>::try_push(T &&value)
 {
+    if (discard_oldest)
+        return emplace_discard_oldest(std::move(value));
     if (space_sem.try_get() == -1)
         this->throw_full_or_stopped();
     try
