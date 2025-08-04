@@ -773,6 +773,9 @@ py::module register_module(py::module &parent)
         .def_property("max_heap_extra",
                       &chunk_stream_config::get_max_heap_extra,
                       &chunk_stream_config::set_max_heap_extra)
+        .def_property("pop_if_full",
+                      &chunk_stream_config::get_pop_if_full,
+                      &chunk_stream_config::set_pop_if_full)
         .def_readonly_static("DEFAULT_MAX_CHUNKS", &chunk_stream_config::default_max_chunks);
     py::class_<chunk>(m, "Chunk")
         .def(py::init(&data_class_constructor<chunk>))
@@ -904,6 +907,9 @@ py::module register_module(py::module &parent)
         .def_property("eviction_mode",
                       &chunk_stream_group_config::get_eviction_mode,
                       &chunk_stream_group_config::set_eviction_mode)
+        .def_property("pop_if_full",
+                      &chunk_stream_group_config::get_pop_if_full,
+                      &chunk_stream_group_config::set_pop_if_full)
         .def_readonly_static("DEFAULT_MAX_CHUNKS", &chunk_stream_group_config::default_max_chunks);
     py::enum_<chunk_stream_group_config::eviction_mode>(chunk_stream_group_config_cls, "EvictionMode")
         .value("LOSSY", chunk_stream_group_config::eviction_mode::LOSSY)

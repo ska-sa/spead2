@@ -241,6 +241,7 @@ class ChunkStreamConfig:
     max_chunks: int
     place: tuple | None
     max_heap_extra: int
+    pop_if_full: bool
     def enable_packet_presence(self, payload_size: int) -> None: ...
     def disable_packet_presence(self) -> None: ...
     @property
@@ -252,6 +253,7 @@ class ChunkStreamConfig:
         max_chunks: int = ...,
         place: tuple | None = ...,
         max_heap_extra: int = ...,
+        pop_if_full: bool = ...,
     ) -> None: ...
 
 class Chunk:
@@ -321,7 +323,8 @@ class ChunkStreamGroupConfig:
     def max_chunks(self) -> int: ...
     @property
     def eviction_mode(self) -> ChunkStreamGroupConfig.EvictionMode: ...
-    def __init__(self, *, max_chunks=..., eviction_mode=...) -> None: ...
+    pop_if_full: bool
+    def __init__(self, *, max_chunks=..., eviction_mode=..., pop_if_full=...) -> None: ...
 
 class ChunkStreamRingGroup(ChunkRingPair, collections.abc.Sequence[ChunkStreamGroupMember]):
     def __init__(
