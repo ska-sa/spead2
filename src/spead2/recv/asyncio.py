@@ -149,8 +149,8 @@ class ChunkRingbuffer(spead2.recv.ChunkRingbuffer):
     asychronous iterator protocol.
     """
 
-    def __init__(self, maxsize):
-        super().__init__(maxsize)
+    def __init__(self, maxsize, *, discard_oldest=False):
+        super().__init__(maxsize, discard_oldest=discard_oldest)
         self._get_queue = _SemaphoreQueue(self.data_fd, spead2.Empty)
         self._put_queue = _SemaphoreQueue(self.space_fd, spead2.Full)
 
