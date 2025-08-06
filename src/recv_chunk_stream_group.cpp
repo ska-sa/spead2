@@ -51,7 +51,18 @@ chunk_stream_group_config &chunk_stream_group_config::set_allocate(chunk_allocat
 
 chunk_stream_group_config &chunk_stream_group_config::set_ready(chunk_ready_function ready)
 {
+    this->group_ready = [ready](std::unique_ptr<chunk> &&c, std::uint64_t *batch_stats, chunk_stream_group_member &)
+    {
+        ready(std::move(c), batch_stats);
+    };
     this->ready = std::move(ready);
+    return *this;
+}
+
+chunk_stream_group_config &chunk_stream_group_config::set_group_ready(group_chunk_ready_function ready)
+{
+    this->ready = nullptr;
+    this->group_ready = ready;
     return *this;
 }
 
@@ -77,7 +88,9 @@ std::uint64_t *chunk_manager_group::get_batch_stats(chunk_stream_state<chunk_man
 chunk *chunk_manager_group::allocate_chunk(
     chunk_stream_state<chunk_manager_group> &state, std::int64_t chunk_id)
 {
-    return group.get_chunk(chunk_id, state.stream_id, state.place_data->batch_stats);
+    return group.get_chunk(
+        chunk_id, state.stream_id, state.place_data->batch_stats, static_cast<chunk_stream_group_member &>(state)
+    );
 }
 
 void chunk_manager_group::head_updated(
@@ -161,7 +174,7 @@ void chunk_stream_group::stop()
         stream->stop1();
 }
 
-chunk *chunk_stream_group::get_chunk(std::uint64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats)
+chunk *chunk_stream_group::get_chunk(std::uint64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats, chunk_stream_group_member &)
 {
     std::unique_lock<std::mutex> lock(mutex);
     /* Streams should not be requesting chunks older than their heads, and the group
@@ -209,10 +222,11 @@ chunk *chunk_stream_group::get_chunk(std::uint64_t chunk_id, std::uintptr_t stre
     return c;
 }
 
-void chunk_stream_group::ready_chunk(chunk *c, std::uint64_t *batch_stats)
+void chunk_stream_group::ready_chunk(chunk *c, chunk_stream_group_member &s)
 {
+    std::uint64_t *batch_stats = s.batch_stats.data();
     std::unique_ptr<chunk> owned(c);
-    config.get_ready()(std::move(owned), batch_stats);
+    config.get_group_ready()(std::move(owned), batch_stats, s);
 }
 
 void chunk_stream_group::stream_head_updated(chunk_stream_group_member &s, std::uint64_t head_chunk)
@@ -229,7 +243,7 @@ void chunk_stream_group::stream_head_updated(chunk_stream_group_member &s, std::
         auto min_head_chunk = *std::min_element(head_chunks.begin(), head_chunks.end());
         chunks.flush_until(
             min_head_chunk,
-            [this, &s](chunk *c) { ready_chunk(c, s.batch_stats.data()); },
+            [this, &s](chunk *c) { ready_chunk(c, s); },
             [this](std::uint64_t) { ready_condition.notify_all(); }
         );
     }

@@ -35,6 +35,13 @@
 namespace spead2::recv
 {
 
+class chunk_stream_group_member;
+
+/**
+ * Callback to receive a completed chunk in a group. It takes ownership of the chunk.
+ */
+typedef std::function<void(std::unique_ptr<chunk> &&, std::uint64_t *batch_stats, chunk_stream_group_member &)> group_chunk_ready_function;
+
 /// Configuration for chunk_stream_group
 class chunk_stream_group_config
 {
@@ -57,8 +64,10 @@ private:
     std::size_t max_chunks = default_max_chunks;
     eviction_mode eviction_mode_ = eviction_mode::LOSSY;
     chunk_allocate_function allocate;
-    chunk_ready_function ready;
+    group_chunk_ready_function group_ready;
     bool pop_if_full = false;
+
+    chunk_ready_function ready; // Deprecated and just to implement get_ready
 
 public:
     /**
@@ -82,10 +91,30 @@ public:
     /// Get the function used to allocate a chunk.
     const chunk_allocate_function &get_allocate() const { return allocate; }
 
+    /**
+     * Set the function that is provided with completed chunks.
+     *
+     * @deprecated Use @ref set_group_ready instead.
+     */
+    [[deprecated]] chunk_stream_group_config &set_ready(chunk_ready_function ready);
+    /**
+     * Get the function that is provided with completed chunks. If the
+     * current ready function was set with @ref set_group_ready, this will
+     * return an empty function object.
+     *
+     * @deprecated Use @ref get_group_ready instead.
+     */
+    [[deprecated]] const chunk_ready_function &get_ready() const { return ready; }
+
     /// Set the function that is provided with completed chunks.
-    chunk_stream_group_config &set_ready(chunk_ready_function ready);
-    /// Get the function that is provided with completed chunks.
-    const chunk_ready_function &get_ready() const { return ready; }
+    chunk_stream_group_config &set_group_ready(group_chunk_ready_function ready);
+    /**
+     * Get the function that is provided with completed chunks. If the
+     * current ready function was set with @ref set_ready, this will return
+     * a wrapper around that function that discards the group member
+     * parameter.
+     */
+    const group_chunk_ready_function &get_group_ready() const { return group_ready; }
 
     /// Set whether to pop existing ringbuffer items if full
     chunk_stream_group_config &set_pop_if_full(bool pop_if_full);
@@ -113,8 +142,6 @@ public:
 };
 
 } // namespace detail
-
-class chunk_stream_group_member;
 
 /**
  * A holder for a collection of streams that share chunks. The group owns the
@@ -181,7 +208,7 @@ private:
      *
      * This function is thread-safe.
      */
-    chunk *get_chunk(std::uint64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats);
+    chunk *get_chunk(std::uint64_t chunk_id, std::uintptr_t stream_id, std::uint64_t *batch_stats, chunk_stream_group_member &s);
 
     /**
      * Called by a stream to report movement in its head pointer. This function
@@ -195,7 +222,7 @@ private:
      *
      * The caller must hold the group mutex.
      */
-    void ready_chunk(chunk *c, std::uint64_t *batch_stats);
+    void ready_chunk(chunk *c, chunk_stream_group_member &s);
 
     // Helper classes for implementing iterators
     template<typename T>
@@ -285,12 +312,13 @@ public:
 };
 
 /**
- * Single single within a group managed by @ref chunk_stream_group.
+ * Single stream within a group managed by @ref chunk_stream_group.
  */
 class chunk_stream_group_member : private detail::chunk_stream_state<detail::chunk_manager_group>, public stream
 {
     friend class detail::chunk_manager_group;
     friend class chunk_stream_group;
+    template<typename DataRingbuffer, typename FreeRingbuffer> friend class chunk_stream_ring_group;
 
 private:
     chunk_stream_group &group;  // TODO: redundant - also stored inside the manager
@@ -433,10 +461,14 @@ chunk_stream_group_config chunk_stream_ring_group<DataRingbuffer, FreeRingbuffer
 {
     chunk_stream_group_config new_config = config;
     new_config.set_allocate(ring_pair.make_allocate());
-    new_config.set_ready(
+    auto get_base_stat_index = [](chunk_stream_group_member &s)
+    {
+        return s.base_stat_index;
+    };
+    new_config.set_group_ready(
         config.get_pop_if_full()
-        ? ring_pair.template make_ready<true>(config.get_ready())
-        : ring_pair.template make_ready<false>(config.get_ready())
+        ? ring_pair.template make_ready<true, decltype(get_base_stat_index), chunk_stream_group_member &>(config.get_group_ready(), get_base_stat_index)
+        : ring_pair.template make_ready<false>(config.get_group_ready(), get_base_stat_index)
     );
     return new_config;
 }

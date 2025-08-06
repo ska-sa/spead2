@@ -330,7 +330,7 @@ class TestChunkRingStream:
 
     @pytest.fixture
     def free_ring(self):
-        ring = spead2.recv.ChunkRingbuffer(4)
+        ring = spead2.recv.ChunkRingbuffer(6)
         while not ring.full():
             ring.put(
                 recv.Chunk(
@@ -353,8 +353,14 @@ class TestChunkRingStream:
     def queue(self):
         return spead2.InprocQueue()
 
-    @pytest.fixture(params=[place_plain_llc])
-    def recv_stream(self, request, data_ring, free_ring, queue):
+    # Can be overridden to change the config for individual fixtures
+    @pytest.fixture
+    def config_kwargs(self):
+        return {}
+
+    @pytest.fixture
+    def recv_stream(self, request, data_ring, free_ring, queue, config_kwargs):
+        config_kwargs.setdefault("place", place_plain_llc)
         stream = spead2.recv.ChunkRingStream(
             spead2.ThreadPool(),
             # max_heaps is artificially high to make test_packet_too_old work
@@ -363,7 +369,7 @@ class TestChunkRingStream:
                 items=[0x1000, spead2.HEAP_LENGTH_ID, 0x1002],
                 max_chunks=4,
                 max_heap_extra=np.dtype(np.int64).itemsize,
-                place=request.param,
+                **config_kwargs,
             ),
             data_ring,
             free_ring,
@@ -441,9 +447,8 @@ class TestChunkRingStream:
                 )
 
     @pytest.mark.parametrize(
-        "recv_stream, extra",
-        [(place_plain_llc, False), (place_extra_llc, True)],
-        indirect=["recv_stream"],
+        "config_kwargs, extra",
+        [(dict(place=place_plain_llc), False), (dict(place=place_extra_llc), True)],
     )
     def test_basic(self, send_stream, recv_stream, item_group, extra):
         n_heaps = 103
@@ -504,7 +509,7 @@ class TestChunkRingStream:
         assert recv_stream.stats["too_old_heaps"] == 1
         assert recv_stream.stats["rejected_heaps"] == 2  # Descriptors and stop heap
 
-    @pytest.mark.parametrize("recv_stream", [place_extra_llc], indirect=True)
+    @pytest.mark.parametrize("config_kwargs", [dict(place=place_extra_llc)])
     def test_extra(self, send_stream, recv_stream, item_group):
         """Test writing extra data about each heap."""
         n_heaps = 103
@@ -667,3 +672,21 @@ class TestChunkRingStream:
             np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], np.uint8),
         )
         assert stream.stats["placed_heaps"] == 2
+
+    @pytest.mark.parametrize("config_kwargs", [{"pop_if_full": True}])
+    def test_pop_if_full(self, send_stream, recv_stream, item_group):
+        assert recv_stream.stats["discarded_chunks"] == 0
+        n_chunks = 6
+        n_heaps = n_chunks * HEAPS_PER_CHUNK
+        start = n_chunks - recv_stream.data_ringbuffer.maxsize
+        assert start > 0
+        self.send_heaps(send_stream, item_group, range(n_heaps))
+        # pop_if_full is fundamentally non-deterministic, so we need to
+        # give it some time for the data to percolate through.
+        time.sleep(0.1)
+        for i, chunk in enumerate(recv_stream.data_ringbuffer, start=start):
+            # expected_present = np.ones(HEAPS_PER_CHUNK, np.uint8)
+            # self.check_chunk(chunk, i, expected_present, False)
+            print(chunk.chunk_id)
+            recv_stream.add_free_chunk(chunk)
+        assert recv_stream.stats["discarded_chunks"] == start

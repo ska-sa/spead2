@@ -413,6 +413,11 @@ protected:
     }
 
 public:
+    // Keep these in sync with stats added in adjust_config
+    static constexpr std::size_t too_old_heaps_offset = 0;
+    static constexpr std::size_t rejected_heaps_offset = 1;
+    static constexpr std::size_t discarded_chunks_offset = 2;
+
     /// Constructor
     chunk_stream_state_base(
         const stream_config &config,
@@ -570,6 +575,8 @@ public:
      *     a non-negative chunk ID that was behind the window.
      *   - <tt>rejected_heaps</tt>: number of heaps for which the placement function returned
      *     a negative chunk ID.
+     *  - <tt>discarded_chunks</tt>: number of chunks discarded from the ringbuffer because
+     *    there wasn't space (if @ref chunk_stream_config::pop_if_full is set).
      *
      * @param io_context       I/O context (also used by the readers).
      * @param config           Basic stream configuration
@@ -602,7 +609,7 @@ class chunk_ring_pair
 protected:
     const std::shared_ptr<DataRingbuffer> data_ring;
     const std::shared_ptr<FreeRingbuffer> free_ring;
-    /// Temporary stroage for linked list of in-flight chunks while stopping
+    /// Temporary storage for linked list of in-flight chunks while stopping
     std::unique_ptr<chunk> graveyard;
 
     chunk_ring_pair(std::shared_ptr<DataRingbuffer> data_ring, std::shared_ptr<FreeRingbuffer> free_ring);
@@ -615,10 +622,15 @@ public:
     /**
      * Create a ready function that pushes chunks to the data ring.
      *
-     * The orig_ready function is called first.
+     * @param orig_ready           A function to call first.
+     * @param get_base_stat_index  Get the base index for custom statistics from
+     *                             the stream, using the variadic arguments.
      */
-    template<bool pop_if_full>
-    chunk_ready_function make_ready(const chunk_ready_function &orig_ready);
+    template<bool pop_if_full, typename F, typename... T>
+    std::function<void(std::unique_ptr<chunk> &&, std::uint64_t *batch_stats, T...)>
+    make_ready(
+        const std::function<void(std::unique_ptr<chunk> &&, std::uint64_t *batch_stats, T...)> &orig_ready,
+        F get_base_stat_index);
 
     /**
      * Add a chunk to the free ringbuffer. This takes care of zeroing out
@@ -659,6 +671,7 @@ class chunk_ring_stream : public detail::chunk_ring_pair<DataRingbuffer, FreeRin
 private:
     /// Create a new @ref spead2::recv::chunk_stream_config that uses the ringbuffers
     static chunk_stream_config adjust_chunk_config(
+        const stream_config &config,
         const chunk_stream_config &chunk_config,
         detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer> &ring_pair);
 
@@ -715,6 +728,7 @@ stream_config chunk_stream_state<CM>::adjust_config(const stream_config &config)
     // Add custom statistics
     new_config.add_stat("too_old_heaps");
     new_config.add_stat("rejected_heaps");
+    new_config.add_stat("discarded_chunks");
     return new_config;
 }
 
@@ -734,10 +748,6 @@ chunk_stream_state<CM>::allocate(std::size_t /* size */, const packet_header &pa
 {
     // Used to get a non-null pointer
     static std::uint8_t dummy_uint8;
-
-    // Keep these in sync with stats added in adjust_config
-    static constexpr std::size_t too_old_heaps_offset = 0;
-    static constexpr std::size_t rejected_heaps_offset = 1;
 
     /* Extract the user's requested items.
      * TODO: this could possibly be optimised with a hash table (with a
@@ -873,26 +883,33 @@ chunk_allocate_function chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::make_al
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
-template<bool pop_if_full>
-chunk_ready_function chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::make_ready(
-    const chunk_ready_function &orig_ready)
+template<bool pop_if_full, typename F, typename... T>
+std::function<void(std::unique_ptr<chunk> &&, std::uint64_t *batch_stats, T...)>
+chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::make_ready(
+    const std::function<void(std::unique_ptr<chunk> &&, std::uint64_t *batch_stats, T...)> &orig_ready,
+    F get_base_stat_index)
 {
     DataRingbuffer &data_ring = *this->data_ring;
     FreeRingbuffer &free_ring = *this->free_ring;
     std::unique_ptr<chunk> &graveyard = this->graveyard;
-    return [&data_ring, &free_ring, &graveyard, orig_ready] (
+    return [&data_ring, &free_ring, &graveyard, orig_ready, get_base_stat_index] (
         std::unique_ptr<chunk> &&c,
-        std::uint64_t *batch_stats
+        std::uint64_t *batch_stats,
+        T... extra
     ) {
         try
         {
             if (orig_ready)
-                orig_ready(std::move(c), batch_stats);
+                orig_ready(std::move(c), batch_stats, extra...);
             if constexpr (pop_if_full)
             {
                 auto popped = data_ring.push_pop_if_full(std::move(c));
                 if (popped.has_value())
+                {
                     add_free_chunk(free_ring, std::move(*popped));
+                    std::size_t base_stat_index = get_base_stat_index(extra...);
+                    batch_stats[base_stat_index + chunk_stream_state_base::discarded_chunks_offset]++;
+                }
             }
             else
             {
@@ -924,13 +941,14 @@ chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::chunk_ring_stream(
     chunk_stream(
         io_context,
         config,
-        adjust_chunk_config(chunk_config, *this))
+        adjust_chunk_config(config, chunk_config, *this))
 {
     this->data_ring->add_producer();
 }
 
 template<typename DataRingbuffer, typename FreeRingbuffer>
 chunk_stream_config chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::adjust_chunk_config(
+    const stream_config &config,
     const chunk_stream_config &chunk_config,
     detail::chunk_ring_pair<DataRingbuffer, FreeRingbuffer> &ring_pair)
 {
@@ -939,10 +957,17 @@ chunk_stream_config chunk_ring_stream<DataRingbuffer, FreeRingbuffer>::adjust_ch
     new_config.set_allocate(ring_pair.make_allocate());
     // Set the ready callback to push chunks to the data ringbuffer
     auto orig_ready = chunk_config.get_ready();
+    /* adjust_chunk_config is called before we've constructed the
+     * chunk_ring_stream fully, which is why we make it a static function and
+     * pass it only the ring_pair. However, by the time get_base_stat_index is
+     * *called*, it is safe to upcast it.
+     */
+    std::size_t base_stat_index = config.next_stat_index();
+    auto get_base_stat_index = [base_stat_index]() { return base_stat_index; };
     new_config.set_ready(
         chunk_config.get_pop_if_full()
-        ? ring_pair.template make_ready<true>(chunk_config.get_ready())
-        : ring_pair.template make_ready<false>(chunk_config.get_ready())
+        ? ring_pair.template make_ready<true>(chunk_config.get_ready(), get_base_stat_index)
+        : ring_pair.template make_ready<false>(chunk_config.get_ready(), get_base_stat_index)
     );
     return new_config;
 }
