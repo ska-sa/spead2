@@ -897,6 +897,12 @@ chunk_ring_pair<DataRingbuffer, FreeRingbuffer>::make_ready(
         std::uint64_t *batch_stats,
         T... extra
     ) {
+        /* Some captures are only used in some instantiations, depending on the
+         * pop_if_full template parameter, and clang warns about this.
+         * Suppress the warnings ([[maybe_unused]] isn't valid in capture lists).
+         */
+        (void) free_ring;
+        (void) get_base_stat_index;
         try
         {
             if (orig_ready)
