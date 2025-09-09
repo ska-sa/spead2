@@ -31,7 +31,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           # 3.10 is the minimum version supported on macos-14 builders
           python-version: '3.10'
@@ -88,7 +88,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -107,11 +107,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.9'
           cache: 'pip'
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: 'pip'
@@ -128,7 +128,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: 'pip'
@@ -170,7 +170,7 @@ jobs:
       SCCACHE_GHA_ENABLED: "true"
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: 'pip'
@@ -189,7 +189,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.13'
           cache: 'pip'
