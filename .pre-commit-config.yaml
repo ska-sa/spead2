@@ -38,23 +38,14 @@ repos:
         additional_dependencies: [
           'numpy==2.3.3'
         ]
-  - repo: https://github.com/jazzband/pip-tools
-    rev: v7.5.0
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.8.22
     hooks:
-      - name: pip-compile (py 3.9)
+      - name: pip-compile
         id: pip-compile
-        args: [requirements.in]
-        language_version: python3.9
-        files: '^requirements\.(?:in|txt)$'
-      - name: pip-compile (py 3.13)
-        id: pip-compile
-        args: [--strip-extras, requirements.in, -o, requirements-3.13.txt]
-        language_version: python3.13
-        files: '^(?:requirements\.in|requirements-3\.13\.txt)$'
+        files: '^(?:requirements\.(?:in|txt)|pyproject\.toml)$'
+        args: [--universal, --python-version=3.9, --extra=test, --extra=test-numba, pyproject.toml, requirements.in, -o, requirements.txt]
       - name: pip-compile (readthedocs)
         id: pip-compile
-        # --no-annotate because otherwise -r requirements.txt sometimes gets
-        # rewritten into an absolute path.
-        args: [--strip-extras, --no-annotate, requirements-readthedocs.in, -o, requirements-readthedocs.txt]
-        language_version: python3.13
-        files: '^requirements(?:-readthedocs)?\.(?:in|txt)$'
+        args: [--python-version=3.13, requirements-readthedocs.in, -o, requirements-readthedocs.txt]
+        files: '^(?:requirements(?:-readthedocs)?\.(?:in|txt)|pyproject.toml)$'
