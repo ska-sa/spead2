@@ -22,8 +22,11 @@ cp sccache-v${sccache_version}-$(arch)-unknown-linux-musl/sccache /usr/bin
 # Install boost
 curl -fsSLO https://archives.boost.io/release/${boost_version}/source/boost_${boost_version_under}.tar.bz2
 tar -jxf boost_${boost_version_under}.tar.bz2
-# Quick-n-dirty approach (much faster than doing the install, which copies thousands of files)
-ln -s /tmp/boost_${boost_version_under}/boost /usr/include/boost
+# There doesn't seem to be an easy way to install just the header-only libraries
+# (copying the include directory will install the headers for libraries that do
+# need compilation, and that seems to break detection for Meson 1.9.1). So we
+# just install one small library (regex) to keep installation time reasonable.
+(cd /tmp/boost_${boost_version_under} && ./bootstrap.sh --prefix=/usr --with-libraries=regex && ./b2 install)
 
 # Install rdma-core
 curl -fsSLO https://github.com/linux-rdma/rdma-core/releases/download/v${rdma_core_version}/rdma-core-${rdma_core_version}.tar.gz
