@@ -422,7 +422,7 @@ class TestDecode:
                 self.flavour.make_plain_descriptor(
                     0x1234, "test_fallback_uint", "an array of 12-bit uints", [("u", 12)], (3,)
                 ),
-                Item(0x1234, b"\xAB\xCD\xEF\x12\x30"),
+                Item(0x1234, b"\xab\xcd\xef\x12\x30"),
             ],
         )
         item = self.data_to_item(packet, 0x1234)
@@ -436,7 +436,7 @@ class TestDecode:
                 self.flavour.make_plain_descriptor(
                     0x1234, "test_fallback_uint", "an array of 12-bit ints", [("i", 12)], (3,)
                 ),
-                Item(0x1234, b"\xAB\xCD\xEF\x12\x30"),
+                Item(0x1234, b"\xab\xcd\xef\x12\x30"),
             ],
         )
         item = self.data_to_item(packet, 0x1234)
@@ -454,7 +454,7 @@ class TestDecode:
                     [("b", 1), ("i", 7), ("c", 8), ("f", 32)],
                     (2,),
                 ),
-                Item(0x1234, b"\x91y\x3F\x80\x00\x00" + b"\x69n\xBF\x80\x00\x00"),
+                Item(0x1234, b"\x91y\x3f\x80\x00\x00" + b"\x69n\xbf\x80\x00\x00"),
             ],
         )
         item = self.data_to_item(packet, 0x1234)
@@ -468,7 +468,7 @@ class TestDecode:
                 self.flavour.make_plain_descriptor(
                     0x1234, "test_fallback_scalar", "a scalar with unusual type", [("u", 48)], ()
                 ),
-                Item(0x1234, b"\x12\x34\x56\x78\x90\xAB"),
+                Item(0x1234, b"\x12\x34\x56\x78\x90\xab"),
             ],
         )
         item = self.data_to_item(packet, 0x1234)
@@ -721,7 +721,7 @@ class TestDecode:
             1,
             [
                 self.flavour.make_plain_descriptor(
-                    0x1234, b"\xEF", "a byte string", [("c", 8)], [None]
+                    0x1234, b"\xef", "a byte string", [("c", 8)], [None]
                 )
             ],
         )
@@ -734,7 +734,7 @@ class TestDecode:
         """Receiving non-ASCII characters in an item description must raise
         :py:exc:`UnicodeDecodeError`."""
         packet = self.flavour.make_packet_heap(
-            1, [self.flavour.make_plain_descriptor(0x1234, "name", b"\xEF", [("c", 8)], [None])]
+            1, [self.flavour.make_plain_descriptor(0x1234, "name", b"\xef", [("c", 8)], [None])]
         )
         heaps = self.data_to_heaps(packet)
         ig = spead2.ItemGroup()

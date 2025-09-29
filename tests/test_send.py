@@ -311,7 +311,7 @@ class TestEncode:
         data = [(True, 17, "y", 1.0), (False, -23.0, "n", -1.0)]
         payload_fields = [
             self.make_descriptor_fallback(id, "name", "description", shape, format),
-            b"\x91y\x3F\x80\x00\x00" + b"\x69n\xBF\x80\x00\x00",
+            b"\x91y\x3f\x80\x00\x00" + b"\x69n\xbf\x80\x00\x00",
         ]
         payload = b"".join(payload_fields)
         offsets = offset_generator(payload_fields)
