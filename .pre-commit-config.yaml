@@ -39,7 +39,7 @@ repos:
           'numpy==2.3.3'
         ]
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.9.5
+    rev: 0.9.8
     hooks:
       - name: pip-compile
         id: pip-compile
