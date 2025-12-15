@@ -199,7 +199,7 @@ jobs:
         run: ./.ci/py-requirements.sh
       - run: pip install build==1.2.2.post1
       - run: python -m build --sdist .
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: sdist
           path: ./dist/*.tar.gz
@@ -228,11 +228,11 @@ jobs:
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
           CIBW_BUILD: ${{ matrix.python }}-manylinux*
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: wheel_linux-${{ matrix.arch }}-${{ matrix.python }}
           path: ./wheelhouse/*.whl
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: debug_symbols_uncompressed-${{ matrix.arch }}-${{ matrix.python }}
           path: ./wheelhouse/*.debug
@@ -254,7 +254,7 @@ jobs:
       - uses: pypa/cibuildwheel@v3.3.0
         env:
           CIBW_BUILD: ${{ matrix.python }}-macos*
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: wheel_macos-${{ matrix.os }}-${{ matrix.python }}
           path: ./wheelhouse/*.whl
@@ -284,7 +284,7 @@ jobs:
       - name: Compress debug symbols
         run: >-
           tar -Jcvf debug-symbols/"spead2-"$(<VERSION.txt)-debug.tar.xz _spead2*.debug
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: combined
           path: |
