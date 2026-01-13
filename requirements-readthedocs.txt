@@ -106,5 +106,5 @@ sphinxcontrib-svg2pdfconverter==2.0.0
     # via -r requirements-readthedocs.in
 sphinxcontrib-tikz==0.4.20
     # via -r requirements-readthedocs.in
-urllib3==2.6.2
+urllib3==2.6.3
     # via requests
