@@ -1,4 +1,4 @@
-/* Copyright 2021-2023, 2025 National Research Foundation (SARAO)
+/* Copyright 2021-2023, 2025-2026 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -176,8 +176,8 @@ void chunk_stream_state_base::packet_memcpy(
     const heap_metadata &metadata = *get_heap_metadata(allocation);
     if (chunk_too_old(metadata.chunk_id))
     {
-        // The packet corresponds to a chunk that has already been aged out
-        // TODO: increment a counter / log a warning
+        // The packet corresponds to a chunk that has already been aged out.
+        // The too_old_heaps counter will get incremented by do_heap_ready.
         return;
     }
     orig_memcpy(allocation, packet);
@@ -191,7 +191,7 @@ void chunk_stream_state_base::packet_memcpy(
     }
 }
 
-void chunk_stream_state_base::do_heap_ready(live_heap &&lh)
+void chunk_stream_state_base::do_heap_ready(live_heap &&lh, std::vector<std::uint64_t> &batch_stats)
 {
     if (lh.is_complete())
     {
@@ -199,12 +199,17 @@ void chunk_stream_state_base::do_heap_ready(live_heap &&lh)
         auto metadata = get_heap_metadata(h.get_payload());
         // We need to check the chunk_id because the chunk might have been aged
         // out while the heap was incomplete.
-        if (metadata && metadata->chunk_ptr
-            && !chunk_too_old(metadata->chunk_id)
-            && !get_chunk_config().get_packet_presence_payload_size())
+        if (metadata && metadata->chunk_ptr)
         {
-            assert(metadata->heap_index < metadata->chunk_ptr->present_size);
-            metadata->chunk_ptr->present[metadata->heap_index] = true;
+            if (chunk_too_old(metadata->chunk_id))
+            {
+                batch_stats[base_stat_index + too_old_heaps_offset]++;
+            }
+            else if (!get_chunk_config().get_packet_presence_payload_size())
+            {
+                assert(metadata->heap_index < metadata->chunk_ptr->present_size);
+                metadata->chunk_ptr->present[metadata->heap_index] = true;
+            }
         }
     }
 }
@@ -257,7 +262,7 @@ chunk_stream::chunk_stream(
 
 void chunk_stream::heap_ready(live_heap &&lh)
 {
-    do_heap_ready(std::move(lh));
+    do_heap_ready(std::move(lh), batch_stats);
 }
 
 void chunk_stream::stop_received()

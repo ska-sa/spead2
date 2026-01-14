@@ -1,4 +1,4 @@
-# Copyright 2021-2022 National Research Foundation (SARAO)
+# Copyright 2021-2022, 2026 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -612,6 +612,7 @@ class TestChunkRingStream:
             seen += 1
             recv_stream.add_free_chunk(chunk)
         assert seen == 6
+        assert recv_stream.stats["too_old_heaps"] == 1
 
     def test_packet_presence(self, data_ring, queue):
         """Test packet presence feature."""
