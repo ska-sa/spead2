@@ -1,4 +1,4 @@
-/* Copyright 2023, 2025 National Research Foundation (SARAO)
+/* Copyright 2023, 2025-2026 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -245,7 +245,7 @@ chunk_stream_group_member::chunk_stream_group_member(
 
 void chunk_stream_group_member::heap_ready(live_heap &&lh)
 {
-    do_heap_ready(std::move(lh));
+    do_heap_ready(std::move(lh), batch_stats);
 }
 
 void chunk_stream_group_member::async_flush_until(std::uint64_t chunk_id)
