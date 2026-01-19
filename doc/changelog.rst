@@ -1,6 +1,23 @@
 Changelog
 =========
 
+.. rubric:: 4.4.1
+
+- The ``too_old_heaps`` stat now also counts heaps whose first packet arrived
+  in time to fit in the window, but whose last packet did not.
+- Update pybind11 to 3.x. This should not cause any issues unless you have
+  another pybind11-based module that uses the spead2 C++ API.
+- Use a uv universal requirements.txt file instead of separate files per
+  Python version.
+- Update many dependencies used in CI and in building wheels.
+- Add type annotation for :meth:`.ThreadPool.stop`.
+- Update the minimum GHA environment to Ubuntu 22.04, which all means the
+  minimum Clang version is 11.
+- Add testing and binary wheels for Python 3.14.
+- Use GHA native ARM runners for building aarch64 wheels.
+- Set timeouts on more unit tests.
+- Use PEP 639 for license information in pyproject.toml.
+
 .. rubric:: 4.4.0
 
 - Add wheels for Python 3.13.
