@@ -1,4 +1,4 @@
-/* Copyright 2021-2023, 2025 National Research Foundation (SARAO)
+/* Copyright 2021-2023, 2025-2026 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -364,6 +364,10 @@ template<typename CM> class chunk_stream_allocator;
 class chunk_stream_state_base
 {
 protected:
+    // Keep these in sync with stats added in adjust_config
+    static constexpr std::size_t too_old_heaps_offset = 0;
+    static constexpr std::size_t rejected_heaps_offset = 1;
+
     struct free_place_data
     {
         void operator()(unsigned char *ptr) const;
@@ -395,7 +399,7 @@ protected:
                        const packet_header &packet) const;
 
     /// Implementation of @ref stream::heap_ready
-    void do_heap_ready(live_heap &&lh);
+    void do_heap_ready(live_heap &&lh, std::vector<std::uint64_t> &batch_stats);
 
 protected:
     std::uint64_t get_head_chunk() const { return chunks.get_head_chunk(); }
@@ -560,10 +564,12 @@ public:
      * - The @link stream_config::set_memory_allocator memory allocator@endlink
      *   is overridden, and the provided value is ignored.
      * - Additional statistics are registered:
-     *   - <tt>too_old_heaps</tt>: number of heaps for which the placement function returned
-     *     a non-negative chunk ID that was behind the window.
-     *   - <tt>rejected_heaps</tt>: number of heaps for which the placement function returned
-     *     a negative chunk ID.
+     *   - <tt>too_old_heaps</tt>: number of heaps for which the placement
+     *     function returned a non-negative chunk ID that was behind the
+     *     window, or for which the heap became complete after its chunk had
+     *     already been aged out.
+     *   - <tt>rejected_heaps</tt>: number of heaps for which the placement
+     *     function returned a negative chunk ID.
      *
      * @param io_context       I/O context (also used by the readers).
      * @param config           Basic stream configuration
@@ -725,10 +731,6 @@ chunk_stream_state<CM>::allocate(std::size_t /* size */, const packet_header &pa
 {
     // Used to get a non-null pointer
     static std::uint8_t dummy_uint8;
-
-    // Keep these in sync with stats added in adjust_config
-    static constexpr std::size_t too_old_heaps_offset = 0;
-    static constexpr std::size_t rejected_heaps_offset = 1;
 
     /* Extract the user's requested items.
      * TODO: this could possibly be optimised with a hash table (with a
