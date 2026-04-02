@@ -17,6 +17,7 @@ if [ "$(uname -s)" = "Linux" ]; then
         lcov \
         libboost-test-dev \
         libboost-program-options-dev \
+        libboost-all-dev \
         libpcap-dev \
         libcap-dev \
         librdmacm-dev \
