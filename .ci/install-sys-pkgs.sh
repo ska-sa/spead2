@@ -21,7 +21,8 @@ if [ "$(uname -s)" = "Linux" ]; then
         libcap-dev \
         librdmacm-dev \
         libibverbs-dev \
-        libdivide-dev
+        libdivide-dev \
+        python3-dev 
 else
     brew update
     brew install ninja boost@1.90 libdivide
