@@ -134,7 +134,7 @@ jobs:
           python-version: '3.14'
           cache: 'pip'
       - name: Install Python dependencies
-        run: ./.ci/py-requirements.sh
+        run: python -m pip install -r requirements.txt
       - name: Install build requirements
         run: ./.ci/py-build-requirements.sh
       - name: Install Python package
@@ -197,7 +197,7 @@ jobs:
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
       - name: Install Python dependencies
-        run: ./.ci/py-requirements.sh
+        run: python -m pip install -r requirements.txt
       - run: pip install build==1.2.2.post1
       - run: python -m build --sdist .
       - uses: actions/upload-artifact@v6

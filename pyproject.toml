@@ -71,7 +71,7 @@ manylinux-aarch64-image="manylinux_2_28"
 
 # We'd like to show sccache stats (to confirm that it's working) after builds.
 # there is no separate after-build in cibuildwheel so we cram it into before-test.
-before-test = "sccache --show-stats && (cd {package} && .ci/py-requirements.sh)"
+before-test = "sccache --show-stats && (cd {package} && sh -c 'python -m pip install -r requirements.txt')'"
 test-command = "pytest -v {package}/tests"
 
 [tool.cibuildwheel.linux.config-settings]

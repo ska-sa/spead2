@@ -45,7 +45,7 @@ pipeline {
     stage('Install dependencies') {
       steps {
         sh 'python3 -m venv ./.venv'
-        sh 'PATH="$PWD/.venv/bin:$PATH" .ci/py-requirements.sh'
+        sh 'PATH="$PWD/.venv/bin:$PATH" python -m pip install -r requirements.txt'
       }
     }
     stage('Install Python package') {
