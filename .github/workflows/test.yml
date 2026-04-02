@@ -87,6 +87,8 @@ jobs:
         run: ./.ci/install-sys-pkgs.sh
       - name: Install Python
         run: ./.ci/install-py-venv.sh
+        env:
+          PYTHON_VERSION: ${{ matrix.python-version }}
       - name: Install Python dependencies
         run: PATH=./.venv/bin:$PATH python3 -m pip install -r requirements.txt
         env:
@@ -96,9 +98,7 @@ jobs:
       - name: Run tests
         run: PATH=./.venv/bin:$PATH pytest -v -ra  # -ra summarises the reasons for skipping or failing tests
       - name: Run shutdown tests
-        run: ./.ci/py-tests-shutdown.sh
-        env:
-          PATH: ${{ env.PATH }}:${{ env.PWD }}/.venv/bin
+        run: PATH=./.venv/bin:$PATH ./.ci/py-tests-shutdown.sh
 
   lint:
     runs-on: ubuntu-24.04
@@ -124,9 +124,7 @@ jobs:
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
       - name: Install Python
-        run: apt-get install -y python3-all python3-venv
-      - name: Set up Python environment
-        run: python3 -m venv .venv
+        run: ./.ci/install-py-venv.sh
       - name: Install Python dependencies
         run: PATH=./.venv/bin:$PATH python3 -m pip install -r requirements.txt
       - name: Install build requirements
