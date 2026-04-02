@@ -33,6 +33,7 @@ jobs:
         with:
           # 3.10 is the minimum version supported on macos-14 builders
           python-version: '3.10'
+          cache: 'pip'
       - name: Install build requirements
         run: ./.ci/py-build-requirements.sh
       - name: Set up build directory
@@ -91,6 +92,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
       - name: Install Python dependencies
         run: python -m pip install -r requirements.txt
         env:
@@ -109,9 +111,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.9'
+          cache: 'pip'
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
+          cache: 'pip'
       - run: pip install pre-commit
       - run: pre-commit run --all-files
 
@@ -128,6 +132,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
+          cache: 'pip'
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
       - name: Install build requirements
@@ -169,6 +174,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
+          cache: 'pip'
       - uses: actions/checkout@v6
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.9
@@ -187,6 +193,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
+          cache: 'pip'
       - name: Install system packages
         run: ./.ci/install-sys-pkgs.sh
       - name: Install Python dependencies
