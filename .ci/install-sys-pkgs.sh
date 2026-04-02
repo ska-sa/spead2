@@ -22,7 +22,7 @@ if [ "$(uname -s)" = "Linux" ]; then
         librdmacm-dev \
         libibverbs-dev \
         libdivide-dev \
-        python3-dev 
+        libpython3-dev
 else
     brew update
     brew install ninja boost@1.90 libdivide

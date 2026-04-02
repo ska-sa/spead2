@@ -72,6 +72,7 @@ Installing spead2 requires
 - Boost 1.70+, including the compiled boost_program_options library
 - libdivide
 - Python 3.x, with the packaging, jinja2, and pycparser packages
+- Python development headers
 - `Meson`_ 1.2 or later (note that this might be newer than the Meson package
   in your operating system's package manager).
 
