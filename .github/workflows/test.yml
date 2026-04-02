@@ -1,4 +1,5 @@
 name: Unit tests
+
 on: [push, pull_request]
 concurrency:
   group: test-${{ github.ref }}
