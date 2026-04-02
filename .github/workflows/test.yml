@@ -17,8 +17,6 @@ jobs:
             cxx: clang++-11
           - os: ubuntu-24.04
             cxx: clang++-18
-          - os: macos-14
-            cxx: clang++
     runs-on: ${{ matrix.os }}
     env:
       SCCACHE_GHA_ENABLED: "true"
@@ -51,6 +49,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
+            container-image: ubuntu:22.04
             cc: gcc-9
             cxx: g++-9
             python-version: '3.9'
@@ -61,22 +60,24 @@ jobs:
           #   cxx: g++
           #   python-version: pypy-3.7
           - os: ubuntu-24.04
+            container-image: ubuntu:24.04
             cc: gcc-14
             cxx: g++-14
             python-version: '3.14'
           - os: ubuntu-22.04
+            container-image: ubuntu:22.04
             cc: clang-11
             cxx: clang++-11
             python-version: '3.14'
           - os: ubuntu-24.04
+            container-image: ubuntu:24.04
             cc: clang-18
             cxx: clang++-18
             python-version: '3.14'
-          - os: macos-14
-            cc: clang
-            cxx: clang++
-            python-version: '3.14'
     runs-on: ${{ matrix.os }}
+    container:
+      image: ${{ matrix.container-image }}
+      options: --sysctl net.ipv6.conf.all.disable_ipv6=0
     env:
       SCCACHE_GHA_ENABLED: "true"
       CXX: sccache ${{ matrix.cxx }}
@@ -237,30 +238,8 @@ jobs:
           name: debug_symbols_uncompressed-${{ matrix.arch }}-${{ matrix.python }}
           path: ./wheelhouse/*.debug
 
-  cibuildwheel-macos:
-    needs: [test-cxx, test-python, coverage, lint]
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-14]
-        python: [cp39, cp310, cp311, cp312, cp313, cp314]
-    runs-on: ${{ matrix.os }}
-    env:
-      SCCACHE_GHA_ENABLED: "true"
-    steps:
-      - uses: actions/checkout@v6
-      - name: Set up sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
-      - uses: pypa/cibuildwheel@v3.3.1
-        env:
-          CIBW_BUILD: ${{ matrix.python }}-macos*
-      - uses: actions/upload-artifact@v6
-        with:
-          name: wheel_macos-${{ matrix.os }}-${{ matrix.python }}
-          path: ./wheelhouse/*.whl
-
   combine:
-    needs: [cibuildwheel-linux, cibuildwheel-macos, sdist]
+    needs: [cibuildwheel-linux, sdist]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
