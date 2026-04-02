@@ -92,11 +92,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Python dependencies
-        run: pip install -r requirements.txt
+        run: python -m pip install -r requirements.txt
         env:
           CC: ${{ matrix.cc }}  # Do not pass -Werror when building dependencies
       - name: Install Python package
-        run: pip install -v $(.ci/setup-flags.sh --python) .
+        run: python -m pip install -v $(.ci/setup-flags.sh --python) .
       - name: Run tests
         run: pytest -v -ra  # -ra summarises the reasons for skipping or failing tests
       - name: Run shutdown tests
