@@ -487,7 +487,10 @@ class Udp6MulticastTransport(Udp6Transport):
     def get_interface_index():
         if not hasattr(socket, "if_nametoindex"):
             pytest.skip("socket.if_nametoindex does not exist")
-        for iface in sorted(netifaces.interfaces()):  # Sort to give repeatable results
+        interfaces = sorted(netifaces.interfaces())  # Sort to give repeatable results
+        if "ci" in interfaces:  # Dummy device created by Github Actions workflow
+            return socket.if_nametoindex("ci")
+        for iface in interfaces:
             addrs = netifaces.ifaddresses(iface).get(netifaces.AF_INET6, [])
             for addr in addrs:
                 if addr["addr"] != "::1":

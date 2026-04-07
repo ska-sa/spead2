@@ -98,6 +98,9 @@ jobs:
           CC: ${{ matrix.cc }}  # Do not pass -Werror when building dependencies
       - name: Install Python package
         run: pip install -v $(.ci/setup-flags.sh --python) .
+      - name: Set up dummy network device
+        run: ./.ci/dummy-device.sh
+        if: ${{ runner.os == 'Linux' }}
       - name: Run tests
         run: pytest -v -ra  # -ra summarises the reasons for skipping or failing tests
       - name: Run shutdown tests
@@ -146,6 +149,9 @@ jobs:
           --config-settings=setup-args=-Db_coverage=true
           --no-build-isolation
           --editable .
+      - name: Set up dummy network device
+        run: ./.ci/dummy-device.sh
+        if: ${{ runner.os == 'Linux' }}
       - name: Run Python tests
         run: pytest -v -ra && ./.ci/py-tests-shutdown.sh
       - name: Set up C++ build
