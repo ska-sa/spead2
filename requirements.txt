@@ -12,13 +12,13 @@ iniconfig==2.3.0 ; python_full_version >= '3.10'
     # via pytest
 llvmlite==0.43.0 ; python_full_version < '3.10'
     # via numba
-llvmlite==0.46.0 ; python_full_version >= '3.10'
+llvmlite==0.47.0 ; python_full_version >= '3.10'
     # via numba
 netifaces2==0.0.22
     # via spead2 (pyproject.toml)
 numba==0.60.0 ; python_full_version < '3.10'
     # via spead2 (pyproject.toml)
-numba==0.63.1 ; python_full_version >= '3.10'
+numba==0.65.0 ; python_full_version >= '3.10'
     # via spead2 (pyproject.toml)
 numpy==2.0.2 ; python_full_version < '3.10'
     # via
@@ -30,16 +30,16 @@ numpy==2.2.6 ; python_full_version == '3.10.*'
     #   spead2 (pyproject.toml)
     #   numba
     #   scipy
-numpy==2.3.5 ; python_full_version >= '3.11'
+numpy==2.4.4 ; python_full_version >= '3.11'
     # via
     #   spead2 (pyproject.toml)
     #   numba
     #   scipy
-packaging==25.0
+packaging==26.0
     # via pytest
 pluggy==1.6.0
     # via pytest
-pygments==2.19.2
+pygments==2.20.0
     # via pytest
 pytest==8.4.2 ; python_full_version < '3.10'
     # via
@@ -65,9 +65,9 @@ scipy==1.13.1 ; python_full_version < '3.10'
     # via spead2 (pyproject.toml)
 scipy==1.15.3 ; python_full_version == '3.10.*'
     # via spead2 (pyproject.toml)
-scipy==1.16.3 ; python_full_version >= '3.11'
+scipy==1.17.1 ; python_full_version >= '3.11'
     # via spead2 (pyproject.toml)
-tomli==2.3.0 ; python_full_version < '3.11'
+tomli==2.4.1 ; python_full_version < '3.11'
     # via pytest
 typing-extensions==4.15.0 ; python_full_version < '3.13'
     # via
