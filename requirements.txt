@@ -47,7 +47,7 @@ pytest==8.4.2 ; python_full_version < '3.10'
     #   pytest-asyncio
     #   pytest-custom-exit-code
     #   pytest-timeout
-pytest==9.0.2 ; python_full_version >= '3.10'
+pytest==9.0.3 ; python_full_version >= '3.10'
     # via
     #   spead2 (pyproject.toml)
     #   pytest-asyncio
