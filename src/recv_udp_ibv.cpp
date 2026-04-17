@@ -93,6 +93,15 @@ udp_ibv_reader_core::udp_ibv_reader_core(
     event_channel = rdma_event_channel_t();
     cm_id = make_cm_id(event_channel, config.get_interface_address());
     pd = ibv_pd_t(cm_id);
+    ibv_dmah_init_attr dmah_attr = {};
+    dmah_attr.comp_mask =
+        IBV_DMAH_INIT_ATTR_MASK_CPU_ID
+        | IBV_DMAH_INIT_ATTR_MASK_PH
+        | IBV_DMAH_INIT_ATTR_MASK_TPH_MEM_TYPE;
+    dmah_attr.cpu_id = 0;  // TODO: get it from somewhere
+    dmah_attr.ph = 1;  // TODO: find out what the magic values are
+    dmah_attr.tph_mem_type = IBV_TPH_MEM_TYPE_VM;  // volatile memory
+    dmah = ibv_dmah_t(cm_id, &dmah_attr);
     if (config.get_comp_vector() >= 0)
     {
         comp_channel = ibv_comp_channel_t(cm_id);
@@ -253,7 +262,7 @@ udp_ibv_reader::udp_ibv_reader(
 
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(buffer_size, nullptr);
-    mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
+    mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE, true, dmah);
     slots.reset(new slot[n_slots]);
     wc.reset(new ibv_wc[n_slots]);
     for (std::size_t i = 0; i < n_slots; i++)

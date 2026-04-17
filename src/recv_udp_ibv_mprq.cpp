@@ -217,7 +217,7 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
 
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(buffer_size, nullptr);
-    mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
+    mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE, true, dmah);
 
     flows = create_flows(qp, config.get_endpoints(), cm_id->port_num);
 }

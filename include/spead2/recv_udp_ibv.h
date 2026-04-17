@@ -109,6 +109,7 @@ protected:
     rdma_event_channel_t event_channel;
     rdma_cm_id_t cm_id;
     ibv_pd_t pd;
+    ibv_dmah_t dmah;
     ibv_comp_channel_t comp_channel;
     boost::asio::posix::stream_descriptor comp_channel_wrapper;
 
