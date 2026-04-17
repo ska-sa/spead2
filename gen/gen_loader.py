@@ -34,6 +34,9 @@ typedef unsigned long uint64_t;
 
 void ibv_ack_cq_events(struct ibv_cq *cq, unsigned int nevents);
 
+struct ibv_dmah *ibv_alloc_dmah(struct ibv_context *context,
+                                struct ibv_dmah_init_attr *attr);
+
 struct ibv_pd *ibv_alloc_pd(struct ibv_context *context);
 
 int ibv_close_device(struct ibv_context *context);
@@ -47,6 +50,8 @@ struct ibv_cq *ibv_create_cq(struct ibv_context *context, int cqe,
 
 struct ibv_qp *ibv_create_qp(struct ibv_pd *pd,
                              struct ibv_qp_init_attr *qp_init_attr);
+
+int ibv_dealloc_dmah(struct ibv_dmah *dmah);
 
 int ibv_dealloc_pd(struct ibv_pd *pd);
 
@@ -80,6 +85,8 @@ struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr,
 
 struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length,
                                 uint64_t iova, unsigned int access);
+
+struct ibv_mr *ibv_reg_mr_ex(struct ibv_pd *pd, struct ibv_mr_init_attr *mr_init_attr);
 """
 
 RDMACM_DECLS = """
@@ -275,7 +282,7 @@ def main(argv):
             "SPEAD2_USE_IBV",
             IBV_DECLS,
             ["ibv_create_qp", "ibv_query_device"],
-            ["ibv_reg_mr_iova2"],
+            ["ibv_reg_mr_iova2", "ibv_reg_mr_ex"],
         )
     else:
         lib = Library(

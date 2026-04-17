@@ -373,8 +373,19 @@ ibv_qp_t::ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_qp_init_attr_ex *init_attr)
     reset(qp);
 }
 
+ibv_dmah_t::ibv_dmah_t(const rdma_cm_id_t &cm_id, ibv_dmah_init_attr *init_attr)
+{
+    errno = 0;
+    ibv_dmah *dmah = ibv_alloc_dmah(cm_id->verbs, init_attr);
+    if (!dmah)
+    {
+        throw_errno("ibv_alloc_dmah failed");
+    }
+    reset(dmah);
+}
+
 ibv_mr_t::ibv_mr_t(const ibv_pd_t &pd, void *addr, std::size_t length, int access,
-                   bool allow_relaxed_ordering)
+                   bool allow_relaxed_ordering, const ibv_dmah_t &dmah)
 {
 #ifndef IBV_ACCESS_RELAXED_ORDERING
     const int IBV_ACCESS_OPTIONAL_RANGE = 0x3ff00000;
@@ -382,22 +393,36 @@ ibv_mr_t::ibv_mr_t(const ibv_pd_t &pd, void *addr, std::size_t length, int acces
 #endif
     if (allow_relaxed_ordering)
         access |= IBV_ACCESS_RELAXED_ORDERING;
-    /* Emulate the ibv_reg_mr macro in verbs.h. If access contains optional
-     * flags, we have to call ibv_reg_mr_iova2 rather than the ibv_reg_mr
-     * symbol. If the function is not available, just mask out the bits,
-     * which is what ibv_reg_mr_iova2 does if the kernel doesn't support
-     * them.
-     */
+
     errno = 0;
     ibv_mr *mr;
-    if (!(access & IBV_ACCESS_OPTIONAL_RANGE))
-        mr = ibv_reg_mr(pd.get(), addr, length, access);
-    else if (!has_ibv_reg_mr_iova2())
-        mr = ibv_reg_mr(pd.get(), addr, length, access & ~IBV_ACCESS_OPTIONAL_RANGE);
+    if (dmah && has_ibv_reg_mr_ex())
+    {
+        struct ibv_mr_init_attr init_attr = {};
+        init_attr.length = length;
+        init_attr.access = access;
+        init_attr.comp_mask = IBV_REG_MR_MASK_ADDR | IBV_REG_MR_MASK_DMAH;
+        init_attr.addr = addr;
+        init_attr.dmah = dmah.get();
+        mr = ibv_reg_mr_ex(pd.get(), &init_attr);
+    }
     else
-        mr = ibv_reg_mr_iova2(pd.get(), addr, length, std::uintptr_t(addr), access);
-    if (!mr)
-        throw_errno("ibv_reg_mr failed");
+    {
+        /* Emulate the ibv_reg_mr macro in verbs.h. If access contains optional
+         * flags, we have to call ibv_reg_mr_iova2 rather than the ibv_reg_mr
+         * symbol. If the function is not available, just mask out the bits,
+         * which is what ibv_reg_mr_iova2 does if the kernel doesn't support
+         * them.
+         */
+        if (!(access & IBV_ACCESS_OPTIONAL_RANGE))
+            mr = ibv_reg_mr(pd.get(), addr, length, access);
+        else if (!has_ibv_reg_mr_iova2())
+            mr = ibv_reg_mr(pd.get(), addr, length, access & ~IBV_ACCESS_OPTIONAL_RANGE);
+        else
+            mr = ibv_reg_mr_iova2(pd.get(), addr, length, std::uintptr_t(addr), access);
+        if (!mr)
+            throw_errno("ibv_reg_mr failed");
+    }
     reset(mr);
 }
 

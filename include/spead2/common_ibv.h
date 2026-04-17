@@ -91,6 +91,14 @@ struct ibv_cq_deleter
     }
 };
 
+struct ibv_dmah_deleter
+{
+    void operator()(ibv_dmah *dmah)
+    {
+        ibv_dealloc_dmah(dmah);
+    }
+};
+
 struct ibv_mr_deleter
 {
     void operator()(ibv_mr *mr)
@@ -300,6 +308,13 @@ public:
     void post_send(ibv_send_wr *wr);
 };
 
+class ibv_dmah_t : public std::unique_ptr<ibv_dmah, detail::ibv_dmah_deleter>
+{
+public:
+    ibv_dmah_t() = default;
+    ibv_dmah_t(const rdma_cm_id_t &cm_id, ibv_dmah_init_attr *init_attr);
+};
+
 class ibv_mr_t : public std::unique_ptr<ibv_mr, detail::ibv_mr_deleter>
 {
 public:
@@ -307,9 +322,13 @@ public:
     /* If allow_relaxed_ordering is true, it will try to set
      * IBV_ACCESS_RELAXED_ORDERING if supported, but fall back gracefully if
      * not.
+     *
+     * If dmah is provided but libibverbs does not provide ibv_reg_mr_ex,
+     * it is ignored.
      */
     ibv_mr_t(const ibv_pd_t &pd, void *addr, std::size_t length, int access,
-             bool allow_relaxed_ordering = true);
+             bool allow_relaxed_ordering = true,
+             const ibv_dmah_t &dmah = ibv_dmah_t());
 };
 
 class ibv_flow_t : public std::unique_ptr<ibv_flow, detail::ibv_flow_deleter>
