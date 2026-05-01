@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019-2021 National Research Foundation (SARAO)
+/* Copyright 2015, 2019-2021, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -29,9 +29,7 @@
 #include <spead2/recv_stream.h>
 #include <utility>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /// Parameters for configuring @ref ring_stream.
@@ -67,7 +65,7 @@ private:
 
 public:
     ring_stream_base(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const stream_config &config = stream_config(),
         const ring_stream_config &ring_config = ring_stream_config());
 
@@ -98,12 +96,12 @@ public:
     /**
      * Constructor.
      *
-     * @param io_service       I/O service (also used by the readers).
+     * @param io_context       I/O context (also used by the readers).
      * @param config           Stream configuration
      * @param ring_config      Ringbuffer configuration
      */
     explicit ring_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const stream_config &config = stream_config(),
         const ring_stream_config &ring_config = ring_stream_config());
 
@@ -156,14 +154,30 @@ public:
     virtual void stop() override;
 
     const Ringbuffer &get_ringbuffer() const { return ready_heaps; }
+
+    /**
+     * Start iteration over the heaps in the ringbuffer. This does not return a
+     * full-fledged iterator. It is intended only to enable a range-based for
+     * loop over the stream, and any other use of the iterator is unsupported.
+     *
+     * For example:
+     * <code>
+     * for (spead2::recv::heap heap : stream) { ... }
+     * </code>
+     */
+    spead2::detail::ringbuffer_iterator<ring_stream> begin();
+    /**
+     * End iterator (see @ref begin).
+     */
+    spead2::detail::ringbuffer_sentinel end();
 };
 
 template<typename Ringbuffer>
 ring_stream<Ringbuffer>::ring_stream(
-    io_service_ref io_service,
+    io_context_ref io_context,
     const stream_config &config,
     const ring_stream_config &ring_config)
-    : ring_stream_base(std::move(io_service), config, ring_config),
+    : ring_stream_base(std::move(io_context), config, ring_config),
     ready_heaps(ring_config.get_heaps())
 {
 }
@@ -289,7 +303,18 @@ void ring_stream<Ringbuffer>::stop()
     stream::stop();
 }
 
-} // namespace recv
-} // namespace spead2
+template<typename Ringbuffer>
+auto ring_stream<Ringbuffer>::begin() -> spead2::detail::ringbuffer_iterator<ring_stream>
+{
+    return spead2::detail::ringbuffer_iterator(*this);
+}
+
+template<typename Ringbuffer>
+spead2::detail::ringbuffer_sentinel ring_stream<Ringbuffer>::end()
+{
+    return spead2::detail::ringbuffer_sentinel();
+}
+
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_RING_STREAM

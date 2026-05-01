@@ -1,4 +1,4 @@
-/* Copyright 2015, 2018-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2018-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -22,6 +22,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <new>
 #include <random>
 #include <boost/program_options.hpp>
 #include <boost/asio.hpp>
@@ -137,12 +138,12 @@ static void show_heap(const spead2::recv::heap &fheap, const options &opts)
                 << "  description: " << descriptor.description << '\n'
                 << "  format:      [";
             bool first = true;
-            for (const auto &field : descriptor.format)
+            for (const auto &[ftype, fsize] : descriptor.format)
             {
                 if (!first)
                     std::cout << ", ";
                 first = false;
-                std::cout << '(' << field.first << ", " << field.second << ')';
+                std::cout << '(' << ftype << ", " << fsize << ')';
             }
             std::cout << "]\n";
             std::cout
@@ -226,7 +227,7 @@ static void verify_heap(const spead2::recv::heap &fheap, const options &opts)
                 << " has an inconsistent length\n";
             std::exit(1);
         }
-        const element_t *data = reinterpret_cast<const element_t *>(item.ptr);
+        const element_t *data = std::launder(reinterpret_cast<const element_t *>(item.ptr));
         for (std::size_t i = 0; i < elements; i++)
         {
             element_t expected = generator();
@@ -342,9 +343,10 @@ int main(int argc, const char **argv)
     }
 
     spead2::thread_pool stopper_thread_pool;
-    boost::asio::signal_set signals(stopper_thread_pool.get_io_service());
+    boost::asio::signal_set signals(stopper_thread_pool.get_io_context());
     signals.add(SIGINT);
-    signals.async_wait([&streams] (const boost::system::error_code &error, int signal_number) {
+    signals.async_wait([&streams] (const boost::system::error_code &error,
+                                   [[maybe_unused]] int signal_number) {
         if (!error)
             for (const std::unique_ptr<spead2::recv::stream> &stream : streams)
             {
@@ -356,18 +358,10 @@ int main(int argc, const char **argv)
     if (opts.receiver.ring)
     {
         auto &stream = dynamic_cast<spead2::recv::ring_stream<> &>(*streams[0]);
-        while (true)
+        for (spead2::recv::heap fh : stream)
         {
-            try
-            {
-                spead2::recv::heap fh = stream.pop();
-                n_complete++;
-                show_heap(fh, opts);
-            }
-            catch (spead2::ringbuffer_stopped &e)
-            {
-                break;
-            }
+            n_complete++;
+            show_heap(fh, opts);
         }
     }
     else
@@ -391,7 +385,7 @@ int main(int argc, const char **argv)
     }
 
     std::cout << "Received " << n_complete << " heaps\n";
-    for (const auto field : stats)
-        std::cout << field.first << ": " << field.second << '\n';
+    for (const auto &[name, value] : stats)
+        std::cout << name << ": " << value << '\n';
     return 0;
 }

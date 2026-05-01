@@ -1,7 +1,20 @@
 version: 2
+sphinx:
+  configuration: doc/conf.py
+build:
+  os: ubuntu-24.04
+  apt_packages:
+    - g++
+    - libboost-dev
+    - libdivide-dev
+    - pdf2svg
+    - inkscape
+  tools:
+    python: "3.13"
 python:
-  version: 3.8
   install:
     - requirements: requirements-readthedocs.txt
     - method: pip
       path: .
+formats:
+  - pdf

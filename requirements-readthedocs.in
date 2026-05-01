@@ -1,0 +1,7 @@
+sphinx
+sphinx-design
+sphinx-rtd-theme
+sphinxcontrib-tikz
+sphinxcontrib-svg2pdfconverter
+breathe
+-r requirements.txt

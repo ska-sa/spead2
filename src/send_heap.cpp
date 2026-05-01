@@ -1,4 +1,4 @@
-/* Copyright 2015 National Research Foundation (SARAO)
+/* Copyright 2015, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -31,10 +31,9 @@
 #include <spead2/common_defines.h>
 #include <spead2/common_logging.h>
 #include <spead2/common_endian.h>
+#include "common_unique.h"
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 /**
@@ -46,7 +45,7 @@ namespace send
  */
 static inline void store_bytes_be(std::uint8_t *ptr, int len, item_pointer_t value)
 {
-    assert(0 <= len && len <= sizeof(item_pointer_t));
+    assert(0 <= len && len <= int(sizeof(item_pointer_t)));
     assert(len == sizeof(item_pointer_t) || value < (std::uint64_t(1) << (8 * len)));
     value = htobe<item_pointer_t>(value);
     std::memcpy(ptr, reinterpret_cast<const char *>(&value) + sizeof(item_pointer_t) - len, len);
@@ -84,7 +83,7 @@ encode_descriptor(const descriptor &d, const flavour &flavour_)
         + d.shape.size() * shape_size
         + d.numpy_header.size();
     std::size_t total_size = payload_size + n_items * sizeof(item_pointer_t) + 8;
-    std::unique_ptr<std::uint8_t[]> out(new std::uint8_t[total_size]);
+    auto out = detail::make_unique_for_overwrite<std::uint8_t[]>(total_size);
     std::uint64_t *header = reinterpret_cast<std::uint64_t *>(out.get());
     item_pointer_t *pointer = reinterpret_cast<item_pointer_t *>(out.get() + 8);
     std::size_t offset = 0;
@@ -120,11 +119,11 @@ encode_descriptor(const descriptor &d, const flavour &flavour_)
     memcpy_adjust(data, d.name.data(), d.name.size());
     memcpy_adjust(data, d.description.data(), d.description.size());
 
-    for (const auto &field : d.format)
+    for (const auto &[ftype, fsize] : d.format)
     {
-        *data = field.first;
+        *data = ftype;
         // TODO: validate that it fits
-        store_bytes_be(data + 1, field_size - 1, field.second);
+        store_bytes_be(data + 1, field_size - 1, fsize);
         data += field_size;
     }
 
@@ -152,10 +151,9 @@ heap::heap(const flavour &flavour_)
 
 void heap::add_descriptor(const descriptor &descriptor)
 {
-    auto blob = encode_descriptor(descriptor, flavour_);
-    items.emplace_back(DESCRIPTOR_ID, blob.first.get(), blob.second, false);
-    storage.emplace_back(std::move(blob.first));
+    auto [ptr, size] = encode_descriptor(descriptor, flavour_);
+    items.emplace_back(DESCRIPTOR_ID, ptr.get(), size, false);
+    storage.emplace_back(std::move(ptr));
 }
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send

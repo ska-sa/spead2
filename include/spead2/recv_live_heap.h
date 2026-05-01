@@ -1,4 +1,4 @@
-/* Copyright 2015, 2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -35,16 +35,13 @@
 #include <spead2/recv_packet.h>
 #include <spead2/recv_utils.h>
 
-namespace spead2
-{
-
-namespace unittest { namespace recv { namespace live_heap
+namespace spead2::unittest::recv::live_heap
 {
     struct add_pointers;
     struct payload_ranges;
-}}}
+}
 
-namespace recv
+namespace spead2::recv
 {
 
 typedef std::function<void(const spead2::memory_allocator::pointer &allocation,
@@ -214,7 +211,6 @@ public:
     void reset();
 };
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_LIVE_HEAP_H

@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -51,6 +51,7 @@
 
 namespace po = boost::program_options;
 namespace asio = boost::asio;
+using namespace std::literals;
 
 class option_writer
 {
@@ -61,13 +62,19 @@ public:
     option_writer(std::ostream &o) : out(o) {}
 
     template<typename T>
-    void operator()(const std::string &name, const std::string &description, const T *value) const
+    void operator()(
+        const std::string &name,
+        [[maybe_unused]] const std::string &description,
+        const T *value) const
     {
         out << name << " = " << boost::lexical_cast<std::string>(*value) << '\n';
     }
 
     template<typename T>
-    void operator()(const std::string &name, const std::string &description, const boost::optional<T> *value) const
+    void operator()(
+        const std::string &name,
+        [[maybe_unused]] const std::string &description,
+        const boost::optional<T> *value) const
     {
         if (*value)
             out << name << " = " << boost::lexical_cast<std::string>(**value) << '\n';
@@ -285,12 +292,12 @@ std::int64_t sender::run()
     /* See comments in spead2_send.cpp for the explanation of why this is
      * posted rather than run directly.
      */
-    stream.get_io_service().post([this] {
-        for (int i = 0; i < max_heaps; i++)
+    boost::asio::post(stream.get_io_context(), [this] {
+        for (std::size_t i = 0; i < max_heaps; i++)
             stream.async_send_heap(heaps[i], [this, i] (const boost::system::error_code &ec, std::size_t bytes_transferred) {
                 callback(i, ec, bytes_transferred); });
     });
-    for (int i = 0; i < max_heaps; i++)
+    for (std::size_t i = 0; i < max_heaps; i++)
         semaphore_get(done_sem);
     if (error)
         throw boost::system::system_error(error);
@@ -343,7 +350,6 @@ static std::pair<bool, double> measure_connection_once(
 
         spead2::thread_pool thread_pool;
         spead2::flavour flavour = sender_options.make_flavour(opts.protocol);
-        spead2::send::stream_config config = sender_options.make_stream_config();
 
         /* Build the heaps */
         std::vector<spead2::send::heap> heaps;
@@ -359,7 +365,7 @@ static std::pair<bool, double> measure_connection_once(
         auto start = std::chrono::high_resolution_clock::now();
         std::int64_t transferred;
         std::unique_ptr<spead2::send::stream> stream = sender_options.make_stream(
-            thread_pool.get_io_service(),
+            thread_pool.get_io_context(),
             opts.protocol,
             {endpoint},
             {{data.data(), data.size() * sizeof(data[0])}});
@@ -370,14 +376,14 @@ static std::pair<bool, double> measure_connection_once(
         double actual_rate = transferred / elapsed_duration.count();
 
         /* Get results */
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(100ms);
         control << "stop" << std::endl;
         std::int64_t received_heaps;
         control >> received_heaps;
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(500ms);
         control.close();
         bool good = (received_heaps >= required_heaps);
-        return std::make_pair(good, actual_rate);
+        return std::pair(good, actual_rate);
     }
     catch (std::ios::failure &e)
     {
@@ -400,12 +406,12 @@ static std::pair<bool, double> measure_connection(
     const int passes = 5;
     for (int i = 0; i < passes; i++)
     {
-        std::pair<bool, double> result = measure_connection_once(opts, rate, num_heaps, required_heaps);
-        if (!result.first)
+        auto [success, actual_rate] = measure_connection_once(opts, rate, num_heaps, required_heaps);
+        if (!success)
             good = false;
-        rate_sum += result.second;
+        rate_sum += actual_rate;
     }
-    return std::make_pair(good, rate_sum / passes);
+    return std::pair(good, rate_sum / passes);
 }
 
 static void main_master(int argc, const char **argv)
@@ -418,29 +424,27 @@ static void main_master(int argc, const char **argv)
      */
     std::int64_t num_heaps = std::int64_t(1e9 / opts.heap_size) + 2;
     measure_connection_once(opts, 0.0, num_heaps, 0); // warmup
-    std::pair<bool, double> result = measure_connection(opts, 0.0, num_heaps, num_heaps - 1);
-    if (result.first)
+    auto [success, actual_rate] = measure_connection(opts, 0.0, num_heaps, num_heaps - 1);
+    if (success)
     {
         if (!opts.quiet)
-            std::cout << "Limited by send spead\n";
-        best_actual = result.second;
+            std::cout << "Limited by send speed\n";
+        best_actual = actual_rate;
     }
     else
     {
         if (!opts.quiet)
-            std::cout << boost::format("Send rate: %.3f Gbps\n") % (result.second * 8e-9);
+            std::cout << boost::format("Send rate: %.3f Gbps\n") % (actual_rate * 8e-9);
 
         double low = 0.0;
-        double high = result.second;
+        double high = actual_rate;
         while (high - low > high * 0.02)
         {
             // Need at least 1GB of data to overwhelm cache effects, and want at least
             // 1 second for warmup effects.
             double rate = (low + high) * 0.5;
             num_heaps = std::int64_t(std::max(1e9, rate) / opts.heap_size) + 2;
-            result = measure_connection(opts, rate, num_heaps, num_heaps - 1);
-            bool good = result.first;
-            double actual_rate = result.second;
+            auto [good, actual_rate] = measure_connection(opts, rate, num_heaps, num_heaps - 1);
             if (!opts.quiet)
                 std::cout << boost::format("Rate: %.3f Gbps (%.3f actual): %s\n")
                     % (rate * 8e-9) % (actual_rate * 8e-9) % (good ? "GOOD" : "BAD");
@@ -532,15 +536,9 @@ public:
     {
         consumer = std::thread([this] ()
         {
-            try
+            for ([[maybe_unused]] auto &&heap : stream)
             {
-                while (true)
-                {
-                    stream.pop();
-                    num_heaps++;
-                }
-            } catch (spead2::ringbuffer_stopped &e)
-            {
+                num_heaps++;
             }
         });
     }
@@ -564,14 +562,13 @@ static void main_agent(int argc, const char **argv)
     spead2::thread_pool thread_pool;
 
     /* Look up the bind address for the control socket */
-    tcp::resolver tcp_resolver(thread_pool.get_io_service());
-    tcp::resolver::query tcp_query("0.0.0.0", agent_opts.endpoint);
-    tcp::endpoint tcp_endpoint = *tcp_resolver.resolve(tcp_query);
-    tcp::acceptor acceptor(thread_pool.get_io_service(), tcp_endpoint);
+    tcp::resolver tcp_resolver(thread_pool.get_io_context());
+    tcp::endpoint tcp_endpoint = *tcp_resolver.resolve("0.0.0.0", agent_opts.endpoint).begin();
+    tcp::acceptor acceptor(thread_pool.get_io_context(), tcp_endpoint);
     while (true)
     {
         tcp::iostream control;
-        acceptor.accept(*control.rdbuf());
+        acceptor.accept(control.rdbuf()->socket());
         std::unique_ptr<recv_connection> connection;
         while (true)
         {
@@ -638,7 +635,7 @@ static void build_streambuf(std::streambuf &streambuf, const options &opts, std:
     spead2::thread_pool thread_pool;
     spead2::flavour flavour = opts.sender.make_flavour(opts.protocol);
     spead2::send::streambuf_stream stream(
-        thread_pool.get_io_service(), streambuf,
+        thread_pool.get_io_context(), streambuf,
         opts.sender.make_stream_config());
     spead2::send::heap heap(flavour), end_heap(flavour);
     std::vector<std::uint8_t> data(opts.heap_size);
@@ -647,7 +644,8 @@ static void build_streambuf(std::streambuf &streambuf, const options &opts, std:
     for (std::int64_t i = 0; i < num_heaps; i++)
     {
         boost::system::error_code last_error;
-        auto callback = [&last_error] (const boost::system::error_code &ec, spead2::item_pointer_t bytes)
+        auto callback = [&last_error] (const boost::system::error_code &ec,
+                                       [[maybe_unused]] spead2::item_pointer_t bytes)
         {
             if (!ec)
                 last_error = ec;
@@ -703,11 +701,11 @@ static void main_mem(int argc, const char **argv)
 
 int main(int argc, const char **argv)
 {
-    if (argc >= 2 && argv[1] == std::string("master"))
+    if (argc >= 2 && argv[1] == "master"s)
         main_master(argc - 1, argv + 1);
-    else if (argc >= 2 && argv[1] == std::string("agent"))
+    else if (argc >= 2 && argv[1] == "agent"s)
         main_agent(argc - 1, argv + 1);
-    else if (argc >= 2 && argv[1] == std::string("mem"))
+    else if (argc >= 2 && argv[1] == "mem"s)
         main_mem(argc - 1, argv + 1);
     else
     {

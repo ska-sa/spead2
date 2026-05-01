@@ -1,11 +1,6 @@
 Chunking receiver
 =================
 
-.. warning::
-
-   This feature is **experimental**. Future releases of spead2 may change it
-   in backwards-incompatible ways, and it could even be removed entirely.
-
 For some high-bandwidth use cases, dealing with heaps one at a time is not
 practical. For example, transferring data to an accelerator (such as a GPU) or
 another process may have a high overhead that needs to be amortised over many
@@ -86,6 +81,31 @@ the callback before being used.
 When using this feature one may wish to enable the ``allow_out_of_order`` flag
 when configuring the stream, so that the loss of a packet in the middle of a
 heap does not prevent the following packets from being processed.
+
+.. _chunk-extra:
+
+Extra data
+----------
+In some cases the place callback may wish to extract additional data from
+each heap (such as immediate items) and make it available as part of the
+chunk. To do this:
+
+1. Set the ``extra`` member of each chunk to a buffer to hold this data.
+2. When configuring the stream, specify the maximum amount of data that
+   may be written here per heap.
+3. As part of the place callback, write data through the ``extra`` pointer,
+   and set the ``extra_offset`` and ``extra_size`` fields to indicate how
+   much data to copy to the chunk and at which byte offset within the
+   ``extra`` field. The ``extra_size`` field defaults to zero, so if you
+   do not have any extra data to emit these fields need not be explicitly
+   set.
+
+At present it is only possible to write a contiguous piece of data per heap.
+
+The data is transferred to the chunk even if the heap is incomplete (and hence
+not marked in the ``present`` array).
+
+.. _recv-chunk-ringbuffer:
 
 Ringbuffer convenience API
 --------------------------

@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2020, 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -32,7 +32,6 @@
 #include <atomic>
 #include <cassert>
 #include <boost/asio.hpp>
-#include <boost/optional.hpp>
 #include <boost/system/error_code.hpp>
 #include <spead2/send_heap.h>
 #include <spead2/send_packet.h>
@@ -41,11 +40,9 @@
 #include <spead2/common_logging.h>
 #include <spead2/common_defines.h>
 #include <spead2/common_thread_pool.h>
+#include <spead2/common_storage.h>
 
-namespace spead2
-{
-
-namespace send
+namespace spead2::send
 {
 
 /// Determines how to order packets when using @ref spead2::send::stream::async_send_heaps.
@@ -72,9 +69,15 @@ struct heap_reference
     const send::heap &heap;
     s_item_pointer_t cnt;
     std::size_t substream_index;
+    double rate;
 
-    heap_reference(const send::heap &heap, s_item_pointer_t cnt = -1, std::size_t substream_index = 0)
-        : heap(heap), cnt(cnt), substream_index(substream_index)
+    heap_reference(
+        const send::heap &heap,
+        s_item_pointer_t cnt = -1,
+        std::size_t substream_index = 0,
+        double rate = -1.0  // negative means to use the stream's rate
+    )
+        : heap(heap), cnt(cnt), substream_index(substream_index), rate(rate)
     {
     }
 };
@@ -94,6 +97,11 @@ static inline std::size_t get_heap_substream_index(const heap &)
     return 0;
 }
 
+static inline double get_heap_rate(const heap &)
+{
+    return -1.0;
+}
+
 static inline const heap &get_heap(const heap_reference &ref)
 {
     return ref.heap;
@@ -107,6 +115,11 @@ static inline s_item_pointer_t get_heap_cnt(const heap_reference &ref)
 static inline std::size_t get_heap_substream_index(const heap_reference &ref)
 {
     return ref.substream_index;
+}
+
+static inline double get_heap_rate(const heap_reference &ref)
+{
+    return ref.rate;
 }
 
 namespace detail
@@ -131,6 +144,7 @@ struct queue_item
     std::size_t group_next;
     // Type of group
     group_mode mode;
+    precise_time::correction_type wait_per_byte;
 
     // These fields are only relevant for the first item in a group
     item_pointer_t bytes_sent = 0;
@@ -141,10 +155,12 @@ struct queue_item
 
     queue_item(const heap &h, item_pointer_t cnt, std::size_t substream_index,
                std::size_t group_end, std::size_t group_next, group_mode mode,
-               std::size_t max_packet_size)
+               std::size_t max_packet_size,
+               precise_time::correction_type wait_per_byte)
         : gen(h, cnt, max_packet_size),
         substream_index(substream_index),
-        group_end(group_end), group_next(group_next), mode(mode)
+        group_end(group_end), group_next(group_next), mode(mode),
+        wait_per_byte(wait_per_byte)
     {
     }
 };
@@ -162,7 +178,7 @@ public:
 private:
     friend class writer;
 
-    typedef std::aligned_storage<sizeof(detail::queue_item), alignof(detail::queue_item)>::type queue_item_storage;
+    typedef spead2::detail::storage<detail::queue_item> queue_item_storage;
 
     /* Data are laid out in a manner designed to optimise the cache, which
      * means the logically related items (such as the head and tail indices)
@@ -181,6 +197,8 @@ private:
     const std::size_t num_substreams;
     /// Maximum packet size, copied from the stream config
     const std::size_t max_packet_size;
+    /// Duration corresponding to one byte at the default rate
+    const detail::precise_time::correction_type default_wait_per_byte;
     /// Increment to next_cnt after each heap
     item_pointer_t step_cnt = 1;
     /// Writer backing the stream
@@ -211,7 +229,7 @@ private:
     /// Heap cnt for the next heap to send
     item_pointer_t next_cnt = 1;
     /// If true, the writer wants to be woken up when a new heap is added
-    bool need_wakeup;
+    bool need_wakeup = false;
 
     /* Data that's only mostly written by the writer (apart from flush()), and
      * may be read by the stream.
@@ -228,7 +246,10 @@ private:
     /// Oldest populated slot
     std::atomic<std::size_t> queue_head{0};
 
-    /// Access an item from the queue (takes care of masking the index)
+    /// Access the storage for a queue item (takes care of masking the index)
+    queue_item_storage &get_queue_storage(std::size_t idx);
+
+    /// Access a (valid) item from the queue (takes care of masking the index)
     detail::queue_item *get_queue(std::size_t idx);
 
     /// No-op version of @ref unwinder (see below)
@@ -287,12 +308,26 @@ private:
             const heap &h = get_heap(*it);
             s_item_pointer_t cnt = get_heap_cnt(*it);
             std::size_t substream_index = get_heap_substream_index(*it);
+            double rate = get_heap_rate(*it);
+            detail::precise_time::correction_type wait_per_byte;
+            if (rate == 0.0)
+            {
+                wait_per_byte = wait_per_byte.zero();
+            }
+            else if (rate > 0.0)
+            {
+                wait_per_byte = std::chrono::duration<double>(1.0 / rate);
+            }
+            else
+            {
+                wait_per_byte = default_wait_per_byte;
+            }
             if (substream_index >= num_substreams)
             {
                 unwind.abort();
                 lock.unlock();
                 log_warning("async_send_heap(s): dropping heap because substream index is out of range");
-                get_io_service().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
+                boost::asio::post(get_io_context(), std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
                 return false;
             }
             item_pointer_t cnt_mask = (item_pointer_t(1) << h.get_flavour().get_heap_address_bits()) - 1;
@@ -302,7 +337,7 @@ private:
                 unwind.abort();
                 lock.unlock();
                 log_warning("async_send_heap(s): dropping heap because queue is full");
-                get_io_service().post(std::bind(std::move(handler), boost::asio::error::would_block, 0));
+                boost::asio::post(get_io_context(), std::bind(std::move(handler), boost::asio::error::would_block, 0));
                 return false;
             }
             if (cnt < 0)
@@ -314,16 +349,16 @@ private:
             {
                 lock.unlock();
                 log_warning("async_send_heap(s): dropping heap because cnt is out of range");
-                get_io_service().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
+                boost::asio::post(get_io_context(), std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
                 return false;
             }
 
             // Construct in place. The group values are set for a singleton,
             // and repaired later if that's not the case.
-            auto *cur = get_queue(tail);
-            new (cur) detail::queue_item(
+            get_queue_storage(tail).construct(
                 h, cnt, substream_index, tail + 1, tail, mode,
-                max_packet_size);
+                max_packet_size,
+                wait_per_byte);
             tail++;
             unwind.set_tail(tail);
         }
@@ -357,7 +392,7 @@ private:
         if (wakeup)
         {
             writer *w_ptr = w.get();
-            get_io_service().post([w_ptr]() {
+            boost::asio::post(get_io_context(), [w_ptr]() {
                 w_ptr->update_send_time_empty();
                 w_ptr->wakeup();
             });
@@ -372,8 +407,11 @@ protected:
     explicit stream(std::unique_ptr<writer> &&w);
 
 public:
-    /// Retrieve the io_service used for processing the stream
-    boost::asio::io_service &get_io_service() const;
+    /// Retrieve the io_context used for processing the stream
+    boost::asio::io_context &get_io_context() const;
+    /// Retrieve the io_context used for processing the stream (deprecated)
+    [[deprecated("use get_io_context")]]
+    boost::asio::io_context &get_io_service() const;
 
     /**
      * Modify the linear sequence used to generate heap cnts. The next heap
@@ -398,7 +436,7 @@ public:
      *
      * If this function returns @c false, the heap was rejected without
      * being added to the queue. The handler is called as soon as possible
-     * (from a thread running the io_service). If the heap was rejected due to
+     * (from a thread running the io_context). If the heap was rejected due to
      * lack of space, the error code is @c boost::asio::error::would_block.
      *
      * By default the heap cnt is chosen automatically (see @ref set_cnt_sequence).
@@ -409,6 +447,11 @@ public:
      * contribute to a single stream and must keep their heap cnts disjoint,
      * which the automatic assignment would not do.
      *
+     * The transmission rate may be overridden using the optional @a rate
+     * parameter. If it is negative, the stream's rate applies, if it is zero
+     * there is no rate limiting, and if it is positive it specifies the rate
+     * in bytes per second.
+     *
      * Some streams may contain multiple substreams, each with a different
      * destination. In this case, @a substream_index selects the substream to
      * use.
@@ -418,7 +461,37 @@ public:
      */
     bool async_send_heap(const heap &h, completion_handler handler,
                          s_item_pointer_t cnt = -1,
-                         std::size_t substream_index = 0);
+                         std::size_t substream_index = 0,
+                         double rate = -1.0);
+
+    /**
+     * Send @a h asynchronously, with an arbitrary completion token. This
+     * overload is not used if the completion token is convertible to
+     * @ref completion_handler.
+     *
+     * Refer to the other overload for details. The boolean return of the other
+     * overload is absent. You will need to retrieve the asynchronous result
+     * and check for @c boost::asio::error::would_block to determine if the
+     * heaps were rejected due to lack of buffer space.
+     */
+    template<typename CompletionToken>
+    auto async_send_heap(const heap &h, CompletionToken &&token,
+                         s_item_pointer_t cnt = -1,
+                         std::enable_if_t<
+                            !std::is_convertible_v<CompletionToken, completion_handler>,
+                            std::size_t
+                         > substream_index = 0,
+                         double rate = -1.0)
+    {
+        auto init = [this, &h, cnt, substream_index, rate](auto handler)
+        {
+            // Explicit this-> is to work around bogus warning from clang
+            this->async_send_heap(h, std::move(handler), cnt, substream_index, rate);
+        };
+        return boost::asio::async_initiate<
+            CompletionToken, void(const boost::system::error_code &, item_pointer_t)
+        >(init, token);
+    }
 
     /**
      * Send a group of heaps asynchronously, with @a handler called on
@@ -433,7 +506,7 @@ public:
      *
      * If this function returns @c false, the heaps were rejected without
      * being added to the queue. The handler is called as soon as possible
-     * (from a thread running the io_service). If the heaps were rejected due to
+     * (from a thread running the io_context). If the heaps were rejected due to
      * lack of space, the error code is @c boost::asio::error::would_block.
      * It is an error to send an empty list of heaps.
      *
@@ -461,10 +534,47 @@ public:
         if (first == last)
         {
             log_warning("Empty heap group");
-            get_io_service().post(std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
+            boost::asio::post(get_io_context(), std::bind(std::move(handler), boost::asio::error::invalid_argument, 0));
             return false;
         }
         return async_send_heaps_impl<unwinder, Iterator>(first, last, std::move(handler), mode);
+    }
+
+    /**
+     * Send a group of heaps asynchronously, with an arbitrary completion
+     * token (e.g., @c boost::asio::use_future). This overload is not used
+     * if the completion token is convertible to @ref completion_handler.
+     *
+     * Refer to the other overload for details. There are a few differences:
+     *
+     * - The boolean return of the other overload is absent. You will need to
+     *   retrieve the asynchronous result and check for @c
+     *   boost::asio::error::would_block to determine if the heaps were
+     *   rejected due to lack of buffer space.
+     * - Depending on the completion token, the iterators might not be used
+     *   immediately. Using @c boost::asio::use_future causes them to be used
+     *   immediately, but @c boost::asio::deferred or @c
+     *   boost::asio::use_awaitable does not (they are only used when
+     *   awaiting the result). If they are not used immediately, the caller
+     *   must keep them valid (as well as the data they reference) until they
+     *   are used.
+     */
+    template<typename Iterator, typename CompletionToken>
+    auto async_send_heaps(Iterator first, Iterator last,
+                          CompletionToken &&token,
+                          std::enable_if_t<
+                              !std::is_convertible_v<CompletionToken, completion_handler>,
+                              group_mode
+                          > mode)
+    {
+        auto init = [this, first, last, mode](auto handler)
+        {
+            // Explicit this-> is to work around bogus warning from clang
+            this->async_send_heaps(first, last, std::move(handler), mode);
+        };
+        return boost::asio::async_initiate<
+            CompletionToken, void(const boost::system::error_code &, item_pointer_t)
+        >(init, token);
     }
 
     /**
@@ -487,7 +597,6 @@ extern template bool stream::async_send_heaps_impl<stream::null_unwinder, heap_r
     heap_reference *first, heap_reference *last,
     completion_handler &&handler, group_mode mode);
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_STREAM_H

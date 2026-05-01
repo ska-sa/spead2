@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2019-2021 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2019-2021, 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -21,7 +21,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <boost/system/system_error.hpp>
-#include <boost/optional.hpp>
 #include <stdexcept>
 #include <mutex>
 #include <vector>
@@ -38,6 +37,7 @@
 #include <spead2/common_thread_pool.h>
 #include <spead2/common_semaphore.h>
 #include <spead2/py_common.h>
+#include "common_unique.h"
 
 namespace py = pybind11;
 
@@ -45,6 +45,8 @@ namespace spead2
 {
 namespace send
 {
+
+using spead2::detail::discard_result;
 
 class heap_wrapper : public heap
 {
@@ -81,8 +83,9 @@ flavour heap_wrapper::get_flavour() const
 
 py::bytes packet_generator_next(packet_generator &gen)
 {
-    std::unique_ptr<std::uint8_t[]> scratch(new std::uint8_t[gen.get_max_packet_size()]);
-    auto buffers = gen.next_packet(scratch.get());
+    auto scratch = spead2::detail::make_unique_for_overwrite<std::uint8_t[]>(gen.get_max_packet_size());
+    std::vector<boost::asio::const_buffer> buffers;
+    gen.next_packet(scratch.get(), buffers);
     if (buffers.empty())
         throw py::stop_iteration();
     return py::bytes(std::string(boost::asio::buffers_begin(buffers),
@@ -107,9 +110,13 @@ private:
     // Python references to the heaps, to keep them alive
     std::vector<py::object> objects;
 
+    heap_reference_list(std::vector<heap_reference> heaps, std::vector<py::object> objects)
+        : heaps(std::move(heaps)), objects(std::move(objects)) {}
 public:
     heap_reference_list(std::vector<heap_reference> heaps);
     const std::vector<heap_reference> &get_heaps() const { return heaps; }
+    std::size_t size() const { return heaps.size(); }
+    heap_reference_list get_slice(const py::slice &slice) const;
 };
 
 heap_reference_list::heap_reference_list(std::vector<heap_reference> heaps)
@@ -118,6 +125,24 @@ heap_reference_list::heap_reference_list(std::vector<heap_reference> heaps)
     for (const heap_reference &h : heaps)
         objects.push_back(py::cast(static_cast<const heap_wrapper *>(&h.heap)));
     this->heaps = std::move(heaps);
+}
+
+heap_reference_list heap_reference_list::get_slice(const py::slice &slice) const
+{
+    std::size_t start, stop, step, slicelength;
+    if (!slice.compute(heaps.size(), &start, &stop, &step, &slicelength))
+        throw py::error_already_set();
+    std::vector<heap_reference> new_heaps;
+    std::vector<py::object> new_objects;
+    new_heaps.reserve(slicelength);
+    new_objects.reserve(slicelength);
+    for (std::size_t i = 0; i < slicelength; i++)
+    {
+        new_heaps.push_back(heaps[start]);
+        new_objects.push_back(objects[start]);
+        start += step;
+    }
+    return heap_reference_list(std::move(new_heaps), std::move(new_objects));
 }
 
 template<typename Base>
@@ -142,13 +167,14 @@ private:
     };
 
 public:
-#pragma GCC diagnostic push   // There are deprecated constructors
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     using Base::Base;
-#pragma GCC diagnostic pop
 
     /// Sends heap synchronously
-    item_pointer_t send_heap(const heap_wrapper &h, s_item_pointer_t cnt = -1, std::size_t substream_index = 0)
+    item_pointer_t send_heap(
+        const heap_wrapper &h,
+        s_item_pointer_t cnt = -1,
+        std::size_t substream_index = 0,
+        double rate = -1.0)
     {
         /* The semaphore state needs to be in shared_ptr because if we are
          * interrupted and throw an exception, it still needs to exist until
@@ -160,7 +186,7 @@ public:
             state->ec = ec;
             state->bytes_transferred = bytes_transferred;
             state->sem.put();
-        }, cnt, substream_index);
+        }, cnt, substream_index, rate);
         semaphore_get(state->sem, gil_release_tag());
         if (state->ec)
             throw boost_io_error(state->ec);
@@ -240,15 +266,16 @@ private:
     }
 
 public:
-#pragma GCC diagnostic push   // There are deprecated constructors
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     using Base::Base;
-#pragma GCC diagnostic pop
 
     int get_fd() const { return sem.get_fd(); }
 
-    bool async_send_heap_obj(py::object h, py::object callback,
-                             s_item_pointer_t cnt = -1, std::size_t substream_index = 0)
+    bool async_send_heap_obj(
+        py::object h,
+        py::object callback,
+        s_item_pointer_t cnt = -1,
+        std::size_t substream_index = 0,
+        double rate = -1.0)
     {
         /* Normally the callback should not refer to this, since it could have
          * been reaped by the time the callback occurs. We rely on Python to
@@ -269,7 +296,7 @@ public:
             {
                 handler(callback_ptr, {h_ptr}, ec, bytes_transferred);
             },
-            cnt, substream_index);
+            cnt, substream_index, rate);
     }
 
     bool async_send_heaps_obj(const std::vector<heap_reference> &heaps,
@@ -284,10 +311,9 @@ public:
         callback_ptr.inc_ref();
         return Base::async_send_heaps(
             heaps.begin(), heaps.end(),
-            // TODO: this copies h_ptrs twice (once into the lambda, once into the handler)
-            [this, callback_ptr, h_ptrs] (const boost::system::error_code &ec, item_pointer_t bytes_transferred)
+            [this, callback_ptr, h_ptrs = std::move(h_ptrs)] (const boost::system::error_code &ec, item_pointer_t bytes_transferred)
             {
-                handler(callback_ptr, h_ptrs, ec, bytes_transferred);
+                handler(callback_ptr, std::move(h_ptrs), ec, bytes_transferred);
             },
             mode);
     }
@@ -369,28 +395,28 @@ public:
 };
 
 static boost::asio::ip::address make_address(
-    boost::asio::io_service &io_service, const std::string &hostname)
+    boost::asio::io_context &io_context, const std::string &hostname)
 {
     py::gil_scoped_release gil;
-    return make_address_no_release(io_service, hostname,
+    return make_address_no_release(io_context, hostname,
                                    boost::asio::ip::resolver_query_base::flags(0));
 }
 
 template<typename Protocol>
 static typename Protocol::endpoint make_endpoint(
-    boost::asio::io_service &io_service, const std::string &hostname, std::uint16_t port)
+    boost::asio::io_context &io_context, const std::string &hostname, std::uint16_t port)
 {
-    return typename Protocol::endpoint(make_address(io_service, hostname), port);
+    return typename Protocol::endpoint(make_address(io_context, hostname), port);
 }
 
 template<typename Protocol>
 static std::vector<typename Protocol::endpoint> make_endpoints(
-    boost::asio::io_service &io_service, const std::vector<std::pair<std::string, std::uint16_t>> &endpoints)
+    boost::asio::io_context &io_context, const std::vector<std::pair<std::string, std::uint16_t>> &endpoints)
 {
     std::vector<typename Protocol::endpoint> out;
     out.reserve(endpoints.size());
-    for (const auto &ep : endpoints)
-        out.push_back(make_endpoint<Protocol>(io_service, ep.first, ep.second));
+    for (const auto &[host, port] : endpoints)
+        out.push_back(make_endpoint<Protocol>(io_context, host, port));
     return out;
 }
 
@@ -399,106 +425,74 @@ class udp_stream_wrapper : public Base
 {
 public:
     udp_stream_wrapper(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         const std::string &interface_address)
         : Base(
-            io_service,
-            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
+            io_context,
+            make_endpoints<boost::asio::ip::udp>(*io_context, endpoints),
             config, buffer_size,
-            make_address(*io_service, interface_address))
+            make_address(*io_context, interface_address))
     {
     }
 
     udp_stream_wrapper(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl)
         : Base(
-            io_service,
-            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
+            io_context,
+            make_endpoints<boost::asio::ip::udp>(*io_context, endpoints),
             config, buffer_size, ttl)
     {
     }
 
     udp_stream_wrapper(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl,
         const std::string &interface_address)
         : Base(
-            io_service,
-            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
+            io_context,
+            make_endpoints<boost::asio::ip::udp>(*io_context, endpoints),
             config, buffer_size, ttl,
             interface_address.empty() ?
                 boost::asio::ip::address() :
-                make_address(*io_service, interface_address))
+                make_address(*io_context, interface_address))
     {
     }
 
     udp_stream_wrapper(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl,
         unsigned int interface_index)
         : Base(
-            io_service,
-            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
+            io_context,
+            make_endpoints<boost::asio::ip::udp>(*io_context, endpoints),
             config, buffer_size, ttl, interface_index)
     {
     }
 
     udp_stream_wrapper(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const socket_wrapper<boost::asio::ip::udp::socket> &socket,
         const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config)
         : Base(
-            io_service,
-            socket.copy(*io_service),
-            make_endpoints<boost::asio::ip::udp>(*io_service, endpoints),
+            io_context,
+            socket.copy(*io_context),
+            make_endpoints<boost::asio::ip::udp>(*io_context, endpoints),
             config)
     {
-    }
-
-    // Convert old-style hostname, port args to vector
-    template<typename... Args>
-    udp_stream_wrapper(
-        io_service_ref io_service,
-        const std::string &hostname,
-        std::uint16_t port,
-        Args&&... args)
-        : udp_stream_wrapper(
-            io_service,
-            std::vector<std::pair<std::string, std::uint16_t>>{{hostname, port}},
-            std::forward<Args>(args)...)
-    {
-        deprecation_warning("pass a list of (hostname, port) tuples");
-    }
-
-    // Convert old-style hostname, port args to vector
-    template<typename... Args>
-    udp_stream_wrapper(
-        io_service_ref io_service,
-        const socket_wrapper<boost::asio::ip::udp::socket> &socket,
-        const std::string &hostname,
-        std::uint16_t port,
-        Args&&... args)
-        : udp_stream_wrapper(
-            std::move(io_service),
-            socket,
-            std::vector<std::pair<std::string, std::uint16_t>>{{hostname, port}},
-            std::forward<Args>(args)...)
-    {
-        deprecation_warning("pass a list of (hostname, port) tuples");
     }
 };
 
@@ -524,25 +518,6 @@ private:
     std::vector<py::buffer_info> buffer_infos;
 
 public:
-    udp_ibv_stream_wrapper(
-        std::shared_ptr<thread_pool> pool,
-        const std::string &multicast_group,
-        std::uint16_t port,
-        const stream_config &config,
-        const std::string &interface_address,
-        std::size_t buffer_size,
-        int ttl,
-        int comp_vector,
-        int max_poll)
-        : Base(pool,
-               make_endpoint<boost::asio::ip::udp>(pool->get_io_service(), multicast_group, port),
-               config,
-               make_address(pool->get_io_service(), interface_address),
-               buffer_size, ttl, comp_vector, max_poll)
-    {
-        deprecation_warning("pass a UdpIbvConfig");
-    }
-
     udp_ibv_stream_wrapper(
         std::shared_ptr<thread_pool> pool,
         const stream_config &config,
@@ -603,32 +578,6 @@ static py::class_<T, stream> udp_stream_register(py::module &m, const char *name
              "thread_pool"_a.none(false), "socket"_a, "endpoints"_a,
              "config"_a = stream_config())
 
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, std::string>(),
-             "thread_pool"_a.none(false), "hostname"_a, "port"_a,
-             "config"_a = stream_config(),
-             "buffer_size"_a = T::default_buffer_size,
-             "interface_address"_a = std::string())
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, int>(),
-             "thread_pool"_a.none(false), "hostname"_a, "port"_a,
-             "config"_a = stream_config(),
-             "buffer_size"_a = T::default_buffer_size,
-             "ttl"_a)
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, int, std::string>(),
-             "thread_pool"_a.none(false), "multicast_group"_a, "port"_a,
-             "config"_a = stream_config(),
-             "buffer_size"_a = T::default_buffer_size,
-             "ttl"_a,
-             "interface_address"_a)
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::size_t, int, unsigned int>(),
-             "thread_pool"_a.none(false), "multicast_group"_a, "port"_a,
-             "config"_a = stream_config(),
-             "buffer_size"_a = T::default_buffer_size,
-             "ttl"_a,
-             "interface_index"_a)
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, const socket_wrapper<boost::asio::ip::udp::socket> &, std::string, std::uint16_t, const stream_config &>(),
-             "thread_pool"_a.none(false), "socket"_a, "hostname"_a, "port"_a,
-             "config"_a = stream_config())
-
         .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size);
 }
 
@@ -639,14 +588,6 @@ static py::class_<T, stream> udp_ibv_stream_register(py::module &m, const char *
     using namespace pybind11::literals;
 
     return py::class_<T, stream>(m, name)
-        .def(py::init<std::shared_ptr<thread_pool_wrapper>, std::string, std::uint16_t, const stream_config &, std::string, std::size_t, int, int, int>(),
-             "thread_pool"_a.none(false), "multicast_group"_a, "port"_a,
-             "config"_a = stream_config(),
-             "interface_address"_a,
-             "buffer_size"_a = udp_ibv_config::default_buffer_size,
-             "ttl"_a = 1,
-             "comp_vector"_a = 0,
-             "max_poll"_a = udp_ibv_config::default_max_poll)
         .def(py::init([](std::shared_ptr<thread_pool_wrapper> thread_pool,
                          const stream_config &config,
                          const udp_ibv_config_wrapper &ibv_config_wrapper)
@@ -654,10 +595,10 @@ static py::class_<T, stream> udp_ibv_stream_register(py::module &m, const char *
                 udp_ibv_config ibv_config = ibv_config_wrapper;
                 ibv_config.set_endpoints(
                     make_endpoints<boost::asio::ip::udp>(
-                        thread_pool->get_io_service(),
+                        thread_pool->get_io_context(),
                         ibv_config_wrapper.py_endpoints));
                 ibv_config.set_interface_address(
-                    make_address(thread_pool->get_io_service(),
+                    make_address(thread_pool->get_io_context(),
                                  ibv_config_wrapper.py_interface_address));
                 std::vector<std::pair<const void *, std::size_t>> regions;
                 std::vector<py::buffer_info> buffer_infos;
@@ -676,21 +617,7 @@ static py::class_<T, stream> udp_ibv_stream_register(py::module &m, const char *
             }),
             "thread_pool"_a.none(false),
             "config"_a = stream_config(),
-            "udp_ibv_config"_a)
-        .def_property_readonly_static("DEFAULT_BUFFER_SIZE",
-            [](py::object) {
-#ifndef PYPY_VERSION  // Workaround for https://github.com/pybind/pybind11/issues/3110
-                deprecation_warning("Use spead2.send.UdpIbvConfig.DEFAULT_BUFFER_SIZE");
-#endif
-                return udp_ibv_config::default_buffer_size;
-            })
-        .def_property_readonly_static("DEFAULT_MAX_POLL",
-            [](py::object) {
-#ifndef PYPY_VERSION  // Workaround for https://github.com/pybind/pybind11/issues/3110
-                deprecation_warning("Use spead2.send.UdpIbvConfig.DEFAULT_MAX_POLL");
-#endif
-                return udp_ibv_config::default_max_poll;
-            });
+            "udp_ibv_config"_a);
 }
 #endif
 
@@ -705,37 +632,22 @@ public:
     template<typename ConnectHandler>
     tcp_stream_wrapper(
         ConnectHandler&& connect_handler,
-        io_service_ref io_service,
-        const std::string &hostname, std::uint16_t port,
-        const stream_config &config,
-        std::size_t buffer_size,
-        const std::string &interface_address)
-        : Base(io_service, std::forward<ConnectHandler>(connect_handler),
-               make_endpoint<boost::asio::ip::tcp>(*io_service, hostname, port),
-               config, buffer_size, make_address(*io_service, interface_address))
-    {
-        deprecation_warning("pass a list of (hostname, port) tuples");
-    }
-
-    template<typename ConnectHandler>
-    tcp_stream_wrapper(
-        ConnectHandler&& connect_handler,
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<std::pair<std::string, std::uint16_t>> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         const std::string &interface_address)
-        : Base(io_service, std::forward<ConnectHandler>(connect_handler),
-               make_endpoints<boost::asio::ip::tcp>(*io_service, endpoints),
-               config, buffer_size, make_address(*io_service, interface_address))
+        : Base(io_context, std::forward<ConnectHandler>(connect_handler),
+               make_endpoints<boost::asio::ip::tcp>(*io_context, endpoints),
+               config, buffer_size, make_address(*io_context, interface_address))
     {
     }
 
     tcp_stream_wrapper(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const socket_wrapper<boost::asio::ip::tcp::socket> &socket,
         const stream_config &config)
-        : Base(io_service, socket.copy(*io_service), config)
+        : Base(io_context, socket.copy(*io_context), config)
     {
     }
 };
@@ -759,15 +671,6 @@ static py::class_<typename Registrar::stream_type, stream> tcp_stream_register(p
                       const stream_config &>(),
              "thread_pool"_a.none(false), "socket"_a, "config"_a = stream_config())
         .def_readonly_static("DEFAULT_BUFFER_SIZE", &T::default_buffer_size);
-    Registrar::template apply<
-            std::shared_ptr<thread_pool_wrapper>,
-            const std::string &, std::uint16_t,
-            const stream_config &, std::size_t, const std::string &>(
-        class_,
-        "thread_pool"_a.none(false), "hostname"_a, "port"_a,
-        "config"_a = stream_config(),
-        "buffer_size"_a = T::default_buffer_size,
-        "interface_address"_a = "");
     Registrar::template apply<
             std::shared_ptr<thread_pool_wrapper>,
             const std::vector<std::pair<std::string, std::uint16_t>> &,
@@ -804,7 +707,7 @@ private:
             state->ec = ec;
             state->sem.put();
         };
-        std::unique_ptr<stream_type> stream{new stream_type(connect_handler, std::forward<Args>(args)...)};
+        auto stream = std::make_unique<stream_type>(connect_handler, std::forward<Args>(args)...);
         semaphore_get(state->sem, gil_release_tag());
         if (state->ec)
             throw boost_io_error(state->ec);
@@ -844,8 +747,7 @@ private:
             py::object callback = py::reinterpret_steal<py::object>(state->callback);
             callback(make_io_error(ec));
         };
-        std::unique_ptr<stream_type> stream{
-            new stream_type(connect_handler, std::forward<Args>(args)...)};
+        auto stream = std::make_unique<stream_type>(connect_handler, std::forward<Args>(args)...);
         /* The state takes over the references. These are dealt with using
          * py::handle rather than py::object to avoid manipulating refcounts
          * without the GIL. Note that while the connect_handler could occur
@@ -870,38 +772,22 @@ static py::class_<T, stream> inproc_stream_register(py::module &m, const char *n
 {
     using namespace pybind11::literals;
     return py::class_<T, stream>(m, name)
-        .def(py::init(
-                [](std::shared_ptr<thread_pool_wrapper> io_service,
-                   std::shared_ptr<inproc_queue> queue,
-                   const stream_config &config)
-                {
-                    deprecation_warning("pass a list of queues");
-                    return new T(std::move(io_service), std::move(queue), config);
-                }),
-             "thread_pool"_a.none(false), "queue"_a, "config"_a = stream_config())
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::shared_ptr<inproc_queue>> &, const stream_config &>(),
              "thread_pool"_a.none(false), "queues"_a, "config"_a = stream_config())
-        .def_property_readonly("queues", SPEAD2_PTMF(T, get_queues))
-        .def_property_readonly("queue", [](const T &stream)
-        {
-            deprecation_warning("use queues");
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-            return stream.get_queue();
-#pragma GCC diagnostic pop
-        });
+        .def_property_readonly("queues", &T::get_queues);
 }
 
 template<typename T>
 static void sync_stream_register(py::class_<T, stream> &stream_class)
 {
     using namespace pybind11::literals;
-    stream_class.def("send_heap", SPEAD2_PTMF(T, send_heap),
+    stream_class.def("send_heap", &T::send_heap,
                      "heap"_a, "cnt"_a = s_item_pointer_t(-1),
-                     "substream_index"_a = std::size_t(0));
-    stream_class.def("send_heaps", SPEAD2_PTMF(T, send_heaps),
+                     "substream_index"_a = std::size_t(0),
+                     "rate"_a = -1.0);
+    stream_class.def("send_heaps", &T::send_heaps_hrl,
                      "heaps"_a, "mode"_a);
-    stream_class.def("send_heaps", SPEAD2_PTMF(T, send_heaps_hrl),
+    stream_class.def("send_heaps", &T::send_heaps,
                      "heaps"_a, "mode"_a);
 }
 
@@ -910,16 +796,17 @@ static void async_stream_register(py::class_<T, stream> &stream_class)
 {
     using namespace pybind11::literals;
     stream_class
-        .def_property_readonly("fd", SPEAD2_PTMF(T, get_fd))
-        .def("async_send_heap", SPEAD2_PTMF(T, async_send_heap_obj),
+        .def_property_readonly("fd", &T::get_fd)
+        .def("async_send_heap", &T::async_send_heap_obj,
              "heap"_a, "callback"_a, "cnt"_a = s_item_pointer_t(-1),
-             "substream_index"_a = std::size_t(0))
-        .def("async_send_heaps", SPEAD2_PTMF(T, async_send_heaps_obj),
+             "substream_index"_a = std::size_t(0),
+             "rate"_a = -1.0)
+        .def("async_send_heaps", &T::async_send_heaps_hrl,
              "heaps"_a, "callback"_a, "mode"_a)
-        .def("async_send_heaps", SPEAD2_PTMF(T, async_send_heaps_hrl),
+        .def("async_send_heaps", &T::async_send_heaps_obj,
              "heaps"_a, "callback"_a, "mode"_a)
-        .def("flush", SPEAD2_PTMF(T, flush))
-        .def("process_callbacks", SPEAD2_PTMF(T, process_callbacks));
+        .def("flush", &T::flush)
+        .def("process_callbacks", &T::process_callbacks);
 }
 
 /// Register the send module with Boost.Python
@@ -931,14 +818,14 @@ py::module register_module(py::module &parent)
 
     py::class_<heap_wrapper>(m, "Heap")
         .def(py::init<flavour>(), "flavour"_a = flavour())
-        .def_property_readonly("flavour", SPEAD2_PTMF(heap_wrapper, get_flavour))
-        .def("add_item", SPEAD2_PTMF(heap_wrapper, add_item), "item"_a)
-        .def("add_descriptor", SPEAD2_PTMF(heap_wrapper, add_descriptor), "descriptor"_a)
-        .def("add_start", SPEAD2_PTMF(heap_wrapper, add_start))
-        .def("add_end", SPEAD2_PTMF(heap_wrapper, add_end))
+        .def_property_readonly("flavour", &heap_wrapper::get_flavour)
+        .def("add_item", &heap_wrapper::add_item, "item"_a)
+        .def("add_descriptor", &heap_wrapper::add_descriptor, "descriptor"_a)
+        .def("add_start", &heap_wrapper::add_start)
+        .def("add_end", &heap_wrapper::add_end)
         .def_property("repeat_pointers",
-                      SPEAD2_PTMF(heap_wrapper, get_repeat_pointers),
-                      SPEAD2_PTMF(heap_wrapper, set_repeat_pointers));
+                      &heap_wrapper::get_repeat_pointers,
+                      &heap_wrapper::set_repeat_pointers);
 
     // keep_alive is safe to use here in spite of pybind/pybind11#856, because
     // the destructor of packet_generator doesn't reference the heap.
@@ -959,41 +846,44 @@ py::module register_module(py::module &parent)
         .value("SERIAL", group_mode::SERIAL);
 
     py::class_<heap_reference>(m, "HeapReference")
-        .def(py::init<const heap_wrapper &, s_item_pointer_t, std::size_t>(),
-             "heap"_a, py::kw_only(), "cnt"_a = -1, "substream_index"_a = 0,
+        .def(py::init<const heap_wrapper &, s_item_pointer_t, std::size_t, double>(),
+             "heap"_a, py::kw_only(), "cnt"_a = -1, "substream_index"_a = 0, "rate"_a = -1.0,
              py::keep_alive<1, 2>())
         .def_property_readonly(
             "heap",
             [](const heap_reference &h) { return static_cast<const heap_wrapper *>(&h.heap); },
             py::return_value_policy::reference)
         .def_readwrite("cnt", &heap_reference::cnt)
-        .def_readwrite("substream_index", &heap_reference::substream_index);
+        .def_readwrite("substream_index", &heap_reference::substream_index)
+        .def_readwrite("rate", &heap_reference::rate);
 
     py::class_<heap_reference_list>(m, "HeapReferenceList")
-        .def(py::init<std::vector<heap_reference>>(), "heaps"_a);
+        .def(py::init<std::vector<heap_reference>>(), "heaps"_a)
+        .def("__len__", &heap_reference_list::size)
+        .def("__getitem__", &heap_reference_list::get_slice);
 
     py::class_<stream_config>(m, "StreamConfig")
         .def(py::init(&data_class_constructor<stream_config>))
         .def_property("max_packet_size",
-                      SPEAD2_PTMF(stream_config, get_max_packet_size),
+                      &stream_config::get_max_packet_size,
                       SPEAD2_PTMF_VOID(stream_config, set_max_packet_size))
         .def_property("rate",
-                      SPEAD2_PTMF(stream_config, get_rate),
+                      &stream_config::get_rate,
                       SPEAD2_PTMF_VOID(stream_config, set_rate))
         .def_property("burst_size",
-                      SPEAD2_PTMF(stream_config, get_burst_size),
+                      &stream_config::get_burst_size,
                       SPEAD2_PTMF_VOID(stream_config, set_burst_size))
         .def_property("max_heaps",
-                      SPEAD2_PTMF(stream_config, get_max_heaps),
+                      &stream_config::get_max_heaps,
                       SPEAD2_PTMF_VOID(stream_config, set_max_heaps))
         .def_property("burst_rate_ratio",
-                      SPEAD2_PTMF(stream_config, get_burst_rate_ratio),
+                      &stream_config::get_burst_rate_ratio,
                       SPEAD2_PTMF_VOID(stream_config, set_burst_rate_ratio))
         .def_property("rate_method",
-                      SPEAD2_PTMF(stream_config, get_rate_method),
+                      &stream_config::get_rate_method,
                       SPEAD2_PTMF_VOID(stream_config, set_rate_method))
         .def_property_readonly("burst_rate",
-                               SPEAD2_PTMF(stream_config, get_burst_rate))
+                               &stream_config::get_burst_rate)
         .def_readonly_static("DEFAULT_MAX_PACKET_SIZE", &stream_config::default_max_packet_size)
         .def_readonly_static("DEFAULT_MAX_HEAPS", &stream_config::default_max_heaps)
         .def_readonly_static("DEFAULT_BURST_SIZE", &stream_config::default_burst_size)
@@ -1001,9 +891,9 @@ py::module register_module(py::module &parent)
         .def_readonly_static("DEFAULT_RATE_METHOD", &stream_config::default_rate_method);
 
     py::class_<stream>(m, "Stream")
-        .def("set_cnt_sequence", SPEAD2_PTMF(stream, set_cnt_sequence),
+        .def("set_cnt_sequence", &stream::set_cnt_sequence,
              "next"_a, "step"_a)
-        .def_property_readonly("num_substreams", SPEAD2_PTMF(stream, get_num_substreams));
+        .def_property_readonly("num_substreams", &stream::get_num_substreams);
 
     {
         auto stream_class = udp_stream_register<udp_stream_wrapper<stream_wrapper<udp_stream>>>(m, "UdpStream");
@@ -1021,16 +911,16 @@ py::module register_module(py::module &parent)
         .def_readwrite("memory_regions", &udp_ibv_config_wrapper::py_memory_regions)
         .def_readwrite("interface_address", &udp_ibv_config_wrapper::py_interface_address)
         .def_property("buffer_size",
-                      SPEAD2_PTMF(udp_ibv_config_wrapper, get_buffer_size),
+                      &udp_ibv_config_wrapper::get_buffer_size,
                       SPEAD2_PTMF_VOID(udp_ibv_config_wrapper, set_buffer_size))
         .def_property("ttl",
-                      SPEAD2_PTMF(udp_ibv_config_wrapper, get_ttl),
+                      &udp_ibv_config_wrapper::get_ttl,
                       SPEAD2_PTMF_VOID(udp_ibv_config_wrapper, set_ttl))
         .def_property("comp_vector",
-                      SPEAD2_PTMF(udp_ibv_config_wrapper, get_comp_vector),
+                      &udp_ibv_config_wrapper::get_comp_vector,
                       SPEAD2_PTMF_VOID(udp_ibv_config_wrapper, set_comp_vector))
         .def_property("max_poll",
-                      SPEAD2_PTMF(udp_ibv_config_wrapper, get_max_poll),
+                      &udp_ibv_config_wrapper::get_max_poll,
                       SPEAD2_PTMF_VOID(udp_ibv_config_wrapper, set_max_poll))
         .def_readonly_static("DEFAULT_BUFFER_SIZE", &udp_ibv_config_wrapper::default_buffer_size)
         .def_readonly_static("DEFAULT_MAX_POLL", &udp_ibv_config_wrapper::default_max_poll);
@@ -1059,7 +949,7 @@ py::module register_module(py::module &parent)
         stream_class
             .def(py::init<std::shared_ptr<thread_pool_wrapper>, const stream_config &>(),
                  "thread_pool"_a.none(false), "config"_a = stream_config())
-            .def("getvalue", SPEAD2_PTMF(bytes_stream, getvalue));
+            .def("getvalue", &bytes_stream::getvalue);
         sync_stream_register(stream_class);
     }
 

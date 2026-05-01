@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2020-2021 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2020-2021, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -23,8 +23,8 @@
 
 #include <memory>
 #include <utility>
+#include <optional>
 #include <boost/asio.hpp>
-#include <boost/optional.hpp>
 #include <boost/system/system_error.hpp>
 #include <cassert>
 #include <cstring>
@@ -88,7 +88,7 @@ public:
     socket_wrapper(typename SocketType::protocol_type protocol, int fd)
         : protocol(protocol), fd(fd) {}
 
-    SocketType copy(boost::asio::io_service &io_service) const
+    SocketType copy(boost::asio::io_context &io_context) const
     {
         int fd2 = ::dup(fd);
         if (fd2 == -1)
@@ -96,7 +96,7 @@ public:
             PyErr_SetFromErrno(PyExc_OSError);
             throw pybind11::error_already_set();
         }
-        return SocketType(io_service, protocol, fd2);
+        return SocketType(io_context, protocol, fd2);
     }
 };
 
@@ -105,7 +105,7 @@ extern template class socket_wrapper<boost::asio::ip::tcp::socket>;
 extern template class socket_wrapper<boost::asio::ip::tcp::acceptor>;
 
 boost::asio::ip::address make_address_no_release(
-    boost::asio::io_service &io_service, const std::string &hostname,
+    boost::asio::io_context &io_context, const std::string &hostname,
     boost::asio::ip::resolver_query_base::flags flags);
 
 namespace detail
@@ -167,6 +167,8 @@ F callback_from_python(
     const char *signature_plain,
     const char *signature_bind)
 {
+    using namespace std::literals;
+
     if (obj.is_none())
         return F();
     else
@@ -193,7 +195,7 @@ F callback_from_python(
         }
         else
             throw std::invalid_argument(
-                std::string("Invalid callback signature \"") + name + "\". Expected one of:\n  "
+                "Invalid callback signature \""s + name + "\". Expected one of:\n  "
                 + signature_plain + "\n  " + signature_bind);
     }
 }
@@ -231,10 +233,10 @@ template<typename T>
 T *data_class_constructor(pybind11::kwargs kwargs)
 {
     pybind11::object self = pybind11::cast(new T());
-    for (auto item : kwargs)
+    for (auto &[key, value] : kwargs)
     {
-        if (pybind11::hasattr(self, item.first))
-            pybind11::setattr(self, item.first, item.second);
+        if (pybind11::hasattr(self, key))
+            pybind11::setattr(self, key, value);
         else
         {
             PyErr_SetString(PyExc_TypeError, "got an unexpected keyword argument");
@@ -272,13 +274,7 @@ class thread_pool_wrapper : public thread_pool
 private:
     exit_stopper stopper{[this] { stop(); }};
 public:
-    /* Simply using thread_pool::thread_pool doesn't work because the default
-     * constructor is deleted as stopper is not default-constructible, even
-     * though it doesn't actually need to be.
-     */
-    template<typename ...Args>
-    explicit thread_pool_wrapper(Args&&... args)
-        : thread_pool(std::forward<Args>(args)...) {}
+    using thread_pool::thread_pool;
 
     ~thread_pool_wrapper();
     void stop();
@@ -357,7 +353,7 @@ namespace detail
 
 // Convert a base class pointer to member function to the derived class
 template<typename Derived, typename Base, typename Result, typename ...Args>
-static inline auto up(Result (Base::*func)(Args...)) -> Result (Derived::*)(Args...) 
+static inline auto up(Result (Base::*func)(Args...)) -> Result (Derived::*)(Args...)
 {
     return static_cast<Result (Derived::*)(Args...)>(func);
 }
@@ -383,114 +379,26 @@ static inline U &&up(U &&u) { return std::forward<U>(u); }
 namespace detail
 {
 
-/* Some magic for defining the SPEAD2_PTMF macro, which wraps a pointer to
- * member function into a stateless class which avoids using a run-time
- * function pointer.
+/* Wrap a pointer-to-member to discard the return value. This is useful if it cannot
+ * be converted to a Python type.
  *
- * The type T and the Class template parameter are separated because if T
- * derives from Class and a member function foo is defined in Class, then the
- * type of &T::foo is actually <code>Return (Class::*)(Args...)</code> rather
- * than <code>Return (T::*)(Args...)</code>.
+ * It's only implemented for non-const member functions, since const member
+ * functions generally only exist for the purpose of returning a result.
+ *
+ * The type T and the C template parameter are separated because if T
+ * derives from C and a member function foo is defined in C, then the
+ * type of &T::foo is actually <code>R (C::*)(Args...)</code> rather
+ * than <code>R (T::*)(Args...)</code>. While the lambda would be valid if
+ * it took a C argument, pybind11 would infer the wrong thing from its type
+ * signature.
  */
-template<typename T, typename Return, typename Class, typename... Args>
-struct PTMFWrapperGen
+template<typename T, typename R, typename C, typename... Args>
+auto discard_result(R (C::*func)(Args...))
 {
-    template<Return (Class::*Ptr)(Args...)>
-    struct PTMFWrapper
-    {
-        typedef Return result_type;
-        Return operator()(T &obj, Args... args) const
-        {
-            // Pragmas are to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
-            return (obj.*Ptr)(std::forward<Args>(args)...);
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-        }
-    };
+    return [func](T *t, Args... args) { (t->*func)(std::forward<Args>(args)...); };
+}
 
-    template<Return (Class::*Ptr)(Args...)>
-    struct PTMFWrapperVoid
-    {
-        typedef void result_type;
-        void operator()(T &obj, Args... args) const
-        {
-            // Pragmas are to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
-            (obj.*Ptr)(std::forward<Args>(args)...);
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-        }
-    };
-
-    template<Return (Class::*Ptr)(Args...) const>
-    struct PTMFWrapperConst
-    {
-        typedef Return result_type;
-        Return operator()(const T &obj, Args... args) const
-        {
-            // Pragmas are to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
-            return static_cast<Return>((obj.*Ptr)(std::forward<Args>(args)...));
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-        }
-    };
-
-    template<Return (Class::*Ptr)(Args...) const>
-    struct PTMFWrapperConstVoid
-    {
-        typedef void result_type;
-        void operator()(const T &obj, Args... args) const
-        {
-            // Pragmas are to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86922
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
-            static_cast<Return>((obj.*Ptr)(std::forward<Args>(args)...));
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-        }
-    };
-
-    template<Return (Class::*Ptr)(Args...)>
-    static constexpr PTMFWrapper<Ptr> make_wrapper() noexcept { return PTMFWrapper<Ptr>(); }
-
-    template<Return (Class::*Ptr)(Args...)>
-    static constexpr PTMFWrapperVoid<Ptr> make_wrapper_void() noexcept { return PTMFWrapperVoid<Ptr>(); }
-
-    template<Return (Class::*Ptr)(Args...) const>
-    static constexpr PTMFWrapperConst<Ptr> make_wrapper() noexcept { return PTMFWrapperConst<Ptr>(); }
-
-    template<Return (Class::*Ptr)(Args...) const>
-    static constexpr PTMFWrapperConstVoid<Ptr> make_wrapper_void() noexcept { return PTMFWrapperConstVoid<Ptr>(); }
-};
-
-// These function are never defined, and is only used as a helper for decltype
-template<typename T, typename Return, typename Class, typename... Args>
-PTMFWrapperGen<T, Return, Class, Args...> ptmf_wrapper_type(Return (Class::*ptmf)(Args...));
-template<typename T, typename Return, typename Class, typename... Args>
-PTMFWrapperGen<T, Return, Class, Args...> ptmf_wrapper_type(Return (Class::*ptmf)(Args...) const);
-
-#define SPEAD2_PTMF(Class, Func) \
-    (decltype(::spead2::detail::ptmf_wrapper_type<Class>(&Class::Func))::template make_wrapper<&Class::Func>())
-// Discards the return value - useful for setters where the C++ function returns *this
-#define SPEAD2_PTMF_VOID(Class, Func) \
-    (decltype(::spead2::detail::ptmf_wrapper_type<Class>(&Class::Func))::template make_wrapper_void<&Class::Func>())
+#define SPEAD2_PTMF_VOID(Class, Func) (::spead2::detail::discard_result<Class>(&Class::Func))
 
 } // namespace detail
 
@@ -510,7 +418,7 @@ buffer_allocation *get_buffer_allocation(const memory_allocator::pointer &ptr);
 
 } // namespace spead2
 
-namespace pybind11
+namespace PYBIND11_NAMESPACE
 {
 namespace detail
 {
@@ -561,28 +469,6 @@ public:
     }
 };
 
-/* Old versions of boost::optional don't implement emplace (required by
- * pybind11::optional_caster), so we implement the conversion manually.
- */
-template<typename SocketType>
-struct type_caster<boost::optional<spead2::socket_wrapper<SocketType>>>
-{
-    PYBIND11_TYPE_CASTER(boost::optional<spead2::socket_wrapper<SocketType>>, _("Optional[socket.socket]"));
-
-    bool load(handle src, bool convert)
-    {
-        if (!src)
-            return false;
-        else if (src.is_none())
-            return true;
-        make_caster<spead2::socket_wrapper<SocketType>> inner_caster;
-        if (!inner_caster.load(src, convert))
-            return false;
-        value = cast_op<spead2::socket_wrapper<SocketType> &&>(std::move(inner_caster));
-        return true;
-    }
-};
-
 /* Allow a Python buffer object to be passed to callback_from
  * spead2::memory_allocator::pointer is expected. It will be wrapped so that
  * the buffer view is freed when the pointer is freed, and to allow conversion
@@ -601,5 +487,5 @@ struct type_caster<spead2::memory_allocator::pointer>
 };
 
 } // namespace detail
-} // namespace pybind11
+} // namespace PYBIND11_NAMESPACE
 #endif // SPEAD2_PY_COMMON_H

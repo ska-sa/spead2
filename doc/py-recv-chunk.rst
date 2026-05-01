@@ -1,11 +1,6 @@
 Chunking receiver
 =================
 
-.. warning::
-
-   This feature is **experimental**. Future releases of spead2 may change it
-   in backwards-incompatible ways, and it could even be removed entirely.
-
 For an overview, refer to :doc:`recv-chunk`. This page is a reference for the
 Python API.
 
@@ -70,6 +65,13 @@ Reference
    as it is contiguous and writable. It can also be set to ``None`` to clear
    it.
 
+   .. py:attribute:: extra
+
+   Data storage for extra data to be written by the place callback. This
+   can be set to any object that supports the Python buffer protocol, as long
+   as it is contiguous and writable. It can also be set to ``None`` to clear
+   it.
+
    .. py:attribute:: chunk_id
 
    The chunk ID determined by the placement function.
@@ -84,7 +86,7 @@ Reference
    can either be passed to the constructor (as keyword arguments) or set as
    properties after construction.
 
-   :param List[int] items:
+   :param list[int] items:
      The items whose immediate values should be passed to the place function.
      Accessing this property returns a copy, so it cannot be updated with
      ``append`` or other mutating operations. Assign a complete list.
@@ -94,6 +96,9 @@ Reference
      heaps from a previous chunk will be accepted.
    :param tuple place:
      See :ref:`place-callback`.
+   :param int max_heap_extra:
+     The maximum amount of data a placement function may write to
+     :cpp:member:`spead2::recv::chunk_place_data::extra`.
    :raises ValueError: if `max_chunks` is zero.
 
    .. py:method:: enable_packet_presence(payload_size: int)
@@ -220,18 +225,18 @@ Reference
 
    .. py:attribute:: data_ringbuffer
 
-   The data ringbuffer given to the constructor.
+      The data ringbuffer given to the constructor.
 
    .. py:attribute:: free_ringbuffer
 
-   The free ringbuffer given to the constructor.
+      The free ringbuffer given to the constructor.
 
    .. py:method:: add_free_chunk(chunk)
 
-    Add a chunk to the free ringbuffer. This takes care of zeroing out the
-    :py:attr:`.Chunk.present` array, and it will suppress the
-    :exc:`spead2.Stopped` exception if the free ringbuffer has been stopped.
+      Add a chunk to the free ringbuffer. This takes care of zeroing out the
+      :py:attr:`.Chunk.present` array, and it will suppress the
+      :exc:`spead2.Stopped` exception if the free ringbuffer has been stopped.
 
-    If the free ring is full, it will raise :exc:`spead2.Full` rather than
-    blocking. The free ringbuffer should be constructed with enough slots that
-    this does not happen.
+      If the free ring is full, it will raise :exc:`spead2.Full` rather than
+      blocking. The free ringbuffer should be constructed with enough slots that
+      this does not happen.

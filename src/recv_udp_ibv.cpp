@@ -1,4 +1,4 @@
-/* Copyright 2016-2020 National Research Foundation (SARAO)
+/* Copyright 2016-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -30,12 +30,12 @@
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
+#include <algorithm>
 #include <memory>
 #include <utility>
 #include <algorithm>
 #include <boost/asio.hpp>
 #include <unistd.h>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_ibv.h>
 #include <spead2/common_endian.h>
@@ -46,10 +46,6 @@ namespace spead2
 {
 namespace recv
 {
-
-constexpr std::size_t udp_ibv_config::default_buffer_size;
-constexpr std::size_t udp_ibv_config::default_max_size;
-constexpr int udp_ibv_config::default_max_poll;
 
 void udp_ibv_config::validate_endpoint(const boost::asio::ip::udp::endpoint &endpoint)
 {
@@ -68,8 +64,6 @@ udp_ibv_config &udp_ibv_config::set_max_size(std::size_t max_size)
 namespace detail
 {
 
-constexpr std::size_t udp_ibv_reader_core::default_buffer_size;
-constexpr int udp_ibv_reader_core::default_max_poll;
 static constexpr int header_length =
     ethernet_frame::min_size + ipv4_packet::min_size + udp_packet::min_size;
 
@@ -85,12 +79,11 @@ udp_ibv_reader_core::udp_ibv_reader_core(
     stream &owner,
     const udp_ibv_config &config)
     : udp_reader_base(owner),
-    join_socket(owner.get_io_service(), boost::asio::ip::udp::v4()),
+    join_socket(owner.get_io_context(), boost::asio::ip::udp::v4()),
     event_channel(nullptr),
-    comp_channel_wrapper(owner.get_io_service()),
+    comp_channel_wrapper(owner.get_io_context()),
     max_size(config.get_max_size()),
-    max_poll(config.get_max_poll()),
-    stop_poll(false)
+    max_poll(config.get_max_poll())
 {
     if (config.get_endpoints().empty())
         throw std::invalid_argument("endpoints is empty");
@@ -103,29 +96,29 @@ udp_ibv_reader_core::udp_ibv_reader_core(
     if (config.get_comp_vector() >= 0)
     {
         comp_channel = ibv_comp_channel_t(cm_id);
-        comp_channel_wrapper = comp_channel.wrap(get_io_service());
+        comp_channel_wrapper = comp_channel.wrap(get_io_context());
     }
+
+    for (const auto &endpoint : config.get_endpoints())
+        if (endpoint.address().is_multicast())
+            groups.push_back(endpoint.address());
+    interface_address = config.get_interface_address();
 }
 
-void udp_ibv_reader_core::join_groups(
-    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-    const boost::asio::ip::address &interface_address)
+void udp_ibv_reader_core::join_groups()
 {
     join_socket.set_option(boost::asio::socket_base::reuse_address(true));
-    for (const auto &endpoint : endpoints)
-        if (endpoint.address().is_multicast())
-        {
-            join_socket.set_option(boost::asio::ip::multicast::join_group(
-                endpoint.address().to_v4(), interface_address.to_v4()));
-        }
+    for (const auto &address : groups)
+    {
+        join_socket.set_option(boost::asio::ip::multicast::join_group(
+            address.to_v4(), interface_address.to_v4()));
+    }
 }
 
 void udp_ibv_reader_core::stop()
 {
     if (comp_channel)
         comp_channel_wrapper.close();
-    else
-        stop_poll = true;
 }
 
 } // namespace detail
@@ -180,7 +173,7 @@ udp_ibv_reader::poll_result udp_ibv_reader::poll_once(stream_base::add_packet_st
      * not calling post_recv too often (it takes a lock) and not starving the
      * receive queue.
      */
-    const std::size_t post_batch = std::min(std::max(n_slots / 4, std::size_t(1)), std::size_t(64));
+    const std::size_t post_batch = std::clamp(n_slots / 4, std::size_t(1), std::size_t(64));
     int received = recv_cq.poll(n_slots, wc.get());
     ibv_recv_wr *head = nullptr, *tail = nullptr;
     std::size_t cur_batch = 0;
@@ -274,50 +267,13 @@ udp_ibv_reader::udp_ibv_reader(
         slots[i].wr.wr_id = i;
         qp.post_recv(&slots[i].wr);
     }
+}
 
-    enqueue_receive(true);
+void udp_ibv_reader::start()
+{
+    enqueue_receive(make_handler_context(), true);
     qp.modify(IBV_QPS_RTR);
-    join_groups(config.get_endpoints(), config.get_interface_address());
-}
-
-udp_ibv_reader::udp_ibv_reader(
-    stream &owner,
-    const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-    const boost::asio::ip::address &interface_address,
-    std::size_t max_size,
-    std::size_t buffer_size,
-    int comp_vector,
-    int max_poll)
-    : udp_ibv_reader(
-        owner,
-        udp_ibv_config()
-            .set_endpoints(endpoints)
-            .set_interface_address(interface_address)
-            .set_max_size(max_size)
-            .set_buffer_size(buffer_size)
-            .set_comp_vector(comp_vector)
-            .set_max_poll(max_poll))
-{
-}
-
-udp_ibv_reader::udp_ibv_reader(
-    stream &owner,
-    const boost::asio::ip::udp::endpoint &endpoint,
-    const boost::asio::ip::address &interface_address,
-    std::size_t max_size,
-    std::size_t buffer_size,
-    int comp_vector,
-    int max_poll)
-    : udp_ibv_reader(
-        owner,
-        udp_ibv_config()
-            .add_endpoint(endpoint)
-            .set_interface_address(interface_address)
-            .set_max_size(max_size)
-            .set_buffer_size(buffer_size)
-            .set_comp_vector(comp_vector)
-            .set_max_poll(max_poll))
-{
+    join_groups();
 }
 
 } // namespace recv

@@ -1,4 +1,4 @@
-/* Copyright 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2019-2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -35,14 +35,11 @@
 #include <vector>
 #include <boost/asio.hpp>
 #include <spead2/common_ibv.h>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_base.h>
 #include <spead2/recv_udp_ibv.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /**
@@ -73,6 +70,8 @@ private:
     std::size_t wqe_start = 0;
     /// Total buffer size
     std::size_t buffer_size;
+    /// Number of WQ enrties
+    std::size_t wqe;
 
     /// Post one work request to the receive work queue
     void post_wr(std::size_t offset);
@@ -81,80 +80,6 @@ private:
     poll_result poll_once(stream_base::add_packet_state &state);
 
 public:
-    /**
-     * Constructor with single endpoint (deprecated).
-     *
-     * @param owner        Owning stream
-     * @param endpoint     Multicast group and port
-     * @param max_size     Maximum packet size that will be accepted
-     * @param buffer_size  Requested memory allocation for work requests. Note
-     *                     that this is used to determine the number of packets
-     *                     to buffer; if the packets are smaller than @a max_size,
-     *                     then fewer bytes will be buffered.
-     * @param interface_address  Address of the interface which should join the group and listen for data
-     * @param comp_vector  Completion channel vector (interrupt) for asynchronous operation, or
-     *                     a negative value to poll continuously. Polling
-     *                     should not be used if there are other users of the
-     *                     thread pool. If a non-negative value is provided, it
-     *                     is taken modulo the number of available completion
-     *                     vectors. This allows a number of readers to be
-     *                     assigned sequential completion vectors and have them
-     *                     load-balanced, without concern for the number
-     *                     available.
-     * @param max_poll     Maximum number of times to poll in a row, without
-     *                     waiting for an interrupt (if @a comp_vector is
-     *                     non-negative) or letting other code run on the
-     *                     thread (if @a comp_vector is negative).
-     *
-     * @throws std::invalid_argument If @a endpoint is not an IPv4 multicast address
-     * @throws std::invalid_argument If @a interface_address is not an IPv4 address
-     */
-    udp_ibv_mprq_reader(
-        stream &owner,
-        const boost::asio::ip::udp::endpoint &endpoint,
-        const boost::asio::ip::address &interface_address,
-        std::size_t max_size = udp_ibv_config::default_max_size,
-        std::size_t buffer_size = udp_ibv_config::default_buffer_size,
-        int comp_vector = 0,
-        int max_poll = udp_ibv_config::default_max_poll);
-
-    /**
-     * Constructor with multiple endpoints (deprecated).
-     *
-     * @param owner        Owning stream
-     * @param endpoints    Multicast groups and ports
-     * @param max_size     Maximum packet size that will be accepted
-     * @param buffer_size  Requested memory allocation for work requests. Note
-     *                     that this is used to determine the number of packets
-     *                     to buffer; if the packets are smaller than @a max_size,
-     *                     then fewer bytes will be buffered.
-     * @param interface_address  Address of the interface which should join the group and listen for data
-     * @param comp_vector  Completion channel vector (interrupt) for asynchronous operation, or
-     *                     a negative value to poll continuously. Polling
-     *                     should not be used if there are other users of the
-     *                     thread pool. If a non-negative value is provided, it
-     *                     is taken modulo the number of available completion
-     *                     vectors. This allows a number of readers to be
-     *                     assigned sequential completion vectors and have them
-     *                     load-balanced, without concern for the number
-     *                     available.
-     * @param max_poll     Maximum number of times to poll in a row, without
-     *                     waiting for an interrupt (if @a comp_vector is
-     *                     non-negative) or letting other code run on the
-     *                     thread (if @a comp_vector is negative).
-     *
-     * @throws std::invalid_argument If any element of @a endpoints is not an IPv4 multicast address
-     * @throws std::invalid_argument If @a interface_address is not an IPv4 address
-     */
-    udp_ibv_mprq_reader(
-        stream &owner,
-        const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
-        const boost::asio::ip::address &interface_address,
-        std::size_t max_size = udp_ibv_config::default_max_size,
-        std::size_t buffer_size = udp_ibv_config::default_buffer_size,
-        int comp_vector = 0,
-        int max_poll = udp_ibv_config::default_max_poll);
-
     /**
      * Constructor.
      *
@@ -165,10 +90,11 @@ public:
      * @throws std::invalid_argument If no interface address is set.
      */
     udp_ibv_mprq_reader(stream &owner, const udp_ibv_config &config);
+
+    virtual void start() override;
 };
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_USE_IBV
 

@@ -20,31 +20,32 @@ spead2 package. It thus has many more command-line options than are strictly
 necessary, to allow multiple code-paths to be exercised.
 """
 
-import logging
 import argparse
-import signal
 import asyncio
+import logging
+import signal
 
 import spead2
 import spead2.recv
 import spead2.recv.asyncio
+
 from . import cmdline
 
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('source', nargs='+', help='Sources (filename, host:port or port)')
+    parser.add_argument("source", nargs="+", help="Sources (filename, host:port or port)")
 
-    group = parser.add_argument_group('Output options')
-    group.add_argument('--log', metavar='LEVEL', default='INFO', help='Log level [%(default)s]')
-    group.add_argument('--values', action='store_true', help='Show heap values')
-    group.add_argument('--descriptors', action='store_true', help='Show descriptors')
+    group = parser.add_argument_group("Output options")
+    group.add_argument("--log", metavar="LEVEL", default="INFO", help="Log level [%(default)s]")
+    group.add_argument("--values", action="store_true", help="Show heap values")
+    group.add_argument("--descriptors", action="store_true", help="Show descriptors")
 
-    group = parser.add_argument_group('Input options')
-    group.add_argument('--max-heaps', type=int, help='Stop receiving after this many heaps')
-    group.add_argument('--joint', action='store_true', help='Treat all sources as a single stream')
+    group = parser.add_argument_group("Input options")
+    group.add_argument("--max-heaps", type=int, help="Stop receiving after this many heaps")
+    group.add_argument("--joint", action="store_true", help="Treat all sources as a single stream")
 
-    group = parser.add_argument_group('Protocol and performance options')
+    group = parser.add_argument_group("Protocol and performance options")
     protocol = cmdline.ProtocolOptions()
     receiver = cmdline.ReceiverOptions(protocol)
     protocol.add_arguments(group)
@@ -71,16 +72,18 @@ async def run_stream(stream, name, args):
                     if args.descriptors:
                         for raw_descriptor in heap.get_descriptors():
                             descriptor = spead2.Descriptor.from_raw(raw_descriptor, heap.flavour)
-                            print('''\
-    Descriptor for {0.name} ({0.id:#x})
-      description: {0.description}
-      format:      {0.format}
-      dtype:       {0.dtype}
-      shape:       {0.shape}'''.format(descriptor))
+                            print(
+                                f"""\
+    Descriptor for {descriptor.name} ({descriptor.id:#x})
+      description: {descriptor.description}
+      format:      {descriptor.format}
+      dtype:       {descriptor.dtype}
+      shape:       {descriptor.shape}"""
+                            )
                     changed = item_group.update(heap)
-                    for (key, item) in changed.items():
+                    for key, item in changed.items():
                         if args.values:
-                            print(key, '=', item.value)
+                            print(key, "=", item.value)
                         else:
                             print(key)
                 except ValueError as e:
@@ -89,7 +92,7 @@ async def run_stream(stream, name, args):
                 print(f"Shutting down stream {name} after {num_heaps} heaps")
                 stats = stream.stats
                 for key, value in stats.items():
-                    print("{}: {}".format(key, getattr(stats, key)))
+                    print(f"{key}: {getattr(stats, key)}")
                 break
     finally:
         stream.stop()

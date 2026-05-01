@@ -49,7 +49,7 @@ Sending
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
    :param queues: Queues holding the generated packets (one per substream).
-   :type queues: List[:py:class:`spead2.InprocQueue`]
+   :type queues: list[:py:class:`spead2.InprocQueue`]
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
 

@@ -18,9 +18,8 @@ import asyncio
 import pytest
 
 import spead2
-import spead2.send
 import spead2.recv.asyncio
-
+import spead2.send
 
 pytestmark = [pytest.mark.asyncio]
 
@@ -49,8 +48,8 @@ class MyChunk(spead2.recv.Chunk):
     """Subclasses Chunk to carry extra metadata."""
 
     def __init__(self, label, **kwargs):
-        kwargs.setdefault('data', bytearray(10))
-        kwargs.setdefault('present', bytearray(1))
+        kwargs.setdefault("data", bytearray(10))
+        kwargs.setdefault("present", bytearray(1))
         super().__init__(**kwargs)
         self.label = label
 

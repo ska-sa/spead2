@@ -1,4 +1,4 @@
-/* Copyright 2019 National Research Foundation (SARAO)
+/* Copyright 2019, 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -24,24 +24,30 @@
 #include <spead2/common_raw_packet.h>
 #include <stdexcept>
 
-namespace spead2
-{
-namespace unittest
+namespace spead2::unittest
 {
 
-// A packet captured with tcpdump, containing "Hello world\n" in the UDP payload
-static const std::uint8_t sample_packet[] =
+// Two packets captured with tcpdump with the same "Hello world\n" UDP payload.
+// One was captured directly exclusively from an ethernet device, the other from the "any" device.
+static const std::uint8_t sample_ethernet_header[] =
 {
-    0x01, 0x00, 0x5e, 0x66, 0xfe, 0x01, 0x1c, 0x1b, 0x0d, 0xe0, 0xd0, 0xfd, 0x08, 0x00, 0x45, 0x00,
-    0x00, 0x28, 0xae, 0xa3, 0x40, 0x00, 0x01, 0x11, 0xd0, 0xfe, 0x0a, 0x08, 0x02, 0xb3, 0xef, 0x66,
-    0xfe, 0x01, 0x87, 0x5d, 0x22, 0xb8, 0x00, 0x14, 0xe9, 0xb4, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20,
-    0x77, 0x6f, 0x72, 0x6c, 0x64, 0x0a
+    0x01, 0x00, 0x5e, 0x66, 0xfe, 0x01, 0x1c, 0x1b, 0x0d, 0xe0, 0xd0, 0xfd, 0x08, 0x00
 };
-// Properties of this sample packet
+static const std::uint8_t sample_sll_header[] =
+{
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x06, 0x1c, 0x1b, 0x0d, 0xe0, 0xd0, 0xfd, 0x00, 0x60, 0x08, 0x00
+};
+static const std::uint8_t sample_ipv4_packet[] =
+{
+    0x45, 0x00, 0x00, 0x28, 0xae, 0xa3, 0x40, 0x00, 0x01, 0x11, 0xd0, 0xfe, 0x0a, 0x08, 0x02, 0xb3,
+    0xef, 0x66, 0xfe, 0x01, 0x87, 0x5d, 0x22, 0xb8, 0x00, 0x14, 0xe9, 0xb4, 0x48, 0x65, 0x6c, 0x6c,
+    0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x0a
+};
+// Properties of these sample packets
 static const mac_address source_mac = {{0x1c, 0x1b, 0x0d, 0xe0, 0xd0, 0xfd}};
 static const mac_address destination_mac = {{0x01, 0x00, 0x5e, 0x66, 0xfe, 0x01}};
-static const auto source_address = boost::asio::ip::address_v4::from_string("10.8.2.179");
-static const auto destination_address = boost::asio::ip::address_v4::from_string("239.102.254.1");
+static const auto source_address = boost::asio::ip::make_address_v4("10.8.2.179");
+static const auto destination_address = boost::asio::ip::make_address_v4("239.102.254.1");
 static const std::uint16_t source_port = 34653;
 static const std::uint16_t destination_port = 8888;
 static const std::uint16_t ipv4_identification = 0xaea3;
@@ -49,13 +55,18 @@ static const std::uint16_t ipv4_checksum = 0xd0fe;
 static const std::uint16_t udp_checksum = 0xe9b4;
 static const std::string sample_payload = "Hello world\n";
 
+
 struct packet_data
 {
-    std::array<std::uint8_t, sizeof(sample_packet)> data;
+    std::array<std::uint8_t, sizeof(sample_ethernet_header) + sizeof(sample_ipv4_packet)> data;
+    std::array<std::uint8_t, sizeof(sample_sll_header) + sizeof(sample_ipv4_packet)> sll_data;
 
     packet_data()
     {
-        std::memcpy(data.data(), sample_packet, sizeof(sample_packet));
+        std::memcpy(data.data(), sample_ethernet_header, sizeof(sample_ethernet_header));
+        std::memcpy(data.data() + sizeof(sample_ethernet_header), sample_ipv4_packet, sizeof(sample_ipv4_packet));
+        std::memcpy(sll_data.data(), sample_sll_header, sizeof(sample_sll_header));
+        std::memcpy(sll_data.data() + sizeof(sample_sll_header), sample_ipv4_packet, sizeof(sample_ipv4_packet));
     }
 };
 
@@ -64,8 +75,8 @@ BOOST_FIXTURE_TEST_SUITE(raw_packet, packet_data)
 
 static std::string buffer_to_string(const boost::asio::const_buffer &buffer)
 {
-    return std::string(boost::asio::buffer_cast<const char *>(buffer),
-                       boost::asio::buffer_cast<const char *>(buffer) + boost::asio::buffer_size(buffer));
+    const char *data = static_cast<const char *>(buffer.data());
+    return std::string(data, data + buffer.size());
 }
 
 static std::string buffer_to_string(const boost::asio::mutable_buffer &buffer)
@@ -75,7 +86,7 @@ static std::string buffer_to_string(const boost::asio::mutable_buffer &buffer)
 
 BOOST_AUTO_TEST_CASE(multicast_mac)
 {
-    auto address = boost::asio::ip::address::from_string("239.202.234.100");
+    auto address = boost::asio::ip::make_address("239.202.234.100");
     mac_address result = spead2::multicast_mac(address);
     mac_address expected = {{0x01, 0x00, 0x5e, 0x4a, 0xea, 0x64}};
     BOOST_CHECK_EQUAL_COLLECTIONS(result.begin(), result.end(),
@@ -87,11 +98,11 @@ BOOST_AUTO_TEST_CASE(multicast_mac)
  */
 BOOST_AUTO_TEST_CASE(interface_mac_lo)
 {
-    auto address = boost::asio::ip::address::from_string("127.0.0.1");
+    auto address = boost::asio::ip::make_address("127.0.0.1");
     BOOST_CHECK_THROW(spead2::interface_mac(address), std::runtime_error);
-    address = boost::asio::ip::address::from_string("0.0.0.0");
+    address = boost::asio::ip::make_address("0.0.0.0");
     BOOST_CHECK_THROW(spead2::interface_mac(address), std::runtime_error);
-    address = boost::asio::ip::address::from_string("::1");
+    address = boost::asio::ip::make_address("::1");
     BOOST_CHECK_THROW(spead2::interface_mac(address), std::runtime_error);
 }
 
@@ -100,18 +111,18 @@ BOOST_AUTO_TEST_CASE(packet_buffer_construct)
     std::uint8_t data[2];
     packet_buffer a;
     packet_buffer b(data, 2);
-    BOOST_CHECK_EQUAL(a.data(), (std::uint8_t *) nullptr);
-    BOOST_CHECK_EQUAL(a.size(), 0);
-    BOOST_CHECK_EQUAL(b.data(), data);
-    BOOST_CHECK_EQUAL(b.size(), 2);
+    BOOST_TEST(a.data() == (std::uint8_t *) nullptr);
+    BOOST_TEST(a.size() == 0U);
+    BOOST_TEST(b.data() == data);
+    BOOST_TEST(b.size() == 2U);
 }
 
 BOOST_AUTO_TEST_CASE(parse_ethernet_frame)
 {
     ethernet_frame frame(data.data(), data.size());
-    BOOST_CHECK(frame.source_mac() == source_mac);
-    BOOST_CHECK(frame.destination_mac() == destination_mac);
-    BOOST_CHECK_EQUAL(frame.ethertype(), ipv4_packet::ethertype);
+    BOOST_TEST(frame.source_mac() == source_mac);
+    BOOST_TEST(frame.destination_mac() == destination_mac);
+    BOOST_TEST(frame.ethertype() == ipv4_packet::ethertype);
 }
 
 // Just to get full test coverage
@@ -125,17 +136,17 @@ BOOST_AUTO_TEST_CASE(parse_ipv4)
     ethernet_frame frame(data.data(), data.size());
     ipv4_packet ipv4 = frame.payload_ipv4();
 
-    BOOST_CHECK_EQUAL(ipv4.version_ihl(), 0x45);   // version 4, header length 20
-    BOOST_CHECK_EQUAL(ipv4.version(), 4);
-    BOOST_CHECK_EQUAL(ipv4.dscp_ecn(), 0);
-    BOOST_CHECK_EQUAL(ipv4.total_length(), 40);
-    BOOST_CHECK_EQUAL(ipv4.identification(), ipv4_identification);
-    BOOST_CHECK_EQUAL(ipv4.flags_frag_off(), ipv4_packet::flag_do_not_fragment);
-    BOOST_CHECK_EQUAL(ipv4.ttl(), 1);
-    BOOST_CHECK_EQUAL(ipv4.protocol(), udp_packet::protocol);
-    BOOST_CHECK_EQUAL(ipv4.checksum(), ipv4_checksum);
-    BOOST_CHECK_EQUAL(ipv4.source_address(), source_address);
-    BOOST_CHECK_EQUAL(ipv4.destination_address(), destination_address);
+    BOOST_TEST(ipv4.version_ihl() == 0x45);   // version 4, header length 20
+    BOOST_TEST(ipv4.version() == 4);
+    BOOST_TEST(ipv4.dscp_ecn() == 0);
+    BOOST_TEST(ipv4.total_length() == 40);
+    BOOST_TEST(ipv4.identification() == ipv4_identification);
+    BOOST_TEST(ipv4.flags_frag_off() == ipv4_packet::flag_do_not_fragment);
+    BOOST_TEST(ipv4.ttl() == 1);
+    BOOST_TEST(ipv4.protocol() == udp_packet::protocol);
+    BOOST_TEST(ipv4.checksum() == ipv4_checksum);
+    BOOST_TEST(ipv4.source_address() == source_address);
+    BOOST_TEST(ipv4.destination_address() == destination_address);
 }
 
 BOOST_AUTO_TEST_CASE(parse_udp)
@@ -144,11 +155,11 @@ BOOST_AUTO_TEST_CASE(parse_udp)
     ipv4_packet ipv4 = frame.payload_ipv4();
     udp_packet udp = ipv4.payload_udp();
 
-    BOOST_CHECK_EQUAL(udp.source_port(), source_port);
-    BOOST_CHECK_EQUAL(udp.destination_port(), destination_port);
-    BOOST_CHECK_EQUAL(udp.length(), 20);
-    BOOST_CHECK_EQUAL(udp.checksum(), udp_checksum);
-    BOOST_CHECK_EQUAL(buffer_to_string(udp.payload()), sample_payload);
+    BOOST_TEST(udp.source_port() == source_port);
+    BOOST_TEST(udp.destination_port() == destination_port);
+    BOOST_TEST(udp.length() == 20);
+    BOOST_TEST(udp.checksum() == udp_checksum);
+    BOOST_TEST(buffer_to_string(udp.payload()) == sample_payload);
 }
 
 BOOST_AUTO_TEST_CASE(ethernet_too_small)
@@ -202,7 +213,13 @@ BOOST_AUTO_TEST_CASE(udp_bad_length)
 BOOST_AUTO_TEST_CASE(udp_from_ethernet)
 {
     boost::asio::mutable_buffer payload = spead2::udp_from_ethernet(data.data(), data.size());
-    BOOST_CHECK_EQUAL(buffer_to_string(payload), sample_payload);
+    BOOST_TEST(buffer_to_string(payload) == sample_payload);
+}
+
+BOOST_AUTO_TEST_CASE(udp_from_linux_sll)
+{
+    boost::asio::mutable_buffer payload = spead2::udp_from_linux_sll(sll_data.data(), sll_data.size());
+    BOOST_TEST(buffer_to_string(payload) == sample_payload);
 }
 
 BOOST_AUTO_TEST_CASE(udp_from_ethernet_not_ipv4)
@@ -272,4 +289,4 @@ BOOST_AUTO_TEST_CASE(build)
 BOOST_AUTO_TEST_SUITE_END()  // raw_packet
 BOOST_AUTO_TEST_SUITE_END()  // common
 
-}} // namespace spead2::unittest
+} // namespace spead2::unittest

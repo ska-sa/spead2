@@ -21,3 +21,4 @@ with the C++ backend.
    py-logging
    py-ibverbs
    py-recv-chunk
+   py-recv-chunk-group

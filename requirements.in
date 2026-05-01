@@ -1,10 +1,1 @@
-flake8
-jinja2
-netifaces
-numba
-numpy
-pycparser
-pytest
-pytest-asyncio
-pytest-timeout
-scipy
+pytest-custom_exit_code

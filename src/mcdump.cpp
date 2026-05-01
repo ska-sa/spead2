@@ -1,4 +1,4 @@
-/* Copyright 2016-2020 National Research Foundation (SARAO)
+/* Copyright 2016-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -40,6 +40,7 @@
 #include <boost/program_options.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
+#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <limits>
@@ -60,6 +61,7 @@
 #include <signal.h>
 
 namespace po = boost::program_options;
+using namespace std::literals;
 
 typedef std::chrono::high_resolution_clock::time_point time_point;
 
@@ -258,8 +260,6 @@ public:
     void write(const void *data, std::size_t length);
 };
 
-constexpr std::size_t writer::buffer_size;
-
 std::size_t writer::compute_depth(const options &opts)
 {
     std::size_t depth = opts.disk_buffer / buffer_size;
@@ -315,17 +315,7 @@ void writer::close()
     writer_threads.clear();
     // free memory
     free_ring.stop();
-    while (true)
-    {
-        try
-        {
-            free_ring.pop();
-        }
-        catch (spead2::ringbuffer_stopped &)
-        {
-            break;
-        }
-    }
+    for ([[maybe_unused]] auto &&dummy : free_ring) {}
     // flush always writes the entire buffer (possibly necessary for O_DIRECT),
     // so truncate back to the actual desired size
     if (ftruncate(fd, total_bytes) != 0)
@@ -363,34 +353,26 @@ void writer::writer_thread(int affinity)
     {
         if (affinity >= 0)
             spead2::thread_pool::set_affinity(affinity);
-        while (true)
+        for (buffer b : ring)
         {
-            try
+            std::uint8_t *ptr = b.data.get();
+            std::size_t remain = buffer_size;
+            off_t offset = b.offset;
+            while (remain > 0)
             {
-                buffer b = ring.pop();
-                std::uint8_t *ptr = b.data.get();
-                std::size_t remain = buffer_size;
-                off_t offset = b.offset;
-                while (remain > 0)
+                ssize_t ret = pwrite(fd, ptr, remain, offset);
+                if (ret < 0)
                 {
-                    ssize_t ret = pwrite(fd, ptr, remain, offset);
-                    if (ret < 0)
-                    {
-                        if (errno == EINTR)
-                            continue;
-                        spead2::throw_errno("write failed");
-                    }
-                    ptr += ret;
-                    remain -= ret;
-                    offset += ret;
+                    if (errno == EINTR)
+                        continue;
+                    spead2::throw_errno("write failed");
                 }
-                b.length = 0;
-                free_ring.push(std::move(b));
+                ptr += ret;
+                remain -= ret;
+                offset += ret;
             }
-            catch (spead2::ringbuffer_stopped &)
-            {
-                break;
-            }
+            b.length = 0;
+            free_ring.push(std::move(b));
         }
     }
     catch (std::exception &e)
@@ -414,7 +396,7 @@ typedef std::function<chunking_scheme(const options &,
 class joiner
 {
 private:
-    boost::asio::io_service io_service;
+    boost::asio::io_context io_context;
     boost::asio::ip::udp::socket join_socket;
 
 public:
@@ -424,7 +406,7 @@ public:
 
 joiner::joiner(const boost::asio::ip::address_v4 &interface_address,
                const std::vector<boost::asio::ip::udp::endpoint> &endpoints)
-    : join_socket(io_service, endpoints[0].protocol())
+    : join_socket(io_context, endpoints[0].protocol())
 {
     join_socket.set_option(boost::asio::socket_base::reuse_address(true));
     for (const auto &endpoint : endpoints)
@@ -559,24 +541,16 @@ void capture_base::collect_thread()
         file_header header;
         header.snaplen = opts.snaplen;
         w->write(&header, sizeof(header));
-        while (true)
+        for (chunk c : ring)
         {
-            try
-            {
-                chunk c = ring.pop();
-                std::uint32_t n_iov = 2 * c.n_records;
-                for (std::uint32_t i = 0; i < n_iov; i++)
-                    w->write(c.iov[i].iov_base, c.iov[i].iov_len);
+            std::uint32_t n_iov = 2 * c.n_records;
+            for (std::uint32_t i = 0; i < n_iov; i++)
+                w->write(c.iov[i].iov_base, c.iov[i].iov_len);
 
-                chunk_done(std::move(c));
-            }
-            catch (spead2::ringbuffer_stopped &)
-            {
-                free_ring.stop();
-                w->close();
-                break;
-            }
+            chunk_done(std::move(c));
         }
+        free_ring.stop();
+        w->close();
     }
     catch (std::exception &e)
     {
@@ -604,7 +578,7 @@ static boost::asio::ip::address_v4 get_interface_address(const options &opts)
     boost::asio::ip::address_v4 interface_address;
     try
     {
-        interface_address = boost::asio::ip::address_v4::from_string(opts.interface);
+        interface_address = boost::asio::ip::make_address_v4(opts.interface);
     }
     catch (std::exception &)
     {
@@ -659,7 +633,7 @@ static boost::asio::ip::udp::endpoint make_endpoint(const std::string &s)
     }
     try
     {
-        boost::asio::ip::address_v4 addr = boost::asio::ip::address_v4::from_string(s.substr(0, pos));
+        boost::asio::ip::address_v4 addr = boost::asio::ip::make_address_v4(s.substr(0, pos));
         std::uint16_t port = boost::lexical_cast<std::uint16_t>(s.substr(pos + 1));
         return boost::asio::ip::udp::endpoint(addr, port);
     }
@@ -673,8 +647,7 @@ void capture_base::run()
 {
     using boost::asio::ip::udp;
 
-    std::shared_ptr<spead2::mmap_allocator> allocator =
-        std::make_shared<spead2::mmap_allocator>(0, true);
+    auto allocator = std::make_shared<spead2::mmap_allocator>(0, true);
     bool has_file = opts.filename != "-";
     if (has_file)
     {
@@ -698,12 +671,14 @@ void capture_base::run()
      * off collect_thread, and if it doesn't have a specific affinity we don't
      * want it to inherit network_affinity.
      */
-    std::future<void> alloc_future = std::async(std::launch::async, [this, allocator] {
-        if (opts.network_affinity >= 0)
-            spead2::thread_pool::set_affinity(opts.network_affinity);
-        for (std::size_t i = 0; i < chunking.n_chunks; i++)
-            add_to_free(make_chunk(*allocator));
-    });
+    std::future<void> alloc_future = std::async(
+        std::launch::async, [this, allocator = std::move(allocator)] {
+            if (opts.network_affinity >= 0)
+                spead2::thread_pool::set_affinity(opts.network_affinity);
+            for (std::size_t i = 0; i < chunking.n_chunks; i++)
+                add_to_free(make_chunk(*allocator));
+        }
+    );
     alloc_future.get();
 
     struct sigaction act = {}, old_act;
@@ -728,7 +703,7 @@ void capture_base::run()
          * down the QP. This makes it more likely that we can avoid incrementing
          * the dropped packets counter on the NIC.
          */
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(200ms);
         if (has_file)
             collect_future.get();
         // Restore SIGINT handler
@@ -803,7 +778,7 @@ chunking_scheme capture::sizes(const options &opts, const spead2::rdma_cm_id_t &
     ibv_device_attr attr = cm_id.query_device();
     unsigned int device_slots = std::min(attr.max_cqe, attr.max_qp_wr);
     unsigned int device_chunks = device_slots / max_records;
-    if (attr.max_mr < device_chunks)
+    if (attr.max_mr < (int) device_chunks)
         device_chunks = attr.max_mr;
 
     bool reduced = false;
@@ -895,7 +870,7 @@ void capture::network_thread()
                 if (!opts.quiet)
                 {
                     time_point now = std::chrono::high_resolution_clock::now();
-                    if (now - last_report >= std::chrono::seconds(1))
+                    if (now - last_report >= 1s)
                         report_rates(now);
                 }
             }
@@ -1006,11 +981,6 @@ capture_mprq::capture_mprq(const options &opts)
     wq.modify(IBV_WQS_RDY);
 }
 
-static int clamp(int x, int low, int high)
-{
-    return std::min(std::max(x, low), high);
-}
-
 chunking_scheme capture_mprq::sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id)
 {
     ibv_device_attr attr = cm_id.query_device();
@@ -1029,13 +999,15 @@ chunking_scheme capture_mprq::sizes(const options &opts, const spead2::rdma_cm_i
      * running out of CQEs.
      */
     std::size_t log_stride_bytes =
-        clamp(6,
-              mlx5dv_attr.striding_rq_caps.min_single_stride_log_num_of_bytes,
-              mlx5dv_attr.striding_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes
+        std::clamp(
+            std::uint32_t(6),
+            mlx5dv_attr.striding_rq_caps.min_single_stride_log_num_of_bytes,
+            mlx5dv_attr.striding_rq_caps.max_single_stride_log_num_of_bytes);   // 64 bytes
     std::size_t log_strides_per_chunk =
-        clamp(21 - log_stride_bytes,
-              mlx5dv_attr.striding_rq_caps.min_single_wqe_log_num_of_strides,
-              mlx5dv_attr.striding_rq_caps.max_single_wqe_log_num_of_strides);    // 2MB chunks
+        std::clamp(
+            std::uint32_t(21 - log_stride_bytes),
+            mlx5dv_attr.striding_rq_caps.min_single_wqe_log_num_of_strides,
+            mlx5dv_attr.striding_rq_caps.max_single_wqe_log_num_of_strides);    // 2MB chunks
     std::size_t max_records = 1 << log_strides_per_chunk;
     std::size_t chunk_size = max_records << log_stride_bytes;
     std::size_t n_chunks = opts.net_buffer / chunk_size;
@@ -1071,7 +1043,6 @@ void capture_mprq::network_thread()
 
     start_time = std::chrono::high_resolution_clock::now();
     last_report = start_time;
-    const std::size_t max_records = chunking.max_records;
     int until_get_time = GET_TIME_RATE;
     std::uint64_t remaining_count = opts.count;
     spead2::ibv_cq_ex_t::poller poller(cq);
@@ -1100,7 +1071,7 @@ void capture_mprq::network_thread()
                             remaining_count--;
                         std::size_t idx = c.n_records;
                         record_header &record = c.entries[idx].record;
-                        record.incl_len = (len <= opts.snaplen) ? len : opts.snaplen;
+                        record.incl_len = ((int) len <= opts.snaplen) ? len : opts.snaplen;
                         record.orig_len = len;
                         if (timestamp_support)
                         {
@@ -1131,7 +1102,7 @@ void capture_mprq::network_thread()
                 if (!opts.quiet)
                 {
                     time_point now = std::chrono::high_resolution_clock::now();
-                    if (now - last_report >= std::chrono::seconds(1))
+                    if (now - last_report >= 1s)
                         report_rates(now);
                 }
             }

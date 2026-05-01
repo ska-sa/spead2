@@ -1,4 +1,4 @@
-/* Copyright 2018-2020 National Research Foundation (SARAO)
+/* Copyright 2018-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -24,9 +24,7 @@
 #include <spead2/send_inproc.h>
 #include <spead2/send_writer.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 namespace
@@ -54,7 +52,7 @@ private:
 public:
     /// Constructor
     inproc_writer(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<std::shared_ptr<inproc_queue>> &queues,
         const stream_config &config);
 
@@ -102,10 +100,10 @@ const std::vector<std::shared_ptr<inproc_queue>> &inproc_writer::get_queues() co
 }
 
 inproc_writer::inproc_writer(
-    io_service_ref io_service,
+    io_context_ref io_context,
     const std::vector<std::shared_ptr<inproc_queue>> &queues,
     const stream_config &config)
-    : writer(std::move(io_service), config),
+    : writer(std::move(io_context), config),
     queues(queues),
     scratch(new std::uint8_t[config.get_max_packet_size()])
 {
@@ -116,32 +114,10 @@ inproc_writer::inproc_writer(
 } // anonymous namespace
 
 inproc_stream::inproc_stream(
-    io_service_ref io_service,
-    std::shared_ptr<inproc_queue> queue,
-    const stream_config &config)
-    : inproc_stream(
-        std::move(io_service),
-        std::vector<std::shared_ptr<inproc_queue>>{std::move(queue)},
-        config)
-{
-}
-
-inproc_stream::inproc_stream(
-    io_service_ref io_service,
-    std::initializer_list<std::shared_ptr<inproc_queue>> queues,
-    const stream_config &config)
-    : inproc_stream(
-        std::move(io_service),
-        std::vector<std::shared_ptr<inproc_queue>>(queues),
-        config)
-{
-}
-
-inproc_stream::inproc_stream(
-    io_service_ref io_service,
+    io_context_ref io_context,
     const std::vector<std::shared_ptr<inproc_queue>> &queues,
     const stream_config &config)
-    : stream(std::unique_ptr<writer>(new inproc_writer(std::move(io_service), queues, config)))
+    : stream(std::make_unique<inproc_writer>(std::move(io_context), queues, config))
 {
 }
 
@@ -150,13 +126,4 @@ const std::vector<std::shared_ptr<inproc_queue>> &inproc_stream::get_queues() co
     return static_cast<const inproc_writer &>(get_writer()).get_queues();
 }
 
-const std::shared_ptr<inproc_queue> &inproc_stream::get_queue() const
-{
-    const auto &queues = get_queues();
-    if (queues.size() != 1)
-        throw std::runtime_error("get_queue only works when there is a single queue. Use get_queues instead");
-    return queues[0];
-}
-
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send

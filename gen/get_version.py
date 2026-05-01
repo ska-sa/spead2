@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2020 National Research Foundation (SARAO)
+# Copyright 2020, 2022 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -16,30 +16,22 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
-import re
-import sys
-from distutils.version import StrictVersion
 
+from packaging.version import Version
 
 parser = argparse.ArgumentParser()
-parser.add_argument('mode', choices=('major', 'minor', 'patch', 'full'))
+parser.add_argument("mode", choices=("major", "minor", "patch", "full"))
+parser.add_argument("version")
 args = parser.parse_args()
 
-with open('src/spead2/_version.py') as version_file:
-    line = version_file.readline().strip()
-match = re.fullmatch(r'__version__ = "(.+)"', line)
-if not match:
-    print('src/spead2/_version.py does not match the expected format', file=sys.stderr)
-    sys.exit(1)
-version_str = match.group(1)
-version = StrictVersion(version_str)
+version = Version(args.version)
 
 mode = args.mode
-if mode == 'major':
-    print(version.version[0], end='')
-elif mode == 'minor':
-    print(version.version[1], end='')
-elif mode == 'patch':
-    print(version.version[2], end='')
+if mode == "major":
+    print(version.major)
+elif mode == "minor":
+    print(version.minor)
+elif mode == "patch":
+    print(version.micro)
 else:
-    print(version_str, end='')
+    print(str(version))

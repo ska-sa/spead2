@@ -1,4 +1,4 @@
-/* Copyright 2015 National Research Foundation (SARAO)
+/* Copyright 2015, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -370,12 +370,12 @@ int semaphore_eventfd::get_fd() const
 
 #endif // SPEAD2_USE_EVENTFD
 
-boost::asio::posix::stream_descriptor wrap_fd(boost::asio::io_service &io_service, int fd)
+boost::asio::posix::stream_descriptor wrap_fd(boost::asio::io_context &io_context, int fd)
 {
     int fd2 = dup(fd);
     if (fd2 < 0)
         throw_errno("dup failed");
-    boost::asio::posix::stream_descriptor wrapper(io_service, fd2);
+    boost::asio::posix::stream_descriptor wrapper(io_context, fd2);
     wrapper.native_non_blocking(true);
     return wrapper;
 }

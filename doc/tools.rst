@@ -45,7 +45,7 @@ mcdump
 ------
 mcdump is a tool similar to tcpdump_, but specialised for high-speed capture of
 UDP traffic using hardware that supports the Infiniband Verbs API. It
-has only been tested on Mellanox ConnectX-3 and ConnectX-5 NICs. Like gulp_, it
+has only been tested on NVIDIA ConnectX NICs. Like gulp_, it
 uses a separate thread for disk I/O and CPU core affinity to achieve reliable
 performance. With a sufficiently fast disk subsystem, it is able to capture
 line rate from a 40Gb/s adapter.
@@ -132,7 +132,7 @@ program can be used to simplify running ibverbs applications. To use it, the
 program must first be given the capability. After installation, this can be
 done by running
 
-.. code:: sh
+.. code-block:: sh
 
    sudo setcap cap_net_raw+p /usr/local/bin/spead2_net_raw
 
@@ -149,7 +149,7 @@ process you run is a shell.
 .. warning::
 
    After doing the above, any user on the system that can run
-   :program:`cap_net_raw` will be able to intercept any incoming network
+   :program:`spead2_net_raw` will be able to intercept any incoming network
    traffic or generate arbitrary outgoing traffic. You should not do this
    blindly if there are untrusted users on your system, or if the system
    allows untrusted code to run outside of a secure sandbox.

@@ -1,4 +1,4 @@
-/* Copyright 2015, 2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2020, 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -31,13 +31,10 @@
 #endif
 #include <cstdint>
 #include <boost/asio.hpp>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_base.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /**
@@ -46,29 +43,50 @@ namespace recv
 class udp_reader : public udp_reader_base
 {
 private:
-    /// UDP socket we are listening on
-    boost::asio::ip::udp::socket socket;
+#if SPEAD2_USE_RECVMMSG
+    struct msg_buffer
+    {
+        /// Buffer for asynchronous receive, of size @a max_size + 1 (or larger if GRO is enabled).
+        std::unique_ptr<std::uint8_t[]> data;
+        /// Scatter-gather array
+        iovec iov[1];
+#if SPEAD2_USE_GRO
+        /// Ancillary data for GRO (segment size)
+        alignas(cmsghdr) char control[CMSG_SPACE(sizeof(int))];
+#endif
+    };
+#endif
+
+    /* Note: declaration order is import for correct destruction
+     * (the socket must be closed before we start destroying buffers).
+     */
+
+    /// Endpoint to bind during @ref start()
+    std::optional<boost::asio::ip::udp::endpoint> bind_endpoint;
     /// Unused, but need to provide the memory for asio to write to
-    boost::asio::ip::udp::endpoint endpoint;
+    boost::asio::ip::udp::endpoint sender_endpoint;
     /// Maximum packet size we will accept
     std::size_t max_size;
 #if SPEAD2_USE_RECVMMSG
-    /// Buffer for asynchronous receive, of size @a max_size + 1.
-    std::vector<std::unique_ptr<std::uint8_t[]>> buffer;
-    /// Scatter-gather array for each buffer
-    std::vector<iovec> iov;
+    std::vector<msg_buffer> buffers;
     /// recvmmsg control structures
     std::vector<mmsghdr> msgvec;
+    /// If true, generic receive offload is enabled on the socket
+    bool use_gro;
 #else
     /// Buffer for asynchronous receive, of size @a max_size + 1.
     std::unique_ptr<std::uint8_t[]> buffer;
 #endif
+    /// UDP socket we are listening on
+    boost::asio::ip::udp::socket socket;
 
     /// Start an asynchronous receive
-    void enqueue_receive();
+    void enqueue_receive(handler_context ctx);
 
     /// Callback on completion of asynchronous receive
     void packet_handler(
+        handler_context ctx,
+        stream_base::add_packet_state &state,
         const boost::system::error_code &error,
         std::size_t bytes_transferred);
 
@@ -159,7 +177,7 @@ public:
      *
      * @param owner        Owning stream
      * @param socket       Existing socket which will be taken over. It must
-     *                     use the same I/O service as @a owner.
+     *                     use the same I/O context as @a owner.
      * @param max_size     Maximum packet size that will be accepted.
      */
     udp_reader(
@@ -167,6 +185,7 @@ public:
         boost::asio::ip::udp::socket &&socket,
         std::size_t max_size = default_max_size);
 
+    virtual void start() override;
     virtual void stop() override;
 };
 
@@ -203,7 +222,6 @@ struct reader_factory<udp_reader>
         std::size_t max_size = udp_reader::default_max_size);
 };
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_UDP_H

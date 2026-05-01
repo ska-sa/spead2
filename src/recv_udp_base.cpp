@@ -1,4 +1,4 @@
-/* Copyright 2016, 2019 National Research Foundation (SARAO)
+/* Copyright 2016, 2019, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -20,18 +20,13 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_packet.h>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_udp_base.h>
 #include <spead2/common_logging.h>
 
-namespace spead2
+namespace spead2::recv
 {
-namespace recv
-{
-
-constexpr std::size_t udp_reader_base::default_max_size;
 
 bool udp_reader_base::process_one_packet(
     stream_base::add_packet_state &state,
@@ -63,5 +58,4 @@ bool udp_reader_base::process_one_packet(
     return stopped;
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

@@ -1,4 +1,4 @@
-/* Copyright 2016, 2020 National Research Foundation (SARAO)
+/* Copyright 2016, 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -46,6 +46,8 @@
 #else
 # include <net/if_dl.h>
 #endif
+
+using namespace std::literals;
 
 namespace spead2
 {
@@ -141,7 +143,7 @@ mac_address interface_mac(const boost::asio::ip::address &address)
         }
 #endif
     }
-    throw std::runtime_error(std::string("no MAC address found for interface ") + if_name);
+    throw std::runtime_error("no MAC address found for interface "s + if_name);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -160,9 +162,6 @@ packet_buffer::operator boost::asio::mutable_buffer() const
 
 /////////////////////////////////////////////////////////////////////////////
 
-constexpr std::uint8_t udp_packet::protocol;
-constexpr std::size_t udp_packet::min_size;
-
 udp_packet::udp_packet(void *ptr, std::size_t size)
     : packet_buffer(ptr, size)
 {
@@ -179,11 +178,6 @@ packet_buffer udp_packet::payload() const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-
-constexpr std::uint16_t ipv4_packet::ethertype;
-constexpr std::size_t ipv4_packet::min_size;
-constexpr std::uint16_t ipv4_packet::flag_do_not_fragment;
-constexpr std::uint16_t ipv4_packet::flag_more_fragments;
 
 ipv4_packet::ipv4_packet(void *ptr, std::size_t size)
     : packet_buffer(ptr, size)
@@ -233,8 +227,6 @@ udp_packet ipv4_packet::payload_udp() const
 
 /////////////////////////////////////////////////////////////////////////////
 
-constexpr std::size_t ethernet_frame::min_size;
-
 ethernet_frame::ethernet_frame(void *ptr, std::size_t size)
     : packet_buffer(ptr, size)
 {
@@ -248,14 +240,29 @@ ipv4_packet ethernet_frame::payload_ipv4() const
     return ipv4_packet(data() + min_size, size() - min_size);
 }
 
-packet_buffer udp_from_ethernet(void *ptr, size_t size)
+/////////////////////////////////////////////////////////////////////////////
+
+linux_sll_frame::linux_sll_frame(void *ptr, std::size_t size)
+    : packet_buffer(ptr, size)
 {
-    ethernet_frame eth(ptr, size);
-    if (eth.ethertype_be() != htobe(ipv4_packet::ethertype))
+    if (size < min_size)
+        throw std::length_error("packet is to small to be a Linux sll frame");
+}
+
+ipv4_packet linux_sll_frame::payload_ipv4() const
+{
+    // TODO: handle VLAN tags
+    return ipv4_packet(data() + min_size, size() - min_size);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+
+static packet_buffer udp_from_ipv4(std::uint16_t ethertype_be, const ipv4_packet &ipv4)
+{
+    if (ethertype_be != htobe(ipv4_packet::ethertype))
         throw packet_type_error("Frame has wrong ethernet type (VLAN tagging?), discarding");
     else
     {
-        ipv4_packet ipv4 = eth.payload_ipv4();
         if (ipv4.version() != 4)
             throw packet_type_error("Frame is not IPv4, discarding");
         else if (ipv4.is_fragment())
@@ -265,6 +272,18 @@ packet_buffer udp_from_ethernet(void *ptr, size_t size)
         else
             return ipv4.payload_udp().payload();
     }
+}
+
+packet_buffer udp_from_ethernet(void *ptr, size_t size)
+{
+    ethernet_frame eth(ptr, size);
+    return udp_from_ipv4(eth.ethertype_be(), eth.payload_ipv4());
+}
+
+packet_buffer udp_from_linux_sll(void *ptr, size_t size)
+{
+    linux_sll_frame frame(ptr, size);
+    return udp_from_ipv4(frame.protocol_type_be(), frame.payload_ipv4());
 }
 
 } // namespace spead2

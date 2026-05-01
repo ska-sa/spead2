@@ -1,4 +1,4 @@
-/* Copyright 2020 National Research Foundation (SARAO)
+/* Copyright 2020, 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -23,14 +23,44 @@
 #include <chrono>
 #include <forward_list>
 #include <algorithm>
+#include <tuple>
 #include <boost/utility/in_place_factory.hpp>
 #include <spead2/send_writer.h>
 #include <spead2/send_stream.h>
 
-namespace spead2
+namespace spead2::send
 {
-namespace send
+
+namespace detail
 {
+
+precise_time::precise_time(const coarse_type &coarse)
+    : coarse(coarse), correction(0.0)
+{
+}
+
+void precise_time::normalize()
+{
+    auto floor = std::chrono::duration_cast<coarse_type::duration>(correction);
+    if (correction < floor)
+        floor -= coarse_type::duration(1);  // cast rounds negative values up instead of down
+    coarse += floor;
+    correction -= floor;
+}
+
+precise_time &precise_time::operator+=(const correction_type &delta)
+{
+    correction += delta;
+    normalize();
+    return *this;
+}
+
+bool precise_time::operator<(const precise_time &other) const
+{
+    return std::tie(coarse, correction) < std::tie(other.coarse, other.correction);
+}
+
+} // namespace detail
 
 void writer::set_owner(stream *owner)
 {
@@ -47,30 +77,30 @@ void writer::enable_hw_rate()
 
 writer::timer_type::time_point writer::update_send_times(timer_type::time_point now)
 {
-    std::chrono::duration<double> wait_burst(rate_bytes * seconds_per_byte_burst);
-    std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
-    send_time_burst += std::chrono::duration_cast<timer_type::clock_type::duration>(wait_burst);
-    send_time += std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
+    send_time_burst += rate_wait / config.get_burst_rate_ratio();
+    send_time += rate_wait;
     rate_bytes = 0;
+    rate_wait = rate_wait.zero();
 
     /* send_time_burst needs to reflect the time the burst
      * was actually sent (as well as we can estimate it), even if
      * send_time or now is later.
      */
-    timer_type::time_point target_time = std::max(send_time_burst, send_time);
-    send_time_burst = std::max(now, target_time);
-    return target_time;
+    precise_time target_time = std::max(send_time_burst, send_time);
+    send_time_burst = std::max(precise_time(now), target_time);
+    return target_time.get_coarse();
 }
 
 void writer::update_send_time_empty()
 {
     timer_type::time_point now = timer_type::clock_type::now();
-    // Compute what send_time would need to be to make the next packet due to be
-    // transmitted now.
-    std::chrono::duration<double> wait(rate_bytes * seconds_per_byte);
-    auto wait2 = std::chrono::duration_cast<timer_type::clock_type::duration>(wait);
-    timer_type::time_point backdate = now - wait2;
-    send_time = std::max(send_time, backdate);
+    /* Compute what send_time would need to be to make the next packet due to be
+     * transmitted now. The calculations are mostly done without using
+     * precise_time, because "now" is coarse to start with.
+     */
+    auto wait = std::chrono::duration_cast<timer_type::clock_type::duration>(rate_wait);
+    timer_type::time_point backdate = now - wait;
+    send_time = std::max(send_time, precise_time(backdate));
 }
 
 writer::packet_result writer::get_packet(transmit_packet &data, std::uint8_t *scratch)
@@ -78,7 +108,7 @@ writer::packet_result writer::get_packet(transmit_packet &data, std::uint8_t *sc
     if (must_sleep)
     {
         auto now = timer_type::clock_type::now();
-        if (now < send_time_burst)
+        if (now < send_time_burst.get_coarse())
             return packet_result::SLEEP;
         else
             must_sleep = false;
@@ -106,14 +136,17 @@ writer::packet_result writer::get_packet(transmit_packet &data, std::uint8_t *sc
     detail::queue_item *cur = get_owner()->get_queue(active);
     assert(cur->gen.has_next_packet());
 
-    data.buffers = cur->gen.next_packet(scratch);
+    cur->gen.next_packet(scratch, data.buffers);
     data.size = boost::asio::buffer_size(data.buffers);
     data.substream_index = cur->substream_index;
     // Point at the start of the group, so that errors and byte counts accumulate
     // in one place.
     data.item = get_owner()->get_queue(active_start);
     if (!hw_rate)
+    {
         rate_bytes += data.size;
+        rate_wait += data.size * cur->wait_per_byte;
+    }
     data.last = false;
 
     switch (cur->mode)
@@ -235,7 +268,7 @@ void writer::sleep()
 {
     if (must_sleep)
     {
-        timer.expires_at(send_time_burst);
+        timer.expires_at(send_time_burst.get_coarse());
         timer.async_wait(
             [this](const boost::system::error_code &) {
                 must_sleep = false;
@@ -268,17 +301,14 @@ void writer::request_wakeup()
 
 void writer::post_wakeup()
 {
-    get_io_service().post([this]() { wakeup(); });
+    boost::asio::post(get_io_context(), [this]() { wakeup(); });
 }
 
-writer::writer(io_service_ref io_service, const stream_config &config)
+writer::writer(io_context_ref io_context, const stream_config &config)
     : config(config),
-    seconds_per_byte_burst(config.get_burst_rate() > 0.0 ? 1.0 / config.get_burst_rate() : 0.0),
-    seconds_per_byte(config.get_rate() > 0.0 ? 1.0 / config.get_rate() : 0.0),
-    io_service(std::move(io_service)),
-    timer(*this->io_service)
+    io_context(std::move(io_context)),
+    timer(*this->io_context)
 {
 }
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send

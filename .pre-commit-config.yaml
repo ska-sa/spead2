@@ -1,0 +1,51 @@
+repos:
+  - repo: https://github.com/pycqa/isort
+    rev: 7.0.0
+    hooks:
+      - id: isort
+        name: isort
+  - repo: https://github.com/psf/black
+    rev: 25.12.0
+    hooks:
+      - id: black
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-executables-have-shebangs
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: trailing-whitespace
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.10
+    hooks:
+      - id: ruff
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.19.1
+    hooks:
+      - id: mypy
+        # Passing filenames to mypy can do odd things. See
+        # https://github.com/pre-commit/mirrors-mypy/issues/33.
+        # mypy.ini determines the set of files that will actually be checked.
+        pass_filenames: false
+        # The pre-commit hook passes some options, but we set options in mypy.ini.
+        args: []
+        # The pre-commit hook only has python, not pyi.
+        types: []
+        types_or: [python, pyi]
+        additional_dependencies: [
+          'numpy==2.4.4'
+        ]
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.9.21
+    hooks:
+      - name: pip-compile
+        id: pip-compile
+        files: '^(?:requirements\.(?:in|txt)|pyproject\.toml)$'
+        args: [--universal, --python-version=3.9, --extra=test, --extra=test-numba, pyproject.toml, requirements.in, -o, requirements.txt]
+      - name: pip-compile (readthedocs)
+        id: pip-compile
+        args: [--python-version=3.13, requirements-readthedocs.in, -o, requirements-readthedocs.txt]
+        files: '^(?:requirements(?:-readthedocs)?\.(?:in|txt)|pyproject.toml)$'

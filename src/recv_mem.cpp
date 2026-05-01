@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019 National Research Foundation (SARAO)
+/* Copyright 2015, 2019, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -20,13 +20,10 @@
 
 #include <cstdint>
 #include <cassert>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_mem.h>
 #include <spead2/recv_stream.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 mem_reader::mem_reader(
@@ -35,13 +32,18 @@ mem_reader::mem_reader(
     : reader(owner), ptr(ptr), length(length)
 {
     assert(ptr != nullptr);
-    get_io_service().post([this] {
-        mem_to_stream(get_stream_base(), this->ptr, this->length);
-        // There will be no more data, so we can stop the stream immediately.
-        stream_base::add_packet_state state(get_stream_base());
-        state.stop();
-        stopped();
-    });
+}
+
+void mem_reader::start()
+{
+    boost::asio::post(
+        get_io_context(),
+        bind_handler([this] (handler_context, stream_base::add_packet_state &state) {
+            mem_to_stream(state, this->ptr, this->length);
+            // There will be no more data, so we can stop the stream immediately.
+            state.stop();
+        })
+    );
 }
 
 bool mem_reader::lossy() const
@@ -49,5 +51,4 @@ bool mem_reader::lossy() const
     return false;
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

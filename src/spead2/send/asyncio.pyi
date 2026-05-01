@@ -1,4 +1,4 @@
-# Copyright 2019-2020 National Research Foundation (SARAO)
+# Copyright 2019-2021, 2023-2024 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -15,46 +15,43 @@
 
 import asyncio
 import socket
-from typing import List, Optional, overload
 
 import spead2
 import spead2.send
-
 from spead2 import _EndpointList
 
 class AsyncStream(spead2.send.Stream):
     @property
     def fd(self) -> int: ...
     def flush(self) -> None: ...
-    def async_send_heap(self, heap: spead2.send.Heap, cnt: int = ...,
-                        substream_index: int = ...) -> asyncio.Future[int]: ...
-    def async_send_heaps(self,
-                         heaps: Union[List[spead2.send.HeapReference], spead2.send.HeapReferenceList],
-                         mode: spead2.send.GroupMode) -> asyncio.Future[int]: ...
+    def async_send_heap(
+        self, heap: spead2.send.Heap, cnt: int = ..., substream_index: int = ..., rate: float = ...
+    ) -> asyncio.Future[int]: ...
+    def async_send_heaps(
+        self,
+        heaps: list[spead2.send.HeapReference] | spead2.send.HeapReferenceList,
+        mode: spead2.send.GroupMode,
+    ) -> asyncio.Future[int]: ...
     async def async_flush(self) -> None: ...
 
-class UdpStream(spead2.send._UdpStream, AsyncStream):
-    pass
-
-class UdpIbvStream(spead2.send._UdpIbvStream, AsyncStream):
-    pass
+class UdpStream(spead2.send._UdpStream, AsyncStream): ...
+class UdpIbvStream(spead2.send._UdpIbvStream, AsyncStream): ...
 
 class TcpStream(spead2.send._TcpStream, AsyncStream):
-    def __init__(self, thread_pool: spead2.ThreadPool, socket: socket.socket,
-                 config: spead2.send.StreamConfig = ...) -> None: ...
-    @overload
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        socket: socket.socket,
+        config: spead2.send.StreamConfig = ...,
+    ) -> None: ...
     @classmethod
-    async def connect(self, thread_pool: spead2.ThreadPool,
-                      hostname: str, port: int,
-                      config: spead2.send.StreamConfig = ...,
-                      buffer_size: int = ..., interface_address: str = ...) -> None: ...
-    @overload
-    @classmethod
-    async def connect(self, thread_pool: spead2.ThreadPool,
-                      endpoints: _EndpointList,
-                      config: spead2.send.StreamConfig = ...,
-                      buffer_size: int = ..., interface_address: str = ...) -> None: ...
+    async def connect(
+        self,
+        thread_pool: spead2.ThreadPool,
+        endpoints: _EndpointList,
+        config: spead2.send.StreamConfig = ...,
+        buffer_size: int = ...,
+        interface_address: str = ...,
+    ) -> None: ...
 
-
-class InprocStream(spead2.send._InprocStream, AsyncStream):
-    pass
+class InprocStream(spead2.send._InprocStream, AsyncStream): ...

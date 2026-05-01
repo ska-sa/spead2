@@ -1,4 +1,4 @@
-/* Copyright 2016-2017 National Research Foundation (SARAO)
+/* Copyright 2016-2017, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -27,24 +27,26 @@
 #include <cstdint>
 #include <string>
 #include <pcap/pcap.h>
-#include <spead2/recv_reader.h>
+#include <spead2/common_raw_packet.h>
 #include <spead2/recv_udp_base.h>
 #include <spead2/recv_stream.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /**
  * Reader class that feeds data from a pcap file to a stream.
+ *
+ * An optional filter selects a subset of the packets in the capture file.
  */
 class udp_pcap_file_reader : public udp_reader_base
 {
 private:
+    using udp_unpacker = packet_buffer (*)(void *, size_t);
     pcap_t *handle;
+    udp_unpacker udp_from_frame;
 
-    void run();
+    void run(handler_context ctx, stream_base::add_packet_state &state);
 
 public:
     /**
@@ -52,18 +54,18 @@ public:
      *
      * @param owner Owning stream
      * @param filename Filename of the capture file
+     * @param filter Filter to apply to packets from the capture file
      *
      * @throws std::runtime_error if @a filename could not read
      */
-    udp_pcap_file_reader(stream &owner, const std::string &filename);
+    udp_pcap_file_reader(stream &owner, const std::string &filename, const std::string &filter = "");
     virtual ~udp_pcap_file_reader();
 
-    virtual void stop() override;
+    virtual void start() override;
     virtual bool lossy() const override;
 };
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_USE_PCAP
 #endif // SPEAD2_RECV_UDP_PCAP

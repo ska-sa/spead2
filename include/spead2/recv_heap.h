@@ -1,4 +1,4 @@
-/* Copyright 2015 National Research Foundation (SARAO)
+/* Copyright 2015, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -30,9 +30,7 @@
 #include <spead2/common_flavour.h>
 #include <spead2/common_memory_allocator.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 class live_heap;
@@ -213,7 +211,6 @@ public:
     std::vector<std::pair<s_item_pointer_t, s_item_pointer_t>> get_payload_ranges() const;
 };
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_HEAP_H

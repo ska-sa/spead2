@@ -1,4 +1,4 @@
-/* Copyright 2016-2020 National Research Foundation (SARAO)
+/* Copyright 2016-2020, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -261,10 +261,10 @@ ibv_comp_channel_t::ibv_comp_channel_t(const rdma_cm_id_t &cm_id)
 }
 
 boost::asio::posix::stream_descriptor ibv_comp_channel_t::wrap(
-    boost::asio::io_service &io_service) const
+    boost::asio::io_context &io_context) const
 {
     assert(get());
-    return wrap_fd(io_service, get()->fd);
+    return wrap_fd(io_context, get()->fd);
 }
 
 bool ibv_comp_channel_t::get_event(ibv_cq **cq, void **context)

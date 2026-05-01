@@ -1,4 +1,4 @@
-/* Copyright 2016, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2016, 2019-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -124,34 +124,10 @@ public:
 class udp_ibv_stream : public stream
 {
 public:
-    SPEAD2_DEPRECATED("use spead2::send::udp_ibv_config::default_buffer_size")
-    static constexpr std::size_t default_buffer_size = udp_ibv_config::default_buffer_size;
-    SPEAD2_DEPRECATED("use spead2::send::udp_ibv_config::default_max_poll")
-    static constexpr int default_max_poll = udp_ibv_config::default_max_poll;
-
-    /**
-     * Backwards-compatibility constructor (taking only a single endpoint).
-     *
-     * Refer to @ref udp_ibv_config for an explanation of the arguments.
-     *
-     * @throws std::invalid_argument if @a endpoint is not an IPv4 multicast address
-     * @throws std::invalid_argument if @a interface_address is not an IPv4 address
-     */
-    SPEAD2_DEPRECATED("use udp_ibv_config")
-    udp_ibv_stream(
-        io_service_ref io_service,
-        const boost::asio::ip::udp::endpoint &endpoint,
-        const stream_config &config,
-        const boost::asio::ip::address &interface_address,
-        std::size_t buffer_size = udp_ibv_config::default_buffer_size,
-        int ttl = 1,
-        int comp_vector = 0,
-        int max_poll = udp_ibv_config::default_max_poll);
-
     /**
      * Constructor.
      *
-     * @param io_service   I/O service for sending data
+     * @param io_context   I/O context for sending data
      * @param config       Common stream configuration
      * @param ibv_config   Class-specific stream configuration
      *
@@ -160,7 +136,7 @@ public:
      * @throws std::invalid_argument if memory regions overlap.
      */
     udp_ibv_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const stream_config &config,
         const udp_ibv_config &ibv_config);
 };

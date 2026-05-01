@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019-2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2019-2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -33,12 +33,9 @@
 #include <boost/asio.hpp>
 #include <utility>
 #include <vector>
-#include <initializer_list>
 #include <spead2/send_stream.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 class udp_stream : public stream
@@ -48,7 +45,7 @@ private:
      * Constructor used to implement most other constructors.
      */
     udp_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         boost::asio::ip::udp::socket &&socket,
         const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const stream_config &config,
@@ -65,7 +62,7 @@ public:
      * primarily intended for unicast as it does not provide all the options
      * that the multicast-specific constructors do.
      *
-     * @param io_service   I/O service for sending data
+     * @param io_context   I/O context for sending data
      * @param endpoints    Destination address and port for each substream
      * @param config       Stream configuration
      * @param buffer_size  Socket buffer size (0 for OS default)
@@ -75,19 +72,19 @@ public:
      *                            @endverbatim
      */
     udp_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size,
         const boost::asio::ip::address &interface_address = boost::asio::ip::address());
 
     /**
-     * Constructor using an existing socket and an explicit io_service or
+     * Constructor using an existing socket and an explicit io_context or
      * thread pool. The socket must be open but not connected, and the
-     * io_service must match the socket's.
+     * io_context must match the socket's.
      */
     udp_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         boost::asio::ip::udp::socket &&socket,
         const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const stream_config &config = stream_config());
@@ -95,7 +92,7 @@ public:
     /**
      * Constructor with multicast hop count.
      *
-     * @param io_service   I/O service for sending data
+     * @param io_context   I/O context for sending data
      * @param endpoints    Multicast group and port for each substream
      * @param config       Stream configuration
      * @param buffer_size  Socket buffer size (0 for OS default)
@@ -106,7 +103,7 @@ public:
      * @throws std::invalid_argument if @a endpoints is empty
      */
     udp_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
@@ -116,7 +113,7 @@ public:
      * Constructor with multicast hop count and outgoing interface address
      * (IPv4 only).
      *
-     * @param io_service   I/O service for sending data
+     * @param io_context   I/O context for sending data
      * @param endpoints    Multicast group and port for each substream
      * @param config       Stream configuration
      * @param buffer_size  Socket buffer size (0 for OS default)
@@ -128,7 +125,7 @@ public:
      * @throws std::invalid_argument if @a interface_address is not an IPv4 address
      */
     udp_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
@@ -136,10 +133,10 @@ public:
         const boost::asio::ip::address &interface_address);
 
     /**
-     * Constructor with multicast hop count and outgoing interface address
+     * Constructor with multicast hop count and outgoing interface index
      * (IPv6 only).
      *
-     * @param io_service   I/O service for sending data
+     * @param io_context   I/O context for sending data
      * @param endpoints    Multicast group and port for each substream
      * @param config       Stream configuration
      * @param buffer_size  Socket buffer size (0 for OS default)
@@ -152,52 +149,14 @@ public:
      * @see if_nametoindex(3)
      */
     udp_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         const std::vector<boost::asio::ip::udp::endpoint> &endpoints,
         const stream_config &config,
         std::size_t buffer_size,
         int ttl,
         unsigned int interface_index);
-
-    /// Backwards-compatibility constructor with a single endpoint
-    template<typename... Args>
-    SPEAD2_DEPRECATED("use a vector of endpoints")
-    udp_stream(
-        io_service_ref io_service,
-        const boost::asio::ip::udp::endpoint &endpoint,
-        Args&&... args)
-        : udp_stream(std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>{endpoint}, std::forward<Args>(args)...) {}
-
-    /// Backwards-compatibility constructor with a socket and a single endpoint
-    template<typename... Args>
-    SPEAD2_DEPRECATED("use a vector of endpoints")
-    udp_stream(
-        io_service_ref io_service,
-        boost::asio::ip::udp::socket &&socket,
-        const boost::asio::ip::udp::endpoint &endpoint,
-        Args&&... args)
-        : udp_stream(std::move(io_service), std::move(socket), std::vector<boost::asio::ip::udp::endpoint>{endpoint}, std::forward<Args>(args)...) {}
-
-    /* Force an initializer list to forward to the vector version (without this,
-     * a singleton initializer list forwards to the scalar version).
-     */
-    template<typename... Args>
-    udp_stream(
-        io_service_ref io_service,
-        std::initializer_list<boost::asio::ip::udp::endpoint> endpoints,
-        Args&&... args)
-        : udp_stream(std::move(io_service), std::vector<boost::asio::ip::udp::endpoint>(endpoints), std::forward<Args>(args)...) {}
-
-    template<typename... Args>
-    udp_stream(
-        io_service_ref io_service,
-        boost::asio::ip::udp::socket &&socket,
-        std::initializer_list<boost::asio::ip::udp::endpoint> endpoints,
-        Args&&... args)
-        : udp_stream(std::move(io_service), std::move(socket), std::vector<boost::asio::ip::udp::endpoint>(endpoints), std::forward<Args>(args)...) {}
 };
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_UDP_H

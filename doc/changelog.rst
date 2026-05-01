@@ -1,6 +1,279 @@
 Changelog
 =========
 
+.. rubric:: 4.4.1
+
+- The ``too_old_heaps`` stat now also counts heaps whose first packet arrived
+  in time to fit in the window, but whose last packet did not.
+- Update pybind11 to 3.x. This should not cause any issues unless you have
+  another pybind11-based module that uses the spead2 C++ API.
+- Use a uv universal requirements.txt file instead of separate files per
+  Python version.
+- Update many dependencies used in CI and in building wheels.
+- Add type annotation for :meth:`.ThreadPool.stop`.
+- Update the minimum GHA environment to Ubuntu 22.04, which all means the
+  minimum Clang version is 11.
+- Add testing and binary wheels for Python 3.14.
+- Use GHA native ARM runners for building aarch64 wheels.
+- Set timeouts on more unit tests.
+- Use PEP 639 for license information in pyproject.toml.
+
+.. rubric:: 4.4.0
+
+- Add wheels for Python 3.13.
+- Drop support for Python 3.8, which has reached end-of-life.
+- Update wheels to manylinux_2_28.
+- Bump minimum Boost version to 1.70 (this was the practical lower limit,
+  as it wasn't compiling against older versions).
+- Support Boost 1.87.
+- Add non-temporal memcpy support on AArch64 (with SVE).
+- Rename :cpp:class:`!spead2::io_service_ref` to
+  :cpp:class:`spead2::io_context_ref` to reflect name changes in Asio (the old
+  name is retained as a typedef).
+- Rename member functions called :func:`!get_io_service` to
+  :func:`!get_io_context`, again to reflect name changes in Boost.
+- Update URL to download Boost in cibuildwheel configuration.
+- Update cibuildwheel and other build and test dependencies.
+- Update some unit tests to use :c:macro:`!BOOST_TEST`.
+- Fix building documentation as PDF.
+
+.. rubric:: 4.3.2
+
+- Speed up receiving UDP with the Linux kernel network stack by using
+  generic receive offload (GRO).
+- Update Boost version in wheels to 1.85.
+- Fix compatibility with numpy 2.0.
+- Change the unit tests to allocate TCP and UDP ports dynamically.
+- Add a series of tutorials to the manual.
+- Add a missing type annotation for :py:meth:`spead2.ThreadPool.set_affinity`.
+- Add a Jenkins configuration to test the ibverbs support on a SARAO-internal
+  Jenkins server.
+- Bump versions of dependencies used in CI.
+
+.. rubric:: 4.3.1
+
+- Switch from netifaces to netifaces2 for testing.
+- Update coverallsapp/github-action to v2.2.3.
+- Fix the type annotation for :py:class:`spead2.recv.StreamConfig` to allow
+  `explicit_start` to be passed as a constructor argument.
+
+.. rubric:: 4.3.0
+
+- Add ability to override the transmission rate for individual heaps.
+- Fix missing type annotation on the `substream_index` argument to
+  :py:meth:`~.SyncStream.send_heap`.
+
+.. rubric:: 4.2.0
+
+- Significantly speed up transmission when using the Linux kernel networking
+  stack, by using generic segmentation offload.
+- Speed up transmission for small packets (20% in some cases).
+- Make :cpp:func:`~spead2::send::stream::async_send_heap` and
+  :cpp:func:`~spead2::send::stream::async_send_heaps` accept completion
+  tokens. This allows for code like
+  ``stream.async_send_heap(heap, boost::asio::use_future);``
+- Add C++ support to iterate over :cpp:class:`~spead2::recv::ring_stream` and
+  :cpp:class:`~spead2::ringbuffer` using a range-based ``for`` loop.
+- Add support for the `prefer_huge` argument to the :py:class:`~.MmapAllocator`
+  constructor in Python.
+- Make the `allocator` argument to :py:class:`~.MemoryPool` optional in
+  Python.
+- Allow indexing a :py:class:`~.HeapReferenceList` with a slice to create a
+  new :py:class:`~.HeapReferenceList` with a subset of the heaps.
+- Add :cpp:class:`~spead2::ringbuffer` to the C++ documentation.
+- Eliminate use of the deprecated :cpp:var:`!boost::asio::null_buffers`.
+- Update Boost version in wheels to 1.84.
+- Update rdma-core version in manylinux wheels to 49.0.
+- Make various updates to the Github Actions infrastructure.
+
+.. rubric:: 4.1.1
+
+- Add AVX and AVX-512 implementations for non-temporal memory copy. While this
+  is transparent to the API, the Meson option names have changed to allow
+  specific instruction sets to be disabled if necessary.
+
+.. rubric:: 4.1.0
+
+- Introduce :ref:`explicit start <py-explicit-start>` for receive streams.
+
+.. rubric:: 4.0.2
+
+Note that an oversight lead to some of the changes between 4.0.0b1 and 4.0.0
+being omitted from 4.0.1. They are restored in 4.0.2.
+
+- Fix type annotations for :py:class:`spead2.send.UdpStream` and
+  :py:class:`spead2.send.asyncio.UdpStream`.
+- Add more documentation for developers.
+- Remove an old :file:`Makefile.am` that should have been removed in 4.0.0.
+- Remove mocking of spead2 in readthedocs build.
+- Change `.. code::` to `.. code-block::` in documentation.
+- Simplify the implementation of :cpp:class:`!thread_pool_wrapper` and
+  :cpp:class:`!buffer_reader` in Python binding code.
+- Directly use pointer-to-member-functions in Python binding code.
+- Test against numpy 1.26.0 (instead of 1.26.0rc1) on Python 3.12.
+
+.. rubric:: 4.0.1
+
+- Restore dependency on numpy, which was accidentally removed in 4.0.0.
+- Change the ``test_numba`` extra to ``test-numba`` to normalise it in
+  accordance with :pep:`685`.
+
+.. rubric:: 4.0.0
+
+This release makes major changes to the build system, and removes deprecated
+features. See :doc:`migrate-4` for more detailed information about upgrading
+and the deprecation removals.
+
+Most of the changes are listed under 4.0.0b1 below. Since then, the following
+changes have been made:
+
+- Improve detection of gdrcopy by using the CUDA compiler to compile the
+  test code.
+- Remove ninja from ``build-system.requires``. If you have ninja installed on
+  the system, that will be used for the Python install rather than
+  downloading it.
+- Make miscellaneous improvements to the build system.
+- Remove an unused file (:file:`.ci/ccache-path.sh`).
+- Work around a pytest bug to prevent tests running out of file descriptors
+  (particularly on MacOS, which has a lower default limit).
+- Add wheels for MacOS (Intel and Apple Silicon).
+- Document that Meson must be at least 1.2.
+- Make source paths in :file:`.debug` files more usable (relative to
+  4.0.0b1).
+- Remove :file:`.pyi` file entries for the functionality removed in 4.0.
+
+.. rubric:: 4.0.0b1
+
+This release makes major changes to the build system, and removes deprecated
+features. See :doc:`migrate-4` for more detailed information about upgrading
+and the deprecation removals.
+
+- Replace the build system with Meson_.
+- Update the C++ code to use C++17.
+- No longer link against boost_system, and require Boost 1.69+.
+- Remove generated code from release tarballs; some Python packages are now
+  required at build time to build the C++ bindings.
+- Fix an uninitialised variable that could cause a segmentation fault when
+  using TCP to send and the initial connection failed.
+- Fix a large number of compiler warnings that showed up after switching build
+  systems (mainly related to unused function parameters and signed/unsigned
+  comparisons).
+- Fix the debug logging option so logging from inline functions in headers
+  will also do debug logging without the user needing to make preprocessor
+  defines.
+- Fix :program:`spead2_bench.py` so that it functions when ibverbs support is
+  not compiled in.
+- Remove the need for boost_program_options to be installed to be able to
+  install the Python bindings from source.
+- Produce binary wheels for aarch64.
+- Produce wheels for Python 3.12.
+- Make numba and scipy optional for running tests (some tests will be skipped
+  if they are not present).
+- Update the libpcap embedded in the wheels to 1.10.4.
+- Update the Boost version used to build wheels to 1.83.
+- Update the rdma-core version used to build wheels to 47.0.
+- Update the pybind11 build dependency to 2.11.1.
+- Replace flake8 with ruff_ for linting.
+- Remove the :file:`spead2/common_bind.h` header, which was unused.
+- Remove the :c:macro:`!SPEAD2_DEPRECATED` macro.
+- Remove build-time dependencies from :file:`requirements.txt`.
+- Update the :file:`.pyi` files to use more modern syntax e.g., :pep:`585`,
+  :pep:`604`, :pep:`613`.
+- Replace references to nv_peer_mem with nvidia-peermem.
+- Increase TTL of :program:`gpudirect_example` to 4.
+
+.. _Meson: https://mesonbuild.com
+.. _ruff: https://beta.ruff.rs/docs/
+
+.. rubric:: 3.13.0
+
+- Reformat the Python codebase using black_ and isort_.
+- Add `pre-commit`_ configuration.
+- On i386, check for SSE2 support at runtime rather than configure time.
+- Free readers only when the stream is destroyed. This fixes a bug that caused
+  the Python API to be accessed without the GIL when using
+  :py:meth:`~spead2.recv.Stream.add_buffer_reader`.
+- Improve unit tests by explicitly closing TCP sockets, to avoid
+  :exc:`ResourceWarning` when testing with ``python -X dev``.
+- Remove :py:mod:`wheel` from ``build-system.requires``.
+
+.. _black: https://black.readthedocs.io/en/stable/
+.. _isort: https://pycqa.github.io/isort/
+.. _pre-commit: https://pre-commit.com/
+
+.. rubric:: 3.12.0
+
+- Add support for :doc:`recv-chunk-group` to assemble chunks in parallel.
+- Simplify the way receive streams shut down. Users should not notice any
+  change, but custom reader implementations will need to be updated.
+- Update :meth:`!test_async_flush` and :meth:`!test_async_flush_fail` to keep
+  handles to async tasks, to prevent them being garbage collected too early.
+- Fix a bug where copying a :cpp:class:`spead2::recv::stream_config` would not
+  deep copy the names of custom statistics, and so any statistics added to the
+  copy would also affect the original, and there were also potential race
+  conditions if a stream config was modified while holding stream statistics.
+- Fix a bug (caused by the bug above) where passing a
+  :cpp:class:`spead2::recv::stream_config` to construct a
+  :cpp:class:`spead2::recv::chunk_stream` would modify the config. Passing
+  the same config to construct two chunk streams would fail with an error.
+- Fix the type annotation for the :py:class:`~.ChunkRingStream` constructor:
+  the parameter name for `chunk_stream_config` was incorrect.
+- Fix universal binary builds on MacOS (this was preventing Python 3.11 builds
+  from succeeding).
+- Fix :program:`spead2_bench.py`, which has failed to run at all for some time
+  (possibly since 3.0).
+- Avoid including Boost dynamic symbols in the Python module (helps reduce
+  binary size).
+- Strip static symbols out of the Python wheels (reduces size).
+- Build Python wheels with link-time optimisation (small performance
+  improvement).
+- Python 3.8 is now the minimum version.
+
+.. rubric:: 3.11.1
+
+- Fix a packaging issue that meant automake and similar tools were required to
+  compile (since 3.10).
+
+.. rubric:: 3.11.0
+
+- The chunking receiver is no longer experimental.
+- The place callback for the chunking receiver can now provide extra data to be
+  written to the chunk.
+
+.. rubric:: 3.10.0
+
+- Support pcap dumps that use the SLL format.
+- Support a user-defined filter in the pcap file reader.
+- Add experimental support for building a shared library.
+- Assorted documentation updates
+
+  - The SPEAD specification is now stored in the repository (the upstream
+    link is broken).
+  - Build PDFs on readthedocs.
+  - Update the tuning documentation.
+
+.. rubric:: 3.9.1
+
+- Fix an :exc:`asyncio.InvalidStateError` that occurs when the future returned by
+  :py:meth:`~.async_send_heap` or :py:meth:`~.async_send_heaps` is cancelled
+  before it completes.
+
+.. rubric:: 3.9.0
+
+- Added ``substreams`` to :py:class:`spead2.recv.StreamConfig` to improve
+  handling of interleaved heaps from multiple senders.
+- Add libdivide to the dependencies.
+
+.. rubric:: 3.8.0
+
+- Drop support for Python 3.6, which has reached end-of-life.
+- Test against Python 3.10 in Github Actions.
+- Improve the accuracy of the rate limiter. Previously it could send
+  slightly too fast due to rounding sleep times to whole numbers of
+  nanoseconds.
+- Eliminate dependence on distutils, which is deprecated in Python 3.10
+  (#175).
+
 .. rubric:: 3.7.0
 
 - Add :py:const:`spead2.send.GroupMode.SERIAL`.

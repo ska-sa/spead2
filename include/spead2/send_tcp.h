@@ -24,12 +24,9 @@
 
 #include <boost/asio.hpp>
 #include <vector>
-#include <initializer_list>
 #include <spead2/send_stream.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 class tcp_stream : public stream
@@ -45,7 +42,7 @@ public:
      * @warning The callback may be called before the constructor returns. The
      * implementation of the callback needs to be prepared to handle this case.
      *
-     * @param io_service   I/O service for sending data
+     * @param io_context   I/O context for sending data
      * @param connect_handler  Callback when connection is established. It is called
      *                     with a @c boost::system::error_code to indicate whether
      *                     connection was successful.
@@ -58,32 +55,9 @@ public:
      *                            @endverbatim
      */
     tcp_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         std::function<void(const boost::system::error_code &)> &&connect_handler,
         const std::vector<boost::asio::ip::tcp::endpoint> &endpoints,
-        const stream_config &config = stream_config(),
-        std::size_t buffer_size = default_buffer_size,
-        const boost::asio::ip::address &interface_address = boost::asio::ip::address());
-
-    /**
-     * Backwards-compatibility constructor.
-     */
-    SPEAD2_DEPRECATED("use a vector of endpoints")
-    tcp_stream(
-        io_service_ref io_service,
-        std::function<void(const boost::system::error_code &)> &&connect_handler,
-        const boost::asio::ip::tcp::endpoint &endpoint,
-        const stream_config &config = stream_config(),
-        std::size_t buffer_size = default_buffer_size,
-        const boost::asio::ip::address &interface_address = boost::asio::ip::address());
-
-    /* Force an initializer list to forward to the vector version (without this,
-     * a singleton initializer list forwards to the scalar version).
-     */
-    tcp_stream(
-        io_service_ref io_service,
-        std::function<void(const boost::system::error_code &)> &&connect_handler,
-        std::initializer_list<boost::asio::ip::tcp::endpoint> endpoints,
         const stream_config &config = stream_config(),
         std::size_t buffer_size = default_buffer_size,
         const boost::asio::ip::address &interface_address = boost::asio::ip::address());
@@ -92,12 +66,11 @@ public:
      * Constructor using an existing socket. The socket must be connected.
      */
     tcp_stream(
-        io_service_ref io_service,
+        io_context_ref io_context,
         boost::asio::ip::tcp::socket &&socket,
         const stream_config &config = stream_config());
 };
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_TCP_H

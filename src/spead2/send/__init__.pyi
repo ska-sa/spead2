@@ -1,4 +1,4 @@
-# Copyright 2019-2020 National Research Foundation (SARAO)
+# Copyright 2019-2021, 2023-2024 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -13,11 +13,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import (
-    Text, Union, List, Tuple, Iterator, Iterable, Optional, Sequence, ClassVar, overload
-)
 import enum
 import socket
+from collections.abc import Iterator, Sequence
+from typing import ClassVar, overload
 
 import spead2
 from spead2 import _EndpointList
@@ -38,13 +37,18 @@ class Heap:
 class HeapReference:
     cnt: int
     substream_index: int
+    rate: float
 
-    def __init__(self, heap: Heap, *, cnt: int = ..., substream_index: int = ...) -> None: ...
+    def __init__(
+        self, heap: Heap, *, cnt: int = ..., substream_index: int = ..., rate: float = ...
+    ) -> None: ...
     @property
     def heap(self) -> Heap: ...
 
 class HeapReferenceList:
-    def __init__(self, heaps: List[HeapReference]) -> None: ...
+    def __init__(self, heaps: list[HeapReference]) -> None: ...
+    def __len__(self) -> int: ...
+    def __getitem__(self, _index: slice) -> HeapReferenceList: ...
 
 class PacketGenerator:
     def __init__(self, heap: Heap, cnt: int, max_packet_size: int) -> None: ...
@@ -69,11 +73,16 @@ class StreamConfig:
     burst_rate_ratio: float
     rate_method: RateMethod
 
-    def __init__(self, *, max_packet_size: int = ..., rate: float = ...,
-                 burst_size: int = ..., max_heaps: int = ...,
-                 burst_rate_ratio: float = ...,
-                 rate_method: RateMethod = ...) -> None: ...
-
+    def __init__(
+        self,
+        *,
+        max_packet_size: int = ...,
+        rate: float = ...,
+        burst_size: int = ...,
+        max_heaps: int = ...,
+        burst_rate_ratio: float = ...,
+        rate_method: RateMethod = ...,
+    ) -> None: ...
     @property
     def burst_rate(self) -> float: ...
 
@@ -87,68 +96,101 @@ class Stream:
     def num_substreams(self) -> int: ...
 
 class SyncStream(Stream):
-    def send_heap(self, heap: Heap, cnt: int = ..., substream_index = ...) -> None: ...
-    def send_heaps(self, heaps: Union[List[HeapReference], HeapReferenceList], mode: GroupMode) -> None: ...
+    def send_heap(
+        self, heap: Heap, cnt: int = ..., substream_index: int = ..., rate: float = ...
+    ) -> None: ...
+    def send_heaps(
+        self, heaps: list[HeapReference] | HeapReferenceList, mode: GroupMode
+    ) -> None: ...
 
 class _UdpStream:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
 
+    # There are a lot of overloads listed here, because the bindings have
+    # overloads where required arguments follow optional arguments, and that
+    # can't be represented in pure Python. So we have to distinguish the
+    # cases where the required arguments are specified by name versus
+    # position.
     @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: str, port: int,
-                 config: StreamConfig = ...,
-                 buffer_size: int = ..., interface_address: str = ...) -> None: ...
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        endpoints: _EndpointList,
+        config: StreamConfig = ...,
+        buffer_size: int = ...,
+        interface_address: str = ...,
+    ) -> None: ...
     @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: str, port: int,
-                 config: StreamConfig,
-                 buffer_size: int,
-                 ttl: int) -> None: ...
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        endpoints: _EndpointList,
+        config: StreamConfig,
+        buffer_size: int,
+        ttl: int,
+    ) -> None: ...
     @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 multicast_group: str, port: int,
-                 config: StreamConfig,
-                 ttl: int, interface_address: str) -> None: ...
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        endpoints: _EndpointList,
+        config: StreamConfig = ...,
+        buffer_size: int = ...,
+        *,
+        ttl: int,
+    ) -> None: ...
     @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 multicast_group: str, port: int,
-                 config: StreamConfig,
-                 ttl: int, interface_index: int) -> None: ...
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        endpoints: _EndpointList,
+        config: StreamConfig,
+        buffer_size: int,
+        ttl: int,
+        interface_address: str,
+    ) -> None: ...
     @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 socket: socket.socket, hostname: str, port: int,
-                 config: StreamConfig = ...) -> None: ...
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        endpoints: _EndpointList,
+        config: StreamConfig = ...,
+        buffer_size: int = ...,
+        *,
+        ttl: int,
+        interface_address: str,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        endpoints: _EndpointList,
+        config: StreamConfig,
+        buffer_size: int,
+        ttl: int,
+        interface_index: int,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        endpoints: _EndpointList,
+        config: StreamConfig = ...,
+        buffer_size: int = ...,
+        *,
+        ttl: int,
+        interface_index: int,
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        socket: socket.socket,
+        endpoints: _EndpointList,
+        config: StreamConfig = ...,
+    ) -> None: ...
 
-    # Endpoint list variants
-    @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 endpoints: _EndpointList,
-                 config: StreamConfig = ...,
-                 buffer_size: int = ..., interface_address: str = ...) -> None: ...
-    @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 endpoints: _EndpointList,
-                 config: StreamConfig,
-                 buffer_size: int,
-                 ttl: int) -> None: ...
-    @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 endpoints: _EndpointList,
-                 config: StreamConfig,
-                 ttl: int, interface_address: str) -> None: ...
-    @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 endpoints: _EndpointList,
-                 config: StreamConfig,
-                 ttl: int, interface_index: int) -> None: ...
-    @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 socket: socket.socket,
-                 endpoints: _EndpointList,
-                 config: StreamConfig = ...) -> None: ...
-
-class UdpStream(_UdpStream, SyncStream):
-    pass
+class UdpStream(_UdpStream, SyncStream): ...
 
 class UdpIbvConfig:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
@@ -162,78 +204,72 @@ class UdpIbvConfig:
     max_poll: int
     memory_regions: list
 
-    def __init__(self, *, endpoints: _EndpointList = ..., interface_address: str = ...,
-                 buffer_size: int = ..., ttl: int = ..., comp_vector: int = ...,
-                 max_poll: int = ..., memory_regions: list = ...) -> None: ...
-
+    def __init__(
+        self,
+        *,
+        endpoints: _EndpointList = ...,
+        interface_address: str = ...,
+        buffer_size: int = ...,
+        ttl: int = ...,
+        comp_vector: int = ...,
+        max_poll: int = ...,
+        memory_regions: list = ...,
+    ) -> None: ...
 
 class _UdpIbvStream:
-    DEFAULT_BUFFER_SIZE: ClassVar[int]
-    DEFAULT_MAX_POLL: ClassVar[int]
+    def __init__(
+        self, thread_pool: spead2.ThreadPool, config: StreamConfig, udp_ibv_config: UdpIbvConfig
+    ) -> None: ...
 
-    @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 multicast_group: str, port: int,
-                 config: StreamConfig,
-                 interface_address: str,
-                 buffer_size: int = ..., ttl: int = ...,
-                 comp_vector: int = ..., max_pool: int = ...) -> None: ...
-
-    @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 config: StreamConfig,
-                 udp_ibv_config: UdpIbvConfig) -> None: ...
-
-
-class UdpIbvStream(_UdpIbvStream, SyncStream):
-    pass
+class UdpIbvStream(_UdpIbvStream, SyncStream): ...
 
 class _TcpStream:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
 
 class TcpStream(_TcpStream, SyncStream):
     @overload
-    def __init__(self, thread_pool: spead2.ThreadPool, socket: socket.socket,
-                 config: StreamConfig = ...) -> None: ...
+    def __init__(
+        self, thread_pool: spead2.ThreadPool, socket: socket.socket, config: StreamConfig = ...
+    ) -> None: ...
     @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 hostname: str, port: int,
-                 config: StreamConfig = ...,
-                 buffer_size: int = ..., interface_address: str = ...) -> None: ...
-    @overload
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 endpoints: _EndpointList,
-                 config: StreamConfig = ...,
-                 buffer_size: int = ..., interface_address: str = ...) -> None: ...
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        endpoints: _EndpointList,
+        config: StreamConfig = ...,
+        buffer_size: int = ...,
+        interface_address: str = ...,
+    ) -> None: ...
 
 class BytesStream(SyncStream):
     def getvalue(self) -> bytes: ...
-    def __init__(self, thread_pool: spead2.ThreadPool,
-                 config: StreamConfig = ...) -> None: ...
+    def __init__(self, thread_pool: spead2.ThreadPool, config: StreamConfig = ...) -> None: ...
 
 class _InprocStream:
     @property
-    def queue(self) -> spead2.InprocQueue: ...
-    @property
     def queues(self) -> Sequence[spead2.InprocQueue]: ...
-    @overload
-    def __init__(self, thread_pool: spead2.ThreadPool, queue: spead2.InprocQueue,
-                 config: StreamConfig = ...) -> None: ...
-    @overload
-    def __init__(self, thread_pool: spead2.ThreadPool, queues: List[spead2.InprocQueue],
-                 config: StreamConfig = ...) -> None: ...
+    def __init__(
+        self,
+        thread_pool: spead2.ThreadPool,
+        queues: list[spead2.InprocQueue],
+        config: StreamConfig = ...,
+    ) -> None: ...
 
-class InprocStream(_InprocStream, SyncStream):
-    pass
+class InprocStream(_InprocStream, SyncStream): ...
 
 class HeapGenerator:
-    def __init__(self, item_group: spead2.ItemGroup, descriptor_frequency: Optional[int] = None,
-                 flavour: spead2.Flavour = spead2.Flavour()) -> None: ...
+    def __init__(
+        self,
+        item_group: spead2.ItemGroup,
+        descriptor_frequency: int | None = None,
+        flavour: spead2.Flavour = ...,
+    ) -> None: ...
     def add_to_heap(self, heap: Heap, descriptors: str = ..., data: str = ...) -> Heap: ...
     def get_heap(self, descriptors: str = ..., data: str = ...) -> Heap: ...
     def get_start(self) -> Heap: ...
     def get_end(self) -> Heap: ...
 
 class ItemGroup(spead2.ItemGroup, HeapGenerator):
-    def __init__(self, descriptor_frequency: Optional[int] = None,
-                 flavour: spead2.Flavour = ...) -> None: ...
+    def __init__(
+        self, descriptor_frequency: int | None = None, flavour: spead2.Flavour = ...
+    ) -> None: ...

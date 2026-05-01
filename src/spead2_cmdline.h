@@ -1,4 +1,4 @@
-/* Copyright 2020 National Research Foundation (SARAO)
+/* Copyright 2020, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -148,17 +148,17 @@ struct protocol_options
  */
 template<typename Proto>
 std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
-    boost::asio::io_service &io_service, const std::vector<std::string> &endpoints, bool passive);
+    boost::asio::io_context &io_context, const std::vector<std::string> &endpoints, bool passive);
 
 /// Like @ref parse_endpoints, but for a single endpoint.
 template<typename Proto>
 static inline boost::asio::ip::basic_endpoint<Proto> parse_endpoint(
-    boost::asio::io_service &io_service, const std::string &endpoint, bool passive)
+    boost::asio::io_context &io_context, const std::string &endpoint, bool passive)
 {
-    return parse_endpoints<Proto>(io_service, {endpoint}, passive)[0];
+    return parse_endpoints<Proto>(io_context, {endpoint}, passive)[0];
 }
 
-// Variants which provide their own io_service
+// Variants which provide their own io_context
 template<typename Proto>
 std::vector<boost::asio::ip::basic_endpoint<Proto>> parse_endpoints(
     const std::vector<std::string> &endpoints, bool passive);
@@ -179,6 +179,7 @@ struct receiver_options
     bool ring = false;
     bool memcpy_nt = false;
     std::size_t max_heaps = stream_config::default_max_heaps;
+    std::size_t substreams = 1;
     std::size_t ring_heaps = ring_stream_config::default_heaps;
     bool mem_pool = false;
     std::size_t mem_lower = 16384;
@@ -202,7 +203,8 @@ struct receiver_options
         callback("bind", "Interface address", &interface_address);
         callback("packet", "Maximum packet size to accept", &max_packet_size);
         callback("buffer", "Socket buffer size", &buffer_size);
-        callback("concurrent-heaps", "Maximum number of in-flight heaps", &max_heaps);
+        callback("concurrent-heaps", "Maximum number of in-flight heaps, per substream", &max_heaps);
+        callback("substreams", "Number of parallel substreams", &substreams);
         callback("ring-heaps", "Ring buffer capacity in heaps", &ring_heaps);
         callback("mem-pool", "Use a memory pool", &mem_pool);
         callback("mem-lower", "Minimum allocation which will use the memory pool", &mem_lower);
@@ -299,7 +301,7 @@ struct sender_options
      * @a memory_regions is used with @ref udp_ibv_stream.
      */
     std::unique_ptr<stream> make_stream(
-        boost::asio::io_service &io_service,
+        boost::asio::io_context &io_context,
         const protocol_options &protocol,
         const std::vector<std::string> &endpoints,
         const std::vector<std::pair<const void *, std::size_t>> &memory_regions) const;

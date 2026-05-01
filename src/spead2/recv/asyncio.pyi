@@ -1,4 +1,4 @@
-# Copyright 2019 National Research Foundation (SARAO)
+# Copyright 2019, 2023 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -13,8 +13,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import asyncio
-from typing import AsyncIterator, Optional
+from collections.abc import AsyncIterator
 
 import spead2
 import spead2.recv

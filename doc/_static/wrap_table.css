@@ -1,0 +1,4 @@
+/* Based on https://stackoverflow.com/questions/69359978/grid-table-does-not-word-wrap/69373882 */
+.wy-table-responsive table td, .wy-table-responsive table th {
+    white-space: inherit;
+}

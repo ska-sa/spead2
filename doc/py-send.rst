@@ -129,7 +129,7 @@ but does not currently exist at runtime).
 
 .. py:class:: spead2.send.SyncStream()
 
-   .. py:method:: send_heap(heap, cnt=-1, substream_index=0)
+   .. py:method:: send_heap(heap, cnt=-1, substream_index=0, rate=-1.0)
 
       Send a :py:class:`spead2.send.Heap` to the peer, and wait for
       completion. There is currently no indication of whether it successfully
@@ -141,6 +141,10 @@ but does not currently exist at runtime).
       responsibility to avoid collisions.
 
       See :ref:`py-substreams` for a description of `substream_index`.
+
+      Normally a rate is set for the whole stream, but it can be overridden
+      here by providing a non-negative value. See
+      :py:class:`spead2.send.StreamConfig` for the interpretation.
 
    .. py:method:: send_heaps(heaps, mode)
 
@@ -154,7 +158,7 @@ but does not currently exist at runtime).
       future.
 
       :param heaps: A list of heaps to send
-      :type heaps: List[spead2.send.HeapReference] | spead2.send.HeapReferenceList
+      :type heaps: list[spead2.send.HeapReference] | spead2.send.HeapReferenceList
       :param spead2.send.GroupMode mode: Controls the packet ordering
 
    .. py:method:: set_cnt_sequence(next, step)
@@ -190,7 +194,7 @@ substream (for backwards compatibility).
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
    :param endpoints: Peer endpoints (one per substream)
-   :type endpoints: List[Tuple[str, int]]
+   :type endpoints: list[tuple[str, int]]
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
@@ -207,7 +211,7 @@ substream (for backwards compatibility).
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
    :param endpoints: Peer endpoints (one per substream)
-   :type endpoints: List[Tuple[str, int]]
+   :type endpoints: list[tuple[str, int]]
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
@@ -222,7 +226,7 @@ substream (for backwards compatibility).
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
    :param endpoints: Peer endpoints (one per substream)
-   :type endpoints: List[Tuple[str, int]]
+   :type endpoints: list[tuple[str, int]]
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
@@ -239,7 +243,7 @@ substream (for backwards compatibility).
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
    :param endpoints: Peer endpoints (one per substream)
-   :type endpoints: List[Tuple[str, int]]
+   :type endpoints: list[tuple[str, int]]
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
@@ -260,7 +264,7 @@ substream (for backwards compatibility).
    :type thread_pool: :py:class:`spead2.ThreadPool`
    :param socket.socket socket: UDP socket
    :param endpoints: Peer endpoints (one per substream)
-   :type endpoints: List[Tuple[str, int]]
+   :type endpoints: list[tuple[str, int]]
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
 
@@ -270,7 +274,7 @@ substream (for backwards compatibility).
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
    :param endpoints: Peer endpoints (one per substream)
-   :type endpoints: List[Tuple[str, int]]
+   :type endpoints: list[tuple[str, int]]
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
@@ -296,7 +300,7 @@ consistency with :class:`~spead2.send.UdpStream`).
    :param thread_pool: Thread pool handling the I/O
    :type thread_pool: :py:class:`spead2.ThreadPool`
    :param endpoints: Peer endpoint (must contain exactly one element).
-   :type endpoints: List[Tuple[str, int]]
+   :type endpoints: list[tuple[str, int]]
    :param config: Stream configuration
    :type config: :py:class:`spead2.send.StreamConfig`
    :param int buffer_size: Socket buffer size. A warning is logged if this
@@ -362,7 +366,7 @@ currently exist at runtime):
 
 .. class:: spead2.send.asyncio.AsyncStream()
 
-   .. py:method:: async_send_heap(heap, cnt=-1, substream_index=0)
+   .. py:method:: async_send_heap(heap, cnt=-1, substream_index=0, rate=-1.0)
 
       Send a heap asynchronously. Note that this is *not* a coroutine:
       it returns a future. Adding the heap to the queue is done
@@ -371,6 +375,7 @@ currently exist at runtime):
       :param heap: Heap to send
       :type heap: :py:class:`spead2.send.Heap`
       :param int cnt: Heap cnt to send (defaults to auto-incrementing)
+      :param float rate: Rate at which to transmit (defaults to the stream's rate)
 
    .. py:method:: async_send_heaps(heaps, mode)
 
@@ -383,7 +388,7 @@ currently exist at runtime):
       :py:meth:`~spead2.send.SyncStream.send_heaps`.
 
       :param heaps: A list of heaps to send
-      :type heaps: List[spead2.send.HeapReference] | spead2.send.HeapReferenceList
+      :type heaps: list[spead2.send.HeapReference] | spead2.send.HeapReferenceList
       :param spead2.send.GroupMode mode: Controls the packet ordering
 
    .. py:method:: flush
@@ -418,7 +423,7 @@ heaps to be sent at once. There are a few reasons one might want to do this:
    a steady flow of packets rather than sending a full heap to one substream,
    then a full heap to the next etc.
 
-.. py:class:: spead2.send.HeapReference(heap, *, cnt=-1, substream_index=0)
+.. py:class:: spead2.send.HeapReference(heap, *, cnt=-1, substream_index=0, rate=-1.0)
 
    A thin wrapper around a :class:`~spead2.send.Heap`, heap cnt and substream
    index, for passing to :py:meth:`~spead2.send.SyncStream.send_heaps`. The
@@ -448,7 +453,8 @@ front and then using repeatedly.
 
    An opaque copy of a list of :class:`~spead2.send.HeapReference`. It can
    be passed to :py:meth:`~spead2.send.SyncStream.send_heaps` in place of
-   a list.
+   a list. It can also be indexed with a slice to create a new
+   :class:`~.HeapReferenceList` with a subset of the original heaps.
 
    :param heaps: The heap references to store
-   :type heaps: List[spead2.send.HeapReference]
+   :type heaps: list[spead2.send.HeapReference]

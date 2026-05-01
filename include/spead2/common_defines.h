@@ -1,4 +1,4 @@
-/* Copyright 2015, 2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2020, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -28,19 +28,10 @@
 #include <utility>
 #include <string>
 #include <functional>
+#include <spead2/common_features.h>
 
 #ifndef SPEAD2_MAX_LOG_LEVEL
 #define SPEAD2_MAX_LOG_LEVEL (spead2::log_level::info)
-#endif
-
-// It's nominally a C++14 feature, but both GCC and Clang support it in C++11 mode
-#if defined(__has_cpp_attribute)
-# if __has_cpp_attribute(deprecated)
-#  define SPEAD2_DEPRECATED(msg) [[deprecated(msg)]]
-# endif
-#endif
-#ifndef SPEAD2_DEPRECATED
-# define SPEAD2_DEPRECATED(msg)
 #endif
 
 /**
@@ -134,11 +125,9 @@ static constexpr int maximum_version = 4;
 namespace detail
 {
     /**
-     * Best guess at size of a cache line.
-     *
-     * This could in future be replaced by
-     * std::hardware_destructive_interference_size, but that requires C++17 and
-     * even then neither Clang nor GCC implement it at the time of writing.
+     * Best guess at size of a cache line. While C++17 provides
+     * std::hardware_destructive_interference_size, compiler support is poor,
+     * and GCC 12 additionally spews out a warning if you use it
      */
     static constexpr int cache_line_size = 64;
 }

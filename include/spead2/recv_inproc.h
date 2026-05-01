@@ -1,4 +1,4 @@
-/* Copyright 2018 National Research Foundation (SARAO)
+/* Copyright 2018, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -24,12 +24,9 @@
 #include <memory>
 #include <boost/asio.hpp>
 #include <spead2/common_inproc.h>
-#include <spead2/recv_reader.h>
 #include <spead2/recv_stream.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /**
@@ -43,8 +40,11 @@ private:
 
     void process_one_packet(stream_base::add_packet_state &state,
                             const inproc_queue::packet &packet);
-    void packet_handler(const boost::system::error_code &error, std::size_t bytes_received);
-    void enqueue();
+    void packet_handler(
+        handler_context ctx,
+        stream_base::add_packet_state &state,
+        const boost::system::error_code &error);
+    void enqueue(handler_context ctx);
 
 public:
     /// Constructor.
@@ -52,11 +52,11 @@ public:
         stream &owner,
         std::shared_ptr<inproc_queue> queue);
 
+    virtual void start() override;
     virtual void stop() override;
     virtual bool lossy() const override;
 };
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_INPROC_H

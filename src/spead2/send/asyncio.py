@@ -1,4 +1,4 @@
-# Copyright 2015, 2019-2020 National Research Foundation (SARAO)
+# Copyright 2015, 2019-2020, 2022, 2024 National Research Foundation (SARAO)
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -19,10 +19,21 @@ Integration between spead2.send and asyncio
 
 import asyncio
 
+from spead2._spead2.send import (
+    InprocStreamAsyncio as _InprocStreamAsyncio,
+    TcpStreamAsyncio as _TcpStreamAsyncio,
+    UdpStreamAsyncio as _UdpStreamAsyncio,
+)
 
-from spead2._spead2.send import UdpStreamAsyncio as _UdpStreamAsyncio
-from spead2._spead2.send import TcpStreamAsyncio as _TcpStreamAsyncio
-from spead2._spead2.send import InprocStreamAsyncio as _InprocStreamAsyncio
+
+def _set_result(future, result):
+    if not future.done():
+        future.set_result(result)
+
+
+def _set_exception(future, exc):
+    if not future.done():
+        future.set_exception(exc)
 
 
 def _wrap_class(name, base_class):
@@ -38,13 +49,14 @@ def _wrap_class(name, base_class):
 
             def callback(exc, bytes_transferred):
                 if exc is not None:
-                    future.set_exception(exc)
+                    _set_exception(future, exc)
                 else:
-                    future.set_result(bytes_transferred)
+                    _set_result(future, bytes_transferred)
                 self._active -= 1
                 if self._active == 0:
                     loop.remove_reader(self.fd)
                     self._last_queued_future = None  # Purely to free the memory
+
             queued = call(callback)
             if self._active == 0:
                 loop.add_reader(self.fd, self.process_callbacks)
@@ -53,7 +65,7 @@ def _wrap_class(name, base_class):
                 self._last_queued_future = future
             return future
 
-        def async_send_heap(self, heap, cnt=-1, substream_index=0):
+        def async_send_heap(self, heap, cnt=-1, substream_index=0, rate=-1.0):
             """Send a heap asynchronously. Note that this is *not* a coroutine:
             it returns a future. Adding the heap to the queue is done
             synchronously, to ensure proper ordering.
@@ -66,15 +78,18 @@ def _wrap_class(name, base_class):
                 Heap cnt to send (defaults to auto-incrementing)
             substream_index : int, optional
                 Substream on which to send the heap
+            rate : float, optional
+                Rate at which to send the heap (defaults to the stream's
+                rate).
             """
             meth = super().async_send_heap
             return self._async_send(
-                lambda callback: meth(heap, callback, cnt, substream_index))
+                lambda callback: meth(heap, callback, cnt, substream_index, rate)
+            )
 
         def async_send_heaps(self, heaps, mode):
             meth = super().async_send_heaps
-            return self._async_send(
-                lambda callback: meth(heaps, callback, mode))
+            return self._async_send(lambda callback: meth(heaps, callback, mode))
 
         async def async_flush(self):
             """Asynchronously wait for all enqueued heaps to be sent. Note that
@@ -88,16 +103,17 @@ def _wrap_class(name, base_class):
     return Wrapped
 
 
-UdpStream = _wrap_class('UdpStream', _UdpStreamAsyncio)
-UdpStream.__doc__ = \
-    """SPEAD over UDP with asynchronous sends. The other constructors
-    defined for :py:class:`spead2.send.UdpStream` are also applicable here.
+UdpStream = _wrap_class("UdpStream", _UdpStreamAsyncio)
+UdpStream.__doc__ = """SPEAD over UDP with asynchronous sends.
+
+    The other constructors defined for :py:class:`spead2.send.UdpStream` are
+    also applicable here.
 
     Parameters
     ----------
     thread_pool : :py:class:`spead2.ThreadPool`
         Thread pool handling the I/O
-    endpoints : List[Tuple[str, int]]
+    endpoints : list[tuple[str, int]]
         Peer endpoints (one per substreams).
     config : :py:class:`spead2.send.StreamConfig`
         Stream configuration
@@ -106,7 +122,7 @@ UdpStream.__doc__ = \
         to OS limits.
     """
 
-_TcpStreamBase = _wrap_class('TcpStream', _TcpStreamAsyncio)
+_TcpStreamBase = _wrap_class("TcpStream", _TcpStreamAsyncio)
 
 
 class TcpStream(_TcpStreamBase):
@@ -137,20 +153,18 @@ class TcpStream(_TcpStreamBase):
         loop = asyncio.get_event_loop()
 
         def callback(arg):
-            if not future.done():
-                if isinstance(arg, Exception):
-                    loop.call_soon_threadsafe(future.set_exception, arg)
-                else:
-                    loop.call_soon_threadsafe(future.set_result, arg)
+            if isinstance(arg, Exception):
+                loop.call_soon_threadsafe(_set_exception, future, arg)
+            else:
+                loop.call_soon_threadsafe(_set_result, future, arg)
 
         stream = cls(callback, *args, **kwargs)
         await future
         return stream
 
 
-InprocStream = _wrap_class('InprocStream', _InprocStreamAsyncio)
-InprocStream.__doc__ = \
-    """SPEAD over reliable in-process transport.
+InprocStream = _wrap_class("InprocStream", _InprocStreamAsyncio)
+InprocStream.__doc__ = """SPEAD over reliable in-process transport.
 
     .. note::
 
@@ -163,7 +177,7 @@ InprocStream.__doc__ = \
     ----------
     thread_pool : :py:class:`spead2.ThreadPool`
         Thread pool handling the I/O
-    queues : List[:py:class:`spead2.InprocQueue`]
+    queues : list[:py:class:`spead2.InprocQueue`]
         Queue holding the data in flight
     config : :py:class:`spead2.send.StreamConfig`
         Stream configuration
@@ -172,15 +186,14 @@ InprocStream.__doc__ = \
 try:
     from spead2._spead2.send import UdpIbvStreamAsyncio as _UdpIbvStreamAsyncio
 
-    UdpIbvStream = _wrap_class('UdpIbvStream', _UdpIbvStreamAsyncio)
-    UdpIbvStream.__doc__ = \
-        """Like :class:`UdpStream`, but using the Infiniband Verbs API.
+    UdpIbvStream = _wrap_class("UdpIbvStream", _UdpIbvStreamAsyncio)
+    UdpIbvStream.__doc__ = """Like :class:`UdpStream`, but using the Infiniband Verbs API.
 
         Parameters
         ----------
         thread_pool : :py:class:`spead2.ThreadPool`
             Thread pool handling the I/O
-        endpoints : List[Tuple[str, int]]
+        endpoints : list[tuple[str, int]]
             Destinations to transmit to. For backwards compatibility, one can
             also provide a single address and port as two separate
             parameters.

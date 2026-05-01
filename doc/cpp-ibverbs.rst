@@ -21,7 +21,7 @@ PeerDirect
 ----------
 The pointer given to
 :cpp:func:`spead2::send::udp_ibv_config::add_memory_region` is passed to
-:cpp:func:`!ibv_reg_mr`. When using a Mellanox NIC, this can be a pointer that is
+:cpp:func:`!ibv_reg_mr`. When using an NVIDIA NIC, this can be a pointer that is
 handled by PeerDirect, such as a GPU device pointer. This can be used to
 transfer data directly from a GPU to the network without passing though the
 CPU.

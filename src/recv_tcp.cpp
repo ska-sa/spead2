@@ -30,37 +30,43 @@
 #include <cstdlib>
 #include <functional>
 #include <boost/asio.hpp>
-#include <spead2/recv_reader.h>
+#include <spead2/recv_stream.h>
 #include <spead2/recv_tcp.h>
 #include <spead2/common_endian.h>
 #include <spead2/common_logging.h>
 #include <spead2/common_socket.h>
 
-namespace spead2
+namespace spead2::recv
 {
-namespace recv
-{
-
-constexpr std::size_t tcp_reader::pkts_per_buffer;
-constexpr std::size_t tcp_reader::default_max_size;
-constexpr std::size_t tcp_reader::default_buffer_size;
 
 tcp_reader::tcp_reader(
     stream &owner,
     boost::asio::ip::tcp::acceptor &&acceptor,
     std::size_t max_size,
     std::size_t buffer_size)
-    : reader(owner), acceptor(std::move(acceptor)),
-    peer(get_socket_io_service(this->acceptor)),
+    : reader(owner),
     max_size(max_size),
     buffer(new std::uint8_t[max_size * pkts_per_buffer]),
     head(buffer.get()),
-    tail(buffer.get())
+    tail(buffer.get()),
+    peer(acceptor.get_executor()),
+    acceptor(std::move(acceptor))
 {
-    assert(socket_uses_io_service(this->acceptor, get_io_service()));
+    assert(socket_uses_io_context(this->acceptor, get_io_context()));
     set_socket_recv_buffer_size(this->acceptor, buffer_size);
-    this->acceptor.async_accept(peer,
-        std::bind(&tcp_reader::accept_handler, this, std::placeholders::_1));
+}
+
+void tcp_reader::start()
+{
+    /* We need to hold the stream's queue_mutex, because that guards access
+     * to the sockets. This is a heavy-weight way to do it, but since it
+     * only happens once per connection it is probably not worth trying to
+     * add a lighter-weight interface to stream.
+     */
+    using namespace std::placeholders;
+    this->acceptor.async_accept(
+        peer,
+        bind_handler(std::bind(&tcp_reader::accept_handler, this, _1, _2, _3)));
 }
 
 tcp_reader::tcp_reader(
@@ -70,7 +76,7 @@ tcp_reader::tcp_reader(
     std::size_t buffer_size)
     : tcp_reader(
           owner,
-          boost::asio::ip::tcp::acceptor(owner.get_io_service(), endpoint),
+          boost::asio::ip::tcp::acceptor(owner.get_io_context(), endpoint),
           max_size, buffer_size)
 {
 }
@@ -84,11 +90,11 @@ tcp_reader::tcp_reader(
 }
 
 void tcp_reader::packet_handler(
+    handler_context ctx,
+    stream_base::add_packet_state &state,
     const boost::system::error_code &error,
     std::size_t bytes_transferred)
 {
-    stream_base::add_packet_state state(get_stream_base());
-
     bool read_more = false;
     if (!error)
     {
@@ -106,18 +112,13 @@ void tcp_reader::packet_handler(
         log_warning("Error in TCP receiver: %1%", error.message());
 
     if (read_more)
-        enqueue_receive();
-    else
-    {
-        peer.close();
-        stopped();
-    }
+        enqueue_receive(std::move(ctx));
 }
 
 bool tcp_reader::parse_packet(stream_base::add_packet_state &state)
 {
     assert(pkt_size > 0);
-    assert(tail - head >= pkt_size);
+    assert(tail - head >= std::ptrdiff_t(pkt_size));
     // Modify private fields first, in case process_one_packet throws
     auto head = this->head;
     auto pkt_size = this->pkt_size;
@@ -214,27 +215,22 @@ bool tcp_reader::skip_bytes()
     return to_skip > 0;
 }
 
-void tcp_reader::accept_handler(const boost::system::error_code &error)
+void tcp_reader::accept_handler(
+    handler_context ctx,
+    [[maybe_unused]] stream_base::add_packet_state &state,
+    const boost::system::error_code &error)
 {
-    /* We need to hold the stream's queue_mutex, because that guards access
-     * to the sockets. This is a heavy-weight way to do it, but since it
-     * only happens once per connection it is probably not worth trying to
-     * add a lighter-weight interface to @c stream.
-     */
-    stream_base::add_packet_state state(get_stream_base());
-
     acceptor.close();
     if (!error)
-        enqueue_receive();
+        enqueue_receive(std::move(ctx));
     else
     {
         if (error != boost::asio::error::operation_aborted)
             log_warning("Error in TCP accept: %1%", error.message());
-        stopped();
     }
 }
 
-void tcp_reader::enqueue_receive()
+void tcp_reader::enqueue_receive(handler_context ctx)
 {
     using namespace std::placeholders;
 
@@ -254,7 +250,7 @@ void tcp_reader::enqueue_receive()
 
     peer.async_receive(
         boost::asio::buffer(tail, bufsize - (tail - buf)),
-        std::bind(&tcp_reader::packet_handler, this, _1, _2));
+        bind_handler(std::move(ctx), std::bind(&tcp_reader::packet_handler, this, _1, _2, _3, _4)));
 }
 
 void tcp_reader::stop()
@@ -275,5 +271,4 @@ bool tcp_reader::lossy() const
     return false;
 }
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv

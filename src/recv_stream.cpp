@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017-2021 National Research Foundation (SARAO)
+/* Copyright 2015, 2017-2021, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <cassert>
 #include <atomic>
+#include <new>
 #include <spead2/recv_stream.h>
 #include <spead2/recv_live_heap.h>
 #include <spead2/common_memcpy.h>
@@ -31,9 +32,7 @@
 
 #define INVALID_ENTRY ((queue_entry *) -1)
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 stream_stat_config::stream_stat_config(std::string name, mode mode_)
@@ -98,7 +97,7 @@ static std::size_t get_stat_index(
 }
 
 
-static std::shared_ptr<std::vector<stream_stat_config>> make_default_stats()
+static std::shared_ptr<const std::vector<stream_stat_config>> make_default_stats()
 {
     auto stats = std::make_shared<std::vector<stream_stat_config>>();
     // Keep this in sync with the stream_stat_* constexprs in the header
@@ -121,21 +120,21 @@ static std::shared_ptr<std::vector<stream_stat_config>> make_default_stats()
  * Sharing this means the compatibility check for operator+ requires only a
  * pointer comparison rather than comparing arrays.
  */
-static std::shared_ptr<std::vector<stream_stat_config>> default_stats = make_default_stats();
+static std::shared_ptr<const std::vector<stream_stat_config>> default_stats = make_default_stats();
 
 stream_stats::stream_stats()
     : stream_stats(default_stats)
 {
 }
 
-stream_stats::stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config)
+stream_stats::stream_stats(std::shared_ptr<const std::vector<stream_stat_config>> config)
     : stream_stats(config, std::vector<std::uint64_t>(config->size()))
 {
     // Note: annoyingly, can't use std::move(config) above, because we access
     // config to get the size to use for the vector.
 }
 
-stream_stats::stream_stats(std::shared_ptr<std::vector<stream_stat_config>> config,
+stream_stats::stream_stats(std::shared_ptr<const std::vector<stream_stat_config>> config,
                            std::vector<std::uint64_t> values)
     : config(std::move(config)),
     values(std::move(values)),
@@ -219,12 +218,10 @@ stream_stats &stream_stats::operator+=(const stream_stats &other)
 }
 
 
-constexpr std::size_t stream_config::default_max_heaps;
-
-static std::size_t compute_bucket_count(std::size_t max_heaps)
+static std::size_t compute_bucket_count(std::size_t total_max_heaps)
 {
     std::size_t buckets = 4;
-    while (buckets < max_heaps)
+    while (buckets < total_max_heaps)
         buckets *= 2;
     buckets *= 4;    // Make sure the table has a low load factor
     return buckets;
@@ -266,6 +263,14 @@ stream_config &stream_config::set_max_heaps(std::size_t max_heaps)
     if (max_heaps == 0)
         throw std::invalid_argument("max_heaps cannot be 0");
     this->max_heaps = max_heaps;
+    return *this;
+}
+
+stream_config &stream_config::set_substreams(std::size_t substreams)
+{
+    if (substreams == 0)
+        throw std::invalid_argument("substreams cannot be 0");
+    this->substreams = substreams;
     return *this;
 }
 
@@ -346,16 +351,21 @@ stream_config &stream_config::set_stream_id(std::uintptr_t id)
     return *this;
 }
 
+stream_config &stream_config::set_explicit_start(bool explicit_start)
+{
+    this->explicit_start = explicit_start;
+    return *this;
+}
+
 std::size_t stream_config::add_stat(std::string name, stream_stat_config::mode mode)
 {
     if (spead2::recv::get_stat_index_nothrow(*stats, name) != stats->size())
         throw std::invalid_argument("A statistic called " + name + " already exists");
-    // If we're pointing at the default, make a copy so that we don't modify
-    // the default.
-    if (stats == default_stats)
-        stats = std::make_shared<std::vector<stream_stat_config>>(*default_stats);
-    std::size_t index = stats->size();
-    stats->emplace_back(std::move(name), mode);
+    // Make a copy so that we don't modify any shared copies
+    auto new_stats = std::make_shared<std::vector<stream_stat_config>>(*stats);
+    std::size_t index = new_stats->size();
+    new_stats->emplace_back(std::move(name), mode);
+    stats = std::move(new_stats);
     return index;
 }
 
@@ -366,49 +376,57 @@ std::size_t stream_config::get_stat_index(const std::string &name) const
 
 
 stream_base::stream_base(const stream_config &config)
-    : queue_storage(new storage_type[config.get_max_heaps()]),
-    bucket_count(compute_bucket_count(config.get_max_heaps())),
+    : queue_storage(new queue_entry[config.get_max_heaps() * config.get_substreams()]),
+    bucket_count(compute_bucket_count(config.get_max_heaps() * config.get_substreams())),
     bucket_shift(compute_bucket_shift(bucket_count)),
     buckets(new queue_entry *[bucket_count]),
-    head(0),
+    substreams(new substream[config.get_substreams() + 1]),
+    substream_div(config.get_substreams()),
     config(config),
+    shared(std::make_shared<shared_state>(this)),
     stats(config.get_stats().size()),
     batch_stats(config.get_stats().size())
 {
-    for (std::size_t i = 0; i < config.get_max_heaps(); i++)
-        cast(i)->next = INVALID_ENTRY;
+    for (std::size_t i = 0; i < config.get_max_heaps() * config.get_substreams(); i++)
+        queue_storage[i].next = INVALID_ENTRY;
     for (std::size_t i = 0; i < bucket_count; i++)
         buckets[i] = NULL;
+    for (std::size_t i = 0; i <= config.get_substreams(); i++)
+    {
+        substreams[i].start = i * config.get_max_heaps();
+        substreams[i].head = substreams[i].start;
+    }
 }
 
 stream_base::~stream_base()
 {
-    for (std::size_t i = 0; i < get_config().get_max_heaps(); i++)
+    for (std::size_t i = 0; i < get_config().get_max_heaps() * get_config().get_substreams(); i++)
     {
-        queue_entry *entry = cast(i);
+        queue_entry *entry = &queue_storage[i];
         if (entry->next != INVALID_ENTRY)
         {
             unlink_entry(entry);
-            entry->heap.~live_heap();
+            entry->heap.destroy();
         }
     }
 }
 
-std::size_t stream_base::get_bucket(s_item_pointer_t heap_cnt) const
+std::size_t stream_base::get_bucket(item_pointer_t heap_cnt) const
 {
     // Look up Fibonacci hashing for an explanation of the magic number
     return (heap_cnt * 11400714819323198485ULL) >> bucket_shift;
 }
 
-stream_base::queue_entry *stream_base::cast(std::size_t index)
+std::size_t stream_base::get_substream(item_pointer_t heap_cnt) const
 {
-    return reinterpret_cast<queue_entry *>(&queue_storage[index]);
+    // libdivide doesn't provide operator %
+    return heap_cnt - (heap_cnt / substream_div * config.get_substreams());
 }
 
 void stream_base::unlink_entry(queue_entry *entry)
 {
     assert(entry->next != INVALID_ENTRY);
-    std::size_t bucket_id = get_bucket(entry->heap.get_cnt());
+    std::size_t bucket_id = get_bucket(entry->heap->get_cnt());
     queue_entry **prev = &buckets[bucket_id];
     while (*prev != entry)
     {
@@ -419,35 +437,45 @@ void stream_base::unlink_entry(queue_entry *entry)
     entry->next = INVALID_ENTRY;
 }
 
-stream_base::add_packet_state::add_packet_state(stream_base &owner)
-    : owner(owner), lock(owner.queue_mutex)
+stream_base::add_packet_state::add_packet_state(shared_state &owner)
+    : lock(owner.queue_mutex), owner(owner.self)
 {
-    std::fill(owner.batch_stats.begin(), owner.batch_stats.end(), 0);
+    if (this->owner)
+    {
+        stopped = this->owner->stopped;
+        std::fill(this->owner->batch_stats.begin(), this->owner->batch_stats.end(), 0);
+    }
+    else
+    {
+        stopped = true;
+    }
 }
 
 stream_base::add_packet_state::~add_packet_state()
 {
-    if (!packets && is_stopped())
+    if (owner && stopped)
+        owner->stop_received();
+    if (!owner || (!packets && is_stopped()))
         return;   // Stream was stopped before we could do anything - don't count as a batch
-    std::lock_guard<std::mutex> stats_lock(owner.stats_mutex);
+    std::lock_guard<std::mutex> stats_lock(owner->stats_mutex);
     // The built-in stats are updated directly; batch_stats is not used
-    owner.stats[stream_stat_indices::packets] += packets;
-    owner.stats[stream_stat_indices::batches]++;
-    owner.stats[stream_stat_indices::heaps] += complete_heaps + incomplete_heaps_evicted;
-    owner.stats[stream_stat_indices::incomplete_heaps_evicted] += incomplete_heaps_evicted;
-    owner.stats[stream_stat_indices::single_packet_heaps] += single_packet_heaps;
-    owner.stats[stream_stat_indices::search_dist] += search_dist;
-    auto &owner_max_batch = owner.stats[stream_stat_indices::max_batch];
+    owner->stats[stream_stat_indices::packets] += packets;
+    owner->stats[stream_stat_indices::batches]++;
+    owner->stats[stream_stat_indices::heaps] += complete_heaps + incomplete_heaps_evicted;
+    owner->stats[stream_stat_indices::incomplete_heaps_evicted] += incomplete_heaps_evicted;
+    owner->stats[stream_stat_indices::single_packet_heaps] += single_packet_heaps;
+    owner->stats[stream_stat_indices::search_dist] += search_dist;
+    auto &owner_max_batch = owner->stats[stream_stat_indices::max_batch];
     owner_max_batch = std::max(owner_max_batch, packets);
     // Update custom statistics
-    const auto &stats_config = owner.get_config().get_stats();
+    const auto &stats_config = owner->get_config().get_stats();
     for (std::size_t i = stream_stat_indices::custom; i < stats_config.size(); i++)
-        owner.stats[i] = stats_config[i].combine(owner.stats[i], owner.batch_stats[i]);
+        owner->stats[i] = stats_config[i].combine(owner->stats[i], owner->batch_stats[i]);
 }
 
 bool stream_base::add_packet(add_packet_state &state, const packet_header &packet)
 {
-    const stream_config &config = state.owner.get_config();
+    const stream_config &config = state.owner->get_config();
     assert(!stopped);
     state.packets++;
     if (packet.heap_length < 0 && !config.get_allow_unsized_heaps())
@@ -473,7 +501,7 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
         for (entry = buckets[bucket_id]; entry != NULL; entry = entry->next, search_dist++)
         {
             assert(entry != INVALID_ENTRY);
-            if (entry->heap.get_cnt() == heap_cnt)
+            if (entry->heap->get_cnt() == heap_cnt)
                 break;
         }
         state.search_dist += search_dist;
@@ -494,22 +522,24 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
             return false;
         }
 
-        if (++head == config.get_max_heaps())
-            head = 0;
-        entry = cast(head);
+        std::size_t substream_id = get_substream(heap_cnt);
+        substream &ss = substreams[substream_id];
+        if (++ss.head == substreams[substream_id + 1].start)
+            ss.head = ss.start;
+        entry = &queue_storage[ss.head];
         if (entry->next != INVALID_ENTRY)
         {
             state.incomplete_heaps_evicted++;
             unlink_entry(entry);
-            heap_ready(std::move(entry->heap));
-            entry->heap.~live_heap();
+            heap_ready(std::move(*entry->heap));
+            entry->heap.destroy();
         }
         entry->next = buckets[bucket_id];
         buckets[bucket_id] = entry;
-        new (&entry->heap) live_heap(packet, config.get_bug_compat());
+        entry->heap.construct(packet, config.get_bug_compat());
     }
 
-    live_heap *h = &entry->heap;
+    live_heap *h = entry->heap.get();
     bool result = false;
     bool end_of_stream = false;
     if (h->add_packet(packet, config.get_memcpy(), *config.get_memory_allocator(),
@@ -525,30 +555,35 @@ bool stream_base::add_packet(add_packet_state &state, const packet_header &packe
                 state.complete_heaps++;
                 heap_ready(std::move(*h));
             }
-            h->~live_heap();
+            entry->heap.destroy();
         }
     }
 
     if (end_of_stream)
-        stop_received();
+        state.stop();
     return result;
 }
 
 void stream_base::flush_unlocked()
 {
-    const std::size_t max_heaps = get_config().get_max_heaps();
+    const std::size_t num_substreams = get_config().get_substreams();
     std::size_t n_flushed = 0;
-    for (std::size_t i = 0; i < max_heaps; i++)
+    for (std::size_t i = 0; i < num_substreams; i++)
     {
-        if (++head == max_heaps)
-            head = 0;
-        queue_entry *entry = cast(head);
-        if (entry->next != INVALID_ENTRY)
+        substream &ss = substreams[i];
+        const std::size_t end = substreams[i + 1].start;
+        for (std::size_t j = ss.start; j < end; j++)
         {
-            n_flushed++;
-            unlink_entry(entry);
-            heap_ready(std::move(entry->heap));
-            entry->heap.~live_heap();
+            if (++ss.head == substreams[i + 1].start)
+                ss.head = ss.start;
+            queue_entry *entry = &queue_storage[ss.head];
+            if (entry->next != INVALID_ENTRY)
+            {
+                n_flushed++;
+                unlink_entry(entry);
+                heap_ready(std::move(*entry->heap));
+                entry->heap.destroy();
+            }
         }
     }
     std::lock_guard<std::mutex> stats_lock(stats_mutex);
@@ -558,7 +593,7 @@ void stream_base::flush_unlocked()
 
 void stream_base::flush()
 {
-    std::lock_guard<std::mutex> lock(queue_mutex);
+    std::lock_guard<std::mutex> lock(shared->queue_mutex);
     flush_unlocked();
 }
 
@@ -570,7 +605,7 @@ void stream_base::stop_unlocked()
 
 void stream_base::stop()
 {
-    std::lock_guard<std::mutex> lock(queue_mutex);
+    std::lock_guard<std::mutex> lock(shared->queue_mutex);
     stop_unlocked();
 }
 
@@ -578,6 +613,7 @@ void stream_base::stop_received()
 {
     assert(!stopped);
     stopped = true;
+    shared->self = nullptr;
     flush_unlocked();
 }
 
@@ -589,49 +625,53 @@ stream_stats stream_base::get_stats() const
 }
 
 
-stream::stream(io_service_ref io_service, const stream_config &config)
-    : stream_base(config),
-    thread_pool_holder(std::move(io_service).get_shared_thread_pool()),
-    io_service(*io_service)
+reader::reader(stream &owner)
+    : io_context(owner.get_io_context()), owner(owner.shared)
 {
+}
+
+bool reader::lossy() const
+{
+    return true;
+}
+
+
+stream::stream(io_context_ref io_context, const stream_config &config)
+    : stream_base(config),
+    thread_pool_holder(std::move(io_context).get_shared_thread_pool()),
+    io_context(*io_context),
+    readers_started(!config.get_explicit_start())
+{
+}
+
+void stream::start()
+{
+    std::lock_guard<std::mutex> lock(reader_mutex);
+    if (!readers_started)
+    {
+        for (const auto &r : readers)
+            r->start();
+        readers_started = true;
+    }
 }
 
 void stream::stop_received()
 {
     stream_base::stop_received();
     std::lock_guard<std::mutex> lock(reader_mutex);
-    for (const auto &reader : readers)
-        reader->stop();
+    for (const auto &r : readers)
+        r->stop();
+    /* This ensures that once we stop the readers, any future call to
+     * emplace_reader will silently be ignored. This avoids issues if there
+     * is a race between the user calling emplace_reader and a stop packet
+     * in the stream.
+     */
+    stop_readers = true;
 }
 
 void stream::stop_impl()
 {
     stream_base::stop();
-
-    std::size_t n_readers;
-    {
-        std::lock_guard<std::mutex> lock(reader_mutex);
-        /* Prevent any further calls to emplace_reader from doing anything, so
-         * that n_readers will remain accurate.
-         */
-        stop_readers = true;
-        n_readers = readers.size();
-    }
-
-    // Wait until all readers have wound up all their completion handlers
-    while (n_readers > 0)
-    {
-        semaphore_get(readers_stopped);
-        n_readers--;
-    }
-
-    {
-        /* This lock is not strictly needed since no other thread can touch
-         * readers any more, but is harmless.
-         */
-        std::lock_guard<std::mutex> lock(reader_mutex);
-        readers.clear();
-    }
 }
 
 void stream::stop()
@@ -651,9 +691,8 @@ stream::~stream()
 }
 
 
-const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::size_t length)
+const std::uint8_t *mem_to_stream(stream_base::add_packet_state &state, const std::uint8_t *ptr, std::size_t length)
 {
-    stream_base::add_packet_state state(s);
     while (length > 0 && !state.is_stopped())
     {
         packet_header packet;
@@ -670,5 +709,10 @@ const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::
     return ptr;
 }
 
-} // namespace recv
-} // namespace spead2
+const std::uint8_t *mem_to_stream(stream_base &s, const std::uint8_t *ptr, std::size_t length)
+{
+    stream_base::add_packet_state state(s);
+    return mem_to_stream(state, ptr, length);
+}
+
+} // namespace spead2::recv

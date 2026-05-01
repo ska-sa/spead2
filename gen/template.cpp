@@ -42,16 +42,13 @@ static std::exception_ptr init_result;
 static void init();
 
 {% for node in nodes %}
-{{ node | rename(node.name + '_stub') | gen }}
+{{ node | rename(node.name + '_stub') | gen_maybe_unused }}
 {
-{% for arg in (node | args) %}
-    (void) {{ arg }};
-{% endfor %}
     std::rethrow_exception(init_result);
 }
 
 {% if node.name in optional -%}
-{{ node | rename(node.name + '_missing') | gen }}
+{{ node | rename(node.name + '_missing') | gen_maybe_unused }}
 {
     throw std::system_error(EOPNOTSUPP, std::system_category(), "{{ node.name }} not found in library");
 }

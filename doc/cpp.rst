@@ -40,3 +40,4 @@ search path, and you need to set :envvar:`PKG_CONFIG_PATH` to
    cpp-logging
    cpp-ibverbs
    cpp-recv-chunk
+   cpp-recv-chunk-group

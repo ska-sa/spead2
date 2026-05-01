@@ -1,4 +1,4 @@
-/* Copyright 2020 National Research Foundation (SARAO)
+/* Copyright 2020, 2023-2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -25,19 +25,44 @@
 #include <cstdint>
 #include <boost/asio.hpp>
 #include <boost/asio/high_resolution_timer.hpp>
-#include <boost/optional.hpp>
 #include <spead2/common_thread_pool.h>
 #include <spead2/send_packet.h>
 #include <spead2/send_stream_config.h>
 
-namespace spead2
-{
-
-namespace send
+namespace spead2::send
 {
 
 namespace detail { struct queue_item; }
 class stream;
+
+namespace detail
+{
+
+/**
+ * A time with sub-nanosecond precision. See dev-send-rate-limit.rst for
+ * an explanation.
+ */
+class precise_time
+{
+public:
+    using timer_type = boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock>;
+    using coarse_type = timer_type::time_point;
+    using correction_type = std::chrono::duration<double, timer_type::time_point::period>;
+private:
+    coarse_type coarse{};
+    correction_type correction{0};
+
+    void normalize();  // ensure correction is in [0, 1)
+public:
+    precise_time() = default;
+    precise_time(const coarse_type &coarse);
+    precise_time &operator+=(const correction_type &delta);
+    bool operator<(const precise_time &other) const;
+
+    const coarse_type &get_coarse() const { return coarse; }
+};
+
+} // namespace detail
 
 /**
  * Back-end for a @ref stream. A writer is responsible for retrieving packets
@@ -47,7 +72,7 @@ class stream;
  * Each stream class will need to implement a subclass of @ref writer. At a
  * minimum, it will need to implement @ref wakeup and @ref get_num_substreams.
  *
- * A writer is intended to run on an io_service. It is *not* thread-safe, so
+ * A writer is intended to run on an io_context. It is *not* thread-safe, so
  * the subclass must ensure that only one handler runs at a time.
  *
  * The @ref wakeup handler should use @ref get_packet to try to retrieve
@@ -61,7 +86,7 @@ class stream;
  * It is not safe to call @ref wakeup (or @ref post_wakeup) immediately after
  * construction, because the associated stream is not yet known. If there is
  * initialisation that has the potential to interact with the stream
- * (including by posting a callback, which the io_service might immediately run
+ * (including by posting a callback, which the io_context might immediately run
  * on another thread), it should be done by overriding @ref start.
  */
 class writer
@@ -90,25 +115,27 @@ protected:
 private:
     friend class stream;
 
-    typedef boost::asio::basic_waitable_timer<std::chrono::high_resolution_clock> timer_type;
+    using precise_time = detail::precise_time;
+    using timer_type = precise_time::timer_type;
 
     const stream_config config;    // TODO: probably doesn't need the whole thing
-    const double seconds_per_byte_burst, seconds_per_byte;
 
-    io_service_ref io_service;
+    io_context_ref io_context;
 
     /// Timer for sleeping for rate limiting
     timer_type timer;
     /// Time at which next burst should be sent, considering the burst rate
-    timer_type::time_point send_time_burst;
+    precise_time send_time_burst;
     /// Time at which next burst should be sent, considering the average rate
-    timer_type::time_point send_time;
+    precise_time send_time;
     /// If true, rate_bytes is never incremented and hence we never sleep
     bool hw_rate = false;
     /// If true, we're not handling more packets until we've slept
     bool must_sleep = false;
     /// Number of bytes sent since send_time and sent_time_burst were updated
     std::uint64_t rate_bytes = 0;
+    /// Amount to add to send_time on next update
+    precise_time::correction_type rate_wait{0};
 
     // Local copies of the head/tail pointers from the owning stream,
     // accessible without a lock.
@@ -200,19 +227,21 @@ protected:
     /// Schedule wakeup to be called immediately.
     void post_wakeup();
 
-    writer(io_service_ref io_service, const stream_config &config);
+    writer(io_context_ref io_context, const stream_config &config);
 
 public:
     virtual ~writer() = default;
 
-    /// Retrieve the io_service used for processing the stream
-    boost::asio::io_service &get_io_service() const { return *io_service; }
+    /// Retrieve the io_context used for processing the stream
+    boost::asio::io_context &get_io_context() const { return *io_context; }
+    /// Retrieve the io_context used for processing the stream (deprecated)
+    [[deprecated("use get_io_context")]]
+    boost::asio::io_context &get_io_service() const { return *io_context; }
 
     /// Number of substreams
     virtual std::size_t get_num_substreams() const = 0;
 };
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_WRITER_H

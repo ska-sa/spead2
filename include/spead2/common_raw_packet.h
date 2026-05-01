@@ -187,6 +187,26 @@ public:
     ipv4_packet payload_ipv4() const;
 };
 
+/* Wraps a block of contiguous data and provides access to the linux sll
+ * frame header fields.
+ */
+class linux_sll_frame : public packet_buffer
+{
+public:
+    static constexpr std::size_t min_size = 16;
+
+    linux_sll_frame() = default;
+    linux_sll_frame(void *ptr, std::size_t size);
+
+    SPEAD2_DECLARE_FIELD_BE(0, std::uint16_t, packet_type)
+    SPEAD2_DECLARE_FIELD_BE(2, std::uint16_t, arphrd_type)
+    SPEAD2_DECLARE_FIELD_BE(4, std::uint16_t, link_layer_address_length)
+    SPEAD2_DECLARE_FIELD(6, std::uint64_t, link_layer_address,)
+    SPEAD2_DECLARE_FIELD_BE(14, std::uint16_t, protocol_type)
+
+    ipv4_packet payload_ipv4() const;
+};
+
 #undef SPEAD2_DECLARE_FIELD
 
 class packet_type_error : public std::runtime_error
@@ -202,6 +222,15 @@ public:
  * @throws packet_type_error if there are other problems e.g. it is not an IPv4 packet
  */
 packet_buffer udp_from_ethernet(void *ptr, size_t size);
+
+/**
+ * Inspect a Linux SLL encapsulation frame (used when listening to the "any"
+ * device) to extract the UDP4 payload, with sanity checks.
+ *
+ * @throws length_error if any length fields are invalid
+ * @throws packet_type_error if there are other problems e.g. it is not an IPv4 packet
+ */
+packet_buffer udp_from_linux_sll(void *ptr, size_t size);
 
 } // namespace spead2
 

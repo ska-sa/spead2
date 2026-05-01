@@ -1,4 +1,4 @@
-/* Copyright 2015, 2017, 2020 National Research Foundation (SARAO)
+/* Copyright 2015, 2017, 2020, 2023, 2025 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -36,6 +36,7 @@
 #if SPEAD2_USE_IBV
 # include <spead2/common_ibv.h>
 #endif
+#include "common_unique.h"
 
 namespace py = pybind11;
 
@@ -93,15 +94,14 @@ template class socket_wrapper<boost::asio::ip::tcp::socket>;
 template class socket_wrapper<boost::asio::ip::tcp::acceptor>;
 
 boost::asio::ip::address make_address_no_release(
-    boost::asio::io_service &io_service, const std::string &hostname,
+    boost::asio::io_context &io_context, const std::string &hostname,
     boost::asio::ip::resolver_query_base::flags flags)
 {
     if (hostname == "")
         return boost::asio::ip::address();
     using boost::asio::ip::udp;
-    udp::resolver resolver(io_service);
-    udp::resolver::query query(hostname, "", flags);
-    return resolver.resolve(query)->endpoint().address();
+    udp::resolver resolver(io_context);
+    return resolver.resolve(hostname, "", flags).begin()->endpoint().address();
 }
 
 void deprecation_warning(const char *msg)
@@ -124,7 +124,7 @@ void thread_pool_wrapper::stop()
 
 py::buffer_info request_buffer_info(const py::buffer &buffer, int extra_flags)
 {
-    std::unique_ptr<Py_buffer> view(new Py_buffer);
+    auto view = detail::make_unique_for_overwrite<Py_buffer>();
     int flags = PyBUF_STRIDES | PyBUF_FORMAT | extra_flags;
     if (PyObject_GetBuffer(buffer.ptr(), view.get(), flags) != 0)
         throw py::error_already_set();
@@ -133,7 +133,6 @@ py::buffer_info request_buffer_info(const py::buffer &buffer, int extra_flags)
     return info;
 }
 
-constexpr unsigned int log_function_python::num_levels;
 const char *const log_function_python::level_methods[log_function_python::num_levels] =
 {
     "warning",
@@ -159,7 +158,8 @@ void log_function_python::run()
         {
             auto msg = ring.pop();
             py::gil_scoped_acquire gil;
-            log(msg.first, msg.second);
+            auto &[level, text] = msg;
+            log(level, text);
             /* If there are multiple messages queued, consume them while
              * the GIL is held, rather than dropping and regaining the
              * GIL; but limit it, so that we don't starve other threads
@@ -170,7 +170,8 @@ void log_function_python::run()
                 for (int pass = 1; pass < 1024; pass++)
                 {
                     msg = ring.try_pop();
-                    log(msg.first, msg.second);
+                    auto &[level, text] = msg;
+                    log(level, text);
                 }
             }
             catch (ringbuffer_empty &)
@@ -287,24 +288,24 @@ void register_module(py::module m)
         .def(py::init<>())
         .def(py::self == py::self)
         .def(py::self != py::self)
-        .def_property_readonly("version", SPEAD2_PTMF(flavour, get_version))
-        .def_property_readonly("item_pointer_bits", SPEAD2_PTMF(flavour, get_item_pointer_bits))
-        .def_property_readonly("heap_address_bits", SPEAD2_PTMF(flavour, get_heap_address_bits))
-        .def_property_readonly("bug_compat", SPEAD2_PTMF(flavour, get_bug_compat));
+        .def_property_readonly("version", &flavour::get_version)
+        .def_property_readonly("item_pointer_bits", &flavour::get_item_pointer_bits)
+        .def_property_readonly("heap_address_bits", &flavour::get_heap_address_bits)
+        .def_property_readonly("bug_compat", &flavour::get_bug_compat);
 
     py::class_<memory_allocator, std::shared_ptr<memory_allocator>>(m, "MemoryAllocator")
         .def(py::init<>());
 
     py::class_<mmap_allocator, memory_allocator, std::shared_ptr<mmap_allocator>>(
         m, "MmapAllocator")
-        .def(py::init<int>(), "flags"_a=0);
+        .def(py::init<int, bool>(), "flags"_a=0, "prefer_huge"_a=false);
 
     py::class_<memory_pool, memory_allocator, std::shared_ptr<memory_pool>>(
         m, "MemoryPool")
         .def(py::init<std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(),
              "lower"_a, "upper"_a, "max_free"_a, "initial"_a, py::arg_v("allocator", nullptr, "None"))
         .def(py::init<std::shared_ptr<thread_pool>, std::size_t, std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(),
-             "thread_pool"_a, "lower"_a, "upper"_a, "max_free"_a, "initial"_a, "low_water"_a, "allocator"_a)
+             "thread_pool"_a, "lower"_a, "upper"_a, "max_free"_a, "initial"_a, "low_water"_a, py::arg_v("allocator", nullptr, "None"))
         .def_property("warn_on_empty",
                       &memory_pool::get_warn_on_empty, &memory_pool::set_warn_on_empty);
 
@@ -312,7 +313,7 @@ void register_module(py::module m)
         .def(py::init<int>(), "threads"_a = 1)
         .def(py::init<int, const std::vector<int> &>(), "threads"_a, "affinity"_a)
         .def_static("set_affinity", &thread_pool_wrapper::set_affinity)
-        .def("stop", SPEAD2_PTMF(thread_pool_wrapper, stop));
+        .def("stop", &thread_pool_wrapper::stop);
 
     py::class_<inproc_queue, std::shared_ptr<inproc_queue>>(m, "InprocQueue")
         .def(py::init<>())
@@ -321,11 +322,11 @@ void register_module(py::module m)
             py::buffer_info info = request_buffer_info(obj, PyBUF_C_CONTIGUOUS);
             inproc_queue::packet pkt;
             pkt.size = info.size * info.itemsize;
-            pkt.data = std::unique_ptr<std::uint8_t[]>{new std::uint8_t[pkt.size]};
+            pkt.data = detail::make_unique_for_overwrite<std::uint8_t[]>(pkt.size);
             std::memcpy(pkt.data.get(), info.ptr, pkt.size);
             self.add_packet(std::move(pkt));
         }, "packet")
-        .def("stop", SPEAD2_PTMF(inproc_queue, stop));
+        .def("stop", &inproc_queue::stop);
 
     py::class_<descriptor>(m, "RawDescriptor")
         .def(py::init<>())
@@ -369,9 +370,9 @@ void register_module(py::module m)
         .def(py::init([](const std::string &interface_address)
             {
                 py::gil_scoped_release release;
-                boost::asio::io_service io_service;
+                boost::asio::io_context io_context;
                 return ibv_context_t(make_address_no_release(
-                    io_service, interface_address, boost::asio::ip::udp::resolver::query::passive));
+                    io_context, interface_address, boost::asio::ip::udp::resolver::passive));
             }), "interface"_a)
         .def("reset", [](ibv_context_t &self) { self.reset(); })
     ;
@@ -402,9 +403,7 @@ namespace
 {
 
 /* Function object that acts as a deleter for a wrapped buffer_allocation. It's
- * a class rather than a lambda so that the shared_ptr can be constructed by
- * move instead of copy in C++11 (which doesn't support C++14 generalised
- * lambda captures), and to provide get_allocation.
+ * a class rather than a lambda to provide get_allocation.
  *
  * It needs to hold a shared_ptr rather than a unique_ptr because std::function
  * requires the function to be copyable. In practice it is unlikely to be
@@ -419,7 +418,7 @@ public:
     explicit buffer_allocation_deleter(std::shared_ptr<buffer_allocation> alloc)
         : alloc(std::move(alloc)) {}
 
-    void operator()(std::uint8_t *ptr) const
+    void operator()([[maybe_unused]] std::uint8_t *ptr) const
     {
         alloc->buffer_info = py::buffer_info();
         alloc->obj = py::object();
@@ -444,12 +443,12 @@ buffer_allocation *get_buffer_allocation(const memory_allocator::pointer &ptr)
 
 } // namespace spead2
 
-namespace pybind11
+namespace PYBIND11_NAMESPACE
 {
 namespace detail
 {
 
-bool type_caster<spead2::memory_allocator::pointer>::load(handle src, bool convert)
+bool type_caster<spead2::memory_allocator::pointer>::load(handle src, [[maybe_unused]] bool convert)
 {
     if (src.is_none())
     {
@@ -479,4 +478,4 @@ handle type_caster<spead2::memory_allocator::pointer>::cast(
 }
 
 } // namespace detail
-} // namespace pybind11
+} // namespace PYBIND11_NAMESPACE

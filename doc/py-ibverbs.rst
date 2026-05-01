@@ -2,7 +2,7 @@ Support for ibverbs
 ===================
 Receiver performance can be significantly improved by using the Infiniband
 Verbs API instead of the BSD sockets API. This is currently only tested on
-Linux with ConnectX®-5 NICs. It depends on device managed flow steering
+Linux with ConnectX® NICs. It depends on device managed flow steering
 (DMFS).
 
 There are a number of limitations in the current implementation:
@@ -14,12 +14,12 @@ There are a number of limitations in the current implementation:
 Within these limitations, it is quite easy to take advantage of this faster
 code path. The main difficulties are that one *must* specify the IP address of
 the interface that will send or receive the packets, and that the
-``CAP_NET_RAW`` capability may be needed. The netifaces_ module can
+``CAP_NET_RAW`` capability may be needed. The netifaces2_ module can
 help find the IP address for an interface by name, and the
 :ref:`spead2_net_raw` tool simplifies the process of getting the
 ``CAP_NET_RAW`` capability.
 
-.. _netifaces: https://pypi.python.org/pypi/netifaces
+.. _netifaces2: https://github.com/SamuelYvon/netifaces-2
 
 System configuration
 --------------------
@@ -39,7 +39,7 @@ Add the following to :file:`/etc/modprobe.d/mlnx.conf`::
    manual_ for details), but can improve performance when capturing a large
    number of multicast groups.
 
-   .. _manual: http://www.mellanox.com/related-docs/prod_software/Mellanox_EN_for_Linux_User_Manual_v4_3.pdf
+   .. _manual: https://docs.nvidia.com/networking/display/MLNXENv495100/Flow+Steering
 
 ConnectX®-4+, MLNX OFED up to 4.9
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -51,10 +51,20 @@ All other cases
 ^^^^^^^^^^^^^^^
 No system configuration is needed, but the ``CAP_NET_RAW`` capability is
 required. Running as root will achieve this; a full discussion of Linux
-capabilities is beyond the scope of this manual.
+capabilities is beyond the scope of this manual. The :ref:`spead2_net_raw`
+utility can also be used to give users access to this capability without
+exposing full root access.
 For more information, see the `libvma documentation`_.
 
 .. _libvma documentation: https://docs.mellanox.com/category/vma
+
+Multicast loopback
+^^^^^^^^^^^^^^^^^^
+By default, multicast traffic sent using ibverbs can also be received on the
+same port. While convenient, this is a slow path in the NIC, and can limit
+performance. To disable this loopback, write ``1`` to
+:samp:`/sys/class/net/{interface}/settings/force_local_lb_disable` (note that
+the setting does not persist across reboots).
 
 Receiving
 ---------
@@ -66,7 +76,7 @@ The configuration is specified using a :py:class:`spead.recv.UdpIbvConfig`.
 .. py:class:: spead2.recv.UdpIbvConfig(*, endpoints=[], interface_address='', buffer_size=DEFAULT_BUFFER_SIZE, max_size=DEFAULT_MAX_SIZE, comp_vector=0, max_poll=DEFAULT_MAX_POLL)
 
    :param endpoints: Peer endpoints
-   :type endpoints: List[Tuple[str, int]]
+   :type endpoints: list[tuple[str, int]]
    :param str interface_address: Hostname/IP address of the interface which
      will be subscribed
    :param int buffer_size: Requested memory allocation for work requests.
@@ -137,7 +147,7 @@ configuration:
 .. py:class:: spead2.send.UdpIbvConfig(*, endpoints=[], interface_address='', buffer_size=DEFAULT_BUFFER_SIZE, ttl=1, comp_vector=0, max_poll=DEFAULT_MAX_POLL, memory_regions=[])
 
    :param endpoints: Peer endpoints (one per substream)
-   :type endpoints: List[Tuple[str, int]]
+   :type endpoints: list[tuple[str, int]]
    :param str interface_address: Hostname/IP address of the interface which
      will be subscribed
    :param int buffer_size: Requested memory allocation for work requests.
@@ -157,7 +167,7 @@ configuration:
      waiting for an interrupt (if `comp_vector` is
      non-negative) or letting other code run on the
      thread (if `comp_vector` is negative).
-   :param List[object] memory_regions: Objects implementing the buffer
+   :param list[object] memory_regions: Objects implementing the buffer
      protocol that will be used to hold item data. This is not required, but
      data stored in these buffers may be transmitted directly without
      requiring a copy, yielding higher performance. There may be

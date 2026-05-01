@@ -10,7 +10,7 @@ To allow for code that wishes to support both version 3 and older versions,
 C++ macros are defined to allow the version number to be interrogated at
 compile time. Thus, version 3 can be detected as
 
-.. code:: c++
+.. code-block:: c++
 
    #if defined(SPEAD2_MAJOR) && SPEAD2_MAJOR >= 3
    // Version 3 or later
@@ -40,7 +40,7 @@ include the breaking changes.
    Full spead2 version number, as a string constant.
 
 In Python, one can get the full version string from
-:py:data:`spead2.__version__`. Use the classes in :py:mod:`distutils.version`
+:py:data:`spead2.__version__`. Use the classes in :py:mod:`packaging.version`
 to analyse it.
 
 Receive stream configuration
@@ -73,7 +73,7 @@ arguments. To make it convenient to construct temporaries, the
 setter methods return the object, allowing configurations to be constructed in
 a "fluent" style e.g.:
 
-.. code:: c++
+.. code-block:: c++
 
    spead2::send::stream_config().set_max_packet_size(9172).set_rate(1e6)
 
@@ -114,9 +114,8 @@ details.
 Loop argument to asyncio functions
 ----------------------------------
 The Python asyncio-based classes and functions no longer take a `loop`
-argument. As of Python 3.6 (which is now the minimum supported version),
-:py:func:`asyncio.get_event_loop` returns the executing event loop, so there
-is no need to pass the loop explicitly.
+argument. As of Python 3.6, :py:func:`asyncio.get_event_loop` returns the
+executing event loop, so there is no need to pass the loop explicitly.
 
 Command-line arguments in tools
 -------------------------------
@@ -131,7 +130,8 @@ Removal of deprecated functionality
 -----------------------------------
 The following functions were deprecated in version 2 and have been removed in version 3:
 
-- C++ stream constructors that specified a socket but not an :cpp:class:`!io_service`
+- C++ stream constructors that specified a socket but not an
+  :cpp:class:`!io_context`
   (they could not be supported with Boost 1.70 onwards).
 - Stream constructors that took both an existing (but unconnected) socket and a
   buffer size or a port to bind to. The caller should instead bind the socket

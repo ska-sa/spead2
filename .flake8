@@ -1,4 +1,0 @@
-[flake8]
-max-line-length = 100
-exclude = 3rdparty doc/conf.py venv pypy*
-ignore = E203 W503 W504

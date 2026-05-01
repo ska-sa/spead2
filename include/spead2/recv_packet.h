@@ -1,4 +1,4 @@
-/* Copyright 2015 National Research Foundation (SARAO)
+/* Copyright 2015, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -25,9 +25,7 @@
 #include <cstdint>
 #include <spead2/common_defines.h>
 
-namespace spead2
-{
-namespace recv
+namespace spead2::recv
 {
 
 /**
@@ -79,7 +77,6 @@ s_item_pointer_t get_packet_size(const uint8_t *data, std::size_t length);
  */
 std::size_t decode_packet(packet_header &out, const std::uint8_t *raw, std::size_t max_size);
 
-} // namespace recv
-} // namespace spead2
+} // namespace spead2::recv
 
 #endif // SPEAD2_RECV_PACKET

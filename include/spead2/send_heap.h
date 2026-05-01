@@ -1,4 +1,4 @@
-/* Copyright 2015, 2019 National Research Foundation (SARAO)
+/* Copyright 2015, 2019, 2023 National Research Foundation (SARAO)
  *
  * This program is free software: you can redistribute it and/or modify it under
  * the terms of the GNU Lesser General Public License as published by the Free
@@ -31,9 +31,7 @@
 #include <spead2/common_defines.h>
 #include <spead2/common_flavour.h>
 
-namespace spead2
-{
-namespace send
+namespace spead2::send
 {
 
 class packet_generator;
@@ -262,7 +260,6 @@ public:
     }
 };
 
-} // namespace send
-} // namespace spead2
+} // namespace spead2::send
 
 #endif // SPEAD2_SEND_HEAP_H
