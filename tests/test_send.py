@@ -899,7 +899,7 @@ class TestUdpIbvConfig:
         assert config.ttl == 2
         assert config.comp_vector == -1
         assert config.max_poll == 1000
-        assert config.memory_regions == [data1, data2]
+        assert [region.buffer for region in config.memory_regions] == [data1, data2]
 
     def test_default_buffer_size(self):
         config = send.UdpIbvConfig()

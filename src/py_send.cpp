@@ -498,6 +498,16 @@ public:
 
 #if SPEAD2_USE_IBV
 
+struct memory_region_wrapper
+{
+    py::buffer buffer;
+    int fd = -1;
+    std::uint64_t offset = 0;
+
+    memory_region_wrapper() = default;
+    memory_region_wrapper(py::buffer buffer) : buffer(std::move(buffer)) {}
+};
+
 /* Managing the endpoint and memory region lists requires some sleight of
  * hand. We store a separate copy in the wrapper in a Python-centric format.
  * When constructing the stream, we make a copy with the C++ view.
@@ -506,7 +516,7 @@ class udp_ibv_config_wrapper : public udp_ibv_config
 {
 public:
     std::vector<std::pair<std::string, std::uint16_t>> py_endpoints;
-    std::vector<py::buffer> py_memory_regions;
+    std::vector<memory_region_wrapper> py_memory_regions;
     std::string py_interface_address;
 };
 
@@ -600,16 +610,18 @@ static py::class_<T, stream> udp_ibv_stream_register(py::module &m, const char *
                 ibv_config.set_interface_address(
                     make_address(thread_pool->get_io_context(),
                                  ibv_config_wrapper.py_interface_address));
-                std::vector<std::pair<const void *, std::size_t>> regions;
+                std::vector<udp_ibv_config::memory_region> regions;
                 std::vector<py::buffer_info> buffer_infos;
                 regions.reserve(ibv_config_wrapper.py_memory_regions.size());
                 buffer_infos.reserve(regions.size());
-                for (auto &buffer : ibv_config_wrapper.py_memory_regions)
+                for (auto &region : ibv_config_wrapper.py_memory_regions)
                 {
-                    buffer_infos.push_back(request_buffer_info(buffer, PyBUF_C_CONTIGUOUS));
+                    buffer_infos.push_back(request_buffer_info(region.buffer, PyBUF_C_CONTIGUOUS));
                     regions.emplace_back(
                         buffer_infos.back().ptr,
-                        buffer_infos.back().itemsize * buffer_infos.back().size);
+                        buffer_infos.back().itemsize * buffer_infos.back().size,
+                        region.fd,
+                        region.offset);
                 }
                 ibv_config.set_memory_regions(regions);
 
@@ -905,6 +917,14 @@ py::module register_module(py::module &parent)
     }
 
 #if SPEAD2_USE_IBV
+    py::class_<memory_region_wrapper>(m, "MemoryRegion")
+        .def(py::init(&data_class_constructor<memory_region_wrapper>))
+        .def(py::init<py::buffer>())
+        .def_readwrite("buffer", &memory_region_wrapper::buffer)
+        .def_readwrite("fd", &memory_region_wrapper::fd)
+        .def_readwrite("offset", &memory_region_wrapper::offset);
+    py::implicitly_convertible<py::buffer, memory_region_wrapper>();
+
     py::class_<udp_ibv_config_wrapper>(m, "UdpIbvConfig")
         .def(py::init(&data_class_constructor<udp_ibv_config_wrapper>))
         .def_readwrite("endpoints", &udp_ibv_config_wrapper::py_endpoints)

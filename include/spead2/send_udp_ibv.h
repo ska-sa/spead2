@@ -52,22 +52,42 @@ namespace send
 class udp_ibv_config : public spead2::detail::udp_ibv_config_base<udp_ibv_config>
 {
 public:
-    /// Backwards-compatibility memory region, covering a range of memory
-    typedef std::pair<const void *, std::size_t> memory_region;
-
     /// Memory region, optionally backed by a dmabuf
-    struct memory_region2
+    class memory_region
     {
-        const void *ptr;
-        std::size_t size;
+    private:
+        const void *ptr = nullptr;
+        std::size_t size = 0;
         int fd = -1;  ///< dmabuf file descriptor
         std::uint64_t offset = 0;  ///< dmabuf offset
 
-        memory_region2() = default;
-        memory_region2(const void *ptr, std::size_t size) : ptr(ptr), size(size) {}
-        memory_region2(const void *ptr, std::size_t size, int fd, std::uint64_t offset)
-            : ptr(ptr), size(size), fd(fd), offset(offset) {}
-        memory_region2(const memory_region &m) : ptr(m.first), size(m.second) {}
+    public:
+        /// Construct an empty memory region (cannot be used)
+        memory_region() = default;
+        /// Construct a memory region from normal memory
+        memory_region(const void *ptr, std::size_t size) : ptr(ptr), size(size) {}
+        /**
+         * Construct a memory region backed by a dmabuf.
+         *
+         * The dmabuf must already be memory-mapped. The caller is responsible
+         * for closing the file descriptor when it is no longer needed. If a
+         * negative @fd is passed, this is equivalent to the plain constructor
+         * and the @a offset is ignored.
+         */
+        memory_region(const void *ptr, std::size_t size, int fd, std::uint64_t offset)
+            : ptr(ptr), size(size), fd(fd >= 0 ? fd : -1), offset(fd >= 0 ? offset : 0) {}
+        /// Backwards-compatibility constructor
+        memory_region(const std::pair<const void *, std::size_t> &old)
+            : ptr(old.first), size(old.second) {}
+
+        /// Get the pointer to the start of the region
+        const void *get_pointer() const { return ptr; }
+        /// Get the size of the region
+        std::size_t get_size() const { return size; }
+        /// Get the dmabuf file descriptor, or -1 if there isn't one.
+        int get_fd() const { return fd; }
+        /// Get the dmabuf offset, or 0 if not using a dmabuf
+        std::uint64_t get_offset() const { return offset; }
     };
 
     /// Default send buffer size
@@ -78,10 +98,10 @@ public:
 private:
     friend class spead2::detail::udp_ibv_config_base<udp_ibv_config>;
     static void validate_endpoint(const boost::asio::ip::udp::endpoint &endpoint);
-    static void validate_memory_region(const udp_ibv_config::memory_region2 &region);
+    static void validate_memory_region(const udp_ibv_config::memory_region &region);
 
     std::uint8_t ttl = 1;
-    std::vector<memory_region2> memory_regions;
+    std::vector<memory_region> memory_regions;
 
 public:
     /// Get the IP TTL
@@ -89,20 +109,8 @@ public:
     /// Set the IP TTL
     udp_ibv_config &set_ttl(std::uint8_t ttl);
 
-    /**
-     * Get currently registered memory regions.
-     *
-     * @deprecated use @ref get_memory_regions2 instead.
-     */
-    std::vector<memory_region> get_memory_regions() const;
     /// Get currently registered memory regions
-    const std::vector<memory_region2> &get_memory_regions2() const { return memory_regions; }
-    /**
-     * Register a set of memory regions.
-     *
-     * @deprecated use the overload taking a vector of memory_region2 instead.
-     */
-    udp_ibv_config &set_memory_regions(const std::vector<memory_region> &memory_regions);
+    const std::vector<memory_region> &get_memory_regions() const { return memory_regions; }
     /**
      * Register a set of memory regions (replacing any previous). Items stored
      * inside such pre-registered memory regions can (in most cases) be
@@ -111,10 +119,13 @@ public:
      *
      * Memory regions must not overlap; this is only validating when constructing
      * the stream.
-     *
-     * @deprecated use the overload taking a vector of memory_region2 instead.
      */
-    udp_ibv_config &set_memory_regions(const std::vector<memory_region2> &memory_regions);
+    udp_ibv_config &set_memory_regions(const std::vector<memory_region> &memory_regions);
+    /**
+     * Register a set of memory regions (replacing any previous). This overload
+     * exists for backwards compatibility.
+     */
+    udp_ibv_config &set_memory_regions(const std::vector<std::pair<const void *, std::size_t>> &memory_regions);
     /// Append a memory region (see @ref set_memory_regions)
     udp_ibv_config &add_memory_region(const void *ptr, std::size_t size);
     /// Append a memory region backed by a dmabuf
