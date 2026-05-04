@@ -412,6 +412,8 @@ ibv_mr_t ibv_mr_t::from_dmabuf(const ibv_pd_t &pd, std::uint64_t offset, std::si
         access |= IBV_ACCESS_RELAXED_ORDERING;
     ibv_mr *mr;
     mr = ibv_reg_dmabuf_mr(pd.get(), offset, length, iova, fd, access);
+    if (!mr)
+        throw_errno("ibv_reg_dmabuf_mr failed");
     ibv_mr_t out;
     out.reset(mr);
     return out;
