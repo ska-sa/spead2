@@ -18,6 +18,8 @@ import socket
 from collections.abc import Iterator, Sequence
 from typing import ClassVar, overload
 
+from typing_extensions import Buffer
+
 import spead2
 from spead2 import _EndpointList
 
@@ -192,6 +194,16 @@ class _UdpStream:
 
 class UdpStream(_UdpStream, SyncStream): ...
 
+class MemoryRegion:
+    buffer: Buffer
+    fd: int
+    offset: int
+
+    @overload
+    def __init__(self, *, buffer: Buffer = ..., fd: int = ..., offset: int = ...) -> None: ...
+    @overload
+    def __init__(self, buffer: Buffer, /) -> None: ...
+
 class UdpIbvConfig:
     DEFAULT_BUFFER_SIZE: ClassVar[int]
     DEFAULT_MAX_POLL: ClassVar[int]
@@ -202,8 +214,12 @@ class UdpIbvConfig:
     ttl: int
     comp_vector: int
     max_poll: int
-    memory_regions: list
 
+    @property
+    def memory_regions(self) -> list[MemoryRegion]: ...
+    # Buffers can be implicitly converted to MemoryRegion when setting
+    @memory_regions.setter
+    def memory_regions(self, regions: list[MemoryRegion | Buffer]) -> None: ...
     def __init__(
         self,
         *,
@@ -213,7 +229,7 @@ class UdpIbvConfig:
         ttl: int = ...,
         comp_vector: int = ...,
         max_poll: int = ...,
-        memory_regions: list = ...,
+        memory_regions: list[MemoryRegion | Buffer] = ...,
     ) -> None: ...
 
 class _UdpIbvStream:

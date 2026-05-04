@@ -917,6 +917,8 @@ py::module register_module(py::module &parent)
     }
 
 #if SPEAD2_USE_IBV
+    // TODO: make 'buffer' a required argument to the constructor, so that we
+    // can't get an uninitialised MemoryRegion
     py::class_<memory_region_wrapper>(m, "MemoryRegion")
         .def(py::init(&data_class_constructor<memory_region_wrapper>))
         .def(py::init<py::buffer>())
