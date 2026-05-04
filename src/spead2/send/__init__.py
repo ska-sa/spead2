@@ -34,7 +34,7 @@ from spead2._spead2.send import (  # noqa: F401
 )
 
 try:
-    from spead2._spead2.send import UdpIbvConfig, UdpIbvStream  # noqa: F401
+    from spead2._spead2.send import MemoryRegion, UdpIbvConfig, UdpIbvStream  # noqa: F401
 except ImportError:
     pass
 
