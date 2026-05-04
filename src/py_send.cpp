@@ -504,8 +504,9 @@ struct memory_region_wrapper
     int fd = -1;
     std::uint64_t offset = 0;
 
-    memory_region_wrapper() = default;
     memory_region_wrapper(py::buffer buffer) : buffer(std::move(buffer)) {}
+    memory_region_wrapper(py::buffer buffer, int fd, std::uint64_t offset)
+        : buffer(std::move(buffer)), fd(fd), offset(offset) {}
 };
 
 /* Managing the endpoint and memory region lists requires some sleight of
@@ -917,11 +918,9 @@ py::module register_module(py::module &parent)
     }
 
 #if SPEAD2_USE_IBV
-    // TODO: make 'buffer' a required argument to the constructor, so that we
-    // can't get an uninitialised MemoryRegion
     py::class_<memory_region_wrapper>(m, "MemoryRegion")
-        .def(py::init(&data_class_constructor<memory_region_wrapper>))
-        .def(py::init<py::buffer>())
+        .def(py::init<py::buffer, int, int>(), "buffer"_a, py::pos_only(), py::kw_only(), "fd"_a, "offset"_a)
+        .def(py::init<py::buffer>(), py::arg("buffer"), py::pos_only())
         .def_readwrite("buffer", &memory_region_wrapper::buffer)
         .def_readwrite("fd", &memory_region_wrapper::fd)
         .def_readwrite("offset", &memory_region_wrapper::offset);
