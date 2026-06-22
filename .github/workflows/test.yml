@@ -26,7 +26,7 @@ jobs:
       # Don't error on deprecations: Xcode marks sprintf deprecated and Boost references it
       CXXFLAGS: -Wno-error=deprecated-declarations
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.10
       - name: Install system packages
@@ -83,7 +83,7 @@ jobs:
       # Don't error on deprecations: Xcode marks sprintf deprecated and Boost references it
       CXXFLAGS: -Wno-error=deprecated-declarations
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.10
       - name: Install system packages
@@ -109,7 +109,7 @@ jobs:
   lint:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.9'
@@ -126,7 +126,7 @@ jobs:
     env:
       SCCACHE_GHA_ENABLED: "true"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.10
       - name: Install system packages
@@ -175,12 +175,12 @@ jobs:
     env:
       SCCACHE_GHA_ENABLED: "true"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
           cache: 'pip'
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.10
       - name: Install system packages
@@ -194,7 +194,7 @@ jobs:
     needs: [test-cxx, test-python, coverage, lint]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
@@ -227,7 +227,7 @@ jobs:
     env:
       SCCACHE_GHA_ENABLED: "true"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.10
       - uses: pypa/cibuildwheel@v3.4.1
@@ -254,7 +254,7 @@ jobs:
     env:
       SCCACHE_GHA_ENABLED: "true"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up sccache
         uses: mozilla-actions/sccache-action@v0.0.10
       - uses: pypa/cibuildwheel@v3.4.1
@@ -269,7 +269,7 @@ jobs:
     needs: [cibuildwheel-linux, cibuildwheel-macos, sdist]
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Create paths
         run: mkdir -p debug-symbols dist wheelhouse
       - uses: actions/download-artifact@v8
