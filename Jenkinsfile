@@ -27,6 +27,8 @@ pipeline {
       label 'spead2'
       dir '.ci'
       registryCredentialsId 'dockerhub'  // Supply credentials to avoid rate limit
+      // Label the built image to assist with garbage collection
+      additionalBuildArgs "--label=za.ac.kat.dpp.jenkins.build=${env.BUILD_ID}"
       // These arguments allow direct access to the NVIDIA NIC with ibverbs
       args '--network=host --ulimit=memlock=-1 -e NVIDIA_MOFED=enabled -e NVIDIA_VISIBLE_DEVICES=all --runtime=nvidia'
     }
