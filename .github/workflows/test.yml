@@ -165,7 +165,7 @@ jobs:
         run: meson test -C build
       - name: Collect coverage
         run: ./.ci/coverage.sh
-      - uses: coverallsapp/github-action@v2.3.7
+      - uses: coverallsapp/github-action@v2.3.8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: lcov.info
