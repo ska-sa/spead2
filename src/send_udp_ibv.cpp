@@ -101,8 +101,7 @@ private:
     const std::vector<boost::asio::ip::udp::endpoint> endpoints;
     std::vector<mac_address> mac_addresses; ///< MAC addresses corresponding to endpoints
     memory_allocator::pointer buffer;
-    rdma_event_channel_t event_channel;
-    rdma_cm_id_t cm_id;
+    ibv_context_t ctx;
     ibv_pd_t pd;
     ibv_comp_channel_t comp_channel;
     boost::asio::posix::stream_descriptor comp_channel_wrapper;
@@ -460,7 +459,6 @@ udp_ibv_writer::udp_ibv_writer(
     target_batch(calc_target_batch(config, n_slots)),
     socket(get_io_context(), boost::asio::ip::udp::v4()),
     endpoints(ibv_config.get_endpoints()),
-    event_channel(nullptr),
     comp_channel_wrapper(get_io_context()),
     available(n_slots),
     max_poll(ibv_config.get_max_poll())
@@ -486,23 +484,21 @@ udp_ibv_writer::udp_ibv_writer(
     const std::size_t max_raw_size = config.get_max_packet_size() + header_length;
     std::size_t buffer_size = n_slots * max_raw_size;
 
-    event_channel = rdma_event_channel_t();
-    cm_id = rdma_cm_id_t(event_channel, nullptr, RDMA_PS_UDP);
-    cm_id.bind_addr(interface_address);
-    pd = ibv_pd_t(cm_id);
+    ctx = ibv_context_t(interface_address);
+    pd = ibv_pd_t(ctx);
     int comp_vector = ibv_config.get_comp_vector();
     if (comp_vector >= 0)
     {
-        comp_channel = ibv_comp_channel_t(cm_id);
+        comp_channel = ibv_comp_channel_t(ctx);
         comp_channel_wrapper = comp_channel.wrap(get_io_context());
-        send_cq = ibv_cq_t(cm_id, n_slots, nullptr,
-                           comp_channel, comp_vector % cm_id->verbs->num_comp_vectors);
+        send_cq = ibv_cq_t(ctx, n_slots, nullptr,
+                           comp_channel, comp_vector % ctx->num_comp_vectors);
     }
     else
-        send_cq = ibv_cq_t(cm_id, n_slots, nullptr);
-    recv_cq = ibv_cq_t(cm_id, 1, nullptr);
+        send_cq = ibv_cq_t(ctx, n_slots, nullptr);
+    recv_cq = ibv_cq_t(ctx, 1, nullptr);
     qp = create_qp(pd, send_cq, recv_cq, n_slots);
-    qp.modify(IBV_QPS_INIT, cm_id->port_num);
+    qp.modify(IBV_QPS_INIT, ctx.port_num);
     qp.modify(IBV_QPS_RTR);
     qp.modify(IBV_QPS_RTS);
 
@@ -551,7 +547,7 @@ udp_ibv_writer::udp_ibv_writer(
         slots[i].payload = static_cast<std::uint8_t *>(udp.payload().data());
     }
 
-    if (cm_id.query_device_ex().raw_packet_caps & IBV_RAW_PACKET_CAP_IP_CSUM)
+    if (ctx.query_device_ex().raw_packet_caps & IBV_RAW_PACKET_CAP_IP_CSUM)
         send_flags = IBV_SEND_IP_CSUM;
     else
         send_flags = 0;

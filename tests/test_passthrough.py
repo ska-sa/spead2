@@ -534,18 +534,9 @@ class UdpIbvTransport(SyncTransport):
         self._extra_context = None
 
     def __enter__(self):
-        # mlx5 drivers only enable multicast loopback if there are multiple
-        # device contexts. The sender and receiver end up sharing one, so we
-        # need to explicitly create another.
         if not hasattr(spead2, "IbvContext"):
             pytest.skip("IBV support not compiled in")
-        assert self._extra_context is None, "Transport cannot be entered recursively"
-        self._extra_context = spead2.IbvContext(self.interface_address())
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self._extra_context.reset()
-        self._extra_context = None
+        return super().__enter__()
 
     def prepare_receivers(self, receivers):
         ports = []

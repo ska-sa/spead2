@@ -40,7 +40,7 @@ namespace spead2
 namespace recv
 {
 
-static ibv_qp_t create_qp(const rdma_cm_id_t &cm_id,
+static ibv_qp_t create_qp(const ibv_context_t &ctx,
                           const ibv_pd_t &pd,
                           const ibv_rwq_ind_table_t &ind_table)
 {
@@ -59,7 +59,7 @@ static ibv_qp_t create_qp(const rdma_cm_id_t &cm_id,
     attr.rx_hash_conf.rx_hash_key_len = sizeof(toeplitz_key);
     attr.rx_hash_conf.rx_hash_key = toeplitz_key;
     attr.rx_hash_conf.rx_hash_fields_mask = 0;
-    return ibv_qp_t(cm_id, &attr);
+    return ibv_qp_t(ctx, &attr);
 }
 
 void udp_ibv_mprq_reader::post_wr(std::size_t offset)
@@ -136,10 +136,10 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     const udp_ibv_config &config)
     : udp_ibv_reader_base<udp_ibv_mprq_reader>(owner, config)
 {
-    if (!cm_id.mlx5dv_is_supported())
+    if (!ctx.mlx5dv_is_supported())
         throw std::system_error(std::make_error_code(std::errc::not_supported),
                                 "device does not support mlx5dv API");
-    mlx5dv_context mlx5dv_attr = cm_id.mlx5dv_query_device();
+    mlx5dv_context mlx5dv_attr = ctx.mlx5dv_query_device();
     if (!(mlx5dv_attr.comp_mask & MLX5DV_CONTEXT_MASK_STRIDING_RQ)
         || !(mlx5dv_attr.flags & MLX5DV_CONTEXT_FLAGS_MPW_ALLOWED)
         || !ibv_is_qpt_supported(mlx5dv_attr.striding_rq_caps.supported_qpts, IBV_QPT_RAW_PACKET))
@@ -168,7 +168,7 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
 
     bool reduced = false;
     std::size_t strides = buffer_size >> attr.striding_rq_attrs.single_stride_log_num_of_bytes;
-    ibv_device_attr device_attr = cm_id.query_device();
+    ibv_device_attr device_attr = ctx.query_device();
     if (std::size_t(device_attr.max_cqe) < strides)
     {
         strides = device_attr.max_cqe;
@@ -195,11 +195,11 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     if (config.get_comp_vector() >= 0)
     {
         cq_attr.channel = comp_channel.get();
-        cq_attr.comp_vector = config.get_comp_vector() % cm_id->verbs->num_comp_vectors;
+        cq_attr.comp_vector = config.get_comp_vector() % ctx->num_comp_vectors;
     }
     cq_attr.flags = IBV_CREATE_CQ_ATTR_SINGLE_THREADED;
     cq_attr.comp_mask = IBV_CQ_INIT_ATTR_MASK_FLAGS;
-    recv_cq = ibv_cq_ex_t(cm_id, &cq_attr);
+    recv_cq = ibv_cq_ex_t(ctx, &cq_attr);
 
     ibv_wq_init_attr wq_attr;
     memset(&wq_attr, 0, sizeof(wq_attr));
@@ -210,16 +210,16 @@ udp_ibv_mprq_reader::udp_ibv_mprq_reader(
     wq_attr.cq = ibv_cq_ex_to_cq(recv_cq.get());
     // TODO: investigate IBV_WQ_FLAGS_DELAY_DROP to reduce dropped
     // packets and IBV_WQ_FLAGS_CVLAN_STRIPPING to remove VLAN tags.
-    wq = ibv_wq_mprq_t(cm_id, &wq_attr, &attr);
+    wq = ibv_wq_mprq_t(ctx, &wq_attr, &attr);
 
-    rwq_ind_table = create_rwq_ind_table(cm_id, wq);
-    qp = create_qp(cm_id, pd, rwq_ind_table);
+    rwq_ind_table = create_rwq_ind_table(ctx, wq);
+    qp = create_qp(ctx, pd, rwq_ind_table);
 
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(buffer_size, nullptr);
     mr = ibv_mr_t(pd, buffer.get(), buffer_size, IBV_ACCESS_LOCAL_WRITE);
 
-    flows = create_flows(qp, config.get_endpoints(), cm_id->port_num);
+    flows = create_flows(qp, config.get_endpoints(), ctx.port_num);
 }
 
 void udp_ibv_mprq_reader::start()

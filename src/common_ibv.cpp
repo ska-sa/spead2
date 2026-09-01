@@ -148,18 +148,18 @@ void rdma_cm_id_t::bind_addr(const boost::asio::ip::address &addr)
         throw_errno("rdma_bind_addr did not bind to an RDMA device", ENODEV);
 }
 
-ibv_device_attr rdma_cm_id_t::query_device() const
+ibv_device_attr ibv_context_t::query_device() const
 {
     assert(get());
     ibv_device_attr attr;
     std::memset(&attr, 0, sizeof(attr));
-    int status = ibv_query_device(get()->verbs, &attr);
+    int status = ibv_query_device(get(), &attr);
     if (status != 0)
         throw_errno("ibv_query_device failed", status);
     return attr;
 }
 
-ibv_device_attr_ex rdma_cm_id_t::query_device_ex(const struct ibv_query_device_ex_input *input) const
+ibv_device_attr_ex ibv_context_t::query_device_ex(const struct ibv_query_device_ex_input *input) const
 {
     assert(get());
     ibv_device_attr_ex attr;
@@ -170,19 +170,47 @@ ibv_device_attr_ex rdma_cm_id_t::query_device_ex(const struct ibv_query_device_e
         input = &dummy_input;
     }
     std::memset(&attr, 0, sizeof(attr));
-    int status = ibv_query_device_ex(get()->verbs, input, &attr);
+    int status = ibv_query_device_ex(get(), input, &attr);
     if (status != 0)
         throw_errno("ibv_query_device_ex failed", status);
     return attr;
 }
 
+ibv_context_t::ibv_context_t(struct ibv_device *device, int port_num)
+{
+    ibv_context *ctx = ibv_open_device(device);
+    if (!ctx)
+        throw_errno("ibv_open_device failed");
+    reset(ctx);
+    this->port_num = port_num;
+}
+
+ibv_context_t::ibv_context_t(const boost::asio::ip::address &addr)
+{
+    /* Use rdma_cm_id_t to get an existing device context, then
+     * open a new context with the same device.
+     */
+    rdma_event_channel_t event_channel;
+    rdma_cm_id_t cm_id(event_channel, nullptr, RDMA_PS_UDP);
+    cm_id.bind_addr(addr);
+    port_num = cm_id->port_num;
+    struct ibv_device *device = cm_id->verbs->device;
+
+    ibv_context *ctx = ibv_open_device(device);
+    if (!ctx)
+    {
+        throw_errno("ibv_open_device failed");
+    }
+    reset(ctx);
+}
+
 #if SPEAD2_USE_MLX5DV
-bool rdma_cm_id_t::mlx5dv_is_supported() const
+bool ibv_context_t::mlx5dv_is_supported() const
 {
     assert(get());
     try
     {
-        return spead2::mlx5dv_is_supported(get()->verbs->device);
+        return spead2::mlx5dv_is_supported(get()->device);
     }
     catch (std::system_error &)
     {
@@ -190,7 +218,7 @@ bool rdma_cm_id_t::mlx5dv_is_supported() const
     }
 }
 
-mlx5dv_context rdma_cm_id_t::mlx5dv_query_device() const
+mlx5dv_context ibv_context_t::mlx5dv_query_device() const
 {
     assert(get());
     mlx5dv_context attr;
@@ -198,63 +226,17 @@ mlx5dv_context rdma_cm_id_t::mlx5dv_query_device() const
     // TODO: set other flags if they're defined (will require configure-time
     // detection).
     attr.comp_mask = MLX5DV_CONTEXT_MASK_STRIDING_RQ | MLX5DV_CONTEXT_MASK_CLOCK_INFO_UPDATE;
-    int status = spead2::mlx5dv_query_device(get()->verbs, &attr);
+    int status = spead2::mlx5dv_query_device(get(), &attr);
     if (status != 0)
         throw_errno("mlx5dv_query_device failed", status);
     return attr;
 }
 #endif  // SPEAD2_USE_MLX5DV
 
-ibv_context_t::ibv_context_t(struct ibv_device *device)
-{
-    ibv_context *ctx = ibv_open_device(device);
-    if (!ctx)
-        throw_errno("ibv_open_device failed");
-    reset(ctx);
-}
-
-ibv_context_t::ibv_context_t(const boost::asio::ip::address &addr)
-{
-    /* Use rdma_cm_id_t to get an existing device context, then
-     * query it for its GUID and find the corresponding device.
-     */
-    rdma_event_channel_t event_channel;
-    rdma_cm_id_t cm_id(event_channel, nullptr, RDMA_PS_UDP);
-    cm_id.bind_addr(addr);
-    ibv_device_attr attr = cm_id.query_device();
-
-    struct ibv_device **devices;
-    devices = ibv_get_device_list(nullptr);
-    if (devices == nullptr)
-        throw_errno("ibv_get_device_list failed");
-
-    ibv_device *device = nullptr;
-    for (ibv_device **d = devices; *d != nullptr; d++)
-        if (ibv_get_device_guid(*d) == attr.node_guid)
-        {
-            device = *d;
-            break;
-        }
-    if (device == nullptr)
-    {
-        ibv_free_device_list(devices);
-        throw_errno("no matching device found", ENOENT);
-    }
-
-    ibv_context *ctx = ibv_open_device(device);
-    if (!ctx)
-    {
-        ibv_free_device_list(devices);
-        throw_errno("ibv_open_device failed");
-    }
-    reset(ctx);
-    ibv_free_device_list(devices);
-}
-
-ibv_comp_channel_t::ibv_comp_channel_t(const rdma_cm_id_t &cm_id)
+ibv_comp_channel_t::ibv_comp_channel_t(const ibv_context_t &ctx)
 {
     errno = 0;
-    ibv_comp_channel *comp_channel = ibv_create_comp_channel(cm_id->verbs);
+    ibv_comp_channel *comp_channel = ibv_create_comp_channel(ctx.get());
     if (!comp_channel)
         throw_errno("ibv_create_comp_channel failed");
     reset(comp_channel);
@@ -283,20 +265,20 @@ bool ibv_comp_channel_t::get_event(ibv_cq **cq, void **context)
 }
 
 ibv_cq_t::ibv_cq_t(
-    const rdma_cm_id_t &cm_id, int cqe, void *context,
+    const ibv_context_t &ctx, int cqe, void *context,
     const ibv_comp_channel_t &comp_channel, int comp_vector)
 {
     errno = 0;
-    ibv_cq *cq = ibv_create_cq(cm_id->verbs, cqe, context, comp_channel.get(), comp_vector);
+    ibv_cq *cq = ibv_create_cq(ctx.get(), cqe, context, comp_channel.get(), comp_vector);
     if (!cq)
         throw_errno("ibv_create_cq failed");
     reset(cq);
 }
 
-ibv_cq_t::ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context)
+ibv_cq_t::ibv_cq_t(const ibv_context_t &ctx, int cqe, void *context)
 {
     errno = 0;
-    ibv_cq *cq = ibv_create_cq(cm_id->verbs, cqe, context, nullptr, 0);
+    ibv_cq *cq = ibv_create_cq(ctx.get(), cqe, context, nullptr, 0);
     if (!cq)
         throw_errno("ibv_create_cq failed");
     reset(cq);
@@ -325,19 +307,19 @@ void ibv_cq_t::ack_events(unsigned int nevents)
     ibv_ack_cq_events(get(), nevents);
 }
 
-ibv_cq_ex_t::ibv_cq_ex_t(const rdma_cm_id_t &cm_id, ibv_cq_init_attr_ex *cq_attr)
+ibv_cq_ex_t::ibv_cq_ex_t(const ibv_context_t &ctx, ibv_cq_init_attr_ex *cq_attr)
 {
     errno = 0;
-    ibv_cq_ex *cq = ibv_create_cq_ex(cm_id->verbs, cq_attr);
+    ibv_cq_ex *cq = ibv_create_cq_ex(ctx.get(), cq_attr);
     if (!cq)
         throw_errno("ibv_create_cq_ex failed");
     reset(ibv_cq_ex_to_cq(cq));
 }
 
-ibv_pd_t::ibv_pd_t(const rdma_cm_id_t &cm_id)
+ibv_pd_t::ibv_pd_t(const ibv_context_t &ctx)
 {
     errno = 0;
-    ibv_pd *pd = ibv_alloc_pd(cm_id->verbs);
+    ibv_pd *pd = ibv_alloc_pd(ctx.get());
     if (!pd)
         throw_errno("ibv_alloc_pd failed");
     reset(pd);
@@ -358,10 +340,10 @@ ibv_qp_t::ibv_qp_t(const ibv_pd_t &pd, ibv_qp_init_attr *init_attr)
     reset(qp);
 }
 
-ibv_qp_t::ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_qp_init_attr_ex *init_attr)
+ibv_qp_t::ibv_qp_t(const ibv_context_t &ctx, ibv_qp_init_attr_ex *init_attr)
 {
     errno = 0;
-    ibv_qp *qp = ibv_create_qp_ex(cm_id->verbs, init_attr);
+    ibv_qp *qp = ibv_create_qp_ex(ctx.get(), init_attr);
     if (!qp)
     {
         if (errno == EINVAL && init_attr->qp_type == IBV_QPT_RAW_PACKET)
@@ -520,9 +502,9 @@ std::vector<ibv_flow_t> create_flows(
     return flows;
 }
 
-ibv_wq_t::ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr)
+ibv_wq_t::ibv_wq_t(const ibv_context_t &ctx, ibv_wq_init_attr *attr)
 {
-    ibv_wq *wq = ibv_create_wq(cm_id->verbs, attr);
+    ibv_wq *wq = ibv_create_wq(ctx.get(), attr);
     if (!wq)
         throw_errno("ibv_create_wq failed");
     reset(wq);
@@ -540,13 +522,13 @@ void ibv_wq_t::modify(ibv_wq_state state)
 }
 
 #if SPEAD2_USE_MLX5DV
-ibv_wq_mprq_t::ibv_wq_mprq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr)
+ibv_wq_mprq_t::ibv_wq_mprq_t(const ibv_context_t &ctx, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr)
     : stride_size(1U << mlx5_attr->striding_rq_attrs.single_stride_log_num_of_bytes),
     n_strides(1U << mlx5_attr->striding_rq_attrs.single_wqe_log_num_of_strides),
     data_offset(mlx5_attr->striding_rq_attrs.two_byte_shift_en ? 2 : 0)
 {
     assert(mlx5_attr->comp_mask & MLX5DV_WQ_INIT_ATTR_MASK_STRIDING_RQ);
-    ibv_wq *wq = mlx5dv_create_wq(cm_id->verbs, attr, mlx5_attr);
+    ibv_wq *wq = mlx5dv_create_wq(ctx.get(), attr, mlx5_attr);
     if (!wq)
         throw_errno("mlx5dv_create_wq failed");
     mlx5dv_obj obj;
@@ -618,22 +600,22 @@ void ibv_wq_mprq_t::read_wc(const ibv_cq_ex_t &cq, std::uint32_t &byte_len,
 
 #endif // SPEAD2_USE_MLX5DV
 
-ibv_rwq_ind_table_t::ibv_rwq_ind_table_t(const rdma_cm_id_t &cm_id, ibv_rwq_ind_table_init_attr *attr)
+ibv_rwq_ind_table_t::ibv_rwq_ind_table_t(const ibv_context_t &ctx, ibv_rwq_ind_table_init_attr *attr)
 {
-    ibv_rwq_ind_table *table = ibv_create_rwq_ind_table(cm_id->verbs, attr);
+    ibv_rwq_ind_table *table = ibv_create_rwq_ind_table(ctx.get(), attr);
     if (!table)
         throw_errno("ibv_create_rwq_ind_table failed");
     reset(table);
 }
 
-ibv_rwq_ind_table_t create_rwq_ind_table(const rdma_cm_id_t &cm_id, const ibv_wq_t &wq)
+ibv_rwq_ind_table_t create_rwq_ind_table(const ibv_context_t &ctx, const ibv_wq_t &wq)
 {
     ibv_rwq_ind_table_init_attr attr;
     ibv_wq *tbl[1] = {wq.get()};
     std::memset(&attr, 0, sizeof(attr));
     attr.log_ind_tbl_size = 0;
     attr.ind_tbl = tbl;
-    return ibv_rwq_ind_table_t(cm_id, &attr);
+    return ibv_rwq_ind_table_t(ctx, &attr);
 }
 
 } // namespace spead

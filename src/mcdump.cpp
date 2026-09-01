@@ -390,7 +390,7 @@ struct chunking_scheme
 };
 
 typedef std::function<chunking_scheme(const options &,
-                                      const spead2::rdma_cm_id_t &)> chunking_scheme_generator;
+                                      const spead2::ibv_context_t &)> chunking_scheme_generator;
 
 /* Joins multicast groups for its lifetime */
 class joiner
@@ -426,8 +426,7 @@ protected:
     const options opts;
 
     boost::asio::ip::address_v4 interface_address;
-    spead2::rdma_event_channel_t event_channel;
-    spead2::rdma_cm_id_t cm_id;
+    spead2::ibv_context_t ctx;
     spead2::ibv_pd_t pd;
     const chunking_scheme chunking;
 
@@ -587,20 +586,12 @@ static boost::asio::ip::address_v4 get_interface_address(const options &opts)
     return interface_address;
 }
 
-static spead2::rdma_cm_id_t create_cm_id(const boost::asio::ip::address_v4 &interface_address,
-                                         const spead2::rdma_event_channel_t &event_channel)
-{
-    spead2::rdma_cm_id_t cm_id(event_channel, nullptr, RDMA_PS_UDP);
-    cm_id.bind_addr(interface_address);
-    return cm_id;
-}
-
 capture_base::capture_base(const options &opts, const chunking_scheme_generator &gen_chunking)
     : opts(opts),
     interface_address(get_interface_address(opts)),
-    cm_id(create_cm_id(interface_address, event_channel)),
-    pd(cm_id),
-    chunking(gen_chunking(opts, cm_id)),
+    ctx(interface_address),
+    pd(ctx),
+    chunking(gen_chunking(opts, ctx)),
     ring(chunking.n_chunks),
     free_ring(chunking.n_chunks)
 {
@@ -618,7 +609,7 @@ capture_base::~capture_base()
 void capture_base::init_timestamp_support()
 {
     ibv_device_attr_ex device_attr;
-    int ret = ibv_query_device_ex(cm_id->verbs, NULL, &device_attr);
+    int ret = ibv_query_device_ex(ctx.get(), NULL, &device_attr);
     timestamp_support =
         ret == 0 && device_attr.completion_timestamp_mask > 0 && device_attr.hca_core_clock > 0;
 }
@@ -732,7 +723,7 @@ private:
     virtual void post_chunk(chunk &c) override;
     virtual void init_record(chunk &c, std::size_t idx) override;
 
-    static chunking_scheme sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id);
+    static chunking_scheme sizes(const options &opts, const spead2::ibv_context_t &ctx);
 
 public:
     explicit capture(const options &opts);
@@ -749,7 +740,7 @@ capture::capture(const options &opts)
         cq_attr.wc_flags |= IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK;
     cq_attr.flags = IBV_CREATE_CQ_ATTR_SINGLE_THREADED;
     cq_attr.comp_mask = IBV_CQ_INIT_ATTR_MASK_FLAGS;
-    cq = spead2::ibv_cq_ex_t(cm_id, &cq_attr);
+    cq = spead2::ibv_cq_ex_t(ctx, &cq_attr);
 
     ibv_qp_init_attr qp_attr = {};
     qp_attr.send_cq = ibv_cq_ex_to_cq(cq.get());
@@ -760,10 +751,10 @@ capture::capture(const options &opts)
     qp_attr.cap.max_send_sge = 0;
     qp_attr.cap.max_recv_sge = 1;
     qp = spead2::ibv_qp_t(pd, &qp_attr);
-    qp.modify(IBV_QPS_INIT, cm_id->port_num);
+    qp.modify(IBV_QPS_INIT, ctx.port_num);
 }
 
-chunking_scheme capture::sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id)
+chunking_scheme capture::sizes(const options &opts, const spead2::ibv_context_t &ctx)
 {
     constexpr std::size_t nominal_chunk_size = 2 * 1024 * 1024; // TODO: make tunable?
     std::size_t max_records = nominal_chunk_size / opts.snaplen;
@@ -775,7 +766,7 @@ chunking_scheme capture::sizes(const options &opts, const spead2::rdma_cm_id_t &
     if (n_chunks == 0)
         n_chunks = 1;
 
-    ibv_device_attr attr = cm_id.query_device();
+    ibv_device_attr attr = ctx.query_device();
     unsigned int device_slots = std::min(attr.max_cqe, attr.max_qp_wr);
     unsigned int device_chunks = device_slots / max_records;
     if (attr.max_mr < (int) device_chunks)
@@ -807,7 +798,7 @@ void capture::network_thread()
     std::vector<boost::asio::ip::udp::endpoint> endpoints;
     for (const std::string &s : opts.endpoints)
         endpoints.push_back(make_endpoint(s));
-    auto flows = spead2::create_flows(qp, endpoints, cm_id->port_num);
+    auto flows = spead2::create_flows(qp, endpoints, ctx.port_num);
     qp.modify(IBV_QPS_RTR);
     joiner join(interface_address, endpoints);
 
@@ -917,7 +908,7 @@ private:
     virtual void post_chunk(chunk &c) override;
     virtual void init_record(chunk &c, std::size_t idx) override;
 
-    static chunking_scheme sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id);
+    static chunking_scheme sizes(const options &opts, const spead2::ibv_context_t &ctx);
 
 public:
     explicit capture_mprq(const options &opts);
@@ -944,7 +935,7 @@ capture_mprq::capture_mprq(const options &opts)
         cq_attr.wc_flags |= IBV_WC_EX_WITH_COMPLETION_TIMESTAMP_WALLCLOCK;
     cq_attr.flags = IBV_CREATE_CQ_ATTR_SINGLE_THREADED;
     cq_attr.comp_mask = IBV_CQ_INIT_ATTR_MASK_FLAGS;
-    cq = spead2::ibv_cq_ex_t(cm_id, &cq_attr);
+    cq = spead2::ibv_cq_ex_t(ctx, &cq_attr);
 
     ibv_wq_init_attr wq_attr = {};
     std::size_t stride = chunking.chunk_size / chunking.max_records;
@@ -958,9 +949,9 @@ capture_mprq::capture_mprq(const options &opts)
     mlx5_wq_attr.striding_rq_attrs.single_stride_log_num_of_bytes = log2i(stride);
     mlx5_wq_attr.striding_rq_attrs.single_wqe_log_num_of_strides = log2i(chunking.max_records);
     mlx5_wq_attr.striding_rq_attrs.two_byte_shift_en = 0;
-    wq = spead2::ibv_wq_mprq_t(cm_id, &wq_attr, &mlx5_wq_attr);
+    wq = spead2::ibv_wq_mprq_t(ctx, &wq_attr, &mlx5_wq_attr);
 
-    rwq_ind_table = spead2::create_rwq_ind_table(cm_id, wq);
+    rwq_ind_table = spead2::create_rwq_ind_table(ctx, wq);
 
     /* ConnectX-5 only seems to work with Toeplitz hashing. This code seems to
      * work, but I don't really know what I'm doing so it might be horrible.
@@ -976,18 +967,18 @@ capture_mprq::capture_mprq(const options &opts)
     qp_attr.rx_hash_conf.rx_hash_key = toeplitz_key;
     qp_attr.rx_hash_conf.rx_hash_fields_mask = 0;
     qp_attr.comp_mask = IBV_QP_INIT_ATTR_PD | IBV_QP_INIT_ATTR_IND_TABLE | IBV_QP_INIT_ATTR_RX_HASH;
-    qp = spead2::ibv_qp_t(cm_id, &qp_attr);
+    qp = spead2::ibv_qp_t(ctx, &qp_attr);
 
     wq.modify(IBV_WQS_RDY);
 }
 
-chunking_scheme capture_mprq::sizes(const options &opts, const spead2::rdma_cm_id_t &cm_id)
+chunking_scheme capture_mprq::sizes(const options &opts, const spead2::ibv_context_t &ctx)
 {
-    ibv_device_attr attr = cm_id.query_device();
-    if (!cm_id.mlx5dv_is_supported())
+    ibv_device_attr attr = ctx.query_device();
+    if (!ctx.mlx5dv_is_supported())
         throw std::system_error(std::make_error_code(std::errc::not_supported),
                                 "device does not support mlx5dv API");
-    mlx5dv_context mlx5dv_attr = cm_id.mlx5dv_query_device();
+    mlx5dv_context mlx5dv_attr = ctx.mlx5dv_query_device();
     if (!(mlx5dv_attr.comp_mask & MLX5DV_CONTEXT_MASK_STRIDING_RQ)
         || !(mlx5dv_attr.flags & MLX5DV_CONTEXT_FLAGS_MPW_ALLOWED)
         || !ibv_is_qpt_supported(mlx5dv_attr.striding_rq_caps.supported_qpts, IBV_QPT_RAW_PACKET))
@@ -1038,7 +1029,7 @@ void capture_mprq::network_thread()
     std::vector<boost::asio::ip::udp::endpoint> endpoints;
     for (const std::string &s : opts.endpoints)
         endpoints.push_back(make_endpoint(s));
-    auto flows = spead2::create_flows(qp, endpoints, cm_id->port_num);
+    auto flows = spead2::create_flows(qp, endpoints, ctx.port_num);
     joiner join(interface_address, endpoints);
 
     start_time = std::chrono::high_resolution_clock::now();
