@@ -522,21 +522,18 @@ class Udp6MulticastTransport(Udp6Transport):
 class UdpIbvTransport(SyncTransport):
     is_lossy = True
     MCAST_GROUP = "239.255.88.88"
+    INTERFACE_ADDRESS_ENV = "SPEAD2_TEST_IBV_INTERFACE_ADDRESS"
 
-    def interface_address(self):
-        ifaddr = os.getenv("SPEAD2_TEST_IBV_INTERFACE_ADDRESS")
-        if not ifaddr:
-            pytest.skip("Envar SPEAD2_TEST_IBV_INTERFACE_ADDRESS not set")
-        return ifaddr
-
-    def __init__(self):
-        super().__init__()
-        self._extra_context = None
-
-    def __enter__(self):
+    @classmethod
+    def check_platform(cls):
+        super().check_platform()
         if not hasattr(spead2, "IbvContext"):
             pytest.skip("IBV support not compiled in")
-        return super().__enter__()
+        if not os.getenv(cls.INTERFACE_ADDRESS_ENV):
+            pytest.skip(f"Envar {cls.INTERFACE_ADDRESS_ENV} not set")
+
+    def interface_address(self):
+        return os.getenv(self.INTERFACE_ADDRESS_ENV)
 
     def prepare_receivers(self, receivers):
         ports = []
@@ -652,6 +649,7 @@ class MemTransport(Transport):
 
 class InprocTransport(SyncTransport):
     def __init__(self):
+        super().__init__()
         self._queues = []
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -671,6 +669,7 @@ class InprocTransport(SyncTransport):
 
 class AsyncInprocTransport(AsyncTransport):
     def __init__(self):
+        super().__init__()
         self._queues = []
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -980,6 +979,7 @@ class TestPassthroughUdp:
 class TestPassthroughUdpIbv:
     @pytest.mark.parametrize("num_items", [0, 1, 3, 4, 10])
     def test_memory_regions(self, num_items, unused_udp_port):
+        UdpIbvTransport.check_platform()
         with UdpIbvTransport() as transport:
             receiver = spead2.recv.Stream(spead2.ThreadPool(), spead2.recv.StreamConfig())
             receiver.add_udp_ibv_reader(
