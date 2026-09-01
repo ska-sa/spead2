@@ -931,7 +931,7 @@ class TestRingStreamConfig:
             recv.RingStreamConfig(heaps=0)
 
 
-@pytest.mark.skipif(not hasattr(spead2, "IbvContext"), reason="IBV support not compiled in")
+@pytest.mark.skipif(not hasattr(recv, "UdpIbvConfig"), reason="IBV support not compiled in")
 class TestUdpIbvConfig:
     def test_default_construct(self):
         config = recv.UdpIbvConfig()

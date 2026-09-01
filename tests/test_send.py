@@ -869,7 +869,7 @@ class TestInprocStream:
             self.stream.send_heap(ig.get_end())
 
 
-@pytest.mark.skipif(not hasattr(spead2, "IbvContext"), reason="IBV support not compiled in")
+@pytest.mark.skipif(not hasattr(send, "UdpIbvConfig"), reason="IBV support not compiled in")
 class TestUdpIbvConfig:
     def test_default_construct(self):
         config = send.UdpIbvConfig()

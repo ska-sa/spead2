@@ -527,7 +527,7 @@ class UdpIbvTransport(SyncTransport):
     @classmethod
     def check_platform(cls):
         super().check_platform()
-        if not hasattr(spead2, "IbvContext"):
+        if not hasattr(spead2.recv, "UdpIbvConfig"):
             pytest.skip("IBV support not compiled in")
         if not os.getenv(cls.INTERFACE_ADDRESS_ENV):
             pytest.skip(f"Envar {cls.INTERFACE_ADDRESS_ENV} not set")
