@@ -106,19 +106,13 @@ setup-args = [
 # and it's set from .github/workflows/test.yml.
 before-all = ".ci/before_all_macos.sh"
 
-[tool.isort]
-profile = "black"
-combine_as_imports = true
-line_length = 100
-py_version = 39
-
-[tool.black]
-line-length = 100
-target-version = ["py39", "py310", "py311", "py312", "py313"]
-
 [tool.ruff]
-select = ["E", "F", "W", "UP", "PYI", "RUF100"]
 line-length = 100
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "PYI", "RUF100"]
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["spead2.*"]  # spead2._spead2 is not detected as such by ruff
 
 [tool.mypy]
 ignore_missing_imports = true
