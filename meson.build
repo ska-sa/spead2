@@ -30,7 +30,7 @@ project(
     'b_staticpic=false',  # The default of true harms performance
   ]
 )
-shared_lib_version = '10.1.0'
+shared_lib_version = '11.0.0'
 
 compiler = meson.get_compiler('cpp')
 py = import('python').find_installation(pure : false, modules : ['jinja2', 'pycparser', 'packaging'])
