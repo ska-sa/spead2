@@ -6,17 +6,17 @@ babel==2.18.0
     # via sphinx
 breathe==4.36.0
     # via -r requirements-readthedocs.in
-certifi==2026.2.25
+certifi==2026.7.22
     # via requests
-charset-normalizer==3.4.7
+charset-normalizer==3.5.1
     # via requests
 docutils==0.22.4
     # via
     #   sphinx
     #   sphinx-rtd-theme
-idna==3.16
+idna==3.19
     # via requests
-imagesize==2.0.0
+imagesize==2.0.1
     # via sphinx
 iniconfig==2.3.0
     # via
@@ -24,7 +24,7 @@ iniconfig==2.3.0
     #   pytest
 jinja2==3.1.6
     # via sphinx
-llvmlite==0.47.0
+llvmlite==0.49.0
     # via
     #   -r requirements.txt
     #   numba
@@ -32,14 +32,14 @@ markupsafe==3.0.3
     # via jinja2
 netifaces2==0.0.22
     # via -r requirements.txt
-numba==0.65.0
+numba==0.67.0
     # via -r requirements.txt
-numpy==2.4.4
+numpy==2.5.2
     # via
     #   -r requirements.txt
     #   numba
     #   scipy
-packaging==26.0
+packaging==26.3
     # via
     #   -r requirements.txt
     #   pytest
@@ -48,30 +48,30 @@ pluggy==1.6.0
     # via
     #   -r requirements.txt
     #   pytest
-pygments==2.20.0
+pygments==2.21.0
     # via
     #   -r requirements.txt
     #   pytest
     #   sphinx
-pytest==9.0.3
+pytest==9.1.1
     # via
     #   -r requirements.txt
     #   pytest-asyncio
     #   pytest-custom-exit-code
     #   pytest-timeout
-pytest-asyncio==1.3.0
+pytest-asyncio==1.4.0
     # via -r requirements.txt
 pytest-custom-exit-code==0.3.0
     # via -r requirements.txt
 pytest-timeout==2.4.0
     # via -r requirements.txt
-requests==2.33.1
+requests==2.34.2
     # via sphinx
 roman-numerals==4.1.0
     # via sphinx
-scipy==1.17.1
+scipy==1.18.1
     # via -r requirements.txt
-snowballstemmer==3.0.1
+snowballstemmer==3.1.1
     # via sphinx
 sphinx==9.1.0
     # via
