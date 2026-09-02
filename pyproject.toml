@@ -6,7 +6,6 @@ build-backend = "mesonpy"
 name = "spead2"
 description = "High-performance SPEAD implementation"
 readme = "README.rst"
-# TODO: add license-files with COPYING once PEP 639 is supported by meson-python
 license = "LGPL-3.0-or-later"
 license-files = ["COPYING.LESSER", "COPYING"]
 classifiers = [
