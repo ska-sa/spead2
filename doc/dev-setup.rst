@@ -140,12 +140,7 @@ The C++ code is less consistent in style, but here are some guidelines:
 Committing
 ----------
 Before committing, remember to run :command:`pre-commit install` to set up
-pre-commit. One of the pre-commit hooks checks that the requirements files are
-up to date, and (at the time of writing) depends on having
-:command:`python3.9` and :command:`python3.13` commands
-on the path. If you're not touching the requirements, you can skip this hook
-by setting the environment variable :envvar:`SKIP=pip-compile` when
-committing.
+pre-commit.
 
 .. _ninja-build: https://ninja-build.org/
 .. _pyenv: https://github.com/pyenv/pyenv/

@@ -14,10 +14,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from collections.abc import KeysView, Sequence, ValuesView
-from typing import Any, overload
+from typing import Any, TypeAlias, overload
 
 import numpy as np
-from typing_extensions import TypeAlias
 
 try:
     from numpy.typing import DTypeLike as _DTypeLike
