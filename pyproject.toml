@@ -6,7 +6,6 @@ build-backend = "mesonpy"
 name = "spead2"
 description = "High-performance SPEAD implementation"
 readme = "README.rst"
-# TODO: add license-files with COPYING once PEP 639 is supported by meson-python
 license = "LGPL-3.0-or-later"
 license-files = ["COPYING.LESSER", "COPYING"]
 classifiers = [
@@ -21,13 +20,13 @@ classifiers = [
 dependencies = [
   "numpy>=1.9.2"
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dynamic = ["version"]
 
 [project.optional-dependencies]
 test = [
   "netifaces2",
-  "pytest",
+  "pytest>=9",
   "pytest-asyncio",
   "pytest-timeout"
 ]
@@ -106,21 +105,20 @@ setup-args = [
 # and it's set from .github/workflows/test.yml.
 before-all = ".ci/before_all_macos.sh"
 
-[tool.isort]
-profile = "black"
-combine_as_imports = true
-line_length = 100
-py_version = 39
-
-[tool.black]
-line-length = 100
-target-version = ["py39", "py310", "py311", "py312", "py313"]
-
 [tool.ruff]
-select = ["E", "F", "W", "UP", "PYI", "RUF100"]
 line-length = 100
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "PYI", "RUF100"]
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["spead2.*"]  # spead2._spead2 is not detected as such by ruff
 
 [tool.mypy]
 ignore_missing_imports = true
 files = ["src/spead2", "examples", "tests"]
-python_version = "3.9"
+python_version = "3.10"
+
+[tool.pytest]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"

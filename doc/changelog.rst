@@ -1,6 +1,23 @@
 Changelog
 =========
 
+.. rubric:: 4.5.0b1
+
+- Drop support for Python 3.9.
+- Rework the ibverbs support to use a separate :cpp:class:`!ibv_context` for
+  each reader/writer. This allows the unit tests to pass on newer ConnectX
+  firmware. There may be some impact of resource usage when using huge numbers
+  of streams.
+- Remove the :class:`!spead2.IbvContext` class, which existed only as a
+  workaround for the above. It was not documented, but please raise a ticket
+  if it was in use and this breaks your code.
+- Update various dependencies to the latest versions.
+- Remove the :filename:`setup.cfg` file that didn't get deleted after its
+  content was migrated to :filename:`pyproject.toml`.
+- Replace isort and black with ruff.
+- Fix Github Actions tests for UDP6.
+- Update Github Actions to macos-15.
+
 .. rubric:: 4.4.1
 
 - The ``too_old_heaps`` stat now also counts heaps whose first packet arrived

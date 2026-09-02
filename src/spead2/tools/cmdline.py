@@ -339,7 +339,7 @@ class SenderOptions(SharedOptions):
             "rate_method",
             metavar="METHOD",
             type=parse_rate_method,
-            help=f'Method for rate limiting ({"/".join(rate_method_names)})',
+            help=f"Method for rate limiting ({'/'.join(rate_method_names)})",
         )
         self._add_argument(
             parser, "rate", metavar="Gb/s", type=float, help="Transmission rate bound [no limit]"

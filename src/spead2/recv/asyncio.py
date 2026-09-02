@@ -16,6 +16,7 @@
 """
 Integration between spead2.recv and asyncio
 """
+
 import asyncio
 import collections
 import functools
