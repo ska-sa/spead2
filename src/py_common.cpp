@@ -365,18 +365,6 @@ void register_module(py::module m)
         .def_readwrite("format", &descriptor::format)
         .def_property("numpy_header", bytes_getter(&descriptor::numpy_header), bytes_setter(&descriptor::numpy_header))
     ;
-#if SPEAD2_USE_IBV
-    py::class_<ibv_context_t>(m, "IbvContext")
-        .def(py::init([](const std::string &interface_address)
-            {
-                py::gil_scoped_release release;
-                boost::asio::io_context io_context;
-                return ibv_context_t(make_address_no_release(
-                    io_context, interface_address, boost::asio::ip::udp::resolver::passive));
-            }), "interface"_a)
-        .def("reset", [](ibv_context_t &self) { self.reset(); })
-    ;
-#endif
 }
 
 void register_logging()

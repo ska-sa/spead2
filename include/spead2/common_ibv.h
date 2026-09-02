@@ -153,6 +153,17 @@ public:
     rdma_cm_id_t(const rdma_event_channel_t &cm_id, void *context, rdma_port_space ps);
 
     void bind_addr(const boost::asio::ip::address &addr);
+};
+
+class ibv_context_t : public std::unique_ptr<ibv_context, detail::ibv_context_deleter>
+{
+public:
+    int port_num = 0;  // Not part of ibv_context*, but useful to carry around
+
+    ibv_context_t() = default;
+    explicit ibv_context_t(struct ibv_device *device, int port_num = 0);
+    explicit ibv_context_t(const boost::asio::ip::address &addr);
+
     ibv_device_attr query_device() const;  // for backwards compatibility
     ibv_device_attr_ex query_device_ex(const ibv_query_device_ex_input *input = nullptr) const;
 #if SPEAD2_USE_MLX5DV
@@ -161,25 +172,11 @@ public:
 #endif
 };
 
-/* This class is not intended to be used for anything. However, the mlx5 driver
- * will only enable multicast loopback if there at least 2 device contexts, and
- * multiple instances of rdma_cm_id_t bound to the same device end up with the
- * same device context, so constructing one is a way to force multicast
- * loopback to function.
- */
-class ibv_context_t : public std::unique_ptr<ibv_context, detail::ibv_context_deleter>
-{
-public:
-    ibv_context_t() = default;
-    explicit ibv_context_t(struct ibv_device *device);
-    explicit ibv_context_t(const boost::asio::ip::address &addr);
-};
-
 class ibv_comp_channel_t : public std::unique_ptr<ibv_comp_channel, detail::ibv_comp_channel_deleter>
 {
 public:
     ibv_comp_channel_t() = default;
-    explicit ibv_comp_channel_t(const rdma_cm_id_t &cm_id);
+    explicit ibv_comp_channel_t(const ibv_context_t &ctx);
 
     /// Create a file descriptor that is ready to read when the completion channel has events
     boost::asio::posix::stream_descriptor wrap(boost::asio::io_context &io_context) const;
@@ -191,8 +188,8 @@ class ibv_cq_t : public std::unique_ptr<ibv_cq, detail::ibv_cq_deleter>
 {
 public:
     ibv_cq_t() = default;
-    ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context);
-    ibv_cq_t(const rdma_cm_id_t &cm_id, int cqe, void *context,
+    ibv_cq_t(const ibv_context_t &ctx, int cqe, void *context);
+    ibv_cq_t(const ibv_context_t &ctx, int cqe, void *context,
              const ibv_comp_channel_t &comp_channel, int comp_vector);
 
     void req_notify(bool solicited_only);
@@ -204,7 +201,7 @@ class ibv_cq_ex_t : public ibv_cq_t
 {
 public:
     ibv_cq_ex_t() = default;
-    ibv_cq_ex_t(const rdma_cm_id_t &cm_id, ibv_cq_init_attr_ex *cq_attr);
+    ibv_cq_ex_t(const ibv_context_t &ctx, ibv_cq_init_attr_ex *cq_attr);
 
     ibv_cq_ex *get() const
     {
@@ -281,7 +278,7 @@ class ibv_pd_t : public std::unique_ptr<ibv_pd, detail::ibv_pd_deleter>
 {
 public:
     ibv_pd_t() = default;
-    explicit ibv_pd_t(const rdma_cm_id_t &cm_id);
+    explicit ibv_pd_t(const ibv_context_t &ctx);
 };
 
 class ibv_qp_t : public std::unique_ptr<ibv_qp, detail::ibv_qp_deleter>
@@ -289,7 +286,7 @@ class ibv_qp_t : public std::unique_ptr<ibv_qp, detail::ibv_qp_deleter>
 public:
     ibv_qp_t() = default;
     ibv_qp_t(const ibv_pd_t &pd, ibv_qp_init_attr *init_attr);
-    ibv_qp_t(const rdma_cm_id_t &cm_id, ibv_qp_init_attr_ex *init_attr);
+    ibv_qp_t(const ibv_context_t &ctx, ibv_qp_init_attr_ex *init_attr);
 
     void modify(ibv_qp_attr *attr, int attr_mask);
     void modify(ibv_qp_state qp_state);
@@ -345,7 +342,7 @@ class ibv_wq_t : public std::unique_ptr<ibv_wq, detail::ibv_wq_deleter>
 {
 public:
     ibv_wq_t() = default;
-    ibv_wq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr);
+    ibv_wq_t(const ibv_context_t &ctx, ibv_wq_init_attr *attr);
 
     void modify(ibv_wq_state state);
 };
@@ -388,7 +385,7 @@ public:
     static constexpr int FLAG_FILLER = 2;  ///< This is a filler CQE rather than a packet
 
     ibv_wq_mprq_t() = default;
-    ibv_wq_mprq_t(const rdma_cm_id_t &cm_id, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr);
+    ibv_wq_mprq_t(const ibv_context_t &ctx, ibv_wq_init_attr *attr, mlx5dv_wq_init_attr *mlx5_attr);
 
     void post_recv(ibv_sge *sge);
 
@@ -404,11 +401,11 @@ class ibv_rwq_ind_table_t : public std::unique_ptr<ibv_rwq_ind_table, detail::ib
 {
 public:
     ibv_rwq_ind_table_t() = default;
-    ibv_rwq_ind_table_t(const rdma_cm_id_t &cm_id, ibv_rwq_ind_table_init_attr *attr);
+    ibv_rwq_ind_table_t(const ibv_context_t &ctx, ibv_rwq_ind_table_init_attr *attr);
 };
 
 /// Construct a table with a single entry
-ibv_rwq_ind_table_t create_rwq_ind_table(const rdma_cm_id_t &cm_id, const ibv_wq_t &wq);
+ibv_rwq_ind_table_t create_rwq_ind_table(const ibv_context_t &ctx, const ibv_wq_t &wq);
 
 namespace detail
 {

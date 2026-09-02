@@ -55,11 +55,6 @@ from spead2._spead2 import (  # noqa: F401
     Stopped,
     ThreadPool,
 )
-
-try:
-    from spead2._spead2 import IbvContext  # noqa: F401
-except ImportError:
-    pass
 from spead2._version import __version__  # noqa: F401
 
 _logger = logging.getLogger(__name__)

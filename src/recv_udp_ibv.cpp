@@ -67,20 +67,11 @@ namespace detail
 static constexpr int header_length =
     ethernet_frame::min_size + ipv4_packet::min_size + udp_packet::min_size;
 
-static spead2::rdma_cm_id_t make_cm_id(const rdma_event_channel_t &event_channel,
-                                       const boost::asio::ip::address &interface_address)
-{
-    rdma_cm_id_t cm_id(event_channel, nullptr, RDMA_PS_UDP);
-    cm_id.bind_addr(interface_address);
-    return cm_id;
-}
-
 udp_ibv_reader_core::udp_ibv_reader_core(
     stream &owner,
     const udp_ibv_config &config)
     : udp_reader_base(owner),
     join_socket(owner.get_io_context(), boost::asio::ip::udp::v4()),
-    event_channel(nullptr),
     comp_channel_wrapper(owner.get_io_context()),
     max_size(config.get_max_size()),
     max_poll(config.get_max_poll())
@@ -88,14 +79,13 @@ udp_ibv_reader_core::udp_ibv_reader_core(
     if (config.get_endpoints().empty())
         throw std::invalid_argument("endpoints is empty");
     if (config.get_interface_address().is_unspecified())
-        throw std::invalid_argument("interface address has not been be specified");
+        throw std::invalid_argument("interface address has not been specified");
 
-    event_channel = rdma_event_channel_t();
-    cm_id = make_cm_id(event_channel, config.get_interface_address());
-    pd = ibv_pd_t(cm_id);
+    ctx = ibv_context_t(config.get_interface_address());
+    pd = ibv_pd_t(ctx);
     if (config.get_comp_vector() >= 0)
     {
-        comp_channel = ibv_comp_channel_t(cm_id);
+        comp_channel = ibv_comp_channel_t(ctx);
         comp_channel_wrapper = comp_channel.wrap(get_io_context());
     }
 
@@ -123,11 +113,11 @@ void udp_ibv_reader_core::stop()
 
 } // namespace detail
 
-static std::size_t compute_n_slots(const rdma_cm_id_t &cm_id, std::size_t buffer_size,
+static std::size_t compute_n_slots(const ibv_context_t &ctx, std::size_t buffer_size,
                                    std::size_t max_raw_size)
 {
     bool reduced = false;
-    ibv_device_attr attr = cm_id.query_device();
+    ibv_device_attr attr = ctx.query_device();
     if (!(attr.device_cap_flags & IBV_DEVICE_MANAGED_FLOW_STEERING))
         throw std::invalid_argument("This device does not support flow steering");
     if (attr.max_mr_size < max_raw_size)
@@ -233,7 +223,7 @@ udp_ibv_reader::udp_ibv_reader(
     stream &owner,
     const udp_ibv_config &config)
     : udp_ibv_reader_base<udp_ibv_reader>(owner, config),
-    n_slots(compute_n_slots(cm_id,
+    n_slots(compute_n_slots(ctx,
                             config.get_buffer_size(),
                             config.get_max_size() + detail::header_length))
 {
@@ -242,14 +232,14 @@ udp_ibv_reader::udp_ibv_reader(
     std::size_t buffer_size = n_slots * max_raw_size;
 
     if (config.get_comp_vector() >= 0)
-        recv_cq = ibv_cq_t(cm_id, n_slots, nullptr,
-                           comp_channel, config.get_comp_vector() % cm_id->verbs->num_comp_vectors);
+        recv_cq = ibv_cq_t(ctx, n_slots, nullptr,
+                           comp_channel, config.get_comp_vector() % ctx->num_comp_vectors);
     else
-        recv_cq = ibv_cq_t(cm_id, n_slots, nullptr);
-    send_cq = ibv_cq_t(cm_id, 1, nullptr);
+        recv_cq = ibv_cq_t(ctx, n_slots, nullptr);
+    send_cq = ibv_cq_t(ctx, 1, nullptr);
     qp = create_qp(pd, send_cq, recv_cq, n_slots);
-    qp.modify(IBV_QPS_INIT, cm_id->port_num);
-    flows = create_flows(qp, config.get_endpoints(), cm_id->port_num);
+    qp.modify(IBV_QPS_INIT, ctx.port_num);
+    flows = create_flows(qp, config.get_endpoints(), ctx.port_num);
 
     std::shared_ptr<mmap_allocator> allocator = std::make_shared<mmap_allocator>(0, true);
     buffer = allocator->allocate(buffer_size, nullptr);
