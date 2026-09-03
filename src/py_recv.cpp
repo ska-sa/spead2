@@ -21,6 +21,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/operators.h>
+#include <pybind11/native_enum.h>
 #include <algorithm>
 #include <stdexcept>
 #include <type_traits>
@@ -486,9 +487,10 @@ py::module register_module(py::module &parent)
     /* We have to register the embedded enum type before we can use it as a
      * default value for the stream_stat constructor/
      */
-    py::enum_<stream_stat_config::mode>(stream_stat_config_cls, "Mode")
+    py::native_enum<stream_stat_config::mode>(stream_stat_config_cls, "Mode", "enum.Enum")
         .value("COUNTER", stream_stat_config::mode::COUNTER)
-        .value("MAXIMUM", stream_stat_config::mode::MAXIMUM);
+        .value("MAXIMUM", stream_stat_config::mode::MAXIMUM)
+        .finalize();
     stream_stat_config_cls
         .def(
             py::init<std::string, stream_stat_config::mode>(),
@@ -905,9 +907,10 @@ py::module register_module(py::module &parent)
                       &chunk_stream_group_config::get_eviction_mode,
                       &chunk_stream_group_config::set_eviction_mode)
         .def_readonly_static("DEFAULT_MAX_CHUNKS", &chunk_stream_group_config::default_max_chunks);
-    py::enum_<chunk_stream_group_config::eviction_mode>(chunk_stream_group_config_cls, "EvictionMode")
+    py::native_enum<chunk_stream_group_config::eviction_mode>(chunk_stream_group_config_cls, "EvictionMode", "enum.Enum")
         .value("LOSSY", chunk_stream_group_config::eviction_mode::LOSSY)
-        .value("LOSSLESS", chunk_stream_group_config::eviction_mode::LOSSLESS);
+        .value("LOSSLESS", chunk_stream_group_config::eviction_mode::LOSSLESS)
+        .finalize();
 
     py::classh<chunk_stream_group_member, stream>(m, "ChunkStreamGroupMember");
 

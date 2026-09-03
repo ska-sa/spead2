@@ -20,6 +20,7 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/native_enum.h>
 #include <boost/system/system_error.hpp>
 #include <stdexcept>
 #include <mutex>
@@ -836,14 +837,16 @@ py::module register_module(py::module &parent)
         .def("__iter__", [](py::object self) { return self; })
         .def("__next__", &packet_generator_next);
 
-    py::enum_<rate_method>(m, "RateMethod")
+    py::native_enum<rate_method>(m, "RateMethod", "enum.Enum")
         .value("SW", rate_method::SW)
         .value("HW", rate_method::HW)
-        .value("AUTO", rate_method::AUTO);
+        .value("AUTO", rate_method::AUTO)
+        .finalize();
 
-    py::enum_<group_mode>(m, "GroupMode")
+    py::native_enum<group_mode>(m, "GroupMode", "enum.Enum")
         .value("ROUND_ROBIN", group_mode::ROUND_ROBIN)
-        .value("SERIAL", group_mode::SERIAL);
+        .value("SERIAL", group_mode::SERIAL)
+        .finalize();
 
     py::classh<heap_reference>(m, "HeapReference")
         .def(py::init<const heap_wrapper &, s_item_pointer_t, std::size_t, double>(),
