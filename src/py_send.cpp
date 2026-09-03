@@ -547,11 +547,11 @@ public:
 };
 
 template<typename T>
-static py::class_<T, stream> udp_stream_register(py::module &m, const char *name)
+static py::classh<T, stream> udp_stream_register(py::module &m, const char *name)
 {
     using namespace pybind11::literals;
 
-    return py::class_<T, stream>(m, name)
+    return py::classh<T, stream>(m, name)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::pair<std::string, std::uint16_t>> &, const stream_config &, std::size_t, std::string>(),
              "thread_pool"_a.none(false), "endpoints"_a,
              "config"_a = stream_config(),
@@ -583,11 +583,11 @@ static py::class_<T, stream> udp_stream_register(py::module &m, const char *name
 
 #if SPEAD2_USE_IBV
 template<typename T>
-static py::class_<T, stream> udp_ibv_stream_register(py::module &m, const char *name)
+static py::classh<T, stream> udp_ibv_stream_register(py::module &m, const char *name)
 {
     using namespace pybind11::literals;
 
-    return py::class_<T, stream>(m, name)
+    return py::classh<T, stream>(m, name)
         .def(py::init([](std::shared_ptr<thread_pool_wrapper> thread_pool,
                          const stream_config &config,
                          const udp_ibv_config_wrapper &ibv_config_wrapper)
@@ -656,15 +656,15 @@ public:
  * the TCP sync and async classes are constructed very differently (because of
  * the handling around connecting). The callback is called (several times) with
  * a function object that generates the unique_ptr<T> plus additional arguments
- * to pass to py::class_::def.
+ * to pass to py::classh::def.
  */
 template<typename Registrar>
-static py::class_<typename Registrar::stream_type, stream> tcp_stream_register(py::module &m, const char *name)
+static py::classh<typename Registrar::stream_type, stream> tcp_stream_register(py::module &m, const char *name)
 {
     using namespace pybind11::literals;
 
     typedef typename Registrar::stream_type T;
-    py::class_<T, stream> class_(m, name);
+    py::classh<T, stream> class_(m, name);
     class_
         .def(py::init<std::shared_ptr<thread_pool_wrapper>,
                       const socket_wrapper<boost::asio::ip::tcp::socket> &,
@@ -716,7 +716,7 @@ private:
 
 public:
     template<typename... Args, typename... Extra>
-    static void apply(py::class_<stream_type, stream> &class_, Extra&&... extra)
+    static void apply(py::classh<stream_type, stream> &class_, Extra&&... extra)
     {
         class_.def(py::init(&tcp_stream_register_sync::construct<Args...>),
                    std::forward<Extra>(extra)...);
@@ -759,7 +759,7 @@ private:
 
 public:
     template<typename... Args, typename... Extra>
-    static void apply(py::class_<stream_type, stream> &class_, Extra&&... extra)
+    static void apply(py::classh<stream_type, stream> &class_, Extra&&... extra)
     {
         using namespace pybind11::literals;
         class_.def(py::init(&tcp_stream_register_async::construct<Args...>),
@@ -768,17 +768,17 @@ public:
 };
 
 template<typename T>
-static py::class_<T, stream> inproc_stream_register(py::module &m, const char *name)
+static py::classh<T, stream> inproc_stream_register(py::module &m, const char *name)
 {
     using namespace pybind11::literals;
-    return py::class_<T, stream>(m, name)
+    return py::classh<T, stream>(m, name)
         .def(py::init<std::shared_ptr<thread_pool_wrapper>, const std::vector<std::shared_ptr<inproc_queue>> &, const stream_config &>(),
              "thread_pool"_a.none(false), "queues"_a, "config"_a = stream_config())
         .def_property_readonly("queues", &T::get_queues);
 }
 
 template<typename T>
-static void sync_stream_register(py::class_<T, stream> &stream_class)
+static void sync_stream_register(py::classh<T, stream> &stream_class)
 {
     using namespace pybind11::literals;
     stream_class.def("send_heap", &T::send_heap,
@@ -792,7 +792,7 @@ static void sync_stream_register(py::class_<T, stream> &stream_class)
 }
 
 template<typename T>
-static void async_stream_register(py::class_<T, stream> &stream_class)
+static void async_stream_register(py::classh<T, stream> &stream_class)
 {
     using namespace pybind11::literals;
     stream_class
@@ -816,7 +816,7 @@ py::module register_module(py::module &parent)
 
     py::module m = parent.def_submodule("send");
 
-    py::class_<heap_wrapper>(m, "Heap")
+    py::classh<heap_wrapper>(m, "Heap")
         .def(py::init<flavour>(), "flavour"_a = flavour())
         .def_property_readonly("flavour", &heap_wrapper::get_flavour)
         .def("add_item", &heap_wrapper::add_item, "item"_a)
@@ -829,7 +829,7 @@ py::module register_module(py::module &parent)
 
     // keep_alive is safe to use here in spite of pybind/pybind11#856, because
     // the destructor of packet_generator doesn't reference the heap.
-    py::class_<packet_generator>(m, "PacketGenerator")
+    py::classh<packet_generator>(m, "PacketGenerator")
         .def(py::init<heap_wrapper &, item_pointer_t, std::size_t>(),
              "heap"_a, "cnt"_a, "max_packet_size"_a,
              py::keep_alive<1, 2>())
@@ -845,7 +845,7 @@ py::module register_module(py::module &parent)
         .value("ROUND_ROBIN", group_mode::ROUND_ROBIN)
         .value("SERIAL", group_mode::SERIAL);
 
-    py::class_<heap_reference>(m, "HeapReference")
+    py::classh<heap_reference>(m, "HeapReference")
         .def(py::init<const heap_wrapper &, s_item_pointer_t, std::size_t, double>(),
              "heap"_a, py::kw_only(), "cnt"_a = -1, "substream_index"_a = 0, "rate"_a = -1.0,
              py::keep_alive<1, 2>())
@@ -857,12 +857,12 @@ py::module register_module(py::module &parent)
         .def_readwrite("substream_index", &heap_reference::substream_index)
         .def_readwrite("rate", &heap_reference::rate);
 
-    py::class_<heap_reference_list>(m, "HeapReferenceList")
+    py::classh<heap_reference_list>(m, "HeapReferenceList")
         .def(py::init<std::vector<heap_reference>>(), "heaps"_a)
         .def("__len__", &heap_reference_list::size)
         .def("__getitem__", &heap_reference_list::get_slice);
 
-    py::class_<stream_config>(m, "StreamConfig")
+    py::classh<stream_config>(m, "StreamConfig")
         .def(py::init(&data_class_constructor<stream_config>))
         .def_property("max_packet_size",
                       &stream_config::get_max_packet_size,
@@ -890,7 +890,7 @@ py::module register_module(py::module &parent)
         .def_readonly_static("DEFAULT_BURST_RATE_RATIO", &stream_config::default_burst_rate_ratio)
         .def_readonly_static("DEFAULT_RATE_METHOD", &stream_config::default_rate_method);
 
-    py::class_<stream>(m, "Stream")
+    py::classh<stream>(m, "Stream")
         .def("set_cnt_sequence", &stream::set_cnt_sequence,
              "next"_a, "step"_a)
         .def_property_readonly("num_substreams", &stream::get_num_substreams);
@@ -905,7 +905,7 @@ py::module register_module(py::module &parent)
     }
 
 #if SPEAD2_USE_IBV
-    py::class_<udp_ibv_config_wrapper>(m, "UdpIbvConfig")
+    py::classh<udp_ibv_config_wrapper>(m, "UdpIbvConfig")
         .def(py::init(&data_class_constructor<udp_ibv_config_wrapper>))
         .def_readwrite("endpoints", &udp_ibv_config_wrapper::py_endpoints)
         .def_readwrite("memory_regions", &udp_ibv_config_wrapper::py_memory_regions)
@@ -945,7 +945,7 @@ py::module register_module(py::module &parent)
     }
 
     {
-        py::class_<bytes_stream, stream> stream_class(m, "BytesStream", py::multiple_inheritance());
+        py::classh<bytes_stream, stream> stream_class(m, "BytesStream", py::multiple_inheritance());
         stream_class
             .def(py::init<std::shared_ptr<thread_pool_wrapper>, const stream_config &>(),
                  "thread_pool"_a.none(false), "config"_a = stream_config())

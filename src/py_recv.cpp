@@ -451,7 +451,7 @@ py::module register_module(py::module &parent)
     // Create the module
     py::module m = parent.def_submodule("recv");
 
-    py::class_<heap_base>(m, "HeapBase")
+    py::classh<heap_base>(m, "HeapBase")
         .def_property_readonly("cnt", &heap_base::get_cnt)
         .def_property_readonly("flavour", &heap_base::get_flavour)
         .def("get_items", [](py::object &self) -> py::list
@@ -470,19 +470,19 @@ py::module register_module(py::module &parent)
         })
         .def("is_start_of_stream", &heap_base::is_start_of_stream)
         .def("is_end_of_stream", &heap_base::is_end_of_stream);
-    py::class_<heap, heap_base>(m, "Heap")
+    py::classh<heap, heap_base>(m, "Heap")
         .def("get_descriptors", &heap::get_descriptors);
-    py::class_<incomplete_heap, heap_base>(m, "IncompleteHeap")
+    py::classh<incomplete_heap, heap_base>(m, "IncompleteHeap")
         .def_property_readonly("heap_length", &incomplete_heap::get_heap_length)
         .def_property_readonly("received_length", &incomplete_heap::get_received_length)
         .def_property_readonly("payload_ranges", &incomplete_heap::get_payload_ranges);
-    py::class_<item_wrapper>(m, "RawItem", py::buffer_protocol())
+    py::classh<item_wrapper>(m, "RawItem", py::buffer_protocol())
         .def_readonly("id", &item_wrapper::id)
         .def_readonly("is_immediate", &item_wrapper::is_immediate)
         .def_readonly("immediate_value", &item_wrapper::immediate_value)
         .def_buffer([](item_wrapper &item) { return item.get_value(); });
 
-    py::class_<stream_stat_config> stream_stat_config_cls(m, "StreamStatConfig");
+    py::classh<stream_stat_config> stream_stat_config_cls(m, "StreamStatConfig");
     /* We have to register the embedded enum type before we can use it as a
      * default value for the stream_stat constructor/
      */
@@ -498,7 +498,7 @@ py::module register_module(py::module &parent)
         .def("combine", &stream_stat_config::combine)
         .def(py::self == py::self)
         .def(py::self != py::self);
-    py::class_<stream_stats> stream_stats_cls(m, "StreamStats");
+    py::classh<stream_stats> stream_stats_cls(m, "StreamStats");
     stream_stats_cls
         .def("__getitem__", [](const stream_stats &self, std::size_t index)
         {
@@ -593,7 +593,7 @@ py::module register_module(py::module &parent)
     STREAM_STATS_PROPERTY(search_dist);
 #undef STREAM_STATS_PROPERTY
 
-    py::class_<stream_config>(m, "StreamConfig")
+    py::classh<stream_config>(m, "StreamConfig")
         .def(py::init(&data_class_constructor<stream_config>))
         .def_property("max_heaps",
                       &stream_config::get_max_heaps,
@@ -643,7 +643,7 @@ py::module register_module(py::module &parent)
              "name"_a)
         .def("next_stat_index", &stream_config::next_stat_index)
         .def_readonly_static("DEFAULT_MAX_HEAPS", &stream_config::default_max_heaps);
-    py::class_<ring_stream_config_wrapper>(m, "RingStreamConfig")
+    py::classh<ring_stream_config_wrapper>(m, "RingStreamConfig")
         .def(py::init(&data_class_constructor<ring_stream_config_wrapper>))
         .def_property("heaps",
                       &ring_stream_config_wrapper::get_heaps,
@@ -656,7 +656,7 @@ py::module register_module(py::module &parent)
                       SPEAD2_PTMF_VOID(ring_stream_config_wrapper, set_incomplete_keep_payload_ranges))
         .def_readonly_static("DEFAULT_HEAPS", &ring_stream_config_wrapper::default_heaps);
 #if SPEAD2_USE_IBV
-    py::class_<udp_ibv_config_wrapper>(m, "UdpIbvConfig")
+    py::classh<udp_ibv_config_wrapper>(m, "UdpIbvConfig")
         .def(py::init(&data_class_constructor<udp_ibv_config_wrapper>))
         .def_readwrite("endpoints", &udp_ibv_config_wrapper::py_endpoints)
         .def_readwrite("interface_address", &udp_ibv_config_wrapper::py_interface_address)
@@ -676,7 +676,7 @@ py::module register_module(py::module &parent)
         .def_readonly_static("DEFAULT_MAX_SIZE", &udp_ibv_config_wrapper::default_max_size)
         .def_readonly_static("DEFAULT_MAX_POLL", &udp_ibv_config_wrapper::default_max_poll);
 #endif // SPEAD2_USE_IBV
-    py::class_<stream>(m, "_Stream")
+    py::classh<stream>(m, "_Stream")
         // SPEAD2_PTMF doesn't work for get_stats because it's defined in stream_base, which is a protected ancestor
         .def_property_readonly("stats", [](const stream &self) { return self.get_stats(); })
         .def_property_readonly("config",
@@ -726,7 +726,7 @@ py::module register_module(py::module &parent)
         .def_readonly_static("DEFAULT_UDP_BUFFER_SIZE", &udp_reader::default_buffer_size)
         .def_readonly_static("DEFAULT_TCP_MAX_SIZE", &tcp_reader::default_max_size)
         .def_readonly_static("DEFAULT_TCP_BUFFER_SIZE", &tcp_reader::default_buffer_size);
-    py::class_<ring_stream_wrapper, stream> stream_class(m, "Stream");
+    py::classh<ring_stream_wrapper, stream> stream_class(m, "Stream");
     stream_class
         .def(py::init<std::shared_ptr<thread_pool_wrapper>,
                       const stream_config &,
@@ -741,10 +741,10 @@ py::module register_module(py::module &parent)
         .def_property_readonly("ringbuffer", &ring_stream_wrapper::get_ringbuffer)
         .def_property_readonly("ring_config", &ring_stream_wrapper::get_ring_config);
     using Ringbuffer = ringbuffer<live_heap, semaphore_fd, semaphore>;
-    py::class_<Ringbuffer>(stream_class, "Ringbuffer")
+    py::classh<Ringbuffer>(stream_class, "Ringbuffer")
         .def("size", &Ringbuffer::size)
         .def("capacity", &Ringbuffer::capacity);
-    py::class_<chunk_stream_config>(m, "ChunkStreamConfig")
+    py::classh<chunk_stream_config>(m, "ChunkStreamConfig")
         .def(py::init(&data_class_constructor<chunk_stream_config>))
         .def_property("items",
                       &chunk_stream_config::get_items,
@@ -774,7 +774,7 @@ py::module register_module(py::module &parent)
                       &chunk_stream_config::get_max_heap_extra,
                       &chunk_stream_config::set_max_heap_extra)
         .def_readonly_static("DEFAULT_MAX_CHUNKS", &chunk_stream_config::default_max_chunks);
-    py::class_<chunk>(m, "Chunk")
+    py::classh<chunk>(m, "Chunk")
         .def(py::init(&data_class_constructor<chunk>))
         .def_readwrite("chunk_id", &chunk::chunk_id)
         .def_readwrite("stream_id", &chunk::stream_id)
@@ -806,7 +806,7 @@ py::module register_module(py::module &parent)
     // Don't allow ChunkRingPair to be constructed from Python. It exists
     // purely to be a base class.
     using chunk_ring_pair = detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>;
-    py::class_<chunk_ring_pair>(m, "ChunkRingPair")
+    py::classh<chunk_ring_pair>(m, "ChunkRingPair")
         .def(
             "add_free_chunk",
             [](chunk_ring_pair &self, chunk &c)
@@ -823,7 +823,7 @@ py::module register_module(py::module &parent)
         .def_property_readonly("data_ringbuffer", &chunk_ring_pair::get_data_ringbuffer)
         .def_property_readonly("free_ringbuffer", &chunk_ring_pair::get_free_ringbuffer);
 
-    py::class_<chunk_ring_stream_wrapper,
+    py::classh<chunk_ring_stream_wrapper,
                detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>,
                stream>(m, "ChunkRingStream")
         .def(py::init<std::shared_ptr<thread_pool_wrapper>,
@@ -841,7 +841,7 @@ py::module register_module(py::module &parent)
             // from properties.
              py::keep_alive<1, 5>(),
              py::keep_alive<1, 6>());
-    py::class_<chunk_ringbuffer, std::shared_ptr<chunk_ringbuffer>>(m, "ChunkRingbuffer")
+    py::classh<chunk_ringbuffer>(m, "ChunkRingbuffer")
         .def(py::init<std::size_t>(), "maxsize"_a)
         .def("qsize", &chunk_ringbuffer::size)
         .def_property_readonly("maxsize", &chunk_ringbuffer::capacity)
@@ -895,7 +895,7 @@ py::module register_module(py::module &parent)
                 }
             });
 
-    py::class_<chunk_stream_group_config> chunk_stream_group_config_cls(m, "ChunkStreamGroupConfig");
+    py::classh<chunk_stream_group_config> chunk_stream_group_config_cls(m, "ChunkStreamGroupConfig");
     chunk_stream_group_config_cls
         .def(py::init(&data_class_constructor<chunk_stream_group_config>))
         .def_property("max_chunks",
@@ -909,9 +909,9 @@ py::module register_module(py::module &parent)
         .value("LOSSY", chunk_stream_group_config::eviction_mode::LOSSY)
         .value("LOSSLESS", chunk_stream_group_config::eviction_mode::LOSSLESS);
 
-    py::class_<chunk_stream_group_member, stream>(m, "ChunkStreamGroupMember");
+    py::classh<chunk_stream_group_member, stream>(m, "ChunkStreamGroupMember");
 
-    py::class_<chunk_stream_ring_group_wrapper,
+    py::classh<chunk_stream_ring_group_wrapper,
                detail::chunk_ring_pair<chunk_ringbuffer, chunk_ringbuffer>>(m, "ChunkStreamRingGroup")
         .def(py::init<const chunk_stream_group_config &,
                       std::shared_ptr<chunk_ringbuffer>,
