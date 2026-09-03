@@ -8,6 +8,7 @@ Changelog
   noticeably difference.
 - Migrate to pybind11's native enum support. This will make enums defined
   by spead2 behave like normal stdlib enums.
+- Update cibuildwheel to 4.2.0.
 
 .. rubric:: 4.5.0b1
 
