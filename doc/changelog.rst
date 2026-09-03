@@ -3,6 +3,7 @@ Changelog
 
 .. rubric:: 4.5.0
 
+- Upgrade to pybind11 3.1.0.
 - Migrate to pybind11's smart_holder classes. This should not make any
   noticeably difference.
 - Migrate to pybind11's native enum support. This will make enums defined
