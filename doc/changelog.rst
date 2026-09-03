@@ -12,8 +12,8 @@ Changelog
   workaround for the above. It was not documented, but please raise a ticket
   if it was in use and this breaks your code.
 - Update various dependencies to the latest versions.
-- Remove the :filename:`setup.cfg` file that didn't get deleted after its
-  content was migrated to :filename:`pyproject.toml`.
+- Remove the :file:`setup.cfg` file that didn't get deleted after its
+  content was migrated to :file:`pyproject.toml`.
 - Replace isort and black with ruff.
 - Fix Github Actions tests for UDP6.
 - Update Github Actions to macos-15.
