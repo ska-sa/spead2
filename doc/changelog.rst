@@ -1,6 +1,15 @@
 Changelog
 =========
 
+.. rubric:: 4.5.0
+
+- Upgrade to pybind11 3.1.0.
+- Migrate to pybind11's smart_holder classes. This should not make any
+  noticeably difference.
+- Migrate to pybind11's native enum support. This will make enums defined
+  by spead2 behave like normal stdlib enums.
+- Update cibuildwheel to 4.2.0.
+
 .. rubric:: 4.5.0b1
 
 - Drop support for Python 3.9.

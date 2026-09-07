@@ -281,7 +281,7 @@ void register_module(py::module m)
     m.def("log_info", [](const std::string &msg) { log_info("%s", msg); },
           "Log a message at INFO level (for testing only)");
 
-    py::class_<flavour>(m, "Flavour")
+    py::classh<flavour>(m, "Flavour")
         .def(py::init<int, int, int, bug_compat_mask>(),
              "version"_a, "item_pointer_bits"_a,
              "heap_address_bits"_a, "bug_compat"_a=0)
@@ -293,14 +293,14 @@ void register_module(py::module m)
         .def_property_readonly("heap_address_bits", &flavour::get_heap_address_bits)
         .def_property_readonly("bug_compat", &flavour::get_bug_compat);
 
-    py::class_<memory_allocator, std::shared_ptr<memory_allocator>>(m, "MemoryAllocator")
+    py::classh<memory_allocator>(m, "MemoryAllocator")
         .def(py::init<>());
 
-    py::class_<mmap_allocator, memory_allocator, std::shared_ptr<mmap_allocator>>(
+    py::classh<mmap_allocator, memory_allocator>(
         m, "MmapAllocator")
         .def(py::init<int, bool>(), "flags"_a=0, "prefer_huge"_a=false);
 
-    py::class_<memory_pool, memory_allocator, std::shared_ptr<memory_pool>>(
+    py::classh<memory_pool, memory_allocator>(
         m, "MemoryPool")
         .def(py::init<std::size_t, std::size_t, std::size_t, std::size_t, std::shared_ptr<memory_allocator>>(),
              "lower"_a, "upper"_a, "max_free"_a, "initial"_a, py::arg_v("allocator", nullptr, "None"))
@@ -309,13 +309,13 @@ void register_module(py::module m)
         .def_property("warn_on_empty",
                       &memory_pool::get_warn_on_empty, &memory_pool::set_warn_on_empty);
 
-    py::class_<thread_pool_wrapper, std::shared_ptr<thread_pool_wrapper>>(m, "ThreadPool")
+    py::classh<thread_pool_wrapper>(m, "ThreadPool")
         .def(py::init<int>(), "threads"_a = 1)
         .def(py::init<int, const std::vector<int> &>(), "threads"_a, "affinity"_a)
         .def_static("set_affinity", &thread_pool_wrapper::set_affinity)
         .def("stop", &thread_pool_wrapper::stop);
 
-    py::class_<inproc_queue, std::shared_ptr<inproc_queue>>(m, "InprocQueue")
+    py::classh<inproc_queue>(m, "InprocQueue")
         .def(py::init<>())
         .def("add_packet", [](inproc_queue &self, py::buffer obj)
         {
@@ -328,7 +328,7 @@ void register_module(py::module m)
         }, "packet")
         .def("stop", &inproc_queue::stop);
 
-    py::class_<descriptor>(m, "RawDescriptor")
+    py::classh<descriptor>(m, "RawDescriptor")
         .def(py::init<>())
         .def_readwrite("id", &descriptor::id)
         .def_property("name", bytes_getter(&descriptor::name), bytes_setter(&descriptor::name))
