@@ -10,7 +10,7 @@ iniconfig==2.3.0
     # via pytest
 llvmlite==0.49.0
     # via numba
-netifaces2==0.0.22
+netifaces-plus==0.12.5
     # via spead2 (pyproject.toml)
 numba==0.67.0
     # via spead2 (pyproject.toml)
