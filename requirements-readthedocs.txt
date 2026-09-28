@@ -4,7 +4,7 @@ alabaster==1.0.0
     # via sphinx
 babel==2.18.0
     # via sphinx
-breathe==4.36.0
+breathe==5.0.0
     # via -r requirements-readthedocs.in
 certifi==2026.7.22
     # via requests
