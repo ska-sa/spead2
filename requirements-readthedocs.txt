@@ -30,7 +30,7 @@ llvmlite==0.49.0
     #   numba
 markupsafe==3.0.3
     # via jinja2
-netifaces2==0.0.22
+netifaces-plus==0.12.5
     # via -r requirements.txt
 numba==0.67.0
     # via -r requirements.txt

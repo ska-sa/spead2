@@ -25,7 +25,7 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 test = [
-  "netifaces2",
+  "netifaces-plus",
   "pytest>=9",
   "pytest-asyncio",
   "pytest-timeout"
