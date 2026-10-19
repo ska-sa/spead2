@@ -133,8 +133,15 @@ class RenameVisitor(c_ast.NodeVisitor):
 class MaybeUnusedGenerator(CGenerator):
     """Generator variant that prepends `[[maybe_unused]]` to function arguments."""
 
+    @staticmethod
+    def _maybe_unused(param: str) -> str:
+        if param == "void":
+            return param
+        else:
+            return "[[maybe_unused]] " + param
+
     def visit_ParamList(self, node):
-        return ", ".join("[[maybe_unused]] " + self.visit(param) for param in node.params)
+        return ", ".join(self._maybe_unused(self.visit(param)) for param in node.params)
 
 
 def rename_func(func, new_name):
