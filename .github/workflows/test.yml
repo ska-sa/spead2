@@ -11,13 +11,15 @@ jobs:
         include:
           - os: ubuntu-22.04
             cxx: g++-9
-          - os: ubuntu-24.04
-            cxx: g++-14
+          - os: ubuntu-26.04
+            cxx: g++-15
           - os: ubuntu-22.04
             cxx: clang++-11
-          - os: ubuntu-24.04
-            cxx: clang++-18
+          - os: ubuntu-26.04
+            cxx: clang++-22
           - os: macos-15
+            cxx: clang++
+          - os: macos-26
             cxx: clang++
     runs-on: ${{ matrix.os }}
     env:
@@ -60,19 +62,23 @@ jobs:
           # - os: ubuntu-22.04
           #   cxx: g++
           #   python-version: pypy-3.7
-          - os: ubuntu-24.04
-            cc: gcc-14
-            cxx: g++-14
+          - os: ubuntu-26.04
+            cc: gcc-15
+            cxx: g++-15
             python-version: '3.14'
           - os: ubuntu-22.04
             cc: clang-11
             cxx: clang++-11
             python-version: '3.14'
-          - os: ubuntu-24.04
-            cc: clang-18
-            cxx: clang++-18
+          - os: ubuntu-26.04
+            cc: clang-22
+            cxx: clang++-22
             python-version: '3.14'
           - os: macos-15
+            cc: clang
+            cxx: clang++
+            python-version: '3.14'
+          - os: macos-26
             cc: clang
             cxx: clang++
             python-version: '3.14'
@@ -107,13 +113,9 @@ jobs:
         run: ./.ci/py-tests-shutdown.sh
 
   lint:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.10'
-          cache: 'pip'
       - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
@@ -171,7 +173,7 @@ jobs:
           path-to-lcov: lcov.info
 
   all-builds:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
       SCCACHE_GHA_ENABLED: "true"
     steps:
@@ -192,7 +194,7 @@ jobs:
 
   sdist:
     needs: [test-cxx, test-python, coverage, lint]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -203,7 +205,7 @@ jobs:
         run: ./.ci/install-sys-pkgs.sh
       - name: Install Python dependencies
         run: ./.ci/py-requirements.sh
-      - run: pip install build==1.2.2.post1
+      - run: pip install build==1.6.1
       - run: python -m build --sdist .
       - uses: actions/upload-artifact@v7
         with:
@@ -216,13 +218,13 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x86_64, aarch64]
-        python: [cp310, cp311, cp312, cp313, cp314]
+        python: [cp310, cp311, cp312, cp313, cp314, cp315]
         # Set os based on arch
         include:
           - arch: x86_64
-            os: ubuntu-24.04
+            os: ubuntu-26.04
           - arch: aarch64
-            os: ubuntu-24.04-arm
+            os: ubuntu-26.04-arm
     runs-on: ${{ matrix.os }}
     env:
       SCCACHE_GHA_ENABLED: "true"
@@ -249,7 +251,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-15]
-        python: [cp310, cp311, cp312, cp313, cp314]
+        python: [cp310, cp311, cp312, cp313, cp314, cp315]
     runs-on: ${{ matrix.os }}
     env:
       SCCACHE_GHA_ENABLED: "true"
@@ -267,7 +269,7 @@ jobs:
 
   combine:
     needs: [cibuildwheel-linux, cibuildwheel-macos, sdist]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - name: Create paths

@@ -255,6 +255,7 @@ use_avx512_stream = get_option('avx512_stream').require(
     void foo()
     {
         (void) __builtin_cpu_supports("avx512f");
+        (void) __builtin_cpu_supports("avx512vnni");
         _mm512_stream_si512((__m512i *) NULL, __m512i());
     }
     ''',

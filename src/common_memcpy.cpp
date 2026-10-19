@@ -148,14 +148,13 @@ extern "C" void *(*spead2_resolve_memcpy_nontemporal(
     __builtin_cpu_init();
 #endif
 #if SPEAD2_USE_AVX512_STREAM
-    /* On Skylake server, AVX-512 reduces clock speeds. Use the same logic as
-     * Glibc to decide whether AVX-512 is okay: it's okay if either AVX512ER or
-     * AVX512-VNNI is present. Glibc only applies that logic to Intel CPUs, but
-     * AMD introduced AVX-512 with Zen 4 which also supports AVX512-VNNI (and
-     * performs well), so we don't need to distinguish.
+    /* On Skylake server, using AVX-512 reduces clock speeds. Use support for
+     * AVX512-VNNI as an indicator that the CPU can support AVX-512 at full
+     * speed. Glibc also allows it if AVX512ER is present, but that's a Xeon
+     * Phi feature no longer supported by GCC 15, and given that Xeon Phi is
+     * long past end-of-life we won't try to support it.
      */
-    if (__builtin_cpu_supports("avx512f")
-        && (__builtin_cpu_supports("avx512er") || __builtin_cpu_supports("avx512vnni")))
+    if (__builtin_cpu_supports("avx512f") && __builtin_cpu_supports("avx512vnni"))
         return memcpy_nontemporal_avx512;
 #endif
 #if SPEAD2_USE_AVX_STREAM
