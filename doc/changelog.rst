@@ -1,6 +1,17 @@
 Changelog
 =========
 
+.. rubric:: 4.5.1
+
+- Provide Python 3.15 wheels.
+- Fix compilation on GCC 15 and clang 22. As a result, builds on Xeon Phi
+  will no longer use AVX512 for memory copies (because GCC 15 no longer
+  supports it).
+- Fix a potential compilation error on GCC versions that support AVX512
+  but not AVX512-VNNI.
+- Switch to netifaces-plus for tests.
+- Update various dependencies used in CI and readthedocs builds.
+
 .. rubric:: 4.5.0
 
 - Upgrade to pybind11 3.1.0.
