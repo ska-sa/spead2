@@ -17,7 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ################################################################################
 
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 WORKDIR /tmp/spead2
 COPY install-sys-pkgs.sh .
