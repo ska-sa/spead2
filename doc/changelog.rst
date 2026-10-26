@@ -10,7 +10,7 @@ Changelog
 - Fix a potential compilation error on GCC versions that support AVX512
   but not AVX512-VNNI.
 - Switch to netifaces-plus for tests.
-- Update various dependencies used in CI and readthedocs buikds.
+- Update various dependencies used in CI and readthedocs builds.
 
 .. rubric:: 4.5.0
 
