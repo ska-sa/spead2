@@ -154,8 +154,10 @@ extern "C" void *(*spead2_resolve_memcpy_nontemporal(
      * Phi feature no longer supported by GCC 15. Given that Xeon Phi is
      * long past end-of-life, we won't try to support it.
      */
+#if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 9)) && (__GNUC__ < 14)
     if (__builtin_cpu_supports("avx512f") && __builtin_cpu_supports("avx512vnni"))
         return memcpy_nontemporal_avx512;
+#endif
 #endif
 #if SPEAD2_USE_AVX_STREAM
     if (__builtin_cpu_supports("avx"))
